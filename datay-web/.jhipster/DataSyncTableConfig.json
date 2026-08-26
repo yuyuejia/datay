@@ -1,0 +1,78 @@
+{
+  "annotations": {
+    "changelogDate": "20241213113212"
+  },
+  "dto": "mapstruct",
+  "entityTableName": "dp_sync_table_config",
+  "fields": [
+    {
+      "fieldName": "syncTask",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "srcDatasource",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "srcSchemaName",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "srcTableName",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "srcColPks",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "desDatasource",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "desSchemaName",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "desTableName",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "desColPks",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "jobDesc",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "columeConfig",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "updateTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldName": "project",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    },
+    {
+      "fieldName": "dr",
+      "fieldType": "Integer"
+    }
+  ],
+  "name": "DataSyncTableConfig",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

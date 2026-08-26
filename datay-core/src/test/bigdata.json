@@ -1,0 +1,41 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://172.20.24.169:3306/yrn?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "18RxtcOaoFTQ=",
+        "dbschema": "yrn"
+      },
+      "schema": "yrn",
+      "table": "bd_staff_job"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "parallelism": "4",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "",
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+    "sourceId": "StreamJdbcInput",
+    "sourcePort": 0,
+    "targetId": "StreamJdbcOutput"
+  }
+  ],
+  "version": "1.0.0"
+}

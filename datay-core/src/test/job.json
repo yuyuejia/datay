@@ -1,0 +1,61 @@
+{
+  "units": [
+    {
+      ".id": "c1f0d62b",
+      ".name": "StreamJdbcInput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/jhipster_test?useUnicode=true&characterEncoding=utf8&useSSL=false&useLegacyDatetimeCode=false&serverTimezone=Asia/Shanghai&zeroDateTimeBehavior=convertToNull&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "123456",
+        "dbschema": "jhipster_test"
+      },
+      "table": "df_job",
+      "incrColumn": "pubts",
+      "ytenant0": true,
+      "maxRowsPerPartition": "20000",
+      "where": "(ytenant_id = '0000L6D9B8DDEQ7W2Z0000') and (ytenant_id = '0000L6D9B8DDEQ7W2Z0000' or ytenant_id = '0')"
+    },
+    {
+      ".id": "81ee4cd5",
+      ".name": "StreamSqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_c1f0d62b_0": "1842380389933907976_fieaai_aai_voucher"
+        },
+        "query": "SELECT id,job_name from 1842380389933907976_fieaai_aai_voucher"
+      }
+    },
+    {
+      ".id": "b489d62b",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/jhipster_test?useUnicode=true&characterEncoding=utf8&useSSL=false&useLegacyDatetimeCode=false&serverTimezone=Asia/Shanghai&zeroDateTimeBehavior=convertToNull&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "123456",
+        "dbschema": "jhipster_test"
+      },
+      "table": "df_job_etl1",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c1f0d62b",
+      "sourcePort": 0,
+      "targetId": "81ee4cd5"
+    },
+    {
+      "sourceId": "81ee4cd5",
+      "sourcePort": 0,
+      "targetId": "b489d62b"
+    }
+  ],
+  "version": "1.0.0"
+}

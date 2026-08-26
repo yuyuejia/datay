@@ -1,0 +1,41 @@
+{
+  "units": [
+    {
+      ".id": "aaaa",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "schema": "source",
+      "table": "common_data_types_pg"
+    },
+    {
+      ".id": "bbbb",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:postgresql://127.0.0.1:5432/testdb",
+        "driver": "org.postgresql.Driver",
+        "username": "admin",
+        "password": "123456",
+        "dbschema": "public"
+      },
+      "schema": "public",
+      "table": "",
+      "columnsMap": "",
+      "model": "overwrite",
+      "maxRows": 20000
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "aaaa",
+      "targetId": "bbbb",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

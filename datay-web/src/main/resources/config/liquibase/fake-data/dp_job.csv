@@ -1,0 +1,5 @@
+id;job_name;job_group;type;cron;job_context;status;update_time;create_time;project;tenant_id
+1;job1;datafusion;SQL;5 0 1 * * ?;{"sql":"select 1"};OFFLINE;2022-12-13T01:30:29;2022-12-12T18:07:49;1;0
+2;job2;datafusion;SHELL;10 0 1 * * ?;ping www.baidu.com;OFFLINE;2022-12-13T01:30:29;2022-12-12T18:07:49;1;0
+3;dag1;datafusion;DAG;10 0 1 * * ?;{"jobDepends":[{"childJobCode":2,"parentJobCode":1}],"jobs":[{"id":1},{"id":2}]};OFFLINE;2022-12-13T01:30:29;2022-12-12T18:07:49;1;0
+4;etl;datafusion;ETL;10 0 1 * * ?;{};OFFLINE;2022-12-13T01:30:29;2022-12-12T18:07:49;1;0

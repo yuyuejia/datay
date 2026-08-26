@@ -1,0 +1,44 @@
+{
+  "units": [
+    {
+      ".id": "aaaa",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://172.20.49.61:19030",
+        "type": "Doris",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "datafusion@123",
+        "dbschema": "test_doris",
+        "extraParams": {
+          "fe_endpoint": "http://172.20.49.61:18030"
+        }
+      },
+      "schema": "test_doris",
+      "table": "common_data_types"
+    },
+    {
+      ".id": "bbbb",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "schema": "target",
+      "table": "common_data_types_doris",
+      "columnsMap": "",
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "aaaa",
+      "targetId": "bbbb",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,34 @@
+{
+  "units": [
+    {
+      ".id": "DuckDBRegister",
+      ".name": "DuckDBRegister",
+      "sourceId": {
+        "url": "ducklake:/Users/chenjie/code/datay/metadata.ducklake",
+        "dbschema": "main",
+        "extraParams": {
+          "s3.key_id": "IS45iEIUl0DolyJLD8ap",
+          "s3.secret": "roEGUK18Bd0qPkOU4ZBMCspB6PtJvwkHRCU11d5z",
+          "s3.endpoint": "127.0.0.1:9000",
+          "s3.url_style": "path",
+          "s3.use_ssl": "false",
+          "s3.data_path": "s3://test/test"
+        }
+      },
+      "alias": "my_ducklake"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      "sql": "drop table if EXISTS my_ducklake.dws_test1;\ncreate table my_ducklake.dws_test1 as SELECT c_name,c_custkey,o_orderkey,o_orderdate,o_totalprice,\n    sum(l_quantity)\nFROM\n    my_ducklake.customer,\n    my_ducklake.orders,\n    my_ducklake.lineitem\nWHERE\n    o_orderkey IN (\n        SELECT\n            l_orderkey\n        FROM my_ducklake.lineitem GROUP BY l_orderkey HAVING sum(l_quantity) > 300) AND c_custkey = o_custkey\n    AND o_orderkey = l_orderkey\nGROUP BY\n    c_name,\n    c_custkey,\n    o_orderkey,\n    o_orderdate,\n    o_totalprice\nORDER BY\n    o_totalprice DESC,\n    o_orderdate\nLIMIT 100;"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "DuckDBRegister",
+      "sourcePort": 0,
+      "targetId": "DuckDBSql"
+    }
+  ],
+  "version": "1.0.0"
+}

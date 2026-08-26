@@ -1,0 +1,1757 @@
+{
+  "units": [
+    {
+      ".id": "b4d40a5c",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fieeac",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "eac_fi_event",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "c87ac6e2",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fieaai",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "aai_voucher_record_ch_1",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}') limit 10000",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "1839c064",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fieaai",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "aai_voucher_cashflow",
+      "ytenant0": false,
+      "where": "(id IS NOT NULL and id <> '') and (ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "eb59a3cd",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fieaai",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "aai_voucher_record",
+      "ytenant0": false,
+      "where": "(ytenant_id = '0000LT2ON7R546TLHP0000' and period_code <> '-1' and period_id IS NOT NULL) and (ytenant_id = '${ytenantid}') limit 10000",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "98d6fff1",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "iuap_apdoc_basedoc",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "bd_currency_tenant",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "1f36a925",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "iuap_apdoc_finbd",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "bd_accpurpose",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "0d824888",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_cashflowitem",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "a8161e74",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_source_application",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "2a60583b",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_accsubject",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}') limit 10000",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "e4b97c4a",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_vouchertype",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "32582c46",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_accsubject_version",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}') limit 10000",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "ef5afcaf",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://dbproxy.diwork.com:12003/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "eruij6g98_35",
+        "dbschema": "fiepub",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "epub_accountbook",
+      "ytenant0": false,
+      "where": "(ytenant_id = '${ytenantid}')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "e8f7a87e",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_a8161e74_0": "1671137020171255811_fiepub_epub_source_application",
+          "TmpView_e4b97c4a_0": "1671137020171255811_fiepub_epub_vouchertype",
+          "TmpView_1f36a925_0": "1671137020171255811_iuap_apdoc_finbd_bd_accpurpose",
+          "TmpView_c87ac6e2_0": "1671137020171255811_fieaai_aai_voucher_record_ch_1",
+          "TmpView_32582c46_0": "1671137020171255811_fiepub_epub_accsubject_version",
+          "TmpView_98d6fff1_0": "1671137020171255811_iuap_apdoc_basedoc_bd_currency_tenant",
+          "TmpView_ef5afcaf_0": "1671137020171255811_fiepub_epub_accountbook",
+          "TmpView_1839c064_0": "1671137020171255811_fieaai_aai_voucher_cashflow",
+          "TmpView_2a60583b_0": "1671137020171255811_fiepub_epub_accsubject",
+          "TmpView_eb59a3cd_0": "1671137020171255811_fieaai_aai_voucher_record",
+          "TmpView_0d824888_0": "1671137020171255811_fiepub_epub_cashflowitem",
+          "TmpView_b4d40a5c_0": "1671137020171255811_fieeac_eac_fi_event"
+        },
+        "query": "SELECT T0.id AS `increment_key`, T0.voucher_record_id AS `voucher_detail_id`, T2.ytenant_id AS `ytenant_id`, T2.dr AS `dr`, T2.pubts AS `increment_time`\n\t, T2.accentity_id AS `accentity_id`, T2.accpurpose_id AS `accpurpose_id`, T5.code AS `accpurpose_code`, T5.name AS `accpurpose_name`, T2.control_scope_id AS `control_scope_id`\n\t, T2.accbook_id AS `accbook_id`, T8.name AS `accbook_name`, T8.code AS `accbook_code`, T8.accperiodscheme AS `accperiodscheme`, T2.two_level_accentity_id AS `two_level_accentity_id`\n\t, T2.period_code AS `voucher_record_id_period_code`, T2.period_id AS `bd_period_id`, T2.make_date AS `details_make_date`, T2.summary AS `summary`, T2.accsubject_id AS `accsubject_id`\n\t, T10.code AS `accsubject_code`, T2.fi_event_id AS `fi_event_id`, T9.code AS `fi_event_code`, T9.name AS `fi_event_name`, T2.customer_id AS `customer_id`\n\t, T2.customer_type_id AS `customer_type_id`, T2.supplier_type_id AS `supplier_type_id`, T2.supplier_id AS `supplier_id`, T2.employee_id AS `employee_id`, T2.person_attributes AS `employee_cat_id`\n\t, T2.salary_item AS `salary_item_id`, T2.fa_code AS `fa_code`, T2.fa_name AS `fa_name`, T2.fa_category_id AS `fa_category_id`, T2.fa_subcategory_id AS `fa_subcategory_id`\n\t, T2.fa_add_way AS `fa_add_way`, T2.fa_usage_state_id AS `fa_usage_state_id`, T2.fa_position_id AS `fa_position_id`, T2.fa_mgmt_dept_id AS `fa_mgmt_dept_id`, T2.fa_label_no AS `fa_label_no`\n\t, T2.fa_use_dept AS `fa_use_dept`, T2.fa_reduce_way AS `fa_reduce_way`, T2.fa_impairment_reason AS `fa_impairment_reason`, T2.fa_impairment_unit_id AS `fa_impairment_unit_id`, T2.fa_create_card_date AS `details_fa_create_card_date`\n\t, T2.fa_location AS `fa_location`, T2.fa_change_direction AS `fa_change_direction`, T2.fa_entity_code AS `fa_entity_code`, T2.busi_org_id AS `busi_org_id`, T2.busi_dept_id AS `busi_dept_id`\n\t, T2.dept_nature AS `dept_nature_id`, T2.salesman_id AS `salesman_id`, T2.inventory_org_id AS `inventory_org_id`, T2.warehouse_id AS `warehouse_id`, T2.warehouse_keeper_id AS `warehouse_keeper_id`\n\t, T2.corp_id AS `corp_id`, T2.outsourcing_org_id AS `outsourcing_org_id`, T2.prod_org_id AS `prod_org_id`, T2.profit_center_id AS `profit_center_id`, T2.cost_center_id AS `cost_center_id`\n\t, T2.cost_field AS `cost_field_id`, T2.project_id AS `project_id`, T2.project_class AS `project_class_id`, T2.cost_item_id AS `cost_item_id`, T2.cost_item_type_id AS `cost_item_type_id`\n\t, T2.material_id AS `material_id`, T2.material_sort AS `material_sort`, T2.material_cost_sort AS `material_cost_sort`, T2.goods_sort AS `goods_sort`, T2.main_unit_id AS `main_unit_id`\n\t, T2.bln_gift AS `bln_gift`, T2.mat_ch_id AS `mat_ch_id`, T2.order_no AS `order_no`, T2.contract_no AS `contract_no`, T2.contract_type AS `contract_type_id`\n\t, T2.receive_agreement AS `receive_agreement`, T2.pay_agreement AS `pay_agreement`, T2.payment_type AS `payment_type`, T2.settle_mode AS `settle_mode`, T2.bank_id AS `bank_id`\n\t, T2.bank_account AS `bank_account`, T2.cash_account AS `cash_account`, T2.financial_product AS `financial_product`, T2.fund_busi_obj AS `fund_busi_obj`, T2.business_partner_id AS `business_partner_id`\n\t, T2.batch_no AS `batch_no`, T2.cost_component_id AS `cost_component_id`, T2.product_order_id AS `product_order_id`, T2.production_order_id AS `production_order_id`, T2.production_order_row AS `production_order_row`\n\t, T2.produce_product AS `produce_product`, T2.activity_type_id AS `activity_type_id`, T2.plan_proportion AS `plan_proportion`, T2.opp_activity_type_id AS `opp_activity_type_id`, T2.opp_writeoff_subject AS `opp_writeoff_subject_id`\n\t, T4.accsubject_vid AS `opp_writeoff_subject_vid`, T4.code AS `opp_writeoff_subject_code`, T2.opp_fa_id AS `opp_fa_id`, T2.send_gl_state AS `send_gl_state`, T2.gl_voucher_id AS `gl_voucher_id`\n\t, T2.send_gl_type AS `send_gl_type`, T2.merge_record_id AS `merge_record_id`, T2.voucher_type AS `voucher_type_id`, T6.voucherstr AS `voucher_type_voucherstr`, T2.header_id AS `voucher_id`\n\t, T2.voucher_no AS `voucher_no`, T2.event_record_no AS `event_record_no`, T2.fi_event_record_no AS `fi_event_record_no`, T2.fi_event_row_id AS `fi_event_row_id`, T2.fi_event_record_id AS `fi_event_record_id`\n\t, T2.bln_effective AS `voucher_status`, T2.ori_currtype_id AS `ori_currtype_id`, T7.name AS `ori_currtype_name`, T7.code AS `ori_currtype_code`, T2.currtype_id AS `currtype_id`\n\t, T2.rate AS `rate`, T2.rate_type_id AS `rate_type_id`, T2.org_currtype_id AS `org_currtype_id`, T2.org_rate_type_id AS `org_rate_type_id`, T2.org_rate AS `org_rate`\n\t, T2.group_currtype_id AS `group_currtype_id`, T2.group_rate_type AS `group_rate_type_id`, T2.group_rate AS `group_rate`, T2.control_currtype_id AS `control_currtype_id`, T2.control_rate_type_id AS `control_rate_type_id`\n\t, T2.control_rate AS `control_rate`, T2.global_currtype_id AS `global_currtype_id`, T2.global_rate_type_id AS `global_rate_type_id`, T2.global_rate AS `global_rate`, T2.src_bill_type_id AS `src_bill_type_id`\n\t, T2.src_trad_type AS `src_trade_type_id`, T2.src_bill_id AS `src_bill_id`, T2.src_bill_no AS `src_bill_no`, T2.src_row_id AS `src_row_id`, T2.invoice_type_id AS `invoice_type_id`\n\t, T2.invoice_no AS `invoice_no`, T2.invoice_code AS `invoice_code`, T2.verify_no AS `verify_no`, T2.rp_object_type AS `rp_object_type`, T2.accbook_type_id AS `accbook_type_id`\n\t, T2.acc_book_property_id AS `accbook_property_id`, T2.opp_accentity_id AS `opp_accentity_id`, T2.fi_app_id AS `fi_app_id`, T11.name AS `fi_app_name`, T2.fi_app_code AS `fi_app_code`\n\t, T2.audit_time AS `audit_time`, T2.rate_date AS `details_rate_date`, T2.start_date AS `details_start_date`, T2.expire_date AS `details_expire_date`, T2.bln_manual AS `bln_manual`\n\t, T2.bln_resp_voucher AS `bln_resp_voucher`, T2.remarks AS `remarks`, T2.tax_subject_id AS `tax_subject_id`, T2.tax_rate AS `tax_rate`, T2.tax_excluded_price AS `tax_excluded_price`\n\t, T2.tax_included_price AS `tax_included_price`, T2.ori_bill_type_id AS `ori_bill_type_id`, T2.source_trad_type AS `ori_trade_type_id`, T2.ori_bill_id AS `ori_bill_id`, T2.ori_bill_no AS `ori_bill_no`\n\t, T2.ori_row_id AS `ori_row_id`, T2.src_app_id AS `src_app_id`, T3.name AS `src_app_name`, T2.src_app_code AS `src_app_code`, T2.repair_order_id AS `repair_order_id`\n\t, T2.note_date AS `details_note_date`, T2.note_no AS `note_no`, T2.bank_reconciliation_no AS `bank_reconciliation_no`, T2.smart_check_no AS `smart_check_no`, T2.cooperate_no AS `cooperate_no`\n\t, T2.busi_event_id AS `busi_event_id`, T2.settle_redflush_type AS `settle_redflush_type`, T2.gl_voucher_no AS `origin_gl_voucher_no`, T2.accsubject_vid AS `origin_accsubject_vid`, T2.busi_date AS `origin_busi_date`\n\t, T2.quantity AS `origin_quantity`, T2.bln_period_begin AS `origin_bln_period_begin`, T2.period_begin_type AS `origin_period_begin_type`, T2.free_ch_id AS `origin_free_ch_id`, T12.vcol18 AS `free_ch_id_vcol18_TLHP0000`\n\t, T12.vcol39 AS `free_ch_id_vcol39_TLHP0000`, T12.vcol41 AS `free_ch_id_vcol41_TLHP0000`, T12.vcol42 AS `free_ch_id_vcol42_TLHP0000`, T12.lcol4 AS `free_ch_id_lcol4_TLHP0000`, T12.lcol5 AS `free_ch_id_lcol5_TLHP0000`\n\t, T12.lcol6 AS `free_ch_id_lcol6_TLHP0000`, T12.vcol52 AS `free_ch_id_vcol52_TLHP0000`, T12.vcol40 AS `free_ch_id_vcol40_TLHP0000`, T12.vcol45 AS `free_ch_id_vcol45_TLHP0000`, T0.cashflowitem AS `cashflowitem_id`\n\t, T1.code AS `cashflowitem_code`, T1.name AS `cashflowitem_name`, T1.level AS `cashflowitem_level`, T1.leaf AS `cashflowitem_leaf`, T1.ismain AS `cashflowitem_ismain`\n\t, T0.innerorg AS `inner_org_id`, T0.gl_cash_flow_id AS `gl_cashflow_id`, T0.accsubject_direction AS `accsubject_direction`, T0.main_item AS `main_item`, T0.pubts AS `pubts`\n\t, T0.direction AS `direction`, T0.is_cash_flow_opening AS `origin_is_cash_flow_opening`, T0.amount_original AS `origin_ori_amount`, T0.amount_org AS `origin_amount`, T0.org_amount AS `origin_org_amount`\n\t, T0.group_amount AS `origin_group_amount`, T0.control_amount AS `origin_control_amount`, T0.global_amount AS `origin_global_amount`\nFROM 1671137020171255811_fieaai_aai_voucher_cashflow T0\n\tLEFT JOIN 1671137020171255811_fieaai_aai_voucher_record T2 ON T2.id = T0.voucher_record_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_accsubject_version T4 ON T4.id = T2.opp_writeoff_subject\n\tLEFT JOIN 1671137020171255811_iuap_apdoc_finbd_bd_accpurpose T5 ON T5.id = T2.accpurpose_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_vouchertype T6 ON T6.id = T2.voucher_type\n\tLEFT JOIN 1671137020171255811_iuap_apdoc_basedoc_bd_currency_tenant T7 ON T7.id = T2.ori_currtype_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_accountbook T8 ON T8.id = T2.accbook_id\n\tLEFT JOIN 1671137020171255811_fieeac_eac_fi_event T9 ON T9.id = T2.fi_event_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_accsubject T10 ON T10.id = T2.accsubject_id\n\tLEFT JOIN 1671137020171255811_fieaai_aai_voucher_record_ch_1 T12 ON T12.id = T2.free_ch_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_source_application T11 ON T11.id = T2.fi_app_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_source_application T3 ON T3.id = T2.src_app_id\n\tLEFT JOIN 1671137020171255811_fiepub_epub_cashflowitem T1 ON T1.id = T0.cashflowitem\nWHERE T2.ytenant_id = '0000LT2ON7R546TLHP0000'\n\tAND (T2.period_code <> '-1'\n\t\tAND T2.period_id IS NOT NULL\n\t\tAND (T0.id IS NOT NULL\n\t\t\tAND T0.id <> ''))"
+      }
+    },
+    {
+      ".id": "cffdb218",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_e8f7a87e_0": "AAI_cashflowdoanalyse_CashFlowDOAnalyse"
+        },
+        "query": "select `AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_impairment_unit_id` as fa_impairment_unit_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_name` as cashflowitem_name,\ncast(null as string) as off_state,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_entity_code` as fa_entity_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cost_field_id` as cost_field_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_bill_id` as ori_bill_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol52_TLHP0000` as free_ch_id_vcol52_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`salesman_id` as salesman_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cost_component_id` as cost_component_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`pay_agreement` as pay_agreement,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bank_id` as bank_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`inner_org_id` as inner_org_id,\ncast(null as string) as o_org_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_record_id_period_code` as voucher_record_id_period_code,\ncast(null as string) as o_ori_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_change_direction` as fa_change_direction,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`mat_ch_id` as mat_ch_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bank_account` as bank_account,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`rate_type_id` as rate_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`send_gl_state` as send_gl_state,\ncast(null as string) as accsubject_vid,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`currtype_id` as currtype_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`global_rate` as global_rate,\ncast(null as string) as make_date,\n'0000LT2ON7R546TLHP0000' as ytenant_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`busi_dept_id` as busi_dept_id,\ncast(null as string) as fa_create_card_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_record_id` as fi_event_record_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`tax_subject_id` as tax_subject_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol42_TLHP0000` as free_ch_id_vcol42_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`employee_id` as employee_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`material_sort` as material_sort,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_note_date` as details_note_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_ismain` as cashflowitem_ismain,\ncast(null as string) as gl_voucher_displayno,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accpurpose_name` as accpurpose_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`product_order_id` as product_order_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`tax_excluded_price` as tax_excluded_price,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_id` as cashflowitem_id,\ncast(null as string) as final_state,\ncast(null as string) as trans_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_lcol4_TLHP0000` as free_ch_id_lcol4_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_bln_period_begin` as origin_bln_period_begin,\ncast(null as string) as i_global_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_busi_date` as origin_busi_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`audit_time` as audit_time,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_app_id` as src_app_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`global_rate_type_id` as global_rate_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`control_scope_id` as control_scope_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_code` as fa_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_type_id` as voucher_type_id,\ncast(null as string) as busi_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`pubts` as pubts,\ncast(null as string) as gl_voucher_state,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_label_no` as fa_label_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bank_reconciliation_no` as bank_reconciliation_no,\ncast(null as string) as i_org_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_reduce_way` as fa_reduce_way,\ncast(null as string) as i_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_use_dept` as fa_use_dept,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`invoice_code` as invoice_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`activity_type_id` as activity_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_bill_no` as src_bill_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`material_id` as material_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`receive_agreement` as receive_agreement,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_lcol6_TLHP0000` as free_ch_id_lcol6_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`settle_redflush_type` as settle_redflush_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`org_currtype_id` as org_currtype_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol40_TLHP0000` as free_ch_id_vcol40_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_currtype_id` as ori_currtype_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`global_currtype_id` as global_currtype_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`dr` as dr,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`invoice_type_id` as invoice_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accentity_id` as accentity_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`project_id` as project_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`inventory_org_id` as inventory_org_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accbook_property_id` as accbook_property_id,\ncast(null as string) as w_update_dt,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`send_gl_type` as send_gl_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`control_rate_type_id` as control_rate_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol18_TLHP0000` as free_ch_id_vcol18_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cash_account` as cash_account,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accbook_id` as accbook_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_free_ch_id` as origin_free_ch_id,\ncast(null as string) as w_insert_dt,\ncast(null as string) as gl_voucher_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_usage_state_id` as fa_usage_state_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_period_begin_type` as origin_period_begin_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`supplier_id` as supplier_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_writeoff_subject_id` as opp_writeoff_subject_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bd_period_id` as bd_period_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_quantity` as origin_quantity,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`group_rate` as group_rate,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_position_id` as fa_position_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cooperate_no` as cooperate_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_start_date` as details_start_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_amount` as origin_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`smart_check_no` as smart_check_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`rate` as rate,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`outsourcing_org_id` as outsourcing_org_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cost_item_id` as cost_item_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`supplier_type_id` as supplier_type_id,\ncast(null as string) as o_global_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`main_item` as main_item,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_make_date` as details_make_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`summary` as summary,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_category_id` as fa_category_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_row_id` as ori_row_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_lcol5_TLHP0000` as free_ch_id_lcol5_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`event_record_no` as event_record_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`group_rate_type_id` as group_rate_type_id,\ncast(null as string) as bln_period_begin,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_gl_voucher_no` as origin_gl_voucher_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`two_level_accentity_id` as two_level_accentity_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`merge_record_id` as merge_record_id,\ncast(null as string) as expire_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_writeoff_subject_code` as opp_writeoff_subject_code,\ncast(null as string) as i_ori_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_code` as fi_event_code,\ncast(null as string) as is_not_all_zero,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_app_id` as fi_app_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accpurpose_id` as accpurpose_id,\ncast(null as string) as group_amount,\ncast(null as string) as ori_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`org_rate` as org_rate,\ncast(null as string) as org_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`contract_type_id` as contract_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accbook_type_id` as accbook_type_id,\ncast(null as string) as o_group_amount,\ncast(null as string) as w_t_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_org_amount` as origin_org_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_bill_id` as src_bill_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accbook_name` as accbook_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_ori_amount` as origin_ori_amount,\ncast(null as string) as period_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accperiodscheme` as accperiodscheme,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_rate_date` as details_rate_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_is_cash_flow_opening` as origin_is_cash_flow_opening,\nsnowflake() as id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_detail_id` as voucher_detail_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_location` as fa_location,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_name` as fa_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`dept_nature_id` as dept_nature_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`material_cost_sort` as material_cost_sort,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`production_order_row` as production_order_row,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accpurpose_code` as accpurpose_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_bill_type_id` as ori_bill_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`employee_cat_id` as employee_cat_id,\ncast(null as string) as period_year,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`plan_proportion` as plan_proportion,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_leaf` as cashflowitem_leaf,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`corp_id` as corp_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`warehouse_keeper_id` as warehouse_keeper_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_app_code` as src_app_code,\ncast(null as string) as i_control_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_no` as voucher_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`financial_product` as financial_product,\ncast(null as string) as rate_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_subcategory_id` as fa_subcategory_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`repair_order_id` as repair_order_id,\ncast(null as string) as w_source,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_level` as cashflowitem_level,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_bill_no` as ori_bill_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_record_no` as fi_event_record_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_activity_type_id` as opp_activity_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_impairment_reason` as fa_impairment_reason,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol41_TLHP0000` as free_ch_id_vcol41_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`rp_object_type` as rp_object_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`busi_event_id` as busi_event_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`tax_included_price` as tax_included_price,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bln_gift` as bln_gift,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_fa_id` as opp_fa_id,\ncast(null as string) as start_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`contract_no` as contract_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_control_amount` as origin_control_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cost_center_id` as cost_center_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`production_order_id` as production_order_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bln_resp_voucher` as bln_resp_voucher,\ncast(null as string) as control_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_app_code` as fi_app_code,\ncast(null as string) as global_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_type_voucherstr` as voucher_type_voucherstr,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_currtype_code` as ori_currtype_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`customer_id` as customer_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`main_unit_id` as main_unit_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`warehouse_id` as warehouse_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_bill_type_id` as src_bill_type_id,\ncast(null as string) as is_cash_flow_opening,\ncast(null as string) as tb_pubts,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fund_busi_obj` as fund_busi_obj,\ncast(null as string) as ex_material_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`prod_org_id` as prod_org_id,\ncast(null as string) as free_ch_id,\ncast(null as string) as o_control_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_row_id` as src_row_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`increment_time` as increment_time,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`tax_rate` as tax_rate,\ncast(null as string) as w_count,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`produce_product` as produce_product,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_name` as fi_event_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`gl_cashflow_id` as gl_cashflow_id,\ncast(null as string) as i_group_amount,\ncast(null as string) as period_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_add_way` as fa_add_way,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`customer_type_id` as customer_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`profit_center_id` as profit_center_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`goods_sort` as goods_sort,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accsubject_direction` as accsubject_direction,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_accsubject_vid` as origin_accsubject_vid,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_status` as voucher_status,\ncast(null as string) as period_begin_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_currtype_name` as ori_currtype_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_group_amount` as origin_group_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`business_partner_id` as business_partner_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`verify_no` as verify_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`origin_global_amount` as origin_global_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`payment_type` as payment_type,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_writeoff_subject_vid` as opp_writeoff_subject_vid,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accsubject_code` as accsubject_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cashflowitem_code` as cashflowitem_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`cost_item_type_id` as cost_item_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_fa_create_card_date` as details_fa_create_card_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`bln_manual` as bln_manual,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`increment_key` as increment_key,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`ori_trade_type_id` as ori_trade_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_trade_type_id` as src_trade_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`details_expire_date` as details_expire_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`settle_mode` as settle_mode,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`order_no` as order_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`control_rate` as control_rate,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`project_class_id` as project_class_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`note_no` as note_no,\n'2099207210654498817' as origin_dwd_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`salary_item_id` as salary_item_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`org_rate_type_id` as org_rate_type_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`opp_accentity_id` as opp_accentity_id,\ncast(null as string) as w_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accsubject_id` as accsubject_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_row_id` as fi_event_row_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`control_currtype_id` as control_currtype_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_app_name` as fi_app_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`gl_voucher_id` as gl_voucher_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`direction` as direction,\ncast(null as string) as amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`batch_no` as batch_no,\ncast(null as string) as quantity,\ncast(null as string) as o_amount,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fa_mgmt_dept_id` as fa_mgmt_dept_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`invoice_no` as invoice_no,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`fi_event_id` as fi_event_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`busi_org_id` as busi_org_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`src_app_name` as src_app_name,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`accbook_code` as accbook_code,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol39_TLHP0000` as free_ch_id_vcol39_TLHP0000,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`voucher_id` as voucher_id,\ncast(null as string) as cashflow_detail_id,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`group_currtype_id` as group_currtype_id,\ncast(null as string) as note_date,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`remarks` as remarks,\n`AAI_cashflowdoanalyse_CashFlowDOAnalyse`.`free_ch_id_vcol45_TLHP0000` as free_ch_id_vcol45_TLHP0000 from  \nAAI_cashflowdoanalyse_CashFlowDOAnalyse"
+      }
+    },
+    {
+      ".id": "79b71294",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_cffdb218_0": "businessresult"
+        },
+        "query": "SELECT T0.id, T0.ytenant_id, T0.dr, T0.increment_time, T0.increment_key\n\t, T0.accentity_id, T0.voucher_detail_id, T0.accpurpose_id, T0.accpurpose_code, T0.accpurpose_name\n\t, T0.control_scope_id, T0.accbook_id, T0.accbook_name, T0.accbook_code, T0.accperiodscheme\n\t, T0.two_level_accentity_id, T0.voucher_record_id_period_code, T0.bd_period_id, T0.details_make_date, T0.summary\n\t, T0.accsubject_id, T0.accsubject_code, T0.cashflowitem_id, T0.cashflowitem_code, T0.cashflowitem_name\n\t, T0.inner_org_id, T0.fi_event_id, T0.fi_event_code, T0.fi_event_name, T0.customer_id\n\t, T0.customer_type_id, T0.supplier_type_id, T0.supplier_id, T0.employee_id, T0.employee_cat_id\n\t, T0.salary_item_id, T0.fa_code, T0.fa_name, T0.fa_category_id, T0.fa_subcategory_id\n\t, T0.fa_add_way, T0.fa_usage_state_id, T0.fa_position_id, T0.fa_mgmt_dept_id, T0.fa_label_no\n\t, T0.fa_use_dept, T0.fa_reduce_way, T0.fa_impairment_reason, T0.fa_impairment_unit_id, T0.details_fa_create_card_date\n\t, T0.fa_location, T0.fa_change_direction, T0.fa_entity_code, T0.busi_org_id, T0.busi_dept_id\n\t, T0.dept_nature_id, T0.salesman_id, T0.inventory_org_id, T0.warehouse_id, T0.warehouse_keeper_id\n\t, T0.corp_id, T0.outsourcing_org_id, T0.prod_org_id, T0.profit_center_id, T0.cost_center_id\n\t, T0.cost_field_id, T0.project_id, T0.project_class_id, T0.cost_item_id, T0.cost_item_type_id\n\t, T0.material_id, T0.material_sort, T0.material_cost_sort, T0.goods_sort, T0.main_unit_id\n\t, T0.bln_gift, T0.mat_ch_id, T0.order_no, T0.contract_no, T0.contract_type_id\n\t, T0.receive_agreement, T0.pay_agreement, T0.payment_type, T0.settle_mode, T0.bank_id\n\t, T0.bank_account, T0.cash_account, T0.financial_product, T0.fund_busi_obj, T0.business_partner_id\n\t, T0.batch_no, T0.cost_component_id, T0.product_order_id, T0.production_order_id, T0.production_order_row\n\t, T0.produce_product, T0.activity_type_id, T0.plan_proportion, T0.opp_activity_type_id, T0.opp_writeoff_subject_id\n\t, T0.opp_writeoff_subject_vid, T0.opp_writeoff_subject_code, T0.opp_fa_id, T0.send_gl_state, T0.gl_voucher_id\n\t, T0.send_gl_type, T0.merge_record_id, T0.voucher_type_id, T0.voucher_id, T0.voucher_no\n\t, T0.event_record_no, T0.fi_event_record_no, T0.fi_event_row_id, T0.fi_event_record_id, T0.voucher_status\n\t, T0.ori_currtype_id, T0.ori_currtype_name, T0.ori_currtype_code, T0.currtype_id, T0.rate\n\t, T0.rate_type_id, T0.org_currtype_id, T0.org_rate_type_id, T0.org_rate, T0.group_currtype_id\n\t, T0.group_rate_type_id, T0.group_rate, T0.control_currtype_id, T0.control_rate_type_id, T0.control_rate\n\t, T0.global_currtype_id, T0.global_rate_type_id, T0.global_rate, T0.src_bill_type_id, T0.src_trade_type_id\n\t, T0.src_bill_id, T0.src_bill_no, T0.src_row_id, T0.invoice_type_id, T0.invoice_no\n\t, T0.invoice_code, T0.verify_no, T0.rp_object_type, T0.accbook_type_id, T0.accbook_property_id\n\t, T0.opp_accentity_id, T0.fi_app_id, T0.fi_app_code, T0.fi_app_name, T0.gl_cashflow_id\n\t, T0.accsubject_direction, T0.main_item, T0.audit_time, T0.details_rate_date, T0.details_start_date\n\t, T0.details_expire_date, T0.bln_manual, T0.bln_resp_voucher, T0.remarks, T0.tax_subject_id\n\t, T0.tax_rate, T0.tax_excluded_price, T0.tax_included_price, T0.ori_bill_type_id, T0.ori_trade_type_id\n\t, T0.ori_bill_id, T0.ori_bill_no, T0.ori_row_id, T0.src_app_id, T0.src_app_code\n\t, T0.src_app_name, T0.repair_order_id, T0.details_note_date, T0.note_no, T0.bank_reconciliation_no\n\t, T0.smart_check_no, T0.cooperate_no, T0.pubts, T0.direction, T0.busi_event_id\n\t, T0.settle_redflush_type, T0.cashflowitem_level, T0.cashflowitem_leaf, T0.cashflowitem_ismain, T0.free_ch_id_vcol18_TLHP0000\n\t, T0.free_ch_id_vcol39_TLHP0000, T0.free_ch_id_vcol41_TLHP0000, T0.free_ch_id_vcol42_TLHP0000, T0.free_ch_id_lcol4_TLHP0000, T0.free_ch_id_lcol5_TLHP0000\n\t, T0.free_ch_id_lcol6_TLHP0000, T0.free_ch_id_vcol52_TLHP0000, T0.free_ch_id_vcol40_TLHP0000, T0.free_ch_id_vcol45_TLHP0000, T0.voucher_type_voucherstr\n\t, T0.origin_gl_voucher_no, T0.origin_is_cash_flow_opening, T0.origin_accsubject_vid, T0.origin_busi_date, T0.origin_ori_amount\n\t, T0.origin_amount, T0.origin_org_amount, T0.origin_group_amount, T0.origin_control_amount, T0.origin_global_amount\n\t, T0.origin_quantity, T0.origin_bln_period_begin, T0.origin_period_begin_type, T0.origin_free_ch_id\n\t, substr(details_note_date, 1, 10) AS note_date\n\t, id AS cashflow_detail_id, substr(details_expire_date, 1, 10) AS expire_date\n\t, coalesce(origin_global_amount, 0) AS global_amount\n\t, coalesce(origin_control_amount, 0) AS control_amount\n\t, CASE \n\t\tWHEN settle_redflush_type = '1' THEN 1\n\t\tWHEN origin_bln_period_begin = 1 THEN 1\n\t\tELSE 0\n\tEND AS bln_period_begin, coalesce(origin_quantity, 0) AS quantity\n\t, coalesce(origin_amount, 0) AS amount\n\t, substr(details_start_date, 1, 10) AS start_date\n\t, CASE \n\t\tWHEN (gl_voucher_id IS NOT NULL\n\t\t\t\tAND gl_voucher_id <> '')\n\t\t\tOR fi_app_id = '136'\n\t\tTHEN '1'\n\t\tELSE '0'\n\tEND AS gl_voucher_state, substr(origin_busi_date, 1, 10) AS busi_date\n\t, '' AS w_id, 'bip' AS w_source\n\t, substr(details_rate_date, 1, 10) AS rate_date\n\t, '' AS trans_id, '' AS final_state\n\t, CASE \n\t\tWHEN fi_event_code = 'GL05' THEN NULL\n\t\tWHEN fi_app_id = '136'\n\t\t\tAND (origin_gl_voucher_no IS NULL\n\t\t\t\tOR origin_gl_voucher_no = '')\n\t\tTHEN concat(voucher_type_voucherstr, '-', fi_event_record_no)\n\t\tWHEN origin_gl_voucher_no IS NULL\n\t\t\tOR origin_gl_voucher_no = ''\n\t\tTHEN NULL\n\t\tELSE concat(voucher_type_voucherstr, '-', origin_gl_voucher_no)\n\tEND AS gl_voucher_displayno, substr(details_fa_create_card_date, 1, 10) AS fa_create_card_date\n\t, CASE \n\t\tWHEN fi_event_code = 'GL05' THEN NULL\n\t\tWHEN fi_app_id = '136'\n\t\t\tAND (origin_gl_voucher_no IS NULL\n\t\t\t\tOR origin_gl_voucher_no = '')\n\t\tTHEN concat(voucher_type_voucherstr, '-', substr(concat('00000', fi_event_record_no), length(concat('00000', fi_event_record_no)) - 4))\n\t\tWHEN origin_gl_voucher_no IS NULL\n\t\t\tOR origin_gl_voucher_no = ''\n\t\tTHEN NULL\n\t\tELSE concat(voucher_type_voucherstr, '-', substr(concat('00000', origin_gl_voucher_no), length(concat('00000', origin_gl_voucher_no)) - 4))\n\tEND AS gl_voucher_no, substr(details_make_date, 1, 10) AS make_date\n\t, now() AS w_insert_dt\n\t, CASE \n\t\tWHEN settle_redflush_type = '1' THEN \n\t\t\tCASE \n\t\t\t\tWHEN origin_bln_period_begin = 1 THEN 0\n\t\t\t\tELSE 1\n\t\t\tEND\n\t\tELSE \n\t\t\tCASE \n\t\t\t\tWHEN origin_period_begin_type = 1 THEN 1\n\t\t\t\tELSE 0\n\t\t\tEND\n\tEND AS period_begin_type\n\t, CASE \n\t\tWHEN origin_accsubject_vid IS NULL\n\t\t\tOR origin_accsubject_vid = ''\n\t\tTHEN accsubject_id\n\t\tELSE origin_accsubject_vid\n\tEND AS accsubject_vid, now() AS w_update_dt, '' AS w_t_id\n\t, CASE \n\t\tWHEN dr = 0 THEN 1\n\t\tELSE 0\n\tEND AS w_count\n\t, CASE \n\t\tWHEN origin_free_ch_id IS NULL\n\t\t\tOR origin_free_ch_id = ''\n\t\tTHEN '~'\n\t\tELSE origin_free_ch_id\n\tEND AS free_ch_id, '' AS off_state, coalesce(origin_org_amount, 0) AS org_amount\n\t, '' AS ex_material_id, coalesce(origin_ori_amount, 0) AS ori_amount\n\t, coalesce(origin_group_amount, 0) AS group_amount, now() AS tb_pubts\n\t, CASE \n\t\tWHEN origin_is_cash_flow_opening = '1' THEN '1'\n\t\tELSE '0'\n\tEND AS is_cash_flow_opening, T0.origin_dwd_id\nFROM businessresult T0"
+      }
+    },
+    {
+      ".id": "8a42cb00",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_79b71294_0": "lvl2"
+        },
+        "query": "SELECT lvl2.*\n\t, CASE \n\t\tWHEN amount <> 0\n\t\t\tOR ori_amount <> 0\n\t\t\tOR org_amount <> 0\n\t\t\tOR group_amount <> 0\n\t\t\tOR control_amount <> 0\n\t\t\tOR global_amount <> 0\n\t\tTHEN 1\n\t\tELSE 0\n\tEND AS is_not_all_zero\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN ori_amount\n\t\tELSE 0\n\tEND AS i_ori_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN amount\n\t\tELSE 0\n\tEND AS i_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN org_amount\n\t\tELSE 0\n\tEND AS i_org_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE amount\n\tEND AS o_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE global_amount\n\tEND AS o_global_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN global_amount\n\t\tELSE 0\n\tEND AS i_global_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN control_amount\n\t\tELSE 0\n\tEND AS i_control_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE ori_amount\n\tEND AS o_ori_amount\n\t, CASE \n\t\tWHEN is_cash_flow_opening = '1' THEN 0\n\t\tELSE bd_period_id\n\tEND AS period_id\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN group_amount\n\t\tELSE 0\n\tEND AS i_group_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE org_amount\n\tEND AS o_org_amount\n\t, CASE \n\t\tWHEN is_cash_flow_opening = '1' THEN concat(substr(voucher_record_id_period_code, 1, 5), '01')\n\t\tELSE substr(voucher_record_id_period_code, 1, 7)\n\tEND AS period_code\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE group_amount\n\tEND AS o_group_amount\n\t, CASE \n\t\tWHEN direction IS NULL\n\t\t\tOR direction = 'IN'\n\t\tTHEN 0\n\t\tELSE control_amount\n\tEND AS o_control_amount\nFROM lvl2"
+      }
+    },
+    {
+      ".id": "180bb3fe",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_8a42cb00_0": "lvl3"
+        },
+        "query": "SELECT lvl3.*, substr(period_code, 1, 4) AS period_year\nFROM lvl3\nWHERE 1 = 1\n\tAND origin_dwd_id = '2099207210654498817'"
+      }
+    },
+    {
+      ".id": "ec40bb08",
+      ".name": "JdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.JdbcOutput",
+      "sourceId": {
+        "id": "2121785415754579973",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target",
+        "hostname": "pc-2zeanhkxiwgf1b638.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_0000lt2on7r546tlhp0000",
+        "sid": ""
+      },
+      "table": "dwd_fie_aai_cashflow_detail",
+      "model": "overwrite",
+      "needInit": false,
+      "header_map": [
+        {
+          "inColumns": "fa_impairment_unit_id",
+          "outColumns": "fa_impairment_unit_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "off_state",
+          "outColumns": "off_state",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_name",
+          "outColumns": "cashflowitem_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_entity_code",
+          "outColumns": "fa_entity_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_bill_id",
+          "outColumns": "ori_bill_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cost_field_id",
+          "outColumns": "cost_field_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol52_TLHP0000",
+          "outColumns": "free_ch_id_vcol52_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cost_component_id",
+          "outColumns": "cost_component_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "salesman_id",
+          "outColumns": "salesman_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bank_id",
+          "outColumns": "bank_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "pay_agreement",
+          "outColumns": "pay_agreement",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "inner_org_id",
+          "outColumns": "inner_org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_org_amount",
+          "outColumns": "o_org_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_ori_amount",
+          "outColumns": "o_ori_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_record_id_period_code",
+          "outColumns": "voucher_record_id_period_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "mat_ch_id",
+          "outColumns": "mat_ch_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_change_direction",
+          "outColumns": "fa_change_direction",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bank_account",
+          "outColumns": "bank_account",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "rate_type_id",
+          "outColumns": "rate_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "send_gl_state",
+          "outColumns": "send_gl_state",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accsubject_vid",
+          "outColumns": "accsubject_vid",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "currtype_id",
+          "outColumns": "currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "global_rate",
+          "outColumns": "global_rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "make_date",
+          "outColumns": "make_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "busi_dept_id",
+          "outColumns": "busi_dept_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ytenant_id",
+          "outColumns": "ytenant_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_create_card_date",
+          "outColumns": "fa_create_card_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_record_id",
+          "outColumns": "fi_event_record_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "tax_subject_id",
+          "outColumns": "tax_subject_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol42_TLHP0000",
+          "outColumns": "free_ch_id_vcol42_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_note_date",
+          "outColumns": "details_note_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "material_sort",
+          "outColumns": "material_sort",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "employee_id",
+          "outColumns": "employee_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_ismain",
+          "outColumns": "cashflowitem_ismain",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "gl_voucher_displayno",
+          "outColumns": "gl_voucher_displayno",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accpurpose_name",
+          "outColumns": "accpurpose_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "tax_excluded_price",
+          "outColumns": "tax_excluded_price",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "product_order_id",
+          "outColumns": "product_order_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_id",
+          "outColumns": "cashflowitem_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "final_state",
+          "outColumns": "final_state",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "trans_id",
+          "outColumns": "trans_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_bln_period_begin",
+          "outColumns": "origin_bln_period_begin",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_lcol4_TLHP0000",
+          "outColumns": "free_ch_id_lcol4_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_global_amount",
+          "outColumns": "i_global_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_busi_date",
+          "outColumns": "origin_busi_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "audit_time",
+          "outColumns": "audit_time",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_app_id",
+          "outColumns": "src_app_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "global_rate_type_id",
+          "outColumns": "global_rate_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "control_scope_id",
+          "outColumns": "control_scope_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_code",
+          "outColumns": "fa_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "busi_date",
+          "outColumns": "busi_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_type_id",
+          "outColumns": "voucher_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "pubts",
+          "outColumns": "pubts",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "gl_voucher_state",
+          "outColumns": "gl_voucher_state",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_label_no",
+          "outColumns": "fa_label_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bank_reconciliation_no",
+          "outColumns": "bank_reconciliation_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_org_amount",
+          "outColumns": "i_org_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_amount",
+          "outColumns": "i_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_reduce_way",
+          "outColumns": "fa_reduce_way",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "invoice_code",
+          "outColumns": "invoice_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_use_dept",
+          "outColumns": "fa_use_dept",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "activity_type_id",
+          "outColumns": "activity_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_bill_no",
+          "outColumns": "src_bill_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "material_id",
+          "outColumns": "material_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_lcol6_TLHP0000",
+          "outColumns": "free_ch_id_lcol6_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "receive_agreement",
+          "outColumns": "receive_agreement",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "settle_redflush_type",
+          "outColumns": "settle_redflush_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_currtype_id",
+          "outColumns": "org_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol40_TLHP0000",
+          "outColumns": "free_ch_id_vcol40_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "global_currtype_id",
+          "outColumns": "global_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_currtype_id",
+          "outColumns": "ori_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "dr",
+          "outColumns": "dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "invoice_type_id",
+          "outColumns": "invoice_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "project_id",
+          "outColumns": "project_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accentity_id",
+          "outColumns": "accentity_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "inventory_org_id",
+          "outColumns": "inventory_org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_property_id",
+          "outColumns": "accbook_property_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_update_dt",
+          "outColumns": "w_update_dt",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "send_gl_type",
+          "outColumns": "send_gl_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "control_rate_type_id",
+          "outColumns": "control_rate_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol18_TLHP0000",
+          "outColumns": "free_ch_id_vcol18_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cash_account",
+          "outColumns": "cash_account",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_id",
+          "outColumns": "accbook_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_free_ch_id",
+          "outColumns": "origin_free_ch_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_insert_dt",
+          "outColumns": "w_insert_dt",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "gl_voucher_no",
+          "outColumns": "gl_voucher_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_usage_state_id",
+          "outColumns": "fa_usage_state_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_period_begin_type",
+          "outColumns": "origin_period_begin_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_writeoff_subject_id",
+          "outColumns": "opp_writeoff_subject_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "supplier_id",
+          "outColumns": "supplier_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bd_period_id",
+          "outColumns": "bd_period_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_quantity",
+          "outColumns": "origin_quantity",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "group_rate",
+          "outColumns": "group_rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cooperate_no",
+          "outColumns": "cooperate_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_position_id",
+          "outColumns": "fa_position_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_amount",
+          "outColumns": "origin_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_start_date",
+          "outColumns": "details_start_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "smart_check_no",
+          "outColumns": "smart_check_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "rate",
+          "outColumns": "rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "outsourcing_org_id",
+          "outColumns": "outsourcing_org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cost_item_id",
+          "outColumns": "cost_item_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_global_amount",
+          "outColumns": "o_global_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "supplier_type_id",
+          "outColumns": "supplier_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "main_item",
+          "outColumns": "main_item",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_make_date",
+          "outColumns": "details_make_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_row_id",
+          "outColumns": "ori_row_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_category_id",
+          "outColumns": "fa_category_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "summary",
+          "outColumns": "summary",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_lcol5_TLHP0000",
+          "outColumns": "free_ch_id_lcol5_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "event_record_no",
+          "outColumns": "event_record_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "group_rate_type_id",
+          "outColumns": "group_rate_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bln_period_begin",
+          "outColumns": "bln_period_begin",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_gl_voucher_no",
+          "outColumns": "origin_gl_voucher_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "two_level_accentity_id",
+          "outColumns": "two_level_accentity_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "merge_record_id",
+          "outColumns": "merge_record_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "expire_date",
+          "outColumns": "expire_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_ori_amount",
+          "outColumns": "i_ori_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_writeoff_subject_code",
+          "outColumns": "opp_writeoff_subject_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_code",
+          "outColumns": "fi_event_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "is_not_all_zero",
+          "outColumns": "is_not_all_zero",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_app_id",
+          "outColumns": "fi_app_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accpurpose_id",
+          "outColumns": "accpurpose_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "group_amount",
+          "outColumns": "group_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_amount",
+          "outColumns": "ori_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_amount",
+          "outColumns": "org_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_rate",
+          "outColumns": "org_rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "contract_type_id",
+          "outColumns": "contract_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_type_id",
+          "outColumns": "accbook_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_t_id",
+          "outColumns": "w_t_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_group_amount",
+          "outColumns": "o_group_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_org_amount",
+          "outColumns": "origin_org_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_bill_id",
+          "outColumns": "src_bill_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_name",
+          "outColumns": "accbook_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_ori_amount",
+          "outColumns": "origin_ori_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_code",
+          "outColumns": "period_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accperiodscheme",
+          "outColumns": "accperiodscheme",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_rate_date",
+          "outColumns": "details_rate_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_is_cash_flow_opening",
+          "outColumns": "origin_is_cash_flow_opening",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id",
+          "outColumns": "id",
+          "primaryKey": true
+        },
+        {
+          "inColumns": "fa_location",
+          "outColumns": "fa_location",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_detail_id",
+          "outColumns": "voucher_detail_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_name",
+          "outColumns": "fa_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "dept_nature_id",
+          "outColumns": "dept_nature_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "material_cost_sort",
+          "outColumns": "material_cost_sort",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "production_order_row",
+          "outColumns": "production_order_row",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accpurpose_code",
+          "outColumns": "accpurpose_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_bill_type_id",
+          "outColumns": "ori_bill_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "employee_cat_id",
+          "outColumns": "employee_cat_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_year",
+          "outColumns": "period_year",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "plan_proportion",
+          "outColumns": "plan_proportion",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_leaf",
+          "outColumns": "cashflowitem_leaf",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "corp_id",
+          "outColumns": "corp_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "warehouse_keeper_id",
+          "outColumns": "warehouse_keeper_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_app_code",
+          "outColumns": "src_app_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_control_amount",
+          "outColumns": "i_control_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_no",
+          "outColumns": "voucher_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "financial_product",
+          "outColumns": "financial_product",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "rate_date",
+          "outColumns": "rate_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_subcategory_id",
+          "outColumns": "fa_subcategory_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_source",
+          "outColumns": "w_source",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "repair_order_id",
+          "outColumns": "repair_order_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_level",
+          "outColumns": "cashflowitem_level",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_bill_no",
+          "outColumns": "ori_bill_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_record_no",
+          "outColumns": "fi_event_record_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_activity_type_id",
+          "outColumns": "opp_activity_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_impairment_reason",
+          "outColumns": "fa_impairment_reason",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol41_TLHP0000",
+          "outColumns": "free_ch_id_vcol41_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "busi_event_id",
+          "outColumns": "busi_event_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "rp_object_type",
+          "outColumns": "rp_object_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "tax_included_price",
+          "outColumns": "tax_included_price",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "start_date",
+          "outColumns": "start_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_fa_id",
+          "outColumns": "opp_fa_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bln_gift",
+          "outColumns": "bln_gift",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "contract_no",
+          "outColumns": "contract_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_control_amount",
+          "outColumns": "origin_control_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cost_center_id",
+          "outColumns": "cost_center_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "production_order_id",
+          "outColumns": "production_order_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bln_resp_voucher",
+          "outColumns": "bln_resp_voucher",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "control_amount",
+          "outColumns": "control_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_app_code",
+          "outColumns": "fi_app_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "global_amount",
+          "outColumns": "global_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_type_voucherstr",
+          "outColumns": "voucher_type_voucherstr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_currtype_code",
+          "outColumns": "ori_currtype_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "customer_id",
+          "outColumns": "customer_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "main_unit_id",
+          "outColumns": "main_unit_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "warehouse_id",
+          "outColumns": "warehouse_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "tb_pubts",
+          "outColumns": "tb_pubts",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_bill_type_id",
+          "outColumns": "src_bill_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "is_cash_flow_opening",
+          "outColumns": "is_cash_flow_opening",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ex_material_id",
+          "outColumns": "ex_material_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fund_busi_obj",
+          "outColumns": "fund_busi_obj",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_control_amount",
+          "outColumns": "o_control_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id",
+          "outColumns": "free_ch_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "prod_org_id",
+          "outColumns": "prod_org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_row_id",
+          "outColumns": "src_row_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_count",
+          "outColumns": "w_count",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "tax_rate",
+          "outColumns": "tax_rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "increment_time",
+          "outColumns": "increment_time",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "produce_product",
+          "outColumns": "produce_product",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_name",
+          "outColumns": "fi_event_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "gl_cashflow_id",
+          "outColumns": "gl_cashflow_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "i_group_amount",
+          "outColumns": "i_group_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_id",
+          "outColumns": "period_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_add_way",
+          "outColumns": "fa_add_way",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "customer_type_id",
+          "outColumns": "customer_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accsubject_direction",
+          "outColumns": "accsubject_direction",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "goods_sort",
+          "outColumns": "goods_sort",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "profit_center_id",
+          "outColumns": "profit_center_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_accsubject_vid",
+          "outColumns": "origin_accsubject_vid",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_begin_type",
+          "outColumns": "period_begin_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_status",
+          "outColumns": "voucher_status",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_currtype_name",
+          "outColumns": "ori_currtype_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_group_amount",
+          "outColumns": "origin_group_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "business_partner_id",
+          "outColumns": "business_partner_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "verify_no",
+          "outColumns": "verify_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "origin_global_amount",
+          "outColumns": "origin_global_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_writeoff_subject_vid",
+          "outColumns": "opp_writeoff_subject_vid",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "payment_type",
+          "outColumns": "payment_type",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflowitem_code",
+          "outColumns": "cashflowitem_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accsubject_code",
+          "outColumns": "accsubject_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cost_item_type_id",
+          "outColumns": "cost_item_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bln_manual",
+          "outColumns": "bln_manual",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_fa_create_card_date",
+          "outColumns": "details_fa_create_card_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ori_trade_type_id",
+          "outColumns": "ori_trade_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "increment_key",
+          "outColumns": "increment_key",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_expire_date",
+          "outColumns": "details_expire_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_trade_type_id",
+          "outColumns": "src_trade_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "settle_mode",
+          "outColumns": "settle_mode",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "control_rate",
+          "outColumns": "control_rate",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "order_no",
+          "outColumns": "order_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "project_class_id",
+          "outColumns": "project_class_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "note_no",
+          "outColumns": "note_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_rate_type_id",
+          "outColumns": "org_rate_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "salary_item_id",
+          "outColumns": "salary_item_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "opp_accentity_id",
+          "outColumns": "opp_accentity_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "w_id",
+          "outColumns": "w_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accsubject_id",
+          "outColumns": "accsubject_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_row_id",
+          "outColumns": "fi_event_row_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_app_name",
+          "outColumns": "fi_app_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "control_currtype_id",
+          "outColumns": "control_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "gl_voucher_id",
+          "outColumns": "gl_voucher_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "direction",
+          "outColumns": "direction",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "amount",
+          "outColumns": "amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "quantity",
+          "outColumns": "quantity",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "batch_no",
+          "outColumns": "batch_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "o_amount",
+          "outColumns": "o_amount",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "invoice_no",
+          "outColumns": "invoice_no",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fa_mgmt_dept_id",
+          "outColumns": "fa_mgmt_dept_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "busi_org_id",
+          "outColumns": "busi_org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_id",
+          "outColumns": "fi_event_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "src_app_name",
+          "outColumns": "src_app_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_code",
+          "outColumns": "accbook_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol39_TLHP0000",
+          "outColumns": "free_ch_id_vcol39_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "cashflow_detail_id",
+          "outColumns": "cashflow_detail_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "voucher_id",
+          "outColumns": "voucher_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "group_currtype_id",
+          "outColumns": "group_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "note_date",
+          "outColumns": "note_date",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "free_ch_id_vcol45_TLHP0000",
+          "outColumns": "free_ch_id_vcol45_TLHP0000",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "remarks",
+          "outColumns": "remarks",
+          "primaryKey": false
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "b4d40a5c",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "c87ac6e2",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "1839c064",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "eb59a3cd",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "98d6fff1",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "1f36a925",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "0d824888",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "a8161e74",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "2a60583b",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "e4b97c4a",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "32582c46",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "ef5afcaf",
+      "sourcePort": 0,
+      "targetId": "e8f7a87e"
+    },
+    {
+      "sourceId": "e8f7a87e",
+      "sourcePort": 0,
+      "targetId": "cffdb218"
+    },
+    {
+      "sourceId": "cffdb218",
+      "sourcePort": 0,
+      "targetId": "79b71294"
+    },
+    {
+      "sourceId": "79b71294",
+      "sourcePort": 0,
+      "targetId": "8a42cb00"
+    },
+    {
+      "sourceId": "8a42cb00",
+      "sourcePort": 0,
+      "targetId": "180bb3fe"
+    },
+    {
+      "sourceId": "180bb3fe",
+      "sourcePort": 0,
+      "targetId": "ec40bb08"
+    }
+  ],
+  "version": "1.0.0",
+  "debug": {
+    "debugModel": "100",
+    "fsType": "S3",
+    "dataCachePath": "s3a://apps/0000LT2ON7R546TLHP0000/2099207210654498817"
+  }
+}

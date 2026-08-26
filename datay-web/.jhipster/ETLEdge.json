@@ -1,0 +1,64 @@
+{
+  "annotations": {
+    "changelogDate": "20241213113212"
+  },
+  "changelogDate": "20241213113212",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_etl_edge",
+  "fields": [
+    {
+      "fieldComment": "任务id",
+      "fieldName": "taskId",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "连接名称",
+      "fieldName": "name",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "连接编码",
+      "fieldName": "code",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "source",
+      "fieldName": "source",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "target",
+      "fieldName": "target",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "连接配置",
+      "fieldName": "config",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "状态",
+      "fieldName": "status",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "dr",
+      "fieldName": "dr",
+      "fieldType": "Integer"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "ETLEdge",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,2 @@
+id;parent_job_code;child_job_code;job_code;last_interval;create_time;tenant_id
+1;1;4;4;100000;2023-08-01 00:00:00;1

@@ -1,0 +1,3 @@
+id;task_id;label;code;jhi_desc;type;config;x_axis;y_axis;status;update_time;create_time;tenant_id;dr
+1;1;节点1;aaaa;;StreamJdbcInput;{};200;0;0;2024-12-12T19:05:10;2024-12-12T19:05:10;0;0
+2;1;节点2;bbbb;;StreamJdbcOutput;{};100;100;0;2024-12-12T19:05:10;2024-12-12T19:05:10;0;0

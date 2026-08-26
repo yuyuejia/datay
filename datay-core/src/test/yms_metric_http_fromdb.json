@@ -1,0 +1,58 @@
+{
+  "units": [
+    {
+      ".id": "GenerateSequenceNumber",
+      ".name": "GenerateSequenceNumber",
+      "mode": "DATABASE",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306/source",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "dc_sequence",
+      "length": 2
+    },
+    {
+      ".id": "getTotalPages",
+      ".name": "HttpInvoke",
+      "method": "POST",
+      "url": "https://bip-new52.yyuap.com/iuap-ymc-server/proxy/server/yms/history/ymsMetrics",
+      "timeout": 120000,
+      "headers": {
+        "Cookie": "a10=MDY4Nzg1MjIxMTAzOTQ3NTI5NTUz; yht_default_country=86; _yht_code_uuid=e2da2a32-9a19-4b61-9ed4-e96dd2c5665e; yht_default_login_type=normal; CASPRIVACY=\"\"; at=ce968bbb-cca9-4627-87b4-fb32f39e93b6; com.yonyou.yht.web.utils.CookieLocaleResolver.LOCALE=zh-CN; yht_username_diwork=ST-66292105-oVG6cjCEvCmKoM00QyZu-online__9e0eeca5-5433-4d73-bba1-ccffd657007a; yht_usertoken_diwork=49Tb91uTcxFq7LH3r%2B1NqSuFxCxmlTSoM%2Ftt6RkeShEM%2Boiek3dU1t2VMjt5U8CvWfT3YlB4OA7Vw3bTLARTdw%3D%3D; YMC-SESSION-ID=YzY1ZWE0MDUtOGRmOS00YTQ4LWIyZjItOGU3MjUzOGQ3ZmY3; JSESSIONID=0000fdJQfja-KxcP-5vB-MO0iEDWYvNnvQ67jZtXUsUEObRRLhKF8qxYNbvrDBDLibBg:ed2491b4-4dfe-4a7a-b4cd-1810f1725124; locale=zh_CN; timezone=UTC+08:00; userid=2496399249110466564; username=v_log; XSRF-TOKEN=AX_MTI1K8NU8C0YZ0BT43SMHYHUJ!091536",
+        "Content-Type": "application/json",
+        "x-ymc-project-dccode": "datacenter-1",
+        "x-ymc-project-env": "online"
+      },
+      "body": "{\"appId\":\"test-iuap-apaas-group\",\"pipelineCode\":\"\",\"appCode\":\"iuap-apaas-group\",\"queryType\":\"threadTable\",\"start\":1773714039,\"end\":1773717639}",
+      "jsonPath": "$.data"
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "slow_sql",
+      "model": "overwrite"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      "sql": "INSTALL excel; LOAD excel; COPY slow_sql TO 'output.xlsx' WITH (FORMAT xlsx, HEADER true);"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "GenerateSequenceNumber",
+      "targetId": "getTotalPages"
+    },
+    {
+      "sourceId": "getTotalPages",
+      "targetId": "DuckDBWrite"
+    },
+    {
+      "sourceId": "DuckDBWrite",
+      "targetId": "DuckDBSql"
+    }
+  ]
+}

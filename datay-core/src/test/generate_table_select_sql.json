@@ -1,0 +1,57 @@
+{
+  "units": [
+    {
+      ".id": "generate_table_sql",
+      ".name": "GenerateTableSelectSql",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "schema": "source",
+      "partitionCount": 4,
+      "enablePartition": true
+    },
+    {
+      ".id": "sql_input_executor",
+      ".name": "SqlInput",
+      "parallelism": "3",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      }
+    },
+    {
+      ".id": "stream_jdbc_output",
+      ".name": "StreamJdbcOutput",
+      "parallelism": "4",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "cmm"
+      },
+      "schema": "cmm",
+      "table": "",
+      "skipIfTableExists": false,
+      "dropIfTableExists": false,
+      "model": "update"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "generate_table_sql",
+      "targetId": "sql_input_executor"
+    },
+    {
+      "sourceId": "sql_input_executor",
+      "targetId": "stream_jdbc_output"
+    }
+  ]
+}

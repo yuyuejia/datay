@@ -1,0 +1,30 @@
+{
+  "units": [
+    {
+      ".id": "kafkaConsumer",
+      ".name": "KafkaConsumer",
+      "bootstrapServers": "172.20.38.194:6846",
+      "topic": "iuap-apcom-scheduler_topic_dispatch_msg",
+      "groupId": "datay-test-group",
+      "autoOffsetReset": "earliest",
+      "batchSize": "100",
+      "consumerTimeoutMs": "30000",
+      "connectionTimeoutMs": "5000"
+    },
+    {
+      ".id": "duckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "kafka_dispatch_messages",
+      "model": "append",
+      "dbFile": "kafka.duckdb"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "kafkaConsumer",
+      "sourcePort": 0,
+      "targetId": "duckDBWrite"
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,54 @@
+{
+  "units": [
+    {
+      ".id": "c125de36",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "common_data_types",
+      "maxRowsPerPartition": "10000",
+      "where": ""
+    },
+    {
+      ".id": "81ee4cd5",
+      ".name": "StreamSqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.StreamSqlUnit",
+      "sql": "SELECT * from common_data_types"
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c125de36",
+      "sourcePort": 0,
+      "targetId": "81ee4cd5"
+    },
+    {
+      "sourceId": "81ee4cd5",
+      "sourcePort": 0,
+      "targetId": "a949c10a"
+    }
+  ],
+  "version": "1.0.0"
+}

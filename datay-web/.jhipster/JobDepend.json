@@ -1,0 +1,49 @@
+{
+  "annotations": {
+    "changelogDate": "20221214094533"
+  },
+  "changelogDate": "20221214094533",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_job_depend",
+  "fields": [
+    {
+      "fieldComment": "上游任务编码",
+      "fieldName": "parentJobCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "下游任务编码",
+      "fieldName": "childJobCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务编码",
+      "fieldName": "jobCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "上游任务多长时间内执行过",
+      "fieldName": "lastInterval",
+      "fieldType": "Long"
+    },
+    {
+      "fieldComment": "创建时间",
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "JobDepend",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

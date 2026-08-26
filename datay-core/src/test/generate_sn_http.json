@@ -1,0 +1,83 @@
+{
+  "units": [
+    {
+      ".id": "getTotalPages",
+      ".name": "HttpInvoke",
+      "method": "POST",
+      "url": "https://bip-test.yonyoucloud.com/iuap-data-datafusion/openapi/asset/apitest2?token=YUJmZHdSQTU1cFZmMVI2VXdjVlBWQ2xEdzRPazhWcHZGaDV1RW9lU0NHcDdWRWxsdkZKWkV1MEN5cC02c1VEMmRJVlBtOG5lNFhTZHdtNENrSjctWXc=",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{}",
+      "jsonPath": "$.totalPages"
+    },
+    {
+      ".id": "GenerateSequenceNumber",
+      ".name": "GenerateSequenceNumber",
+      "startValue": "1",
+      "countValue": "${FLOW_FILE_DATA}"
+    },
+    {
+      ".id": "getDateByHttp",
+      ".name": "HttpInvoke",
+      "method": "POST",
+      "url": "https://bip-test.yonyoucloud.com/iuap-data-datafusion/openapi/asset/apitest2?page=${FLOW_FILE_DATA}&token=YUJmZHdSQTU1cFZmMVI2VXdjVlBWQ2xEdzRPazhWcHZGaDV1RW9lU0NHcDdWRWxsdkZKWkV1MEN5cC02c1VEMmRJVlBtOG5lNFhTZHdtNENrSjctWXc=",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{}",
+      "jsonPath": "$.data"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "parallelism": "1",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "t_business_info",
+      "model": "overwrite",
+      "header_map": [
+        {
+          "source": "id",
+          "target": "id"
+        },
+        {
+          "source": "ccode",
+          "target": "cname"
+        },
+        {
+          "source": "ccode",
+          "target": "ccode"
+        },
+        {
+          "source": "ccode",
+          "target": "ytenant_id"
+        },
+        {
+          "source": "pubts",
+          "target": "pubts"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "getTotalPages",
+      "targetId": "GenerateSequenceNumber"
+    },
+    {
+      "sourceId": "GenerateSequenceNumber",
+      "targetId": "getDateByHttp"
+    },
+    {
+      "sourceId": "getDateByHttp",
+      "targetId": "StreamJdbcOutput"
+    }
+  ]
+}

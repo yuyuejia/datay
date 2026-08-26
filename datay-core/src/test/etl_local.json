@@ -1,0 +1,276 @@
+{
+  "units": [
+    {
+      ".id": "9e50d7d8",
+      ".name": "JdbcInput",
+      ".class": "com.yonyou.datad.spark.io.JdbcInput",
+      "ytenantId": "0000LT2ON7R546TLHP0000",
+      "sourceId": {
+        "id": "1671137020171255811",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?allowMultiQueries=true&characterEncoding=utf-8&connectTimeout=600000&connectionCollation=utf8mb4_general_ci&rewriteBatchedStatements=true&serverTimezone=Asia/Shanghai&socketTimeout=600000&useUnicode=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw_router",
+        "password": "t5kcxgkSqZLOpkbTNBoorRAQiN9MCJLcFiQSxrFsnfs",
+        "dbschema": "iuap_apdoc_basedoc",
+        "hostname": "pc-2ze565vuk61x2zcb0.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "iuap_apdoc_basedoc",
+        "sid": ""
+      },
+      "table": "bd_baseregion",
+      "ytenant0": true,
+      "where": "((ytenant_id = '0000LT2ON7R546TLHP0000' OR ytenant_id = '0')) and (ytenant_id = '${ytenantid}' or ytenant_id = '0')",
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "bb103266",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_9e50d7d8_0": "1671137020171255811_iuap_apdoc_basedoc_bd_baseregion"
+        },
+        "query": "SELECT T0.name AS `name`, T0.name2 AS `name2`, T0.name3 AS `name3`, T0.code AS `code`, T0.id AS `id`\n\t, T0.isEnd AS `isend`, T0.parent_id AS `parent_id`, T1.code AS `parent_code`, T0.ytenant_id AS `ytenant_id`, T0.enable AS `enable`\n\t, T0.path_name AS `path_name`, T0.path_name2 AS `path_name2`, T0.path_name3 AS `path_name3`, T0.country_code AS `country_code`\nFROM 1671137020171255811_iuap_apdoc_basedoc_bd_baseregion T0\n\tLEFT JOIN 1671137020171255811_iuap_apdoc_basedoc_bd_baseregion T1 ON T1.id = T0.parent_id\nWHERE T0.ytenant_id = '0000LT2ON7R546TLHP0000'\n\tOR T0.ytenant_id = '0'"
+      }
+    },
+    {
+      ".id": "e3bad340",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_bb103266_0": "tableTemp652439"
+        },
+        "query": "select ytenant_id as ytenant_id,\ncountry_code as country_code,\ncode as code,\nparent_id as parent_id,\nenable as enable,\nname as name,\nparent_code as parent_code,\nid as id,\nisend as isend,\npath_name as path_name from  \ntableTemp652439"
+      }
+    },
+    {
+      ".id": "6b27c225",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_e3bad340_0": "businessresult"
+        },
+        "query": "select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl1.id as id,\ndim_y_bd_baseregion_lvl1.name  as name,\ndim_y_bd_baseregion_lvl1.parent_id as pid,\n dim_y_bd_baseregion_lvl1.code as code, \n'1' as layer,\n\"isend\" = 'true' as leafnode,\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1, \n\nNULL as id_lvl2,\nNULL as name_lvl2,\nNULL as id_lvl3,\nNULL as name_lvl3,\nNULL as id_lvl4,\nNULL as name_lvl4,\nNULL as id_lvl5,\nNULL as name_lvl5,\nNULL as id_lvl6,\nNULL as name_lvl6,\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10,\n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl2.id as id,\ndim_y_bd_baseregion_lvl2.name as name,\ndim_y_bd_baseregion_lvl2.parent_id as pid,\n dim_y_bd_baseregion_lvl2.code as code, \n'2' as layer,\ndim_y_bd_baseregion_lvl2.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2, \n\nNULL as id_lvl3,\nNULL as name_lvl3,\nNULL as id_lvl4,\nNULL as name_lvl4,\nNULL as id_lvl5,\nNULL as name_lvl5,\nNULL as id_lvl6,\nNULL as name_lvl6,\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id  \nwhere dim_y_bd_baseregion_lvl2.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl3.id as id,\ndim_y_bd_baseregion_lvl3.name as name,\ndim_y_bd_baseregion_lvl3.parent_id as pid,\n dim_y_bd_baseregion_lvl3.code as code, \n'3' as layer,\ndim_y_bd_baseregion_lvl3.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3, \n\nNULL as id_lvl4,\nNULL as name_lvl4,\nNULL as id_lvl5,\nNULL as name_lvl5,\nNULL as id_lvl6,\nNULL as name_lvl6,\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id  \nwhere dim_y_bd_baseregion_lvl3.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl4.id as id,\ndim_y_bd_baseregion_lvl4.name as name,\ndim_y_bd_baseregion_lvl4.parent_id as pid,\n dim_y_bd_baseregion_lvl4.code as code, \n'4' as layer,\ndim_y_bd_baseregion_lvl4.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4, \n\nNULL as id_lvl5,\nNULL as name_lvl5,\nNULL as id_lvl6,\nNULL as name_lvl6,\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id  \nwhere dim_y_bd_baseregion_lvl4.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl5.id as id,\ndim_y_bd_baseregion_lvl5.name as name,\ndim_y_bd_baseregion_lvl5.parent_id as pid,\n dim_y_bd_baseregion_lvl5.code as code, \n'5' as layer,\ndim_y_bd_baseregion_lvl5.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5, \n\nNULL as id_lvl6,\nNULL as name_lvl6,\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id  \nwhere dim_y_bd_baseregion_lvl5.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl6.id as id,\ndim_y_bd_baseregion_lvl6.name as name,\ndim_y_bd_baseregion_lvl6.parent_id as pid,\n dim_y_bd_baseregion_lvl6.code as code, \n'6' as layer,\ndim_y_bd_baseregion_lvl6.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5,\ndim_y_bd_baseregion_lvl6.id as id_lvl6,\ndim_y_bd_baseregion_lvl6.name as name_lvl6, \n\nNULL as id_lvl7,\nNULL as name_lvl7,\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl6\n on dim_y_bd_baseregion_lvl5.id = dim_y_bd_baseregion_lvl6.parent_id  \nwhere dim_y_bd_baseregion_lvl6.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl7.id as id,\ndim_y_bd_baseregion_lvl7.name as name,\ndim_y_bd_baseregion_lvl7.parent_id as pid,\n dim_y_bd_baseregion_lvl7.code as code, \n'7' as layer,\ndim_y_bd_baseregion_lvl7.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5,\ndim_y_bd_baseregion_lvl6.id as id_lvl6,\ndim_y_bd_baseregion_lvl6.name as name_lvl6,\ndim_y_bd_baseregion_lvl7.id as id_lvl7,\ndim_y_bd_baseregion_lvl7.name as name_lvl7, \n\nNULL as id_lvl8,\nNULL as name_lvl8,\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl6\n on dim_y_bd_baseregion_lvl5.id = dim_y_bd_baseregion_lvl6.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl7\n on dim_y_bd_baseregion_lvl6.id = dim_y_bd_baseregion_lvl7.parent_id  \nwhere dim_y_bd_baseregion_lvl7.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl8.id as id,\ndim_y_bd_baseregion_lvl8.name as name,\ndim_y_bd_baseregion_lvl8.parent_id as pid,\n dim_y_bd_baseregion_lvl8.code as code, \n'8' as layer,\ndim_y_bd_baseregion_lvl8.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5,\ndim_y_bd_baseregion_lvl6.id as id_lvl6,\ndim_y_bd_baseregion_lvl6.name as name_lvl6,\ndim_y_bd_baseregion_lvl7.id as id_lvl7,\ndim_y_bd_baseregion_lvl7.name as name_lvl7,\ndim_y_bd_baseregion_lvl8.id as id_lvl8,\ndim_y_bd_baseregion_lvl8.name as name_lvl8, \n\nNULL as id_lvl9,\nNULL as name_lvl9,\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl6\n on dim_y_bd_baseregion_lvl5.id = dim_y_bd_baseregion_lvl6.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl7\n on dim_y_bd_baseregion_lvl6.id = dim_y_bd_baseregion_lvl7.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl8\n on dim_y_bd_baseregion_lvl7.id = dim_y_bd_baseregion_lvl8.parent_id  \nwhere dim_y_bd_baseregion_lvl8.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl9.id as id,\ndim_y_bd_baseregion_lvl9.name as name,\ndim_y_bd_baseregion_lvl9.parent_id as pid,\n dim_y_bd_baseregion_lvl9.code as code, \n'9' as layer,\ndim_y_bd_baseregion_lvl9.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5,\ndim_y_bd_baseregion_lvl6.id as id_lvl6,\ndim_y_bd_baseregion_lvl6.name as name_lvl6,\ndim_y_bd_baseregion_lvl7.id as id_lvl7,\ndim_y_bd_baseregion_lvl7.name as name_lvl7,\ndim_y_bd_baseregion_lvl8.id as id_lvl8,\ndim_y_bd_baseregion_lvl8.name as name_lvl8,\ndim_y_bd_baseregion_lvl9.id as id_lvl9,\ndim_y_bd_baseregion_lvl9.name as name_lvl9, \n\nNULL as id_lvl10,\nNULL as name_lvl10, \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl6\n on dim_y_bd_baseregion_lvl5.id = dim_y_bd_baseregion_lvl6.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl7\n on dim_y_bd_baseregion_lvl6.id = dim_y_bd_baseregion_lvl7.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl8\n on dim_y_bd_baseregion_lvl7.id = dim_y_bd_baseregion_lvl8.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl9\n on dim_y_bd_baseregion_lvl8.id = dim_y_bd_baseregion_lvl9.parent_id  \nwhere dim_y_bd_baseregion_lvl9.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion` UNION ALL select `dim_y_bd_baseregion`.`id`\n,`dim_y_bd_baseregion`.`ytenant_id`\n,`dim_y_bd_baseregion`.`increment_key`\n,`dim_y_bd_baseregion`.`name`\n,`dim_y_bd_baseregion`.`code`\n,`dim_y_bd_baseregion`.`leafnode`\n,`dim_y_bd_baseregion`.`pid`\n,`dim_y_bd_baseregion`.`id_lvl1`\n,`dim_y_bd_baseregion`.`name_lvl1`\n,`dim_y_bd_baseregion`.`id_lvl2`\n,`dim_y_bd_baseregion`.`name_lvl2`\n,`dim_y_bd_baseregion`.`id_lvl3`\n,`dim_y_bd_baseregion`.`name_lvl3`\n,`dim_y_bd_baseregion`.`id_lvl4`\n,`dim_y_bd_baseregion`.`name_lvl4`\n,`dim_y_bd_baseregion`.`id_lvl5`\n,`dim_y_bd_baseregion`.`name_lvl5`\n,`dim_y_bd_baseregion`.`id_lvl6`\n,`dim_y_bd_baseregion`.`name_lvl6`\n,`dim_y_bd_baseregion`.`id_lvl7`\n,`dim_y_bd_baseregion`.`name_lvl7`\n,`dim_y_bd_baseregion`.`id_lvl8`\n,`dim_y_bd_baseregion`.`name_lvl8`\n,`dim_y_bd_baseregion`.`id_lvl9`\n,`dim_y_bd_baseregion`.`name_lvl9`\n,`dim_y_bd_baseregion`.`id_lvl10`\n,`dim_y_bd_baseregion`.`name_lvl10`\n,`dim_y_bd_baseregion`.`layer`\n,`dim_y_bd_baseregion`.`enable`\n,`dim_y_bd_baseregion`.`parent_id`\n,`dim_y_bd_baseregion`.`path_name`\n,`dim_y_bd_baseregion`.`country_code`\n,`dim_y_bd_baseregion`.`parent_code`\n,'2025-12-23' as `dt` from \n(\nselect layers_dim.*,originTable.* from (select \ndim_y_bd_baseregion_lvl10.id as id,\ndim_y_bd_baseregion_lvl10.name as name,\ndim_y_bd_baseregion_lvl10.parent_id as pid,\n dim_y_bd_baseregion_lvl10.code as code, \n'10' as layer,\ndim_y_bd_baseregion_lvl10.isend = 'true' as leafnode,\n\ndim_y_bd_baseregion_lvl1.id as id_lvl1,\ndim_y_bd_baseregion_lvl1.name as name_lvl1,\ndim_y_bd_baseregion_lvl2.id as id_lvl2,\ndim_y_bd_baseregion_lvl2.name as name_lvl2,\ndim_y_bd_baseregion_lvl3.id as id_lvl3,\ndim_y_bd_baseregion_lvl3.name as name_lvl3,\ndim_y_bd_baseregion_lvl4.id as id_lvl4,\ndim_y_bd_baseregion_lvl4.name as name_lvl4,\ndim_y_bd_baseregion_lvl5.id as id_lvl5,\ndim_y_bd_baseregion_lvl5.name as name_lvl5,\ndim_y_bd_baseregion_lvl6.id as id_lvl6,\ndim_y_bd_baseregion_lvl6.name as name_lvl6,\ndim_y_bd_baseregion_lvl7.id as id_lvl7,\ndim_y_bd_baseregion_lvl7.name as name_lvl7,\ndim_y_bd_baseregion_lvl8.id as id_lvl8,\ndim_y_bd_baseregion_lvl8.name as name_lvl8,\ndim_y_bd_baseregion_lvl9.id as id_lvl9,\ndim_y_bd_baseregion_lvl9.name as name_lvl9,\ndim_y_bd_baseregion_lvl10.id as id_lvl10,\ndim_y_bd_baseregion_lvl10.name as name_lvl10, \n \n'2025-12-23' as `dt`\nfrom \n(select * from businessresult where parent_id is null or parent_id = '') as dim_y_bd_baseregion_lvl1\n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl2\n on dim_y_bd_baseregion_lvl1.id = dim_y_bd_baseregion_lvl2.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl3\n on dim_y_bd_baseregion_lvl2.id = dim_y_bd_baseregion_lvl3.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl4\n on dim_y_bd_baseregion_lvl3.id = dim_y_bd_baseregion_lvl4.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl5\n on dim_y_bd_baseregion_lvl4.id = dim_y_bd_baseregion_lvl5.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl6\n on dim_y_bd_baseregion_lvl5.id = dim_y_bd_baseregion_lvl6.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl7\n on dim_y_bd_baseregion_lvl6.id = dim_y_bd_baseregion_lvl7.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl8\n on dim_y_bd_baseregion_lvl7.id = dim_y_bd_baseregion_lvl8.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl9\n on dim_y_bd_baseregion_lvl8.id = dim_y_bd_baseregion_lvl9.parent_id \n left join\n (SELECT *from \n\t(\n\t\tselect * from \n\t\tbusinessresult \n\t) as t1\n) as dim_y_bd_baseregion_lvl10\n on dim_y_bd_baseregion_lvl9.id = dim_y_bd_baseregion_lvl10.parent_id  \nwhere dim_y_bd_baseregion_lvl10.id is not null ) as layers_dim \n left join\n (\nselect \n id as `virtual1` ,'0000LT2ON7R546TLHP0000' as `ytenant_id`\n,`businessresult`.`id` as `increment_key`\n,`businessresult`.`enable` as `enable`\n,`businessresult`.`parent_id` as `parent_id`\n,`businessresult`.`path_name` as `path_name`\n,`businessresult`.`country_code` as `country_code`\n,`businessresult`.`parent_code` as `parent_code`\n from \n  businessresult ) as originTable\n on layers_dim.id = originTable.`virtual1`\n ) as `dim_y_bd_baseregion`"
+      }
+    },
+    {
+      ".id": "653c06cd",
+      ".name": "JdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.JdbcOutput",
+      "sourceId": {
+        "id": "2121785415754579973",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2zeanhkxiwgf1b638.rwlb.rds.aliyuncs.com:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "u_0000lt2on7r546tlhp0000",
+        "password": "knIbnfGucx0_OyZ2F-rG0muF-apUD14qokwwjw5E5tz5QzldgnETt6Gxf7nLxCCM",
+        "dbschema": "s_0000lt2on7r546tlhp0000",
+        "hostname": "pc-2zeanhkxiwgf1b638.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_0000lt2on7r546tlhp0000",
+        "sid": ""
+      },
+      "table": "dim_y_bd_baseregion",
+      "model": "overwrite",
+      "needInit": false,
+      "header_map": [
+        {
+          "inColumns": "name_lvl5",
+          "outColumns": "name_lvl5",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl4",
+          "outColumns": "name_lvl4",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl3",
+          "outColumns": "name_lvl3",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl2",
+          "outColumns": "name_lvl2",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "code",
+          "outColumns": "code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl1",
+          "outColumns": "name_lvl1",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "pid",
+          "outColumns": "pid",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "leafnode",
+          "outColumns": "leafnode",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl9",
+          "outColumns": "name_lvl9",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl10",
+          "outColumns": "id_lvl10",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl8",
+          "outColumns": "name_lvl8",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "layer",
+          "outColumns": "layer",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl7",
+          "outColumns": "name_lvl7",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl6",
+          "outColumns": "name_lvl6",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "enable",
+          "outColumns": "enable",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "parent_code",
+          "outColumns": "parent_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id",
+          "outColumns": "id",
+          "primaryKey": true
+        },
+        {
+          "inColumns": "path_name",
+          "outColumns": "path_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ytenant_id",
+          "outColumns": "ytenant_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "country_code",
+          "outColumns": "country_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl1",
+          "outColumns": "id_lvl1",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl2",
+          "outColumns": "id_lvl2",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl3",
+          "outColumns": "id_lvl3",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "parent_id",
+          "outColumns": "parent_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl4",
+          "outColumns": "id_lvl4",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl5",
+          "outColumns": "id_lvl5",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl6",
+          "outColumns": "id_lvl6",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name",
+          "outColumns": "name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl7",
+          "outColumns": "id_lvl7",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "name_lvl10",
+          "outColumns": "name_lvl10",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl8",
+          "outColumns": "id_lvl8",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id_lvl9",
+          "outColumns": "id_lvl9",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "increment_key",
+          "outColumns": "increment_key",
+          "primaryKey": false
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "9e50d7d8",
+      "sourcePort": 0,
+      "targetId": "bb103266"
+    },
+    {
+      "sourceId": "bb103266",
+      "sourcePort": 0,
+      "targetId": "e3bad340"
+    },
+    {
+      "sourceId": "e3bad340",
+      "sourcePort": 0,
+      "targetId": "6b27c225"
+    },
+    {
+      "sourceId": "6b27c225",
+      "sourcePort": 0,
+      "targetId": "653c06cd"
+    }
+  ],
+  "version": "1.0.0",
+  "debug": {
+    "debugModel": "100",
+    "fsType": "S3",
+    "dataCachePath": "s3a://apps/0000LT2ON7R546TLHP0000/2419413351953072130"
+  }
+}

@@ -1,0 +1,152 @@
+application {
+  config {
+    applicationType monolith
+    authenticationType jwt
+    baseName datafusion
+    buildTool maven
+    cacheProvider no
+    clientFramework vue
+    clientTheme none
+    creationTimestamp 1751093333263
+    databaseType sql
+    devDatabaseType h2Disk
+    enableTranslation false
+    jhipsterVersion "8.11.0"
+    jwtSecretKey "MmU0MTdhMzJlYTkyZWE2YmFmOWE1YzdiNDY5ODRmZGIzMWQwYzFlNzMyNTc0M2VjYzk4NDU2NmUyNWM4MzVhYjE0YzcwMDA3YTk5N2ExYjVlNGMzMDdkMDQ5NTk0MDVkMmI2YjE0MTE1MmFhMGY1NzI1ZTkxZmFlYzZhODQ5NzE="
+    microfrontends []
+    nativeLanguage zh-cn
+    packageName com.data.datafusion
+    prodDatabaseType mysql
+    reactive false
+    testFrameworks []
+    withAdminUi true
+  }
+
+  entities *
+}
+
+@ChangelogDate("20220421113212")
+entity DataSource (dp_datasource) {
+  name String
+  description String
+  type String
+  url String
+  hostname String
+  port String
+  schemaName String
+  username String
+  password String
+  updateTime ZonedDateTime
+  createTime ZonedDateTime
+  tenantId String
+}
+@ChangelogDate("20241213113212")
+entity DataSync (dp_data_sync) {
+  name String
+  description String
+  jobCode String
+  dir String
+  type String
+  source String
+  target String
+  cron String
+  jobContext String
+  status String
+  lastStatus String
+  updateTime ZonedDateTime
+  createTime ZonedDateTime
+  project String
+  tenantId String
+  dr Integer
+}
+
+@ChangelogDate("20241213113212")
+entity DataSyncTableConfig (dp_sync_table_config) {
+  syncTask String
+  srcDatasource String
+  srcSchemaName String
+  srcTableName String
+  srcColPks String
+  desDatasource String
+  desSchemaName String
+  desTableName String
+  desColPks String
+  jobDesc String
+  columeConfig String
+  updateTime ZonedDateTime
+  createTime ZonedDateTime
+  project String
+  tenantId String
+  dr Integer
+}
+
+@ChangelogDate("20221213113212")
+entity Job (dp_job) {
+  jobName String
+  jobGroup String
+  type String
+  cron String
+  jobContext String
+  status String
+  updateTime ZonedDateTime
+  createTime ZonedDateTime
+  project String
+  tenantId String
+}
+@ChangelogDate("20221214094533")
+entity JobDepend (dp_job_depend) {
+  parentJobCode String
+  childJobCode String
+  jobCode String
+  lastInterval Long
+  createTime ZonedDateTime
+  tenantId String
+}
+@ChangelogDate("20221213094533")
+entity JobInstance (dp_job_instance) {
+  instanceCode String
+  jobName String
+  jobCode String
+  type String
+  jobContext String
+  status String
+  jobMessage String
+  startTime String
+  endTime String
+  createTime ZonedDateTime
+  project String
+  tenantId String
+}
+
+relationship OneToOne  {
+	DataSync{source} to DataSource
+}
+
+relationship OneToOne  {
+	DataSync{target} to DataSource
+}
+
+relationship OneToOne  {
+  DataSync{jobCode} to Job
+}
+
+relationship ManyToOne  {
+	JobInstance{jobCode} to Job
+}
+
+relationship ManyToOne  {
+	JobDepend{childJobCode} to Job
+}
+
+relationship ManyToOne  {
+	JobDepend{parentJobCode} to Job
+}
+
+relationship ManyToOne  {
+	DataSyncTableConfig{syncTask} to DataSync
+}
+
+dto DataSource, DataSync,DataSyncTableConfig, Job, JobDepend, JobInstance with mapstruct
+paginate DataSource, DataSync,DataSyncTableConfig, Job, JobDepend, JobInstance with pagination
+service DataSource, DataSync,DataSyncTableConfig, Job, JobDepend, JobInstance with serviceClass
+search DataSource, DataSync,DataSyncTableConfig, Job, JobDepend, JobInstance with no

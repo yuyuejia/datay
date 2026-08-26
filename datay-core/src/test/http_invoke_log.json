@@ -1,0 +1,34 @@
+{
+  "units": [
+    {
+      ".id": "HttpInvoke",
+      ".name": "HttpInvoke",
+      "method": "GET",
+      "url": "https://bip-test.yonyoucloud.com/iuap-data-datafusion/openapi/asset/apitest?token=MW5mVVFObWdiYUNqdk5VYmNtTTROeWxEdzRPazhWcHZGaDV1RW9lU0NHcnM2LWJHank1cHpVMmFDT0FnZnV2S1FQYTBWWDNrZDR1eC1OckJOLUtFTlE=",
+      "headers": "{\"Content-Type\": \"application/json\"}",
+      "body": "",
+      "jsonPath": "$.data"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "parallelism": "1",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "t_business_info",
+      "model": "insert"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "HttpInvoke",
+      "targetId": "StreamJdbcOutput"
+    }
+  ]
+}

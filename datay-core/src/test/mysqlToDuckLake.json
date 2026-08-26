@@ -1,0 +1,52 @@
+{
+  "units": [
+    {
+      ".id": "c125de36",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "common_data_types,common_data_types_copy1",
+      "maxRowsPerPartition": "10000",
+      "incrColumn": "",
+      "where": ""
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "DuckLakeWrite",
+      "sourceId": {
+        "url": "ducklake:metadata.ducklake",
+        "driver": "com.duckdb.jdbc.Driver",
+        "dbschema": "main",
+        "extraParams": {
+          "warehouse": "metadata",
+          "s3.key_id": "IS45iEIUl0DolyJLD8ap",
+          "s3.secret": "roEGUK18Bd0qPkOU4ZBMCspB6PtJvwkHRCU11d5z",
+          "s3.endpoint": "127.0.0.1:9000",
+          "s3.url_style": "path",
+          "s3.use_ssl": "false",
+          "s3.data_path": "s3://test/test",
+          "meta.url": "jdbc:postgresql://127.0.0.1:5432/ducklake_catalog",
+          "meta.driver": "org.postgresql.Driver",
+          "meta.username": "root",
+          "meta.password": "1234qwer"
+        }
+      },
+      "schema": "main",
+      "table": "",
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c125de36",
+      "sourcePort": 0,
+      "targetId": "a949c10a"
+    }
+  ],
+  "version": "1.0.0"
+}

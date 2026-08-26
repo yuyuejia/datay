@@ -1,0 +1,57 @@
+{
+  "units": [
+    {
+      ".id": "generate_table_sql",
+      ".name": "GenerateTableSelectSql",
+      "datasource": {
+        "url": "jdbc:mysql://pc-2zed4p7e4t5k0p2u9-01.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw_router",
+        "password": "VolYDc1P2GXhMT*AfSv^yVVO",
+        "dbschema": "s_0000mejy0d270ppx310000"
+      },
+      "schema": "s_0000mejy0d270ppx310000",
+      "partitionCount": 4,
+      "enablePartition": true
+    },
+    {
+      ".id": "sql_input_executor",
+      ".name": "SqlInput",
+      "parallelism": "2",
+      "datasource": {
+        "url": "jdbc:mysql://pc-2zed4p7e4t5k0p2u9-01.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw_router",
+        "password": "VolYDc1P2GXhMT*AfSv^yVVO",
+        "dbschema": "s_0000mejy0d270ppx310000"
+      }
+    },
+    {
+      ".id": "stream_jdbc_output",
+      ".name": "StreamJdbcOutput",
+      "parallelism": 4,
+      "datasource": {
+        "url": "jdbc:mysql://pc-2ze4wsy0q1n7tf749.rwlb.rds.aliyuncs.com:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root_admin",
+        "password": "7wIzCg7ayka22RnB",
+        "dbschema": "s_0000mejy0d270ppx310000"
+      },
+      "schema": "s_0000mejy0d270ppx310000",
+      "table": "",
+      "skipIfTableExists": false,
+      "dropIfTableExists": true,
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "generate_table_sql",
+      "targetId": "sql_input_executor"
+    },
+    {
+      "sourceId": "sql_input_executor",
+      "targetId": "stream_jdbc_output"
+    }
+  ]
+}

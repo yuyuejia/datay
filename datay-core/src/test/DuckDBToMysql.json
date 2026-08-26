@@ -1,0 +1,40 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:duckdb:/Users/chenjie/code/datap/test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "supplier",
+      "where": ""
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://172.20.24.169:3306/yrn?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "18RxtcOaoFTQ=",
+        "dbschema": "tpch"
+      },
+      "schema": "tpch",
+      "table": "",
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "StreamJdbcInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

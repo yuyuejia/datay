@@ -1,0 +1,76 @@
+{
+  "units": [
+    {
+      ".id": "c125de36",
+      ".name": "JdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "common_data_types",
+      "maxRowsPerPartition": "10000",
+      "where": ""
+    },
+    {
+      ".id": "81ee4cd5",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_c125de36_0": "common_data_types"
+        },
+        "query": "SELECT * from common_data_types"
+      }
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "JdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false",
+      "header_map": [
+        {
+          "inColumns": "id",
+          "outColumns": "id",
+          "primaryKey": true
+        },
+        {
+          "inColumns": "tiny_int_col",
+          "outColumns": "tiny_int_col",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "small_int_col",
+          "outColumns": "small_int_col",
+          "primaryKey": false
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c125de36",
+      "sourcePort": 0,
+      "targetId": "81ee4cd5"
+    },
+    {
+      "sourceId": "81ee4cd5",
+      "sourcePort": 0,
+      "targetId": "a949c10a"
+    }
+  ],
+  "version": "1.0.0"
+}

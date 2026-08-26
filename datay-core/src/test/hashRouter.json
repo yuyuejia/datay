@@ -1,0 +1,47 @@
+{
+  "units": [
+    {
+      ".id": "GenerateFlowFile",
+      ".name": "GenerateFlowFile",
+      "inputData": "{\"table\":\"${attr:table}\"}",
+      "attribute": "{\"table\":\"${TIMESTAMP}\"}",
+      "dataFormat": "TEXT",
+      "loopCount": "2"
+    },
+    {
+      ".id": "HashRouter",
+      ".name": "HashRouter",
+      "hashKey": "table"
+    },
+    {
+      ".id": "LogFlowFile1",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    },
+    {
+      ".id": "LogFlowFile2",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "GenerateFlowFile",
+      "sourcePort": 0,
+      "targetId": "HashRouter"
+    },
+    {
+      "sourceId": "HashRouter",
+      "sourcePort": 0,
+      "targetId": "LogFlowFile1"
+    },
+    {
+      "sourceId": "HashRouter",
+      "sourcePort": 1,
+      "targetId": "LogFlowFile2"
+    }
+  ],
+  "version": "1.0.0"
+}

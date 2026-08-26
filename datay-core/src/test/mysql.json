@@ -1,0 +1,39 @@
+{
+  "units": [
+    {
+      ".id": "c125de36",
+      ".name": "StreamJdbcInput",
+      "parallelism": "1",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "schema": "source",
+      "table": "",
+      "where": ""
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "StreamJdbcOutput",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "",
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c125de36",
+      "targetId": "a949c10a"
+    }
+  ]
+}

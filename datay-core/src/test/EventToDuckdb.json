@@ -1,0 +1,32 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://dbproxy.diwork.com:12108",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "ro_all_db",
+        "password": "MbRWs9QRjjKAGbERXFaJcE8k6eDhbRMf",
+        "dbschema": "iuap_public_runtime"
+      },
+      "schema": "iuap_public_runtime",
+      "table": "event_status_v5_20260506"
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "event_status_v5_20260506",
+      "model": "append",
+      "dbFile": "event.duckdb"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "StreamJdbcInput",
+      "targetId": "DuckDBWrite",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,1 @@
+id;sync_task;src_datasource;src_schema_name;src_table_name;src_col_pks;des_datasource;des_schema_name;des_table_name;des_col_pks;job_desc;colume_config;update_time;create_time;project;tenant_id;dr

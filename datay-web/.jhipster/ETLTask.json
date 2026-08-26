@@ -1,0 +1,99 @@
+{
+  "annotations": {
+    "changelogDate": "20241213113212"
+  },
+  "changelogDate": "20241213113212",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_etl_task",
+  "fields": [
+    {
+      "fieldComment": "任务名称",
+      "fieldName": "taskName",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务编码",
+      "fieldName": "taskCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "jobId",
+      "fieldName": "jobId",
+      "fieldType": "Long"
+    },
+    {
+      "fieldComment": "任务描述",
+      "fieldName": "taskDesc",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "目录",
+      "fieldName": "dir",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务类型",
+      "fieldName": "type",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "调度时间",
+      "fieldName": "cron",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务日志",
+      "fieldName": "jobContext",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "状态",
+      "fieldName": "status",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "上次执行状态",
+      "fieldName": "lastStatus",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "更新时间",
+      "fieldName": "updateTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "创建时间",
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "创建人",
+      "fieldName": "creater",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "project",
+      "fieldName": "project",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "dr",
+      "fieldName": "dr",
+      "fieldType": "Integer"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "ETLTask",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,45 @@
+{
+  "annotations": {
+    "changelogDate": "20250327124509"
+  },
+  "changelogDate": "20250327124509",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_service_config",
+  "fields": [
+    {
+      "fieldComment": "分组",
+      "fieldName": "dfGroup",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "名称",
+      "fieldName": "dfKey",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "值",
+      "fieldName": "dfValue",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "创建时间",
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "ytenantId",
+      "fieldType": "String"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "ServiceConfig",
+  "pagination": "pagination",
+  "readOnly": false,
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,35 @@
+{
+  "units": [
+    {
+      ".id": "MySQLBinlogInput",
+      ".name": "MySQLBinlogInput",
+      "datasource": {
+        "url": "jdbc:mysql://172.20.24.169:3306/testfl",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "18RxtcOaoFTQ=",
+        "dbschema": "testfl"
+      },
+      "tableNamePattern": ""
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "MySQLBinlogInput",
+      "targetId": "StreamJdbcOutput"
+    }
+  ]
+}

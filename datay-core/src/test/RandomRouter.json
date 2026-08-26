@@ -1,0 +1,57 @@
+{
+  "units": [
+    {
+      ".id": "GenerateFlowFile",
+      ".name": "GenerateFlowFile",
+      "inputData": "{\"table\":\"${attr:table}\"}",
+      "attribute": "{\"table\":\"${TIMESTAMP}\"}",
+      "dataFormat": "TEXT",
+      "loopCount": "2"
+    },
+    {
+      ".id": "RandomRouter",
+      ".name": "RandomRouter"
+    },
+    {
+      ".id": "LogFlowFile1",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    },
+    {
+      ".id": "LogFlowFile2",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    },
+    {
+      ".id": "LogFlowFile3",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "GenerateFlowFile",
+      "sourcePort": 0,
+      "targetId": "RandomRouter"
+    },
+    {
+      "sourceId": "RandomRouter",
+      "sourcePort": 0,
+      "targetId": "LogFlowFile1"
+    },
+    {
+      "sourceId": "RandomRouter",
+      "sourcePort": 1,
+      "targetId": "LogFlowFile2"
+    },
+    {
+      "sourceId": "RandomRouter",
+      "sourcePort": 2,
+      "targetId": "LogFlowFile3"
+    }
+  ],
+  "version": "1.0.0"
+}

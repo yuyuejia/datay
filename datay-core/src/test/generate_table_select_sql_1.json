@@ -1,0 +1,57 @@
+{
+  "units": [
+    {
+      ".id": "generate_table_sql",
+      ".name": "GenerateTableSelectSql",
+      "datasource": {
+        "url": "jdbc:mysql://10.166.59.245:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "EsIJQAKC6jSs3C5jRuGCkKDJyBz1sm9f",
+        "dbschema": "s_wkwndzvq"
+      },
+      "schema": "s_wkwndzvq",
+      "partitionCount": 4,
+      "enablePartition": true
+    },
+    {
+      ".id": "sql_input_executor",
+      ".name": "SqlInput",
+      "parallelism": "2",
+      "datasource": {
+        "url": "jdbc:mysql://10.166.59.245:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "EsIJQAKC6jSs3C5jRuGCkKDJyBz1sm9f",
+        "dbschema": "s_wkwndzvq"
+      }
+    },
+    {
+      ".id": "stream_jdbc_output",
+      ".name": "StreamJdbcOutput",
+      "parallelism": 4,
+      "datasource": {
+        "url": "jdbc:mysql://10.166.59.111:3306/s_wkwndzvq?rewriteBatchedStatements=true",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "@#8jfP61pPVa^53ETU",
+        "dbschema": "s_wkwndzvq"
+      },
+      "schema": "s_wkwndzvq",
+      "table": "",
+      "skipIfTableExists": false,
+      "dropIfTableExists": true,
+      "model": "overwrite"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "generate_table_sql",
+      "targetId": "sql_input_executor"
+    },
+    {
+      "sourceId": "sql_input_executor",
+      "targetId": "stream_jdbc_output"
+    }
+  ]
+}

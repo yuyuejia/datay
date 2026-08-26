@@ -1,0 +1,44 @@
+{
+  "units": [
+    {
+      ".id": "HttpListener",
+      ".name": "HttpListener",
+      "inputData": "common_data_types",
+      "dataFormat": "AUTO",
+      "path": "/test",
+      "port": "8085"
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "user",
+      "model": "append"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "HttpListener",
+      "sourcePort": 0,
+      "targetId": "a949c10a"
+    },
+    {
+      "sourceId": "a949c10a",
+      "sourcePort": 0,
+      "targetId": "StreamJdbcOutput"
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,34 @@
+{
+  "units": [
+    {
+      ".id": "aaaa",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://172.20.24.169:3306/yrn?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=true&useCursorFetch=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "18RxtcOaoFTQ=",
+        "dbschema": "yrn"
+      },
+      "schema": "yrn",
+      "table": "bd_staff_job"
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "parallelism": "4",
+      "table": "bd_staff_job",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "aaaa",
+      "targetId": "DuckDBWrite",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,79 @@
+{
+  "annotations": {
+    "changelogDate": "20220421113212"
+  },
+  "changelogDate": "20220421113212",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_datasource",
+  "fields": [
+    {
+      "fieldComment": "数据源名称",
+      "fieldName": "name",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "描述",
+      "fieldName": "description",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "数据源类型",
+      "fieldName": "type",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "jdbc url",
+      "fieldName": "url",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "主机名",
+      "fieldName": "hostname",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "端口",
+      "fieldName": "port",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "Schema",
+      "fieldName": "schemaName",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "数据库用户名",
+      "fieldName": "username",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "数据库密码",
+      "fieldName": "password",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "更新时间",
+      "fieldName": "updateTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "创建时间",
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "DataSource",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

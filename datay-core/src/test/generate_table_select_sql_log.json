@@ -1,0 +1,20 @@
+{
+  "units": [
+    {
+      ".id": "generate_table_sql",
+      ".name": "GenerateTableSelectSql",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "partitionCount": 4,
+      "enablePartition": true
+    }
+  ],
+  "connections": [
+  ]
+}

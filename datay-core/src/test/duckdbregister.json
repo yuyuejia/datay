@@ -1,0 +1,52 @@
+{
+  "units": [
+    {
+      ".id": "DuckDBRegister",
+      ".name": "DuckDBRegister",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "alias": "source"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": "SELECT * from source.common_data_types"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "DuckDBRegister",
+      "sourcePort": 0,
+      "targetId": "DuckDBSql"
+    },
+    {
+      "sourceId": "DuckDBSql",
+      "sourcePort": 0,
+      "targetId": "StreamJdbcOutput"
+    }
+  ],
+  "version": "1.0.0"
+}

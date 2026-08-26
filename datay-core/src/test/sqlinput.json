@@ -1,0 +1,41 @@
+{
+  "units": [
+    {
+      ".id": "c125de36",
+      ".name": "SqlInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/source",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "sql": "SELECT * from common_data_types"
+    },
+    {
+      ".id": "a949c10a",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "c125de36",
+      "sourcePort": 0,
+      "targetId": "a949c10a"
+    }
+  ],
+  "version": "1.0.0"
+}

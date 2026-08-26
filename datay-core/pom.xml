@@ -1,0 +1,219 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.datay</groupId>
+        <artifactId>datay</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>datay-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>datay-core</name>
+    <description>core module</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <mainClass>com.data.DataY</mainClass>
+  </properties>
+
+  <dependencies>
+      <dependency>
+          <groupId>com.alibaba.fastjson2</groupId>
+          <artifactId>fastjson2</artifactId>
+          <version>2.0.19</version> <!-- 请根据实际需要选择最新版本 -->
+      </dependency>
+      <dependency>
+          <groupId>commons-dbutils</groupId>
+          <artifactId>commons-dbutils</artifactId>
+          <version>1.6</version>
+      </dependency>
+      <dependency>
+          <groupId>org.mybatis</groupId>
+          <artifactId>mybatis</artifactId>
+          <version>3.5.6</version>
+      </dependency>
+      <dependency>
+          <groupId>com.oracle.database.jdbc</groupId>
+          <artifactId>ojdbc8</artifactId>
+          <version>21.1.0.0</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+      <dependency>
+          <groupId>mysql</groupId>
+          <artifactId>mysql-connector-java</artifactId>
+          <version>8.0.33</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
+      <dependency>
+          <groupId>org.postgresql</groupId>
+          <artifactId>postgresql</artifactId>
+          <version>42.7.3</version>
+      </dependency>
+      <dependency>
+          <groupId>org.duckdb</groupId>
+          <artifactId>duckdb_jdbc</artifactId>
+          <version>1.4.2.0</version>
+      </dependency>
+      <dependency>
+          <groupId>cn.hutool</groupId>
+          <artifactId>hutool-all</artifactId>
+          <version>5.8.40</version>
+      </dependency>
+      <dependency>
+          <groupId>org.apache.avro</groupId>
+          <artifactId>avro</artifactId>
+          <version>1.12.1</version>
+      </dependency>
+      <dependency>
+          <groupId>com.zendesk</groupId>
+          <artifactId>mysql-binlog-connector-java</artifactId>
+          <version>0.25.0</version>
+      </dependency>
+      <dependency>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4-runtime</artifactId>
+          <version>4.13.0</version>
+      </dependency>
+      <dependency>
+          <groupId>com.tngtech.archunit</groupId>
+          <artifactId>archunit-junit5-api</artifactId>
+          <version>1.4.0</version>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <!-- Adding the engine dependency to the surefire-plugin unfortunately does not work in the current version. -->
+          <!-- https://www.archunit.org/userguide/html/000_Index.html#_junit_5 -->
+          <groupId>com.tngtech.archunit</groupId>
+          <artifactId>archunit-junit5-engine</artifactId>
+          <version>1.4.0</version>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>com.zaxxer</groupId>
+          <artifactId>HikariCP</artifactId>
+          <version>5.1.0</version>
+      </dependency>
+      <!-- 在dependencies部分添加 -->
+      <dependency>
+          <groupId>org.apache.commons</groupId>
+          <artifactId>commons-exec</artifactId>
+          <version>1.3</version>
+      </dependency>
+      <dependency>
+          <groupId>com.alibaba</groupId>
+          <artifactId>druid</artifactId>
+          <version>1.2.16</version> <!-- 最新稳定版 -->
+      </dependency>
+      <dependency>
+          <groupId>io.minio</groupId>
+          <artifactId>minio</artifactId>
+          <version>8.6.0</version>
+      </dependency>
+      <dependency>
+          <groupId>com.amazonaws</groupId>
+          <artifactId>aws-java-sdk-s3</artifactId>
+          <version>1.12.261</version>
+      </dependency>
+      <dependency>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter</artifactId>
+          <version>5.10.0</version>
+          <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.junit.platform</groupId>
+          <artifactId>junit-platform-engine</artifactId>
+          <version>1.10.0</version>
+          <scope>test</scope>
+      </dependency>
+      <!-- OkHttp HTTP客户端 -->
+      <dependency>
+          <groupId>com.squareup.okhttp3</groupId>
+          <artifactId>okhttp</artifactId>
+          <version>4.12.0</version>
+      </dependency>
+      <!-- Apache Kafka 客户端 -->
+      <dependency>
+          <groupId>org.apache.kafka</groupId>
+          <artifactId>kafka-clients</artifactId>
+          <version>3.6.1</version>
+      </dependency>
+      <dependency>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
+          <version>4.5.13</version>
+      </dependency>
+<!--      <dependency>-->
+<!--          <groupId>org.apache.iceberg</groupId>-->
+<!--          <artifactId>iceberg-core</artifactId>-->
+<!--          <version>1.10.0</version>-->
+<!--      </dependency>-->
+<!--      <dependency>-->
+<!--          <groupId>org.apache.iceberg</groupId>-->
+<!--          <artifactId>iceberg-parquet</artifactId>-->
+<!--          <version>1.10.0</version>-->
+<!--      </dependency>-->
+<!--      <dependency>-->
+<!--          <groupId>com.amazonaws</groupId>-->
+<!--          <artifactId>aws-java-sdk-s3</artifactId>-->
+<!--          <version>1.12.620</version>-->
+<!--      </dependency>-->
+<!--      <dependency>-->
+<!--          <groupId>org.apache.hadoop</groupId>-->
+<!--          <artifactId>hadoop-aws</artifactId>-->
+<!--          <version>3.3.4</version>-->
+<!--      </dependency>-->
+<!--      <dependency>-->
+<!--          <groupId>org.apache.hadoop</groupId>-->
+<!--          <artifactId>hadoop-common</artifactId>-->
+<!--          <version>3.3.4</version>-->
+<!--      </dependency>-->
+  </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>16</source>
+                    <target>16</target>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+            </plugin>
+            
+            <!-- 添加 maven-assembly-plugin 用于创建可执行 jar 包 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>${mainClass}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

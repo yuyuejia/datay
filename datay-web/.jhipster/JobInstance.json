@@ -1,0 +1,84 @@
+{
+  "annotations": {
+    "changelogDate": "20221213094533"
+  },
+  "changelogDate": "20221213094533",
+  "clientRootFolder": "",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "dp_job_instance",
+  "fields": [
+    {
+      "fieldComment": "任务实例编码",
+      "fieldName": "instanceCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务名称",
+      "fieldName": "jobName",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务编码",
+      "fieldName": "jobCode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务类型",
+      "fieldName": "type",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "脚本内容",
+      "fieldName": "jobContext",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "状态",
+      "fieldName": "status",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "任务日志",
+      "fieldName": "jobMessage",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "执行节点",
+      "fieldName": "execNode",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "开始时间",
+      "fieldName": "startTime",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "结束时间",
+      "fieldName": "endTime",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "创建时间",
+      "fieldName": "createTime",
+      "fieldType": "ZonedDateTime"
+    },
+    {
+      "fieldComment": "project",
+      "fieldName": "project",
+      "fieldType": "String"
+    },
+    {
+      "fieldComment": "租户",
+      "fieldName": "tenantId",
+      "fieldType": "String"
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "JobInstance",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

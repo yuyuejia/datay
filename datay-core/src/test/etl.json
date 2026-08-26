@@ -1,0 +1,445 @@
+{
+  "connections": [
+    {
+      "sourceId": "5471d624",
+      "sourcePort": 0,
+      "targetId": "85d91b03"
+    },
+    {
+      "sourceId": "037924f8",
+      "sourcePort": 0,
+      "targetId": "5916f6d5"
+    },
+    {
+      "sourceId": "b03eb9f3",
+      "sourcePort": 0,
+      "targetId": "037924f8"
+    },
+    {
+      "sourceId": "13a91b39",
+      "sourcePort": 0,
+      "targetId": "b03eb9f3"
+    },
+    {
+      "sourceId": "5916f6d5",
+      "sourcePort": 0,
+      "targetId": "5471d624"
+    },
+    {
+      "sourceId": "85d91b03",
+      "sourcePort": 0,
+      "targetId": "2286b681"
+    },
+    {
+      "sourceId": "87f7aa69",
+      "sourcePort": 0,
+      "targetId": "13a91b39"
+    },
+    {
+      "sourceId": "2286b681",
+      "sourcePort": 0,
+      "targetId": "0668290c"
+    },
+    {
+      "sourceId": "0668290c",
+      "sourcePort": 0,
+      "targetId": "fc122063"
+    }
+  ],
+  "debug": {
+    "debugModel": "100",
+    "fsType": "S3",
+    "dataCachePath": "s3a://apps/y7c56a23/2418533108060520582"
+  },
+  "units": [
+    {
+      ".id": "13a91b39",
+      ".name": "StreamJdbcInput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcInput",
+      "sourceId": {
+        "id": "2418531750827786240",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "Z0_QIGo5E6mrdP56eYZEyDY6wRDbLKdSHGDf1_f6d0c",
+        "dbschema": "s_y7c56a23",
+        "hostname": "pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_y7c56a23",
+        "sid": ""
+      },
+      "table": "dwd_fie_aai_voucher_detail",
+      "ytenant0": false,
+      "maxRowsPerPartition": "20000"
+    },
+    {
+      ".id": "5471d624",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_5916f6d5_0": "base_query_one"
+        },
+        "query": "SELECT accentity_id AS accentity_id, accsubject_direction AS accsubject_direction, project_id AS project_id, currtype_id AS currtype_id, inventory_org_id AS inventory_org_id\n\t, material_sort AS material_sort, material_id AS material_id, accbook_id AS accbook_id, profit_center_id AS profit_center_id, accperiodscheme AS accperiodscheme\n\t, ytenant_id AS ytenant_id, customer_id AS customer_id, customer_type_id AS customer_type_id, supplier_id AS supplier_id, period_id AS period_id\n\t, bank_account AS bank_account, fi_event_name AS fi_event_name, fi_event_id AS fi_event_id, period_code AS period_code, warehouse_id AS warehouse_id\n\t, busi_dept_id AS busi_dept_id, product_line_id AS product_line_id, cash_flow_main_item AS cash_flow_main_item, cost_item_id AS cost_item_id, accsubject_id AS accsubject_id\n\t, accentity_id_orgid AS accentity_id_orgid, debit_begin_of_period_amount, credit_begin_of_period_amount, debit_current_period_amount, credit_current_period_amount\n\t, debit_end_of_period_amount, credit_end_of_period_amount, debit_accumulate_of_year_amount, credit_accumulate_of_year_amount\n\t, first_value(debit_begin_of_period_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) AS debit_begin_of_year_amount\n\t, first_value(credit_begin_of_period_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) AS credit_begin_of_year_amount, debit_avg_accumulate_of_year_amount\n\t, credit_avg_accumulate_of_year_amount, partial_dim_md5, partial_dim_with_year_md5\nFROM base_query_one"
+      },
+      "saveFile": true
+    },
+    {
+      ".id": "5916f6d5",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_037924f8_0": "base_view"
+        },
+        "query": "SELECT accentity_id AS accentity_id, accsubject_direction AS accsubject_direction, project_id AS project_id, currtype_id AS currtype_id, inventory_org_id AS inventory_org_id\n\t, material_sort AS material_sort, material_id AS material_id, accbook_id AS accbook_id, profit_center_id AS profit_center_id, accperiodscheme AS accperiodscheme\n\t, ytenant_id AS ytenant_id, customer_id AS customer_id, customer_type_id AS customer_type_id, supplier_id AS supplier_id, period_id AS period_id\n\t, bank_account AS bank_account, fi_event_name AS fi_event_name, fi_event_id AS fi_event_id, period_code AS period_code, warehouse_id AS warehouse_id\n\t, busi_dept_id AS busi_dept_id, product_line_id AS product_line_id, cash_flow_main_item AS cash_flow_main_item, cost_item_id AS cost_item_id, accsubject_id AS accsubject_id\n\t, accentity_id_orgid AS accentity_id_orgid, sum(current_and_begin_debit_amount) OVER (PARTITION BY partial_dim_md5 ORDER BY period_code) - current_debit_amount AS debit_begin_of_period_amount\n\t, sum(current_and_begin_credit_amount) OVER (PARTITION BY partial_dim_md5 ORDER BY period_code) - current_credit_amount AS credit_begin_of_period_amount\n\t, current_debit_amount AS debit_current_period_amount, current_credit_amount AS credit_current_period_amount, sum(current_and_begin_debit_amount) OVER (PARTITION BY partial_dim_md5 ORDER BY period_code) AS debit_end_of_period_amount\n\t, sum(current_and_begin_credit_amount) OVER (PARTITION BY partial_dim_md5 ORDER BY period_code) AS credit_end_of_period_amount\n\t, sum(current_and_acc_debit_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) AS debit_accumulate_of_year_amount\n\t, sum(current_and_acc_credit_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) AS credit_accumulate_of_year_amount\n\t, 12 * sum(current_and_acc_debit_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) / substr(period_code, 6, 8) AS debit_avg_accumulate_of_year_amount\n\t, 12 * sum(current_and_acc_credit_amount) OVER (PARTITION BY partial_dim_with_year_md5 ORDER BY period_code) / substr(period_code, 6, 8) AS credit_avg_accumulate_of_year_amount\n\t, partial_dim_md5, partial_dim_with_year_md5\nFROM (\n\tSELECT accentity_id AS accentity_id, accsubject_direction AS accsubject_direction, project_id AS project_id, currtype_id AS currtype_id, inventory_org_id AS inventory_org_id\n\t\t, material_sort AS material_sort, material_id AS material_id, accbook_id AS accbook_id, profit_center_id AS profit_center_id, accperiodscheme AS accperiodscheme\n\t\t, ytenant_id AS ytenant_id, customer_id AS customer_id, customer_type_id AS customer_type_id, supplier_id AS supplier_id, period_id AS period_id\n\t\t, bank_account AS bank_account, fi_event_name AS fi_event_name, fi_event_id AS fi_event_id, period_code AS period_code, warehouse_id AS warehouse_id\n\t\t, busi_dept_id AS busi_dept_id, product_line_id AS product_line_id, cash_flow_main_item AS cash_flow_main_item, cost_item_id AS cost_item_id, accsubject_id AS accsubject_id\n\t\t, accentity_id_orgid AS accentity_id_orgid\n\t\t, sum(CASE \n\t\t\tWHEN bln_period_begin = '0'\n\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL))\n\t\t\tTHEN debit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_debit_amount\n\t\t, sum(CASE \n\t\t\tWHEN (bln_period_begin = '0'\n\t\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL)))\n\t\t\t\tOR bln_period_begin = '1'\n\t\t\tTHEN debit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_and_begin_debit_amount\n\t\t, sum(CASE \n\t\t\tWHEN bln_period_begin = '0'\n\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL))\n\t\t\tTHEN credit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_credit_amount\n\t\t, sum(CASE \n\t\t\tWHEN (bln_period_begin = '0'\n\t\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL)))\n\t\t\t\tOR bln_period_begin = '1'\n\t\t\tTHEN credit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_and_begin_credit_amount\n\t\t, sum(CASE \n\t\t\tWHEN (bln_period_begin = '0'\n\t\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL)))\n\t\t\t\tOR period_begin_type = '1'\n\t\t\tTHEN debit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_and_acc_debit_amount\n\t\t, sum(CASE \n\t\t\tWHEN (bln_period_begin = '0'\n\t\t\t\t\tAND ((fi_app_id = '136'\n\t\t\t\t\t\t\tAND settle_redflush_type IN ('0', '2'))\n\t\t\t\t\t\tOR (send_gl_state = '0'\n\t\t\t\t\t\t\tAND gl_voucher_no IS NOT NULL)))\n\t\t\t\tOR period_begin_type = '1'\n\t\t\tTHEN credit_amount\n\t\t\tELSE 0\n\t\tEND) AS current_and_acc_credit_amount\n\t\t, partial_dim_md5, partial_dim_with_year_md5\n\tFROM base_view\n\tGROUP BY accentity_id, accsubject_direction, project_id, currtype_id, inventory_org_id, material_sort, material_id, accbook_id, profit_center_id, accperiodscheme, ytenant_id, customer_id, customer_type_id, supplier_id, period_id, bank_account, fi_event_name, fi_event_id, period_code, warehouse_id, busi_dept_id, product_line_id, cash_flow_main_item, cost_item_id, accsubject_id, accentity_id_orgid, partial_dim_md5, partial_dim_with_year_md5\n) a"
+      },
+      "saveFile": true
+    },
+    {
+      ".id": "b03eb9f3",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_13a91b39_0": "s_y7c56a23__dwd_fie_aai_voucher_detail"
+        },
+        "query": "SELECT accentity_id AS accentity_id, accsubject_direction AS accsubject_direction, project_id AS project_id, currtype_id AS currtype_id, inventory_org_id AS inventory_org_id\n\t, material_sort AS material_sort, material_id AS material_id, accbook_id AS accbook_id, profit_center_id AS profit_center_id, accperiodscheme AS accperiodscheme\n\t, ytenant_id AS ytenant_id, customer_id AS customer_id, customer_type_id AS customer_type_id, supplier_id AS supplier_id, period_id AS period_id\n\t, bank_account AS bank_account, fi_event_name AS fi_event_name, fi_event_id AS fi_event_id\n\t, substr(period_code, 1, 7) AS period_code\n\t, warehouse_id AS warehouse_id, busi_dept_id AS busi_dept_id, product_line_id AS product_line_id, cash_flow_main_item AS cash_flow_main_item, cost_item_id AS cost_item_id\n\t, accsubject_id AS accsubject_id, accentity_id_orgid AS accentity_id_orgid, settle_redflush_type AS settle_redflush_type, period_begin_type AS period_begin_type, gl_voucher_no AS gl_voucher_no\n\t, send_gl_state AS send_gl_state, fi_app_id AS fi_app_id, bln_period_begin AS bln_period_begin\n\t, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(settle_redflush_type, 'NULL'), coalesce(period_begin_type, 'NULL'), coalesce(gl_voucher_no, 'NULL'), coalesce(send_gl_state, 'NULL'), coalesce(fi_app_id, 'NULL'), coalesce(bln_period_begin, 'NULL'), coalesce(substr(period_code, 1, 4), 'NULL'))) AS partial_dim_with_year_md5\n\t, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(settle_redflush_type, 'NULL'), coalesce(period_begin_type, 'NULL'), coalesce(gl_voucher_no, 'NULL'), coalesce(send_gl_state, 'NULL'), coalesce(fi_app_id, 'NULL'), coalesce(bln_period_begin, 'NULL'))) AS partial_dim_md5\n\t, SUM(CASE \n\t\tWHEN direction = '0' THEN amount\n\t\tELSE 0\n\tEND) AS debit_amount\n\t, SUM(CASE \n\t\tWHEN direction = '1' THEN amount\n\t\tELSE 0\n\tEND) AS credit_amount\nFROM (\n\tSELECT accentity_id, accsubject_direction, project_id, currtype_id, inventory_org_id\n\t\t, material_sort, material_id, accbook_id, profit_center_id, accperiodscheme\n\t\t, ytenant_id, customer_id, customer_type_id, supplier_id, period_id\n\t\t, bank_account, fi_event_name, fi_event_id\n\t\t, if(bln_period_begin = 1\n\t\t\tAND period_begin_type = 0, concat(LEFT(period_code, 4), '-01'), period_code) AS period_code\n\t\t, warehouse_id, busi_dept_id, product_line_id, cash_flow_main_item, cost_item_id\n\t\t, accsubject_id, accentity_id_orgid, amount, settle_redflush_type, period_begin_type\n\t\t, gl_voucher_no, send_gl_state, fi_app_id, bln_period_begin, direction\n\tFROM s_y7c56a23__dwd_fie_aai_voucher_detail\n\tWHERE 1 = 1\n\t\tAND ytenant_id = 'y7c56a23'\n\t\tAND dr = '0'\n\t\tAND period_code <= date_format(add_months(current_date(), 1), 'yyyy-MM')\n) a\nGROUP BY accentity_id, accsubject_direction, project_id, currtype_id, inventory_org_id, material_sort, material_id, accbook_id, profit_center_id, accperiodscheme, ytenant_id, customer_id, customer_type_id, supplier_id, period_id, bank_account, fi_event_name, fi_event_id, substr(period_code, 1, 7), warehouse_id, busi_dept_id, product_line_id, cash_flow_main_item, cost_item_id, accsubject_id, accentity_id_orgid, settle_redflush_type, period_begin_type, gl_voucher_no, send_gl_state, fi_app_id, bln_period_begin, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(settle_redflush_type, 'NULL'), coalesce(period_begin_type, 'NULL'), coalesce(gl_voucher_no, 'NULL'), coalesce(send_gl_state, 'NULL'), coalesce(fi_app_id, 'NULL'), coalesce(bln_period_begin, 'NULL'), coalesce(substr(period_code, 1, 4), 'NULL'))), md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(settle_redflush_type, 'NULL'), coalesce(period_begin_type, 'NULL'), coalesce(gl_voucher_no, 'NULL'), coalesce(send_gl_state, 'NULL'), coalesce(fi_app_id, 'NULL'), coalesce(bln_period_begin, 'NULL')))"
+      },
+      "saveFile": true
+    },
+    {
+      ".id": "85d91b03",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_5471d624_0": "base_query_two"
+        },
+        "query": "SELECT accentity_id, accsubject_direction, project_id, currtype_id, inventory_org_id\n\t, material_sort, material_id, accbook_id, profit_center_id, accperiodscheme\n\t, ytenant_id, customer_id, customer_type_id, supplier_id, period_id\n\t, bank_account, fi_event_name, fi_event_id, period_code, warehouse_id\n\t, busi_dept_id, product_line_id, cash_flow_main_item, cost_item_id, accsubject_id\n\t, accentity_id_orgid, sum(debit_begin_of_period_amount) AS debit_begin_of_period_amount, sum(credit_begin_of_period_amount) AS credit_begin_of_period_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_begin_of_period_amount) - sum(credit_begin_of_period_amount)\n\t\tELSE sum(credit_begin_of_period_amount) - sum(debit_begin_of_period_amount)\n\tEND AS balance_begin_of_period_amount, sum(debit_current_period_amount) AS debit_current_period_amount, sum(credit_current_period_amount) AS credit_current_period_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_current_period_amount) - sum(credit_current_period_amount)\n\t\tELSE sum(credit_current_period_amount) - sum(debit_current_period_amount)\n\tEND AS balance_current_period_amount, sum(debit_end_of_period_amount) AS debit_end_of_period_amount, sum(credit_end_of_period_amount) AS credit_end_of_period_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_end_of_period_amount) - sum(credit_end_of_period_amount)\n\t\tELSE sum(credit_end_of_period_amount) - sum(debit_end_of_period_amount)\n\tEND AS balance_end_of_period_amount, sum(debit_accumulate_of_year_amount) AS debit_accumulate_of_year_amount, sum(credit_accumulate_of_year_amount) AS credit_accumulate_of_year_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_accumulate_of_year_amount) - sum(credit_accumulate_of_year_amount)\n\t\tELSE sum(credit_accumulate_of_year_amount) - sum(debit_accumulate_of_year_amount)\n\tEND AS balance_accumulate_of_year_amount, sum(debit_begin_of_year_amount) AS debit_begin_of_year_amount, sum(credit_begin_of_year_amount) AS credit_begin_of_year_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_begin_of_year_amount) - sum(credit_begin_of_year_amount)\n\t\tELSE sum(credit_begin_of_year_amount) - sum(debit_begin_of_year_amount)\n\tEND AS balance_begin_of_year_amount, sum(debit_avg_accumulate_of_year_amount) AS debit_avg_accumulate_of_year_amount, sum(credit_avg_accumulate_of_year_amount) AS credit_avg_accumulate_of_year_amount\n\t, CASE \n\t\tWHEN accsubject_direction = '0' THEN sum(debit_avg_accumulate_of_year_amount) - sum(credit_avg_accumulate_of_year_amount)\n\t\tELSE sum(credit_avg_accumulate_of_year_amount) - sum(debit_avg_accumulate_of_year_amount)\n\tEND AS balance_avg_accumulate_of_year_amount\nFROM base_query_two\nGROUP BY accentity_id, accsubject_direction, project_id, currtype_id, inventory_org_id, material_sort, material_id, accbook_id, profit_center_id, accperiodscheme, ytenant_id, customer_id, customer_type_id, supplier_id, period_id, bank_account, fi_event_name, fi_event_id, period_code, warehouse_id, busi_dept_id, product_line_id, cash_flow_main_item, cost_item_id, accsubject_id, accentity_id_orgid"
+      },
+      "saveFile": true
+    },
+    {
+      ".id": "037924f8",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_b03eb9f3_0": "base_query"
+        },
+        "query": "-- 先聚合, 再笛卡尔积\n-- 用全排列的维度去关联原始数据，将金额补齐，没关联到的置0\n-- 目的是之后用窗口函数计算期初期末的时候，保证最细粒度下，每个期间都有值，这样在后续汇总的时候才能保证窗口函数计算出来的数据能够被正确汇总 。\nSELECT uuid() AS id, a.accentity_id AS accentity_id, a.accsubject_direction AS accsubject_direction, a.project_id AS project_id, a.currtype_id AS currtype_id\n\t, a.inventory_org_id AS inventory_org_id, a.material_sort AS material_sort, a.material_id AS material_id, a.accbook_id AS accbook_id, a.profit_center_id AS profit_center_id\n\t, a.accperiodscheme AS accperiodscheme, a.ytenant_id AS ytenant_id, a.customer_id AS customer_id, a.customer_type_id AS customer_type_id, a.supplier_id AS supplier_id\n\t, a.period_id AS period_id, a.bank_account AS bank_account, a.fi_event_name AS fi_event_name, a.fi_event_id AS fi_event_id, a.period_code AS period_code\n\t, a.warehouse_id AS warehouse_id, a.busi_dept_id AS busi_dept_id, a.product_line_id AS product_line_id, a.cash_flow_main_item AS cash_flow_main_item, a.cost_item_id AS cost_item_id\n\t, a.accsubject_id AS accsubject_id, a.accentity_id_orgid AS accentity_id_orgid, a.settle_redflush_type AS settle_redflush_type, a.period_begin_type AS period_begin_type, a.gl_voucher_no AS gl_voucher_no\n\t, a.send_gl_state AS send_gl_state, a.fi_app_id AS fi_app_id, a.bln_period_begin AS bln_period_begin\n\t, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'))) AS partial_dim_md5\n\t, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(substr(period_code, 1, 4), 'NULL'))) AS partial_dim_with_year_md5\n\t, coalesce(debit_amount, 0) AS debit_amount\n\t, coalesce(credit_amount, 0) AS credit_amount\nFROM (\n\t-- 笛卡尔积，生成期间和剩余维度的排列组合\n\tSELECT a.accentity_id, a.accsubject_direction, a.project_id, a.currtype_id, a.inventory_org_id\n\t\t, a.material_sort, a.material_id, a.accbook_id, a.profit_center_id, a.accperiodscheme\n\t\t, a.ytenant_id, a.customer_id, a.customer_type_id, a.supplier_id, a.bank_account\n\t\t, a.fi_event_name, a.fi_event_id, a.warehouse_id, a.busi_dept_id, a.product_line_id\n\t\t, a.cash_flow_main_item, a.cost_item_id, a.accsubject_id, a.accentity_id_orgid, a.settle_redflush_type\n\t\t, a.period_begin_type, a.gl_voucher_no, a.send_gl_state, a.fi_app_id, a.bln_period_begin\n\t\t, b.period_code, period_id, a.partial_dim_md5\n\t\t, md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce(settle_redflush_type, 'NULL'), coalesce(period_begin_type, 'NULL'), coalesce(gl_voucher_no, 'NULL'), coalesce(send_gl_state, 'NULL'), coalesce(fi_app_id, 'NULL'), coalesce(bln_period_begin, 'NULL'), coalesce(substr(period_code, 1, 4), 'NULL'))) AS partial_dim_with_year_md5\n\tFROM (\n\t\t-- 除了期间，剩余维度的枚举值\n\t\tSELECT a.accentity_id, a.accsubject_direction, a.project_id, a.currtype_id, a.inventory_org_id\n\t\t\t, a.material_sort, a.material_id, a.accbook_id, a.profit_center_id, a.accperiodscheme\n\t\t\t, a.ytenant_id, a.customer_id, a.customer_type_id, a.supplier_id, a.bank_account\n\t\t\t, a.fi_event_name, a.fi_event_id, a.warehouse_id, a.busi_dept_id, a.product_line_id\n\t\t\t, a.cash_flow_main_item, a.cost_item_id, a.accsubject_id, a.accentity_id_orgid, a.settle_redflush_type\n\t\t\t, a.period_begin_type, a.gl_voucher_no, a.send_gl_state, a.fi_app_id, a.bln_period_begin\n\t\t\t, partial_dim_md5, MAX(period_code) AS max_value, MIN(period_code) AS min_value\n\t\tFROM base_query a\n\t\tGROUP BY a.accentity_id, a.accsubject_direction, a.project_id, a.currtype_id, a.inventory_org_id, a.material_sort, a.material_id, a.accbook_id, a.profit_center_id, a.accperiodscheme, a.ytenant_id, a.customer_id, a.customer_type_id, a.supplier_id, a.bank_account, a.fi_event_name, a.fi_event_id, a.warehouse_id, a.busi_dept_id, a.product_line_id, a.cash_flow_main_item, a.cost_item_id, a.accsubject_id, a.accentity_id_orgid, a.settle_redflush_type, a.period_begin_type, a.gl_voucher_no, a.send_gl_state, a.fi_app_id, a.bln_period_begin, partial_dim_md5\n\t) a\n\t\tCROSS JOIN (\n\t\t\tSELECT period_code, period_id\n\t\t\tFROM (\n\t\t\t\tSELECT period_code, period_id, row_number() OVER (PARTITION BY period_code ORDER BY period_id) AS rn\n\t\t\t\tFROM base_query\n\t\t\t) a\n\t\t\tWHERE rn = 1\n\t\t) b\n\tWHERE b.period_code >= a.min_value\n) a\n\tLEFT JOIN (\n\t\t-- 原始汇总表数据，用于取出度量字段\n\t\tSELECT period_code AS timeColumnName, coalesce(debit_amount, 0) AS debit_amount\n\t\t\t, coalesce(credit_amount, 0) AS credit_amount, partial_dim_md5\n\t\tFROM base_query\n\t) b\n\tON a.partial_dim_md5 = b.partial_dim_md5\n\t\tAND a.period_code = b.timeColumnName"
+      },
+      "saveFile": true
+    },
+    {
+      ".id": "2286b681",
+      ".name": "SqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": {
+        "tablemap": {
+          "TmpView_85d91b03_0": "base_query_three"
+        },
+        "query": "SELECT accentity_id AS details_accentity_id, accsubject_direction AS accsubject_direction, project_id AS details_project_id, currtype_id AS details_currtype_id, inventory_org_id AS org_inventory_id\n\t, material_sort AS details_material_sort, material_id AS details_material_id, accbook_id AS details_accbook_id, profit_center_id AS details_profit_center_id, accperiodscheme AS accbook_id_accperiodscheme\n\t, ytenant_id AS eaai_eventvoucher_eventvoucherdo_ytenant_id, customer_id AS details_customer_id, customer_type_id AS details_customer_type_id, supplier_id AS supplier_id, period_id AS bd_period_id\n\t, bank_account AS details_bank_account, fi_event_name AS fi_event_id_name, fi_event_id AS details_fi_event_id, period_code AS period_code, warehouse_id AS aa_warehouse_id\n\t, busi_dept_id AS details_busi_dept_id, product_line_id AS material_id_product_line_id, cash_flow_main_item AS details_cash_flow_main_item, cost_item_id AS details_cost_item_id, accsubject_id AS details_accsubject_id\n\t, accentity_id_orgid AS org_id, CAST(debit_begin_of_period_amount AS decimal(38, 8)) AS period_beginning_dr, CAST(credit_begin_of_period_amount AS decimal(38, 8)) AS period_beginning_cr, CAST(balance_begin_of_period_amount AS decimal(38, 8)) AS period_beginning_balance, CAST(debit_current_period_amount AS decimal(38, 8)) AS period_to_date_dr\n\t, CAST(credit_current_period_amount AS decimal(38, 8)) AS period_to_date_cr, CAST(balance_current_period_amount AS decimal(38, 8)) AS period_to_date_balance, CAST(debit_end_of_period_amount AS decimal(38, 8)) AS period_ending_dr, CAST(credit_end_of_period_amount AS decimal(38, 8)) AS period_ending_cr, CAST(balance_end_of_period_amount AS decimal(38, 8)) AS period_ending_balance\n\t, CAST(debit_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_dr, CAST(credit_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_cr, CAST(balance_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_balance, CAST(debit_begin_of_year_amount AS decimal(38, 8)) AS year_beginning_dr, CAST(credit_begin_of_year_amount AS decimal(38, 8)) AS year_beginning_cr\n\t, CAST(balance_begin_of_year_amount AS decimal(38, 8)) AS year_beginning_balance, CAST(debit_avg_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_annu_dr, CAST(credit_avg_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_annu_cr, CAST(balance_avg_accumulate_of_year_amount AS decimal(38, 8)) AS year_to_date_balance_annu\n\t, md5(concat_ws('_', md5(concat_ws('_', coalesce(accentity_id, 'NULL'), coalesce(accsubject_direction, 'NULL'), coalesce(project_id, 'NULL'), coalesce(currtype_id, 'NULL'), coalesce(inventory_org_id, 'NULL'), coalesce(material_sort, 'NULL'), coalesce(material_id, 'NULL'), coalesce(accbook_id, 'NULL'), coalesce(profit_center_id, 'NULL'), coalesce(accperiodscheme, 'NULL'), coalesce(ytenant_id, 'NULL'), coalesce(customer_id, 'NULL'), coalesce(customer_type_id, 'NULL'), coalesce(supplier_id, 'NULL'), coalesce(period_id, 'NULL'), coalesce(bank_account, 'NULL'), coalesce(fi_event_name, 'NULL'), coalesce(fi_event_id, 'NULL'), coalesce(period_code, 'NULL'), coalesce(warehouse_id, 'NULL'), coalesce(busi_dept_id, 'NULL'), coalesce(product_line_id, 'NULL'), coalesce(cash_flow_main_item, 'NULL'), coalesce(cost_item_id, 'NULL'), coalesce(accsubject_id, 'NULL'), coalesce(accentity_id_orgid, 'NULL'), coalesce('1970-01-01 00:00:00', 'NULL'))))) AS all_dimension_md5\n\t, 'y7c56a23' AS ytenant_id, uuid() AS id\nFROM base_query_three"
+      }
+    },
+    {
+      ".id": "87f7aa69",
+      ".name": "SqlTask",
+      ".class": "com.yonyou.datad.spark.business.SqlTask",
+      "sourceId": {
+        "id": "2418531750827786240",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "Z0_QIGo5E6mrdP56eYZEyDY6wRDbLKdSHGDf1_f6d0c",
+        "dbschema": "s_y7c56a23",
+        "hostname": "pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_y7c56a23",
+        "sid": ""
+      },
+      "sql": "DROP TABLE IF EXISTS mt_dws_multi_dimension_balances_v2_tmp;\nCREATE TABLE IF NOT EXISTS mt_dws_multi_dimension_balances_v2_tmp LIKE mt_dws_multi_dimension_balances_v2;\n"
+    },
+    {
+      ".id": "0668290c",
+      ".name": "JdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.JdbcOutput",
+      "sourceId": {
+        "id": "2418531750827786240",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "Z0_QIGo5E6mrdP56eYZEyDY6wRDbLKdSHGDf1_f6d0c",
+        "dbschema": "s_y7c56a23",
+        "hostname": "pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_y7c56a23",
+        "sid": ""
+      },
+      "table": "mt_dws_multi_dimension_balances_v2_tmp",
+      "model": "overwrite",
+      "needInit": false,
+      "header_map": [
+        {
+          "inColumns": "details_busi_dept_id",
+          "outColumns": "details_busi_dept_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_cr",
+          "outColumns": "year_to_date_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "bd_period_id",
+          "outColumns": "bd_period_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_profit_center_id",
+          "outColumns": "details_profit_center_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_beginning_cr",
+          "outColumns": "year_beginning_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_beginning_dr",
+          "outColumns": "period_beginning_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_cash_flow_main_item",
+          "outColumns": "details_cash_flow_main_item",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_bank_account",
+          "outColumns": "details_bank_account",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "eaai_eventvoucher_eventvoucherdo_ytenant_id",
+          "outColumns": "eaai_eventvoucher_eventvoucherdo_ytenant_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "all_dimension_md5",
+          "outColumns": "all_dimension_md5",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_currtype_id",
+          "outColumns": "details_currtype_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_accbook_id",
+          "outColumns": "details_accbook_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_material_id",
+          "outColumns": "details_material_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_customer_id",
+          "outColumns": "details_customer_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_inventory_id",
+          "outColumns": "org_inventory_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_accsubject_id",
+          "outColumns": "details_accsubject_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_material_sort",
+          "outColumns": "details_material_sort",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "fi_event_id_name",
+          "outColumns": "fi_event_id_name",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_code",
+          "outColumns": "period_code",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_ending_cr",
+          "outColumns": "period_ending_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_balance_annu",
+          "outColumns": "year_to_date_balance_annu",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_annu_cr",
+          "outColumns": "year_to_date_annu_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "id",
+          "outColumns": "id",
+          "primaryKey": true
+        },
+        {
+          "inColumns": "period_to_date_dr",
+          "outColumns": "period_to_date_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accsubject_direction",
+          "outColumns": "accsubject_direction",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_dr",
+          "outColumns": "year_to_date_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_accentity_id",
+          "outColumns": "details_accentity_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "aa_warehouse_id",
+          "outColumns": "aa_warehouse_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_beginning_dr",
+          "outColumns": "year_beginning_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "accbook_id_accperiodscheme",
+          "outColumns": "accbook_id_accperiodscheme",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_beginning_balance",
+          "outColumns": "period_beginning_balance",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_beginning_cr",
+          "outColumns": "period_beginning_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_project_id",
+          "outColumns": "details_project_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_balance",
+          "outColumns": "year_to_date_balance",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_beginning_balance",
+          "outColumns": "year_beginning_balance",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_customer_type_id",
+          "outColumns": "details_customer_type_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_cost_item_id",
+          "outColumns": "details_cost_item_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "ytenant_id",
+          "outColumns": "ytenant_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_ending_dr",
+          "outColumns": "period_ending_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_ending_balance",
+          "outColumns": "period_ending_balance",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "org_id",
+          "outColumns": "org_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "details_fi_event_id",
+          "outColumns": "details_fi_event_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "year_to_date_annu_dr",
+          "outColumns": "year_to_date_annu_dr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_to_date_balance",
+          "outColumns": "period_to_date_balance",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "period_to_date_cr",
+          "outColumns": "period_to_date_cr",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "supplier_id",
+          "outColumns": "supplier_id",
+          "primaryKey": false
+        },
+        {
+          "inColumns": "material_id_product_line_id",
+          "outColumns": "material_id_product_line_id",
+          "primaryKey": false
+        }
+      ]
+    },
+    {
+      ".id": "fc122063",
+      ".name": "SqlTask",
+      ".class": "com.yonyou.datad.spark.business.SqlTask",
+      "sourceId": {
+        "id": "2418531750827786240",
+        "dbType": "MySQL",
+        "url": "jdbc:mysql://pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com:3306/iuap_public_runtime?useUnicode=true&rewriteBatchedStatements=true&connectionCollation=utf8mb4_general_ci&socketTimeout=600000&connectTimeout=600000&serverTimezone=Asia/Shanghai&allowMultiQueries=true&characterEncoding=utf-8",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "service_rw",
+        "password": "Z0_QIGo5E6mrdP56eYZEyDY6wRDbLKdSHGDf1_f6d0c",
+        "dbschema": "s_y7c56a23",
+        "hostname": "pc-2ze3k30ch6thu3mq3.rwlb.rds.aliyuncs.com",
+        "port": "3306",
+        "dbname": "s_y7c56a23",
+        "sid": ""
+      },
+      "sql": "RENAME TABLE mt_dws_multi_dimension_balances_v2 TO mt_dws_multi_dimension_balances_v2_middle, mt_dws_multi_dimension_balances_v2_tmp TO mt_dws_multi_dimension_balances_v2, mt_dws_multi_dimension_balances_v2_middle TO mt_dws_multi_dimension_balances_v2_tmp;\n"
+    }
+  ],
+  "version": "1.0.0"
+}

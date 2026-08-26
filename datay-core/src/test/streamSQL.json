@@ -1,0 +1,71 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "order_info"
+    },
+    {
+      ".id": "DuckDBRegister",
+      ".name": "DuckDBRegister",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "alias": "mysql"
+    },
+    {
+      ".id": "JavaScriptComponent",
+      ".name": "JavaScriptComponent",
+      "scriptCode": ""
+    },
+    {
+      ".id": "StreamSqlUnit",
+      ".name": "StreamSqlUnit",
+      ".class": "com.yonyou.datad.spark.preproc.StreamSqlUnit",
+      "sql": "SELECT \n  result.user_id, \n  result.username, \n  sum(result.order_amount) as order_amount\nFROM (\nselect u.user_id,u.username,stream.order_amount from \n  main.order_info stream\nleft JOIN mysql.source.user u ON u.user_id = stream.user_id \nUNION  all \n  select dws.user_id,dws.username,dws.order_amount from mysql.\"source\".dws_order dws where dws.user_id in ( select user_id from main.order_info)\n) result\nGROUP BY result.user_id ,result.username;"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "dws_order",
+      "model": "update"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "DuckDBRegister",
+      "sourcePort": 0,
+      "targetId": "StreamJdbcInput"
+    },
+    {
+      "sourceId": "StreamJdbcInput",
+      "sourcePort": 0,
+      "targetId": "StreamSqlUnit"
+    },
+    {
+      "sourceId": "StreamSqlUnit",
+      "sourcePort": 0,
+      "targetId": "StreamJdbcOutput"
+    }
+  ],
+  "version": "1.0.0"
+}

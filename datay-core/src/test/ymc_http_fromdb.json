@@ -1,0 +1,58 @@
+{
+  "units": [
+    {
+      ".id": "GenerateSequenceNumber",
+      ".name": "GenerateSequenceNumber",
+      "mode": "DATABASE",
+      "datasource": {
+        "url": "jdbc:mysql://127.0.0.1:3306/source",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "dc_sequence",
+      "length": 2
+    },
+    {
+      ".id": "getTotalPages",
+      ".name": "HttpInvoke",
+      "method": "POST",
+      "url": "https://ymc.yonyoucloud.com/iuap-ymc-server/proxy/server/warning/sql",
+      "timeout": 120000,
+      "headers": {
+        "Cookie": "c800=dccore1; jDiowrkTokenMock=; at=b4834604-538f-4f53-9f4a-678d50617882; yht_access_token=bttcHQrVkgyU2pEVlR0aThyVG9mVWVYRXlha3pNd2VXNURkSndBMXU5bnVSZDJ5dkpaNjdVdm1nZWdPN29SaWNaZl9fZXVjLnlvbnlvdWNsb3VkLmNvbQ..__5f5865dd74135b4f289c7b8f5ee2744b_1773622737702TGYonBip-core1-yonyou-allTGdccore1iuap-apcom-workbench4203479eYT; multilingualFlag=true; timezone=UTC+08:00; language=001; locale=zh_CN; orgId=\"\"; defaultOrg=\"\"; tenantid=qyic8c7o; theme=\"\"; languages=1_3-2_1-3_1-143_1; newArch=true; sysid=diwork; defaultLocale=zh_CN; n_f_f=true; _WorkbenchCross_=Ultraman; acw_tc=7b3975a817736622545094731e8f2f82f66e055017ef21a4a74256b4b048c8; a00=3uFvFrmxrM49leOsMRgZBID1KXbbwpYGWfb2Mwug9uZxeWljOGM3b2A0OTA5YGM4N2UyMjY3LTEwMDEtNGM3MC1iYjJhLWFiNDFmM2I4MWFhM2A2MDQ4ODVgMWBgZTk5OTg4ZTY5ZGIwYGBgMjc5NTgxYGZhbHNlYGAxNzczNjYzMjI3MDc2YHltc3NlczozNTVlZDVmOTM5YjFjM2IyZjZhY2M5Nzg3YzkzYmQxNWBkaXdvcmtg; yht_username_diwork=ST-125400454-xO5l0TpVNtSuDHlZNcMU-online__604885; yht_usertoken_diwork=fw8ob%2BD6S2b6giJBdx982kPNS9Aub1OkrdG%2FuYxSFn%2B9oeJCjo%2BTVX2wry9NGpevuAeNM83bEfRihyJj50hnlA%3D%3D; YMC-SESSION-ID=MTFkMzA4ZjEtZjgzMi00ZDllLTg3NzEtODg4ZTQ0ZmIwYWEw; userid=1749815907575661046; username=%E9%99%88%E6%9D%B0; a10=MDI5MTg1MjMzMTAzODM5ODE3NDgx; XSRF-TOKEN=AX_IHP3LBOUDK4RAHX991RJP9UO4!202542; UBA_LAST_EID=e4phgtt5radg",
+        "Content-Type": "application/json",
+        "x-ymc-project-dccode": "${dc}",
+        "x-ymc-project-env": "${dc_env}"
+      },
+      "body": "{\"page\":1,\"pageSize\":200,\"beginTime\":\"#{NOW - 1d, yyyy-MM-dd} ${dc_time}:00:00\",\"endTime\":\"#{NOW - 1d, yyyy-MM-dd} ${dc_time}:59:59\",\"sortOrder\":\"desc\",\"sortField\":\"costTime\",\"costTime\":[80000,\"\"]}",
+      "jsonPath": "$.data"
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "slow_sql",
+      "model": "overwrite"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      "sql": "INSTALL excel; LOAD excel; COPY slow_sql TO 'output.xlsx' WITH (FORMAT xlsx, HEADER true);"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "GenerateSequenceNumber",
+      "targetId": "getTotalPages"
+    },
+    {
+      "sourceId": "getTotalPages",
+      "targetId": "DuckDBWrite"
+    },
+    {
+      "sourceId": "DuckDBWrite",
+      "targetId": "DuckDBSql"
+    }
+  ]
+}

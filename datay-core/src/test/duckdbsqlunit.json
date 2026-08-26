@@ -1,0 +1,99 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "common_data_types",
+      "maxRowsPerPartition": "10000",
+      "where": ""
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    },
+    {
+      ".id": "StreamJdbcInput2",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "table": "common_data_types",
+      "maxRowsPerPartition": "10000",
+      "where": ""
+    },
+    {
+      ".id": "DuckDBWrite2",
+      ".name": "DuckDBWrite",
+      "table": "common_data_types1",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      ".class": "com.yonyou.datad.spark.preproc.SqlUnit",
+      "sql": "SELECT * from common_data_types where 1=1"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      ".class": "com.yonyou.datad.spark.io.StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "target"
+      },
+      "schema": "target",
+      "table": "common_data_types",
+      "model": "overwrite",
+      "numPartitions": "1",
+      "needInit": "false"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "StreamJdbcInput",
+      "sourcePort": 0,
+      "targetId": "DuckDBWrite"
+    },
+    {
+      "sourceId": "StreamJdbcInput2",
+      "sourcePort": 0,
+      "targetId": "DuckDBWrite2"
+    },
+    {
+      "sourceId": "DuckDBWrite2",
+      "sourcePort": 0,
+      "targetId": "DuckDBSql"
+    },
+    {
+      "sourceId": "DuckDBWrite",
+      "sourcePort": 0,
+      "targetId": "DuckDBSql"
+    },
+    {
+      "sourceId": "DuckDBSql",
+      "sourcePort": 0,
+      "targetId": "StreamJdbcOutput"
+    }
+  ],
+  "version": "1.0.0"
+}

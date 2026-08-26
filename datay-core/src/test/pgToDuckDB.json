@@ -1,0 +1,52 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:postgresql://127.0.0.1:5432/testdb",
+        "driver": "org.postgresql.Driver",
+        "username": "admin",
+        "password": "123456",
+        "dbschema": "public"
+      },
+      "schema": "public",
+      "table": "common_data_types_pg"
+    },
+    {
+      ".id": "DuckDBWrite",
+      ".name": "DuckDBWrite",
+      "table": "common_data_types_pg",
+      "model": "overwrite"
+    },
+    {
+      ".id": "DuckDBSql",
+      ".name": "DuckDBSql",
+      "sql": "SELECT count(*) from common_data_types_pg where 1=1"
+    },
+    {
+      ".id": "LogFlowFile",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "StreamJdbcInput",
+      "targetId": "DuckDBWrite",
+      "sourcePort": 0
+    },
+    {
+      "sourceId": "DuckDBWrite",
+      "targetId": "DuckDBSql",
+      "sourcePort": 0
+    },
+    {
+      "sourceId": "DuckDBSql",
+      "targetId": "LogFlowFile",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}
