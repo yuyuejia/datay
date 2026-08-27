@@ -5,15 +5,12 @@
       <span>ETL任务</span>
     </b-dropdown-item> -->
     <b-dropdown-item to="/data-sync">
-      <font-awesome-icon icon="asterisk" />
       <span>数据同步</span>
     </b-dropdown-item>
     <b-dropdown-item to="/job">
-      <font-awesome-icon icon="asterisk" />
       <span>任务定义</span>
     </b-dropdown-item>
     <b-dropdown-item to="/job-instance">
-      <font-awesome-icon icon="asterisk" />
       <span>任务实例</span>
     </b-dropdown-item>
 

@@ -19,27 +19,17 @@
     <b-collapse is-nav id="header-tabs">
       <b-navbar-nav class="ml-auto">
         <b-nav-item to="/" exact>
-          <span>
-            <font-awesome-icon icon="home" />
-            <span>首页</span>
-          </span>
+          <span>首页</span>
         </b-nav-item>
         <b-nav-item v-if="authenticated" to="/data-source" exact>
-          <span>
-            <font-awesome-icon icon="database" />
-            <span>数据源</span>
-          </span>
+          <span>数据源</span>
         </b-nav-item>
         <b-nav-item v-if="authenticated" to="/etl-task" exact>
-          <span>
-            <font-awesome-icon icon="asterisk" />
-            <span>数据集成</span>
-          </span>
+          <span>数据集成</span>
         </b-nav-item>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>
             <span class="navbar-dropdown-menu">
-              <font-awesome-icon icon="th-list" />
               <span class="no-bold">任务管理</span>
             </span>
           </template>
@@ -57,7 +47,6 @@
         >
           <template #button-content>
             <span class="navbar-dropdown-menu">
-              <font-awesome-icon icon="users-cog" />
               <span class="no-bold">管理</span>
             </span>
           </template>
@@ -105,7 +94,6 @@
         >
           <template #button-content>
             <span class="navbar-dropdown-menu">
-              <font-awesome-icon icon="user" />
               <span class="no-bold">账号</span>
             </span>
           </template>
