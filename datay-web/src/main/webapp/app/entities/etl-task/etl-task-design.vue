@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, inject, computed, watch } from 'vue';
+import { ref, reactive, onMounted, inject, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -25,6 +25,19 @@ import JavaScriptComponentConfig from './component/JavaScriptComponentConfig.vue
 import GenerateFlowFileConfig from './component/GenerateFlowFileConfig.vue';
 import LogFlowFileConfig from './component/LogFlowFileConfig.vue';
 import MysqlBinlogInputConfig from './component/MysqlBinlogInputConfig.vue';
+import SqlInputConfig from './component/SqlInputConfig.vue';
+import DuckLakeWriteConfig from './component/DuckLakeWriteConfig.vue';
+import HashRouterConfig from './component/HashRouterConfig.vue';
+import RandomRouterConfig from './component/RandomRouterConfig.vue';
+import DorisStreamLoadConfig from './component/DorisStreamLoadConfig.vue';
+import GenerateSequenceNumberConfig from './component/GenerateSequenceNumberConfig.vue';
+import GenerateTableSelectSqlConfig from './component/GenerateTableSelectSqlConfig.vue';
+import HttpInvokeConfig from './component/HttpInvokeConfig.vue';
+import HttpListenerConfig from './component/HttpListenerConfig.vue';
+import JdbcInputConfig from './component/JdbcInputConfig.vue';
+import JdbcOutputConfig from './component/JdbcOutputConfig.vue';
+import SqlTaskConfig from './component/SqlTaskConfig.vue';
+import KafkaConsumerConfig from './component/KafkaConsumerConfig.vue';
 import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
 
 const {
@@ -66,6 +79,42 @@ const loadComponents = async () => {
   }
 };
 
+const expandedGroups = reactive({
+  '数据输入': true,
+  '数据处理': true,
+  '数据输出': true,
+});
+
+const groupOrder = ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'];
+
+const groupedComponents = computed(() => {
+  const map = {};
+  for (const comp of etlComponents.value) {
+    const g = comp.group || '其他';
+    if (!map[g]) {
+      map[g] = [];
+    }
+    map[g].push(comp);
+  }
+  const sortedGroups = Object.keys(map).sort((a, b) => {
+    const ia = groupOrder.indexOf(a);
+    const ib = groupOrder.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return sortedGroups.map(g => ({ group: g, components: map[g] }));
+});
+
+const toggleGroup = (group) => {
+  expandedGroups[group] = !expandedGroups[group];
+};
+
+const isGroupCollapsed = (group) => {
+  return !expandedGroups[group];
+};
+
 const loadTaskData = async () => {
   if (route.params.eTLTaskId) {
     await retrieveETLTask(route.params.eTLTaskId);
@@ -87,6 +136,20 @@ const componentConfigMap = {
   GenerateFlowFile: GenerateFlowFileConfig,
   LogFlowFile: LogFlowFileConfig,
   MySQLBinlogInput: MysqlBinlogInputConfig,
+  SqlInput: SqlInputConfig,
+  DuckLakeWrite: DuckLakeWriteConfig,
+  HashRouter: HashRouterConfig,
+  RandomRouter: RandomRouterConfig,
+  DorisStreamLoad: DorisStreamLoadConfig,
+  GenerateSequenceNumber: GenerateSequenceNumberConfig,
+  GenerateTableSelectSql: GenerateTableSelectSqlConfig,
+  HttpInvoke: HttpInvokeConfig,
+  HttpListener: HttpListenerConfig,
+  JdbcInput: JdbcInputConfig,
+  JdbcOutput: JdbcOutputConfig,
+  SqlTask: SqlTaskConfig,
+  SqlUnit: SqlUnitConfig,
+  KafkaConsumer: KafkaConsumerConfig,
 };
 
 const retrieveETLTask = async eTLTaskId => {
@@ -122,6 +185,8 @@ const dark = ref(false);
 const showConfigModal = ref(false);
 const selectedNode = ref(null);
 const selectedConfigComponent = ref(null);
+const editingNodeLabel = ref('');
+const currentSavedConfig = ref(null);
 
 const showScheduleModal = ref(false);
 const scheduleEntity = ref(null);
@@ -163,6 +228,8 @@ onInit(instance => {
 
 onNodeDoubleClick(event => {
   selectedNode.value = event.node;
+  editingNodeLabel.value = event.node.data?.label || '';
+  currentSavedConfig.value = null;
   const componentType = event.node.data.type;
   selectedConfigComponent.value = componentConfigMap[componentType];
 
@@ -174,10 +241,27 @@ onNodeDoubleClick(event => {
   showConfigModal.value = true;
 });
 
+const handleComponentSave = config => {
+  currentSavedConfig.value = config;
+  saveNodeConfigWithLabel(config, editingNodeLabel.value);
+};
+
 const saveNodeConfig = config => {
   const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
   if (nodeIndex !== -1) {
     nodes.value[nodeIndex].data.config = config;
+  }
+  configEntity.value.hide();
+  showConfigModal.value = false;
+};
+
+const saveNodeConfigWithLabel = (config, label) => {
+  const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
+  if (nodeIndex !== -1) {
+    nodes.value[nodeIndex].data.config = config;
+    if (label && label.trim()) {
+      nodes.value[nodeIndex].data.label = label.trim();
+    }
   }
   configEntity.value.hide();
   showConfigModal.value = false;
@@ -188,7 +272,10 @@ onNodeDragStop(({ event, nodes, node }) => {
 });
 
 onConnect(connection => {
-  addEdges(connection);
+  addEdges({
+    ...connection,
+    markerEnd: { type: MarkerType.ArrowClosed },
+  });
 });
 
 function updatePos() {
@@ -338,14 +425,24 @@ const cancelTask = () => {
     <div class="main-container">
       <div class="sidebar">
         <div class="sidebar-title">ETL 组件</div>
-        <div
-          v-for="component in etlComponents"
-          :key="component.code"
-          class="draggable-component"
-          draggable
-          @dragstart="onDragStart($event, component)"
-        >
-          {{ component.name }}
+        <div class="sidebar-tree">
+          <div v-for="groupData in groupedComponents" :key="groupData.group" class="sidebar-group">
+            <div class="sidebar-group-header" @click="toggleGroup(groupData.group)">
+              <span class="sidebar-group-arrow" :class="{ collapsed: isGroupCollapsed(groupData.group) }">&#9662;</span>
+              <span class="sidebar-group-name">{{ groupData.group }}</span>
+            </div>
+            <div class="sidebar-group-items" v-show="!isGroupCollapsed(groupData.group)">
+              <div
+                v-for="component in groupData.components"
+                :key="component.code"
+                class="draggable-component"
+                draggable
+                @dragstart="onDragStart($event, component)"
+              >
+                {{ component.name }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="canvas-container" @drop="onDrop" @dragover="onDragOver">
@@ -364,15 +461,24 @@ const cancelTask = () => {
         </VueFlow>
       </div>
     </div>
-    <b-modal ref="configEntity" id="configEntity">
+    <b-modal ref="configEntity" id="configEntity" class="config-modal">
       <template #modal-title>
-        <span data-cy="eTLTaskDeleteDialogHeading">配置节点</span>
+        <div class="config-modal-title">
+          <span class="config-modal-title-label">配置节点</span>
+          <input
+            type="text"
+            class="config-node-name-input"
+            v-model="editingNodeLabel"
+            placeholder="请输入节点名称"
+            @keyup.enter="saveNodeConfigWithLabel(currentSavedConfig, editingNodeLabel)"
+          />
+        </div>
       </template>
-      <div class="modal-body">
+      <div class="modal-body config-modal-body">
         <component
           :is="selectedConfigComponent"
           :node="selectedNode"
-          @save="saveNodeConfig"
+          @save="handleComponentSave"
           @cancel="closeConfigModal"
           ref="configComponentRef"
         />
@@ -491,7 +597,7 @@ const cancelTask = () => {
 }
 
 .sidebar {
-  width: 200px;
+  width: 240px;
   background-color: #f5f7fa;
   padding: 12px;
   border-right: 1px solid #e4e7ed;
@@ -507,11 +613,71 @@ const cancelTask = () => {
   border-bottom: 1px solid #e4e7ed;
 }
 
+.sidebar-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-group {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  background-color: #f0f2f5;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.sidebar-group-header:hover {
+  background-color: #e6e8eb;
+}
+
+.sidebar-group-arrow {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: #606266;
+  transition: transform 0.2s;
+}
+
+.sidebar-group-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.sidebar-group-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.sidebar-group-count {
+  font-size: 11px;
+  color: #909399;
+  background-color: #dcdfe6;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.sidebar-group-items {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .draggable-component {
   background-color: #fff;
   border: 1px solid #dcdfe6;
-  padding: 6px 10px;
-  margin-bottom: 4px;
+  padding: 5px 8px;
   cursor: grab;
   border-radius: 4px;
   font-size: 13px;
