@@ -85,6 +85,19 @@ export default class ETLTaskService {
     });
   }
 
+  run(id: number): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`${baseApiUrl}/${id}/run`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   online(id: number): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios

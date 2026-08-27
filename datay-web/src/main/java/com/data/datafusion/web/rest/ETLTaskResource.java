@@ -152,12 +152,16 @@ public class ETLTaskResource {
      * {@code GET  /etl-tasks} : get all the eTLTasks.
      *
      * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by task name or description.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of eTLTasks in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<ETLTaskDTO>> getAllETLTasks(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
-        LOG.debug("REST request to get a page of ETLTasks");
-        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable);
+    public ResponseEntity<List<ETLTaskDTO>> getAllETLTasks(
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(value = "search", required = false) String search
+    ) {
+        LOG.debug("REST request to get a page of ETLTasks with search: {}", search);
+        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable, search);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
@@ -188,6 +192,19 @@ public class ETLTaskResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    /**
+     * {@code POST  /etl-tasks/:id/run} : Execute the ETLTask once.
+     *
+     * @param id the id of the ETLTask to execute once.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
+     */
+    @PostMapping("/{id}/run")
+    public ResponseEntity<Void> runETLTask(@PathVariable("id") Long id) {
+        LOG.debug("REST request to run ETLTask : {}", id);
+        eTLTaskService.executeOnce(id);
+        return ResponseEntity.ok().build();
     }
 
     /**

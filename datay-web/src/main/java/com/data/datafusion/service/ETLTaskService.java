@@ -18,12 +18,14 @@ import com.data.datafusion.service.mapper.ETLEdgeMapper;
 import com.data.datafusion.service.mapper.ETLNodeMapper;
 import com.data.datafusion.service.mapper.ETLTaskMapper;
 import com.data.metadata.util.DBUtils;
+import jakarta.persistence.criteria.Predicate;
 import java.time.ZonedDateTime;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -216,6 +218,33 @@ public class ETLTaskService {
     }
 
     /**
+     * Get all the eTLTasks with an optional keyword search.
+     *
+     * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by task name or description.
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<ETLTaskDTO> findAll(Pageable pageable, String search) {
+        LOG.debug("Request to get all ETLTasks with search: {}", search);
+        return eTLTaskRepository.findAll(buildSearchSpecification(search), pageable).map(eTLTaskMapper::toDto);
+    }
+
+    private Specification<ETLTask> buildSearchSpecification(String search) {
+        if (search == null || search.trim().isEmpty()) {
+            return Specification.where(null);
+        }
+        String keyword = search.trim().toLowerCase();
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            for (String field : new String[] { "taskName", "taskDesc" }) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get(field)), "%" + keyword + "%"));
+            }
+            return criteriaBuilder.or(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
      * Get one eTLTask by id.
      *
      * @param id the id of the entity.
@@ -301,6 +330,28 @@ public class ETLTaskService {
                 // 保存更新后的ETLTask
                 etlTask = eTLTaskRepository.save(etlTask);
                 return eTLTaskMapper.toDto(etlTask);
+            })
+            .orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
+    }
+
+    /**
+     * 立即执行ETL任务一次
+     *
+     * @param id ETLTask的ID
+     */
+    public void executeOnce(Long id) {
+        LOG.debug("Request to executeOnce ETLTask : {}", id);
+        eTLTaskRepository
+            .findById(id)
+            .map(etlTask -> {
+                if (etlTask.getJobId() == null) {
+                    throw new RuntimeException("ETLTask has no job, please save task first: " + id);
+                }
+                Job job = jobService
+                    .findOneJob(etlTask.getJobId())
+                    .orElseThrow(() -> new RuntimeException("Job not found with id: " + etlTask.getJobId()));
+                jobService.executeOnce(job);
+                return etlTask;
             })
             .orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
     }

@@ -5,11 +5,15 @@ import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.mapper.DataSourceMapper;
 import com.data.datafusion.util.DBUtils;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,6 +91,33 @@ public class DataSourceService {
     public Page<DataSourceDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all DataSources");
         return dataSourceRepository.findAll(pageable).map(dataSourceMapper::toDto);
+    }
+
+    /**
+     * Get all the dataSources with an optional keyword search.
+     *
+     * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by name, hostname/IP, port, url, schema name or username.
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<DataSourceDTO> findAll(Pageable pageable, String search) {
+        LOG.debug("Request to get all DataSources with search: {}", search);
+        return dataSourceRepository.findAll(buildSearchSpecification(search), pageable).map(dataSourceMapper::toDto);
+    }
+
+    private Specification<DataSource> buildSearchSpecification(String search) {
+        if (search == null || search.trim().isEmpty()) {
+            return Specification.where(null);
+        }
+        String keyword = search.trim().toLowerCase();
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            for (String field : new String[] { "name", "hostname", "port", "url", "schemaName", "username" }) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get(field)), "%" + keyword + "%"));
+            }
+            return criteriaBuilder.or(predicates.toArray(new Predicate[0]));
+        };
     }
 
     /**

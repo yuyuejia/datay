@@ -1,4 +1,4 @@
-import { type Ref, defineComponent, inject, ref, watch, onMounted } from 'vue';
+import { type Ref, defineComponent, inject, ref, watch, onMounted, onUnmounted } from 'vue';
 
 import ETLTaskService from './etl-task.service';
 import { type IETLTask } from '@/shared/model/etl-task.model';
@@ -20,6 +20,7 @@ export default defineComponent({
     const propOrder = ref('id');
     const reverse = ref(false);
     const totalItems = ref(0);
+    const search = ref('');
 
     const eTLTasks: Ref<IETLTask[]> = ref([]);
 
@@ -69,6 +70,7 @@ export default defineComponent({
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
+          search: search.value,
         };
         const res = await eTLTaskService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
@@ -84,6 +86,30 @@ export default defineComponent({
     const handleSyncList = () => {
       retrieveETLTasks();
     };
+
+    let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Whenever the search keyword changes, reset the pagination and re-fetch (debounced)
+    watch(search, () => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+      searchTimer = setTimeout(() => {
+        if (page.value === 1) {
+          // first page, retrieve new data
+          retrieveETLTasks();
+        } else {
+          // reset the pagination
+          clear();
+        }
+      }, 300);
+    });
+
+    onUnmounted(() => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+    });
 
     const prepareViewInstances = async (task: IETLTask) => {
       currentTask.value = task;
@@ -174,6 +200,16 @@ export default defineComponent({
       }
     };
 
+    const runETLTask = async (id: number) => {
+      try {
+        await eTLTaskService().run(id);
+        const message = 'ETL Task has been triggered to run once';
+        alertService.showInfo(message, { variant: 'success' });
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
     const onlineETLTask = async (id: number) => {
       try {
         await eTLTaskService().online(id);
@@ -229,12 +265,14 @@ export default defineComponent({
       isFetching,
       retrieveETLTasks,
       clear,
+      search,
       ...dateFormat,
       removeId,
       removeEntity,
       prepareRemove,
       closeDialog,
       removeETLTask,
+      runETLTask,
       onlineETLTask,
       offlineETLTask,
       itemsPerPage,

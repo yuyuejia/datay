@@ -1,239 +1,157 @@
-# datafusion
+# DataY Web - 基于 DataY Core 的数据平台
 
-This application was generated using JHipster 8.11.0, you can find documentation and help at [https://www.jhipster.tech/documentation-archive/v8.11.0](https://www.jhipster.tech/documentation-archive/v8.11.0).
+## 项目简介
 
-## Project Structure
+DataY Web 是基于 [DataY Core](../datay-core/README.md) 数据集成引擎构建的数据平台产品，提供可视化的**任务设计**和**任务调度**能力。
 
-Node is required for generation and recommended for development. `package.json` is always generated for a better development experience with prettier, commit hooks, scripts and so on.
+- **任务设计**: 通过拖拽画布可视化编排 ETL 数据流，支持数据同步任务的可视化配置，同时提供 SQL、Shell、DAG 等多类型任务定义
+- **任务调度**: 基于 Quartz 提供 Cron 定时调度、任务依赖调度、手动触发执行，并对任务实例进行全生命周期监控
+- **底层引擎**: 直接嵌入 DataY Core 执行引擎，复用其 DuckDB 引擎、丰富的 ETL 组件以及高性能的数据处理能力
 
-In the project root, JHipster generates configuration files for tools like git, prettier, eslint, husky, and others that are well known and you can find references in the web.
+## 核心特性
 
-`/src/*` structure follows default Java structure.
+- **可视化任务设计**: 基于 Vue Flow 的拖拽式 ETL 任务画布，节点连线编排数据流，双击节点即可配置组件参数
+- **丰富的组件库**: 集成 DataY Core 的输入、处理、输出、路由组件，支持 MySQL Binlog CDC、DuckDB SQL 处理、Doris 流式加载等
+- **多类型任务**: 支持 ETL、SQL、Shell、DAG 工作流、Demo 等多种任务类型
+- **DAG 工作流编排**: 支持任务间依赖关系，执行时自动拓扑排序，按序调度子任务
+- **定时调度**: Quartz Cron 表达式定时调度，支持任务上线/下线动态管理调度
+- **依赖调度**: 配置任务依赖后，父任务成功后自动触发子任务，依赖未满足时任务自动进入等待状态并轮询恢复
+- **数据同步**: 可视化选择同步表，自动完成目标表建表(DDL 转换)，支持全量/增量同步
+- **任务实例监控**: 实例状态、执行节点、开始/结束时间、执行消息全流程跟踪，支持运行中任务终止
+- **多数据源管理**: 统一管理数据源连接，支持连接测试与 schema/table/column 元数据浏览
+- **集群模式**: 支持 Standalone / Cluster 两种部署模式，Cluster 模式基于 Redis 队列进行分布式任务分发与 Leader 选举
 
-- `.yo-rc.json` - Yeoman configuration file
-  JHipster configuration is stored in this file at `generator-jhipster` key. You may find `generator-jhipster-*` for specific blueprints configuration.
-- `.yo-resolve` (optional) - Yeoman conflict resolver
-  Allows to use a specific action when conflicts are found skipping prompts for files that matches a pattern. Each line should match `[pattern] [action]` with pattern been a [Minimatch](https://github.com/isaacs/minimatch#minimatch) pattern and action been one of skip (default if omitted) or force. Lines starting with `#` are considered comments and are ignored.
-- `.jhipster/*.json` - JHipster entity configuration files
+## 系统架构
 
-- `npmw` - wrapper to use locally installed npm.
-  JHipster installs Node and npm locally using the build tool by default. This wrapper makes sure npm is installed locally and uses it avoiding some differences different versions can cause. By using `./npmw` instead of the traditional `npm` you can configure a Node-less environment to develop or test your application.
-- `/src/main/docker` - Docker configurations for the application and services that the application depends on
+- **前端**: Vue 3 + Vite + TypeScript + Element Plus + Vue Flow
+- **后端**: Spring Boot 3.4 + Java 17 + Spring Security(JWT) + JPA/Hibernate
+- **调度引擎**: Quartz
+- **数据处理引擎**: DataY Core（内置 DuckDB）
+- **数据库**: 开发环境默认 H2，生产环境可配置 MySQL（参见 `src/main/docker/`）
+- **项目管理**: 基于 JHipster 8.11.0 生成，模块间通过 Maven 管理
 
-## Development
+## 代码构建
 
-The build system will install automatically the recommended version of Node and npm.
+### 环境要求
 
-We provide a wrapper to launch npm.
-You will only need to run this command when dependencies change in [package.json](package.json).
+- Java 17+
+- Maven 3.6+
+- Node 22+（前端构建）
 
+### 构建项目
+
+DataY Web 依赖 datay-core，需先安装到本地仓库：
+
+```bash
+# 在项目根目录执行，先构建 datay-core
+mvn -pl datay-core clean install -DskipTests
+# 构建 datay-web
+mvn -pl datay-web clean package
 ```
-./npmw install
-```
 
-We use npm scripts and [Vite][] as our build system.
+### 开发模式
 
-Run the following commands in two separate terminals to create a blissful development experience where your browser
-auto-refreshes when files change on your hard drive.
+后端与前端分别启动（两个终端）：
 
-```
+```bash
 ./mvnw
 ./npmw start
 ```
 
-Npm is also used to manage CSS and JavaScript dependencies used in this application. You can upgrade dependencies by
-specifying a newer version in [package.json](package.json). You can also run `./npmw update` and `./npmw install` to manage dependencies.
-Add the `help` flag on any command to see how you can use it. For example, `./npmw help update`.
+后端运行在 `http://localhost:8080`，前端 Vite 开发服务器运行在 `http://localhost:9000`（已代理到后端），修改代码浏览器自动刷新。
 
-The `./npmw run` command will list all the scripts available to run for this project.
+### 生产构建
 
-### PWA Support
-
-JHipster ships with PWA (Progressive Web App) support, and it's turned off by default. One of the main components of a PWA is a service worker.
-
-The service worker initialization code is commented out by default. To enable it, uncomment the following code in `src/main/webapp/index.html`:
-
-```html
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js').then(function () {
-      console.log('Service Worker Registered');
-    });
-  }
-</script>
-```
-
-Note: [Workbox](https://developers.google.com/web/tools/workbox/) powers JHipster's service worker. It dynamically generates the `service-worker.js` file.
-
-### Managing dependencies
-
-For example, to add [Leaflet][] library as a runtime dependency of your application, you would run following command:
-
-```
-./npmw install --save --save-exact leaflet
-```
-
-To benefit from TypeScript type definitions from [DefinitelyTyped][] repository in development, you would run following command:
-
-```
-./npmw install --save-dev --save-exact @types/leaflet
-```
-
-Then you would import the JS and CSS files specified in library's installation instructions so that [Vite][] knows about them:
-Note: There are still a few other things remaining to do for Leaflet that we won't detail here.
-
-For further instructions on how to develop with JHipster, have a look at [Using JHipster in development][].
-
-## Building for production
-
-### Packaging as jar
-
-To build the final jar and optimize the datafusion application for production, run:
-
-```
+```bash
 ./mvnw -Pprod clean verify
-```
-
-This will concatenate and minify the client CSS and JavaScript files. It will also modify `index.html` so it references these new files.
-To ensure everything worked, run:
-
-```
 java -jar target/*.jar
 ```
 
-Then navigate to [http://localhost:8080](http://localhost:8080) in your browser.
+访问 `http://localhost:8080`。
 
-Refer to [Using JHipster in production][] for more details.
+## 快速开始
 
-### Packaging as war
+开发模式默认账号：`admin / admin`
 
-To package your application as a war in order to deploy it to an application server, run:
+1. **配置数据源**: 进入「数据源」页面，添加源/目标数据源并测试连接
+2. **设计任务**: 进入「ETL 任务」页面新建任务，从组件面板拖拽节点、连线编排数据流，双击节点配置参数
+3. **配置调度**: 点击画布上方「调度」按钮，通过 Cron 表达式选择器设置定时规则并保存任务
+4. **上线任务**: 任务列表点击「上线」，任务即加入调度
+5. **查看实例**: 进入「任务实例」页面查看任务运行状态与执行信息
 
-```
-./mvnw -Pprod,war clean verify
-```
+## 功能模块
 
-### JHipster Control Center
+| 模块 | 说明 |
+| --- | --- |
+| 数据源 | 数据源连接管理、连接测试、schema/table/column 元数据浏览 |
+| ETL 任务 | 拖拽画布可视化设计 ETL 数据流，支持 Cron 调度配置、上线/下线 |
+| 数据同步 | 可视化选表完成库表同步，自动建表，支持全量/增量同步 |
+| 任务定义 | 定义 SQL、Shell、DAG 工作流等类型任务 |
+| 任务实例 | 任务运行实例监控，支持实例停止 |
+| 任务依赖 | 配置任务间的父子依赖关系，实现依赖调度 |
 
-JHipster Control Center can help you manage and control your application(s). You can start a local control center server (accessible on http://localhost:7419) with:
+## 任务设计
 
-```
-docker compose -f src/main/docker/jhipster-control-center.yml up
-```
+### ETL 可视化设计
 
-## Testing
+- 从组件面板拖拽组件节点到画布，通过连线编排数据流
+- 双击节点打开配置弹窗，配置组件参数
+- 通过 Cron 表达式选择器配置调度规则
+- 保存后自动生成 DataY Core 可执行的任务 JSON（units + connections），由 DataY Core 引擎执行
 
-### Spring Boot tests
+支持的 ETL 组件（继承自 DataY Core，详见 [datay-core 组件文档](../datay-core/docs/component/)）：
 
-To launch your application's tests, run:
+- **输入组件**: `StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`
+- **处理组件**: `DuckDBSql`、`StreamSqlUnit`、`JavaScriptComponent`
+- **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
+- **其他组件**: `GenerateFlowFile`、`LogFlowFile`
 
-```
+### 任务类型
+
+| 类型 | 说明 |
+| --- | --- |
+| ETL | 基于 DataY Core 引擎的数据集成任务 |
+| SQL | 执行 SQL 脚本任务 |
+| Shell | 执行 Shell 脚本任务 |
+| DAG | DAG 工作流编排任务，按依赖关系拓扑排序执行 |
+| DEMO | 演示任务 |
+
+## 任务调度
+
+- **Cron 定时调度**: 基于 Quartz，任务上线后自动注册调度，支持动态上下线
+- **依赖调度**: 通过任务依赖(JobDepend)配置父子关系，父任务成功后触发子任务；依赖未满足时实例进入 WAITING 状态，由 WaitingJobQuartzTask 定时轮询恢复
+- **手动触发**: 支持任务立即执行一次（RUN）
+- **集群模式**: 设置 `development.mode=cluster` 开启，基于 Redis 队列进行任务事件分发，配合 Leader 选举保证调度一致性
+
+## 支持的数据源
+
+- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
+- **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
+- **文件系统**: 本地文件、MinIO 对象存储
+- **CDC**: MySQL Binlog
+
+## 监控与日志
+
+- 任务实例状态全程跟踪：APPENDING / RUNNING / WAITING / SUCCESSFUL / FAILED / TIMEOUT / INTERRUPTED
+- 记录执行节点（`IP:端口`）、开始/结束时间、执行消息
+- Spring Boot Actuator 管理端点：`/management/*`（健康检查、指标、日志）
+- 详细的后端执行日志
+
+## 测试
+
+```bash
+# 后端测试
 ./mvnw verify
-```
 
-### Client tests
-
-Unit tests are run by [Vitest][]. They're located near components and can be run with:
-
-```
+# 前端单元测试 (Vitest)
 ./npmw test
+
+# 代码质量
+npm run lint
 ```
 
-## Others
+## 联系方式
 
-### Code quality using Sonar
+产品不断完善中，如有问题或建议，请通过项目 Issue 反馈，我们会尽快回复您。支持个性化需求，可以加微信联系我们。
 
-Sonar is used to analyse code quality. You can start a local Sonar server (accessible on http://localhost:9001) with:
-
-```
-docker compose -f src/main/docker/sonar.yml up -d
-```
-
-Note: we have turned off forced authentication redirect for UI in [src/main/docker/sonar.yml](src/main/docker/sonar.yml) for out of the box experience while trying out SonarQube, for real use cases turn it back on.
-
-You can run a Sonar analysis with using the [sonar-scanner](https://docs.sonarqube.org/display/SCAN/Analyzing+with+SonarQube+Scanner) or by using the maven plugin.
-
-Then, run a Sonar analysis:
-
-```
-./mvnw -Pprod clean verify sonar:sonar -Dsonar.login=admin -Dsonar.password=admin
-```
-
-If you need to re-run the Sonar phase, please be sure to specify at least the `initialize` phase since Sonar properties are loaded from the sonar-project.properties file.
-
-```
-./mvnw initialize sonar:sonar -Dsonar.login=admin -Dsonar.password=admin
-```
-
-Additionally, Instead of passing `sonar.password` and `sonar.login` as CLI arguments, these parameters can be configured from [sonar-project.properties](sonar-project.properties) as shown below:
-
-```
-sonar.login=admin
-sonar.password=admin
-```
-
-For more information, refer to the [Code quality page][].
-
-### Docker Compose support
-
-JHipster generates a number of Docker Compose configuration files in the [src/main/docker/](src/main/docker/) folder to launch required third party services.
-
-For example, to start required services in Docker containers, run:
-
-```
-docker compose -f src/main/docker/services.yml up -d
-```
-
-To stop and remove the containers, run:
-
-```
-docker compose -f src/main/docker/services.yml down
-```
-
-[Spring Docker Compose Integration](https://docs.spring.io/spring-boot/reference/features/dev-services.html) is enabled by default. It's possible to disable it in application.yml:
-
-```yaml
-spring:
-  ...
-  docker:
-    compose:
-      enabled: false
-```
-
-You can also fully dockerize your application and all the services that it depends on.
-To achieve this, first build a Docker image of your app by running:
-
-```sh
-npm run java:docker
-```
-
-Or build a arm64 Docker image when using an arm64 processor os like MacOS with M1 processor family running:
-
-```sh
-npm run java:docker:arm64
-```
-
-Then run:
-
-```sh
-docker compose -f src/main/docker/app.yml up -d
-```
-
-For more information refer to [Using Docker and Docker-Compose][], this page also contains information on the Docker Compose sub-generator (`jhipster docker-compose`), which is able to generate Docker configurations for one or several JHipster applications.
-
-## Continuous Integration (optional)
-
-To configure CI for your project, run the ci-cd sub-generator (`jhipster ci-cd`), this will let you generate configuration files for a number of Continuous Integration systems. Consult the [Setting up Continuous Integration][] page for more information.
-
-[JHipster Homepage and latest documentation]: https://www.jhipster.tech
-[JHipster 8.11.0 archive]: https://www.jhipster.tech/documentation-archive/v8.11.0
-[Using JHipster in development]: https://www.jhipster.tech/documentation-archive/v8.11.0/development/
-[Using Docker and Docker-Compose]: https://www.jhipster.tech/documentation-archive/v8.11.0/docker-compose
-[Using JHipster in production]: https://www.jhipster.tech/documentation-archive/v8.11.0/production/
-[Running tests page]: https://www.jhipster.tech/documentation-archive/v8.11.0/running-tests/
-[Code quality page]: https://www.jhipster.tech/documentation-archive/v8.11.0/code-quality/
-[Setting up Continuous Integration]: https://www.jhipster.tech/documentation-archive/v8.11.0/setting-up-ci/
-[Node.js]: https://nodejs.org/
-[NPM]: https://www.npmjs.com/
-[Leaflet]: https://leafletjs.com/
-[DefinitelyTyped]: https://definitelytyped.org/
+<img src="../datay-core/docs/images/datay.jpg" width="350" height="500" alt="DataY">

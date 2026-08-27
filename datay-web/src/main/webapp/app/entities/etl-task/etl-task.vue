@@ -3,6 +3,13 @@
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="etl-task-heading">ETL 任务列表</span>
       <div class="d-flex align-items-center">
+        <input
+          type="text"
+          class="form-control mr-2"
+          style="width: 280px"
+          v-model="search"
+          placeholder="按任务名称 / 描述搜索"
+        />
         <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
         </button>
@@ -45,7 +52,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="340">
+        <el-table-column label="操作" fixed="right" min-width="400">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
@@ -53,6 +60,13 @@
                   <span class="d-none d-md-inline">编辑</span>
                 </el-button>
               </router-link>
+              <el-button
+                @click="runETLTask(scope.row.id)"
+                class="btn btn-success btn-sm run"
+                data-cy="entityRunButton"
+              >
+                <span class="d-none d-md-inline">立即执行</span>
+              </el-button>
               <el-button
                 v-if="scope.row.status === 'OFFLINE'"
                 @click="onlineETLTask(scope.row.id)"

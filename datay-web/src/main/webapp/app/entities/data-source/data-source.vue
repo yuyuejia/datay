@@ -3,9 +3,13 @@
     <h2 id="page-heading" data-cy="DataSourceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="data-source-heading">数据源列表</span>
       <div class="d-flex align-items-center">
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
-          <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
-        </button>
+        <input
+          type="text"
+          class="form-control mr-2"
+          style="width: 280px"
+          v-model="search"
+          placeholder="按名称 / IP / 端口 / 地址搜索"
+        />
         <router-link :to="{ name: 'DataSourceCreate' }" custom v-slot="{ navigate }">
           <button
             @click="navigate"
@@ -35,8 +39,8 @@
         <el-table-column prop="description" label="描述" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="url" label="地址" sortable="custom" width="350"></el-table-column>
-        <!-- <el-table-column prop="hostname" label="主机名" sortable="custom" width="150"></el-table-column> -->
-        <!-- <el-table-column prop="port" label="端口" sortable="custom" width="150"></el-table-column> -->
+        <el-table-column prop="hostname" label="IP/主机" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="port" label="端口" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="schemaName" label="数据库名" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="username" label="用户名" sortable="custom" width="150"></el-table-column>
         <!-- <el-table-column prop="password" label="密码" sortable="custom" width="150"></el-table-column> -->

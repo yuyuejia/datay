@@ -9,4 +9,4 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ETLTaskRepository extends JpaRepository<ETLTask, Long> {}
+public interface ETLTaskRepository extends JpaRepository<ETLTask, Long>, JpaSpecificationExecutor<ETLTask> {}

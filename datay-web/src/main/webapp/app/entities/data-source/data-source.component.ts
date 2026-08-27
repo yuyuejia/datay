@@ -1,4 +1,4 @@
-import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
+import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
 import { type IDataSource } from '@/shared/model/data-source.model';
@@ -19,6 +19,7 @@ export default defineComponent({
     const propOrder = ref('id');
     const reverse = ref(false);
     const totalItems = ref(0);
+    const search = ref('');
 
     const dataSources: Ref<IDataSource[]> = ref([]);
 
@@ -43,6 +44,7 @@ export default defineComponent({
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
+          search: search.value,
         };
         const res = await dataSourceService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
@@ -55,9 +57,29 @@ export default defineComponent({
       }
     };
 
-    const handleSyncList = () => {
-      retrieveDataSources();
-    };
+    let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Whenever the search keyword changes, reset the pagination and re-fetch (debounced)
+    watch(search, () => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+      searchTimer = setTimeout(() => {
+        if (page.value === 1) {
+          // first page, retrieve new data
+          retrieveDataSources();
+        } else {
+          // reset the pagination
+          clear();
+        }
+      }, 300);
+    });
+
+    onUnmounted(() => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+    });
 
     onMounted(async () => {
       await retrieveDataSources();
@@ -120,10 +142,10 @@ export default defineComponent({
 
     return {
       dataSources,
-      handleSyncList,
       isFetching,
       retrieveDataSources,
       clear,
+      search,
       ...dateFormat,
       removeId,
       removeEntity,

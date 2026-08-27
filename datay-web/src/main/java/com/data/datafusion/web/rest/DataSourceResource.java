@@ -140,12 +140,16 @@ public class DataSourceResource {
      * {@code GET  /data-sources} : get all the dataSources.
      *
      * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by name, hostname/IP, port, url, schema name or username.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of dataSources in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<DataSourceDTO>> getAllDataSources(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
-        LOG.debug("REST request to get a page of DataSources");
-        Page<DataSourceDTO> page = dataSourceService.findAll(pageable);
+    public ResponseEntity<List<DataSourceDTO>> getAllDataSources(
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(value = "search", required = false) String search
+    ) {
+        LOG.debug("REST request to get a page of DataSources with search: {}", search);
+        Page<DataSourceDTO> page = dataSourceService.findAll(pageable, search);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
