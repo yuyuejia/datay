@@ -41,7 +41,13 @@
         <el-table-column prop="jobId" label="作业ID" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
-        <el-table-column prop="status" label="状态" sortable="custom" width="100"></el-table-column>
+        <el-table-column prop="status" label="状态" sortable="custom" width="100">
+          <template #default="scope">
+            <span :class="'status-badge status-' + (scope.row.status?.toLowerCase() || '')">
+              {{ scope.row.status }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="160">
           <template #default="scope">
             {{ formatDateShort(scope.row.updateTime) || '' }}
