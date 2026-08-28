@@ -2,7 +2,24 @@
   <div class="home">
     <!-- Hero Banner -->
     <section class="hero-banner" v-if="!authenticated">
-      <div class="hero-bg"></div>
+      <div class="hero-bg">
+        <svg id="svg-layer" viewBox="0 0 1440 842" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <g clip-path="url(#clip0)">
+            <path class="track-path" d="M374.547 1138L374.547 786.998C374.547 764.907 356.638 746.998 334.547 746.998L107.037 746.998C84.9459 746.998 67.0373 729.089 67.0373 706.998L67.0373 496.287C67.0373 474.196 49.1287 456.287 27.0373 456.287L-100.497 456.287" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <path class="track-path" d="M1072.53 -29.502V235.028C1072.53 257.119 1090.44 275.028 1112.53 275.028H1294.03C1316.12 275.028 1334.03 292.936 1334.03 315.028V614.85C1334.03 636.941 1351.94 654.85 1374.03 654.85H1583.29" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <path class="track-path" d="M547.208 -30.0958L547.208 86.498C547.208 108.589 529.299 126.498 507.208 126.498L148.641 126.498C126.55 126.498 108.641 108.589 108.641 86.498L108.641 67.9955C108.641 45.9041 90.7325 27.9955 68.6411 27.9955L-31.502 27.9955" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <path class="track-path" d="M1367.6 908.533L1369.38 803.43C1369.76 781.077 1351.75 762.752 1329.39 762.752L777.72 762.752C755.628 762.752 737.72 780.661 737.72 802.752L737.72 892.498" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <path class="track-path" d="M-19.9199 352.589L230.846 352.59C252.937 352.59 270.846 334.681 270.846 312.59L270.846 166.498C270.846 144.407 288.755 126.498 310.846 126.498L507 126.498C529.091 126.498 547 108.589 547 86.4981L547 -31.5" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <rect x="70.0449" y="358.998" width="13" height="28" rx="6.5" transform="rotate(-90 70.0449 358.998)" fill="var(--hero-line-color)"/>
+            <rect x="1169.50" y="268" width="12" height="25" rx="6" transform="rotate(90 1168.54 268)" fill="var(--hero-line-color)"/>
+            <path class="track-path" d="M1161.5 951L1161.5 566.467C1161.5 544.388 1179.38 526.485 1201.46 526.467L1294.01 526.39C1316.1 526.372 1334.02 544.26 1334.04 566.348L1334.09 614.936C1334.12 636.997 1352 654.875 1374.06 654.894L1499.63 655.002" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+            <path d="M1368 -107L1368 168.503C1368 190.594 1385.91 208.503 1408 208.503L1512.5 208.503" stroke="var(--hero-line-color)" stroke-width="1.5"/>
+          </g>
+          <defs>
+            <clipPath id="clip0"><rect width="1440" height="842" fill="white"/></clipPath>
+          </defs>
+        </svg>
+      </div>
       <div class="hero-content">
         <div class="hero-text">
           <h1 class="hero-title">轻量、可嵌入、可扩展、高性能、流批一体的数据平台</h1>
@@ -170,24 +187,21 @@
   position: relative;
   padding: 80px 0 48px;
   overflow: hidden;
+  --hero-line-color: rgba(99, 102, 241, 0.18);
 }
 
 .hero-bg {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, #fbfbfd 0%, #eef3fb 60%, #e4ecfa 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
   z-index: 0;
 }
 
-.hero-bg::before {
-  content: '';
+.hero-bg svg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 15% 40%, rgba(78, 140, 255, 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45% at 85% 30%, rgba(111, 66, 193, 0.14) 0%, transparent 70%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(40, 167, 69, 0.08) 0%, transparent 70%);
+  width: 100%;
+  height: 100%;
 }
 
 .hero-bg::after {
@@ -196,8 +210,30 @@
   bottom: -1px;
   left: 0;
   right: 0;
-  height: 80px;
+  height: 60px;
   background: linear-gradient(180deg, transparent, #f7f9fc);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hero-bg .track-path {
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+  animation: dash-move 30s linear infinite;
+}
+
+@keyframes dash-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 30%, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
   z-index: 1;
   pointer-events: none;
 }
