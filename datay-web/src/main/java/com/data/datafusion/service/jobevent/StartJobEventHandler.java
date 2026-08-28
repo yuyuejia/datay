@@ -110,7 +110,12 @@ public class StartJobEventHandler implements Runnable {
             try {
                 // 标记任务为停止状态
                 taskInfo.setStopped(true);
-                // 尝试取消任务执行
+                // 先通知任务自身清理（如销毁shell子进程）
+                ITask task = taskInfo.getTask();
+                if (task != null) {
+                    task.cancel();
+                }
+                // 尝试取消任务执行（中断线程）
                 boolean cancelled = taskInfo.getFuture().cancel(true);
 
                 if (cancelled) {
