@@ -3,7 +3,8 @@ package com.data.datafusion.web.rest;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
-import com.data.datafusion.util.DBUtils;
+import com.data.job.DatasourceInfo;
+import com.data.metadata.util.DBUtils;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
@@ -46,6 +47,18 @@ public class DataSourceResource {
     public DataSourceResource(DataSourceService dataSourceService, DataSourceRepository dataSourceRepository) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
+    }
+
+    private static DatasourceInfo toDatasourceInfo(DataSourceDTO dto) {
+        DatasourceInfo info = new DatasourceInfo();
+        info.setType(dto.getType());
+        info.setUrl(dto.getUrl());
+        info.setUsername(dto.getUsername());
+        info.setPassword(dto.getPassword());
+        info.setDbschema(dto.getSchemaName());
+        info.setPort(dto.getPort());
+        info.setHostname(dto.getHostname());
+        return info;
     }
 
     /**
@@ -190,7 +203,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(dataSource);) {
+            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
                 schemas = DBUtils.getSchemas(connection);
             }
         }
@@ -210,7 +223,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(dataSource);) {
+            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
                 tables = DBUtils.getTableList(connection, schema, limit, search);
             }
         }
@@ -229,7 +242,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(dataSource);) {
+            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
                 columns = DBUtils.getTableMetaData(connection, schema, table).columns();
             }
         }
@@ -279,7 +292,7 @@ public class DataSourceResource {
         }
 
         DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-        try (Connection connection = DBUtils.getConnection(dataSource)) {
+        try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource))) {
             String trimmedSql = sql.trim();
             boolean isSelect = trimmedSql.toUpperCase().startsWith("SELECT")
                 || trimmedSql.toUpperCase().startsWith("WITH")

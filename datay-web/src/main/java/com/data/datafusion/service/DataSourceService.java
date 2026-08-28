@@ -4,7 +4,7 @@ import com.data.datafusion.domain.DataSource;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.mapper.DataSourceMapper;
-import com.data.datafusion.util.DBUtils;
+import com.data.metadata.util.DBUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,6 +149,6 @@ public class DataSourceService {
      */
     public boolean testConnection(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to test DataSource connection: {}", dataSourceDTO);
-        return DBUtils.testConnection(dataSourceDTO);
+        return DBUtils.testConnection(dataSourceDTO.getUrl(), dataSourceDTO.getUsername(), dataSourceDTO.getPassword());
     }
 }

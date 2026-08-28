@@ -14,7 +14,7 @@ import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
 import com.data.datafusion.service.mapper.DataSyncMapper;
 import com.data.datafusion.service.mapper.DataSyncTableConfigMapper;
-import com.data.datafusion.util.DBUtils;
+import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;

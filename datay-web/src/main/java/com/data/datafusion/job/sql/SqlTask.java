@@ -3,7 +3,7 @@ package com.data.datafusion.job.sql;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
-import com.data.datafusion.util.DBUtils;
+import com.data.metadata.util.DBUtils;
 import java.io.*;
 import java.sql.Connection;
 import java.util.Map;

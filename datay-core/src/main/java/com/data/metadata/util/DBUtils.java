@@ -318,14 +318,25 @@ public class DBUtils {
 
     //获取表列表
     public static List<TableMeta> getTableList(Connection conn, String schema) throws SQLException {
+        return getTableList(conn, schema, null, null);
+    }
+
+    public static List<TableMeta> getTableList(Connection conn, String schema, Integer limit) throws SQLException {
+        return getTableList(conn, schema, limit, null);
+    }
+
+    public static List<TableMeta> getTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
         String jdbcUrl = conn.getMetaData().getURL();
         DatabaseMetaData metaData = conn.getMetaData();
         List<TableMeta> tables = new ArrayList<>();
+        String tableNamePattern = (search != null && !search.isEmpty()) ? "%" + search + "%" : null;
         if (jdbcUrl.startsWith("jdbc:mysql:")) {
-            try (ResultSet rs = metaData.getTables(schema, null, null, new String[] { "TABLE" })) {
+            try (ResultSet rs = metaData.getTables(schema, null, tableNamePattern, new String[] { "TABLE" })) {
                 while (rs.next()) {
+                    if (limit != null && tables.size() >= limit) {
+                        break;
+                    }
                     String tableName = rs.getString("TABLE_NAME");
-                    //获取表的描述信息
                     String tableComment = rs.getString("REMARKS");
                     TableMeta tableMeta = new TableMeta(tableName);
                     tableMeta.setComment(tableComment);
@@ -334,8 +345,11 @@ public class DBUtils {
             }
             return tables;
         }
-        try (ResultSet rs = metaData.getTables(null, schema, null, new String[] { "TABLE" })) {
+        try (ResultSet rs = metaData.getTables(null, schema, tableNamePattern, new String[] { "TABLE" })) {
             while (rs.next()) {
+                if (limit != null && tables.size() >= limit) {
+                    break;
+                }
                 String tableName = rs.getString("TABLE_NAME");
                 TableMeta tableMeta = new TableMeta(tableName);
                 tables.add(tableMeta);
