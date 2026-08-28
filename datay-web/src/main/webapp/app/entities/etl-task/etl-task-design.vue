@@ -400,6 +400,13 @@ const cancelTask = () => {
 <template>
   <div class="design-container">
     <div class="header">
+      <div class="header-left">
+        <router-link :to="{ name: 'ETLTask' }" class="back-link">
+          <font-awesome-icon icon="arrow-left" />
+          <span>返回</span>
+        </router-link>
+        <h3 class="header-title">任务设计</h3>
+      </div>
       <div class="header-form">
         <div class="form-item">
           <label class="field-label">任务名称</label>
@@ -417,14 +424,14 @@ const cancelTask = () => {
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" @click="openScheduleModal" class="btn btn-secondary">调度设置</button>
-        <button type="button" @click="saveTask" class="btn btn-primary">保存</button>
-        <button type="button" @click="cancelTask" class="btn btn-secondary">返回</button>
+        <el-button type="primary" @click="saveTask">
+          <font-awesome-icon icon="save" class="mr-1" />
+          <span>保存</span>
+        </el-button>
       </div>
     </div>
     <div class="main-container">
       <div class="sidebar">
-        <div class="sidebar-title">ETL 组件</div>
         <div class="sidebar-tree">
           <div v-for="groupData in groupedComponents" :key="groupData.group" class="sidebar-group">
             <div class="sidebar-group-header" @click="toggleGroup(groupData.group)">
@@ -510,16 +517,50 @@ const cancelTask = () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  background: var(--el-bg-color, #fff);
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  background-color: #fff;
-  border-bottom: 1px solid #e4e7ed;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  background: var(--el-bg-color, #fff);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--el-text-color-regular, #606266);
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.back-link:hover {
+  color: var(--el-color-primary, #409eff);
+}
+
+.header-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.task-name {
+  font-weight: normal;
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
 }
 
 .header-form {
@@ -527,6 +568,7 @@ const cancelTask = () => {
   gap: 16px;
   flex: 1;
   align-items: center;
+  justify-content: center;
 }
 
 .form-item {
@@ -538,7 +580,7 @@ const cancelTask = () => {
 
 .field-label {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   white-space: nowrap;
   font-weight: 500;
   height: 28px;
@@ -552,9 +594,9 @@ const cancelTask = () => {
   padding: 0 8px;
   font-size: 13px;
   line-height: 28px;
-  color: #606266;
-  background-color: #fff;
-  border: 1px solid #dcdfe6;
+  color: var(--el-text-color-regular, #606266);
+  background-color: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color, #dcdfe6);
   border-radius: 4px;
   outline: none;
   transition: border-color 0.2s;
@@ -562,7 +604,7 @@ const cancelTask = () => {
 }
 
 .form-control:focus {
-  border-color: #409eff;
+  border-color: var(--el-color-primary, #409eff);
 }
 
 .cron-display {
@@ -570,23 +612,27 @@ const cancelTask = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #409eff;
-  background-color: #ecf5ff;
-  border-color: #d9ecff;
+  color: var(--el-color-primary, #409eff);
+  background-color: var(--el-color-light-9, #ecf5ff);
+  border-color: var(--el-color-light-5, #d9ecff);
   transition:
     background-color 0.2s,
     border-color 0.2s;
 }
 
 .cron-display:hover {
-  background-color: #d9ecff;
-  border-color: #409eff;
+  background-color: var(--el-color-light-7, #d9ecff);
+  border-color: var(--el-color-primary, #409eff);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
-  margin-left: 16px;
+  align-items: center;
+  gap: 16px;
+}
+
+.mr-1 {
+  margin-right: 4px;
 }
 
 .main-container {
