@@ -25,7 +25,12 @@ export default defineComponent({
 
     const route = useRoute();
     const isDesignPage = computed(() => {
-      return route.name === 'ETLTaskDesign' || route.name === 'ETLTaskDesignNew' || route.name === 'ETLTaskCreate';
+      return (
+        route.name === 'ETLTaskDesign' ||
+        route.name === 'ETLTaskDesignNew' ||
+        route.name === 'ETLTaskCreate' ||
+        route.name === 'DataSourceQuery'
+      );
     });
 
     return {
