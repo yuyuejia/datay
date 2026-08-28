@@ -39,8 +39,10 @@ export default defineComponent({
         authenticationError.value = false;
         hideLogin();
         await accountService.retrieveAccount();
-        if (route.path === '/forbidden') {
-          previousState();
+        const redirectUrl = sessionStorage.getItem('jhi-redirect-url');
+        if (redirectUrl) {
+          sessionStorage.removeItem('jhi-redirect-url');
+          router.push(redirectUrl);
         }
       } catch {
         authenticationError.value = true;

@@ -78,8 +78,10 @@ const app = createApp({
       if (to.meta?.authorities && to.meta.authorities.length > 0) {
         const value = await accountService.hasAnyAuthorityAndCheckAuth(to.meta.authorities);
         if (!value) {
-          if (from.path !== '/forbidden') {
-            next({ path: '/forbidden' });
+          if (to.path !== '/') {
+            sessionStorage.setItem('jhi-redirect-url', to.fullPath);
+            next({ path: '/' });
+            setTimeout(() => showLogin(), 100);
             return;
           }
         }
