@@ -250,4 +250,108 @@ public class DataSourceResource {
         result.put("message", success ? "连接测试成功" : "连接测试失败");
         return ResponseEntity.ok().body(result);
     }
+
+    /**
+     * 根据数据源ID执行SQL查询
+     * @param id 数据源ID
+     * @param request 请求体，包含sql字段
+     * @return 查询结果，包含columns、rows和affectedRows
+     */
+    @PostMapping("/{id}/query")
+    public ResponseEntity<Map<String, Object>> executeQuery(
+        @PathVariable("id") Long id,
+        @RequestBody Map<String, String> request
+    ) {
+        String sql = request.get("sql");
+        if (sql == null || sql.trim().isEmpty()) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", "SQL语句不能为空");
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        LOG.debug("REST request to execute query on DataSource {} : {}", id, sql);
+        Map<String, Object> result = new HashMap<>();
+
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            result.put("message", "数据源不存在");
+            return ResponseEntity.status(404).body(result);
+        }
+
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        try (Connection connection = DBUtils.getConnection(dataSource)) {
+            String trimmedSql = sql.trim();
+            boolean isSelect = trimmedSql.toUpperCase().startsWith("SELECT")
+                || trimmedSql.toUpperCase().startsWith("WITH")
+                || trimmedSql.toUpperCase().startsWith("SHOW")
+                || trimmedSql.toUpperCase().startsWith("DESCRIBE")
+                || trimmedSql.toUpperCase().startsWith("DESC")
+                || trimmedSql.toUpperCase().startsWith("EXPLAIN");
+
+            if (isSelect) {
+                try (java.sql.Statement stmt = connection.createStatement();
+                     java.sql.ResultSet rs = stmt.executeQuery(sql)) {
+
+                    java.sql.ResultSetMetaData meta = rs.getMetaData();
+                    int columnCount = meta.getColumnCount();
+                    List<String> columns = new ArrayList<>();
+                    for (int i = 1; i <= columnCount; i++) {
+                        columns.add(meta.getColumnLabel(i));
+                    }
+
+                    List<Map<String, Object>> rows = new ArrayList<>();
+                    int rowCount = 0;
+                    int maxRows = 10000;
+                    while (rs.next() && rowCount < maxRows) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        for (int i = 1; i <= columnCount; i++) {
+                            String colName = meta.getColumnLabel(i);
+                            int sqlType = meta.getColumnType(i);
+                            Object value = rs.getObject(i);
+                            if (value == null) {
+                                row.put(colName, null);
+                            } else if (value instanceof java.sql.Timestamp) {
+                                row.put(colName, ((java.sql.Timestamp) value).toString());
+                            } else if (value instanceof java.sql.Date) {
+                                row.put(colName, ((java.sql.Date) value).toString());
+                            } else if (value instanceof java.sql.Time) {
+                                row.put(colName, ((java.sql.Time) value).toString());
+                            } else if (value instanceof java.math.BigDecimal) {
+                                row.put(colName, ((java.math.BigDecimal) value).doubleValue());
+                            } else if (value instanceof byte[]) {
+                                row.put(colName, "[BLOB]");
+                            } else if (value instanceof java.sql.Clob) {
+                                java.sql.Clob clob = (java.sql.Clob) value;
+                                row.put(colName, clob.getSubString(1, (int) clob.length()));
+                            } else if (value instanceof java.sql.Blob) {
+                                row.put(colName, "[BLOB]");
+                            } else {
+                                row.put(colName, value);
+                            }
+                        }
+                        rows.add(row);
+                        rowCount++;
+                    }
+
+                    result.put("columns", columns);
+                    result.put("rows", rows);
+                    result.put("affectedRows", rowCount);
+                }
+            } else {
+                try (java.sql.Statement stmt = connection.createStatement()) {
+                    int affectedRows = stmt.executeUpdate(sql);
+                    result.put("columns", Collections.emptyList());
+                    result.put("rows", Collections.emptyList());
+                    result.put("affectedRows", affectedRows);
+                }
+            }
+        } catch (SQLException e) {
+            LOG.error("SQL execution error", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+
+        return ResponseEntity.ok().body(result);
+    }
 }

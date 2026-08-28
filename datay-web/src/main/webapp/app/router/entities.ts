@@ -4,6 +4,7 @@ const Entities = () => import('@/entities/entities.vue');
 const DataSource = () => import('@/entities/data-source/data-source.vue');
 const DataSourceUpdate = () => import('@/entities/data-source/data-source-update.vue');
 const DataSourceDetails = () => import('@/entities/data-source/data-source-details.vue');
+const DataSourceQuery = () => import('@/entities/data-source/data-query.vue');
 
 const JobInstance = () => import('@/entities/job-instance/job-instance.vue');
 const JobInstanceUpdate = () => import('@/entities/job-instance/job-instance-update.vue');
@@ -78,6 +79,12 @@ export default {
       path: 'data-source/:dataSourceId/view',
       name: 'DataSourceView',
       component: DataSourceDetails,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: 'data-source/:dataSourceId/query',
+      name: 'DataSourceQuery',
+      component: DataSourceQuery,
       meta: { authorities: [Authority.USER] },
     },
     {

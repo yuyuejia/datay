@@ -55,17 +55,17 @@
           </template>
         </el-table-column>
         <!-- <el-table-column prop="tenantId" label="租户ID" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column label="操作" fixed="right" min-width="200">
+        <el-table-column label="操作" fixed="right" min-width="260">
           <template #default="scope">
             <div class="btn-group">
-              <router-link :to="{ name: 'DataSourceView', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
-                  <span class="d-none d-md-inline">查看</span>
-                </el-button>
-              </router-link>
               <router-link :to="{ name: 'DataSourceEdit', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
                 <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
+                </el-button>
+              </router-link>
+              <router-link :to="{ name: 'DataSourceQuery', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
+                <el-button @click="navigate" class="btn btn-success btn-sm query" data-cy="entityQueryButton">
+                  <span class="d-none d-md-inline">数据查询</span>
                 </el-button>
               </router-link>
               <el-button
