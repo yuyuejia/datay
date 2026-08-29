@@ -172,6 +172,12 @@
         </div>
       </div>
     </section>
+
+    <data-source-modal
+      v-model:show="dataSourceModalShow"
+      mode="create"
+      @saved="onDataSourceModalSaved"
+    ></data-source-modal>
   </div>
 </template>
 

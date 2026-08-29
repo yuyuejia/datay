@@ -6,9 +6,11 @@ import DataSourceService from '@/entities/data-source/data-source.service';
 import ETLTaskService from '@/entities/etl-task/etl-task.service';
 import DataSyncService from '@/entities/data-sync/data-sync.service';
 import JobInstanceService from '@/entities/job-instance/job-instance.service';
+import DataSourceModal from '@/entities/data-source/data-source-modal.vue';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
+  components: { DataSourceModal },
   setup() {
     const { showLogin } = useLoginModal();
     const authenticated = inject<ComputedRef<boolean>>('authenticated');
@@ -60,6 +62,20 @@ export default defineComponent({
       }
     });
 
+    const dataSourceModalShow = ref(false);
+
+    const openAddDataSourceModal = () => {
+      if (!authenticated.value) {
+        showLogin();
+        return;
+      }
+      dataSourceModalShow.value = true;
+    };
+
+    const onDataSourceModalSaved = () => {
+      loadStats();
+    };
+
     const heroActions = computed(() => [
       { label: '立即登录', style: 'primary', action: () => showLogin() }
     ]);
@@ -72,7 +88,7 @@ export default defineComponent({
         icon: 'database',
         color: '#4e8cff',
         action: () => {
-          router.push('/data-source/new');
+          openAddDataSourceModal();
         },
       },
       {
@@ -132,6 +148,9 @@ export default defineComponent({
       datasources,
       components,
       guideSteps,
+      dataSourceModalShow,
+      openAddDataSourceModal,
+      onDataSourceModalSaved,
     };
   },
 });
