@@ -2,6 +2,7 @@ import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
 
 import DataSyncService from './data-sync.service';
 import { type IDataSync } from '@/shared/model/data-sync.model';
+import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -112,6 +113,98 @@ export default defineComponent({
       }
     };
 
+    const currentTask: Ref<IDataSync> = ref<IDataSync>({});
+    const instancesModal = ref<any>(null);
+    const isInstancesLoading = ref(false);
+    const taskInstances: Ref<IJobInstance[]> = ref([]);
+
+    const logModal = ref<any>(null);
+    const currentLogInstance: Ref<IJobInstance> = ref<IJobInstance>({});
+    const logContent = ref('');
+    const isLogLoading = ref(false);
+
+    const formatDateTime = (timestamp: number | string): string => {
+      if (!timestamp) return '';
+      const timeValue = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
+      if (isNaN(timeValue) || timeValue <= 0) return '';
+      const date = new Date(timeValue);
+      if (isNaN(date.getTime())) return '';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    };
+
+    const prepareViewInstances = async (task: IDataSync) => {
+      currentTask.value = task;
+      isInstancesLoading.value = true;
+      taskInstances.value = [];
+      try {
+        const res = await dataSyncService().getTaskInstances(task.id, {
+          page: 0,
+          size: 10,
+          sort: ['createTime,desc', 'id,desc'],
+        });
+        taskInstances.value = res.data || [];
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        isInstancesLoading.value = false;
+      }
+      instancesModal.value.show();
+    };
+
+    const closeInstancesModal = () => {
+      instancesModal.value.hide();
+      taskInstances.value = [];
+    };
+
+    const prepareViewLog = async (instance: IJobInstance) => {
+      currentLogInstance.value = instance;
+      logContent.value = '';
+      isLogLoading.value = true;
+      try {
+        const logData = await dataSyncService().getTaskLog(instance.jobCode, instance.instanceCode, 0);
+        if (logData.success) {
+          logContent.value = logData.content || '';
+        } else {
+          logContent.value = logData.message || '加载日志失败';
+        }
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        isLogLoading.value = false;
+      }
+      logModal.value.show();
+    };
+
+    const refreshLog = async () => {
+      if (!currentLogInstance.value?.instanceCode) return;
+      isLogLoading.value = true;
+      logContent.value = '';
+      try {
+        const logData = await dataSyncService().getTaskLog(currentLogInstance.value.jobCode, currentLogInstance.value.instanceCode, 0);
+        if (logData.success) {
+          logContent.value = logData.content || '';
+        } else {
+          logContent.value = logData.message || '加载日志失败';
+        }
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        isLogLoading.value = false;
+      }
+    };
+
+    const closeLogModal = () => {
+      logModal.value.hide();
+      logContent.value = '';
+      currentLogInstance.value = null;
+    };
+
     // Whenever order changes, reset the pagination
     watch([propOrder, reverse], async () => {
       if (page.value === 1) {
@@ -147,8 +240,22 @@ export default defineComponent({
       reverse,
       totalItems,
       changeOrder,
-      handleSortChange, // 新增方法
+      handleSortChange,
       executeDataSync,
+      currentTask,
+      instancesModal,
+      isInstancesLoading,
+      taskInstances,
+      prepareViewInstances,
+      closeInstancesModal,
+      logModal,
+      currentLogInstance,
+      logContent,
+      isLogLoading,
+      prepareViewLog,
+      refreshLog,
+      closeLogModal,
+      formatDateTime,
     };
   },
 });

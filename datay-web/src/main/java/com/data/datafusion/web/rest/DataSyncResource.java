@@ -4,11 +4,14 @@ import static com.data.datafusion.job.TaskConstants.TASK_STATUS_OFFLINE;
 
 import com.data.datafusion.repository.DataSyncRepository;
 import com.data.datafusion.service.DataSyncService;
+import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.dto.DataSyncDTO;
+import com.data.datafusion.service.dto.JobInstanceDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,9 +46,12 @@ public class DataSyncResource {
 
     private final DataSyncRepository dataSyncRepository;
 
-    public DataSyncResource(DataSyncService dataSyncService, DataSyncRepository dataSyncRepository) {
+    private final JobInstanceService jobInstanceService;
+
+    public DataSyncResource(DataSyncService dataSyncService, DataSyncRepository dataSyncRepository, JobInstanceService jobInstanceService) {
         this.dataSyncService = dataSyncService;
         this.dataSyncRepository = dataSyncRepository;
+        this.jobInstanceService = jobInstanceService;
     }
 
     /**
@@ -193,5 +199,33 @@ public class DataSyncResource {
         LOG.debug("REST request to execute DataSync immediately : {}", id);
         dataSyncService.executeDataSyncNow(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * {@code GET  /data-syncs/:id/instances} : get the job instances for the DataSync task.
+     *
+     * @param id the id of the DataSyncDTO.
+     * @param pageable the pagination information.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of job instances in body.
+     */
+    @GetMapping("/{id}/instances")
+    public ResponseEntity<List<JobInstanceDTO>> getDataSyncInstances(
+        @PathVariable("id") Long id,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to get instances for DataSync : {}", id);
+        Optional<DataSyncDTO> dataSyncDTO = dataSyncService.findOne(id);
+        if (dataSyncDTO.isEmpty()) {
+            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
+        }
+        String jobCode = dataSyncDTO.get().getJobCode();
+        if (jobCode == null || jobCode.isEmpty()) {
+            return ResponseEntity.ok()
+                .headers(PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), Page.empty()))
+                .body(Collections.emptyList());
+        }
+        Page<JobInstanceDTO> page = jobInstanceService.findAllByJobCode(jobCode, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 }

@@ -97,4 +97,37 @@ export default class DataSyncService {
         });
     });
   }
+
+  getTaskInstances(taskId: number, paginationQuery?: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${taskId}/instances?${buildPaginationQueryOpts(paginationQuery)}`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  getTaskLog(jobCode: string, jobInstanceCode: string, offset: number = 0, maxSize: number = 10485760): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`api/worker/log`, {
+          params: {
+            jobCode,
+            jobInstanceCode,
+            offset,
+            maxSize,
+          },
+        })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
 }

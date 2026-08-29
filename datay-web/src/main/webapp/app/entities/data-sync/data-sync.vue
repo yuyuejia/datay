@@ -1,8 +1,8 @@
 <template>
   <div>
-    <h2 id="page-heading" data-cy="DataSyncHeading">
+    <h2 id="page-heading" data-cy="DataSyncHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="data-sync-heading">数据同步</span>
-      <div class="d-flex justify-content-end">
+      <div class="d-flex align-items-center">
         <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新列表</span>
         </button>
@@ -54,11 +54,9 @@
               >
                 <span class="d-none d-md-inline">立即执行</span>
               </el-button>
-              <router-link :to="{ name: 'DataSyncView', params: { dataSyncId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
-                  <span class="d-none d-md-inline">查看</span>
-                </el-button>
-              </router-link>
+              <el-button @click="prepareViewInstances(scope.row)" class="btn btn-info btn-sm" data-cy="entityLogButton">
+                <span class="d-none d-md-inline">日志</span>
+              </el-button>
               <router-link :to="{ name: 'DataSyncEdit', params: { dataSyncId: scope.row.id } }" custom v-slot="{ navigate }">
                 <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
@@ -97,6 +95,89 @@
           >
             删除
           </button>
+        </div>
+      </template>
+    </b-modal>
+    <b-modal ref="instancesModal" id="instancesModal" size="xl" scrollable>
+      <template #modal-title>
+        <span>任务执行实例 - {{ currentTask?.jobName }}</span>
+      </template>
+      <div class="modal-body">
+        <div v-if="isInstancesLoading" class="text-center">
+          <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+          <span>正在加载实例列表...</span>
+        </div>
+        <div v-else-if="taskInstances.length === 0" class="text-center text-muted">暂无执行实例</div>
+        <el-table v-else :data="taskInstances" style="width: 100%" size="small" max-height="400">
+          <el-table-column prop="id" label="ID" width="70"></el-table-column>
+          <el-table-column prop="instanceCode" label="实例编码" width="180"></el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="scope">
+              <span :class="'status-badge status-' + (scope.row.status?.toLowerCase() || '')">
+                {{ scope.row.status }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="jobMessage" label="消息" show-overflow-tooltip></el-table-column>
+          <el-table-column prop="startTime" label="开始时间" width="160">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.startTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="endTime" label="结束时间" width="160">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.endTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="scope">
+              <el-button
+                type="primary"
+                size="small"
+                @click="prepareViewLog(scope.row)"
+                :disabled="scope.row.status === 'RUNNING' || scope.row.status === 'STARTING'"
+              >
+                日志
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #modal-footer>
+        <div>
+          <button type="button" class="btn btn-secondary" @click="closeInstancesModal()">关闭</button>
+        </div>
+      </template>
+    </b-modal>
+    <b-modal ref="logModal" id="logModal" size="xl" scrollable>
+      <template #modal-title>
+        <span>任务日志 - {{ currentLogInstance?.instanceCode }}</span>
+      </template>
+      <div class="modal-body">
+        <div v-if="isLogLoading" class="text-center">
+          <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+          <span>正在加载日志...</span>
+        </div>
+        <pre
+          v-else
+          class="log-content"
+          style="
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+          "
+          >{{ logContent || '暂无日志内容' }}</pre
+        >
+      </div>
+      <template #modal-footer>
+        <div>
+          <button class="btn btn-primary mr-2" @click="refreshLog" :disabled="isLogLoading">刷新</button>
+          <button type="button" class="btn btn-secondary" @click="closeLogModal()">关闭</button>
         </div>
       </template>
     </b-modal>

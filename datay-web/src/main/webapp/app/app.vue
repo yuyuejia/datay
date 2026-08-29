@@ -15,7 +15,6 @@
         <login-form></login-form>
       </b-modal>
 
-      <jhi-footer></jhi-footer>
     </div>
   </div>
 </template>
