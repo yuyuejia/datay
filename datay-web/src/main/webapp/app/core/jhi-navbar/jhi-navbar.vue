@@ -1,6 +1,7 @@
 <template>
   <b-navbar data-cy="navbar" toggleable="md" type="dark" class="jh-navbar">
     <b-navbar-brand class="logo" b-link to="/">
+      <span class="logo-img"></span>
       <span class="navbar-title">Data<span class="logo-y">Y</span></span>
     </b-navbar-brand>
     <b-navbar-toggle
