@@ -47,7 +47,7 @@ export const dbTypes: DbType[] = [
     jdbcUrlTemplate: 'jdbc:duckdb:{database}',
     supportedVersions: ['0.8', '0.9', '1.0'],
     defaultPort: '',
-    icon: 'feather',
+    image: '/content/images/DuckDB.svg',
   },
   {
     name: 'DUCKLAKE',
@@ -55,7 +55,7 @@ export const dbTypes: DbType[] = [
     jdbcUrlTemplate: 'ducklake:metadata.ducklake',
     supportedVersions: ['0.4'],
     defaultPort: '',
-    icon: 'feather',
+    image: '/content/images/DuckDB.svg',
   },
   {
     name: 'CLICKHOUSE',
@@ -80,13 +80,5 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['1.2', '2.0', '2.1'],
     defaultPort: '9030',
     image: '/content/images/doris.svg',
-  },
-  {
-    name: 'AVRO',
-    displayName: 'Apache Avro',
-    jdbcUrlTemplate: 'jdbc:avro://{host}:{port}/{database}',
-    supportedVersions: ['1.8', '1.9', '1.10', '1.11'],
-    defaultPort: '9090',
-    icon: 'file-code',
   },
 ];

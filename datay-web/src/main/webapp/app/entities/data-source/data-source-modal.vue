@@ -16,10 +16,6 @@
               <font-awesome-icon v-else :icon="dbType.icon || 'database'"></font-awesome-icon>
             </div>
             <div class="db-type-name">{{ dbType.displayName }}</div>
-            <div class="db-type-desc">
-              <span v-if="dbType.defaultPort">默认端口: {{ dbType.defaultPort }}</span>
-              <span v-else>文件型数据库</span>
-            </div>
           </div>
         </div>
       </div>
