@@ -118,7 +118,7 @@
 
 <style scoped>
 .data-query-container {
-  height: calc(100vh - 120px);
+  height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   background: var(--el-bg-color, #fff);
