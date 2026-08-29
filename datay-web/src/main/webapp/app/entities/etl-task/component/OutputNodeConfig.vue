@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div>
+    <div class="form-actions">
       <el-button type="primary" @click="saveConfig">保存</el-button>
       <el-button @click="cancelConfig">取消</el-button>
     </div>
@@ -227,5 +227,10 @@ label {
 textarea.form-control {
   resize: vertical;
   min-height: 60px;
+}
+
+.form-actions {
+  margin-top: 30px;
+  text-align: right;
 }
 </style>

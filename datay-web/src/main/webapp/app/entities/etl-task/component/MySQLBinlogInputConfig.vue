@@ -71,7 +71,7 @@
         <small class="form-text text-muted"> 指定从Binlog文件的哪个位置开始采集，需要与Binlog文件一起使用 </small>
       </div>
     </div>
-    <div>
+    <div class="form-actions">
       <el-button type="primary" @click="saveConfig">保存</el-button>
       <el-button @click="cancelConfig">取消</el-button>
     </div>
@@ -213,5 +213,10 @@ const cancelConfig = () => {
   margin-top: 5px;
   color: #909399;
   font-size: 12px;
+}
+
+.form-actions {
+  margin-top: 30px;
+  text-align: right;
 }
 </style>

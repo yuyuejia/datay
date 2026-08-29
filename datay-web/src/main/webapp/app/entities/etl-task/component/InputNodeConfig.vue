@@ -39,7 +39,7 @@
         <!-- <input type="text" class="form-control" id="incrColumn" name="incrColumn" v-model="formData.incrColumn" /> -->
       </div>
     </div>
-    <div>
+    <div class="form-actions">
       <el-button type="primary" @click="saveConfig">保存</el-button>
       <el-button @click="cancelConfig">取消</el-button>
     </div>
@@ -179,3 +179,10 @@ const cancelConfig = () => {
   emits('cancel');
 };
 </script>
+
+<style scoped>
+.form-actions {
+  margin-top: 30px;
+  text-align: right;
+}
+</style>
