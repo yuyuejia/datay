@@ -10,17 +10,15 @@
           v-model="search"
           placeholder="按名称 / IP / 端口 / 地址搜索"
         />
-        <router-link :to="{ name: 'DataSourceCreate' }" custom v-slot="{ navigate }">
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-data-source"
-          >
-            <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span>创建数据源</span>
-          </button>
-        </router-link>
+        <button
+          @click="openCreateModal"
+          id="jh-create-entity"
+          data-cy="entityCreateButton"
+          class="btn btn-primary jh-create-entity create-data-source"
+        >
+          <font-awesome-icon icon="plus"></font-awesome-icon>
+          <span>创建数据源</span>
+        </button>
       </div>
     </h2>
     <br />
@@ -28,7 +26,6 @@
       <span>未找到数据源</span>
     </div>
     <div v-if="dataSources && dataSources.length > 0">
-      <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="id" label="ID" sortable="custom" width="100">
           <template #default="scope">
@@ -43,26 +40,17 @@
         <el-table-column prop="port" label="端口" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="schemaName" label="数据库名" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="username" label="用户名" sortable="custom" width="150"></el-table-column>
-        <!-- <el-table-column prop="password" label="密码" sortable="custom" width="150"></el-table-column> -->
-        <!-- <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="150">
-          <template #default="scope">
-            {{ formatDateShort(scope.row.updateTime) || '' }}
-          </template>
-        </el-table-column> -->
         <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <!-- <el-table-column prop="tenantId" label="租户ID" sortable="custom" width="150"></el-table-column> -->
         <el-table-column label="操作" fixed="right" min-width="260">
           <template #default="scope">
             <div class="btn-group">
-              <router-link :to="{ name: 'DataSourceEdit', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
-                  <span class="d-none d-md-inline">编辑</span>
-                </el-button>
-              </router-link>
+              <el-button @click="openEditModal(scope.row)" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <span class="d-none d-md-inline">编辑</span>
+              </el-button>
               <router-link :to="{ name: 'DataSourceQuery', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
                 <el-button @click="navigate" class="btn btn-success btn-sm query" data-cy="entityQueryButton">
                   <span class="d-none d-md-inline">数据查询</span>
@@ -104,6 +92,14 @@
         </div>
       </template>
     </b-modal>
+
+    <data-source-modal
+      v-model:show="modalShow"
+      :mode="modalMode"
+      :data-source-id="modalDataSourceId"
+      @saved="onModalSaved"
+    ></data-source-modal>
+
     <div v-show="dataSources && dataSources.length > 0">
       <div class="row justify-content-center">
         <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>

@@ -6,9 +6,12 @@ import { useDateFormat } from '@/shared/composables';
 import { type IDataSource } from '@/shared/model/data-source.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
+import DataSourceModal from './data-source-modal.vue';
+
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'DataSourceDetails',
+  components: { DataSourceModal },
   setup() {
     const dateFormat = useDateFormat();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
@@ -33,12 +36,26 @@ export default defineComponent({
       retrieveDataSource(route.params.dataSourceId);
     }
 
+    const modalShow = ref(false);
+
+    const openEditModal = () => {
+      modalShow.value = true;
+    };
+
+    const onModalSaved = () => {
+      if (dataSource.value.id) {
+        retrieveDataSource(dataSource.value.id);
+      }
+    };
+
     return {
       ...dateFormat,
       alertService,
       dataSource,
-
       previousState,
+      modalShow,
+      openEditModal,
+      onModalSaved,
     };
   },
 });

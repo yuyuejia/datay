@@ -5,9 +5,12 @@ import { type IDataSource } from '@/shared/model/data-source.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
+import DataSourceModal from './data-source-modal.vue';
+
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'DataSource',
+  components: { DataSourceModal },
   setup() {
     const dateFormat = useDateFormat();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
@@ -59,17 +62,14 @@ export default defineComponent({
 
     let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Whenever the search keyword changes, reset the pagination and re-fetch (debounced)
     watch(search, () => {
       if (searchTimer) {
         clearTimeout(searchTimer);
       }
       searchTimer = setTimeout(() => {
         if (page.value === 1) {
-          // first page, retrieve new data
           retrieveDataSources();
         } else {
-          // reset the pagination
           clear();
         }
       }, 300);
@@ -124,21 +124,37 @@ export default defineComponent({
       }
     };
 
-    // Whenever order changes, reset the pagination
     watch([propOrder, reverse], async () => {
       if (page.value === 1) {
-        // first page, retrieve new data
         await retrieveDataSources();
       } else {
-        // reset the pagination
         clear();
       }
     });
 
-    // Whenever page changes, switch to the new page.
     watch(page, async () => {
       await retrieveDataSources();
     });
+
+    const modalShow = ref(false);
+    const modalMode = ref<'create' | 'edit'>('create');
+    const modalDataSourceId = ref<number | null>(null);
+
+    const openCreateModal = () => {
+      modalMode.value = 'create';
+      modalDataSourceId.value = null;
+      modalShow.value = true;
+    };
+
+    const openEditModal = (row: IDataSource) => {
+      modalMode.value = 'edit';
+      modalDataSourceId.value = row.id;
+      modalShow.value = true;
+    };
+
+    const onModalSaved = () => {
+      retrieveDataSources();
+    };
 
     return {
       dataSources,
@@ -160,6 +176,12 @@ export default defineComponent({
       totalItems,
       changeOrder,
       handleSortChange,
+      modalShow,
+      modalMode,
+      modalDataSourceId,
+      openCreateModal,
+      openEditModal,
+      onModalSaved,
     };
   },
 });

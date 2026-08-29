@@ -80,18 +80,23 @@
         <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">
           <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>返回</span>
         </button>
-        <router-link
+        <button
           v-if="dataSource.id"
-          :to="{ name: 'DataSourceEdit', params: { dataSourceId: dataSource.id } }"
-          custom
-          v-slot="{ navigate }"
+          type="button"
+          class="btn btn-primary"
+          @click="openEditModal"
         >
-          <button @click="navigate" class="btn btn-primary">
-            <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span>编辑</span>
-          </button>
-        </router-link>
+          <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span>编辑</span>
+        </button>
       </div>
     </div>
+
+    <data-source-modal
+      v-model:show="modalShow"
+      mode="edit"
+      :data-source-id="dataSource.id"
+      @saved="onModalSaved"
+    ></data-source-modal>
   </div>
 </template>
 
