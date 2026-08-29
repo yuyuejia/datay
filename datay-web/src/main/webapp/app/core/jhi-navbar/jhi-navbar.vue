@@ -1,8 +1,7 @@
 <template>
   <b-navbar data-cy="navbar" toggleable="md" type="dark" class="jh-navbar">
     <b-navbar-brand class="logo" b-link to="/">
-      <span class="logo-img"></span>
-      <span class="navbar-title">Datafusion</span> <span class="navbar-version">{{ version }}</span>
+      <span class="navbar-title">Data<span class="logo-y">Y</span></span>
     </b-navbar-brand>
     <b-navbar-toggle
       right
@@ -218,5 +217,9 @@
   width: 100%;
   filter: drop-shadow(0 0 0.05rem white);
   margin: 0 5px;
+}
+
+.logo-y {
+    color: #ff6900;
 }
 </style>
