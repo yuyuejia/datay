@@ -5,7 +5,7 @@
         <div class="content">
           <h5 class="mb-3">基本信息</h5>
           <div class="row g-2 align-items-center mb-2">
-            <label class="col-sm-2 col-form-label-sm text-end" for="data-sync-jobName">Job Name</label>
+            <label class="col-sm-2 col-form-label-sm text-end" for="data-sync-jobName">任务名称</label>
             <div class="col-sm-4">
               <input
                 type="text"
@@ -84,7 +84,7 @@
           </div>
 
           <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
-            <h5 class="mb-0">选择表</h5>
+            <h5 class="mb-0">同步范围</h5>
             <DataSourceTableSelector
               :dataSourceId="sourceDataSourceId"
               :schema="sourceSchema"
@@ -97,28 +97,30 @@
             <el-table-column prop="srcTableName" label="表名" min-width="180" />
             <el-table-column label="目标表名" min-width="200">
               <template #default="scope">
-                <el-input v-model="scope.row.desTableName" size="small" />
+                <input v-model="scope.row.desTableName" type="text" class="form-control form-control-sm" />
               </template>
             </el-table-column>
           </el-table>
 
-          <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
-            <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
-          </button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            @click="save"
-            :disabled="
-              v$.jobName.$invalid ||
-              v$.jobDesc.$invalid ||
-              v$.type.$invalid ||
-              v$.cron.$invalid ||
-              selectedTables.length === 0
-            "
-          >
-            保存
-          </button>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
+              <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              @click="save"
+              :disabled="
+                v$.jobName.$invalid ||
+                v$.jobDesc.$invalid ||
+                v$.type.$invalid ||
+                v$.cron.$invalid ||
+                selectedTables.length === 0
+              "
+            >
+              保存
+            </button>
+          </div>
         </div>
       </div>
     </div>

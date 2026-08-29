@@ -62,6 +62,7 @@ export default defineComponent({
     if (route.params?.dataSyncId) {
       retrieveDataSync(route.params.dataSyncId);
     } else {
+      dataSync.value.type = 'FULL_SYNC';
       dataSyncLoaded.value = true;
     }
 

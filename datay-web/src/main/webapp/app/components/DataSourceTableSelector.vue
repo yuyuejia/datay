@@ -9,36 +9,38 @@
     <div v-else>
       <button type="button" class="btn btn-primary" @click="showModal = true">选择表</button>
     </div>
-    <b-modal size="lg" v-model="showModal" id="tableSelectorModal" title="选择数据源表">
+    <b-modal size="lg" v-model="showModal" id="tableSelectorModal" title="选择数据源表" class="modal-dialog-scrollable">
       <div class="modal-body">
         <div class="mb-3">
           <input type="text" class="form-control" v-model="searchQuery" placeholder="搜索表名（最多显示 1000 张表）" />
         </div>
         <div v-if="loading" class="text-center text-muted py-4">加载中...</div>
         <div v-else-if="tables.length === 0" class="text-center text-muted py-4">无匹配的表</div>
-        <table v-else class="table">
-          <thead>
-            <tr>
-              <th>选择</th>
-              <th>表名</th>
-              <th>描述</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="table in tables" :key="table.table">
-              <td>
-                <input
-                  :type="props.multiple ? 'checkbox' : 'radio'"
-                  :checked="isTableSelected(table)"
-                  :name="!props.multiple ? 'tableSelection' : undefined"
-                  @change="toggleTableSelection(table, $event)"
-                />
-              </td>
-              <td>{{ table.table }}</td>
-              <td>{{ table.comment }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-else style="max-height: 60vh; overflow-y: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>选择</th>
+                <th>表名</th>
+                <th>描述</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="table in tables" :key="table.table">
+                <td>
+                  <input
+                    :type="props.multiple ? 'checkbox' : 'radio'"
+                    :checked="isTableSelected(table)"
+                    :name="!props.multiple ? 'tableSelection' : undefined"
+                    @change="toggleTableSelection(table, $event)"
+                  />
+                </td>
+                <td>{{ table.table }}</td>
+                <td>{{ table.comment }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div v-if="tables.length >= 1000" class="text-center text-muted small mt-2">已加载最多 1000 张表，使用搜索框可过滤结果</div>
       </div>
       <template #modal-footer>
