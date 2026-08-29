@@ -181,4 +181,17 @@ public class DataSyncResource {
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();
     }
+
+    /**
+     * {@code POST  /data-syncs/:id/execute} : execute the dataSync task immediately.
+     *
+     * @param id the id of the dataSyncDTO to execute.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
+     */
+    @PostMapping("/{id}/execute")
+    public ResponseEntity<Void> executeDataSync(@PathVariable("id") Long id) {
+        LOG.debug("REST request to execute DataSync immediately : {}", id);
+        dataSyncService.executeDataSyncNow(id);
+        return ResponseEntity.ok().build();
+    }
 }

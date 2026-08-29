@@ -17,47 +17,47 @@
                 v-model="v$.jobName.$model"
               />
             </div>
-            <label class="col-sm-2 col-form-label-sm text-end" for="data-sync-jobDesc">Job Desc</label>
-            <div class="col-sm-4">
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                name="jobDesc"
-                id="data-sync-jobDesc"
-                data-cy="jobDesc"
-                :class="{ valid: !v$.jobDesc.$invalid, invalid: v$.jobDesc.$invalid }"
-                v-model="v$.jobDesc.$model"
-              />
-            </div>
           </div>
           <div class="row g-2 align-items-center mb-2">
-            <label class="col-sm-2 col-form-label-sm text-end" for="data-sync-type">同步类型</label>
+            <label class="col-sm-2 col-form-label-sm text-end">同步类型</label>
             <div class="col-sm-4">
-              <select
-                class="form-select form-select-sm"
-                name="type"
-                id="data-sync-type"
-                data-cy="type"
+              <div
+                class="form-check form-check-inline"
                 :class="{ valid: !v$.type.$invalid, invalid: v$.type.$invalid }"
-                v-model="v$.type.$model"
+                data-cy="type"
               >
-                <option value="">请选择同步类型</option>
-                <option value="SCHEMA_SYNC">表结构同步</option>
-                <option value="FULL_SYNC">全量同步</option>
-                <option value="INCREMENTAL_SYNC">增量同步</option>
-              </select>
-            </div>
-            <label class="col-sm-2 col-form-label-sm text-end" for="data-sync-cron">Cron</label>
-            <div class="col-sm-4">
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                name="cron"
-                id="data-sync-cron"
-                data-cy="cron"
-                :class="{ valid: !v$.cron.$invalid, invalid: v$.cron.$invalid }"
-                v-model="v$.cron.$model"
-              />
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="type"
+                  id="data-sync-type-full"
+                  value="FULL_SYNC"
+                  v-model="v$.type.$model"
+                />
+                <label class="form-check-label" for="data-sync-type-full">结构和数据</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="type"
+                  id="data-sync-type-data-only"
+                  value="DATA_ONLY"
+                  v-model="v$.type.$model"
+                />
+                <label class="form-check-label" for="data-sync-type-data-only">仅数据</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="type"
+                  id="data-sync-type-schema-only"
+                  value="SCHEMA_ONLY"
+                  v-model="v$.type.$model"
+                />
+                <label class="form-check-label" for="data-sync-type-schema-only">仅结构</label>
+              </div>
             </div>
           </div>
           <div class="row g-2 align-items-center mb-2">
@@ -100,11 +100,6 @@
                 <el-input v-model="scope.row.desTableName" size="small" />
               </template>
             </el-table-column>
-            <el-table-column v-if="dataSync.type === 'INCREMENTAL_SYNC'" label="增量字段" min-width="220">
-              <template #default="scope">
-                <el-input v-model="scope.row.srcColPks" size="small" placeholder="例如：id,update_time" />
-              </template>
-            </el-table-column>
           </el-table>
 
           <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
@@ -119,8 +114,7 @@
               v$.jobDesc.$invalid ||
               v$.type.$invalid ||
               v$.cron.$invalid ||
-              selectedTables.length === 0 ||
-              (dataSync.type === 'INCREMENTAL_SYNC' && !validateIncrementalFields())
+              selectedTables.length === 0
             "
           >
             保存

@@ -102,21 +102,11 @@ export default defineComponent({
     };
 
     const updateSelectedTables = (tables: any[]) => {
-      // 初始化目标表名和增量字段
       tables.forEach(table => {
         table.srcTableName = table.table;
         table.desTableName = table.srcTableName;
-        table.incrementalField = table.incrementalField || '';
       });
       selectedTables.value = tables;
-    };
-
-    // 验证增量字段
-    const validateIncrementalFields = () => {
-      if (dataSync.value.type !== 'INCREMENTAL_SYNC') {
-        return true;
-      }
-      return selectedTables.value.every(table => table.srcColPks && table.srcColPks.trim() !== '');
     };
 
     return {
@@ -135,7 +125,6 @@ export default defineComponent({
       targetDataSourceId,
       targetSchema,
       updateSelectedTables,
-      validateIncrementalFields,
       dataSyncLoaded,
       ...useDateFormat({ entityRef: dataSync }),
     };

@@ -44,9 +44,16 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="" fixed="right" min-width="200">
+        <el-table-column label="" fixed="right" min-width="260">
           <template #default="scope">
             <div class="btn-group">
+              <el-button
+                @click="executeDataSync(scope.row)"
+                class="btn btn-success btn-sm"
+                data-cy="entityExecuteButton"
+              >
+                <span class="d-none d-md-inline">立即执行</span>
+              </el-button>
               <router-link :to="{ name: 'DataSyncView', params: { dataSyncId: scope.row.id } }" custom v-slot="{ navigate }">
                 <el-button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
                   <span class="d-none d-md-inline">查看</span>

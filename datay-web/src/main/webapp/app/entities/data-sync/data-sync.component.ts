@@ -102,6 +102,16 @@ export default defineComponent({
       }
     };
 
+    const executeDataSync = async (row: IDataSync) => {
+      try {
+        await dataSyncService().execute(row.id);
+        alertService.showInfo(`任务 ${row.jobName} 已提交执行`);
+        retrieveDataSyncs();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
     // Whenever order changes, reset the pagination
     watch([propOrder, reverse], async () => {
       if (page.value === 1) {
@@ -138,6 +148,7 @@ export default defineComponent({
       totalItems,
       changeOrder,
       handleSortChange, // 新增方法
+      executeDataSync,
     };
   },
 });

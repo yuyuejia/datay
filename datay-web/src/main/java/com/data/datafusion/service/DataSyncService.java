@@ -176,8 +176,10 @@ public class DataSyncService {
 
     public void createDataSyncTask(DataSyncDTO dataSyncDTO) {
         try {
-            syncTablesDDL(dataSyncDTO);
-            if (!("SCHEMA_SYNC").equals(dataSyncDTO.getType())) {
+            if (!("DATA_ONLY").equals(dataSyncDTO.getType())) {
+                syncTablesDDL(dataSyncDTO);
+            }
+            if (!("SCHEMA_ONLY").equals(dataSyncDTO.getType())) {
                 Job job = saveETLJob(dataSyncDTO);
                 dataSyncDTO.setJobCode(job.getId().toString());
             }
@@ -186,6 +188,26 @@ public class DataSyncService {
             dataSyncDTO.setStatus("FAILED");
             dataSyncRepository.save(dataSyncMapper.toEntity(dataSyncDTO));
             throw new RuntimeException(e);
+        }
+    }
+
+    public void executeDataSyncNow(Long id) {
+        Optional<DataSyncDTO> dataSyncOpt = findOne(id);
+        if (!dataSyncOpt.isPresent()) {
+            throw new RuntimeException("DataSync not found: " + id);
+        }
+        DataSyncDTO dataSyncDTO = dataSyncOpt.get();
+        if ("SCHEMA_ONLY".equals(dataSyncDTO.getType())) {
+            try {
+                syncTablesDDL(dataSyncDTO);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            String jobCode = dataSyncDTO.getJobCode();
+            if (jobCode != null && !jobCode.isEmpty()) {
+                jobService.findOneJob(Long.valueOf(jobCode)).ifPresent(jobService::executeOnce);
+            }
         }
     }
 
@@ -300,10 +322,8 @@ public class DataSyncService {
             jdbcOutput.put("sourceId", sourceIdOutput);
         }
         jdbcOutput.put("table", ""); // 假设 DataSyncDTO 有 getDesTableName 方法
-        if (("FULL_SYNC").equals(dataSyncDTO.getType())) {
+        if (("FULL_SYNC").equals(dataSyncDTO.getType()) || ("DATA_ONLY").equals(dataSyncDTO.getType())) {
             jdbcOutput.put("model", "overwrite");
-        } else if (("INCREMENTAL_SYNC").equals(dataSyncDTO.getType())) {
-            jdbcOutput.put("model", "update");
         }
         units.add(jdbcOutput);
 
