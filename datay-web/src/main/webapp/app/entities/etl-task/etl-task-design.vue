@@ -468,10 +468,10 @@ const cancelTask = () => {
         </VueFlow>
       </div>
     </div>
-    <b-modal ref="configEntity" id="configEntity" class="config-modal">
+    <b-modal ref="configEntity" id="configEntity" class="config-modal" size="lg">
       <template #modal-title>
         <div class="config-modal-title">
-          <span class="config-modal-title-label">配置节点</span>
+          <span class="config-modal-title-label">节点名称: </span>
           <input
             type="text"
             class="config-node-name-input"

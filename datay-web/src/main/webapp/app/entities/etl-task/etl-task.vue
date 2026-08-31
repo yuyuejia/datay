@@ -32,11 +32,6 @@
     </div>
     <div v-if="eTLTasks && eTLTasks.length > 0">
       <el-table :data="eTLTasks" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="id" label="ID" sortable="custom" width="80">
-          <template #default="scope">
-            <router-link :to="{ name: 'ETLTaskView', params: { eTLTaskId: scope.row.id } }">{{ scope.row.id }}</router-link>
-          </template>
-        </el-table-column>
         <el-table-column prop="taskName" label="任务名称" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="jobId" label="作业ID" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="150"></el-table-column>

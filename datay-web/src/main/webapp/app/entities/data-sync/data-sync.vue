@@ -26,11 +26,6 @@
     <div v-if="dataSyncs && dataSyncs.length > 0">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="dataSyncs" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="id" label="ID" sortable="custom" width="100">
-          <template #default="scope">
-            <router-link :to="{ name: 'DataSyncView', params: { dataSyncId: scope.row.id } }">{{ scope.row.id }}</router-link>
-          </template>
-        </el-table-column>
         <el-table-column prop="jobName" label="任务名称" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="jobDesc" label="任务描述" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="type" label="类型" sortable="custom" width="150"></el-table-column>

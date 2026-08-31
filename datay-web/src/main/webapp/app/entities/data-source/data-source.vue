@@ -27,17 +27,10 @@
     </div>
     <div v-if="dataSources && dataSources.length > 0">
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="id" label="ID" sortable="custom" width="100">
-          <template #default="scope">
-            <router-link :to="{ name: 'DataSourceView', params: { dataSourceId: scope.row.id } }">{{ scope.row.id }}</router-link>
-          </template>
-        </el-table-column>
         <el-table-column prop="name" label="名称" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="description" label="描述" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="url" label="地址" sortable="custom" width="350"></el-table-column>
-        <el-table-column prop="hostname" label="IP/主机" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="port" label="端口" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="schemaName" label="数据库名" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="username" label="用户名" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
