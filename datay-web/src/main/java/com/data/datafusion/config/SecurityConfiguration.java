@@ -7,6 +7,7 @@ import com.data.datafusion.security.*;
 import com.data.datafusion.web.filter.SpaWebFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
@@ -44,6 +45,27 @@ public class SecurityConfiguration {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Dedicated security filter chain for the MCP endpoint.
+     *
+     * <p>The MCP server authenticates clients with a per-user token (validated at the transport
+     * layer via {@code Authorization: Bearer <mcp-token>}). That token is not a JWT, so this chain
+     * must not apply the OAuth2 resource-server (JWT) filter, otherwise it would reject the MCP
+     * token as a malformed JWT before it ever reaches the MCP servlet.
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain mcpFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/mcp", "/mcp/**")
+            .cors(withDefaults())
+            .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions(FrameOptionsConfig::sameOrigin))
+            .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        return http.build();
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc) throws Exception {
         http
@@ -68,7 +90,6 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/*.ico"), mvc.pattern("/*.png"), mvc.pattern("/content/images/*.svg"),mvc.pattern("/*.svg"), mvc.pattern("/*.webapp")).permitAll()
                     .requestMatchers(mvc.pattern("/assets/**")).permitAll()
                     .requestMatchers(mvc.pattern("/swagger-ui/**")).permitAll()
-                    .requestMatchers(mvc.pattern("/mcp"), mvc.pattern("/mcp/**")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/register")).permitAll()

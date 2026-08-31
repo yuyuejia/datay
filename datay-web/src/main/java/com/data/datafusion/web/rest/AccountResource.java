@@ -135,6 +135,28 @@ public class AccountResource {
     }
 
     /**
+     * {@code GET  /account/mcp-token} : check whether the current user has an MCP token.
+     *
+     * @return whether the current user has an MCP token configured.
+     */
+    @GetMapping("/account/mcp-token")
+    public Map<String, Boolean> hasMcpToken() {
+        return Map.of("hasToken", userService.hasMcpToken());
+    }
+
+    /**
+     * {@code POST  /account/mcp-token} : generate (or reset) the current user's MCP token.
+     *
+     * <p>The plain-text token is returned only once; only its hash is stored.
+     *
+     * @return the newly generated plain-text token.
+     */
+    @PostMapping("/account/mcp-token")
+    public Map<String, String> generateMcpToken() {
+        return Map.of("token", userService.generateMcpToken());
+    }
+
+    /**
      * {@code POST   /account/reset-password/init} : Send an email to reset the password of the user.
      *
      * @param mail the mail of the user.

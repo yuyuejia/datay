@@ -79,6 +79,11 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     private Instant resetDate = null;
 
     @JsonIgnore
+    @Size(max = 60)
+    @Column(name = "mcp_token_hash", length = 60)
+    private String mcpTokenHash;
+
+    @JsonIgnore
     @ManyToMany
     @JoinTable(
         name = "jhi_user_authority",
@@ -175,6 +180,14 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     public void setResetDate(Instant resetDate) {
         this.resetDate = resetDate;
+    }
+
+    public String getMcpTokenHash() {
+        return mcpTokenHash;
+    }
+
+    public void setMcpTokenHash(String mcpTokenHash) {
+        this.mcpTokenHash = mcpTokenHash;
     }
 
     public String getLangKey() {

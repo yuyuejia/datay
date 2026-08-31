@@ -36,6 +36,9 @@ export default defineComponent({
     const success: Ref<string> = ref(null);
     const error: Ref<string> = ref(null);
     const errorEmailExists: Ref<string> = ref(null);
+    const hasMcpToken: Ref<boolean> = ref(false);
+    const generatedToken: Ref<string> = ref(null);
+    const tokenCopied: Ref<boolean> = ref(false);
 
     const settingsAccount = computed(() => store.account);
     const username = inject<ComputedRef<string>>('currentUsername', () => computed(() => store.account?.login), true);
@@ -44,12 +47,52 @@ export default defineComponent({
       success,
       error,
       errorEmailExists,
+      hasMcpToken,
+      generatedToken,
+      tokenCopied,
       settingsAccount,
       username,
       v$: useVuelidate(),
     };
   },
+  created() {
+    this.loadMcpTokenStatus();
+  },
   methods: {
+    loadMcpTokenStatus() {
+      return axios
+        .get('api/account/mcp-token')
+        .then(res => {
+          this.hasMcpToken = res.data?.hasToken === true;
+        })
+        .catch(() => {
+          this.hasMcpToken = false;
+        });
+    },
+    generateMcpToken() {
+      this.generatedToken = null;
+      this.tokenCopied = false;
+      return axios
+        .post('api/account/mcp-token')
+        .then(res => {
+          this.hasMcpToken = true;
+          this.generatedToken = res.data?.token || null;
+        })
+        .catch(() => {
+          this.generatedToken = null;
+        });
+    },
+    async copyToken() {
+      if (!this.generatedToken) {
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(this.generatedToken);
+        this.tokenCopied = true;
+      } catch {
+        this.tokenCopied = false;
+      }
+    },
     save() {
       this.error = null;
       this.errorEmailExists = null;

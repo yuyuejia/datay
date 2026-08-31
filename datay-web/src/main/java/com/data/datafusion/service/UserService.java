@@ -3,6 +3,7 @@ package com.data.datafusion.service;
 import com.data.datafusion.config.Constants;
 import com.data.datafusion.domain.Authority;
 import com.data.datafusion.domain.User;
+import com.data.datafusion.mcp.McpTokenService;
 import com.data.datafusion.repository.AuthorityRepository;
 import com.data.datafusion.repository.UserRepository;
 import com.data.datafusion.security.AuthoritiesConstants;
@@ -13,11 +14,13 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -233,6 +236,38 @@ public class UserService {
                 userRepository.save(user);
                 LOG.debug("Changed Information for User: {}", user);
             });
+    }
+
+    /**
+     * Generate a new MCP token for the current user, store its hash and return the plain-text token.
+     *
+     * <p>The token can only be displayed once; only its BCrypt hash is persisted.
+     *
+     * @return the newly generated plain-text token.
+     */
+    public String generateMcpToken() {
+        User user = SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .orElseThrow(() -> new UsernameNotFoundException("User could not be found"));
+        String token = McpTokenService.generateToken(user.getId());
+        user.setMcpTokenHash(passwordEncoder.encode(token));
+        userRepository.save(user);
+        LOG.debug("Generated MCP token for user: {}", user.getLogin());
+        return token;
+    }
+
+    /**
+     * Check whether the current user already has an MCP token configured.
+     *
+     * @return {@code true} if the current user has an MCP token.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasMcpToken() {
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .map(User::getMcpTokenHash)
+            .map(StringUtils::isNotBlank)
+            .orElse(false);
     }
 
     @Transactional

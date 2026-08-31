@@ -81,6 +81,27 @@
           </div>
           <button type="submit" :disabled="v$.settingsAccount.$invalid" class="btn btn-primary" data-cy="submit">保存</button>
         </form>
+
+        <h2 class="mt-4" id="mcp-token-title">MCP 访问令牌</h2>
+        <div class="alert alert-info" role="alert">
+          MCP 访问令牌用于 AI 客户端（如 Claude Desktop、Cursor）连接本系统的 MCP 服务时进行身份认证。
+        </div>
+        <p v-if="hasMcpToken" class="text-muted">您已配置 MCP 访问令牌。重新生成后旧令牌将立即失效。</p>
+        <p v-else class="text-muted">您尚未配置 MCP 访问令牌，请先点击下方按钮生成。</p>
+
+        <div v-if="generatedToken" class="alert alert-success" role="alert">
+          <strong>请立即复制并妥善保存您的令牌，关闭页面后将无法再次查看：</strong>
+          <div class="input-group mt-2">
+            <input type="text" class="form-control" :value="generatedToken" readonly data-cy="mcp-token-value" />
+            <button type="button" class="btn btn-outline-secondary" @click="copyToken()" data-cy="mcp-token-copy">
+              {{ tokenCopied ? '已复制' : '复制' }}
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" @click="generateMcpToken()" data-cy="mcp-token-generate">
+          {{ hasMcpToken ? '重新生成令牌' : '生成令牌' }}
+        </button>
       </div>
     </div>
   </div>

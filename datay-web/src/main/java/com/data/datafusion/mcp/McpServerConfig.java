@@ -13,10 +13,13 @@ import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
+import io.modelcontextprotocol.server.transport.ServerTransportSecurityException;
+import io.modelcontextprotocol.server.transport.ServerTransportSecurityValidator;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,22 +50,50 @@ public class McpServerConfig {
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final DataSyncService dataSyncService;
+    private final McpTokenService mcpTokenService;
 
     public McpServerConfig(
         ObjectMapper objectMapper,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
-        DataSyncService dataSyncService
+        DataSyncService dataSyncService,
+        McpTokenService mcpTokenService
     ) {
         this.objectMapper = objectMapper;
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.dataSyncService = dataSyncService;
+        this.mcpTokenService = mcpTokenService;
     }
 
     @Bean
     public HttpServletStreamableServerTransportProvider mcpTransportProvider() {
-        return HttpServletStreamableServerTransportProvider.builder().mcpEndpoint(MCP_ENDPOINT).build();
+        return HttpServletStreamableServerTransportProvider.builder()
+            .mcpEndpoint(MCP_ENDPOINT)
+            .securityValidator(mcpSecurityValidator())
+            .build();
+    }
+
+    private ServerTransportSecurityValidator mcpSecurityValidator() {
+        return headers -> {
+            String authorization = getHeaderIgnoreCase(headers, "Authorization");
+            if (authorization == null || !authorization.startsWith("Bearer ")) {
+                throw new ServerTransportSecurityException(HttpServletResponse.SC_UNAUTHORIZED, "Missing MCP Bearer token");
+            }
+            String token = authorization.substring("Bearer ".length()).trim();
+            if (!mcpTokenService.authenticate(token)) {
+                throw new ServerTransportSecurityException(HttpServletResponse.SC_UNAUTHORIZED, "Invalid MCP token");
+            }
+        };
+    }
+
+    private static String getHeaderIgnoreCase(Map<String, List<String>> headers, String name) {
+        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey()) && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                return entry.getValue().get(0);
+            }
+        }
+        return null;
     }
 
     @Bean
