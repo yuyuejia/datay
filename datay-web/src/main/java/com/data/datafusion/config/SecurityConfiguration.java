@@ -68,6 +68,7 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/*.ico"), mvc.pattern("/*.png"), mvc.pattern("/content/images/*.svg"),mvc.pattern("/*.svg"), mvc.pattern("/*.webapp")).permitAll()
                     .requestMatchers(mvc.pattern("/assets/**")).permitAll()
                     .requestMatchers(mvc.pattern("/swagger-ui/**")).permitAll()
+                    .requestMatchers(mvc.pattern("/mcp"), mvc.pattern("/mcp/**")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/register")).permitAll()

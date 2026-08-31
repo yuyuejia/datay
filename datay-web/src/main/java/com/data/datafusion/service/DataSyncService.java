@@ -170,7 +170,10 @@ public class DataSyncService {
         if (dataSyncDTO.isPresent()) {
             dataSyncRepository.deleteById(id);
             dataSyncTableConfigRepository.deleteAllBySyncTask(id.toString());
-            jobService.delete(Long.valueOf(dataSyncDTO.get().getJobCode()));
+            String jobCode = dataSyncDTO.get().getJobCode();
+            if (jobCode != null && !jobCode.isEmpty()) {
+                jobService.delete(Long.valueOf(jobCode));
+            }
         }
     }
 
@@ -297,9 +300,13 @@ public class DataSyncService {
 
         StringBuilder tableList = new StringBuilder();
         JSONObject incrColumn = new JSONObject();
+        boolean overwrite = "FULL_SYNC".equals(dataSyncDTO.getType()) || "DATA_ONLY".equals(dataSyncDTO.getType());
         for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
             tableList.append(tableConfigDTO.getSrcTableName()).append(",");
-            incrColumn.put(tableConfigDTO.getSrcTableName(), tableConfigDTO.getSrcColPks());
+            // OVERWRITE 模式下不使用增量列，避免「增量输入 + OVERWRITE 输出」导致的覆盖丢失
+            if (!overwrite) {
+                incrColumn.put(tableConfigDTO.getSrcTableName(), tableConfigDTO.getSrcColPks());
+            }
         }
         jdbcInput.put("table", tableList.substring(0, tableList.length() - 1)); // 假设 DataSyncDTO 有 getSrcTableName 方法
         jdbcInput.put("incrColumn", incrColumn);
@@ -322,7 +329,7 @@ public class DataSyncService {
             jdbcOutput.put("sourceId", sourceIdOutput);
         }
         jdbcOutput.put("table", ""); // 假设 DataSyncDTO 有 getDesTableName 方法
-        if (("FULL_SYNC").equals(dataSyncDTO.getType()) || ("DATA_ONLY").equals(dataSyncDTO.getType())) {
+        if (overwrite) {
             jdbcOutput.put("model", "overwrite");
         }
         units.add(jdbcOutput);

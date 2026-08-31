@@ -9,10 +9,13 @@ import com.data.job.FlowFile;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -168,13 +171,13 @@ public class StreamJdbcInput extends FlowComponent {
                     JSONObject jsonRecord = new JSONObject();
                     for (int i = 1; i <= srcTable.columns().size(); i++) {
                         String columnName = rs.getMetaData().getColumnName(i);
+                        int incrColumnSqlType = rs.getMetaData().getColumnType(i);
                         Object value = rs.getObject(i);
                         jsonRecord.put(columnName, value);
 
                         // 记录增量字段的最大值
                         if (tableIncrColumn != null && tableIncrColumn.equals(columnName)) {
-                            // 通过比较当前值和上次最大值，判断是否需要更新
-                            if (currentTableLastIncrValue == null || value.toString().compareTo(currentTableLastIncrValue.toString()) > 0) {
+                            if (currentTableLastIncrValue == null || compareIncrValue(value, currentTableLastIncrValue, incrColumnSqlType) > 0) {
                                 currentTableLastIncrValue = value;
                                 lastIncrValues.put(srcTable.getTable(), currentTableLastIncrValue);
                             }
@@ -199,6 +202,77 @@ public class StreamJdbcInput extends FlowComponent {
                 logInfo("表 " + srcTable.getTable() + " 同步完成，共处理 " + batchCount + " 条记录");
             }
         }
+    }
+
+    /**
+     * 根据增量字段的 JDBC 类型比较两个值的大小，用于确定最大值。
+     * <p>整数、浮点、定点、时间类型分别走对应的快速比较，避免统一 toString 后字符串/字典序比较导致的
+     * 错误（如「99999 > 100000」）以及每行重复的字符串解析开销。
+     */
+    private int compareIncrValue(Object a, Object b, int sqlType) {
+        if (a == null && b == null) {
+            return 0;
+        }
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+
+        switch (sqlType) {
+            case Types.TINYINT:
+            case Types.SMALLINT:
+            case Types.INTEGER:
+            case Types.BIGINT:
+                return Long.compare(toLong(a), toLong(b));
+            case Types.FLOAT:
+            case Types.REAL:
+            case Types.DOUBLE:
+                return Double.compare(toDouble(a), toDouble(b));
+            case Types.NUMERIC:
+            case Types.DECIMAL:
+                return toBigDecimal(a).compareTo(toBigDecimal(b));
+            case Types.DATE:
+            case Types.TIME:
+            case Types.TIME_WITH_TIMEZONE:
+            case Types.TIMESTAMP:
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return Long.compare(toEpochMillis(a), toEpochMillis(b));
+            default:
+                return a.toString().compareTo(b.toString());
+        }
+    }
+
+    private long toLong(Object value) {
+        return value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
+    }
+
+    private double toDouble(Object value) {
+        return value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble(value.toString());
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        return value instanceof BigDecimal ? (BigDecimal) value : new BigDecimal(value.toString());
+    }
+
+    private long toEpochMillis(Object value) {
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).getTime();
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).getTime();
+        }
+        if (value instanceof java.sql.Time) {
+            return ((java.sql.Time) value).getTime();
+        }
+        if (value instanceof java.util.Date) {
+            return ((java.util.Date) value).getTime();
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return Long.parseLong(value.toString());
     }
 
     /**

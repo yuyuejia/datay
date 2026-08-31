@@ -22,6 +22,7 @@ public class SpaWebFilter extends OncePerRequestFilter {
             !path.startsWith("/management") &&
             !path.startsWith("/v3/api-docs") &&
             !path.startsWith("/h2-console") &&
+            !path.startsWith("/mcp") &&
             !path.contains(".") &&
             path.matches("/(.*)")
         ) {

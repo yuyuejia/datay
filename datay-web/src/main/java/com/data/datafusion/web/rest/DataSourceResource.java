@@ -1,9 +1,9 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.repository.DataSourceRepository;
+import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
-import com.data.job.DatasourceInfo;
 import com.data.metadata.util.DBUtils;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.ColumnMeta;
@@ -44,21 +44,16 @@ public class DataSourceResource {
 
     private final DataSourceRepository dataSourceRepository;
 
-    public DataSourceResource(DataSourceService dataSourceService, DataSourceRepository dataSourceRepository) {
+    private final DataSourceQueryService dataSourceQueryService;
+
+    public DataSourceResource(
+        DataSourceService dataSourceService,
+        DataSourceRepository dataSourceRepository,
+        DataSourceQueryService dataSourceQueryService
+    ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
-    }
-
-    private static DatasourceInfo toDatasourceInfo(DataSourceDTO dto) {
-        DatasourceInfo info = new DatasourceInfo();
-        info.setType(dto.getType());
-        info.setUrl(dto.getUrl());
-        info.setUsername(dto.getUsername());
-        info.setPassword(dto.getPassword());
-        info.setDbschema(dto.getSchemaName());
-        info.setPort(dto.getPort());
-        info.setHostname(dto.getHostname());
-        return info;
+        this.dataSourceQueryService = dataSourceQueryService;
     }
 
     /**
@@ -203,7 +198,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
+            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
                 schemas = DBUtils.getSchemas(connection);
             }
         }
@@ -223,7 +218,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
+            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
                 tables = DBUtils.getTableList(connection, schema, limit, search);
             }
         }
@@ -242,7 +237,7 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));) {
+            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
                 columns = DBUtils.getTableMetaData(connection, schema, table).columns();
             }
         }
@@ -283,88 +278,21 @@ public class DataSourceResource {
         }
 
         LOG.debug("REST request to execute query on DataSource {} : {}", id, sql);
-        Map<String, Object> result = new HashMap<>();
 
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isEmpty()) {
-            result.put("message", "数据源不存在");
-            return ResponseEntity.status(404).body(result);
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", "数据源不存在");
+            return ResponseEntity.status(404).body(error);
         }
 
-        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-        try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource))) {
-            String trimmedSql = sql.trim();
-            boolean isSelect = trimmedSql.toUpperCase().startsWith("SELECT")
-                || trimmedSql.toUpperCase().startsWith("WITH")
-                || trimmedSql.toUpperCase().startsWith("SHOW")
-                || trimmedSql.toUpperCase().startsWith("DESCRIBE")
-                || trimmedSql.toUpperCase().startsWith("DESC")
-                || trimmedSql.toUpperCase().startsWith("EXPLAIN");
-
-            if (isSelect) {
-                try (java.sql.Statement stmt = connection.createStatement();
-                     java.sql.ResultSet rs = stmt.executeQuery(sql)) {
-
-                    java.sql.ResultSetMetaData meta = rs.getMetaData();
-                    int columnCount = meta.getColumnCount();
-                    List<String> columns = new ArrayList<>();
-                    for (int i = 1; i <= columnCount; i++) {
-                        columns.add(meta.getColumnLabel(i));
-                    }
-
-                    List<Map<String, Object>> rows = new ArrayList<>();
-                    int rowCount = 0;
-                    int maxRows = 10000;
-                    while (rs.next() && rowCount < maxRows) {
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        for (int i = 1; i <= columnCount; i++) {
-                            String colName = meta.getColumnLabel(i);
-                            int sqlType = meta.getColumnType(i);
-                            Object value = rs.getObject(i);
-                            if (value == null) {
-                                row.put(colName, null);
-                            } else if (value instanceof java.sql.Timestamp) {
-                                row.put(colName, ((java.sql.Timestamp) value).toString());
-                            } else if (value instanceof java.sql.Date) {
-                                row.put(colName, ((java.sql.Date) value).toString());
-                            } else if (value instanceof java.sql.Time) {
-                                row.put(colName, ((java.sql.Time) value).toString());
-                            } else if (value instanceof java.math.BigDecimal) {
-                                row.put(colName, ((java.math.BigDecimal) value).doubleValue());
-                            } else if (value instanceof byte[]) {
-                                row.put(colName, "[BLOB]");
-                            } else if (value instanceof java.sql.Clob) {
-                                java.sql.Clob clob = (java.sql.Clob) value;
-                                row.put(colName, clob.getSubString(1, (int) clob.length()));
-                            } else if (value instanceof java.sql.Blob) {
-                                row.put(colName, "[BLOB]");
-                            } else {
-                                row.put(colName, value);
-                            }
-                        }
-                        rows.add(row);
-                        rowCount++;
-                    }
-
-                    result.put("columns", columns);
-                    result.put("rows", rows);
-                    result.put("affectedRows", rowCount);
-                }
-            } else {
-                try (java.sql.Statement stmt = connection.createStatement()) {
-                    int affectedRows = stmt.executeUpdate(sql);
-                    result.put("columns", Collections.emptyList());
-                    result.put("rows", Collections.emptyList());
-                    result.put("affectedRows", affectedRows);
-                }
-            }
+        try {
+            Map<String, Object> result = dataSourceQueryService.executeQuery(dataSourceDTO.orElseThrow(), sql);
+            return ResponseEntity.ok().body(result);
         } catch (SQLException e) {
-            LOG.error("SQL execution error", e);
             Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.status(500).body(error);
         }
-
-        return ResponseEntity.ok().body(result);
     }
 }
