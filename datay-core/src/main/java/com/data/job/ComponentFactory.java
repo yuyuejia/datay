@@ -38,6 +38,7 @@ public class ComponentFactory {
         components.put("DuckLakeWrite", "com.data.job.component.DuckLakeWrite");
         components.put("HashRouter", "com.data.job.component.router.HashRouter");
         components.put("RandomRouter", "com.data.job.component.router.RandomRouter");
+        components.put("FeishuBitableInput", "com.data.job.component.FeishuBitableInput");
     }
 
     /**

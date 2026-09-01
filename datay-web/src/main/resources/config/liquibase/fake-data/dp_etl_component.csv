@@ -24,3 +24,4 @@ id;name;code;jhi_desc;jhi_group;type;config;status;update_time;create_time;creat
 23;SQL任务;SqlTask;SqlTask;数据处理;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
 24;SQL单元;SqlUnit;SqlUnit;数据处理;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
 25;Kafka消费;KafkaConsumer;KafkaConsumer;实时输入;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
+26;飞书多维表格;FeishuBitableInput;FeishuBitableInput;数据输入;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0

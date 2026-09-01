@@ -38,6 +38,7 @@ import JdbcInputConfig from './component/JdbcInputConfig.vue';
 import JdbcOutputConfig from './component/JdbcOutputConfig.vue';
 import SqlTaskConfig from './component/SqlTaskConfig.vue';
 import KafkaConsumerConfig from './component/KafkaConsumerConfig.vue';
+import FeishuBitableInputConfig from './component/FeishuBitableInputConfig.vue';
 import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
 
 const {
@@ -72,7 +73,7 @@ const isCreateMode = computed(() => !route.params.eTLTaskId);
 
 const loadComponents = async () => {
   try {
-    const response = await etlComponentService.retrieve();
+    const response = await etlComponentService.retrieve({ page: 0, size: 1000 });
     etlComponents.value = response.data;
   } catch (error) {
     console.error('获取 ETL 组件数据失败', error);
@@ -150,6 +151,7 @@ const componentConfigMap = {
   SqlTask: SqlTaskConfig,
   SqlUnit: SqlUnitConfig,
   KafkaConsumer: KafkaConsumerConfig,
+  FeishuBitableInput: FeishuBitableInputConfig,
 };
 
 const retrieveETLTask = async eTLTaskId => {

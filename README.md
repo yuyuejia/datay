@@ -127,6 +127,7 @@ java -jar target/*.jar    # http://localhost:8080
 
 - [Mysql同步到Mysql](datay-core/docs/example/mysql-to-mysql.md)
 - [Http同步到Mysql](datay-core/docs/example/http-to-mysql.md)
+- [飞书多维表格同步到Mysql](datay-core/docs/example/feishu-bitable-to-mysql.md)
 - [Mysql CDC实时同步到Mysql](datay-core/docs/example/mysqlCDC-mysql.md)
 - [Mysql同步到Apache Doris](datay-core/docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](datay-core/docs/example/mysql-ducklake.md)
