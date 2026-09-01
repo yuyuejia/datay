@@ -15,30 +15,6 @@ import '@vue-flow/controls/dist/style.css';
 import '@vue-flow/minimap/dist/style.css';
 import '@vue-flow/node-resizer/dist/style.css';
 
-import DuckDBSqlConfig from './component/DuckDBSqlConfig.vue';
-import InputNodeConfig from './component/InputNodeConfig.vue';
-import OutputNodeConfig from './component/OutputNodeConfig.vue';
-import SqlUnitConfig from './component/SqlUnitConfig.vue';
-import DuckDBWriteConfig from './component/DuckDBWriteConfig.vue';
-import DuckDBRegisterConfig from './component/DuckDBRegisterConfig.vue';
-import JavaScriptComponentConfig from './component/JavaScriptComponentConfig.vue';
-import GenerateFlowFileConfig from './component/GenerateFlowFileConfig.vue';
-import LogFlowFileConfig from './component/LogFlowFileConfig.vue';
-import MysqlBinlogInputConfig from './component/MysqlBinlogInputConfig.vue';
-import SqlInputConfig from './component/SqlInputConfig.vue';
-import DuckLakeWriteConfig from './component/DuckLakeWriteConfig.vue';
-import HashRouterConfig from './component/HashRouterConfig.vue';
-import RandomRouterConfig from './component/RandomRouterConfig.vue';
-import DorisStreamLoadConfig from './component/DorisStreamLoadConfig.vue';
-import GenerateSequenceNumberConfig from './component/GenerateSequenceNumberConfig.vue';
-import GenerateTableSelectSqlConfig from './component/GenerateTableSelectSqlConfig.vue';
-import HttpInvokeConfig from './component/HttpInvokeConfig.vue';
-import HttpListenerConfig from './component/HttpListenerConfig.vue';
-import JdbcInputConfig from './component/JdbcInputConfig.vue';
-import JdbcOutputConfig from './component/JdbcOutputConfig.vue';
-import SqlTaskConfig from './component/SqlTaskConfig.vue';
-import KafkaConsumerConfig from './component/KafkaConsumerConfig.vue';
-import FeishuBitableInputConfig from './component/FeishuBitableInputConfig.vue';
 import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
 
 const {
@@ -126,33 +102,17 @@ const loadTaskData = async () => {
   }
 };
 
-const componentConfigMap = {
-  StreamJdbcInput: InputNodeConfig,
-  StreamJdbcOutput: OutputNodeConfig,
-  StreamSqlUnit: SqlUnitConfig,
-  DuckDBSql: DuckDBSqlConfig,
-  DuckDBWrite: DuckDBWriteConfig,
-  DuckDBRegister: DuckDBRegisterConfig,
-  JavaScriptComponent: JavaScriptComponentConfig,
-  GenerateFlowFile: GenerateFlowFileConfig,
-  LogFlowFile: LogFlowFileConfig,
-  MySQLBinlogInput: MysqlBinlogInputConfig,
-  SqlInput: SqlInputConfig,
-  DuckLakeWrite: DuckLakeWriteConfig,
-  HashRouter: HashRouterConfig,
-  RandomRouter: RandomRouterConfig,
-  DorisStreamLoad: DorisStreamLoadConfig,
-  GenerateSequenceNumber: GenerateSequenceNumberConfig,
-  GenerateTableSelectSql: GenerateTableSelectSqlConfig,
-  HttpInvoke: HttpInvokeConfig,
-  HttpListener: HttpListenerConfig,
-  JdbcInput: JdbcInputConfig,
-  JdbcOutput: JdbcOutputConfig,
-  SqlTask: SqlTaskConfig,
-  SqlUnit: SqlUnitConfig,
-  KafkaConsumer: KafkaConsumerConfig,
-  FeishuBitableInput: FeishuBitableInputConfig,
-};
+const configModules = import.meta.glob('./component/*Config.vue', { eager: true });
+
+const componentConfigMap = {};
+for (const [path, module] of Object.entries(configModules)) {
+  const filename = path.split('/').pop().replace(/\.vue$/, '');
+  componentConfigMap[filename.replace(/Config$/, '')] = module.default;
+}
+
+componentConfigMap.StreamJdbcInput = componentConfigMap.InputNode;
+componentConfigMap.StreamJdbcOutput = componentConfigMap.OutputNode;
+componentConfigMap.StreamSqlUnit = componentConfigMap.SqlUnit;
 
 const retrieveETLTask = async eTLTaskId => {
   try {
