@@ -2,6 +2,8 @@
 
 ## 项目简介
 
+🌐 **产品首页**: [http://datay.yuyuejia.com.cn/](http://datay.yuyuejia.com.cn/)
+
 DataY 是一个集**数据集成引擎**与**数据平台产品**于一体的多模块项目，包含两个子模块：
 
 - **[DataY Core](datay-core/README.md)**: 轻量、可嵌入、可扩展、高性能、流批一体的数据集成引擎，内置 DuckDB 引擎和组件，通过 JSON 配置文件定义数据集成任务，支持自动创建目标表。
@@ -49,9 +51,9 @@ mvn clean package -DskipTests
 
 ## 快速开始
 
-### DataY Core：直接下载构建的 jar 包运行
+### DataY Core：构建 jar 包运行
 
-[DataY下载地址](https://repo1.maven.org/maven2/io/gitee/yuyuejia/datay/1.0/datay-1.0.1-jar-with-dependencies.jar)
+先构建项目（参考上方「构建项目」章节），构建完成后在 `datay-core/target/` 目录下可找到带依赖的 jar 包。
 
 Mysql同步到Mysql任务配置文件示例：
 
@@ -99,7 +101,7 @@ Mysql同步到Mysql任务配置文件示例：
 运行任务：
 
 ```bash
-java -jar datay-1.0.1-jar-with-dependencies.jar taskConfig.json
+java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.json
 ```
 
 ### DataY Web：启动 Web 平台
