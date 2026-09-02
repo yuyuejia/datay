@@ -31,7 +31,6 @@
     <include file="config/liquibase/changelog/20241213113212_added_entity_ETLEdge.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20220421113212_added_entity_DpTable.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20250327124509_added_entity_ServiceConfig.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260831_added_column_mcp_token_hash.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
