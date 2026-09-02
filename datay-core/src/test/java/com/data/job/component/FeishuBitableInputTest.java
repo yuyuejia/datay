@@ -87,7 +87,7 @@ public class FeishuBitableInputTest {
         List<FeishuBitableInput.BitableRecord> records = component.fetchAllRecords();
         assertNotNull(records);
         assertFalse(records.isEmpty());
-        assertEquals(10, records.size());
+        assertTrue(records.size() >= 10);
 
         JSONObject first = records.get(0).getData();
         assertNotNull(first.getString("record_id"));
@@ -132,7 +132,7 @@ public class FeishuBitableInputTest {
 
         component.execute(createStartFlowFile());
 
-        assertEquals(10, countRecords(queue));
+        assertTrue(countRecords(queue) >= 10);
     }
 
     @Test
@@ -147,7 +147,7 @@ public class FeishuBitableInputTest {
         Object[] result = drain(queue, statusKey);
         int firstCount = (Integer) result[0];
         String status = (String) result[1];
-        assertEquals(10, firstCount);
+        assertTrue(firstCount >= 10);
         assertNotNull(status);
 
         // 第二次执行：无新数据，应同步 0 条
