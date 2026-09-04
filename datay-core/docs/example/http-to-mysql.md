@@ -29,6 +29,9 @@ DataY 是一个轻量、可嵌入、可扩展、高性能、流批一体的数�
 ### 步骤1: 构建DataY Jar包
 
 ```bash
+# 克隆项目
+git clone https://cnb.cool/yuyuejia/datay.git
+
 # 进入项目根目录
 cd datay
 

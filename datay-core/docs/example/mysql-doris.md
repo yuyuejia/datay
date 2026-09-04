@@ -74,6 +74,9 @@ PROPERTIES (
 
 **通过Maven构建获取DataY运行包：**
 ```bash
+# 克隆项目
+git clone https://cnb.cool/yuyuejia/datay.git
+
 # 进入项目根目录
 cd datay
 
