@@ -1,6 +1,6 @@
 package com.data.metadata;
 
-public enum CommonDataType {
+public enum AllDataType {
     // region 数值类型
     TINYINT("TINYINT"),
     SMALLINT("SMALLINT"),
@@ -100,7 +100,7 @@ public enum CommonDataType {
 
     private final String name;
 
-    CommonDataType(String name) {
+    AllDataType(String name) {
         this.name = name;
     }
 

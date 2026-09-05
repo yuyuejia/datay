@@ -1,5 +1,8 @@
 package com.data.metadata;
 
+import java.util.Collections;
+import java.util.List;
+
 public interface TypeConverter {
     // 转换为标准逻辑类型
     //    ColumnMeta toLogicalType(ColumnMeta columnMeta);
@@ -24,4 +27,9 @@ public interface TypeConverter {
     String generateReplaceSQL(TableMeta tableMeta);
     //    String generateSchemaDDL(TableMeta tableMeta);
     //    TableMeta getTableMetaData(Connection conn, String table) throws SQLException;
+
+    // 返回此数据库支持的所有物理字段类型
+    default List<String> getSupportedTypes() {
+        return Collections.emptyList();
+    }
 }

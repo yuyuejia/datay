@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <changeSet id="20240904000001-1" author="datafusion">
+        <createTable tableName="model_directory">
+            <column name="id" type="bigint" autoIncrement="true" startWith="2000">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="parent_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="sort_order" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="model_directory" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="model_directory" columnName="update_time" columnDataType="${datetimeType}"/>
+    </changeSet>
+
+    <changeSet id="20240904000001-2" author="datafusion">
+        <createTable tableName="data_model">
+            <column name="id" type="bigint" autoIncrement="true" startWith="2100">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="description" type="varchar(2000)">
+                <constraints nullable="true" />
+            </column>
+            <column name="directory_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="model_type" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+            <column name="is_registered" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true" />
+            </column>
+            <column name="data_source_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="schema_name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="table_name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="project" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="data_model" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="data_model" columnName="update_time" columnDataType="${datetimeType}"/>
+    </changeSet>
+
+    <changeSet id="20240904000001-3" author="datafusion">
+        <createTable tableName="model_field">
+            <column name="id" type="bigint" autoIncrement="true" startWith="2200">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="model_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="field_name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="field_type" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+            <column name="field_length" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="field_precision" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="field_scale" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="description" type="varchar(500)">
+                <constraints nullable="true" />
+            </column>
+            <column name="sort_order" type="integer">
+                <constraints nullable="true" />
+            </column>
+            <column name="is_partition_key" type="boolean">
+                <constraints nullable="true" />
+            </column>
+            <column name="is_primary_key" type="boolean">
+                <constraints nullable="true" />
+            </column>
+            <column name="dimension_model_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="dimension_field_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="model_field" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="model_field" columnName="update_time" columnDataType="${datetimeType}"/>
+    </changeSet>
+</databaseChangeLog>

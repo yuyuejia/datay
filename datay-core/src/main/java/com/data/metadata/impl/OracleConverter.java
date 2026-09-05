@@ -42,54 +42,54 @@ public class OracleConverter implements TypeConverter {
         DatabaseConverter.register(DBType.ORACLE.name(), new OracleConverter());
 
         // 数值类型映射
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMINT.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), OracleType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), OracleType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT4.name(), OracleType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT8.name(), OracleType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), OracleType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.DECIMAL.name(), OracleType.NUMBER.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), OracleType.NUMBER.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), OracleType.NUMBER.name());
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), OracleType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), OracleType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), OracleType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), OracleType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), OracleType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), OracleType.NUMBER.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), OracleType.NUMBER.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), OracleType.NUMBER.name());
 
         // 字符类型
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), OracleType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BPCHAR.name(), OracleType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), OracleType.NCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), OracleType.VARCHAR2.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), OracleType.VARCHAR2.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), OracleType.NVARCHAR2.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), OracleType.CLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), OracleType.CLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), OracleType.CLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), OracleType.NCLOB.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), OracleType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), OracleType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), OracleType.NCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), OracleType.VARCHAR2.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), OracleType.VARCHAR2.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), OracleType.NVARCHAR2.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), OracleType.CLOB.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), OracleType.CLOB.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), OracleType.CLOB.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), OracleType.NCLOB.name());
 
         // 二进制类型
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), OracleType.RAW.name());
-        commonDataType2ColumnType.put(CommonDataType.BYTEA.name(), OracleType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), OracleType.RAW.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), OracleType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), OracleType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), OracleType.RAW.name());
+        commonDataType2ColumnType.put(AllDataType.BYTEA.name(), OracleType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), OracleType.RAW.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), OracleType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), OracleType.BLOB.name());
 
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), OracleType.RAW.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), OracleType.RAW.name());
 
         // 时间类型
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), OracleType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.DATETIME.name(), OracleType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), OracleType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), OracleType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), OracleType.TIMESTAMP_WITH_TIME_ZONE.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.name(), OracleType.TIMESTAMP_WITH_TIME_ZONE.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), OracleType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), OracleType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), OracleType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), OracleType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), OracleType.TIMESTAMP_WITH_TIME_ZONE.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.name(), OracleType.TIMESTAMP_WITH_TIME_ZONE.name());
 
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), OracleType.VARCHAR2.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), OracleType.VARCHAR2.name());
         // 其他类型
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), OracleType.NUMBER.name() + "(1)");
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), OracleType.XMLTYPE.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), OracleType.CLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), OracleType.NUMBER.name() + "(1)");
+        commonDataType2ColumnType.put(AllDataType.XML.name(), OracleType.XMLTYPE.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), OracleType.CLOB.name());
     }
 
     public ColumnMeta toPhysicalType(ColumnMeta columnMeta) {
@@ -314,5 +314,14 @@ public class OracleConverter implements TypeConverter {
             default:
                 return 0;
         }
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (OracleType t : OracleType.values()) {
+            result.add(t.name());
+        }
+        return result;
     }
 }

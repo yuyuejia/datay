@@ -1,0 +1,176 @@
+package com.data.datafusion.service.dto;
+
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+@SuppressWarnings("common-java:DuplicatedBlocks")
+public class ModelFieldDTO implements Serializable {
+
+    private Long id;
+    private Long modelId;
+    private String fieldName;
+    private String fieldType;
+    private Integer fieldLength;
+    private Integer fieldPrecision;
+    private Integer fieldScale;
+    private String description;
+    private Integer sortOrder;
+    private Boolean isPartitionKey;
+    private Boolean isPrimaryKey;
+    private Long dimensionModelId;
+    private Long dimensionFieldId;
+    private ZonedDateTime createTime;
+    private ZonedDateTime updateTime;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getModelId() {
+        return modelId;
+    }
+
+    public void setModelId(Long modelId) {
+        this.modelId = modelId;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public void setFieldName(String fieldName) {
+        this.fieldName = fieldName;
+    }
+
+    public String getFieldType() {
+        return fieldType;
+    }
+
+    public void setFieldType(String fieldType) {
+        this.fieldType = fieldType;
+    }
+
+    public Integer getFieldLength() {
+        return fieldLength;
+    }
+
+    public void setFieldLength(Integer fieldLength) {
+        this.fieldLength = fieldLength;
+    }
+
+    public Integer getFieldPrecision() {
+        return fieldPrecision;
+    }
+
+    public void setFieldPrecision(Integer fieldPrecision) {
+        this.fieldPrecision = fieldPrecision;
+    }
+
+    public Integer getFieldScale() {
+        return fieldScale;
+    }
+
+    public void setFieldScale(Integer fieldScale) {
+        this.fieldScale = fieldScale;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
+    public Boolean getIsPartitionKey() {
+        return isPartitionKey;
+    }
+
+    public void setIsPartitionKey(Boolean isPartitionKey) {
+        this.isPartitionKey = isPartitionKey;
+    }
+
+    public Boolean getIsPrimaryKey() {
+        return isPrimaryKey;
+    }
+
+    public void setIsPrimaryKey(Boolean isPrimaryKey) {
+        this.isPrimaryKey = isPrimaryKey;
+    }
+
+    public Long getDimensionModelId() {
+        return dimensionModelId;
+    }
+
+    public void setDimensionModelId(Long dimensionModelId) {
+        this.dimensionModelId = dimensionModelId;
+    }
+
+    public Long getDimensionFieldId() {
+        return dimensionFieldId;
+    }
+
+    public void setDimensionFieldId(Long dimensionFieldId) {
+        this.dimensionFieldId = dimensionFieldId;
+    }
+
+    public ZonedDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(ZonedDateTime createTime) {
+        this.createTime = createTime;
+    }
+
+    public ZonedDateTime getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(ZonedDateTime updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ModelFieldDTO)) {
+            return false;
+        }
+        return getId() != null && getId().equals(((ModelFieldDTO) o).getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getId());
+    }
+
+    @Override
+    public String toString() {
+        return "ModelFieldDTO{" +
+            "id=" + getId() +
+            ", modelId=" + getModelId() +
+            ", fieldName='" + getFieldName() + "'" +
+            ", fieldType='" + getFieldType() + "'" +
+            ", fieldLength=" + getFieldLength() +
+            ", fieldPrecision=" + getFieldPrecision() +
+            ", fieldScale=" + getFieldScale() +
+            ", isPartitionKey=" + getIsPartitionKey() +
+            ", isPrimaryKey=" + getIsPrimaryKey() +
+            "}";
+    }
+}

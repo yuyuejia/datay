@@ -101,6 +101,15 @@ public class DatabaseConverter {
         return "DROP TABLE IF EXISTS " + table;
     }
 
+    // 新增：获取该数据库支持的物理字段类型列表
+    public static List<String> getSupportedTypes(String dbType) {
+        TypeConverter converter = converters.get(dbType.toLowerCase());
+        if (converter == null) {
+            throw new IllegalArgumentException("未注册的数据库类型转换器: " + dbType);
+        }
+        return converter.getSupportedTypes();
+    }
+
     // 新增：获取带引号的列名（根据数据库类型）
     private static String getQuotedColumnName(String dbType, String columnName) {
         switch (dbType.toLowerCase()) {

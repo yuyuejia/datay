@@ -45,59 +45,59 @@ public class MysqlConverter implements TypeConverter {
     static {
         DatabaseConverter.register(DBType.MYSQL.name(), new MysqlConverter());
 
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), MysqlType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BPCHAR.name(), MysqlType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), MysqlType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR2.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYTEXT.name(), MysqlType.TINYTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), MysqlType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMTEXT.name(), MysqlType.MEDIUMTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), MysqlType.LONGTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), MysqlType.LONGTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), MysqlType.LONGTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.RAW.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), MysqlType.BIT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBIT.name(), MysqlType.BIT.name()); // MySQL BIT 多位
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), MysqlType.TINYINT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), MysqlType.SMALLINT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMINT.name(), MysqlType.MEDIUMINT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), MysqlType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), MysqlType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), MysqlType.BIGINT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), MysqlType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT4.name(), MysqlType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT8.name(), MysqlType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.LONG.name(), MysqlType.LONGTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), MysqlType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), MysqlType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMBER.name(), MysqlType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), MysqlType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), MysqlType.BINARY.name());
-        commonDataType2ColumnType.put(CommonDataType.BYTEA.name(), MysqlType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_DOUBLE.name(), MysqlType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_FLOAT.name(), MysqlType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), MysqlType.VARBINARY.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYBLOB.name(), MysqlType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), MysqlType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMBLOB.name(), MysqlType.MEDIUMBLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), MysqlType.LONGBLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), MysqlType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), MysqlType.TIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), MysqlType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_6.getName(), MysqlType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME_WITH_TIME_ZONE.name(), MysqlType.TIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), MysqlType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), MysqlType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), MysqlType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), MysqlType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOL.name(), MysqlType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), MysqlType.LONGTEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), MysqlType.JSON.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), MysqlType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), MysqlType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), MysqlType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), MysqlType.TINYTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), MysqlType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMTEXT.name(), MysqlType.MEDIUMTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), MysqlType.BIT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBIT.name(), MysqlType.BIT.name()); // MySQL BIT 多位
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), MysqlType.TINYINT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), MysqlType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), MysqlType.MEDIUMINT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), MysqlType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), MysqlType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), MysqlType.BIGINT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), MysqlType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), MysqlType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), MysqlType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.LONG.name(), MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), MysqlType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), MysqlType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.NUMBER.name(), MysqlType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), MysqlType.BINARY.name());
+        commonDataType2ColumnType.put(AllDataType.BYTEA.name(), MysqlType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), MysqlType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), MysqlType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), MysqlType.VARBINARY.name());
+        commonDataType2ColumnType.put(AllDataType.TINYBLOB.name(), MysqlType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), MysqlType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMBLOB.name(), MysqlType.MEDIUMBLOB.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), MysqlType.LONGBLOB.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), MysqlType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), MysqlType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.name(), MysqlType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), MysqlType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.BOOL.name(), MysqlType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.XML.name(), MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), MysqlType.JSON.name());
 
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), MysqlType.VARCHAR.name());
     }
 
     public ColumnMeta toPhysicalType(ColumnMeta columnMeta) {
@@ -371,5 +371,14 @@ public class MysqlConverter implements TypeConverter {
 
     private boolean isNumericType(String type) {
         return type.matches("(?i)TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE");
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (MysqlType t : MysqlType.values()) {
+            result.add(t.name());
+        }
+        return result;
     }
 }

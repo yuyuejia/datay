@@ -40,63 +40,63 @@ public class DuckDBConverter implements TypeConverter {
     static {
         DatabaseConverter.register(DBType.DUCKDB.name(), new DuckDBConverter());
 
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), DuckDBType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BPCHAR.name(), DuckDBType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), DuckDBType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR2.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYTEXT.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), DuckDBType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMTEXT.name(), DuckDBType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), DuckDBType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.RAW.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), DuckDBType.BIT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBIT.name(), DuckDBType.BIT.name()); // MySQL BIT 多位
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), DuckDBType.TINYINT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), DuckDBType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMINT.name(), DuckDBType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), DuckDBType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), DuckDBType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), DuckDBType.BIGINT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), DuckDBType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT4.name(), DuckDBType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT8.name(), DuckDBType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), DuckDBType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), DuckDBType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.DECIMAL.name(), DuckDBType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMBER.name(), DuckDBType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.BYTEA.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_DOUBLE.name(), DuckDBType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_FLOAT.name(), DuckDBType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYBLOB.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMBLOB.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), DuckDBType.BLOB.name());
-        commonDataType2ColumnType.put(CommonDataType.LONG.name(), DuckDBType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), DuckDBType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.DATETIME.name(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), DuckDBType.TIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME_WITH_TIME_ZONE.name(), DuckDBType.TIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.name(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.name(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_6.getName(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DuckDBType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), DuckDBType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOL.name(), DuckDBType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), DuckDBType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), DuckDBType.JSON.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), DuckDBType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), DuckDBType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), DuckDBType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), DuckDBType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMTEXT.name(), DuckDBType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), DuckDBType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), DuckDBType.BIT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBIT.name(), DuckDBType.BIT.name()); // MySQL BIT 多位
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), DuckDBType.TINYINT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), DuckDBType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), DuckDBType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), DuckDBType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), DuckDBType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), DuckDBType.BIGINT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), DuckDBType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DuckDBType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DuckDBType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.NUMBER.name(), DuckDBType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BYTEA.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), DuckDBType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.TINYBLOB.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMBLOB.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put(AllDataType.LONG.name(), DuckDBType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), DuckDBType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), DuckDBType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.name(), DuckDBType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.name(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.name(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DuckDBType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.BOOL.name(), DuckDBType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.XML.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), DuckDBType.JSON.name());
 
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DuckDBType.VARCHAR.name());
     }
 
     public ColumnMeta toLogicalType(ColumnMeta columnMeta) {
@@ -322,5 +322,14 @@ public class DuckDBConverter implements TypeConverter {
 
     private boolean isNumericType(String type) {
         return type.matches("(?i)TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE");
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (DuckDBType t : DuckDBType.values()) {
+            result.add(t.name());
+        }
+        return result;
     }
 }

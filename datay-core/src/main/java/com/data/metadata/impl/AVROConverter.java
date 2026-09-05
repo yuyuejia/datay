@@ -27,62 +27,62 @@ public class AVROConverter implements TypeConverter {
     static {
         DatabaseConverter.register(DBType.AVRO.name(), new AVROConverter());
 
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.BPCHAR.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR2.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYTEXT.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMTEXT.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.RAW.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBIT.name(), BOOLEAN.name()); // MySQL BIT 多位
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), INT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), INT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMINT.name(), INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), INT.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), LONG.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT4.name(), FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT8.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.DECIMAL.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMBER.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.BYTEA.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_DOUBLE.name(), DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_FLOAT.name(), FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYBLOB.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMBLOB.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), BYTES.name());
-        commonDataType2ColumnType.put(CommonDataType.LONG.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.DATETIME.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME_WITH_TIME_ZONE.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_6.getName(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMTEXT.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.VARBIT.name(), BOOLEAN.name()); // MySQL BIT 多位
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), INT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), INT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), INT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), INT.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), INT.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), LONG.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.NUMBER.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.BYTEA.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.TINYBLOB.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMBLOB.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), BYTES.name());
+        commonDataType2ColumnType.put(AllDataType.LONG.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.XML.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), STRING.name());
 
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), STRING.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), STRING.name());
     }
 
     public ColumnMeta toLogicalType(ColumnMeta columnMeta) {
@@ -241,5 +241,14 @@ public class AVROConverter implements TypeConverter {
 
     private boolean isNumericType(String type) {
         return type.matches("(?i)TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE");
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (AVROType t : AVROType.values()) {
+            result.add(t.name());
+        }
+        return result;
     }
 }

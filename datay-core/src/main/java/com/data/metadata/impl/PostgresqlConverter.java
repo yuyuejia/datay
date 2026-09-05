@@ -76,63 +76,63 @@ public class PostgresqlConverter implements TypeConverter {
         DatabaseConverter.register(DBType.POSTGRESQL.name(), new PostgresqlConverter());
 
         // 数值类型映射
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), PostgresType.SMALLINT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), PostgresType.SMALLINT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), PostgresType.INTEGER.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), PostgresType.INTEGER.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), PostgresType.BIGINT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), PostgresType.REAL.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_FLOAT.name(), PostgresType.REAL.name());
-        commonDataType2ColumnType.put(CommonDataType.DECIMAL.name(), PostgresType.NUMERIC.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), PostgresType.NUMERIC.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMBER.name(), PostgresType.NUMERIC.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), PostgresType.MONEY.name());
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), PostgresType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), PostgresType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), PostgresType.INTEGER.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), PostgresType.INTEGER.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), PostgresType.BIGINT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), PostgresType.REAL.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
+        commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
+        commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), PostgresType.REAL.name());
+        commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), PostgresType.NUMERIC.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), PostgresType.NUMERIC.name());
+        commonDataType2ColumnType.put(AllDataType.NUMBER.name(), PostgresType.NUMERIC.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), PostgresType.MONEY.name());
 
         // 字符类型
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), PostgresType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), PostgresType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), PostgresType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), PostgresType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), PostgresType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR2.name(), PostgresType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYTEXT.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMTEXT.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.LONG.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), PostgresType.TEXT.name());
-        commonDataType2ColumnType.put(CommonDataType.RAW.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), PostgresType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), PostgresType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMTEXT.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.LONG.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), PostgresType.TEXT.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), PostgresType.VARCHAR.name());
 
         // 二进制类型
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), PostgresType.BYTEA.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), PostgresType.BYTEA.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), PostgresType.BYTEA.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYBLOB.name(), PostgresType.BYTEA.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMBLOB.name(), PostgresType.BYTEA.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.TINYBLOB.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMBLOB.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), PostgresType.BYTEA.name());
 
         // 时间类型
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), PostgresType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.DATETIME.name(), PostgresType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), PostgresType.TIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), PostgresType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME_WITH_TIME_ZONE.getName(), PostgresType.TIME_WITH_TIME_ZONE.getName());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), PostgresType.TIMESTAMP_WITH_TIME_ZONE.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), PostgresType.TIMESTAMP_WITH_TIME_ZONE.getName());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_6.getName(), PostgresType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), PostgresType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), PostgresType.INTERVAL.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), PostgresType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), PostgresType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), PostgresType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), PostgresType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.getName(), PostgresType.TIME_WITH_TIME_ZONE.getName());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), PostgresType.TIMESTAMP_WITH_TIME_ZONE.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), PostgresType.TIMESTAMP_WITH_TIME_ZONE.getName());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), PostgresType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), PostgresType.TIMESTAMP.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), PostgresType.INTERVAL.name());
 
         // 其他类型
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), PostgresType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), PostgresType.XML.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), PostgresType.JSONB.name());
-        commonDataType2ColumnType.put(CommonDataType.UUID.name(), PostgresType.UUID.name());
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), PostgresType.BIT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBIT.name(), PostgresType.BYTEA.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), PostgresType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.XML.name(), PostgresType.XML.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), PostgresType.JSONB.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), PostgresType.UUID.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), PostgresType.BIT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBIT.name(), PostgresType.BYTEA.name());
     }
 
     @Override
@@ -405,5 +405,14 @@ public class PostgresqlConverter implements TypeConverter {
             return value;
         }
         return "'" + value.replace("'", "''") + "'";
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (PostgresType t : PostgresType.values()) {
+            result.add(t.getName());
+        }
+        return result;
     }
 }

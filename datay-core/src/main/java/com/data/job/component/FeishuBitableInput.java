@@ -6,7 +6,7 @@ import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 import com.data.metadata.ColumnMeta;
-import com.data.metadata.CommonDataType;
+import com.data.metadata.AllDataType;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import okhttp3.MediaType;
@@ -242,7 +242,7 @@ public class FeishuBitableInput extends FlowComponent {
         tableMeta.setDbType(DBType.MYSQL.name());
         tableMeta.setTable(resolveTableName());
 
-        ColumnMeta recordIdCol = new ColumnMeta(recordIdField, CommonDataType.VARCHAR.getName());
+        ColumnMeta recordIdCol = new ColumnMeta(recordIdField, AllDataType.VARCHAR.getName());
         recordIdCol.setLength(64);
         recordIdCol.setPrimaryKey(true);
         recordIdCol.setNullable(false);
@@ -266,26 +266,26 @@ public class FeishuBitableInput extends FlowComponent {
         int length = 0;
         switch (field.getType()) {
             case 2: // 数字
-                type = CommonDataType.DOUBLE.getName();
+                type = AllDataType.DOUBLE.getName();
                 break;
             case 5: // 日期
             case 1001: // 创建时间
             case 1002: // 最后更新时间
-                type = CommonDataType.BIGINT.getName();
+                type = AllDataType.BIGINT.getName();
                 break;
             case 7: // 复选框
-                type = CommonDataType.BOOLEAN.getName();
+                type = AllDataType.BOOLEAN.getName();
                 break;
             case 4: // 多选
-                type = CommonDataType.VARCHAR.getName();
+                type = AllDataType.VARCHAR.getName();
                 length = 1024;
                 break;
             case 22: // 地理位置
-                type = CommonDataType.VARCHAR.getName();
+                type = AllDataType.VARCHAR.getName();
                 length = 512;
                 break;
             case 1005: // 自动编号
-                type = CommonDataType.VARCHAR.getName();
+                type = AllDataType.VARCHAR.getName();
                 length = 64;
                 break;
             case 1: // 文本
@@ -300,7 +300,7 @@ public class FeishuBitableInput extends FlowComponent {
             case 1003: // 创建人
             case 1004: // 修改人
             default:
-                type = CommonDataType.VARCHAR.getName();
+                type = AllDataType.VARCHAR.getName();
                 length = 255;
                 break;
         }
@@ -312,7 +312,7 @@ public class FeishuBitableInput extends FlowComponent {
     }
 
     private ColumnMeta bigintColumn(String name) {
-        ColumnMeta column = new ColumnMeta(name, CommonDataType.BIGINT.getName());
+        ColumnMeta column = new ColumnMeta(name, AllDataType.BIGINT.getName());
         column.setPrecision(-1);
         column.setScale(-1);
         return column;

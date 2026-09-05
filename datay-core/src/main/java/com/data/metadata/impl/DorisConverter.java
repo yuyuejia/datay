@@ -43,92 +43,92 @@ public class DorisConverter implements TypeConverter {
         DatabaseConverter.register(DBType.DORIS.name(), new DorisConverter());
 
         // 数值类型映射
-        commonDataType2ColumnType.put(CommonDataType.TINYINT.name(), DorisType.TINYINT.name());
-        commonDataType2ColumnType.put(CommonDataType.SMALLINT.name(), DorisType.SMALLINT.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMINT.name(), DorisType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INT.name(), DorisType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.INTEGER.name(), DorisType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.BIGINT.name(), DorisType.BIGINT.name());
-        commonDataType2ColumnType.put(CommonDataType.LARGEINT.name(), DorisType.LARGEINT.name());
-        commonDataType2ColumnType.put(CommonDataType.LONG.name(), DorisType.BIGINT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT.name(), DorisType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT4.name(), DorisType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.FLOAT8.name(), DorisType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.DOUBLE.name(), DorisType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMERIC.name(), DorisType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.DECIMAL.name(), DorisType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.NUMBER.name(), DorisType.DECIMAL.name());
-        commonDataType2ColumnType.put(CommonDataType.MONEY.name(), DorisType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.TINYINT.name(), DorisType.TINYINT.name());
+        commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), DorisType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), DorisType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INT.name(), DorisType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.INTEGER.name(), DorisType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.BIGINT.name(), DorisType.BIGINT.name());
+        commonDataType2ColumnType.put(AllDataType.LARGEINT.name(), DorisType.LARGEINT.name());
+        commonDataType2ColumnType.put(AllDataType.LONG.name(), DorisType.BIGINT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), DorisType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), DorisType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DorisType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), DorisType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DorisType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DorisType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.NUMBER.name(), DorisType.DECIMAL.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), DorisType.DECIMAL.name());
 
         // 字符类型映射
-        commonDataType2ColumnType.put(CommonDataType.CHAR.name(), DorisType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BPCHAR.name(), DorisType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NCHAR.name(), DorisType.CHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARCHAR2.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.NVARCHAR2.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYTEXT.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.TEXT.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMTEXT.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGTEXT.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.CLOB.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.NCLOB.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.RAW.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.UUID.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.ROWID.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.UROWID.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), DorisType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), DorisType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), DorisType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.TEXT.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMTEXT.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.LONGTEXT.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.CLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.NCLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.ROWID.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UROWID.name(), DorisType.VARCHAR.name());
 
         // 二进制类型映射
-        commonDataType2ColumnType.put(CommonDataType.BIT.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBIT.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BYTEA.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_DOUBLE.name(), DorisType.DOUBLE.name());
-        commonDataType2ColumnType.put(CommonDataType.BINARY_FLOAT.name(), DorisType.FLOAT.name());
-        commonDataType2ColumnType.put(CommonDataType.VARBINARY.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TINYBLOB.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.BLOB.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.MEDIUMBLOB.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.LONGBLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.BIT.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARBIT.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BYTEA.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), DorisType.DOUBLE.name());
+        commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), DorisType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TINYBLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.BLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMBLOB.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), DorisType.STRING.name());
 
         // 时间类型映射
-        commonDataType2ColumnType.put(CommonDataType.YEAR.name(), DorisType.INT.name());
-        commonDataType2ColumnType.put(CommonDataType.DATE.name(), DorisType.DATE.name());
-        commonDataType2ColumnType.put(CommonDataType.DATETIME.name(), DorisType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP.name(), DorisType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_6.getName(), DorisType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIME_WITH_TIME_ZONE.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMPTZ.name(), DorisType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DorisType.DATETIME.name());
-        commonDataType2ColumnType.put(CommonDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.YEAR.name(), DorisType.INT.name());
+        commonDataType2ColumnType.put(AllDataType.DATE.name(), DorisType.DATE.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIME.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMPTZ.name(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DorisType.DATETIME.name());
+        commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DorisType.DATETIME.name());
 
         // 布尔类型映射
-        commonDataType2ColumnType.put(CommonDataType.BOOLEAN.name(), DorisType.BOOLEAN.name());
-        commonDataType2ColumnType.put(CommonDataType.BOOL.name(), DorisType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DorisType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.BOOL.name(), DorisType.BOOLEAN.name());
 
         // 其他类型映射
-        commonDataType2ColumnType.put(CommonDataType.XML.name(), DorisType.STRING.name());
-        commonDataType2ColumnType.put(CommonDataType.JSON.name(), DorisType.JSON.name());
-        commonDataType2ColumnType.put(CommonDataType.SET.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.ENUM.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.XML.name(), DorisType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.JSON.name(), DorisType.JSON.name());
+        commonDataType2ColumnType.put(AllDataType.SET.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.ENUM.name(), DorisType.VARCHAR.name());
 
         // 时间间隔类型映射
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_YEAR.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_YEAR_TO_MONTH.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_MONTH.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_DAY.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_DAY_TO_HOUR.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_DAY_TO_MINUTE.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_DAY_TO_SECOND.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_HOUR.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_HOUR_TO_MINUTE.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_HOUR_TO_SECOND.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_MINUTE.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_MINUTE_TO_SECOND.name(), DorisType.VARCHAR.name());
-        commonDataType2ColumnType.put(CommonDataType.INTERVAL_SECOND.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR_TO_MONTH.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MONTH.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_HOUR.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_MINUTE.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_SECOND.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_MINUTE.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_SECOND.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE_TO_SECOND.name(), DorisType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_SECOND.name(), DorisType.VARCHAR.name());
     }
 
     public ColumnMeta toPhysicalType(ColumnMeta columnMeta) {
@@ -395,5 +395,14 @@ public class DorisConverter implements TypeConverter {
             default:
                 return 0;
         }
+    }
+
+    @Override
+    public List<String> getSupportedTypes() {
+        List<String> result = new ArrayList<>();
+        for (DorisType t : DorisType.values()) {
+            result.add(t.name());
+        }
+        return result;
     }
 }
