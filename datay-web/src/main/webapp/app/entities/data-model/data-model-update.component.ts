@@ -54,6 +54,16 @@ export default defineComponent({
     const isSaving = ref(false);
     const isEdit = ref(false);
 
+    const modelMode = ref<"normal" | "register">("normal");
+    const registerAvailableDataSources = ref<IDataSource[]>([]);
+    const registerSelectedDataSourceId = ref<number | null>(null);
+    const registerSchemas = ref<string[]>([]);
+    const registerSelectedSchema = ref<string | null>(null);
+    const registerTables = ref<string[]>([]);
+    const registerSelectedTable = ref<string | null>(null);
+    const registerFieldsLoading = ref(false);
+    const registerAutoAdded = ref(false);
+
     const fields: Ref<IModelField[]> = ref([]);
     const originalFields: Ref<IModelField[]> = ref([]);
 
@@ -446,12 +456,144 @@ export default defineComponent({
       importDialogVisible.value = false;
     };
 
+    const loadRegisterDataSources = async () => {
+      try {
+        const res = await dataSourceService().retrieve();
+        registerAvailableDataSources.value = res.data || [];
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+    };
+
+    const onModelModeChange = async () => {
+      if (modelMode.value === "register") {
+        registerSelectedDataSourceId.value = dataModel.value.dataSourceId ?? null;
+        registerSelectedSchema.value = dataModel.value.schemaName || null;
+        registerSelectedTable.value = dataModel.value.tableName || null;
+        await loadRegisterDataSources();
+        if (registerSelectedDataSourceId.value) {
+          await onRegisterDataSourceChange();
+        }
+      } else {
+        dataModel.value.isRegistered = false;
+        dataModel.value.dataSourceId = null;
+        dataModel.value.schemaName = null;
+        dataModel.value.tableName = null;
+        registerSelectedDataSourceId.value = null;
+        registerSchemas.value = [];
+        registerSelectedSchema.value = null;
+        registerTables.value = [];
+        registerSelectedTable.value = null;
+      }
+    };
+
+    const onRegisterDataSourceChange = async () => {
+      registerSelectedSchema.value = null;
+      registerTables.value = [];
+      registerSelectedTable.value = null;
+      const dataSourceId = registerSelectedDataSourceId.value;
+      if (!dataSourceId) {
+        registerSchemas.value = [];
+        return;
+      }
+      try {
+        const res = await dataSourceService().getSchemas(dataSourceId);
+        registerSchemas.value = res.data || res || [];
+        if (registerSchemas.value.length === 0) {
+          registerSchemas.value = ["public"];
+        }
+        if (dataModel.value.schemaName && registerSchemas.value.includes(dataModel.value.schemaName)) {
+          registerSelectedSchema.value = dataModel.value.schemaName;
+          await onRegisterSchemaChange();
+        } else {
+          registerSelectedSchema.value = registerSchemas.value[0] || null;
+          if (registerSelectedSchema.value) {
+            await onRegisterSchemaChange();
+          }
+        }
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+    };
+
+    const onRegisterSchemaChange = async () => {
+      registerSelectedTable.value = null;
+      const schema = registerSelectedSchema.value;
+      const dataSourceId = registerSelectedDataSourceId.value;
+      if (!schema || !dataSourceId) {
+        registerTables.value = [];
+        return;
+      }
+      try {
+        const res = await dataSourceService().getTables(dataSourceId, schema);
+        const tables = res.data || res || [];
+        registerTables.value = tables.map((t: any) =>
+          typeof t === "string" ? t : t.table ?? t.tableName ?? t.name ?? t,
+        );
+        if (dataModel.value.tableName && registerTables.value.includes(dataModel.value.tableName)) {
+          registerSelectedTable.value = dataModel.value.tableName;
+          await onRegisterTableChange(true);
+        }
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+    };
+
+    const onRegisterTableChange = async (preserveFields = false) => {
+      const table = registerSelectedTable.value;
+      const dataSourceId = registerSelectedDataSourceId.value;
+      const schema = registerSelectedSchema.value;
+      if (!table || !dataSourceId || !schema) {
+        return;
+      }
+      registerFieldsLoading.value = true;
+      try {
+        const res = await dataSourceService().getFields(dataSourceId, schema, table);
+        const columns = res.data || res || [];
+        const newFields = columns.map((col: any, index: number) => {
+          const newField = new ModelField();
+          newField.modelId = dataModel.value.id || undefined;
+          newField.fieldName = col.columnName || col.name || col.field || "";
+          newField.fieldType = mapJdbcTypeToFieldType(col.dataType || col.type || col.typeName || "");
+          newField.fieldLength = col.length ?? col.columnSize ?? col.size ?? null;
+          newField.fieldPrecision = col.precision ?? null;
+          newField.fieldScale = col.scale ?? null;
+          newField.description = col.remarks || col.comment || col.description || "";
+          newField.sortOrder = index;
+          newField.isPartitionKey = false;
+          newField.isPrimaryKey = !!(col.primaryKey ?? col.isPrimaryKey);
+          return newField;
+        });
+        if (!preserveFields) {
+          fields.value = newFields;
+          registerAutoAdded.value = true;
+        } else {
+          fields.value = newFields;
+        }
+        for (let i = 0; i < fields.value.length; i++) {
+          fields.value[i].sortOrder = i;
+        }
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        registerFieldsLoading.value = false;
+      }
+    };
+
     onMounted(async () => {
       await loadDirectoryTree();
       await loadDimensionModels();
       if (route.params?.dataModelId) {
         isEdit.value = true;
         await retrieveDataModel(Number(route.params.dataModelId));
+        if (dataModel.value.isRegistered === true) {
+          modelMode.value = "register";
+          await loadRegisterDataSources();
+          if (dataModel.value.dataSourceId) {
+            registerSelectedDataSourceId.value = dataModel.value.dataSourceId;
+            await onRegisterDataSourceChange();
+          }
+        }
       } else if (route.query?.directoryId) {
         dataModel.value.directoryId = Number(route.query.directoryId);
         dataModel.value.modelType = "FACT";
@@ -462,6 +604,15 @@ export default defineComponent({
       dataModel,
       isSaving,
       isEdit,
+      modelMode,
+      registerAvailableDataSources,
+      registerSelectedDataSourceId,
+      registerSchemas,
+      registerSelectedSchema,
+      registerTables,
+      registerSelectedTable,
+      registerFieldsLoading,
+      registerAutoAdded,
       fields,
       directoryTreeData,
       flatDirectoryOptions,
@@ -497,6 +648,11 @@ export default defineComponent({
       onImportSchemaChange,
       onImportTableChange,
       confirmImportFields,
+      loadRegisterDataSources,
+      onModelModeChange,
+      onRegisterDataSourceChange,
+      onRegisterSchemaChange,
+      onRegisterTableChange,
       dataModelService,
       modelDirectoryService,
       dataSourceService,
@@ -507,6 +663,23 @@ export default defineComponent({
     async save() {
       this.isSaving = true;
       try {
+        if (this.modelMode === "register") {
+          if (!this.registerSelectedDataSourceId || !this.registerSelectedSchema || !this.registerSelectedTable) {
+            this.alertService.showWarning("注册模式下请选择完整的数据源、Schema和数据表");
+            this.isSaving = false;
+            return;
+          }
+          this.dataModel.isRegistered = true;
+          this.dataModel.dataSourceId = this.registerSelectedDataSourceId;
+          this.dataModel.schemaName = this.registerSelectedSchema;
+          this.dataModel.tableName = this.registerSelectedTable;
+        } else {
+          this.dataModel.isRegistered = false;
+          this.dataModel.dataSourceId = null;
+          this.dataModel.schemaName = null;
+          this.dataModel.tableName = null;
+        }
+
         if (this.dataModel.id) {
           await this.dataModelService().update(this.dataModel);
           if (this.fields.length > 0 || this.originalFields.length > 0) {

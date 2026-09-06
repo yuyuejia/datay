@@ -38,19 +38,96 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
-          <el-form-item label="是否注册">
+          <el-form-item label="创建模式" required>
             <select
               class="form-control"
-              v-model="dataModel.isRegistered"
+              v-model="modelMode"
               style="width: 100%"
+              @change="onModelModeChange"
             >
-              <option :value="null">请选择</option>
-              <option :value="true">是</option>
-              <option :value="false">否</option>
+              <option value="normal">普通模式</option>
+              <option value="register">注册模式</option>
             </select>
           </el-form-item>
         </el-col>
       </el-row>
+      <el-row v-if="modelMode === 'register'" :gutter="20" class="register-mode-row">
+        <el-col :span="8">
+          <el-form-item label="数据源" required>
+            <select
+              class="form-control"
+              v-model="registerSelectedDataSourceId"
+              style="width: 100%"
+              @change="onRegisterDataSourceChange"
+            >
+              <option :value="null" disabled>请选择数据源</option>
+              <option
+                v-for="ds in registerAvailableDataSources"
+                :key="ds.id"
+                :value="ds.id"
+              >
+                {{ ds.name }}
+              </option>
+            </select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="Schema" required>
+            <select
+              class="form-control"
+              v-model="registerSelectedSchema"
+              :disabled="!registerSelectedDataSourceId"
+              style="width: 100%"
+              @change="onRegisterSchemaChange"
+            >
+              <option :value="null" disabled>请选择Schema</option>
+              <option
+                v-for="schema in registerSchemas"
+                :key="schema"
+                :value="schema"
+              >
+                {{ schema }}
+              </option>
+            </select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="数据表" required>
+            <select
+              class="form-control"
+              v-model="registerSelectedTable"
+              :disabled="!registerSelectedSchema"
+              style="width: 100%"
+              @change="onRegisterTableChange"
+            >
+              <option :value="null" disabled>请选择数据表</option>
+              <option
+                v-for="table in registerTables"
+                :key="table"
+                :value="table"
+              >
+                {{ table }}
+              </option>
+            </select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row v-if="modelMode === 'register' && registerFieldsLoading" class="register-loading-row">
+        <el-col :span="24">
+          <span class="register-loading-tip">
+            <font-awesome-icon icon="spin fa-spinner" /> 正在加载表结构...
+          </span>
+        </el-col>
+      </el-row>
+      <el-row v-if="modelMode === 'register' && registerAutoAdded && !registerFieldsLoading" class="register-hint-row">
+        <el-col :span="24">
+          <span class="register-success-tip">
+            <font-awesome-icon icon="check-circle" /> 已从物理表自动导入 {{ fields.length }} 个字段,您可以根据需要进行修改
+          </span>
+        </el-col>
+      </el-row>
+
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="所属目录">
@@ -481,5 +558,30 @@
 
 .muted {
   color: #c0c4cc;
+}
+
+.register-mode-row {
+  background: #f5f7fa;
+  padding: 16px 12px 4px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.register-loading-row {
+  margin-bottom: 8px;
+}
+
+.register-loading-tip {
+  color: #409eff;
+  font-size: 13px;
+}
+
+.register-hint-row {
+  margin-bottom: 8px;
+}
+
+.register-success-tip {
+  color: #67c23a;
+  font-size: 13px;
 }
 </style>

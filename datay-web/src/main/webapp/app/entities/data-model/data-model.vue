@@ -114,19 +114,17 @@
               class="model-detail-form"
             >
               <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="模型名称">
                     <span class="detail-value">{{ selectedModel.name }}</span>
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="模型编码">
                     <span class="detail-value">{{ selectedModel.code || '-' }}</span>
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="模型类型">
                     <span class="detail-value">
                       <el-tag
@@ -138,28 +136,44 @@
                     </span>
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
-                  <el-form-item label="是否注册">
+              </el-row>
+              <el-row :gutter="20">
+                <el-col :span="8">
+                  <el-form-item label="创建模式">
                     <span class="detail-value">
                       <el-tag
                         :type="selectedModel.isRegistered ? 'success' : 'info'"
                         size="small"
                       >
-                        {{ selectedModel.isRegistered ? '是' : '否' }}
+                        {{ selectedModel.isRegistered ? '注册模式' : '普通模式' }}
                       </el-tag>
                     </span>
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="创建时间">
                     <span class="detail-value">{{ formatDateLong(selectedModel.createTime) || '-' }}</span>
                   </el-form-item>
                 </el-col>
-                <el-col :span="12">
+                <el-col :span="8">
                   <el-form-item label="更新时间">
                     <span class="detail-value">{{ formatDateLong(selectedModel.updateTime) || '-' }}</span>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row v-if="selectedModel.dataSourceId" :gutter="20">
+                <el-col :span="8">
+                  <el-form-item label="数据源">
+                    <span class="detail-value">{{ getDataSourceName(selectedModel.dataSourceId) }}</span>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="16">
+                  <el-form-item label="物理表">
+                    <span class="detail-value">
+                      <code v-if="selectedModel.schemaName" class="table-schema">{{ selectedModel.schemaName }}</code>
+                      <span v-if="selectedModel.schemaName" class="table-dot">.</span>
+                      <code class="table-name">{{ selectedModel.tableName || '-' }}</code>
+                    </span>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -332,6 +346,7 @@
               class="form-control"
               v-model="materializeForm.schemaName"
               style="width: 300px"
+              @change="checkMaterializeTableExists"
             >
               <option
                 v-for="schema in materializeSchemas"
@@ -637,6 +652,27 @@
   white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.6;
+}
+
+.table-schema,
+.table-name {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 13px;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: #303133;
+}
+
+.table-schema {
+  color: #606266;
+}
+
+.table-dot {
+  color: #c0c4cc;
+  margin: 0 2px;
+  font-weight: bold;
 }
 
 .materialize-warning {

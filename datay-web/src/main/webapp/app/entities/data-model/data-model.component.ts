@@ -243,6 +243,21 @@ export default defineComponent({
         if (result?.success) {
           alertService.showSuccess(`物化成功！已生成表 ${materializeForm.value.schemaName ? materializeForm.value.schemaName + '.' : ''}${materializeForm.value.tableName}`);
           materializeDialogVisible.value = false;
+          const updated = await dataModelService().find(selectedModel.value!.id!);
+          selectedModel.value = updated;
+          const updateNode = (nodes: TreeNode[]): boolean => {
+            for (const node of nodes) {
+              if (node.type === "model" && node.id === updated.id) {
+                node.data = updated;
+                return true;
+              }
+              if (node.children && updateNode(node.children)) {
+                return true;
+              }
+            }
+            return false;
+          };
+          updateNode(treeData.value);
         } else {
           alertService.showError(result?.message || "物化失败");
         }
@@ -251,6 +266,20 @@ export default defineComponent({
       } finally {
         materializeLoading.value = false;
       }
+    };
+
+    const getDataSourceName = (dataSourceId: number | null | undefined): string => {
+      if (!dataSourceId) return "-";
+      const ds = dataSources.value.find((d) => d.id === dataSourceId);
+      return ds?.name || String(dataSourceId);
+    };
+
+    const getPhysicalTableName = (model: IDataModel | null): string => {
+      if (!model) return "-";
+      const parts: string[] = [];
+      if (model.schemaName) parts.push(model.schemaName);
+      if (model.tableName) parts.push(model.tableName);
+      return parts.length > 0 ? parts.join(".") : "-";
     };
 
     const loadTree = async () => {
@@ -440,6 +469,12 @@ export default defineComponent({
 
     onMounted(async () => {
       await loadTree();
+      try {
+        const dsRes = await dataSourceService().retrieve();
+        dataSources.value = dsRes.data || [];
+      } catch (err) {
+        console.warn("加载数据源列表失败", err);
+      }
       const modelId = route.query.modelId;
       if (modelId) {
         const findNode = (nodes: TreeNode[], id: number): TreeNode | null => {
@@ -497,12 +532,15 @@ export default defineComponent({
       confirmDelete,
       openMaterializeDialog,
       onDataSourceChange,
+      checkMaterializeTableExists,
       previewMaterializeDDL,
       confirmMaterialize,
       getFieldTypeLabel,
       needsLength,
       needsPrecision,
       needsScale,
+      getDataSourceName,
+      getPhysicalTableName,
       ...dateFormat,
     };
   },
