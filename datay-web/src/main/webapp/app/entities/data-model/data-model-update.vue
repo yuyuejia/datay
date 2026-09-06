@@ -197,17 +197,11 @@
               @change="clearLengthAndPrecisionIfUnneeded(row)"
             >
               <option value="" disabled>字段类型</option>
-              <option value="STRING">字符串(STRING)</option>
-              <option value="TEXT">大文本(TEXT)</option>
-              <option value="BINARY">二进制(BINARY)</option>
-              <option value="BLOB">大对象(BLOB)</option>
-              <option value="INTEGER">整数(INTEGER)</option>
-              <option value="LONG">长整型(LONG)</option>
-              <option value="DOUBLE">双精度(DOUBLE)</option>
-              <option value="DECIMAL">高精度数值(DECIMAL)</option>
-              <option value="DATE">日期(DATE)</option>
-              <option value="DATETIME">日期时间(DATETIME)</option>
-              <option value="BOOLEAN">布尔(BOOLEAN)</option>
+              <option
+                v-for="lt in logicalTypes"
+                :key="lt.type"
+                :value="lt.type"
+              >{{ lt.label }}</option>
             </select>
           </template>
         </el-table-column>

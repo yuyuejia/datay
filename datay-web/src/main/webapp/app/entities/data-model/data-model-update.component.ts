@@ -71,6 +71,8 @@ export default defineComponent({
     const dimensionModels: Ref<IDataModel[]> = ref([]);
     const dimensionFieldsCache: Ref<Record<number, IModelField[]>> = ref({});
 
+    const logicalTypes: Ref<{ type: string; label: string }[]> = ref([]);
+
     const previousState = () => router.go(-1);
 
     const loadDirectoryTree = async () => {
@@ -162,7 +164,7 @@ export default defineComponent({
       }
     };
 
-    const FIELD_TYPES_WITH_LENGTH_ONLY = ["STRING"];
+    const FIELD_TYPES_WITH_LENGTH_ONLY = ["VARCHAR"];
     const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
     const needsLength = (fieldType: string | null | undefined): boolean => {
@@ -237,7 +239,7 @@ export default defineComponent({
         type.includes("CHAR") ||
         type.includes("STRING")
       ) {
-        return "STRING";
+        return "VARCHAR";
       }
       if (
         type.includes("INT") ||
@@ -293,7 +295,7 @@ export default defineComponent({
       if (type.includes("BOOL") || type.includes("BIT")) {
         return "BOOLEAN";
       }
-      return "STRING";
+      return "VARCHAR";
     };
 
     const loadImportAvailableDataSources = async () => {
@@ -583,6 +585,12 @@ export default defineComponent({
     onMounted(async () => {
       await loadDirectoryTree();
       await loadDimensionModels();
+      try {
+        const typesRes = await dataModelService().getLogicalTypes();
+        logicalTypes.value = typesRes.data || [];
+      } catch (err) {
+        logicalTypes.value = [];
+      }
       if (route.params?.dataModelId) {
         isEdit.value = true;
         await retrieveDataModel(Number(route.params.dataModelId));
@@ -618,6 +626,7 @@ export default defineComponent({
       flatDirectoryOptions,
       dimensionModels,
       dimensionFieldsCache,
+      logicalTypes,
       previousState,
       getDimensionFields,
       handleDimensionModelChange,

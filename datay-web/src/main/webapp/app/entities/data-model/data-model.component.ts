@@ -22,7 +22,7 @@ interface TreeNode {
 }
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
-  STRING: "字符串",
+  VARCHAR: "字符串",
   TEXT: "大文本",
   BINARY: "二进制",
   BLOB: "大对象(BLOB)",
@@ -35,7 +35,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   BOOLEAN: "布尔",
 };
 
-const FIELD_TYPES_WITH_LENGTH_ONLY = ["STRING"];
+const FIELD_TYPES_WITH_LENGTH_ONLY = ["VARCHAR"];
 const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
 export default defineComponent({

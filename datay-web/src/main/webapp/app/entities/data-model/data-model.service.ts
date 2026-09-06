@@ -148,6 +148,19 @@ export default class DataModelService {
     });
   }
 
+  getLogicalTypes(): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/logical-types`)
+        .then((res) => {
+          resolve(res);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    });
+  }
+
   checkMaterialize(modelId: number, request: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

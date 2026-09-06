@@ -17,7 +17,10 @@ import com.data.metadata.impl.LogicConverter;
 import com.data.metadata.util.DBUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -187,10 +190,18 @@ public class DataModelResource {
     }
 
     @GetMapping("/logical-types")
-    public ResponseEntity<List<String>> getSupportedLogicalTypes() {
+    public ResponseEntity<List<Map<String, String>>> getSupportedLogicalTypes() {
         LOG.debug("REST request to get supported logical field types");
-        List<String> types = DatabaseConverter.getSupportedTypes("common");
-        return ResponseEntity.ok().body(types);
+        List<String> typeNames = DatabaseConverter.getSupportedTypes("common");
+        List<Map<String, String>> result = new ArrayList<>();
+        for (String typeName : typeNames) {
+            Map<String, String> item = new HashMap<>();
+            item.put("type", typeName);
+            String label = LogicConverter.LOGIC_TYPE_LABELS.getOrDefault(typeName, typeName);
+            item.put("label", label + "(" + typeName + ")");
+            result.add(item);
+        }
+        return ResponseEntity.ok().body(result);
     }
 
     @GetMapping("/{id}/materialize-fields")

@@ -11,7 +11,7 @@ public class LogicConverter implements TypeConverter {
     public static final String LOGIC_CONVERTER_KEY = "common";
 
     public enum LogicType {
-        STRING,
+        VARCHAR,
         TEXT,
         BINARY,
         BLOB,
@@ -33,7 +33,7 @@ public class LogicConverter implements TypeConverter {
     static {
         DatabaseConverter.register(LOGIC_CONVERTER_KEY, new LogicConverter());
 
-        LOGIC_TYPE_LABELS.put("STRING", "字符串");
+        LOGIC_TYPE_LABELS.put("VARCHAR", "字符串");
         LOGIC_TYPE_LABELS.put("TEXT", "大文本");
         LOGIC_TYPE_LABELS.put("BINARY", "二进制");
         LOGIC_TYPE_LABELS.put("BLOB", "大对象(BLOB)");
@@ -45,7 +45,7 @@ public class LogicConverter implements TypeConverter {
         LOGIC_TYPE_LABELS.put("DATETIME", "日期时间");
         LOGIC_TYPE_LABELS.put("BOOLEAN", "布尔");
 
-        logicType2CommonType.put("STRING", AllDataType.VARCHAR.name());
+        logicType2CommonType.put("VARCHAR", AllDataType.VARCHAR.name());
         logicType2CommonType.put("TEXT", AllDataType.TEXT.name());
         logicType2CommonType.put("BINARY", AllDataType.BLOB.name());
         logicType2CommonType.put("BLOB", AllDataType.BLOB.name());
@@ -57,19 +57,19 @@ public class LogicConverter implements TypeConverter {
         logicType2CommonType.put("DATETIME", AllDataType.TIMESTAMP.name());
         logicType2CommonType.put("BOOLEAN", AllDataType.BOOLEAN.name());
 
-        commonDataType2ColumnType.put(AllDataType.STRING.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.CHAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.UUID.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.ROWID.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.UROWID.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.RAW.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.MONEY.name(), LogicType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.STRING.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.CHAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.BPCHAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NCHAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.VARCHAR2.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.NVARCHAR2.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.ROWID.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UROWID.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), LogicType.VARCHAR.name());
 
         commonDataType2ColumnType.put(AllDataType.TINYTEXT.name(), LogicType.TEXT.name());
         commonDataType2ColumnType.put(AllDataType.TEXT.name(), LogicType.TEXT.name());
@@ -129,20 +129,20 @@ public class LogicConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), LogicType.BOOLEAN.name());
         commonDataType2ColumnType.put(AllDataType.BOOL.name(), LogicType.BOOLEAN.name());
 
-        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR_TO_MONTH.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_MONTH.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_HOUR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_MINUTE.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_SECOND.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_MINUTE.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_SECOND.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE_TO_SECOND.name(), LogicType.STRING.name());
-        commonDataType2ColumnType.put(AllDataType.INTERVAL_SECOND.name(), LogicType.STRING.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_YEAR_TO_MONTH.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MONTH.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_HOUR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_MINUTE.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_DAY_TO_SECOND.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_MINUTE.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_HOUR_TO_SECOND.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_MINUTE_TO_SECOND.name(), LogicType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.INTERVAL_SECOND.name(), LogicType.VARCHAR.name());
     }
 
     @Override
@@ -151,10 +151,10 @@ public class LogicConverter implements TypeConverter {
         String type = commonDataType2ColumnType.get(upperType);
         if (type == null) {
             if (upperType.startsWith("INTERVAL")) {
-                type = LogicType.STRING.name();
+                type = LogicType.VARCHAR.name();
             } else {
                 System.out.println("logic not found type:" + upperType);
-                type = LogicType.STRING.name();
+                type = LogicType.VARCHAR.name();
             }
         }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
