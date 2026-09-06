@@ -20,6 +20,9 @@ public enum AllDataType {
     MONEY("MONEY"),
     NUMBER("NUMBER"),
 
+    // 逻辑字段类型
+    STRING("STRING"),
+
     // 字符类型
     CHAR("CHAR"),
     BPCHAR("BPCHAR"),

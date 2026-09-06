@@ -13,6 +13,7 @@ import com.data.datafusion.service.dto.MaterializeResponseDTO;
 import com.data.datafusion.service.dto.ModelFieldDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.DatabaseConverter;
+import com.data.metadata.impl.LogicConverter;
 import com.data.metadata.util.DBUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -182,6 +183,13 @@ public class DataModelResource {
         }
         String dbType = DBUtils.getDBType(dsOpt.get().getUrl());
         List<String> types = DatabaseConverter.getSupportedTypes(dbType);
+        return ResponseEntity.ok().body(types);
+    }
+
+    @GetMapping("/logical-types")
+    public ResponseEntity<List<String>> getSupportedLogicalTypes() {
+        LOG.debug("REST request to get supported logical field types");
+        List<String> types = DatabaseConverter.getSupportedTypes("common");
         return ResponseEntity.ok().body(types);
     }
 

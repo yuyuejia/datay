@@ -4,11 +4,9 @@ import java.util.Collections;
 import java.util.List;
 
 public interface TypeConverter {
-    // 转换为标准逻辑类型
-    //    ColumnMeta toLogicalType(ColumnMeta columnMeta);
 
     // 转换为目标物理类型
-    ColumnMeta toPhysicalType(ColumnMeta columnMeta);
+    ColumnMeta toTargetColumnType(ColumnMeta columnMeta);
 
     String generateColumnDDL(ColumnMeta column);
 

@@ -121,6 +121,9 @@
             >
               <option value="" disabled>字段类型</option>
               <option value="STRING">字符串(STRING)</option>
+              <option value="TEXT">大文本(TEXT)</option>
+              <option value="BINARY">二进制(BINARY)</option>
+              <option value="BLOB">大对象(BLOB)</option>
               <option value="INTEGER">整数(INTEGER)</option>
               <option value="LONG">长整型(LONG)</option>
               <option value="DOUBLE">双精度(DOUBLE)</option>

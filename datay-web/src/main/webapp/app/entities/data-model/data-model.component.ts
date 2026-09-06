@@ -23,6 +23,9 @@ interface TreeNode {
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
   STRING: "字符串",
+  TEXT: "大文本",
+  BINARY: "二进制",
+  BLOB: "大对象(BLOB)",
   INTEGER: "整数",
   LONG: "长整型",
   DOUBLE: "双精度",
@@ -87,7 +90,6 @@ export default defineComponent({
       dataSourceId: null as number | null,
       schemaName: "",
       tableName: "",
-      overwrite: false,
     });
 
     const materializeFields: Ref<any[]> = ref([]);
@@ -125,7 +127,6 @@ export default defineComponent({
         dataSourceId: selectedModel.value.dataSourceId ?? null,
         schemaName: selectedModel.value.schemaName || "",
         tableName: selectedModel.value.tableName || selectedModel.value.code || selectedModel.value.name || "",
-        overwrite: false,
       };
       materializeFields.value = [];
       materializeSchemas.value = [];
@@ -228,18 +229,13 @@ export default defineComponent({
         return;
       }
 
-      if (materializeTableExists.value && !materializeForm.value.overwrite) {
-        alertService.showWarning("目标表已存在，请勾选覆盖选项或修改表名");
-        return;
-      }
-
       materializeLoading.value = true;
       try {
         const res = await dataModelService().materialize(selectedModel.value!.id!, {
           dataSourceId: materializeForm.value.dataSourceId,
           schemaName: materializeForm.value.schemaName,
           tableName: materializeForm.value.tableName,
-          overwrite: materializeForm.value.overwrite,
+          overwrite: true,
           fields: materializeFields.value,
         });
 

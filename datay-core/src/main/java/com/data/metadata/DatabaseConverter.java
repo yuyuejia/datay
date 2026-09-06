@@ -18,6 +18,7 @@ public class DatabaseConverter {
 
     static {
         // 注册默认转换器
+        converters.put("common", new LogicConverter());
         converters.put("mysql", new MysqlConverter());
         converters.put("duckdb", new DuckDBConverter());
         converters.put("ducklake", new DuckLakeConverter());
@@ -40,7 +41,7 @@ public class DatabaseConverter {
         if (targetConverter == null) {
             throw new IllegalArgumentException("未注册的数据库类型转换器");
         }
-        ColumnMeta targetColumnMeta = targetConverter.toPhysicalType(sourceColumnMeta);
+        ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(sourceColumnMeta);
 
         // 两级转换
         //        ColumnMeta ColumnMeta = sourceConverter.toLogicalType(sourceColumnMeta);

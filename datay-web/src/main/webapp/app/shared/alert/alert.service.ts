@@ -39,6 +39,16 @@ export default class AlertService {
     });
   }
 
+  showWarning(toastMessage: string) {
+    this.bvToast.toast(toastMessage, {
+      toaster: 'b-toaster-top-center',
+      title: 'Warning',
+      variant: 'warning',
+      solid: true,
+      autoHideDelay: 5000,
+    });
+  }
+
   showError(toastMessage: string) {
     this.bvToast.toast(toastMessage, {
       toaster: 'b-toaster-top-center',

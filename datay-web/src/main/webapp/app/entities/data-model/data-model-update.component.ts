@@ -217,10 +217,14 @@ export default defineComponent({
     const mapJdbcTypeToFieldType = (jdbcType: string): string => {
       const type = (jdbcType || "").toUpperCase();
       if (
+        type.includes("TEXT") ||
+        type.includes("CLOB")
+      ) {
+        return "TEXT";
+      }
+      if (
         type.includes("VARCHAR") ||
         type.includes("CHAR") ||
-        type.includes("TEXT") ||
-        type.includes("CLOB") ||
         type.includes("STRING")
       ) {
         return "STRING";
@@ -260,6 +264,22 @@ export default defineComponent({
       ) {
         return "DATETIME";
       }
+      if (
+        type.includes("BYTEA") ||
+        type.includes("BINARY") ||
+        type.includes("VARBINARY") ||
+        type.includes("LONG_RAW")
+      ) {
+        return "BINARY";
+      }
+        if (
+          type.includes("BLOB") ||
+          type.includes("LONGBLOB") ||
+          type.includes("MEDIUMBLOB") ||
+          type.includes("TINYBLOB")
+        ) {
+          return "BLOB";
+        }
       if (type.includes("BOOL") || type.includes("BIT")) {
         return "BOOLEAN";
       }

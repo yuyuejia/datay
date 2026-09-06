@@ -8,6 +8,7 @@ import com.data.datafusion.service.dto.ModelFieldDTO;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
+import com.data.metadata.impl.LogicConverter;
 import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
 import org.slf4j.Logger;
@@ -17,9 +18,7 @@ import org.springframework.stereotype.Service;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -29,19 +28,6 @@ public class DataModelMaterializeService {
 
     private final DataSourceService dataSourceService;
 
-    private static final Map<String, String> LOGICAL_TYPE_TO_COMMON_TYPE = new HashMap<>();
-
-    static {
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("STRING", "VARCHAR");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("INTEGER", "INT");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("LONG", "BIGINT");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("DOUBLE", "DOUBLE");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("DECIMAL", "DECIMAL");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("DATE", "DATE");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("DATETIME", "TIMESTAMP");
-        LOGICAL_TYPE_TO_COMMON_TYPE.put("BOOLEAN", "BOOLEAN");
-    }
-
     public DataModelMaterializeService(DataSourceService dataSourceService) {
         this.dataSourceService = dataSourceService;
     }
@@ -50,7 +36,7 @@ public class DataModelMaterializeService {
         if (logicalType == null) {
             return "VARCHAR";
         }
-        return LOGICAL_TYPE_TO_COMMON_TYPE.getOrDefault(logicalType.toUpperCase(), logicalType);
+        return LogicConverter.logicType2CommonType.getOrDefault(logicalType.toUpperCase(), logicalType);
     }
 
     public List<MaterializeFieldDTO> prepareMaterializeFields(List<ModelFieldDTO> modelFields, String targetDbType) {

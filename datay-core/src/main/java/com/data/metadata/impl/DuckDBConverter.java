@@ -105,7 +105,7 @@ public class DuckDBConverter implements TypeConverter {
         return columnMeta;
     }
 
-    public ColumnMeta toPhysicalType(ColumnMeta columnMeta) {
+    public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
         String upperType = columnMeta.getType().toUpperCase();
         String type = commonDataType2ColumnType.get(upperType);
         if (type == null) {

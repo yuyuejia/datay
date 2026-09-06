@@ -357,13 +357,6 @@
               目标数据源中已存在同名表，物化将覆盖该表！
             </div>
           </el-form-item>
-          <el-form-item label="覆盖已存在">
-            <el-switch
-              v-model="materializeForm.overwrite"
-              active-text="是"
-              inactive-text="否"
-            />
-          </el-form-item>
         </el-form>
 
         <div class="materialize-section">
