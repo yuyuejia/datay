@@ -67,8 +67,8 @@
             <column name="code" value="dim_date"/>
             <column name="description" value="标准日期维度表，覆盖1970-01-01至2099-12-31，包含年/月/日/周/季度/节假日等属性。"/>
             <column name="directory_id" valueNumeric="1002"/>
-            <column name="model_type" value="DIM"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="dim_date"/>
@@ -81,8 +81,8 @@
             <column name="code" value="dim_customer"/>
             <column name="description" value="客户主数据维度表，包含客户基本信息、等级、地区等属性，支持SCD Type 2渐变维度。"/>
             <column name="directory_id" valueNumeric="1002"/>
-            <column name="model_type" value="DIM"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="dim_customer"/>
@@ -95,8 +95,8 @@
             <column name="code" value="dim_store"/>
             <column name="description" value="零售门店维度表，包含门店层级、地理区域、面积、开业时间等。"/>
             <column name="directory_id" valueNumeric="1002"/>
-            <column name="model_type" value="DIM"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="dim_store"/>
@@ -109,8 +109,8 @@
             <column name="code" value="dim_product"/>
             <column name="description" value="商品主数据维度表，包含SKU、品类层级、品牌、单位、进价/售价等属性。"/>
             <column name="directory_id" valueNumeric="1003"/>
-            <column name="model_type" value="DIM"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="dim_product"/>
@@ -123,8 +123,8 @@
             <column name="code" value="dim_brand"/>
             <column name="description" value="品牌维度表，包含品牌所属品类、厂商、国家等属性。"/>
             <column name="directory_id" valueNumeric="1003"/>
-            <column name="model_type" value="DIM"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="dim_brand"/>
@@ -141,7 +141,7 @@
             <column name="description" value="销售订单头事实表，一行代表一个订单头，关联日期/客户/门店等维度，度量含订单金额、折扣、应收金额等。"/>
             <column name="directory_id" valueNumeric="1004"/>
             <column name="model_type" value="FACT"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="fact_sales_order"/>
@@ -155,7 +155,7 @@
             <column name="description" value="销售订单行项目事实表，一行代表订单中的一个SKU，关联日期/客户/门店/商品/品牌等维度，支持多对多关联。"/>
             <column name="directory_id" valueNumeric="1004"/>
             <column name="model_type" value="FACT"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="fact_sales_order_item"/>
@@ -169,7 +169,7 @@
             <column name="description" value="会员等级变更事实表，记录客户会员状态变更的历史流水。"/>
             <column name="directory_id" valueNumeric="1005"/>
             <column name="model_type" value="FACT"/>
-            <column name="is_registered" valueBoolean="true"/>
+            <column name="is_registered" valueBoolean="false"/>
             <column name="project" value="retail"/>
             <column name="schema_name" value="dwd"/>
             <column name="table_name" value="fact_customer_member"/>
