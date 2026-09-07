@@ -113,6 +113,9 @@ public class AuthenticateController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
+        tenantRepository.resetDefaultForUser(userId);
+        tenantRepository.setDefaultTenantForUser(userId, switchVM.tenantId);
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String jwt = this.createToken(authentication, true, switchVM.tenantId);
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -152,7 +155,7 @@ public class AuthenticateController {
 
         Long tenantIdForClaim = forceTenantId;
         if (tenantIdForClaim == null && userId != null) {
-            tenantIdForClaim = tenantRepository.findFirstTenantByUserId(userId).map(Tenant::getId).orElse(null);
+            tenantIdForClaim = tenantRepository.findDefaultTenantByUserId(userId).map(Tenant::getId).orElse(null);
         }
         if (tenantIdForClaim != null) {
             final Long finalTenantId = tenantIdForClaim;
