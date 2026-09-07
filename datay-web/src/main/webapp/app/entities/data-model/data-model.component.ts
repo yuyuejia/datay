@@ -35,6 +35,22 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   BOOLEAN: "布尔",
 };
 
+const MODEL_TYPE_LABELS: Record<string, string> = {
+  ODS: "ODS 贴源层",
+  DWD: "DWD 明细层",
+  DWS: "DWS 汇总层",
+  ADS: "ADS 应用层",
+  DIMENSION: "维度表",
+};
+
+const MODEL_TYPE_TAG_TYPES: Record<string, string> = {
+  ODS: "info",
+  DWD: "",
+  DWS: "warning",
+  ADS: "danger",
+  DIMENSION: "primary",
+};
+
 const FIELD_TYPES_WITH_LENGTH_ONLY = ["VARCHAR"];
 const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
@@ -101,6 +117,18 @@ export default defineComponent({
         materializeFields.value.length > 0 &&
         materializeFields.value.every((f) => f.physicalType && f.physicalType.trim() !== "")
       );
+    });
+
+    const modelTypeLabel = computed(() => {
+      const type = selectedModel.value?.modelType;
+      if (!type) return "-";
+      return MODEL_TYPE_LABELS[type] || type;
+    });
+
+    const modelTypeTagType = computed(() => {
+      const type = selectedModel.value?.modelType;
+      if (!type) return "info";
+      return MODEL_TYPE_TAG_TYPES[type] || "info";
     });
 
     const needsMaterializeLength = (logicalType: string) => {
@@ -520,6 +548,8 @@ export default defineComponent({
       materializeDDLPreview,
       materializePhysicalTypes,
       canMaterialize,
+      modelTypeLabel,
+      modelTypeTagType,
       needsMaterializeLength,
       needsMaterializePrecision,
       needsMaterializeScale,

@@ -128,10 +128,10 @@
                   <el-form-item label="模型类型">
                     <span class="detail-value">
                       <el-tag
-                        :type="selectedModel.modelType === 'FACT' ? 'danger' : 'primary'"
+                        :type="modelTypeTagType"
                         size="small"
                       >
-                        {{ selectedModel.modelType === 'FACT' ? '事实表' : '维度表' }}
+                        {{ modelTypeLabel }}
                       </el-tag>
                     </span>
                   </el-form-item>

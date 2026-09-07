@@ -32,8 +32,11 @@
               style="width: 100%"
             >
               <option value="" disabled>请选择模型类型</option>
-              <option value="FACT">事实表</option>
-              <option value="DIMENSION">维度表</option>
+              <option value="ODS">ODS 贴源层</option>
+              <option value="DIMENSION">DIM 维度表</option>
+              <option value="DWD">DWD 明细层</option>
+              <option value="DWS">DWS 汇总层</option>
+              <option value="ADS">ADS 应用层</option>
             </select>
           </el-form-item>
         </el-col>
