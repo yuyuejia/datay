@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <property name="tenantNow" value="NOW(3)" dbms="mysql"/>
+    <property name="tenantNow" value="now()" dbms="h2"/>
+
+    <changeSet id="20250907000000001" author="system">
+        <createTable tableName="jhi_tenant">
+            <column name="id" type="bigint" autoIncrement="true" startWith="1">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="varchar(100)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_tenant_code"/>
+            </column>
+            <column name="name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(500)"/>
+            <column name="enabled" type="boolean" valueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="varchar(50)"/>
+            <column name="created_date" type="timestamp"/>
+            <column name="last_modified_by" type="varchar(50)"/>
+            <column name="last_modified_date" type="timestamp"/>
+        </createTable>
+
+        <createTable tableName="jhi_user_tenant">
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tenant_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_default" type="boolean" valueBoolean="false"/>
+        </createTable>
+
+        <addPrimaryKey tableName="jhi_user_tenant" columnNames="user_id, tenant_id"/>
+
+        <addForeignKeyConstraint
+            baseTableName="jhi_user_tenant"
+            baseColumnNames="tenant_id"
+            constraintName="fk_user_tenant_tenant"
+            referencedTableName="jhi_tenant"
+            referencedColumnNames="id"/>
+
+        <addForeignKeyConstraint
+            baseTableName="jhi_user_tenant"
+            baseColumnNames="user_id"
+            constraintName="fk_user_tenant_user"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+
+        <insert tableName="jhi_tenant">
+            <column name="id" valueNumeric="0"/>
+            <column name="code" value="system"/>
+            <column name="name" value="系统租户"/>
+            <column name="description" value="DataY 系统内置租户"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_by" value="system"/>
+            <column name="created_date" valueComputed="${tenantNow}"/>
+            <column name="last_modified_by" value="system"/>
+            <column name="last_modified_date" valueComputed="${tenantNow}"/>
+        </insert>
+
+        <insert tableName="jhi_user_tenant">
+            <column name="user_id" valueNumeric="1"/>
+            <column name="tenant_id" valueNumeric="0"/>
+            <column name="is_default" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

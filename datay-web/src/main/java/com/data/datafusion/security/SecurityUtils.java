@@ -23,6 +23,10 @@ public final class SecurityUtils {
 
     public static final String USER_ID_CLAIM = "userId";
 
+    public static final String TENANT_ID_CLAIM = "tenantId";
+
+    public static final String TENANT_CODE_CLAIM = "tenantCode";
+
     private SecurityUtils() {}
 
     /**
@@ -71,6 +75,37 @@ public final class SecurityUtils {
             .filter(authentication -> authentication.getPrincipal() instanceof ClaimAccessor)
             .map(authentication -> (ClaimAccessor) authentication.getPrincipal())
             .map(principal -> principal.getClaim(USER_ID_CLAIM));
+    }
+
+    /**
+     * Get the tenant id from current authentication (JWT claim).
+     * Falls back to TenantContext (for scenarios where JWT wasn't the entry point).
+     *
+     * @return the current tenant id.
+     */
+    public static Optional<Long> getCurrentTenantId() {
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        Optional<Long> fromJwt = Optional.ofNullable(securityContext.getAuthentication())
+            .filter(authentication -> authentication.getPrincipal() instanceof ClaimAccessor)
+            .map(authentication -> (ClaimAccessor) authentication.getPrincipal())
+            .map(principal -> principal.getClaim(TENANT_ID_CLAIM));
+        if (fromJwt.isPresent()) {
+            return fromJwt;
+        }
+        return Optional.ofNullable(TenantContext.getTenantId());
+    }
+
+    /**
+     * Get the tenant code from current authentication.
+     *
+     * @return the current tenant code.
+     */
+    public static Optional<String> getCurrentTenantCode() {
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        return Optional.ofNullable(securityContext.getAuthentication())
+            .filter(authentication -> authentication.getPrincipal() instanceof ClaimAccessor)
+            .map(authentication -> (ClaimAccessor) authentication.getPrincipal())
+            .map(principal -> principal.getClaim(TENANT_CODE_CLAIM));
     }
 
     /**

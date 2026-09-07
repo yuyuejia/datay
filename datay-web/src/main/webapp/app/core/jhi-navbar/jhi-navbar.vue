@@ -17,6 +17,32 @@
     </b-navbar-toggle>
 
     <b-collapse is-nav id="header-tabs">
+      <b-navbar-nav>
+        <b-nav-item-dropdown
+          v-if="authenticated"
+          id="tenant-menu"
+          active-class="active"
+          class="pointer"
+          data-cy="tenantMenu"
+        >
+          <template #button-content>
+            <span class="navbar-dropdown-menu">
+              <font-awesome-icon icon="building" class="mr-1" />
+              <span class="no-bold">{{ currentTenantDisplay }}</span>
+            </span>
+          </template>
+          <b-dropdown-item
+            v-for="t in availableTenants"
+            :key="t.id"
+            @click="switchTenant(t)"
+            :class="{ active: currentTenantId === t.id }"
+          >
+            <font-awesome-icon v-if="currentTenantId === t.id" icon="check" class="mr-1 text-success" />
+            <span v-else class="mr-1"></span>
+            <span>{{ t.name }} <small class="text-muted">({{ t.code }})</small></span>
+          </b-dropdown-item>
+        </b-nav-item-dropdown>
+      </b-navbar-nav>
       <b-navbar-nav class="ml-auto">
         <b-nav-item to="/" exact>
           <span>首页</span>
@@ -54,6 +80,10 @@
             <font-awesome-icon icon="users" />
             <span>用户管理</span>
           </b-dropdown-item>
+          <b-dropdown-item to="/admin/tenant-management" active-class="active">
+            <font-awesome-icon icon="building" />
+            <span>租户管理</span>
+          </b-dropdown-item>
           <b-dropdown-item to="/admin/metrics" active-class="active">
             <font-awesome-icon icon="tachometer-alt" />
             <span>资源监控</span>
@@ -85,7 +115,6 @@
         </b-nav-item-dropdown>
         <b-nav-item-dropdown
           right
-          href="javascript:void(0);"
           id="account-menu"
           :class="{ 'router-link-active': subIsActive('/account') }"
           active-class="active"

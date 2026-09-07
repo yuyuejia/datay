@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -27,4 +29,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findOneWithAuthoritiesByEmailIgnoreCase(String email);
 
     Page<User> findAllByIdNotNullAndActivatedIsTrue(Pageable pageable);
+
+    Page<User> findByLoginContainingIgnoreCaseOrEmailContainingIgnoreCase(String login, String email, Pageable pageable);
+
+    @Query("SELECT u FROM User u JOIN u.tenants t WHERE t.id = :tenantId")
+    Page<User> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
 }

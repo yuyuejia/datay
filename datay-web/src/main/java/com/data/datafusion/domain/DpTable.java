@@ -1,6 +1,7 @@
 package com.data.datafusion.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
 
@@ -8,9 +9,11 @@ import java.time.ZonedDateTime;
  * A DpTable.
  */
 @Entity
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Table(name = "dp_table")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class DpTable implements Serializable {
+public class DpTable implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 

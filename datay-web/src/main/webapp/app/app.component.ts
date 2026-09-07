@@ -1,39 +1,54 @@
-import { defineComponent, provide, computed } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useRoute } from 'vue-router';
+import { defineComponent, provide, computed } from "vue";
+import { storeToRefs } from "pinia";
+import { useRoute } from "vue-router";
 
-import { useLoginModal } from '@/account/login-modal';
-import LoginForm from '@/account/login-form/login-form.vue';
-import Ribbon from '@/core/ribbon/ribbon.vue';
-import JhiNavbar from '@/core/jhi-navbar/jhi-navbar.vue';
-import { useAlertService } from '@/shared/alert/alert.service';
-import '@/shared/config/dayjs';
+import { useLoginModal } from "@/account/login-modal";
+import LoginForm from "@/account/login-form/login-form.vue";
+import Ribbon from "@/core/ribbon/ribbon.vue";
+import JhiNavbar from "@/core/jhi-navbar/jhi-navbar.vue";
+import { useAlertService } from "@/shared/alert/alert.service";
+import { useStore } from "@/store";
+import "@/shared/config/dayjs";
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  name: 'App',
+  name: "App",
   components: {
     ribbon: Ribbon,
-    'jhi-navbar': JhiNavbar,
-    'login-form': LoginForm,
+    "jhi-navbar": JhiNavbar,
+    "login-form": LoginForm,
   },
   setup() {
-    provide('alertService', useAlertService());
+    provide("alertService", useAlertService());
     const { loginModalOpen } = storeToRefs(useLoginModal());
+
+    const store = useStore();
+    const { tenantVersion, authenticated, availableTenants, tenantsLoaded } =
+      storeToRefs(store);
+
+    const noTenant = computed(
+      () =>
+        authenticated.value &&
+        tenantsLoaded.value &&
+        availableTenants.value.length === 0,
+    );
 
     const route = useRoute();
     const isDesignPage = computed(() => {
       return (
-        route.name === 'ETLTaskDesign' ||
-        route.name === 'ETLTaskDesignNew' ||
-        route.name === 'ETLTaskCreate' ||
-        route.name === 'DataSourceQuery'
+        route.name === "ETLTaskDesign" ||
+        route.name === "ETLTaskDesignNew" ||
+        route.name === "ETLTaskCreate" ||
+        route.name === "DataSourceQuery"
       );
     });
 
     return {
       loginModalOpen,
       isDesignPage,
+      tenantVersion,
+      route,
+      noTenant,
     };
   },
 });

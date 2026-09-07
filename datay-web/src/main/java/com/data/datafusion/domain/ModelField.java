@@ -1,13 +1,16 @@
 package com.data.datafusion.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
 
 @Entity
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Table(name = "model_field")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class ModelField implements Serializable {
+public class ModelField implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 
@@ -15,6 +18,9 @@ public class ModelField implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
+
+    @Column(name = "tenant_id")
+    private String tenantId;
 
     @Column(name = "model_id")
     private Long modelId;
@@ -69,6 +75,19 @@ public class ModelField implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getTenantId() {
+        return this.tenantId;
+    }
+
+    public ModelField tenantId(String tenantId) {
+        this.setTenantId(tenantId);
+        return this;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public Long getModelId() {

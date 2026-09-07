@@ -1,6 +1,7 @@
 package com.data.datafusion.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
 
@@ -8,9 +9,11 @@ import java.time.ZonedDateTime;
  * A JobDepend.
  */
 @Entity
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Table(name = "dp_job_depend")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class JobDepend implements Serializable {
+public class JobDepend implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 

@@ -1,13 +1,16 @@
 package com.data.datafusion.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
 
 @Entity
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Table(name = "model_directory")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class ModelDirectory implements Serializable {
+public class ModelDirectory implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 
@@ -15,6 +18,9 @@ public class ModelDirectory implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
+
+    @Column(name = "tenant_id")
+    private String tenantId;
 
     @Column(name = "name")
     private String name;
@@ -85,6 +91,19 @@ public class ModelDirectory implements Serializable {
 
     public ZonedDateTime getCreateTime() {
         return this.createTime;
+    }
+
+    public String getTenantId() {
+        return this.tenantId;
+    }
+
+    public ModelDirectory tenantId(String tenantId) {
+        this.setTenantId(tenantId);
+        return this;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public ModelDirectory createTime(ZonedDateTime createTime) {

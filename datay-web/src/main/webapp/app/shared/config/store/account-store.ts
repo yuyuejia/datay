@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
 export interface AccountStateStorable {
   logon: boolean;
@@ -7,6 +7,9 @@ export interface AccountStateStorable {
   profilesLoaded: boolean;
   ribbonOnProfiles: string;
   activeProfiles: string;
+  tenantVersion: number;
+  availableTenants: any[];
+  tenantsLoaded: boolean;
 }
 
 export const defaultAccountState: AccountStateStorable = {
@@ -14,14 +17,17 @@ export const defaultAccountState: AccountStateStorable = {
   userIdentity: null,
   authenticated: false,
   profilesLoaded: false,
-  ribbonOnProfiles: '',
-  activeProfiles: '',
+  ribbonOnProfiles: "",
+  activeProfiles: "",
+  tenantVersion: 0,
+  availableTenants: [],
+  tenantsLoaded: false,
 };
 
-export const useAccountStore = defineStore('main', {
+export const useAccountStore = defineStore("main", {
   state: (): AccountStateStorable => ({ ...defaultAccountState }),
   getters: {
-    account: state => state.userIdentity,
+    account: (state) => state.userIdentity,
   },
   actions: {
     authenticate(promise) {
@@ -36,6 +42,8 @@ export const useAccountStore = defineStore('main', {
       this.userIdentity = null;
       this.authenticated = false;
       this.logon = null;
+      this.availableTenants = [];
+      this.tenantsLoaded = false;
     },
     setProfilesLoaded() {
       this.profilesLoaded = true;
@@ -45,6 +53,13 @@ export const useAccountStore = defineStore('main', {
     },
     setRibbonOnProfiles(ribbon) {
       this.ribbonOnProfiles = ribbon;
+    },
+    incrementTenantVersion() {
+      this.tenantVersion++;
+    },
+    setAvailableTenants(tenants: any[]) {
+      this.availableTenants = tenants;
+      this.tenantsLoaded = true;
     },
   },
 });

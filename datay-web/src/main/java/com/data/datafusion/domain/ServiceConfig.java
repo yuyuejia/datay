@@ -1,6 +1,7 @@
 package com.data.datafusion.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
 
@@ -8,9 +9,11 @@ import java.time.ZonedDateTime;
  * A ServiceConfig.
  */
 @Entity
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Table(name = "dp_service_config")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class ServiceConfig implements Serializable {
+public class ServiceConfig implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 
@@ -112,6 +115,16 @@ public class ServiceConfig implements Serializable {
 
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
+    }
+
+    @Override
+    public String getTenantId() {
+        return this.ytenantId;
+    }
+
+    @Override
+    public void setTenantId(String tenantId) {
+        this.ytenantId = tenantId;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

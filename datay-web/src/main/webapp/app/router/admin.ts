@@ -3,6 +3,9 @@ import { Authority } from '@/shared/security/authority';
 const JhiUserManagementComponent = () => import('@/admin/user-management/user-management.vue');
 const JhiUserManagementViewComponent = () => import('@/admin/user-management/user-management-view.vue');
 const JhiUserManagementEditComponent = () => import('@/admin/user-management/user-management-edit.vue');
+const JhiTenantManagementComponent = () => import('@/admin/tenant-management/tenant-management.vue');
+const JhiTenantManagementEditComponent = () => import('@/admin/tenant-management/tenant-management-edit.vue');
+const JhiTenantManagementViewComponent = () => import('@/admin/tenant-management/tenant-management-view.vue');
 const JhiDocsComponent = () => import('@/admin/docs/docs.vue');
 const JhiConfigurationComponent = () => import('@/admin/configuration/configuration.vue');
 const JhiHealthComponent = () => import('@/admin/health/health.vue');
@@ -32,6 +35,30 @@ export default [
     path: '/admin/user-management/:userId/view',
     name: 'JhiUserView',
     component: JhiUserManagementViewComponent,
+    meta: { authorities: [Authority.ADMIN] },
+  },
+  {
+    path: '/admin/tenant-management',
+    name: 'JhiTenant',
+    component: JhiTenantManagementComponent,
+    meta: { authorities: [Authority.ADMIN] },
+  },
+  {
+    path: '/admin/tenant-management/new',
+    name: 'JhiTenantCreate',
+    component: JhiTenantManagementEditComponent,
+    meta: { authorities: [Authority.ADMIN] },
+  },
+  {
+    path: '/admin/tenant-management/:tenantId/edit',
+    name: 'JhiTenantEdit',
+    component: JhiTenantManagementEditComponent,
+    meta: { authorities: [Authority.ADMIN] },
+  },
+  {
+    path: '/admin/tenant-management/:tenantId/view',
+    name: 'JhiTenantView',
+    component: JhiTenantManagementViewComponent,
     meta: { authorities: [Authority.ADMIN] },
   },
   {

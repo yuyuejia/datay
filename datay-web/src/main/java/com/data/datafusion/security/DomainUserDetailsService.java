@@ -59,13 +59,38 @@ public class DomainUserDetailsService implements UserDetailsService {
 
         private final Long id;
 
+        private final Long tenantId;
+
+        private final String tenantCode;
+
         public UserWithId(String login, String password, Collection<? extends GrantedAuthority> authorities, Long id) {
+            this(login, password, authorities, id, null, null);
+        }
+
+        public UserWithId(
+            String login,
+            String password,
+            Collection<? extends GrantedAuthority> authorities,
+            Long id,
+            Long tenantId,
+            String tenantCode
+        ) {
             super(login, password, authorities);
             this.id = id;
+            this.tenantId = tenantId;
+            this.tenantCode = tenantCode;
         }
 
         public Long getId() {
             return id;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
+
+        public String getTenantCode() {
+            return tenantCode;
         }
 
         @Override

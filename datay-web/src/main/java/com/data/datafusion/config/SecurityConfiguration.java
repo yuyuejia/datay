@@ -35,9 +35,12 @@ public class SecurityConfiguration {
 
     private final JHipsterProperties jHipsterProperties;
 
-    public SecurityConfiguration(Environment env, JHipsterProperties jHipsterProperties) {
+    private final TenantFilter tenantFilter;
+
+    public SecurityConfiguration(Environment env, JHipsterProperties jHipsterProperties, TenantFilter tenantFilter) {
         this.env = env;
         this.jHipsterProperties = jHipsterProperties;
+        this.tenantFilter = tenantFilter;
     }
 
     @Bean
@@ -111,7 +114,8 @@ public class SecurityConfiguration {
                     .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                     .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()));
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
+            .addFilterAfter(tenantFilter, org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class);
         if (env.acceptsProfiles(Profiles.of(JHipsterConstants.SPRING_PROFILE_DEVELOPMENT))) {
             http.authorizeHttpRequests(authz -> authz.requestMatchers(antMatcher("/h2-console/**")).permitAll());
         }

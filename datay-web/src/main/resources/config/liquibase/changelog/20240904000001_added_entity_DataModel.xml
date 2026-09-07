@@ -26,6 +26,9 @@
             <column name="update_time" type="${datetimeType}">
                 <constraints nullable="true" />
             </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
         </createTable>
         <dropDefaultValue tableName="model_directory" columnName="create_time" columnDataType="${datetimeType}"/>
         <dropDefaultValue tableName="model_directory" columnName="update_time" columnDataType="${datetimeType}"/>
@@ -125,6 +128,9 @@
                 <constraints nullable="true" />
             </column>
             <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="tenant_id" type="varchar(255)">
                 <constraints nullable="true" />
             </column>
         </createTable>

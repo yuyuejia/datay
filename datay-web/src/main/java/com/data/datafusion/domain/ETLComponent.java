@@ -9,8 +9,9 @@ import java.time.ZonedDateTime;
  */
 @Entity
 @Table(name = "dp_etl_component")
+@EntityListeners(com.data.datafusion.config.TenantAwareEntityListener.class)
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class ETLComponent implements Serializable {
+public class ETLComponent implements Serializable, TenantAware {
 
     private static final long serialVersionUID = 1L;
 

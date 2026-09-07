@@ -2,15 +2,23 @@ package com.data.datafusion.web.rest;
 
 import static com.data.datafusion.security.SecurityUtils.AUTHORITIES_CLAIM;
 import static com.data.datafusion.security.SecurityUtils.JWT_ALGORITHM;
+import static com.data.datafusion.security.SecurityUtils.TENANT_CODE_CLAIM;
+import static com.data.datafusion.security.SecurityUtils.TENANT_ID_CLAIM;
 import static com.data.datafusion.security.SecurityUtils.USER_ID_CLAIM;
 
+import com.data.datafusion.domain.Tenant;
+import com.data.datafusion.repository.TenantRepository;
 import com.data.datafusion.security.DomainUserDetailsService.UserWithId;
+import com.data.datafusion.security.SecurityUtils;
+import com.data.datafusion.service.TenantService;
+import com.data.datafusion.service.dto.TenantDTO;
 import com.data.datafusion.web.rest.vm.LoginVM;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +31,7 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -48,9 +57,20 @@ public class AuthenticateController {
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
-    public AuthenticateController(JwtEncoder jwtEncoder, AuthenticationManagerBuilder authenticationManagerBuilder) {
+    private final TenantRepository tenantRepository;
+
+    private final TenantService tenantService;
+
+    public AuthenticateController(
+        JwtEncoder jwtEncoder,
+        AuthenticationManagerBuilder authenticationManagerBuilder,
+        TenantRepository tenantRepository,
+        TenantService tenantService
+    ) {
         this.jwtEncoder = jwtEncoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
+        this.tenantRepository = tenantRepository;
+        this.tenantService = tenantService;
     }
 
     @PostMapping("/authenticate")
@@ -62,25 +82,45 @@ public class AuthenticateController {
 
         Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = this.createToken(authentication, loginVM.isRememberMe());
+        String jwt = this.createToken(authentication, loginVM.isRememberMe(), null);
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(jwt);
         return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
     }
 
-    /**
-     * {@code GET /authenticate} : check if the user is authenticated.
-     *
-     * @return the {@link ResponseEntity} with status {@code 204 (No Content)},
-     * or with status {@code 401 (Unauthorized)} if not authenticated.
-     */
     @GetMapping("/authenticate")
     public ResponseEntity<Void> isAuthenticated(Principal principal) {
         LOG.debug("REST request to check if the current user is authenticated");
         return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
     }
 
-    public String createToken(Authentication authentication, boolean rememberMe) {
+    @GetMapping("/tenants/my-tenants")
+    public ResponseEntity<List<TenantDTO>> getMyTenants() {
+        LOG.debug("REST request to get current user's tenants");
+        return ResponseEntity.ok(tenantService.findAllByCurrentUser());
+    }
+
+    @PostMapping("/authenticate/switch-tenant")
+    public ResponseEntity<JWTToken> switchTenant(@RequestBody SwitchTenantVM switchVM) {
+        Long userId = SecurityUtils.getCurrentUserId().orElse(null);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Tenant> userTenants = tenantRepository.findAllByUserId(userId);
+        boolean belongs = userTenants.stream().anyMatch(t -> t.getId().equals(switchVM.tenantId));
+        if (!belongs) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String jwt = this.createToken(authentication, true, switchVM.tenantId);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(jwt);
+        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+    }
+
+    public String createToken(Authentication authentication, boolean rememberMe, Long forceTenantId) {
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
 
         Instant now = Instant.now();
@@ -91,18 +131,44 @@ public class AuthenticateController {
             validity = now.plus(this.tokenValidityInSeconds, ChronoUnit.SECONDS);
         }
 
-        // @formatter:off
         JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
             .issuedAt(now)
             .expiresAt(validity)
             .subject(authentication.getName())
             .claim(AUTHORITIES_CLAIM, authorities);
+
+        Long userId = null;
         if (authentication.getPrincipal() instanceof UserWithId user) {
-            builder.claim(USER_ID_CLAIM, user.getId());
+            userId = user.getId();
+        } else if (authentication.getPrincipal() instanceof ClaimAccessor claimAccessor) {
+            Object raw = claimAccessor.getClaim(USER_ID_CLAIM);
+            if (raw instanceof Number n) {
+                userId = n.longValue();
+            }
+        }
+        if (userId != null) {
+            builder.claim(USER_ID_CLAIM, userId);
+        }
+
+        Long tenantIdForClaim = forceTenantId;
+        if (tenantIdForClaim == null && userId != null) {
+            tenantIdForClaim = tenantRepository.findFirstTenantByUserId(userId).map(Tenant::getId).orElse(null);
+        }
+        if (tenantIdForClaim != null) {
+            final Long finalTenantId = tenantIdForClaim;
+            tenantRepository.findById(finalTenantId).ifPresent(tenant -> {
+                builder.claim(TENANT_ID_CLAIM, tenant.getId());
+                builder.claim(TENANT_CODE_CLAIM, tenant.getCode());
+            });
         }
 
         JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
         return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, builder.build())).getTokenValue();
+    }
+
+    static class SwitchTenantVM {
+
+        public Long tenantId;
     }
 
     /**
