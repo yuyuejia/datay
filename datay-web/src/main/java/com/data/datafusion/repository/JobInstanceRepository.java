@@ -1,5 +1,6 @@
 package com.data.datafusion.repository;
 
+import com.data.datafusion.config.SkipTenantFilter;
 import com.data.datafusion.domain.JobInstance;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,7 @@ public interface JobInstanceRepository extends JpaRepository<JobInstance, Long> 
     )
     JobInstance findLastInstance(@Param("parentJobCode") String parentJobCode, @Param("status") String taskStatusSuccessful);
 
+    @SkipTenantFilter
     Optional<JobInstance> findByInstanceCode(String instanceCode);
 
     List<JobInstance> findByStatus(String status);

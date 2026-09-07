@@ -3,9 +3,11 @@ package com.data.datafusion.config;
 import com.data.datafusion.security.TenantContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.lang.reflect.Method;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.hibernate.Filter;
 import org.hibernate.Session;
 import org.slf4j.Logger;
@@ -31,6 +33,11 @@ public class TenantFilterAspect {
         "execution(* com.data.datafusion.repository..*.*(..))"
     )
     public Object enableTenantFilter(ProceedingJoinPoint joinPoint) throws Throwable {
+        if (hasSkipTenantFilterAnnotation(joinPoint)) {
+            LOG.trace("@SkipTenantFilter detected, skipping tenant filter for {}", joinPoint.getSignature());
+            return joinPoint.proceed();
+        }
+
         Long tenantId = TenantContext.getTenantId();
         String targetClassName = joinPoint.getTarget().getClass().getName();
         boolean isTenantManagement =
@@ -51,6 +58,17 @@ public class TenantFilterAspect {
         }
 
         return applyFilter(joinPoint, String.valueOf(tenantId));
+    }
+
+    private boolean hasSkipTenantFilterAnnotation(ProceedingJoinPoint joinPoint) {
+        if (!(joinPoint.getSignature() instanceof MethodSignature methodSignature)) {
+            return false;
+        }
+        Method method = methodSignature.getMethod();
+        if (method.isAnnotationPresent(SkipTenantFilter.class)) {
+            return true;
+        }
+        return method.getDeclaringClass().isAnnotationPresent(SkipTenantFilter.class);
     }
 
     private Object applyFilter(ProceedingJoinPoint joinPoint, String tenantIdParam) throws Throwable {
