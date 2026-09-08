@@ -1,3 +1,7 @@
 id;task_id;label;code;jhi_desc;type;config;x_axis;y_axis;status;update_time;create_time;tenant_id;dr
 1;1;节点1;aaaa;;StreamJdbcInput;{};200;0;0;2024-12-12T19:05:10;2024-12-12T19:05:10;0;0
 2;1;节点2;bbbb;;StreamJdbcOutput;{};100;100;0;2024-12-12T19:05:10;2024-12-12T19:05:10;0;0
+3;2;MySQL源;MYSQL_IN_02;;StreamJdbcInput;{"sourceId":"1","schema":"source","table":"etl_mysql_to_duckdb_demo"};20;20;0;2026-09-08T10:00:00;2026-09-08T10:00:00;0;0
+4;2;DuckDB目标(StreamJdbcOutput);DUCK_OUT_02;;StreamJdbcOutput;{"sourceId":"4","schema":"main","table":"etl_mysql_to_duckdb_demo_stream_jdbc","model":"overwrite"};300;200;0;2026-09-08T10:00:00;2026-09-08T10:00:00;0;0
+5;3;MySQL源;MYSQL_IN_03;;StreamJdbcInput;{"sourceId":"1","schema":"source","table":"etl_mysql_to_duckdb_demo"};20;20;0;2026-09-08T10:00:00;2026-09-08T10:00:00;0;0
+6;3;DuckDB目标(DuckDBWrite);DUCK_OUT_03;;DuckDBWrite;{"table":"etl_mysql_to_duckdb_demo_duckdbwrite","model":"overwrite"};300;200;0;2026-09-08T10:00:00;2026-09-08T10:00:00;0;0

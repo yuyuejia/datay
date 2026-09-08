@@ -11,7 +11,7 @@
         "dbschema": "source"
       },
       "schema": "source",
-      "table": "common_data_types"
+      "table": "etl_mysql_to_duckdb_demo"
     },
     {
       ".id": "StreamJdbcOutput",
@@ -22,7 +22,7 @@
         "dbschema": "main"
       },
       "schema": "main",
-      "table": "common_data_types_stream_jdbc",
+      "table": "etl_mysql_to_duckdb_demo_stream_jdbc",
       "model": "overwrite"
     },
     {

@@ -11,18 +11,18 @@
         "dbschema": "source"
       },
       "schema": "source",
-      "table": "common_data_types"
+      "table": "etl_mysql_to_duckdb_demo"
     },
     {
       ".id": "DuckDBWrite",
       ".name": "DuckDBWrite",
-      "table": "common_data_types_mysql",
+      "table": "etl_mysql_to_duckdb_demo_duckdbwrite",
       "model": "overwrite"
     },
     {
       ".id": "DuckDBSql",
       ".name": "DuckDBSql",
-      "sql": "SELECT count(*) from common_data_types_mysql where 1=1"
+      "sql": "SELECT count(*) from etl_mysql_to_duckdb_demo_duckdbwrite where 1=1"
     },
     {
       ".id": "LogFlowFile",
