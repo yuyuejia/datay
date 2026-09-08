@@ -2,3 +2,4 @@ id;name;description;type;url;hostname;port;schema_name;username;password;update_
 1;mysql;mysql;MYSQL;jdbc:mysql://127.0.0.1:3306;127.0.0.1;3306;test_db;root;1234qwer;2022-04-23T16:07:54;2022-04-23T13:35:06;0
 2;mysql1;mysql1;MYSQL;jdbc:mysql://127.0.0.1:3306;127.0.0.1;3306;test;root;1234qwer;2022-04-23T16:07:54;2022-04-23T13:35:06;0
 3;postgresql;postgresql;POSTGRESQL;jdbc:postgresql://127.0.0.1:5432/testdb;127.0.0.1;5432;target;admin;123456;2022-04-23T16:07:54;2022-04-23T13:35:06;0
+4;duckdb;duckdb;DUCKDB;jdbc:duckdb:./target/test.db;;;;;;2022-04-23T16:07:54;2022-04-23T13:35:06;0

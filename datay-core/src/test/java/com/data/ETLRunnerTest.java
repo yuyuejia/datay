@@ -12,7 +12,7 @@ public class ETLRunnerTest {
     public void testMysqlFlowJob() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/test.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/test.json");
         ETLFlowTask runner = new ETLFlowTask();
 
         // 调用 runJob 方法
@@ -26,7 +26,7 @@ public class ETLRunnerTest {
     public void testMysqlToDuckLakeJob() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/mysqlToDuckLake.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/mysqlToDuckLake.json");
         ETLFlowTask runner = new ETLFlowTask();
 
         // 调用 runJob 方法
@@ -40,7 +40,7 @@ public class ETLRunnerTest {
     public void testsqlunit() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/sqlunit.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/sqlunit.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -51,7 +51,7 @@ public class ETLRunnerTest {
     public void testDuckDBsqlunit() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/duckdbsqlunit.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/duckdbsqlunit.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -62,7 +62,7 @@ public class ETLRunnerTest {
     public void testIncrColumn() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/incrColum.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/incrColum.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -73,7 +73,7 @@ public class ETLRunnerTest {
     public void testSqlInput() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/sqlinput.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/sqlinput.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -84,7 +84,7 @@ public class ETLRunnerTest {
     public void testDuckDBRegister() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/duckdbregister.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/duckdbregister.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -95,7 +95,7 @@ public class ETLRunnerTest {
     public void testJavaScriptComponent() throws Exception {
         // 创建临时配置文件
         //        File configFile = createTempConfigFile();
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/javascript.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/javascript.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -105,7 +105,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testGenerateFlowFile() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/genFlowFile2log.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/genFlowFile2log.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -115,7 +115,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testTablesIncrColumn() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/tablesIncrColum.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/tablesIncrColum.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -125,7 +125,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testTablesAll() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/tablesAll.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/tablesAll.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -134,7 +134,7 @@ public class ETLRunnerTest {
     //    @Timeout(6000000)
     //    public void testMySQLBinlogInput() throws Exception {
     //        // 创建临时配置文件
-    //        String job = cn.hutool.core.io.FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/mysqlbinlog.json");
+    //        String job = cn.hutool.core.io.FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/mysqlbinlog.json");
     //        ETLFlowTask runner = new ETLFlowTask();
     //        // 调用 runJob 方法
     //        runner.runJob(job);
@@ -143,7 +143,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testStreamSQL() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/streamSQL.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/streamSQL.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -153,7 +153,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testMysqlToDuckDB() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/MysqlToDuckDB.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/MysqlToDuckDB.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -163,7 +163,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testDuckLakeSQL() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/ducklakeregister_duckdbsql.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/ducklakeregister_duckdbsql.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -173,7 +173,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testHashRouter() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/hashRouter.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/hashRouter.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -183,7 +183,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testRandomRouter() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/RandomRouter.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/RandomRouter.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -193,7 +193,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testMysqlToPostgres() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/mysqlTopg.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/mysqlTopg.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -203,7 +203,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testPostgresToMysql() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/pgToMysql.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/pgToMysql.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -213,7 +213,7 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testPostgresToDuckDB() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/pgToDuckDB.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/pgToDuckDB.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
@@ -223,12 +223,18 @@ public class ETLRunnerTest {
     @Timeout(6000000)
     public void testEventToDuckDB() throws Exception {
         // 创建临时配置文件
-        String job = FileUtil.readUtf8String("/Users/chenjie/code/datay/src/test/EventToDuckdb.json");
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/EventToDuckdb.json");
         ETLFlowTask runner = new ETLFlowTask();
         // 调用 runJob 方法
         runner.runJob(job);
     }
 
-
+    @Test
+    @Timeout(6000000)
+    public void testMysqlToDuckDBByStreamJdbcOutput() throws Exception {
+        String job = FileUtil.readUtf8String(System.getProperty("user.dir") + "/src/test/MysqlToDuckDBByStreamJdbcOutput.json");
+        ETLFlowTask runner = new ETLFlowTask();
+        runner.runJob(job);
+    }
 
 }

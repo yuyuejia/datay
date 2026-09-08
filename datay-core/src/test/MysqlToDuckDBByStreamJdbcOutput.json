@@ -1,0 +1,48 @@
+{
+  "units": [
+    {
+      ".id": "StreamJdbcInput",
+      ".name": "StreamJdbcInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "source"
+      },
+      "schema": "source",
+      "table": "common_data_types"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "common_data_types_stream_jdbc",
+      "model": "overwrite"
+    },
+    {
+      ".id": "LogFlowFile",
+      ".name": "LogFlowFile",
+      "logDataContent": "true",
+      "maxDataLength": "5000"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "StreamJdbcInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    },
+    {
+      "sourceId": "StreamJdbcOutput",
+      "targetId": "LogFlowFile",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

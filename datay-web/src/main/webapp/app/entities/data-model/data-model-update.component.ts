@@ -604,7 +604,7 @@ export default defineComponent({
         }
       } else if (route.query?.directoryId) {
         dataModel.value.directoryId = Number(route.query.directoryId);
-        dataModel.value.modelType = "FACT";
+        dataModel.value.modelType = "DWD";
       }
     });
 
