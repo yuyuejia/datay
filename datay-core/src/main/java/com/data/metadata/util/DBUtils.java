@@ -223,42 +223,140 @@ public class DBUtils {
     public static void appendValue(DuckDBAppender appender, String fieldType, Object value) throws SQLException {
         if (value == null) {
             appender.appendNull();
-        } else if ("BIGINT".equals(fieldType)) {
-            appender.append(((Number) value).longValue());
-        } else if ("TINYINT".equals(fieldType) || "UTINYINT".equals(fieldType)) {
-            appender.append(((Number) value).byteValue());
-        } else if ("INTEGER".equals(fieldType) || "INT".equals(fieldType) || "USMALLINT".equals(fieldType)) {
-            appender.append(((Number) value).intValue());
-        } else if ("DOUBLE".equals(fieldType)) {
-            appender.append(((Number) value).doubleValue());
-        } else if ("FLOAT".equals(fieldType)) {
-            appender.append(((Number) value).floatValue());
-        } else if ("DECIMAL".startsWith(fieldType)) {
-            appender.append(((BigDecimal) value));
-        } else if ("BOOLEAN".equals(fieldType)) {
-            appender.append(((Boolean) value).booleanValue());
-        } else if ("BIT".equals(fieldType)) {
-            appender.append(((Number) (((Boolean) value) ? 1 : 0)).byteValue());
-        } else if ("BLOB".equals(fieldType)) {
-            appender.append((byte[]) value);
-        } else if ("DATE".equals(fieldType)) {
-            LocalDate date = LocalDate.parse(value.toString());
-            appender.append(date);
-        } else if ("TIME".equals(fieldType)) {
-            LocalTime time = LocalTime.parse(value.toString());
-            appender.append(time);
-        } else if ("DATETIME".equals(fieldType) || "TIMESTAMP".equals(fieldType)) {
-            // 处理日期时间类型
-            try {
+            return;
+        }
+        String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
+
+        try {
+            if ("BIGINT".equals(type) || type.endsWith("BIGINT")) {
+                appender.append(toLong(value));
+            } else if ("TINYINT".equals(type) || "UTINYINT".equals(type) || type.endsWith("TINYINT")) {
+                appender.append(toByte(value));
+            } else if ("SMALLINT".equals(type) || "USMALLINT".equals(type) || type.endsWith("SMALLINT")) {
+                appender.append(toShort(value));
+            } else if ("INTEGER".equals(type) || "INT".equals(type) || type.endsWith("INTEGER")) {
+                appender.append(toInt(value));
+            } else if ("HUGEINT".equals(type)) {
+                appender.append(toLong(value));
+            } else if ("DOUBLE".equals(type) || type.endsWith("DOUBLE")) {
+                appender.append(toDouble(value));
+            } else if ("FLOAT".equals(type) || "REAL".equals(type) || type.endsWith("FLOAT")) {
+                appender.append(toFloat(value));
+            } else if (type.startsWith("DECIMAL") || type.startsWith("NUMERIC")) {
+                appender.append(toBigDecimal(value));
+            } else if ("BOOLEAN".equals(type) || type.endsWith("BOOLEAN")) {
+                appender.append(toBoolean(value));
+            } else if ("BIT".equals(type)) {
+                appender.append((byte) (toBoolean(value) ? 1 : 0));
+            } else if ("BLOB".equals(type) || "BINARY".equals(type) || "VARBINARY".equals(type)) {
+                appender.append(toByteArray(value));
+            } else if ("DATE".equals(type)) {
+                appender.append(LocalDate.parse(value.toString()));
+            } else if ("TIME".equals(type)) {
+                appender.append(LocalTime.parse(value.toString()));
+            } else if ("DATETIME".equals(type) || "TIMESTAMP".equals(type) || type.endsWith("TIMESTAMP")) {
                 LocalDateTime dateTime = DBUtils.parseDateTime(value.toString());
                 appender.append(dateTime);
-            } catch (Exception e) {
-                // 如果解析失败，记录日志并使用当前时间或null
-                appender.appendNull();
+            } else {
+                appender.append(value.toString());
             }
-        } else {
+        } catch (Exception e) {
             appender.append(value.toString());
         }
+    }
+
+    private static long toLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1L : 0L;
+        }
+        return Long.parseLong(value.toString().trim());
+    }
+
+    private static int toInt(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1 : 0;
+        }
+        return Integer.parseInt(value.toString().trim());
+    }
+
+    private static short toShort(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).shortValue();
+        }
+        if (value instanceof Boolean) {
+            return (short) (((Boolean) value) ? 1 : 0);
+        }
+        return Short.parseShort(value.toString().trim());
+    }
+
+    private static byte toByte(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).byteValue();
+        }
+        if (value instanceof Boolean) {
+            return (byte) (((Boolean) value) ? 1 : 0);
+        }
+        return Byte.parseByte(value.toString().trim());
+    }
+
+    private static double toDouble(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1.0d : 0.0d;
+        }
+        return Double.parseDouble(value.toString().trim());
+    }
+
+    private static float toFloat(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).floatValue();
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1.0f : 0.0f;
+        }
+        return Float.parseFloat(value.toString().trim());
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Number) {
+            return new BigDecimal(value.toString());
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? BigDecimal.ONE : BigDecimal.ZERO;
+        }
+        return new BigDecimal(value.toString().trim());
+    }
+
+    private static boolean toBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue() != 0;
+        }
+        String s = value.toString().trim().toLowerCase();
+        return "true".equals(s) || "1".equals(s) || "yes".equals(s);
+    }
+
+    private static byte[] toByteArray(Object value) {
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        if (value instanceof String) {
+            return ((String) value).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**

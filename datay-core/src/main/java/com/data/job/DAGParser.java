@@ -16,8 +16,17 @@ public class DAGParser {
     public void parse(String json) {
 
         JSONObject jsonObj = JSONObject.parse(json);
+        if (jsonObj == null) {
+            throw new IllegalArgumentException("jobContext 不是有效的 JSON");
+        }
         JSONArray units = jsonObj.getJSONArray("units");
+        if (units == null || units.isEmpty()) {
+            throw new IllegalArgumentException("jobContext 缺少 units 字段或 units 为空，无法解析 DAG。请确认 ETL 任务已正确保存。");
+        }
         JSONArray connections = jsonObj.getJSONArray("connections");
+        if (connections == null) {
+            connections = new JSONArray();
+        }
 
         for (JSONObject unit : units.toList(JSONObject.class)) {
             String id = unit.getString(".id");
