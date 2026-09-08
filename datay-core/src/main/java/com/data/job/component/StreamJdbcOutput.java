@@ -143,8 +143,6 @@ public class StreamJdbcOutput extends FlowComponent {
         }
 
         if (
-            this.table != null &&
-            !this.table.trim().isEmpty() &&
             this.datasource != null &&
             this.datasource.getDbschema() != null &&
             !this.datasource.getDbschema().trim().isEmpty()
