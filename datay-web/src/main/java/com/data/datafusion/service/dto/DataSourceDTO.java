@@ -2,6 +2,7 @@ package com.data.datafusion.service.dto;
 
 import java.io.Serializable;
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -35,6 +36,8 @@ public class DataSourceDTO implements Serializable {
     private ZonedDateTime createTime;
 
     private String tenantId;
+
+    private Map<String, String> extraParams;
 
     public Long getId() {
         return id;
@@ -140,6 +143,14 @@ public class DataSourceDTO implements Serializable {
         this.tenantId = tenantId;
     }
 
+    public Map<String, String> getExtraParams() {
+        return extraParams;
+    }
+
+    public void setExtraParams(Map<String, String> extraParams) {
+        this.extraParams = extraParams;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -178,6 +189,7 @@ public class DataSourceDTO implements Serializable {
             ", updateTime='" + getUpdateTime() + "'" +
             ", createTime='" + getCreateTime() + "'" +
             ", tenantId='" + getTenantId() + "'" +
+            ", extraParams='" + getExtraParams() + "'" +
             "}";
     }
 }

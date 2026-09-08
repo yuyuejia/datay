@@ -1,3 +1,11 @@
+export interface ExtraParamDef {
+  key: string;
+  label: string;
+  required: boolean;
+  defaultValue?: string;
+  description?: string;
+}
+
 export interface DbType {
   name: string;
   displayName: string;
@@ -6,6 +14,7 @@ export interface DbType {
   defaultPort: string;
   image?: string;
   icon?: string;
+  extraParamsTemplate?: ExtraParamDef[];
 }
 
 export const dbTypes: DbType[] = [
@@ -56,6 +65,14 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['0.4'],
     defaultPort: '',
     image: '/content/images/DuckDB.svg',
+    extraParamsTemplate: [
+      { key: 's3.data_path', label: 'Data Path', required: true, description: '数据存储路径，支持本地路径或 s3:// 路径' },
+      { key: 's3.key_id', label: 'S3 Key ID', required: false, description: 'S3 访问密钥 ID（s3:// 路径时需要）' },
+      { key: 's3.secret', label: 'S3 Secret', required: false, description: 'S3 访问密钥（s3:// 路径时需要）' },
+      { key: 's3.endpoint', label: 'S3 Endpoint', required: false, description: 'S3 服务端点，例如 http://minio:9000' },
+      { key: 's3.url_style', label: 'S3 URL Style', required: false, defaultValue: 'path', description: 'URL 风格：path 或 vhost' },
+      { key: 's3.use_ssl', label: 'S3 Use SSL', required: false, defaultValue: 'false', description: '是否启用 SSL 连接' },
+    ],
   },
   {
     name: 'CLICKHOUSE',
@@ -80,5 +97,8 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['1.2', '2.0', '2.1'],
     defaultPort: '9030',
     image: '/content/images/doris.svg',
+    extraParamsTemplate: [
+      { key: 'fe_endpoint', label: 'FE Endpoint', required: false, description: 'Doris FE 节点 HTTP 端点，格式：http://host:port' },
+    ],
   },
 ];

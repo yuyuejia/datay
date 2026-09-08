@@ -7,6 +7,14 @@ import { useAlertService } from '@/shared/alert/alert.service';
 
 import { DataSource, type IDataSource } from '@/shared/model/data-source.model';
 
+interface ExtraParamRow {
+  key: string;
+  value: string;
+  required: boolean;
+  label: string;
+  description?: string;
+}
+
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'DataSourceModal',
@@ -35,6 +43,7 @@ export default defineComponent({
     const dataSource: Ref<IDataSource> = ref(new DataSource());
     const isSaving = ref(false);
     const isTestingConnection = ref(false);
+    const extraParamRows: Ref<ExtraParamRow[]> = ref([]);
 
     watch(
       () => props.show,
@@ -50,9 +59,66 @@ export default defineComponent({
       emit('update:show', newVal);
     });
 
+    watch(
+      () => dataSource.value.type,
+      () => {
+        syncExtraParamsFromTemplate();
+      },
+    );
+
+    const syncExtraParamsFromTemplate = () => {
+      const dbType = selectedDbType.value;
+      if (!dbType) {
+        extraParamRows.value = [];
+        return;
+      }
+      const template = dbType.extraParamsTemplate;
+      if (!template || template.length === 0) {
+        extraParamRows.value = [];
+        return;
+      }
+
+      const existingParams = dataSource.value.extraParams || {};
+      const rows: ExtraParamRow[] = template.map(def => ({
+        key: def.key,
+        value: existingParams[def.key] ?? def.defaultValue ?? '',
+        required: def.required,
+        label: def.label,
+        description: def.description,
+      }));
+
+      Object.keys(existingParams).forEach(k => {
+        if (!template.find(t => t.key === k)) {
+          rows.push({ key: k, value: existingParams[k], required: false, label: k });
+        }
+      });
+
+      extraParamRows.value = rows;
+    };
+
+    const buildExtraParamsFromRows = () => {
+      const result: Record<string, string> = {};
+      extraParamRows.value.forEach(row => {
+        if (row.value !== '' && row.value !== null && row.value !== undefined) {
+          result[row.key] = row.value;
+        }
+      });
+      dataSource.value.extraParams = Object.keys(result).length > 0 ? result : null;
+    };
+
+    const addExtraParam = () => {
+      extraParamRows.value.push({ key: '', value: '', required: false, label: '' });
+    };
+
+    const removeExtraParam = (index: number) => {
+      extraParamRows.value.splice(index, 1);
+      buildExtraParamsFromRows();
+    };
+
     const initModal = async () => {
       dataSource.value = new DataSource();
       currentStep.value = 1;
+      extraParamRows.value = [];
       if (props.mode === 'edit' && props.dataSourceId) {
         try {
           const res = await dataSourceService().find(props.dataSourceId as number);
@@ -60,6 +126,7 @@ export default defineComponent({
           res.createTime = new Date(res.createTime);
           dataSource.value = res;
           currentStep.value = 2;
+          syncExtraParamsFromTemplate();
         } catch (error) {
           alertService.showHttpError(error.response);
           closeModal();
@@ -170,6 +237,7 @@ export default defineComponent({
 
     const save = async () => {
       if (!validateForm()) return;
+      buildExtraParamsFromRows();
 
       isSaving.value = true;
       try {
@@ -190,6 +258,7 @@ export default defineComponent({
     };
 
     const testConnection = async () => {
+      buildExtraParamsFromRows();
       if (!dataSource.value.type || !dataSource.value.url || !dataSource.value.username) {
         alertService.showError('请先填写数据库类型、URL和用户名');
         return;
@@ -220,6 +289,7 @@ export default defineComponent({
       dbTypes,
       selectedTypeName,
       selectedDbType,
+      extraParamRows,
       selectDbType,
       selectAndGo,
       onTypeChange,
@@ -229,6 +299,8 @@ export default defineComponent({
       handleHidden,
       save,
       testConnection,
+      addExtraParam,
+      removeExtraParam,
       ...dateFormat,
     };
   },

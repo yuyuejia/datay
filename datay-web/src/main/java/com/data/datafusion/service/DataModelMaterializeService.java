@@ -219,6 +219,7 @@ public class DataModelMaterializeService {
         info.setDbschema(dto.getSchemaName());
         info.setPort(dto.getPort());
         info.setHostname(dto.getHostname());
+        info.setExtraParams(dto.getExtraParams());
         return info;
     }
 }

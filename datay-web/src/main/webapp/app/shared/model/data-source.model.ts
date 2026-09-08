@@ -13,6 +13,7 @@ export interface IDataSource {
   updateTime?: Date | null;
   createTime?: Date | null;
   tenantId?: string | null;
+  extraParams?: Record<string, string> | null;
 }
 
 export class DataSource implements IDataSource {
@@ -31,5 +32,6 @@ export class DataSource implements IDataSource {
     public updateTime?: Date | null,
     public createTime?: Date | null,
     public tenantId?: string | null,
+    public extraParams?: Record<string, string> | null,
   ) {}
 }

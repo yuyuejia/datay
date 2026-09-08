@@ -126,6 +126,49 @@
                 v-model="dataSource.password"
               />
             </div>
+            <div class="form-group" v-if="selectedDbType && (selectedDbType.extraParamsTemplate || extraParamRows.length > 0)">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-control-label mb-0">扩展参数</label>
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="addExtraParam">
+                  <font-awesome-icon icon="plus"></font-awesome-icon>&nbsp;添加参数
+                </button>
+              </div>
+              <div v-if="extraParamRows.length === 0" class="text-muted small">暂无扩展参数</div>
+              <div
+                v-for="(row, index) in extraParamRows"
+                :key="index"
+                class="extra-param-row mb-2 d-flex gap-2 align-items-start"
+              >
+                <div class="flex-grow-1">
+                  <div class="d-flex gap-2 mb-1">
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      v-model="row.key"
+                      placeholder="参数名"
+                      :readonly="!!selectedDbType?.extraParamsTemplate?.find(t => t.key === row.key)"
+                    />
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      v-model="row.value"
+                      :placeholder="row.label || '参数值'"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      @click="removeExtraParam(index)"
+                      :disabled="!!row.required"
+                      title="删除参数"
+                    >
+                      <font-awesome-icon icon="trash"></font-awesome-icon>
+                    </button>
+                  </div>
+                  <small v-if="row.description" class="text-muted">{{ row.description }}</small>
+                  <small v-if="row.required" class="text-danger ml-1">* 必填</small>
+                </div>
+              </div>
+            </div>
           </div>
         </form>
       </div>

@@ -1,9 +1,11 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.config.StringMapConverter;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
+import java.util.Map;
 
 /**
  * A DataSource.
@@ -57,6 +59,10 @@ public class DataSource implements Serializable, TenantAware {
 
     @Column(name = "tenant_id")
     private String tenantId;
+
+    @Convert(converter = StringMapConverter.class)
+    @Column(name = "extra_params", columnDefinition = "TEXT")
+    private Map<String, String> extraParams;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -229,6 +235,19 @@ public class DataSource implements Serializable, TenantAware {
         this.tenantId = tenantId;
     }
 
+    public Map<String, String> getExtraParams() {
+        return this.extraParams;
+    }
+
+    public DataSource extraParams(Map<String, String> extraParams) {
+        this.setExtraParams(extraParams);
+        return this;
+    }
+
+    public void setExtraParams(Map<String, String> extraParams) {
+        this.extraParams = extraParams;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -265,6 +284,7 @@ public class DataSource implements Serializable, TenantAware {
             ", updateTime='" + getUpdateTime() + "'" +
             ", createTime='" + getCreateTime() + "'" +
             ", tenantId='" + getTenantId() + "'" +
+            ", extraParams='" + getExtraParams() + "'" +
             "}";
     }
 }

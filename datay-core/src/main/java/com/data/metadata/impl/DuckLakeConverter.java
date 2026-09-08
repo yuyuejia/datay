@@ -255,7 +255,10 @@ public class DuckLakeConverter implements TypeConverter {
         //            sb.append(column.getType()).append("(").append(length).append(")");
         //        } else
         if (typeUpper.matches("DECIMAL|NUMERIC")) {
-            // 处理精度和小数位
+            if (column.getPrecision() > 38) {
+                column.setPrecision(18);
+                column.setScale(0);
+            }
             if (column.getPrecision() <= 0) {
                 sb.append(column.getType());
             } else {

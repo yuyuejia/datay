@@ -79,45 +79,51 @@ public class DuckLakeWrite extends FlowComponent {
 
     private void setupDuckLakeConnection(Connection conn) throws SQLException {
         if (!isAttach) {
-            //从sourceId的extraParams中获取s3的配置信息
             Map<String, String> extraParams = this.datasource.getExtraParams();
-            if (extraParams == null || extraParams.isEmpty()) {
-                throw new IllegalArgumentException("DuckLake数据源配置中未包含S3配置信息");
+            String store = null;
+            if (extraParams != null) {
+                store = extraParams.get("s3.data_path");
             }
-            // 从extraParams中获取s3配置
-            String keyId = extraParams.get("s3.key_id");
-            String secret = extraParams.get("s3.secret");
-            String endpoint = extraParams.get("s3.endpoint");
-            String urlStyle = extraParams.get("s3.url_style");
-            String useSsl = extraParams.get("s3.use_ssl");
-            String store = extraParams.get("s3.data_path");
 
-            if (keyId == null || secret == null || endpoint == null || urlStyle == null || useSsl == null || store == null) {
-                throw new IllegalArgumentException("DuckLake数据源配置中S3配置不完整");
+            if (store == null || store.trim().isEmpty()) {
+                throw new IllegalArgumentException("DuckLake数据源配置中缺少 data_path 参数 (s3.data_path)");
             }
-            // 构建S3 secret
-            String s3Secret = String.format(
-                    """
-                            CREATE OR REPLACE SECRET (
-                                  TYPE s3,
-                                  KEY_ID '%s',
-                                  SECRET '%s',
-                                  ENDPOINT '%s',
-                                  url_style '%s',
-                                  USE_SSL '%s'
-                              );""",
-                keyId,
-                secret,
-                endpoint,
-                urlStyle,
-                useSsl
-            );
-            conn.createStatement().execute(s3Secret);
+
+            boolean isS3Path = store.startsWith("s3://");
+
+            if (isS3Path) {
+                String keyId = extraParams.get("s3.key_id");
+                String secret = extraParams.get("s3.secret");
+                String endpoint = extraParams.get("s3.endpoint");
+                String urlStyle = extraParams.get("s3.url_style");
+                String useSsl = extraParams.get("s3.use_ssl");
+
+                if (keyId == null || secret == null || endpoint == null || urlStyle == null || useSsl == null) {
+                    throw new IllegalArgumentException("DuckLake数据源配置中S3配置不完整");
+                }
+                String s3Secret = String.format(
+                        """
+                                CREATE OR REPLACE SECRET (
+                                      TYPE s3,
+                                      KEY_ID '%s',
+                                      SECRET '%s',
+                                      ENDPOINT '%s',
+                                      url_style '%s',
+                                      USE_SSL '%s'
+                                  );""",
+                    keyId,
+                    secret,
+                    endpoint,
+                    urlStyle,
+                    useSsl
+                );
+                conn.createStatement().execute(s3Secret);
+            }
+
             String attachSql = String.format("ATTACH '%s' AS %s (data_path '%s');", datasource.getUrl(), CATALOG, store);
             conn.createStatement().execute(attachSql);
             isAttach = true;
         }
-//        conn.createStatement().execute("USE " + CATALOG);
     }
 
     /**
@@ -203,6 +209,9 @@ public class DuckLakeWrite extends FlowComponent {
                         targetTable.setSchema(schema);
                     }
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
+                    String createSchemaSql = String.format("CREATE SCHEMA IF NOT EXISTS %s.%s", CATALOG, schema);
+                    logInfo("创建Schema: " + createSchemaSql);
+                    DBUtils.execute(targetConn, createSchemaSql);
                     String ddl = DatabaseConverter.generateTableDDL(DBType.DUCKLAKE.name(), targetTable);
                     logInfo("创建表SQL: " + ddl);
                     DBUtils.execute(targetConn, ddl);

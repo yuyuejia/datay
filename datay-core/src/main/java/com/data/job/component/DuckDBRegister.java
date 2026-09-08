@@ -73,10 +73,14 @@ public class DuckDBRegister extends FlowComponent {
 
             // 3. 创建连接密码（ducklake需要特殊处理）
             if ("ducklake".equals(datasourceType)) {
-                // 构建S3 secret
-                String s3SecretSql = buildS3Secret();
-                stmt.execute(s3SecretSql);
-            }else{
+                Map<String, String> extraParams = datasource.getExtraParams();
+                String store = extraParams != null ? extraParams.get("s3.data_path") : null;
+                boolean isS3Path = store != null && store.startsWith("s3://");
+                if (isS3Path) {
+                    String s3SecretSql = buildS3Secret();
+                    stmt.execute(s3SecretSql);
+                }
+            } else {
                 String secretSql = buildSecretSql(datasourceType);
                 stmt.execute(secretSql);
             }
@@ -186,18 +190,11 @@ public class DuckDBRegister extends FlowComponent {
 
         switch (datasourceType.toLowerCase()) {
             case "ducklake":
-                // ducklake的特殊处理逻辑
                 Map<String, String> extraParams = datasource.getExtraParams();
-                if (extraParams == null || extraParams.isEmpty()) {
-                    throw new IllegalArgumentException("DuckLake数据源配置中未包含S3配置信息");
-                }
-                
-                String store = extraParams.get("s3.data_path");
-                if (store == null) {
+                String store = extraParams != null ? extraParams.get("s3.data_path") : null;
+                if (store == null || store.trim().isEmpty()) {
                     throw new IllegalArgumentException("DuckLake数据源配置中缺少s3.data_path参数");
                 }
-                
-                // ducklake的ATTACH语法：ATTACH 'ducklake:/path/to/metadata.ducklake' AS catalog (data_path 's3://bucket/path')
                 connStr.append(datasource.getUrl()).append("' AS ").append(alias);
                 connStr.append(" (data_path '").append(store).append("');");
                 break;
