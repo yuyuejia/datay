@@ -10,6 +10,9 @@ import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
+import com.zaxxer.hikari.pool.HikariProxyConnection;
+import org.duckdb.DuckDBAppender;
+import org.duckdb.DuckDBConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -238,6 +241,19 @@ public class StreamJdbcOutput extends FlowComponent {
             eventType = this.model.toUpperCase();
         }
 
+        if ("duckdb".equalsIgnoreCase(targetDbType) && canUseDuckDBAppender(eventType)) {
+            migrateDataWithDuckDBAppender(targetConn, targetTable, flowFile);
+        } else {
+            migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
+        }
+    }
+
+    private boolean canUseDuckDBAppender(String eventType) {
+        return "INSERT".equals(eventType) || "APPEND".equals(eventType) || "OVERWRITE".equals(eventType);
+    }
+
+    private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,
+                                      String targetDbType, String eventType) throws SQLException {
         String writeSQL = DatabaseConverter.generateWriteSQL(targetDbType, targetTable, eventType);
         try (PreparedStatement targetStmt = targetConn.prepareStatement(writeSQL)) {
             JSONArray records = flowFile.getJsonArray();
@@ -251,7 +267,44 @@ public class StreamJdbcOutput extends FlowComponent {
             targetStmt.executeBatch();
             this.logInfo("已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable() + "，写入模式：" + eventType);
         }
+    }
 
+    private void migrateDataWithDuckDBAppender(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
+        DuckDBConnection duckDBConnection = (DuckDBConnection) DBUtils.getRawConnection((HikariProxyConnection) targetConn);
+        JSONArray records = flowFile.getJsonArray();
+
+        Map<String, String> columnMapping = null;
+        if (header_map != null && !header_map.isEmpty()) {
+            columnMapping = new HashMap<>();
+            for (Map<String, Object> mapping : header_map) {
+                String inColumn = (String) mapping.get("source");
+                String outColumn = (String) mapping.get("target");
+                if (inColumn != null && outColumn != null) {
+                    columnMapping.put(outColumn, inColumn);
+                }
+            }
+        }
+
+        try (DuckDBAppender appender = duckDBConnection.createAppender(targetTable.getSchema(), targetTable.getTable())) {
+            for (Object o : records) {
+                appender.beginRow();
+                JSONObject record = (JSONObject) o;
+                for (int i = 0; i < targetTable.columns().size(); ++i) {
+                    ColumnMeta column = targetTable.columns().get(i);
+                    String fieldType = column.getType();
+                    Object value;
+                    if (columnMapping != null) {
+                        String sourceColumnName = columnMapping.getOrDefault(column.getName(), column.getName());
+                        value = record.get(sourceColumnName);
+                    } else {
+                        value = record.get(column.getName());
+                    }
+                    DBUtils.appendValue(appender, fieldType, value);
+                }
+                appender.endRow();
+            }
+        }
+        this.logInfo("已成功通过 DuckDBAppender 写入 " + records.size() + " 条记录到表 " + targetTable.getTable());
     }
 
     /**
