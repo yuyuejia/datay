@@ -248,12 +248,15 @@ export default defineComponent({
           const tables = res.data || res || [];
           const tableNodes = tables.map((table: any) => {
             const tableName = typeof table === 'string' ? table : table.table ?? table.tableName ?? table.name ?? table;
+            const catalog = table?.catalog;
+            const schema = table?.schema ?? node.data.name;
             return {
-              id: `table:${node.data.name}.${tableName}`,
+              id: `table:${schema}.${tableName}`,
               label: tableName,
               type: 'table',
               name: tableName,
-              schema: node.data.name,
+              schema: schema,
+              catalog: catalog,
               isLeaf: true,
             };
           });
@@ -290,16 +293,17 @@ export default defineComponent({
       };
     };
 
-    const buildSelectSql = (schema: string, tableName: string, limit = 10) => {
+    const buildSelectSql = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 10) => {
       const dialect = getSqlDialect();
+      const catalogPart = catalog ? `${dialect.quote(catalog)}.` : '';
       const schemaPart = schema ? `${dialect.quote(schema)}.` : '';
-      const sql = `SELECT * FROM ${schemaPart}${dialect.quote(tableName)}`;
+      const sql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
       return dialect.limit(sql, limit);
     };
 
     const handleNodeDblClick = (data: any) => {
       if (data?.type === 'table') {
-        const insertSql = buildSelectSql(data.schema, data.name);
+        const insertSql = buildSelectSql(data.catalog, data.schema, data.name);
         if (editorView) {
           editorView.dispatch({
             changes: {

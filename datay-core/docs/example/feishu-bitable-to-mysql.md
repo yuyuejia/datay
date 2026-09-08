@@ -44,7 +44,7 @@ cd datay
 mvn clean package -DskipTests
 
 # 构建完成后，JAR 包位于 target 目录
-ls target/datay-*-jar-with-dependencies.jar
+ls data-core/target/datay-core-*-jar-with-dependencies.jar
 ```
 
 ### 步骤2: 准备飞书侧信息
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS user (
 ### 步骤5: 启动 DataY 任务
 
 ```bash
-java -jar datay-1.0.1-jar-with-dependencies.jar feishu-bitable-to-mysql-task.json
+java -jar datay-core-1.0.1-jar-with-dependencies.jar feishu-bitable-to-mysql-task.json
 ```
 
 ### 步骤6: 验证同步结果

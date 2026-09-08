@@ -537,9 +537,17 @@ public class DBUtils {
                 }
                 String tableName = rs.getString("TABLE_NAME");
                 String tableComment = rs.getString("REMARKS");
+                String tableCatalog = rs.getString("TABLE_CAT");
+                String tableSchema = rs.getString("TABLE_SCHEM");
                 TableMeta tableMeta = new TableMeta(tableName);
                 if (tableComment != null) {
                     tableMeta.setComment(tableComment);
+                }
+                if (jdbcUrl.startsWith("jdbc:duckdb:") && tableCatalog != null && !tableCatalog.isEmpty()) {
+                    tableMeta.setCatalog(tableCatalog);
+                }
+                if (tableSchema != null && !tableSchema.isEmpty()) {
+                    tableMeta.setSchema(tableSchema);
                 }
                 tables.add(tableMeta);
             }
