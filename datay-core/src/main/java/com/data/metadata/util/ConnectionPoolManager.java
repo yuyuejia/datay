@@ -87,35 +87,46 @@ public class ConnectionPoolManager {
         return dataSource.getConnection();
     }
 
+    private static String DUCKLAKE_CATALOG = "ducklake";
+
     /**
      * 创建HikariCP数据源
      */
     private static HikariDataSource createDataSource(String poolKey, String url, String user, String password, String version) {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(url);
+
+        DBType dbType = DBUtils.getDBTypeEnum(url);
+        String resolvedUrl = url;
+        if (dbType == DBType.DUCKLAKE) {
+            resolvedUrl = convertDuckLakeUrlToDuckDBUrl(url);
+        }
+
+        config.setJdbcUrl(resolvedUrl);
         config.setUsername(user);
         config.setPassword(password);
         config.setPoolName("HikariPool-" + poolKey);
 
-        // 设置连接池参数
         config.setMaximumPoolSize(DEFAULT_MAX_POOL_SIZE);
         config.setMinimumIdle(DEFAULT_MIN_IDLE);
         config.setConnectionTimeout(DEFAULT_CONNECTION_TIMEOUT);
         config.setIdleTimeout(DEFAULT_IDLE_TIMEOUT);
         config.setMaxLifetime(DEFAULT_MAX_LIFETIME);
 
-        // 配置连接测试
-        config.setConnectionTestQuery(DBUtils.getTestQuery(url));
-        config.setValidationTimeout(5000); // 验证超时时间5秒
+        config.setConnectionTestQuery(DBUtils.getTestQuery(resolvedUrl));
+        config.setValidationTimeout(5000);
 
-        // 数据库特定配置
-        DBType dbType = DBUtils.getDBTypeEnum(url);
         configureDatabaseSpecificSettings(config, dbType);
 
-        // 使用自定义驱动类加载器加载驱动
-        loadDriverWithCustomClassLoader(url, dbType, version);
+        loadDriverWithCustomClassLoader(resolvedUrl, dbType, version);
 
         return new HikariDataSource(config);
+    }
+
+    private static String convertDuckLakeUrlToDuckDBUrl(String ducklakeUrl) {
+        if (ducklakeUrl.startsWith("ducklake:")) {
+            return "jdbc:duckdb:";
+        }
+        return ducklakeUrl;
     }
 
     /**
@@ -149,6 +160,7 @@ public class ConnectionPoolManager {
                 config.addDataSourceProperty("oracle.net.CONNECT_TIMEOUT", "10000");
                 break;
             case DUCKDB:
+            case DUCKLAKE:
                 config.addDataSourceProperty("jdbc_stream_results", "true");
                 break;
             default:

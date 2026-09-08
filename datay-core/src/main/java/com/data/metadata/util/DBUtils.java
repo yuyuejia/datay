@@ -109,7 +109,59 @@ public class DBUtils {
      * 获取数据库连接（使用连接池）
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo) throws SQLException {
-        return ConnectionPoolManager.getConnection(datasourceInfo);
+        Connection conn = ConnectionPoolManager.getConnection(datasourceInfo);
+        String url = datasourceInfo.getUrl();
+        if (url != null && url.startsWith("ducklake:")) {
+            setupDuckLakeConnection(conn, datasourceInfo);
+        }
+        return conn;
+    }
+
+    private static final String DUCKLAKE_CATALOG = "ducklake";
+
+    private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
+        java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
+        String ducklakeFilePath = datasourceInfo.getUrl();
+        if (ducklakeFilePath.startsWith("ducklake:")) {
+            ducklakeFilePath = ducklakeFilePath.substring("ducklake:".length());
+        }
+
+        Statement stmt;
+
+        stmt = conn.createStatement();
+        try { stmt.execute("INSTALL ducklake"); } catch (Exception ignored) {}
+        try { stmt.execute("LOAD ducklake"); } catch (Exception ignored) {}
+        try { stmt.close(); } catch (Exception ignored) {}
+
+        if (extraParams != null) {
+            String store = extraParams.get("s3.data_path");
+            if (store != null && store.startsWith("s3://")) {
+                String keyId = extraParams.get("s3.key_id");
+                String secret = extraParams.get("s3.secret");
+                String endpoint = extraParams.get("s3.endpoint");
+                String urlStyle = extraParams.get("s3.url_style");
+                String useSsl = extraParams.get("s3.use_ssl");
+
+                if (keyId != null && secret != null && endpoint != null && urlStyle != null && useSsl != null) {
+                    stmt = conn.createStatement();
+                    String s3Secret = String.format(
+                        "CREATE OR REPLACE SECRET (TYPE s3, KEY_ID '%s', SECRET '%s', ENDPOINT '%s', url_style '%s', USE_SSL '%s');",
+                        keyId, secret, endpoint, urlStyle, useSsl
+                    );
+                    stmt.execute(s3Secret);
+                    try { stmt.close(); } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        stmt = conn.createStatement();
+        try { stmt.execute(String.format("DETACH %s;", DUCKLAKE_CATALOG)); } catch (Exception ignored) {}
+        try { stmt.close(); } catch (Exception ignored) {}
+
+        stmt = conn.createStatement();
+        String attachSql = String.format("ATTACH '%s' AS %s;", ducklakeFilePath, DUCKLAKE_CATALOG);
+        stmt.execute(attachSql);
+        try { stmt.close(); } catch (Exception ignored) {}
     }
 
     /**
@@ -295,8 +347,40 @@ public class DBUtils {
             return getCatalogs(conn);
         }
         DatabaseMetaData metaData = conn.getMetaData();
+
+        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+            String targetCatalog = resolveDuckCatalog(metaData);
+            return new ArrayList<>(getDistinctSchemas(metaData, targetCatalog));
+        }
+
         List<String> schemas = new ArrayList<>();
         try (ResultSet rs = metaData.getSchemas()) {
+            while (rs.next()) {
+                schemas.add(rs.getString("TABLE_SCHEM"));
+            }
+        }
+        return schemas;
+    }
+
+    private static String resolveDuckCatalog(DatabaseMetaData metaData) throws SQLException {
+        try (ResultSet rs = metaData.getCatalogs()) {
+            while (rs.next()) {
+                String cat = rs.getString("TABLE_CAT");
+                if (DUCKLAKE_CATALOG.equals(cat)) {
+                    return DUCKLAKE_CATALOG;
+                }
+            }
+        }
+        try {
+            return metaData.getConnection().getCatalog();
+        } catch (Exception e) {
+            return "memory";
+        }
+    }
+
+    private static java.util.Set<String> getDistinctSchemas(DatabaseMetaData metaData, String catalog) throws SQLException {
+        java.util.Set<String> schemas = new java.util.LinkedHashSet<>();
+        try (ResultSet rs = metaData.getSchemas(catalog, null)) {
             while (rs.next()) {
                 schemas.add(rs.getString("TABLE_SCHEM"));
             }
@@ -330,28 +414,35 @@ public class DBUtils {
         DatabaseMetaData metaData = conn.getMetaData();
         List<TableMeta> tables = new ArrayList<>();
         String tableNamePattern = (search != null && !search.isEmpty()) ? "%" + search + "%" : null;
-        if (jdbcUrl.startsWith("jdbc:mysql:")) {
-            try (ResultSet rs = metaData.getTables(schema, null, tableNamePattern, new String[] { "TABLE" })) {
-                while (rs.next()) {
-                    if (limit != null && tables.size() >= limit) {
-                        break;
-                    }
-                    String tableName = rs.getString("TABLE_NAME");
-                    String tableComment = rs.getString("REMARKS");
-                    TableMeta tableMeta = new TableMeta(tableName);
-                    tableMeta.setComment(tableComment);
-                    tables.add(tableMeta);
-                }
-            }
-            return tables;
+
+        String catalog = null;
+        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+            catalog = resolveDuckCatalog(metaData);
         }
-        try (ResultSet rs = metaData.getTables(null, schema, tableNamePattern, new String[] { "TABLE" })) {
+
+        String[] tableTypes;
+        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+            tableTypes = new String[] { "BASE TABLE" };
+        } else {
+            tableTypes = new String[] { "TABLE" };
+        }
+
+        if (jdbcUrl.startsWith("jdbc:mysql:")) {
+            catalog = schema;
+            schema = null;
+        }
+
+        try (ResultSet rs = metaData.getTables(catalog, schema, tableNamePattern, tableTypes)) {
             while (rs.next()) {
                 if (limit != null && tables.size() >= limit) {
                     break;
                 }
                 String tableName = rs.getString("TABLE_NAME");
+                String tableComment = rs.getString("REMARKS");
                 TableMeta tableMeta = new TableMeta(tableName);
+                if (tableComment != null) {
+                    tableMeta.setComment(tableComment);
+                }
                 tables.add(tableMeta);
             }
         }
@@ -363,7 +454,8 @@ public class DBUtils {
         String dbType = DBUtils.getDBType(jdbcUrl);
         TableMeta tableMeta = null;
         if (DBType.DUCKDB.toString().equals(dbType)) {
-            tableMeta = getTableMetaData(conn, null, schema, table);
+            String catalog = resolveDuckCatalog(conn.getMetaData());
+            tableMeta = getTableMetaData(conn, catalog, schema, table);
         } else if (DBType.ORACLE.toString().equals(dbType)) {
             tableMeta = getTableMetaData(conn, null, schema, table);
         } else if (DBType.POSTGRESQL.toString().equals(dbType)) {
@@ -473,7 +565,7 @@ public class DBUtils {
         } else if (jdbcUrl.startsWith("jdbc:duckdb:")) {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
-            return DBType.DUCKDB.toString();
+            return DBType.DUCKLAKE.toString();
         }
         return "Unknown";
     }
@@ -499,7 +591,7 @@ public class DBUtils {
         } else if (jdbcUrl.startsWith("jdbc:doris:")) {
             return DBType.DORIS;
         } else if (jdbcUrl.startsWith("ducklake:")) {
-            return DBType.DUCKDB;
+            return DBType.DUCKLAKE;
         }
         return null;
     }

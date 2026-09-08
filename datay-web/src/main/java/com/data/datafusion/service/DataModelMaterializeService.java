@@ -26,10 +26,19 @@ public class DataModelMaterializeService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataModelMaterializeService.class);
 
+    public static final String DUCKLAKE_CATALOG = "ducklake";
+
     private final DataSourceService dataSourceService;
 
     public DataModelMaterializeService(DataSourceService dataSourceService) {
         this.dataSourceService = dataSourceService;
+    }
+
+    private String resolveCatalog(String dbType) {
+        if ("DUCKLAKE".equalsIgnoreCase(dbType)) {
+            return DUCKLAKE_CATALOG;
+        }
+        return null;
     }
 
     public String logicalTypeToCommonType(String logicalType) {
@@ -86,9 +95,12 @@ public class DataModelMaterializeService {
         DataSourceDTO ds = dsOpt.get();
         try (Connection conn = DBUtils.getConnection(toDatasourceInfo(ds))) {
             String dbType = DBUtils.getDBType(ds.getUrl());
+            String catalog = resolveCatalog(dbType);
             boolean exists;
             if ("mysql".equalsIgnoreCase(dbType)) {
                 exists = DBUtils.tableExists(conn, request.getSchemaName(), null, request.getTableName());
+            } else if (catalog != null) {
+                exists = DBUtils.tableExists(conn, catalog, request.getSchemaName(), request.getTableName());
             } else {
                 exists = DBUtils.tableExists(conn, null, request.getSchemaName(), request.getTableName());
             }
@@ -130,6 +142,7 @@ public class DataModelMaterializeService {
         TableMeta tableMeta = new TableMeta(request.getTableName(), columns);
         tableMeta.setDbType(dbType);
         tableMeta.setSchema(request.getSchemaName());
+        tableMeta.setCatalog(resolveCatalog(dbType));
 
         String ddl = DatabaseConverter.generateTableDDL(dbType, tableMeta);
         response.setSuccess(true);
@@ -150,11 +163,14 @@ public class DataModelMaterializeService {
 
         DataSourceDTO ds = dsOpt.get();
         String dbType = DBUtils.getDBType(ds.getUrl());
+        String catalog = resolveCatalog(dbType);
 
         try (Connection conn = DBUtils.getConnection(toDatasourceInfo(ds))) {
             boolean exists;
             if ("mysql".equalsIgnoreCase(dbType)) {
                 exists = DBUtils.tableExists(conn, request.getSchemaName(), null, request.getTableName());
+            } else if (catalog != null) {
+                exists = DBUtils.tableExists(conn, catalog, request.getSchemaName(), request.getTableName());
             } else {
                 exists = DBUtils.tableExists(conn, null, request.getSchemaName(), request.getTableName());
             }
@@ -167,7 +183,7 @@ public class DataModelMaterializeService {
             }
 
             if (exists && Boolean.TRUE.equals(request.getOverwrite())) {
-                String dropTableSql = DatabaseConverter.generateDropTable(dbType, buildFullTableName(dbType, request.getSchemaName(), request.getTableName()));
+                String dropTableSql = DatabaseConverter.generateDropTable(dbType, buildFullTableName(dbType, request.getSchemaName(), request.getTableName(), catalog));
                 LOG.info("执行 DROP TABLE: {}", dropTableSql);
                 DBUtils.execute(conn, dropTableSql);
             }
@@ -186,6 +202,7 @@ public class DataModelMaterializeService {
             TableMeta tableMeta = new TableMeta(request.getTableName(), columns);
             tableMeta.setDbType(dbType);
             tableMeta.setSchema(request.getSchemaName());
+            tableMeta.setCatalog(catalog);
 
             String ddl = DatabaseConverter.generateTableDDL(dbType, tableMeta);
             LOG.info("执行 CREATE TABLE: {}", ddl);
@@ -203,11 +220,16 @@ public class DataModelMaterializeService {
         return response;
     }
 
-    private String buildFullTableName(String dbType, String schema, String tableName) {
-        if (schema != null && !schema.isEmpty()) {
-            return schema + "." + tableName;
+    private String buildFullTableName(String dbType, String schema, String tableName, String catalog) {
+        StringBuilder sb = new StringBuilder();
+        if (catalog != null && !catalog.isEmpty()) {
+            sb.append(catalog).append(".");
         }
-        return tableName;
+        if (schema != null && !schema.isEmpty()) {
+            sb.append(schema).append(".");
+        }
+        sb.append(tableName);
+        return sb.toString();
     }
 
     private DatasourceInfo toDatasourceInfo(DataSourceDTO dto) {

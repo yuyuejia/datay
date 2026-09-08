@@ -28,7 +28,6 @@ public class DuckLakeConverter implements TypeConverter {
         DATE,
         TIME,
         TIMESTAMP,
-        TINYINT1,
         JSON,
     }
 
@@ -88,7 +87,7 @@ public class DuckLakeConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), DuckLakeType.TIMESTAMP.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DuckLakeType.TIMESTAMP.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DuckLakeType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DuckLakeType.TINYINT1.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DuckLakeType.TINYINT.name());
         commonDataType2ColumnType.put(AllDataType.XML.name(), DuckLakeType.VARCHAR.name());
         commonDataType2ColumnType.put(AllDataType.JSON.name(), DuckLakeType.JSON.name());
         commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DuckLakeType.VARCHAR.name());
