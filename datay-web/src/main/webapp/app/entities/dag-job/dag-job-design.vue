@@ -531,7 +531,7 @@ const cancelSchedule = () => {
           :node-types="nodeTypes"
           :default-viewport="{ zoom: 0.9 }"
           :min-zoom="0.2"
-          :max-zoom="4"
+          :max-zoom="1.2"
           :delete-key-code="['Backspace', 'Delete']"
           class="basic-flow full-height-vueflow"
         >

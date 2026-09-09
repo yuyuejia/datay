@@ -34,8 +34,6 @@ const removeSelf = (event) => {
     </div>
     <div class="dag-node-name" :title="data.label">{{ data.label }}</div>
     <div class="dag-node-meta">
-      <span class="dag-node-id">#{{ data.jobId }}</span>
-      <span class="dag-node-status">{{ data.status || "OFFLINE" }}</span>
     </div>
     <Handle type="source" :position="Position.Bottom" class="dag-handle" />
   </div>

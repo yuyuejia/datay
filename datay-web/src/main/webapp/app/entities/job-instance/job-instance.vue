@@ -1,10 +1,10 @@
 <template>
   <div>
-    <h2 id="page-heading" data-cy="JobInstanceHeading">
-      <span id="job-instance-heading">Job Instances</span>
-      <div class="d-flex justify-content-end">
+    <h2 id="page-heading" data-cy="JobInstanceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
+      <span id="job-instance-heading">任务实例列表</span>
+      <div class="d-flex align-items-center">
         <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
-          <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>Refresh list</span>
+          <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
         </button>
         <router-link :to="{ name: 'JobInstanceCreate' }" custom v-slot="{ navigate }">
           <button
@@ -14,42 +14,37 @@
             class="btn btn-primary jh-create-entity create-job-instance"
           >
             <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span>创建新 Job Instance</span>
+            <span>创建任务实例</span>
           </button>
         </router-link>
       </div>
     </h2>
     <br />
     <div class="alert alert-warning" v-if="!isFetching && jobInstances && jobInstances.length === 0">
-      <span>No Job Instances found</span>
+      <span>未找到任务实例</span>
     </div>
     <div v-if="jobInstances && jobInstances.length > 0">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="jobInstances" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="id" label="ID" sortable="custom" width="100">
-          <template #default="scope">
-            <router-link :to="{ name: 'JobInstanceView', params: { jobInstanceId: scope.row.id } }">{{ scope.row.id }}</router-link>
-          </template>
-        </el-table-column>
         <!-- <el-table-column prop="instanceCode" label="Instance Code" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="jobName" label="Job Name" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="jobName" label="任务名称" sortable="custom" width="150"></el-table-column>
         <!-- <el-table-column prop="jobCode" label="Job Code" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="type" label="Type" sortable="custom" width="100"></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <!-- <el-table-column prop="jobContext" label="Job Context" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="status" label="Status" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="status" label="状态" sortable="custom" width="150"></el-table-column>
         <!-- <el-table-column prop="jobMessage" label="Job Message" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="startTime" label="Start Time" sortable="custom" width="200">
+        <el-table-column prop="startTime" label="开始时间" sortable="custom" width="200">
           <template #default="scope">
             {{ formatDateTime(scope.row.startTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column prop="endTime" label="End Time" sortable="custom" width="200">
+        <el-table-column prop="endTime" label="结束时间" sortable="custom" width="200">
           <template #default="scope">
             {{ formatDateTime(scope.row.endTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column prop="execNode" label="Exec Node" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="createTime" label="Create Time" sortable="custom" width="150">
+        <el-table-column prop="execNode" label="执行节点" sortable="custom" width="180"></el-table-column>
+        <el-table-column prop="createTime" label="创建时间" sortable="custom" width="200">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
@@ -101,7 +96,7 @@
         <span id="datafusionApp.jobInstance.delete.question" data-cy="jobInstanceDeleteDialogHeading">确认删除</span>
       </template>
       <div class="modal-body">
-        <p id="jhi-delete-jobInstance-heading">你确定要删除 Job Instance {{ removeId }} 吗？</p>
+        <p id="jhi-delete-jobInstance-heading">你确定要删除任务实例 {{ removeId }} 吗？</p>
       </div>
       <template #modal-footer>
         <div>

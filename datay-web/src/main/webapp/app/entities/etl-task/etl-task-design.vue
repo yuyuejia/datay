@@ -478,7 +478,7 @@ const cancelTask = () => {
           class="basic-flow full-height-vueflow"
           :default-viewport="{ zoom: 1.5 }"
           :min-zoom="0.2"
-          :max-zoom="4"
+          :max-zoom="1.2"
         >
           <Background pattern-color="#aaa" :gap="16" />
           <MiniMap />
