@@ -9,6 +9,7 @@ import com.data.datafusion.domain.Job;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.DataSyncRepository;
 import com.data.datafusion.repository.DataSyncTableConfigRepository;
+import com.data.datafusion.security.SecurityUtils;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
@@ -266,7 +267,12 @@ public class DataSyncService {
         job.setUpdateTime(ZonedDateTime.now());
         job.setCreateTime(ZonedDateTime.now());
         job.setJobContext(generateETLJobJson(dataSyncDTO));
-        return jobService.save(job);
+        // 设置租户ID，防止更新时merge操作覆盖tenant_id为空
+        if (dataSyncDTO.getTenantId()!= null){
+            job.setTenantId(String.valueOf(dataSyncDTO.getTenantId()));
+        }else if(SecurityUtils.getCurrentTenantId().isPresent()){
+            job.setTenantId(String.valueOf(SecurityUtils.getCurrentTenantId()));
+        }return jobService.save(job);
     }
 
     public String generateETLJobJson(DataSyncDTO dataSyncDTO) {

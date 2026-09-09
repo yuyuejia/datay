@@ -13,6 +13,7 @@ import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
+import com.data.datafusion.security.SecurityUtils;
 import com.data.datafusion.service.dto.*;
 import com.data.datafusion.service.mapper.ETLEdgeMapper;
 import com.data.datafusion.service.mapper.ETLNodeMapper;
@@ -133,6 +134,12 @@ public class ETLTaskService {
         job.setJobContext(generateETLJobJson(eTLTaskDTO));
         job.setCreateTime(eTLTaskDTO.getCreateTime());
         job.setUpdateTime(ZonedDateTime.now());
+        // 设置租户ID，防止更新时merge操作覆盖tenant_id为空
+        if (eTLTaskDTO.getTenantId()!= null){
+            job.setTenantId(String.valueOf(eTLTaskDTO.getTenantId()));
+        }else if(SecurityUtils.getCurrentTenantId().isPresent()){
+            job.setTenantId(String.valueOf(SecurityUtils.getCurrentTenantId()));
+        }
         job = jobService.save(job);
         return job;
     }
