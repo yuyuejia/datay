@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260909010000-1" author="datay" context="faker">
+        <insert tableName="dp_data_api">
+            <column name="name" value="用户订单表查询"/>
+            <column name="code" value="order_table_query"/>
+            <column name="description" value="基于数据表 cmm.dwd_order 的查询服务：调用时可传 user_id、username 等字段做等值过滤，并支持 pageNum / pageSize 分页"/>
+            <column name="data_source_id" valueNumeric="1"/>
+            <column name="source_type" value="TABLE"/>
+            <column name="schema_name" value="cmm"/>
+            <column name="table_name" value="dwd_order"/>
+            <column name="status" value="ENABLED"/>
+            <column name="create_time" value="2026-09-09T10:00:00"/>
+            <column name="update_time" value="2026-09-09T10:00:00"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20260909010000-2" author="datay" context="faker">
+        <insert tableName="dp_data_api">
+            <column name="name" value="用户订单金额汇总（自定义 SQL）"/>
+            <column name="code" value="order_summary_sql"/>
+            <column name="description" value="基于自定义 SQL 的聚合查询：按用户汇总订单笔数与订单总金额，只读执行"/>
+            <column name="data_source_id" valueNumeric="1"/>
+            <column name="source_type" value="SQL"/>
+            <column name="sql_text" value="SELECT username, COUNT(*) AS order_count, ROUND(SUM(order_amount), 2) AS total_amount FROM cmm.dwd_order GROUP BY username ORDER BY total_amount DESC"/>
+            <column name="status" value="ENABLED"/>
+            <column name="create_time" value="2026-09-09T10:00:00"/>
+            <column name="update_time" value="2026-09-09T10:00:00"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

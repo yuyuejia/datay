@@ -36,6 +36,7 @@
     <include file="config/liquibase/changelog/20250907000000_added_entity_Tenant.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260908154249_add_extra_params_to_datasource.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260909000000_added_entity_DataApi.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260909010000_seed_data_api.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
