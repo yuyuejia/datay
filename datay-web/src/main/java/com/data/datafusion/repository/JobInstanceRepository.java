@@ -25,6 +25,7 @@ public interface JobInstanceRepository extends JpaRepository<JobInstance, Long> 
     @SkipTenantFilter
     Optional<JobInstance> findByInstanceCode(String instanceCode);
 
+    @SkipTenantFilter
     List<JobInstance> findByStatus(String status);
     /**
      * 根据任务代码和状态查询任务实例
