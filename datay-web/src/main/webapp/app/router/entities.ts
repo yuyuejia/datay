@@ -18,6 +18,9 @@ const Job = () => import("@/entities/job/job.vue");
 const JobUpdate = () => import("@/entities/job/job-update.vue");
 const JobDetails = () => import("@/entities/job/job-details.vue");
 
+const DagJob = () => import("@/entities/dag-job/dag-job.vue");
+const DagJobDesign = () => import("@/entities/dag-job/dag-job-design.vue");
+
 const JobDepend = () => import("@/entities/job-depend/job-depend.vue");
 const JobDependUpdate = () =>
   import("@/entities/job-depend/job-depend-update.vue");
@@ -74,8 +77,7 @@ const DataModelUpdate = () =>
   import("@/entities/data-model/data-model-update.vue");
 
 const DataApiList = () => import("@/entities/data-api/data-api.vue");
-const DataApiUpdate = () =>
-  import("@/entities/data-api/data-api-update.vue");
+const DataApiUpdate = () => import("@/entities/data-api/data-api-update.vue");
 
 // jhipster-needle-add-entity-to-router-import - JHipster will import entities to the router here
 
@@ -159,6 +161,24 @@ export default {
       path: "job/:jobId/view",
       name: "JobView",
       component: JobDetails,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "dag-job",
+      name: "DagJob",
+      component: DagJob,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "dag-job/design-new",
+      name: "DagJobDesignNew",
+      component: DagJobDesign,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "dag-job/:jobId/design",
+      name: "DagJobDesign",
+      component: DagJobDesign,
       meta: { authorities: [Authority.USER] },
     },
     {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, inject, computed, watch } from 'vue';
+import { ref, reactive, onMounted, inject, computed, watch, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -7,6 +7,7 @@ import { MiniMap } from '@vue-flow/minimap';
 import { MarkerType } from '@vue-flow/core';
 import ETLComponentService from '../etl-component/etl-component.service';
 import ETLTaskService from '../etl-task/etl-task.service';
+import ETLTaskNode from './etl-task-node.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 import '@vue-flow/core/dist/style.css';
@@ -29,6 +30,7 @@ const {
   getNodes,
   getEdges,
   screenToFlowPosition,
+  removeNodes,
 } = useVueFlow();
 const etlComponentService = new ETLComponentService();
 const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
@@ -47,6 +49,20 @@ const router = useRouter();
 
 const isCreateMode = computed(() => !route.params.eTLTaskId);
 
+const nodeTypes = { etl: markRaw(ETLTaskNode) };
+
+const componentGroupMap = computed(() => {
+  const map = {};
+  for (const comp of etlComponents.value) {
+    map[comp.code] = comp.group;
+  }
+  return map;
+});
+
+const deleteNode = nodeId => {
+  removeNodes([nodeId]);
+};
+
 const loadComponents = async () => {
   try {
     const response = await etlComponentService.retrieve({ page: 0, size: 1000 });
@@ -64,9 +80,23 @@ const expandedGroups = reactive({
 
 const groupOrder = ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'];
 
+const componentSearch = ref('');
+
 const groupedComponents = computed(() => {
+  const keyword = componentSearch.value.trim().toLowerCase();
   const map = {};
   for (const comp of etlComponents.value) {
+    if (
+      keyword &&
+      !String(comp.name || '')
+        .toLowerCase()
+        .includes(keyword) &&
+      !String(comp.code || '')
+        .toLowerCase()
+        .includes(keyword)
+    ) {
+      continue;
+    }
     const g = comp.group || '其他';
     if (!map[g]) {
       map[g] = [];
@@ -123,9 +153,16 @@ const retrieveETLTask = async eTLTaskId => {
 
     const convertedNodes = (res.nodes || []).map(node => ({
       id: node.code.toString(),
-      data: { label: node.label, config: JSON.parse(node.config), type: node.type, id: node.id },
+      type: 'etl',
+      data: {
+        label: node.label,
+        config: node.config ? JSON.parse(node.config) : {},
+        type: node.type,
+        id: node.id,
+        group: componentGroupMap.value[node.type] || '其他',
+        onDelete: deleteNode,
+      },
       position: { x: parseFloat(node.xAxis), y: parseFloat(node.yAxis) },
-      class: 'light',
     }));
 
     const convertedEdges = (res.edges || []).map(edge => ({
@@ -174,19 +211,26 @@ const cancelSchedule = () => {
 onMounted(async () => {
   await loadComponents();
   await loadTaskData();
+  fitCanvasView();
 });
 
 watch(
   () => route.params.eTLTaskId,
   async () => {
     await loadTaskData();
+    fitCanvasView();
   },
 );
 
 onInit(instance => {
   vueFlowInstance.value = instance;
-  instance.fitView();
 });
+
+const fitCanvasView = () => {
+  if (vueFlowInstance.value) {
+    setTimeout(() => vueFlowInstance.value.fitView({ padding: 0.2 }), 100);
+  }
+};
 
 onNodeDoubleClick(event => {
   selectedNode.value = event.node;
@@ -292,9 +336,15 @@ const onDrop = event => {
 
   addNodes({
     id: `${Date.now()}`,
-    data: { label: `${component.name}`, type: component.code, config: {} },
+    type: 'etl',
+    data: {
+      label: `${component.name}`,
+      type: component.code,
+      config: {},
+      group: component.group || '其他',
+      onDelete: deleteNode,
+    },
     position,
-    class: 'light',
   });
 };
 
@@ -394,6 +444,10 @@ const cancelTask = () => {
     </div>
     <div class="main-container">
       <div class="sidebar">
+        <div class="sidebar-search">
+          <input type="text" class="search-input" v-model="componentSearch" placeholder="搜索组件名称 / code" />
+        </div>
+        <div v-if="groupedComponents.length === 0 && componentSearch" class="sidebar-empty">无匹配组件</div>
         <div class="sidebar-tree">
           <div v-for="groupData in groupedComponents" :key="groupData.group" class="sidebar-group">
             <div class="sidebar-group-header" @click="toggleGroup(groupData.group)">
@@ -419,6 +473,7 @@ const cancelTask = () => {
           ref="flow"
           v-model:nodes="nodes"
           v-model:edges="edges"
+          :node-types="nodeTypes"
           :class="{ dark }"
           class="basic-flow full-height-vueflow"
           :default-viewport="{ zoom: 1.5 }"
@@ -610,6 +665,32 @@ const cancelTask = () => {
   padding: 12px;
   border-right: 1px solid #e4e7ed;
   overflow-y: auto;
+}
+
+.sidebar-search {
+  margin-bottom: 8px;
+}
+
+.sidebar-search .search-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sidebar-search .search-input:focus {
+  border-color: #409eff;
+}
+
+.sidebar-empty {
+  padding: 12px 8px;
+  font-size: 13px;
+  color: #909399;
+  text-align: center;
 }
 
 .sidebar-title {

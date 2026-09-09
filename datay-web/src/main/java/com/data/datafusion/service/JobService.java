@@ -13,8 +13,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * Service Implementation for managing {@link com.data.datafusion.domain.Job}.
@@ -126,6 +128,27 @@ public class JobService {
     public Page<JobDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all Jobs");
         return jobRepository.findAll(pageable).map(jobMapper::toDto);
+    }
+
+    /**
+     * Get all the jobs filtered by job type.
+     *
+     * @param pageable the pagination information.
+     * @param type     the job type to include (nullable).
+     * @param typeNot  the job type to exclude (nullable).
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<JobDTO> findAll(Pageable pageable, String type, String typeNot) {
+        LOG.debug("Request to get all Jobs with type: {}, typeNot: {}", type, typeNot);
+        Specification<Job> specification = Specification.where(null);
+        if (StringUtils.hasText(type)) {
+            specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("type"), type));
+        }
+        if (StringUtils.hasText(typeNot)) {
+            specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.notEqual(root.get("type"), typeNot));
+        }
+        return jobRepository.findAll(specification, pageable).map(jobMapper::toDto);
     }
 
     /**

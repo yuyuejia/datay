@@ -82,12 +82,12 @@
           <button type="submit" :disabled="v$.settingsAccount.$invalid" class="btn btn-primary" data-cy="submit">保存</button>
         </form>
 
-        <h2 class="mt-4" id="mcp-token-title">MCP 访问令牌</h2>
+        <h2 class="mt-4" id="mcp-token-title">访问令牌</h2>
         <div class="alert alert-info" role="alert">
-          MCP 访问令牌用于 AI 客户端（如 Claude Desktop、Cursor）连接本系统的 MCP 服务时进行身份认证。
+          访问令牌用于身份认证，可连接本系统的 MCP 服务（如 Claude Desktop、Cursor），也可供程序调用本系统服务使用。
         </div>
-        <p v-if="hasMcpToken" class="text-muted">您已配置 MCP 访问令牌。重新生成后旧令牌将立即失效。</p>
-        <p v-else class="text-muted">您尚未配置 MCP 访问令牌，请先点击下方按钮生成。</p>
+        <p v-if="hasMcpToken" class="text-muted">您已配置访问令牌。重新生成后旧令牌将立即失效。</p>
+        <p v-else class="text-muted">您尚未配置访问令牌，请先点击下方按钮生成。</p>
 
         <div v-if="generatedToken" class="alert alert-success" role="alert">
           <strong>请立即复制并妥善保存您的令牌，关闭页面后将无法再次查看：</strong>

@@ -1,5 +1,6 @@
 package com.data.datafusion.web.rest;
 
+import com.data.datafusion.domain.Job;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.JobService;
 import com.data.datafusion.service.dto.JobDTO;
@@ -136,9 +137,13 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of jobs in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<JobDTO>> getAllJobs(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
-        LOG.debug("REST request to get a page of Jobs");
-        Page<JobDTO> page = jobService.findAll(pageable);
+    public ResponseEntity<List<JobDTO>> getAllJobs(
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(value = "type", required = false) String type,
+        @RequestParam(value = "typeNot", required = false) String typeNot
+    ) {
+        LOG.debug("REST request to get a page of Jobs with type: {}, typeNot: {}", type, typeNot);
+        Page<JobDTO> page = jobService.findAll(pageable, type, typeNot);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
@@ -182,5 +187,43 @@ public class JobResource {
         LOG.debug("REST request to run Job : {}", id);
         jobService.executeOnce(jobService.findOneJob(id).get());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * {@code POST  /jobs/:id/online} : Set the "id" job to online status and schedule it.
+     *
+     * @param id the id of the jobDTO to set online.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
+     */
+    @PostMapping("/{id}/online")
+    public ResponseEntity<JobDTO> onlineJob(@PathVariable("id") Long id) {
+        LOG.debug("REST request to online Job : {}", id);
+        Job job = jobService
+            .findOneJob(id)
+            .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+        jobService.online(job, false);
+        JobDTO updated = jobService.findOne(id).get();
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, updated.getId().toString()))
+            .body(updated);
+    }
+
+    /**
+     * {@code POST  /jobs/:id/offline} : Set the "id" job to offline status and cancel its schedule.
+     *
+     * @param id the id of the jobDTO to set offline.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
+     */
+    @PostMapping("/{id}/offline")
+    public ResponseEntity<JobDTO> offlineJob(@PathVariable("id") Long id) {
+        LOG.debug("REST request to offline Job : {}", id);
+        Job job = jobService
+            .findOneJob(id)
+            .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+        jobService.offline(job);
+        JobDTO updated = jobService.findOne(id).get();
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, updated.getId().toString()))
+            .body(updated);
     }
 }
