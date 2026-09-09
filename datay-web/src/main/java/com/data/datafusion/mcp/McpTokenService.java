@@ -2,6 +2,7 @@ package com.data.datafusion.mcp;
 
 import com.data.datafusion.domain.User;
 import com.data.datafusion.repository.UserRepository;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,16 +48,27 @@ public class McpTokenService {
      * @return {@code true} if the token belongs to a user and matches the stored hash.
      */
     public boolean authenticate(String token) {
+        return authenticateUser(token).isPresent();
+    }
+
+    /**
+     * Authenticate a plain-text MCP token and resolve its owner.
+     *
+     * @param token the token presented by the client.
+     * @return the authenticated user, empty if the token is missing, malformed or invalid.
+     */
+    public Optional<User> authenticateUser(String token) {
         if (token == null || token.isBlank()) {
-            return false;
+            return Optional.empty();
         }
         Matcher matcher = TOKEN_PATTERN.matcher(token);
         if (!matcher.matches()) {
-            return false;
+            return Optional.empty();
         }
         Long userId = Long.valueOf(matcher.group(1));
-        return userRepository.findById(userId).map(User::getMcpTokenHash).filter(hash -> hash != null && !hash.isBlank()).map(hash ->
-            passwordEncoder.matches(token, hash)
-        ).orElse(false);
+        return userRepository
+            .findById(userId)
+            .filter(user -> user.getMcpTokenHash() != null && !user.getMcpTokenHash().isBlank())
+            .filter(user -> passwordEncoder.matches(token, user.getMcpTokenHash()));
     }
 }

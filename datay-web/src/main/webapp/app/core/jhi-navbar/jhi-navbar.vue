@@ -53,6 +53,12 @@
         <b-nav-item v-if="authenticated" to="/etl-task" exact>
           <span>数据集成</span>
         </b-nav-item>
+        <b-nav-item v-if="authenticated" to="/data-model" exact>
+          <span>数据模型</span>
+        </b-nav-item>
+        <b-nav-item v-if="authenticated" to="/data-api" exact>
+          <span>数据服务</span>
+        </b-nav-item>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>
             <span class="navbar-dropdown-menu">

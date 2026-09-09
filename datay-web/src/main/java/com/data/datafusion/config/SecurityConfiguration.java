@@ -69,6 +69,27 @@ public class SecurityConfiguration {
         return http.build();
     }
 
+    /**
+     * Dedicated security filter chain for the public data-service API.
+     *
+     * <p>The data-service endpoints ({@code /open-api/**}) are invoked by third-party systems and
+     * are authenticated with the per-user MCP token (validated inside the controller/service via
+     * {@link com.data.datafusion.mcp.McpTokenService}), not with a JWT. Therefore this chain must
+     * bypass the OAuth2 resource-server filter applied to {@code /api/**}.
+     */
+    @Bean
+    @Order(2)
+    public SecurityFilterChain openApiFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/open-api/**")
+            .cors(withDefaults())
+            .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions(FrameOptionsConfig::sameOrigin))
+            .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        return http.build();
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc) throws Exception {
         http

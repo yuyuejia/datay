@@ -14,6 +14,7 @@ import DpTableService from "./dp-table/dp-table.service";
 import ServiceConfigService from "./service-config/service-config.service";
 import DataModelService from "./data-model/data-model.service";
 import ModelDirectoryService from "./data-model/model-directory.service";
+import DataApiService from "./data-api/data-api.service";
 import UserService from "@/entities/user/user.service";
 // jhipster-needle-add-entity-service-to-entities-component-import - JHipster will import entities services here
 
@@ -39,6 +40,7 @@ export default defineComponent({
     provide("serviceConfigService", () => new ServiceConfigService());
     provide("dataModelService", () => new DataModelService());
     provide("modelDirectoryService", () => new ModelDirectoryService());
+    provide("dataApiService", () => new DataApiService());
     // jhipster-needle-add-entity-service-to-entities-component - JHipster will import entities services here
   },
 });

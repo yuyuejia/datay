@@ -13,9 +13,6 @@
     <b-dropdown-item to="/job-instance">
       <span>任务实例</span>
     </b-dropdown-item>
-    <b-dropdown-item to="/data-model">
-      <span>数据模型</span>
-    </b-dropdown-item>
 
     <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
   </div>

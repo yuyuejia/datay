@@ -73,6 +73,10 @@ const DataModelList = () => import("@/entities/data-model/data-model.vue");
 const DataModelUpdate = () =>
   import("@/entities/data-model/data-model-update.vue");
 
+const DataApiList = () => import("@/entities/data-api/data-api.vue");
+const DataApiUpdate = () =>
+  import("@/entities/data-api/data-api-update.vue");
+
 // jhipster-needle-add-entity-to-router-import - JHipster will import entities to the router here
 
 export default {
@@ -401,6 +405,24 @@ export default {
       path: "data-model/:dataModelId/edit",
       name: "DataModelEdit",
       component: DataModelUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-api",
+      name: "DataApi",
+      component: DataApiList,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-api/new",
+      name: "DataApiCreate",
+      component: DataApiUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-api/:dataApiId/edit",
+      name: "DataApiEdit",
+      component: DataApiUpdate,
       meta: { authorities: [Authority.USER] },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here
