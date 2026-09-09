@@ -131,22 +131,32 @@ public class JobService {
     }
 
     /**
-     * Get all the jobs filtered by job type.
+     * Get all the jobs filtered by job type and search keyword.
      *
      * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by job name or type (nullable).
      * @param type     the job type to include (nullable).
      * @param typeNot  the job type to exclude (nullable).
      * @return the list of entities.
      */
     @Transactional(readOnly = true)
-    public Page<JobDTO> findAll(Pageable pageable, String type, String typeNot) {
-        LOG.debug("Request to get all Jobs with type: {}, typeNot: {}", type, typeNot);
+    public Page<JobDTO> findAll(Pageable pageable, String search, String type, String typeNot) {
+        LOG.debug("Request to get all Jobs with search: {}, type: {}, typeNot: {}", search, type, typeNot);
         Specification<Job> specification = Specification.where(null);
         if (StringUtils.hasText(type)) {
             specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("type"), type));
         }
         if (StringUtils.hasText(typeNot)) {
             specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.notEqual(root.get("type"), typeNot));
+        }
+        if (StringUtils.hasText(search)) {
+            String pattern = "%" + search.trim() + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                criteriaBuilder.or(
+                    criteriaBuilder.like(root.get("jobName"), pattern),
+                    criteriaBuilder.like(root.get("type"), pattern)
+                )
+            );
         }
         return jobRepository.findAll(specification, pageable).map(jobMapper::toDto);
     }

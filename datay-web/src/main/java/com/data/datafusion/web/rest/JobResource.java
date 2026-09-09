@@ -134,16 +134,20 @@ public class JobResource {
      * {@code GET  /jobs} : get all the jobs.
      *
      * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by job name or type.
+     * @param type     the job type to include (nullable).
+     * @param typeNot  the job type to exclude (nullable).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of jobs in body.
      */
     @GetMapping("")
     public ResponseEntity<List<JobDTO>> getAllJobs(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(value = "search", required = false) String search,
         @RequestParam(value = "type", required = false) String type,
         @RequestParam(value = "typeNot", required = false) String typeNot
     ) {
-        LOG.debug("REST request to get a page of Jobs with type: {}, typeNot: {}", type, typeNot);
-        Page<JobDTO> page = jobService.findAll(pageable, type, typeNot);
+        LOG.debug("REST request to get a page of Jobs with search: {}, type: {}, typeNot: {}", search, type, typeNot);
+        Page<JobDTO> page = jobService.findAll(pageable, search, type, typeNot);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }

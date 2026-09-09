@@ -1,15 +1,19 @@
 <template>
   <div>
-    <h2 id="page-heading" data-cy="JobHeading">
-      <span id="job-heading">Jobs</span>
-      <div class="d-flex justify-content-end">
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
-          <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>Refresh list</span>
-        </button>
+    <h2 id="page-heading" data-cy="JobHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
+      <span id="job-heading">Job 列表</span>
+      <div class="d-flex align-items-center">
+        <input
+          type="text"
+          class="form-control mr-2"
+          style="width: 280px"
+          v-model="search"
+          placeholder="按名称 / 类型 / 状态搜索"
+        />
         <router-link :to="{ name: 'JobCreate' }" custom v-slot="{ navigate }">
           <button @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="btn btn-primary jh-create-entity create-job">
             <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span>创建新 Job</span>
+            <span>创建 Job</span>
           </button>
         </router-link>
       </div>
@@ -26,30 +30,30 @@
             <router-link :to="{ name: 'JobView', params: { jobId: scope.row.id } }">{{ scope.row.id }}</router-link>
           </template>
         </el-table-column>
-        <el-table-column prop="jobName" label="Job Name" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="type" label="Type" sortable="custom" width="100"></el-table-column>
-        <el-table-column prop="cron" label="Cron" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="jobContext" label="Job Context" sortable="custom" width="250" show-overflow-tooltip>
+        <el-table-column prop="jobName" label="名称" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
+        <el-table-column prop="cron" label="调度表达式" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="jobContext" label="配置" sortable="custom" width="250" show-overflow-tooltip>
           <template #default="scope">
             <el-tooltip :content="scope.row.jobContext" placement="top">
               <span class="single-line-overflow">{{ scope.row.jobContext }}</span>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="Status" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="updateTime" label="Update Time" sortable="custom" width="150">
+        <el-table-column prop="status" label="状态" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.updateTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="Create Time" sortable="custom" width="150">
+        <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
         <!-- <el-table-column prop="project" label="Project" sortable="custom" width="150"></el-table-column> -->
         <!-- <el-table-column prop="tenantId" label="Tenant Id" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column label="" fixed="right" min-width="200">
+        <el-table-column label="操作" fixed="right" min-width="220">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'JobView', params: { jobId: scope.row.id } }" custom v-slot="{ navigate }">
@@ -57,18 +61,13 @@
                   <span class="d-none d-md-inline">查看</span>
                 </el-button>
               </router-link>
-              <!-- <router-link :to="{ name: 'JobEdit', params: { jobId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
-                  <span class="d-none d-md-inline">编辑</span>
-                </el-button>
-              </router-link> -->
               <el-button @click="handleExecuteOnce(scope.row)" class="btn btn-success btn-sm" data-cy="entityExecuteButton">
                 <span class="d-none d-md-inline">执行一次</span>
               </el-button>
               <el-button
                 @click="prepareRemove(scope.row)"
                 variant="danger"
-                class="btn btn-sm btn-danger"
+                class="btn btn-danger btn-sm"
                 data-cy="entityDeleteButton"
                 v-b-modal.removeEntity
               >

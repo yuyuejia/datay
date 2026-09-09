@@ -1,4 +1,4 @@
-import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
+import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import JobService from './job.service';
 import { type IJob } from '@/shared/model/job.model';
@@ -19,6 +19,7 @@ export default defineComponent({
     const propOrder = ref('id');
     const reverse = ref(false);
     const totalItems = ref(0);
+    const search = ref('');
 
     const jobs: Ref<IJob[]> = ref([]);
 
@@ -43,6 +44,7 @@ export default defineComponent({
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
+          search: search.value,
         };
         const res = await jobService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
@@ -55,9 +57,26 @@ export default defineComponent({
       }
     };
 
-    const handleSyncList = () => {
-      retrieveJobs();
-    };
+    let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    watch(search, () => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+      searchTimer = setTimeout(() => {
+        if (page.value === 1) {
+          retrieveJobs();
+        } else {
+          clear();
+        }
+      }, 300);
+    });
+
+    onUnmounted(() => {
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+    });
 
     onMounted(async () => {
       await retrieveJobs();
@@ -129,7 +148,7 @@ export default defineComponent({
 
     return {
       jobs,
-      handleSyncList,
+      search,
       isFetching,
       retrieveJobs,
       clear,
