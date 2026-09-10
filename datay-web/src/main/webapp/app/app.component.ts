@@ -32,6 +32,7 @@ export default defineComponent({
     const route = useRoute();
     const isDesignPage = computed(() => {
       return (
+          route.name === "Home" ||
         route.name === "ETLTaskDesign" ||
         route.name === "ETLTaskDesignNew" ||
         route.name === "ETLTaskCreate" ||

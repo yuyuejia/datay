@@ -3,154 +3,195 @@ import { useRouter } from 'vue-router';
 
 import { useLoginModal } from '@/account/login-modal';
 import DataSourceService from '@/entities/data-source/data-source.service';
-import ETLTaskService from '@/entities/etl-task/etl-task.service';
-import DataSyncService from '@/entities/data-sync/data-sync.service';
+import DataModelService from '@/entities/data-model/data-model.service';
+import JobService from '@/entities/job/job.service';
 import JobInstanceService from '@/entities/job-instance/job-instance.service';
-import DataSourceModal from '@/entities/data-source/data-source-modal.vue';
+import { dbTypes } from '@/entities/data-source/db-types';
+import { type IDataSource } from '@/shared/model/data-source.model';
+import { type IJobInstance } from '@/shared/model/job-instance.model';
+import { type IDataModel } from '@/shared/model/data-model.model';
+import { useDateFormat } from '@/shared/composables';
+
+interface TypeDistributionItem {
+  type: string;
+  label: string;
+  image?: string;
+  count: number;
+  percent: number;
+  color: string;
+}
+
+const TYPE_COLORS = ['#1677ff', '#722ed1', '#00b42a', '#ff7d00', '#0fc6c2', '#eb2f96', '#2f54eb', '#f7ba1e', '#f53f3f'];
+
+const STATUS_LABELS: Record<string, string> = {
+  APPENDING: '等待中',
+  RUNNING: '运行中',
+  WAITING: '等待中',
+  SUCCESSFUL: '成功',
+  FAILED: '失败',
+  TIMEOUT: '超时',
+  INTERRUPTED: '已中断',
+};
+
+const RUNNING_STATUSES = ['RUNNING', 'APPENDING'];
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  components: { DataSourceModal },
   setup() {
     const { showLogin } = useLoginModal();
     const authenticated = inject<ComputedRef<boolean>>('authenticated');
     const username = inject<ComputedRef<string>>('currentUsername');
     const router = useRouter();
+    const { formatDate } = useDateFormat();
 
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
-    const etlTaskService = inject('etlTaskService', () => new ETLTaskService());
-    const dataSyncService = inject('dataSyncService', () => new DataSyncService());
+    const dataModelService = inject('dataModelService', () => new DataModelService());
+    const jobService = inject('jobService', () => new JobService());
     const jobInstanceService = inject('jobInstanceService', () => new JobInstanceService());
+
+    const loading = ref(false);
 
     const stats = ref({
       dataSourceCount: 0,
-      etlTaskCount: 0,
-      dataSyncCount: 0,
-      runningInstanceCount: 0,
+      dataModelCount: 0,
+      taskCount: 0,
+      runningCount: 0,
     });
 
-    const loadingStats = ref(false);
+    const typeDistribution = ref<TypeDistributionItem[]>([]);
+    const runningInstances = ref<IJobInstance[]>([]);
+    const failedInstances = ref<IJobInstance[]>([]);
 
-    const loadStats = async () => {
-      if (!authenticated.value) return;
-      loadingStats.value = true;
+    const buildTypeDistribution = (dataSources: IDataSource[]): TypeDistributionItem[] => {
+      const counts = new Map<string, number>();
+      for (const dataSource of dataSources) {
+        const type = dataSource.type || 'UNKNOWN';
+        counts.set(type, (counts.get(type) ?? 0) + 1);
+      }
+      const total = dataSources.length || 1;
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count], index) => {
+          const meta = dbTypes.find(item => item.name === type);
+          return {
+            type,
+            label: meta?.displayName ?? type,
+            image: meta?.image,
+            count,
+            percent: Math.round((count / total) * 100),
+            color: TYPE_COLORS[index % TYPE_COLORS.length],
+          };
+        });
+    };
+
+    const loadData = async () => {
+      if (!authenticated?.value) return;
+      loading.value = true;
       try {
-        const [dsRes, taskRes, syncRes, instanceRes] = await Promise.all([
-          dataSourceService().retrieve({ page: 0, size: 1 }),
-          etlTaskService().retrieve({ page: 0, size: 1 }),
-          dataSyncService().retrieve({ page: 0, size: 1 }),
-          jobInstanceService().retrieve({ page: 0, size: 1 }),
+        const [dsRes, modelRes, jobsRes, instanceRes] = await Promise.all([
+          dataSourceService().retrieve({ page: 0, size: 1000, sort: ['type,asc'] }),
+          dataModelService().retrieve(),
+          jobService().retrieve({ page: 0, size: 1 }),
+          jobInstanceService().retrieve({ page: 0, size: 200, sort: ['createTime,desc'] }),
         ]);
-        stats.value.dataSourceCount = Number(dsRes.headers['x-total-count']) || 0;
-        stats.value.etlTaskCount = Number(taskRes.headers['x-total-count']) || 0;
-        stats.value.dataSyncCount = Number(syncRes.headers['x-total-count']) || 0;
-        stats.value.runningInstanceCount = Number(instanceRes.headers['x-total-count']) || 0;
+
+        const dataSources: IDataSource[] = dsRes.data ?? [];
+        const dataModels: IDataModel[] = modelRes.data ?? [];
+        const instances: IJobInstance[] = instanceRes.data ?? [];
+
+        stats.value.dataSourceCount = Number(dsRes.headers['x-total-count']) || dataSources.length;
+        stats.value.dataModelCount = dataModels.length;
+        stats.value.taskCount = Number(jobsRes.headers['x-total-count']) || 0;
+
+        typeDistribution.value = buildTypeDistribution(dataSources);
+
+        runningInstances.value = instances.filter(instance => instance.status && RUNNING_STATUSES.includes(instance.status));
+        stats.value.runningCount = runningInstances.value.length;
+
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        failedInstances.value = instances.filter(
+          instance => instance.status === 'FAILED' && instance.createTime && new Date(instance.createTime).getTime() >= oneDayAgo,
+        );
       } catch (e) {
-        console.error('Failed to load stats', e);
+        console.error('Failed to load dashboard data', e);
       } finally {
-        loadingStats.value = false;
+        loading.value = false;
       }
     };
 
     onMounted(() => {
-      loadStats();
+      loadData();
     });
 
-    watch(authenticated, val => {
-      if (val) {
-        loadStats();
-      }
-    });
+    watch(
+      () => authenticated?.value,
+      value => {
+        if (value) {
+          loadData();
+        }
+      },
+    );
 
-    const dataSourceModalShow = ref(false);
-
-    const openAddDataSourceModal = () => {
-      if (!authenticated.value) {
-        showLogin();
-        return;
-      }
-      dataSourceModalShow.value = true;
-    };
-
-    const onDataSourceModalSaved = () => {
-      loadStats();
-    };
-
-    const heroActions = computed(() => [
-      { label: '立即登录', style: 'primary', action: () => showLogin() }
-    ]);
-
-    const guideSteps = ref([
+    const guideSteps = computed(() => [
       {
-        title: '添加数据源',
-        desc: '支持 MySQL、PostgreSQL、Oracle、SQLServer 等多种主流数据库，一键连接，快速接入',
-        button: '去添加',
+        title: '数据集成',
+        desc: '接入数据源，配置数据同步与 ETL 采集流程',
         icon: 'database',
-        color: '#4e8cff',
-        action: () => {
-          openAddDataSourceModal();
-        },
+        color: '#1677ff',
+        route: '/etl-task',
       },
       {
-        title: '设计数据集成',
-        desc: '通过可视化拖拽设计器，配置数据抽取、转换、加载流程，轻松构建数据管道',
-        button: '去设计',
+        title: '数据建模',
+        desc: '设计数据模型与字段，沉淀标准化数据资产',
+        icon: 'table',
+        color: '#722ed1',
+        route: '/data-model',
+      },
+      {
+        title: '数据开发',
+        desc: '编写 SQL / Shell 任务，完成数据加工与转换',
+        icon: 'code',
+        color: '#00b42a',
+        route: '/sql-job',
+      },
+      {
+        title: '任务编排',
+        desc: '编排 DAG 调度流程，统一管理与监控任务运行',
         icon: 'project-diagram',
-        color: '#6f42c1',
-        action: () => {
-          router.push('/etl-task/design-new');
-        },
-      },
-      {
-        title: '运行与调度',
-        desc: '支持手动触发与定时调度，实时监控任务运行状态，保障数据持续同步',
-        button: '去调度',
-        icon: 'clock',
-        color: '#28a745',
-        action: () => {
-          router.push('/job');
-        },
+        color: '#ff7d00',
+        route: '/dag-job',
       },
     ]);
 
-    const datasources = ref([
-      { name: 'MySQL', image: '/content/images/mysql.svg' },
-      { name: 'PostgreSQL', image: '/content/images/postgres.svg' },
-      { name: 'Oracle', image: '/content/images/oracle.svg' },
-      { name: 'SQLServer', image: '/content/images/sqlserver.svg' },
-      { name: 'Greenplum', image: '/content/images/Greenplum.svg' },
-      { name: 'Doris', image: '/content/images/doris.svg' },
-      { name: 'ClickHouse', image: '/content/images/clickhouse.svg' },
-    ]);
+    const goTo = (route: string) => {
+      router.push(route);
+    };
 
-    const components = ref([
-      { name: '数据源输入', desc: '从外部数据源读取数据', icon: 'sign-in-alt', color: '#4e8cff' },
-      { name: 'MySQL Binlog', desc: '实时读取 MySQL Binlog 事件', icon: 'database', color: '#00758f' },
-      { name: 'SQL 组件', desc: '通过 SQL 进行数据查询与转换', icon: 'code', color: '#28a745' },
-      { name: '数据源输出', desc: '将数据写入外部数据源', icon: 'sign-out-alt', color: '#fd7e14' },
-      { name: 'DuckDB SQL', desc: '基于 DuckDB 的高性能 SQL 处理', icon: 'file-code', color: '#f7b500' },
-      { name: 'DuckDB 写入', desc: '将数据写入 DuckDB 数据库', icon: 'database', color: '#6f42c1' },
-      { name: 'DuckDB 注册', desc: '将数据库表注册到 DuckDB', icon: 'table', color: '#20c997' },
-      { name: 'JavaScript 脚本', desc: '使用 JS 脚本进行自定义转换', icon: 'code', color: '#e83e8c' },
-      { name: '数据生成', desc: '测试数据生成组件', icon: 'random', color: '#17a2b8' },
-      { name: '日志输出', desc: '将数据打印到日志中', icon: 'list', color: '#6c757d' },
-      { name: 'HTTP 监听', desc: '监听 HTTP 请求作为数据源', icon: 'globe', color: '#0d6efd' },
-      { name: 'Kafka 消费', desc: '从 Kafka 消费实时消息', icon: 'sync', color: '#dc3545' },
-    ]);
+    const statusText = (status?: string | null) => (status ? STATUS_LABELS[status] ?? status : '-');
+
+    const statusClass = (status?: string | null) => (status ? `status-${status.toLowerCase()}` : '');
+
+    const formatTime = (value?: Date | string | null) => {
+      if (!value) return '';
+      const timeValue = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+      return formatDate(timeValue);
+    };
 
     return {
       authenticated,
       username,
       showLogin,
+      loading,
       stats,
-      loadingStats,
-      heroActions,
-      datasources,
-      components,
+      typeDistribution,
+      runningInstances,
+      failedInstances,
       guideSteps,
-      dataSourceModalShow,
-      openAddDataSourceModal,
-      onDataSourceModalSaved,
+      loadData,
+      goTo,
+      statusText,
+      statusClass,
+      formatTime,
     };
   },
 });
