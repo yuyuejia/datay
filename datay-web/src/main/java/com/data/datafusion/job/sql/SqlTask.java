@@ -5,10 +5,10 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.util.DBUtils;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.sql.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,21 +62,24 @@ public class SqlTask extends AbstractTask {
             script = script + ";";
         }
 
-        StringWriter logWriter = new StringWriter();
+        this.log("SQL task [" + getJobInstance().getJobName() + "] is executing...");
         try (Connection connection = DBUtils.getConnection(datasourceInfo)) {
             ScriptRunner scriptRunner = new ScriptRunner(connection);
             scriptRunner.setStopOnError(true);
-            PrintWriter writer = new PrintWriter(logWriter);
+            // 将 ScriptRunner 的执行日志输出到 TaskLogger 的日志文件中
+            OutputStream taskLogStream = this.getTaskLogger().getLogWriter();
+            PrintWriter writer = new PrintWriter(taskLogStream, true);
             scriptRunner.setLogWriter(writer);
             scriptRunner.setErrorLogWriter(writer);
             Reader reader = new StringReader(script);
             scriptRunner.runScript(reader);
             reader.close();
         } catch (Exception e) {
-            logger.error("SQL task [{}] execution failed: {}", getJobInstance().getJobName(), e.getMessage(), e);
+            String errorMsg = "SQL task [" + getJobInstance().getJobName() + "] execution failed: " + e.getMessage();
+            this.log(errorMsg);
             throw new Exception("SQL 任务执行失败: " + e.getMessage(), e);
         }
-        logger.info("SQL task [{}] executed successfully", getJobInstance().getJobName());
+        this.log("SQL task [" + getJobInstance().getJobName() + "] executed successfully");
         return "0";
     }
 }

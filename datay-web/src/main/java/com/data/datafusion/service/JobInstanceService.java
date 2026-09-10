@@ -56,6 +56,7 @@ public class JobInstanceService {
         this.jobInstanceMapper = jobInstanceMapper;
     }
 
+
     /**
      * Save a jobInstance.
      *
