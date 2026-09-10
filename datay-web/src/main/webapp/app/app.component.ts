@@ -2,8 +2,6 @@ import { defineComponent, provide, computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 
-import { useLoginModal } from "@/account/login-modal";
-import LoginForm from "@/account/login-form/login-form.vue";
 import Ribbon from "@/core/ribbon/ribbon.vue";
 import JhiNavbar from "@/core/jhi-navbar/jhi-navbar.vue";
 import { useAlertService } from "@/shared/alert/alert.service";
@@ -16,11 +14,9 @@ export default defineComponent({
   components: {
     ribbon: Ribbon,
     "jhi-navbar": JhiNavbar,
-    "login-form": LoginForm,
   },
   setup() {
     provide("alertService", useAlertService());
-    const { loginModalOpen } = storeToRefs(useLoginModal());
 
     const store = useStore();
     const { tenantVersion, authenticated, availableTenants, tenantsLoaded } =
@@ -45,9 +41,11 @@ export default defineComponent({
       );
     });
 
+    const isLoginPage = computed(() => route.name === "Login");
+
     return {
-      loginModalOpen,
       isDesignPage,
+      isLoginPage,
       tenantVersion,
       route,
       noTenant,

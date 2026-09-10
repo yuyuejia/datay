@@ -13,9 +13,10 @@ type LoginFormComponentType = InstanceType<typeof LoginForm>;
 
 let route: Partial<RouteLocation>;
 const routerGoMock = vitest.fn();
+const routerPushMock = vitest.fn();
 vitest.mock('vue-router', () => ({
   useRoute: () => route,
-  useRouter: () => ({ go: routerGoMock }),
+  useRouter: () => ({ go: routerGoMock, push: routerPushMock }),
 }));
 
 const axiosStub = {

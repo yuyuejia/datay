@@ -60,7 +60,7 @@ const app = createApp({
   compatConfig: { MODE: 3 },
   components: { App },
   setup() {
-    const { hideLogin, showLogin } = useLoginModal();
+    const { showLogin } = useLoginModal();
     const store = useStore();
     const accountService = new AccountService(store);
     provide(
@@ -69,21 +69,25 @@ const app = createApp({
     );
 
     router.beforeResolve(async (to, from, next) => {
-      // Make sure login modal is closed
-      hideLogin();
-
       if (!store.authenticated) {
         await accountService.update();
+      }
+      if (to.name === 'Login' && store.authenticated) {
+        next({ path: '/' });
+        return;
+      }
+      if (!store.authenticated && !to.meta.public) {
+        if (to.path !== '/login') {
+          sessionStorage.setItem('jhi-redirect-url', to.fullPath);
+        }
+        next({ path: '/login' });
+        return;
       }
       if (to.meta?.authorities && to.meta.authorities.length > 0) {
         const value = await accountService.hasAnyAuthorityAndCheckAuth(to.meta.authorities);
         if (!value) {
-          if (to.path !== '/') {
-            sessionStorage.setItem('jhi-redirect-url', to.fullPath);
-            next({ path: '/' });
-            setTimeout(() => showLogin(), 100);
-            return;
-          }
+          next({ path: '/forbidden' });
+          return;
         }
       }
       next();
@@ -97,6 +101,9 @@ const app = createApp({
           // Store logged out state.
           store.logout();
           if (!url.endsWith('api/account') && !url.endsWith('api/authenticate')) {
+            if (router.currentRoute.value.path !== '/login') {
+              sessionStorage.setItem('jhi-redirect-url', router.currentRoute.value.fullPath);
+            }
             // Ask for a new authentication
             showLogin();
             return;

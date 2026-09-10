@@ -1,20 +1,12 @@
-import { ref } from 'vue';
 import { defineStore } from 'pinia';
 
 export const useLoginModal = defineStore('login', () => {
-  const loginModalOpen = ref(false);
-
-  function showLogin() {
-    loginModalOpen.value = true;
-  }
-
-  function hideLogin() {
-    loginModalOpen.value = false;
+  async function showLogin() {
+    const { default: router } = await import('@/router');
+    router.push({ name: 'Login' });
   }
 
   return {
-    loginModalOpen,
     showLogin,
-    hideLogin,
   };
 });

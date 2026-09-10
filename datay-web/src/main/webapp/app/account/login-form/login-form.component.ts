@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { type Ref, defineComponent, inject, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import type AccountService from '../account.service';
-import { useLoginModal } from '@/account/login-modal';
 import TenantSwitchService from '@/account/tenant-switch.service';
 
 export default defineComponent({
@@ -13,11 +12,7 @@ export default defineComponent({
     const password: Ref<string> = ref(null);
     const rememberMe: Ref<boolean> = ref(false);
 
-    const { hideLogin } = useLoginModal();
-    const route = useRoute();
     const router = useRouter();
-
-    const previousState = () => router.go(-1);
 
     const accountService = inject<AccountService>('accountService');
 
@@ -61,13 +56,14 @@ export default defineComponent({
         }
 
         authenticationError.value = false;
-        hideLogin();
         await applyCachedTenantIfAny();
         await accountService.retrieveAccount();
         const redirectUrl = sessionStorage.getItem('jhi-redirect-url');
         if (redirectUrl) {
           sessionStorage.removeItem('jhi-redirect-url');
           router.push(redirectUrl);
+        } else {
+          router.push('/');
         }
       } catch {
         authenticationError.value = true;

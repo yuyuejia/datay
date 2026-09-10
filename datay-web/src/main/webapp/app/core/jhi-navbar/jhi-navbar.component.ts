@@ -150,9 +150,7 @@ export default defineComponent({
       sessionStorage.removeItem("jhi-authenticationToken");
       TenantSwitchService.clearCache();
       store.logout();
-      if (router.currentRoute.value.path !== "/") {
-        router.push("/");
-      }
+      router.push("/login");
     };
 
     return {
