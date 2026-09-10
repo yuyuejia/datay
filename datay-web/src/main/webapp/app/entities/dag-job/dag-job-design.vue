@@ -413,26 +413,6 @@ const saveDagJob = async () => {
   }
 };
 
-const showScheduleModal = ref(false);
-const scheduleEntity = ref(null);
-const cronExpression = ref("");
-
-const openScheduleModal = () => {
-  cronExpression.value = dagJob.value.cron || "";
-  showScheduleModal.value = true;
-  scheduleEntity.value?.show?.();
-};
-
-const saveSchedule = () => {
-  dagJob.value.cron = cronExpression.value;
-  showScheduleModal.value = false;
-  scheduleEntity.value?.hide?.();
-};
-
-const cancelSchedule = () => {
-  showScheduleModal.value = false;
-  scheduleEntity.value?.hide?.();
-};
 </script>
 
 <template>
@@ -456,14 +436,10 @@ const cancelSchedule = () => {
           />
         </div>
         <div class="form-item">
-          <label class="field-label">调度表达式</label>
-          <span
-            class="form-control cron-display"
-            @click="openScheduleModal"
-            :title="dagJob.cron || '点击设置调度'"
-          >
-            {{ dagJob.cron || "未设置" }}
-          </span>
+          <label class="field-label">调度设置</label>
+          <div class="cron-field">
+            <CronExpressionSelector v-model:value="dagJob.cron" compact />
+          </div>
         </div>
       </div>
       <div class="header-actions">
@@ -544,27 +520,6 @@ const cancelSchedule = () => {
         </div>
       </div>
     </div>
-
-    <b-modal ref="scheduleEntity" id="scheduleEntity">
-      <template #modal-title>
-        <span>调度设置</span>
-      </template>
-      <div class="modal-body">
-        <CronExpressionSelector v-model:value="cronExpression" />
-        <div v-if="cronExpression" class="cron-preview">
-          <span class="cron-preview-label">当前表达式：</span>
-          <code class="cron-preview-value">{{ cronExpression }}</code>
-        </div>
-      </div>
-      <template #modal-footer>
-        <button type="button" class="btn btn-secondary" @click="cancelSchedule">
-          取消
-        </button>
-        <button type="button" class="btn btn-primary" @click="saveSchedule">
-          确认
-        </button>
-      </template>
-    </b-modal>
 
     <b-modal ref="detailEntity" id="detailEntity" size="lg" scrollable>
       <template #modal-title>
@@ -696,6 +651,10 @@ const cancelSchedule = () => {
 
 .form-control:focus {
   border-color: var(--el-color-primary, #409eff);
+}
+
+.cron-field {
+  width: 320px;
 }
 
 .cron-display {

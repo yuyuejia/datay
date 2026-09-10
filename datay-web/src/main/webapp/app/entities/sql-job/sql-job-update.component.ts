@@ -12,6 +12,7 @@ import SqlJobService from "./sql-job.service";
 import { type IJob } from "@/shared/model/job.model";
 import { type IDataSource } from "@/shared/model/data-source.model";
 import { useAlertService } from "@/shared/alert/alert.service";
+import CronExpressionSelector from "@/components/CronExpressionSelector.vue";
 
 import { EditorState } from "@codemirror/state";
 import {
@@ -34,6 +35,9 @@ import { format } from "sql-formatter";
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: "SqlJobUpdate",
+  components: {
+    CronExpressionSelector,
+  },
   setup() {
     const route = useRoute();
     const router = useRouter();

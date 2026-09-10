@@ -11,21 +11,15 @@
         </h3>
       </div>
       <div class="header-center">
-        <div class="field-item">
-          <span class="field-label">任务名称</span>
-          <el-input
-            v-model="shellJob.jobName"
-            placeholder="请输入任务名称"
-            class="field-input"
-          />
+        <div class="form-item">
+          <label class="field-label">任务名称</label>
+          <input type="text" class="form-control" v-model="shellJob.jobName" placeholder="请输入任务名称" />
         </div>
-        <div class="field-item">
-          <span class="field-label">Cron 表达式</span>
-          <el-input
-            v-model="shellJob.cron"
-            placeholder="可选"
-            class="field-input"
-          />
+        <div class="form-item">
+          <label class="field-label">调度设置</label>
+          <div class="cron-field">
+            <CronExpressionSelector v-model:value="shellJob.cron" compact />
+          </div>
         </div>
       </div>
       <div class="header-right">
@@ -103,20 +97,41 @@
   min-width: 0;
 }
 
-.field-item {
+.form-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .field-label {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--el-text-color-regular, #606266);
+  white-space: nowrap;
+  margin: 0;
 }
 
-.field-input {
+.form-control {
   width: 200px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
+  background-color: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  border-color: var(--el-color-primary, #409eff);
+}
+
+.cron-field {
+  width: 320px;
 }
 
 .header-right {

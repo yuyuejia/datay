@@ -1,168 +1,1030 @@
 <template>
-  <div class="input-group">
-    <!-- 输入框，显示cron表达式，点击可打开模态框 -->
-    <input type="text" class="form-control" v-model="cronExpression" @input="confirmInput($event.target.value)" />
-    <!-- 按钮，点击可打开模态框 -->
-    <button type="button" class="btn btn-outline-secondary" @click="showModal = true">常用</button>
+  <div class="cron-selector" :class="{ compact: props.compact }">
+    <div class="input-group">
+      <input
+        type="text"
+        class="form-control"
+        :class="{ 'is-invalid': cronExpression && !isValidExpression(cronExpression) }"
+        v-model="cronExpression"
+        placeholder="请输入 Cron 表达式，例如：0 0 12 * * ?"
+        @input="handleInput"
+      />
+      <button type="button" class="btn btn-outline-secondary cron-config-btn" @click="openModal">
+        <font-awesome-icon icon="clock" class="me-1" />
+        设置
+      </button>
+    </div>
 
-    <b-modal v-model="showModal" id="cronExpressionModal" title="设置Cron表达式" size="lg">
-      <div class="modal-body">
-        <!-- <vue3-cron-plus 
-          v-model:value="tempCronExpression"
-          :i18n="i18n"
-          :hide-year="hideYear"
-          :hide-second="hideSecond"
-          @change="onCronChange"
-        /> -->
+    <b-modal v-model="showModal" id="cronExpressionModal" title="设置 Cron 表达式" size="lg">
+      <div class="modal-body cron-modal-body">
+        <div class="cron-tabs">
+          <div class="cron-tab-header">
+            <button type="button" class="cron-tab-btn" :class="{ active: activeTab === 'preset' }" @click="activeTab = 'preset'">
+              常用选项
+            </button>
+            <button type="button" class="cron-tab-btn" :class="{ active: activeTab === 'custom' }" @click="activeTab = 'custom'">
+              自定义
+            </button>
+          </div>
+          <div v-show="activeTab === 'preset'" class="cron-tab-pane">
+            <div class="preset-groups">
+              <div v-for="group in presetGroups" :key="group.title" class="preset-group">
+                <div class="preset-group-title">{{ group.title }}</div>
+                <div class="preset-items">
+                  <button
+                    v-for="item in group.items"
+                    :key="item.value"
+                    type="button"
+                    class="preset-item"
+                    :class="{ active: tempCronExpression === item.value }"
+                    @click="selectPreset(item.value)"
+                  >
+                    <span class="preset-item-label">{{ item.label }}</span>
+                    <code class="preset-item-value">{{ item.value }}</code>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <!-- 显示当前cron表达式的含义 -->
-        <!-- <div class="cron-description mt-3 p-2 bg-light rounded">
-          <small class="text-muted">表达式含义: {{ cronDescription }}</small>
-        </div> -->
+          <div v-show="activeTab === 'custom'" class="cron-tab-pane">
+            <div class="custom-builder">
+              <div class="custom-raw">
+                <label class="custom-raw-label">表达式</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  v-model="tempCronExpression"
+                  placeholder="秒 分 时 日 月 周"
+                  @input="parseExpression"
+                />
+              </div>
+              <div class="field-tabs">
+                <div class="field-tab-nav">
+                  <button
+                    v-for="field in fields"
+                    :key="field.key"
+                    type="button"
+                    class="field-tab-btn"
+                    :class="{ active: activeField === field.key }"
+                    @click="activeField = field.key"
+                  >
+                    {{ field.label }}
+                  </button>
+                </div>
+                <div class="field-tab-body">
+                  <div v-for="field in fields" v-show="activeField === field.key" :key="field.key" class="field-control">
+                    <div class="field-type-group">
+                      <button
+                        type="button"
+                        class="type-btn"
+                        :class="{ active: parts[field.key].type === 'every' }"
+                        @click="setPartType(field.key, 'every')"
+                      >
+                        {{ field.everyLabel }}
+                      </button>
+                      <button
+                        type="button"
+                        class="type-btn"
+                        :class="{ active: parts[field.key].type === 'range' }"
+                        @click="setPartType(field.key, 'range')"
+                      >
+                        区间
+                      </button>
+                      <button
+                        type="button"
+                        class="type-btn"
+                        :class="{ active: parts[field.key].type === 'step' }"
+                        @click="setPartType(field.key, 'step')"
+                      >
+                        间隔
+                      </button>
+                      <button
+                        type="button"
+                        class="type-btn"
+                        :class="{ active: parts[field.key].type === 'specific' }"
+                        @click="setPartType(field.key, 'specific')"
+                      >
+                        指定
+                      </button>
+                      <button
+                        type="button"
+                        class="type-btn"
+                        :class="{ active: parts[field.key].type === 'custom' }"
+                        @click="setPartType(field.key, 'custom')"
+                      >
+                        自定义
+                      </button>
+                    </div>
 
-        <!-- 常用预设 -->
-        <div class="preset-crons mt-3">
-          <h6>常用预设:</h6>
-          <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-outline-primary" @click="setPreset('0 0 * * * ?')">每小时</button>
-            <button type="button" class="btn btn-outline-primary" @click="setPreset('0 0 12 * * ?')">每天中午12点</button>
-            <button type="button" class="btn btn-outline-primary" @click="setPreset('0 0 9 * * MON-FRI')">工作日9点</button>
-            <button type="button" class="btn btn-outline-primary" @click="setPreset('0 0 0 1 * ?')">每月1号</button>
-            <button type="button" class="btn btn-outline-primary" @click="setPreset('0 0 0 ? * MON')">每周一</button>
+                    <div v-if="parts[field.key].type === 'range'" class="field-detail">
+                      <span class="detail-text">从</span>
+                      <select v-model.number="parts[field.key].from" class="form-select form-select-sm detail-select">
+                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                      </select>
+                      <span class="detail-text">到</span>
+                      <select v-model.number="parts[field.key].to" class="form-select form-select-sm detail-select">
+                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                      </select>
+                    </div>
+
+                    <div v-else-if="parts[field.key].type === 'step'" class="field-detail">
+                      <span class="detail-text">从</span>
+                      <select v-model.number="parts[field.key].stepFrom" class="form-select form-select-sm detail-select">
+                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                      </select>
+                      <span class="detail-text">开始，每</span>
+                      <input
+                        type="number"
+                        class="form-control form-control-sm detail-number"
+                        v-model.number="parts[field.key].step"
+                        min="1"
+                        :max="field.max"
+                      />
+                      <span class="detail-text">{{ field.unit }}执行一次</span>
+                    </div>
+
+                    <div v-else-if="parts[field.key].type === 'specific'" class="field-detail specific-detail">
+                      <label v-for="opt in field.options" :key="opt.value" class="specific-item">
+                        <input type="checkbox" :value="opt.value" v-model="parts[field.key].specific" />
+                        <span>{{ opt.label }}</span>
+                      </label>
+                    </div>
+
+                    <div v-else-if="parts[field.key].type === 'custom'" class="field-detail">
+                      <input type="text" class="form-control form-control-sm" v-model="parts[field.key].raw" placeholder="如：L 或 1,15,20" />
+                    </div>
+
+                    <div v-else class="field-detail">
+                      <span class="detail-text">{{ field.everyHint }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cron-result">
+          <div class="cron-result-row">
+            <span class="cron-result-label">表达式</span>
+            <code class="cron-result-value">{{ tempCronExpression || '—' }}</code>
+            <span v-if="!isValidCron" class="cron-result-error">格式不正确，应为 6 或 7 个字段</span>
+          </div>
+          <div class="cron-result-row">
+            <span class="cron-result-label">含义</span>
+            <span class="cron-result-desc">{{ cronDescription }}</span>
           </div>
         </div>
       </div>
 
       <template #modal-footer>
-        <div>
-          <button type="button" class="btn btn-secondary" @click="cancelSelection">取消</button>
-          <button type="button" class="btn btn-primary" @click="confirmSelection" :disabled="!isValidCron">确认</button>
-        </div>
+        <button type="button" class="btn btn-secondary" @click="cancelSelection">取消</button>
+        <button type="button" class="btn btn-primary" @click="confirmSelection" :disabled="!isValidCron">确认</button>
       </template>
     </b-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
-// import { Vue3CronPlus } from 'vue3-cron-plus';
-import 'vue3-cron-plus/dist/index.css';
+import { ref, computed, reactive, watch } from 'vue';
+
+type PartType = 'every' | 'range' | 'step' | 'specific' | 'custom';
+
+interface FieldOption {
+  value: number;
+  label: string;
+}
+
+interface FieldMeta {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  unit: string;
+  everyLabel: string;
+  everyHint: string;
+  options: FieldOption[];
+}
+
+interface CronPart {
+  type: PartType;
+  from: number;
+  to: number;
+  stepFrom: number;
+  step: number;
+  specific: number[];
+  raw: string;
+}
+
+interface PresetItem {
+  label: string;
+  value: string;
+}
+
+interface PresetGroup {
+  title: string;
+  items: PresetItem[];
+}
 
 const props = defineProps<{
   value?: string;
-  hideYear?: boolean;
-  hideSecond?: boolean;
-  hideMonth?: boolean;
-  hideDay?: boolean;
-  hideWeek?: boolean;
-  hideHour?: boolean;
-  hideMinute?: boolean;
+  compact?: boolean;
 }>();
 
 const emit = defineEmits(['update:value', 'change']);
 
-const showModal = ref(false);
-const cronExpression = ref(props.value || '');
-const tempCronExpression = ref(props.value || '');
-const cronDescription = ref('');
+const WEEK_LABELS: Record<number, string> = { 1: '周日', 2: '周一', 3: '周二', 4: '周三', 5: '周四', 6: '周五', 7: '周六' };
+const MONTH_LABELS: Record<number, string> = {
+  1: '1月',
+  2: '2月',
+  3: '3月',
+  4: '4月',
+  5: '5月',
+  6: '6月',
+  7: '7月',
+  8: '8月',
+  9: '9月',
+  10: '10月',
+  11: '11月',
+  12: '12月',
+};
+const WEEK_NAMES = ['', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const WEEK_NAME_TO_NUM: Record<string, number> = { SUN: 1, MON: 2, TUE: 3, WED: 4, THU: 5, FRI: 6, SAT: 7 };
 
-// 验证cron表达式是否有效
-const isValidCron = computed(() => {
-  return tempCronExpression.value && tempCronExpression.value.trim().length > 0;
+const rangeOptions = (min: number, max: number, labels?: Record<number, string>): FieldOption[] => {
+  const options: FieldOption[] = [];
+  for (let i = min; i <= max; i++) {
+    options.push({ value: i, label: labels?.[i] ?? String(i) });
+  }
+  return options;
+};
+
+const fields: FieldMeta[] = [
+  {
+    key: 'second',
+    label: '秒',
+    min: 0,
+    max: 59,
+    unit: '秒',
+    everyLabel: '每秒',
+    everyHint: '每一秒都触发',
+    options: rangeOptions(0, 59),
+  },
+  {
+    key: 'minute',
+    label: '分',
+    min: 0,
+    max: 59,
+    unit: '分钟',
+    everyLabel: '每分',
+    everyHint: '每一分钟都触发',
+    options: rangeOptions(0, 59),
+  },
+  {
+    key: 'hour',
+    label: '时',
+    min: 0,
+    max: 23,
+    unit: '小时',
+    everyLabel: '每时',
+    everyHint: '每小时都触发',
+    options: rangeOptions(0, 23),
+  },
+  {
+    key: 'day',
+    label: '日',
+    min: 1,
+    max: 31,
+    unit: '天',
+    everyLabel: '每天',
+    everyHint: '每一天都触发',
+    options: rangeOptions(1, 31),
+  },
+  {
+    key: 'month',
+    label: '月',
+    min: 1,
+    max: 12,
+    unit: '月',
+    everyLabel: '每月',
+    everyHint: '每一个月都触发',
+    options: rangeOptions(1, 12, MONTH_LABELS),
+  },
+  {
+    key: 'week',
+    label: '周',
+    min: 1,
+    max: 7,
+    unit: '周',
+    everyLabel: '每周',
+    everyHint: '不指定星期（由日期决定）',
+    options: rangeOptions(1, 7, WEEK_LABELS),
+  },
+];
+
+const createPart = (field: FieldMeta): CronPart => ({
+  type: 'every',
+  from: field.min,
+  to: Math.min(field.min + 1, field.max),
+  stepFrom: field.min,
+  step: 1,
+  specific: [field.min],
+  raw: '',
 });
 
-// 监听props.value的变化
+const parts = reactive<Record<string, CronPart>>({
+  second: createPart(fields[0]),
+  minute: createPart(fields[1]),
+  hour: createPart(fields[2]),
+  day: createPart(fields[3]),
+  month: createPart(fields[4]),
+  week: createPart(fields[5]),
+});
+
+const presetGroups: PresetGroup[] = [
+  {
+    title: '按分钟',
+    items: [
+      { label: '每分钟', value: '0 * * * * ?' },
+      { label: '每 5 分钟', value: '0 0/5 * * * ?' },
+      { label: '每 10 分钟', value: '0 0/10 * * * ?' },
+      { label: '每 30 分钟', value: '0 0/30 * * * ?' },
+    ],
+  },
+  {
+    title: '按小时',
+    items: [
+      { label: '每小时', value: '0 0 * * * ?' },
+      { label: '每小时第 30 分', value: '0 30 * * * ?' },
+      { label: '每 2 小时', value: '0 0 0/2 * * ?' },
+      { label: '每 6 小时', value: '0 0 0/6 * * ?' },
+    ],
+  },
+  {
+    title: '按天',
+    items: [
+      { label: '每天 0 点', value: '0 0 0 * * ?' },
+      { label: '每天 8 点', value: '0 0 8 * * ?' },
+      { label: '每天中午 12 点', value: '0 0 12 * * ?' },
+      { label: '每天 18 点', value: '0 0 18 * * ?' },
+      { label: '每天 9 点和 18 点', value: '0 0 9,18 * * ?' },
+    ],
+  },
+  {
+    title: '按周',
+    items: [
+      { label: '每周一 0 点', value: '0 0 0 ? * MON' },
+      { label: '每周一 9 点', value: '0 0 9 ? * MON' },
+      { label: '工作日 9 点', value: '0 0 9 ? * MON-FRI' },
+      { label: '周末 10 点', value: '0 0 10 ? * SAT,SUN' },
+    ],
+  },
+  {
+    title: '按月',
+    items: [
+      { label: '每月 1 号 0 点', value: '0 0 0 1 * ?' },
+      { label: '每月 1 号 9 点', value: '0 0 9 1 * ?' },
+      { label: '每月 15 号 0 点', value: '0 0 0 15 * ?' },
+      { label: '每月最后一天', value: '0 0 0 L * ?' },
+    ],
+  },
+  {
+    title: '按年',
+    items: [
+      { label: '每年 1 月 1 日', value: '0 0 0 1 1 ?' },
+      { label: '每年 12 月 25 日', value: '0 0 0 25 12 ?' },
+    ],
+  },
+];
+
+const showModal = ref(false);
+const activeTab = ref('preset');
+const activeField = ref('second');
+const cronExpression = ref(props.value || '');
+const tempCronExpression = ref(props.value || '');
+const yearPart = ref('');
+
 watch(
   () => props.value,
   newValue => {
-    if (newValue !== cronExpression.value) {
-      cronExpression.value = newValue || '';
-      tempCronExpression.value = newValue || '';
-      updateCronDescription();
+    const value = newValue || '';
+    if (value !== cronExpression.value) {
+      cronExpression.value = value;
+      tempCronExpression.value = value;
     }
   },
 );
 
-// 监听临时cron表达式的变化
-watch(tempCronExpression, () => {
-  updateCronDescription();
-});
+watch(
+  () => JSON.stringify(parts),
+  () => {
+    tempCronExpression.value = generateCron();
+  },
+);
 
-// 更新cron表达式描述
-const updateCronDescription = () => {
-  // 这里可以集成更复杂的cron表达式解析逻辑
-  // 目前使用简单的描述
-  if (!tempCronExpression.value) {
-    cronDescription.value = '未设置';
+const isAny = (value: string): boolean => value === '*' || value === '?';
+
+const isValidExpression = (expression: string): boolean => {
+  const parts = expression.trim().split(/\s+/);
+  return parts.length === 6 || parts.length === 7;
+};
+
+const isValidCron = computed(() => isValidExpression(tempCronExpression.value));
+
+const pad = (value: number): string => (value < 10 ? `0${value}` : String(value));
+
+const stepInfo = (value: string): { from: string; step: number } | null => {
+  if (/^\*\/(\d+)$/.test(value)) {
+    return { from: '*', step: Number(value.split('/')[1]) };
+  }
+  if (/^\d+\/\d+$/.test(value)) {
+    const [from, step] = value.split('/');
+    return { from, step: Number(step) };
+  }
+  return null;
+};
+
+const weekNum = (token: string): number => {
+  if (/^\d+$/.test(token)) {
+    return Number(token);
+  }
+  return WEEK_NAME_TO_NUM[token.toUpperCase()] ?? NaN;
+};
+
+const describeNums = (value: string, labels?: Record<number, string>): string =>
+  value
+    .split(',')
+    .map(item => labels?.[Number(item)] ?? item)
+    .join('、');
+
+const describeDow = (value: string): string => {
+  if (value.includes('-')) {
+    const [from, to] = value.split('-').map(weekNum);
+    return `每${WEEK_LABELS[from]}至${WEEK_LABELS[to]}`;
+  }
+  if (value.includes(',')) {
+    return value
+      .split(',')
+      .map(token => `每${WEEK_LABELS[weekNum(token)] ?? token}`)
+      .join('');
+  }
+  const num = weekNum(value);
+  return Number.isNaN(num) ? `每${value}` : `每${WEEK_LABELS[num]}`;
+};
+
+const buildDateDesc = (day: string, month: string, week: string): string => {
+  const segments: string[] = [];
+  const monthSpecified = !isAny(month);
+  const daySpecified = !isAny(day) && day !== 'L';
+  const weekSpecified = !isAny(week);
+
+  if (monthSpecified && daySpecified) {
+    segments.push(`每年 ${describeNums(month, MONTH_LABELS)}${describeNums(day)} 日`);
+    return segments.join(' ');
+  }
+
+  if (monthSpecified) {
+    segments.push(day === 'L' ? `每年 ${describeNums(month, MONTH_LABELS)}最后一天` : `每年 ${describeNums(month, MONTH_LABELS)}`);
+  } else if (day === 'L') {
+    segments.push('每月最后一天');
+  } else if (daySpecified) {
+    segments.push(`每月 ${describeNums(day)} 号`);
+  } else if (day === '*') {
+    segments.push('每天');
+  }
+
+  if (weekSpecified) {
+    segments.push(describeDow(week));
+  }
+
+  return segments.join(' ');
+};
+
+const buildTimeDesc = (second: string, minute: string, hour: string): string => {
+  if (/^\d+$/.test(hour) && /^\d+$/.test(minute) && /^\d+$/.test(second)) {
+    return `${pad(Number(hour))}:${pad(Number(minute))}:${pad(Number(second))}`;
+  }
+  if (/^\d+$/.test(hour) && /^\d+$/.test(minute) && isAny(second)) {
+    return `${pad(Number(hour))}:${pad(Number(minute))}`;
+  }
+  if (/^\d+$/.test(hour) && isAny(minute) && isAny(second)) {
+    return `每天 ${Number(hour)} 点`;
+  }
+  if (/^\d+$/.test(minute) && /^\d+$/.test(second) && isAny(hour)) {
+    return `每小时 ${pad(Number(minute))}:${pad(Number(second))}`;
+  }
+  if (/^\d+$/.test(second) && isAny(minute) && isAny(hour)) {
+    return `每分钟第 ${second} 秒`;
+  }
+  if (/^\d+$/.test(minute) && /^\d+$/.test(second) && hour.includes(',')) {
+    return hour
+      .split(',')
+      .map(item => `${pad(Number(item))}:${pad(Number(minute))}:${pad(Number(second))}`)
+      .join('、');
+  }
+  if (/^\d+$/.test(minute) && /^\d+$/.test(second) && /^\d+\/\d+$/.test(hour)) {
+    const info = stepInfo(hour)!;
+    return `每天从第 ${info.from} 点开始，每 ${info.step} 小时`;
+  }
+
+  const secondStep = stepInfo(second);
+  if (secondStep && isAny(minute) && isAny(hour)) {
+    return `每 ${secondStep.step} 秒`;
+  }
+
+  const minuteStep = stepInfo(minute);
+  if (minuteStep && isAny(hour) && isAny(second)) {
+    return minuteStep.from === '*' ? `每 ${minuteStep.step} 分钟` : `每小时从第 ${minuteStep.from} 分开始，每 ${minuteStep.step} 分钟`;
+  }
+
+  const hourStep = stepInfo(hour);
+  if (hourStep && isAny(minute) && isAny(second)) {
+    return hourStep.from === '*' ? `每 ${hourStep.step} 小时` : `每天从第 ${hourStep.from} 点开始，每 ${hourStep.step} 小时`;
+  }
+
+  if (/^\d+$/.test(minute) && isAny(hour) && isAny(second)) {
+    return `每小时第 ${minute} 分`;
+  }
+
+  if (isAny(hour) && isAny(minute) && isAny(second)) {
+    return '每分钟';
+  }
+
+  return '';
+};
+
+const describeCron = (expression: string): string => {
+  const segments = expression.trim().split(/\s+/);
+  if (segments.length < 6) {
+    return '自定义表达式';
+  }
+  const [second, minute, hour, day, month, week] = segments;
+  const dateDesc = buildDateDesc(day, month, week);
+  let timeDesc = buildTimeDesc(second, minute, hour);
+
+  if (!dateDesc && !timeDesc) {
+    return '自定义表达式';
+  }
+
+  let result = dateDesc;
+  if (timeDesc) {
+    if (dateDesc) {
+      timeDesc = timeDesc.replace(/^每天\s*/, '');
+      if (result === '每天' && /^每/.test(timeDesc)) {
+        result = '';
+      }
+    } else if (/^\d{2}:\d{2}/.test(timeDesc)) {
+      timeDesc = `每天 ${timeDesc}`;
+    }
+    result = result ? `${result} ${timeDesc}` : timeDesc;
+  }
+
+  return `${result} 执行`;
+};
+
+const cronDescription = computed(() => describeCron(tempCronExpression.value || ''));
+
+const buildPart = (field: FieldMeta, part: CronPart, weekConstrained: boolean): string => {
+  switch (part.type) {
+    case 'every':
+      if (field.key === 'week') {
+        return '?';
+      }
+      if (field.key === 'day') {
+        return weekConstrained ? '?' : '*';
+      }
+      return '*';
+    case 'range': {
+      const from = Math.min(part.from, part.to);
+      const to = Math.max(part.from, part.to);
+      if (field.key === 'week') {
+        return `${WEEK_NAMES[from]}-${WEEK_NAMES[to]}`;
+      }
+      return `${from}-${to}`;
+    }
+    case 'step':
+      return `${part.stepFrom}/${part.step}`;
+    case 'specific': {
+      if (!part.specific.length) {
+        return field.key === 'week' ? '?' : '*';
+      }
+      if (field.key === 'week') {
+        return part.specific.map(item => WEEK_NAMES[item]).join(',');
+      }
+      return part.specific.join(',');
+    }
+    case 'custom':
+      return part.raw?.trim() || '*';
+    default:
+      return '*';
+  }
+};
+
+const generateCron = (): string => {
+  const weekConstrained = parts.week.type !== 'every';
+  const expression = [
+    buildPart(fields[0], parts.second, weekConstrained),
+    buildPart(fields[1], parts.minute, weekConstrained),
+    buildPart(fields[2], parts.hour, weekConstrained),
+    buildPart(fields[3], parts.day, weekConstrained),
+    buildPart(fields[4], parts.month, weekConstrained),
+    buildPart(fields[5], parts.week, weekConstrained),
+  ].join(' ');
+  return yearPart.value ? `${expression} ${yearPart.value}` : expression;
+};
+
+const parseExpression = () => {
+  const segments = (tempCronExpression.value || '').trim().split(/\s+/);
+  yearPart.value = segments.length >= 7 ? segments[6] : '';
+  if (segments.length < 6) {
     return;
   }
+  fields.forEach((field, index) => {
+    parts[field.key] = parsePart(field, segments[index]);
+  });
+};
 
-  // 简单的cron表达式解析（可以根据需要扩展）
-  const parts = tempCronExpression.value.split(' ');
-  if (parts.length >= 6) {
-    const [second, minute, hour, day, month, week] = parts;
-    cronDescription.value = `在${hour}时${minute}分${second}秒执行`;
-  } else {
-    cronDescription.value = '自定义表达式';
+const parsePart = (field: FieldMeta, value: string): CronPart => {
+  const part = createPart(field);
+  const normalized = value?.trim();
+  if (!normalized) {
+    return part;
+  }
+  if (normalized === '*' || normalized === '?') {
+    return part;
+  }
+  const step = stepInfo(normalized);
+  if (step) {
+    part.type = 'step';
+    part.stepFrom = step.from === '*' ? field.min : Number(step.from);
+    part.step = step.step;
+    return part;
+  }
+  if (/^\d+$/.test(normalized)) {
+    part.type = 'specific';
+    part.specific = [Number(normalized)];
+    return part;
+  }
+  if (/^\d+-\d+$/.test(normalized)) {
+    const [from, to] = normalized.split('-').map(Number);
+    part.type = 'range';
+    part.from = from;
+    part.to = to;
+    return part;
+  }
+  const tokens = normalized.split(',');
+  const nums = tokens.map(token => (field.key === 'week' ? weekNum(token) : Number(token)));
+  if (nums.every(num => !Number.isNaN(num))) {
+    part.type = 'specific';
+    part.specific = nums;
+    return part;
+  }
+  if (field.key === 'week' && /[A-Za-z]+-[A-Za-z]+/.test(normalized)) {
+    const [from, to] = normalized.split('-').map(weekNum);
+    if (!Number.isNaN(from) && !Number.isNaN(to)) {
+      part.type = 'range';
+      part.from = from;
+      part.to = to;
+      return part;
+    }
+  }
+  part.type = 'custom';
+  part.raw = normalized;
+  return part;
+};
+
+const setPartType = (key: string, type: PartType) => {
+  const part = parts[key];
+  part.type = type;
+  if (part.type === 'range' && part.from > part.to) {
+    const temp = part.from;
+    part.from = part.to;
+    part.to = temp;
+  }
+  if (key === 'day' && part.type !== 'every') {
+    parts.week.type = 'every';
+  }
+  if (key === 'week' && part.type !== 'every') {
+    parts.day.type = 'every';
   }
 };
 
-// cron表达式变化回调
-const onCronChange = (value: string) => {
+const openModal = () => {
+  tempCronExpression.value = cronExpression.value;
+  activeTab.value = 'preset';
+  activeField.value = 'second';
+  parseExpression();
+  showModal.value = true;
+};
+
+const selectPreset = (value: string) => {
   tempCronExpression.value = value;
+  parseExpression();
 };
 
-// 设置预设表达式
-const setPreset = (expression: string) => {
-  tempCronExpression.value = expression;
-  confirmSelection();
+const handleInput = () => {
+  emit('update:value', cronExpression.value);
+  emit('change', cronExpression.value);
 };
 
-// 确认选择
 const confirmSelection = () => {
-  cronExpression.value = tempCronExpression.value;
+  cronExpression.value = tempCronExpression.value.trim();
   emit('update:value', cronExpression.value);
   emit('change', cronExpression.value);
   showModal.value = false;
 };
 
-const confirmInput = (value: string) => {
-  if (value) {
-    cronExpression.value = value;
-    emit('change', cronExpression.value);
-  }
-};
-
-// 取消选择
 const cancelSelection = () => {
-  tempCronExpression.value = cronExpression.value;
   showModal.value = false;
 };
-
-// 初始化时更新描述
-updateCronDescription();
 </script>
 
 <style scoped>
-.input-group {
-  margin-bottom: 1rem;
+.cron-selector {
+  width: 100%;
 }
 
-.cron-description {
-  font-size: 0.9em;
+.cron-config-btn {
+  white-space: nowrap;
 }
 
-.preset-crons h6 {
-  font-size: 0.9em;
-  margin-bottom: 0.5rem;
+.cron-selector.compact .form-control {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 28px;
+  color: var(--el-text-color-regular, #606266);
+  background-color: var(--el-bg-color, #fff);
+  border-color: var(--el-border-color, #dcdfe6);
+  box-sizing: border-box;
 }
 
-.preset-crons .btn-group {
+.cron-selector.compact .form-control:focus {
+  border-color: var(--el-color-primary, #409eff);
+  box-shadow: none;
+}
+
+.cron-selector.compact .cron-config-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--el-text-color-regular, #606266);
+  background-color: var(--el-bg-color, #fff);
+  border-color: var(--el-border-color, #dcdfe6);
+}
+
+.cron-modal-body {
+  padding: 0 4px;
+}
+
+.preset-groups {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.preset-group {
+  margin-bottom: 14px;
+}
+
+.preset-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.preset-items {
+  display: flex;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.preset-crons .btn {
-  margin: 2px;
-  font-size: 0.8em;
+.preset-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-item:hover {
+  border-color: var(--el-color-primary, #409eff);
+  color: var(--el-color-primary, #409eff);
+}
+
+.preset-item.active {
+  border-color: var(--el-color-primary, #409eff);
+  background: var(--el-color-primary-light-9, #ecf5ff);
+}
+
+.preset-item-label {
+  font-size: 13px;
+}
+
+.preset-item-value {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.custom-raw {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.custom-raw-label {
+  flex: 0 0 auto;
+  width: 64px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.cron-tab-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: 12px;
+}
+
+.cron-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: #606266;
+  cursor: pointer;
+}
+
+.cron-tab-btn:hover {
+  color: var(--el-color-primary, #409eff);
+}
+
+.cron-tab-btn.active {
+  color: var(--el-color-primary, #409eff);
+  border-bottom-color: var(--el-color-primary, #409eff);
+}
+
+.field-tabs {
+  display: flex;
+  gap: 12px;
+  min-height: 260px;
+}
+
+.field-tab-nav {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid #e4e7ed;
+  padding-right: 8px;
+}
+
+.field-tab-btn {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #606266;
+  text-align: left;
+  cursor: pointer;
+}
+
+.field-tab-btn:hover {
+  color: var(--el-color-primary, #409eff);
+  background: #f5f7fa;
+}
+
+.field-tab-btn.active {
+  color: var(--el-color-primary, #409eff);
+  background: var(--el-color-primary-light-5, #d9ecff);
+}
+
+.field-tab-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field-control {
+  padding-left: 4px;
+}
+
+.field-type-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.type-btn {
+  background: #fff;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #606266;
+  cursor: pointer;
+}
+
+.type-btn:hover {
+  color: var(--el-color-primary, #409eff);
+  border-color: var(--el-color-primary, #409eff);
+}
+
+.type-btn.active {
+  color: #fff;
+  border-color: var(--el-color-primary, #409eff);
+  background: var(--el-color-primary, #409eff);
+}
+
+.field-detail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.specific-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.specific-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #606266;
+  cursor: pointer;
+  margin: 0;
+}
+
+.detail-number {
+  width: 90px;
+}
+
+.detail-text {
+  font-size: 13px;
+  color: #606266;
+}
+
+.detail-select {
+  width: 100px;
+}
+
+.cron-result {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.cron-result-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cron-result-row + .cron-result-row {
+  margin-top: 6px;
+}
+
+.cron-result-label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: #909399;
+}
+
+.cron-result-value {
+  color: var(--el-color-primary, #409eff);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cron-result-desc {
+  font-size: 13px;
+  color: #303133;
+}
+
+.cron-result-error {
+  font-size: 12px;
+  color: #f56c6c;
 }
 </style>

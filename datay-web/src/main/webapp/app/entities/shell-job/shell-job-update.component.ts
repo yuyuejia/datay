@@ -10,6 +10,7 @@ import { useRoute, useRouter } from "vue-router";
 import ShellJobService from "./shell-job.service";
 import { type IJob } from "@/shared/model/job.model";
 import { useAlertService } from "@/shared/alert/alert.service";
+import CronExpressionSelector from "@/components/CronExpressionSelector.vue";
 
 import { EditorState } from "@codemirror/state";
 import {
@@ -27,6 +28,9 @@ import { oneDark } from "@codemirror/theme-one-dark";
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: "ShellJobUpdate",
+  components: {
+    CronExpressionSelector,
+  },
   setup() {
     const route = useRoute();
     const router = useRouter();
