@@ -82,6 +82,10 @@ const DataApiUpdate = () => import("@/entities/data-api/data-api-update.vue");
 const SqlJob = () => import("@/entities/sql-job/sql-job.vue");
 const SqlJobUpdate = () => import("@/entities/sql-job/sql-job-update.vue");
 
+const ShellJob = () => import("@/entities/shell-job/shell-job.vue");
+const ShellJobUpdate = () =>
+  import("@/entities/shell-job/shell-job-update.vue");
+
 // jhipster-needle-add-entity-to-router-import - JHipster will import entities to the router here
 
 export default {
@@ -464,6 +468,24 @@ export default {
       path: "sql-job/:jobId/edit",
       name: "SqlJobEdit",
       component: SqlJobUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "shell-job",
+      name: "ShellJob",
+      component: ShellJob,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "shell-job/new",
+      name: "ShellJobCreate",
+      component: ShellJobUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "shell-job/:jobId/edit",
+      name: "ShellJobEdit",
+      component: ShellJobUpdate,
       meta: { authorities: [Authority.USER] },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here

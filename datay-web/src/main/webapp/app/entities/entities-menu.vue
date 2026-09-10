@@ -13,6 +13,9 @@
     <b-dropdown-item to="/sql-job">
       <span>SQL 任务</span>
     </b-dropdown-item>
+    <b-dropdown-item to="/shell-job">
+      <span>Shell 任务</span>
+    </b-dropdown-item>
     <b-dropdown-item to="/job">
       <span>任务定义</span>
     </b-dropdown-item>

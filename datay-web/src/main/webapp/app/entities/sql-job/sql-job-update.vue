@@ -13,17 +13,25 @@
           >
         </h3>
       </div>
+      <div class="header-center">
+        <div class="field-item">
+          <span class="field-label">任务名称</span>
+          <el-input
+            v-model="sqlJob.jobName"
+            placeholder="请输入任务名称"
+            class="field-input"
+          />
+        </div>
+        <div class="field-item">
+          <span class="field-label">Cron 表达式</span>
+          <el-input
+            v-model="sqlJob.cron"
+            placeholder="可选"
+            class="field-input"
+          />
+        </div>
+      </div>
       <div class="header-right">
-        <el-input
-          v-model="sqlJob.jobName"
-          placeholder="任务名称"
-          style="width: 180px"
-        />
-        <el-input
-          v-model="sqlJob.cron"
-          placeholder="Cron 表达式（可选）"
-          style="width: 200px"
-        />
         <span class="execute-info" v-if="executionTime !== null">
           <font-awesome-icon icon="clock" />
           <span>耗时: {{ formatTime(executionTime) }}</span>
@@ -228,6 +236,31 @@
   font-weight: normal;
   color: var(--el-text-color-regular, #606266);
   font-size: 14px;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.field-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-label {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+}
+
+.field-input {
+  width: 200px;
 }
 
 .header-right {

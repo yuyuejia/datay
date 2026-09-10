@@ -16,6 +16,7 @@ import DataModelService from "./data-model/data-model.service";
 import ModelDirectoryService from "./data-model/model-directory.service";
 import DataApiService from "./data-api/data-api.service";
 import SqlJobService from "./sql-job/sql-job.service";
+import ShellJobService from "./shell-job/shell-job.service";
 import UserService from "@/entities/user/user.service";
 // jhipster-needle-add-entity-service-to-entities-component-import - JHipster will import entities services here
 
@@ -43,6 +44,7 @@ export default defineComponent({
     provide("modelDirectoryService", () => new ModelDirectoryService());
     provide("dataApiService", () => new DataApiService());
     provide("sqlJobService", () => new SqlJobService());
+    provide("shellJobService", () => new ShellJobService());
     // jhipster-needle-add-entity-service-to-entities-component - JHipster will import entities services here
   },
 });
