@@ -38,6 +38,9 @@
             <column name="exec_node" type="varchar(255)">
                 <constraints nullable="true" />
             </column>
+            <column name="parent_instance_code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
             <column name="start_time" type="varchar(255)">
                 <constraints nullable="true" />
             </column>

@@ -65,7 +65,7 @@ public class JobInstance implements Serializable, TenantAware {
     @Transient
     private Boolean isSubJob;
 
-    @Transient
+    @Column(name = "parent_instance_code")
     private String ParentInstanceCode;
 
     public Long getId() {

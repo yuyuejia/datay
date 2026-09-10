@@ -197,7 +197,7 @@ public class JobInstanceService {
             JobInstance subJobInstance = buildJobInstance(job.getId());
             subJobInstance.setSubJob(true);
             subJobInstance.setParentInstanceCode(jobInstance.getInstanceCode());
-            subJobInstance.setStatus(TaskConstants.TASK_STATUS_RUNNING);
+            subJobInstance.setStatus(TaskConstants.TASK_STATUS_APPENDING);
             subJobInstance.setCreateTime(ZonedDateTime.now());
             save(subJobInstance);
             flowInstance.getJobInstances().add(subJobInstance);

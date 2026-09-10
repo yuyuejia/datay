@@ -13,7 +13,7 @@ public class DAGParser {
 
     private final Map<String, List<String>> edges = new HashMap<>();
 
-    public void parse(String json) {
+    public void parse(String json) throws IllegalArgumentException {
 
         JSONObject jsonObj = JSONObject.parse(json);
         if (jsonObj == null) {

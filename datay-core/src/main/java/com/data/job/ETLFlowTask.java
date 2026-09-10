@@ -49,7 +49,12 @@ public class ETLFlowTask {
 
     public void runJob(String jobContext) throws Exception {
         DAGParser parser = new DAGParser();
-        parser.parse(jobContext);
+        try {
+            parser.parse(jobContext);
+        } catch (IllegalArgumentException e) {
+            log(e.getMessage());
+            throw e;
+        }
 
         order = parser.topologicalSort();
         

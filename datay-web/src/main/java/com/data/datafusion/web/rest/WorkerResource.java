@@ -2,6 +2,8 @@ package com.data.datafusion.web.rest;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.file.FileReader;
+import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.TaskManagementService;
 import com.data.job.TaskLogger;
 import java.io.ByteArrayOutputStream;
@@ -36,11 +38,14 @@ public class WorkerResource {
 
     private final TaskManagementService taskManagementService;
 
+    private final JobInstanceService jobInstanceService;
+
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
 
-    public WorkerResource(TaskManagementService taskManagementService) {
+    public WorkerResource(TaskManagementService taskManagementService, JobInstanceService jobInstanceService) {
         this.taskManagementService = taskManagementService;
+        this.jobInstanceService = jobInstanceService;
     }
 
     /**
@@ -96,8 +101,22 @@ public class WorkerResource {
             // DAG任务实例日志由该次编排运行产生的多个子任务日志文件组成，
             // 这些子任务日志均以编排实例代码作为文件名，分目录存放在./log/下，
             // 因此按文件名收集并聚合，即可得到整个DAG运行的完整日志。
-            List<File> logFiles = collectLogFiles(jobInstanceCode);
-            logFiles.sort(Comparator.comparingLong(File::lastModified).thenComparing(File::getAbsolutePath));
+            // 子任务实例(如DAG中的SQL/Shell节点)的日志写在以父实例代码命名的文件中，
+            // 需要根据父实例代码定位其日志文件。
+            JobInstance jobInstance = jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
+            String parentInstanceCode = jobInstance == null ? null : jobInstance.getParentInstanceCode();
+
+            List<File> logFiles;
+            if (parentInstanceCode != null && !parentInstanceCode.isBlank()) {
+                File subJobLogFile = new File(getLogFileName(jobCode, parentInstanceCode));
+                logFiles = new ArrayList<>();
+                if (subJobLogFile.exists()) {
+                    logFiles.add(subJobLogFile);
+                }
+            } else {
+                logFiles = collectLogFiles(jobInstanceCode);
+                logFiles.sort(Comparator.comparingLong(File::lastModified).thenComparing(File::getAbsolutePath));
+            }
 
             if (logFiles.isEmpty()) {
                 result.put("success", false);

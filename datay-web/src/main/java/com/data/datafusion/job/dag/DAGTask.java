@@ -31,8 +31,10 @@ public class DAGTask extends AbstractTask {
         FlowInstance flowInstance = JSONObject.parseObject(getJobInstance().getJobContext(), FlowInstance.class);
         List<JobInstance> jobInstances = getJobInstanceByOrder(flowInstance);
         //TODO 根据深度，可以调整成并行执行
-        for (JobInstance jobInstance : jobInstances) {
-            try {
+        int index = 0;
+        try {
+            for (; index < jobInstances.size(); index++) {
+                JobInstance jobInstance = jobInstances.get(index);
                 // 执行任务前，变更任务为运行中状态
                 JobStatusEvent beforeEvent = new JobStatusEvent();
                 jobInstance.setExecNode(EXECNODE);
@@ -65,13 +67,38 @@ public class DAGTask extends AbstractTask {
                     );
                 }
                 log.info("DAG子任务执行完成: 子任务ID:{},子任务类型:{}", jobInstance.getJobCode(), jobInstance.getType());
-            } catch (Exception e) {
-                log.error("DAG子任务执行异常 ：", e);
-                throw e;
             }
-            // 任务执行后，变更任务为完成状态
+            return "SUCCESSFUL";
+        } catch (Exception e) {
+            log.error("DAG子任务执行异常 ：", e);
+            // 任务失败时，将尚未执行的后续子任务状态更新为中断
+            try {
+                interruptRemainingTasks(jobInstances, index + 1);
+            } catch (Exception interruptError) {
+                log.error("更新剩余子任务状态为中断失败 ：", interruptError);
+            }
+            throw e;
         }
-        return "SUCCESSFUL";
+    }
+
+    /**
+     * 将尚未执行的后续子任务状态更新为中断
+     *
+     * @param jobInstances 按执行顺序排列的子任务实例
+     * @param fromIndex    从该下标开始(含)的子任务均尚未执行
+     */
+    private void interruptRemainingTasks(List<JobInstance> jobInstances, int fromIndex) {
+        for (int i = fromIndex; i < jobInstances.size(); i++) {
+            JobInstance jobInstance = jobInstances.get(i);
+            jobInstance.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
+            jobInstance.setEndTime(String.valueOf(System.currentTimeMillis()));
+
+            JobStatusEvent interruptedEvent = new JobStatusEvent();
+            interruptedEvent.setJobInstance(jobInstance);
+            interruptedEvent.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
+            interruptedEvent.setEndTime(System.currentTimeMillis());
+            EventServiceFactory.getEventService().pushJobStatusEvent(interruptedEvent);
+        }
     }
 
     /**

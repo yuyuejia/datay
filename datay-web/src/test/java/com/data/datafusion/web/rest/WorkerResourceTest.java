@@ -3,6 +3,8 @@ package com.data.datafusion.web.rest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.TaskManagementService;
 import java.io.File;
 import java.lang.reflect.Method;
@@ -11,21 +13,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
+import org.springframework.http.ResponseEntity;
 
 public class WorkerResourceTest {
 
     private WorkerResource workerResource;
+
+    private JobInstanceService jobInstanceService;
 
     @TempDir
     Path tempDir;
 
     @BeforeEach
     public void setUp() {
-        workerResource = new WorkerResource(new TaskManagementService());
+        jobInstanceService = Mockito.mock(JobInstanceService.class);
+        workerResource = new WorkerResource(new TaskManagementService(), jobInstanceService);
     }
 
     private Path writeLog(String dir, String fileName, String content) throws Exception {
@@ -106,5 +114,56 @@ public class WorkerResourceTest {
         assertEquals(buildHeader("1001") + "hello world\n", content);
         assertEquals(0, meta[1]);
         assertEquals(buildHeader("1001").length() + "hello world\n".length(), meta[2]);
+    }
+
+    @Test
+    public void testSubJobLogUsesParentInstanceCode() throws Exception {
+        withUserDir(() -> {
+            Path dir = Files.createDirectories(tempDir.resolve("log").resolve("2001"));
+            Files.write(dir.resolve("parent-123.log"), "sub node log\n".getBytes(StandardCharsets.UTF_8));
+
+            JobInstance subJob = new JobInstance();
+            subJob.setInstanceCode("2001-999");
+            subJob.setParentInstanceCode("parent-123");
+            Mockito.when(jobInstanceService.findOneJobInstanceByInstanceCode("2001-999")).thenReturn(subJob);
+
+            Map<String, Object> body = workerResource.getTaskLog("2001", "2001-999", 0, 10000).getBody();
+            assertEquals(Boolean.TRUE, body.get("success"));
+            assertEquals("sub node log\n", body.get("content"));
+        });
+    }
+
+    @Test
+    public void testDagParentAggregatesChildLogs() throws Exception {
+        withUserDir(() -> {
+            Path logRoot = tempDir.resolve("log");
+            Files.createDirectories(logRoot.resolve("100"));
+            Files.write(logRoot.resolve("100").resolve("100-1.log"), new byte[0]);
+            for (String node : Arrays.asList("2001", "2002")) {
+                Files.createDirectories(logRoot.resolve(node));
+                Files.write(logRoot.resolve(node).resolve("100-1.log"), ("node-" + node + "\n").getBytes(StandardCharsets.UTF_8));
+            }
+
+            Map<String, Object> body = workerResource.getTaskLog("100", "100-1", 0, 10000).getBody();
+            assertEquals(Boolean.TRUE, body.get("success"));
+            String content = (String) body.get("content");
+            assertTrue(content.contains("node-2001\n"));
+            assertTrue(content.contains("node-2002\n"));
+        });
+    }
+
+    private void withUserDir(ThrowingRunnable runnable) throws Exception {
+        String originalUserDir = System.getProperty("user.dir");
+        try {
+            System.setProperty("user.dir", tempDir.toString());
+            runnable.run();
+        } finally {
+            System.setProperty("user.dir", originalUserDir);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 }
