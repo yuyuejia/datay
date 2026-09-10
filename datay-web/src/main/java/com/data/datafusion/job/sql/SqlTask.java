@@ -3,74 +3,80 @@ package com.data.datafusion.job.sql;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
+import com.data.job.DatasourceInfo;
 import com.data.metadata.util.DBUtils;
-import java.io.*;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.sql.Connection;
-import java.util.Map;
-import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * mybatis执行SQL脚本
+ * SQL 任务执行器。
+ *
+ * <p>任务上下文（{@code jobContext}）由 {@link SqlTaskContextAssembler} 在任务下发前组装，
+ * 约定包含：
+ * <ul>
+ *     <li>{@code sql}：待执行的 SQL 语句，支持以分号分隔的多条语句</li>
+ *     <li>{@code dataSource}：数据源连接信息（url、driver、username、password、dbschema 等）</li>
+ * </ul>
+ * 本类不再查询数据源，直接使用 jobContext 中已组装好的连接信息。
  */
 public class SqlTask extends AbstractTask {
 
-    private Logger logger = LoggerFactory.getLogger(this.getClass());
-
-    private DataSource dataSource;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     public SqlTask(JobInstance taskInstance) {
         super(taskInstance);
     }
 
-    /**
-     * 使用ScriptRunner执行SQL脚本
-     */
+    @Override
     public String doExecute() throws Exception {
-        Map<String, String> properties = JSONObject.parseObject(getJobInstance().getJobContext(), Map.class);
-        //通过数据源获取数据库链接
-        //        Connection connection = DataSourceUtils.getConnection(dataSource);
-        Connection connection = DBUtils.getConnection();
-        //创建脚本执行器
-        ScriptRunner scriptRunner = new ScriptRunner(connection);
-        //创建字符输出流，用于记录SQL执行日志
-        StringWriter writer = new StringWriter();
-        PrintWriter print = new PrintWriter(System.out);
-        //设置执行器日志输出
-        scriptRunner.setLogWriter(print);
-        //设置执行器错误日志输出
-        scriptRunner.setErrorLogWriter(print);
-        //设置读取文件格式
-        //        Resources.setCharset(Charsets.UTF_8);
-        //        FileUtils.writeStringToFile("select 1;", getSqlFile());
-        Reader reader = null;
-        try {
-            //获取资源文件的字符输入流
-            reader = new StringReader("select 1;select 1;");
-        } catch (Exception e) {
-            //文件流获取失败，关闭链接
-            logger.error(e.getMessage(), e);
-            scriptRunner.closeConnection();
-            throw new Exception("job exec error!");
+        JSONObject context = JSONObject.parseObject(getJobInstance().getJobContext());
+        if (context == null) {
+            throw new Exception("SQL 任务未配置执行内容");
         }
-        //执行SQL脚本
-        scriptRunner.runScript(reader);
-        //关闭文件输入流
-        try {
-            reader.close();
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
+        String sql = context.getString("sql");
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new Exception("SQL 任务未配置 SQL 语句");
         }
-        //输出SQL执行日志
-        //        logger.debug(writer.toString());
-        //关闭输入流
-        scriptRunner.closeConnection();
-        return "0";
-    }
+        JSONObject connectionConfig = context.getJSONObject("dataSource");
+        if (connectionConfig == null) {
+            throw new Exception("SQL 任务未组装数据源信息");
+        }
 
-    private String getSqlFile() {
-        String fileName = "./log/" + getJobInstance().getJobCode() + "/" + getJobInstance().getInstanceCode() + ".sql";
-        return fileName;
+        DatasourceInfo datasourceInfo = new DatasourceInfo();
+        datasourceInfo.setType(connectionConfig.getString("type"));
+        datasourceInfo.setUrl(connectionConfig.getString("url"));
+        datasourceInfo.setHostname(connectionConfig.getString("hostname"));
+        datasourceInfo.setPort(connectionConfig.getString("port"));
+        datasourceInfo.setUsername(connectionConfig.getString("username"));
+        datasourceInfo.setPassword(connectionConfig.getString("password"));
+        datasourceInfo.setDriver(connectionConfig.getString("driver"));
+        datasourceInfo.setDbschema(connectionConfig.getString("dbschema"));
+
+        String script = sql.trim();
+        if (!script.endsWith(";")) {
+            script = script + ";";
+        }
+
+        StringWriter logWriter = new StringWriter();
+        try (Connection connection = DBUtils.getConnection(datasourceInfo)) {
+            ScriptRunner scriptRunner = new ScriptRunner(connection);
+            scriptRunner.setStopOnError(true);
+            PrintWriter writer = new PrintWriter(logWriter);
+            scriptRunner.setLogWriter(writer);
+            scriptRunner.setErrorLogWriter(writer);
+            Reader reader = new StringReader(script);
+            scriptRunner.runScript(reader);
+            reader.close();
+        } catch (Exception e) {
+            logger.error("SQL task [{}] execution failed: {}", getJobInstance().getJobName(), e.getMessage(), e);
+            throw new Exception("SQL 任务执行失败: " + e.getMessage(), e);
+        }
+        logger.info("SQL task [{}] executed successfully", getJobInstance().getJobName());
+        return "0";
     }
 }

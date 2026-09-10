@@ -3,6 +3,7 @@ package com.data.datafusion.service;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobDTO;
 import com.data.datafusion.service.jobevent.EventServiceFactory;
@@ -79,7 +80,11 @@ public class JobService {
         jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
-        jobInstance.setJobContext(job.getJobContext());
+        if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
+            jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+        }else {
+            jobInstance.setJobContext(job.getJobContext());
+        }
         jobInstance.setCreateTime(ZonedDateTime.now());
 
         jobInstanceService.startInstance(jobInstance);

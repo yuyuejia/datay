@@ -7,6 +7,7 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.dag.Flow;
 import com.data.datafusion.job.dag.FlowInstance;
+import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.JobInstanceRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobInstanceDTO;
@@ -252,7 +253,11 @@ public class JobInstanceService {
         jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
-        jobInstance.setJobContext(job.getJobContext());
+        if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
+            jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+        }else {
+            jobInstance.setJobContext(job.getJobContext());
+        }
         //        jobInstance.setParameter();
         return jobInstance;
     }
