@@ -103,8 +103,36 @@ java -jar target/*.jar
 
 - **输入组件**: `StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`
 - **处理组件**: `DuckDBSql`、`StreamSqlUnit`、`JavaScriptComponent`
-- **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
+- **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**: `GenerateFlowFile`、`LogFlowFile`
+
+#### 模型写入组件（ModelWrite）
+
+「模型写入」是 DataY Web 提供的**输出组件**，用于把数据流写入数据模型所绑定的物理表：
+
+- 配置界面只需在「数据模型」下拉框中选择一个数据模型，目标数据源、Schema、目标表均取自模型绑定信息，无需重复选择
+- 保存任务时，后端会将 `ModelWrite` 节点转换为 DataY Core 的 `StreamJdbcOutput` 组件，任务定义中直接生成 `sourceId`、`schema`、`table`、`model` 等参数
+- 模型需先在「数据模型」页面完成物化（绑定数据源、Schema 与物理表），否则保存任务时会给出明确提示
+- 支持配置写入策略（`overwrite`/`append`/`update`/`auto`）、更新字段与批处理数
+
+生成的 Job 定义示例（`ModelWrite` → `StreamJdbcOutput`）：
+
+```json
+{
+  ".id": "MODEL_OUT_01",
+  ".name": "StreamJdbcOutput",
+  "sourceId": {
+    "url": "jdbc:mysql://127.0.0.1:3306",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "password",
+    "dbschema": "dwd"
+  },
+  "schema": "dwd",
+  "table": "dim_customer",
+  "model": "overwrite"
+}
+```
 
 ### 任务类型
 
