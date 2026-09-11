@@ -26,7 +26,7 @@
             <column name="create_time" type="${datetimeType}">
                 <constraints nullable="true" />
             </column>
-            <column name="ytenant_id" type="varchar(255)">
+            <column name="tenant_id" type="varchar(255)">
                 <constraints nullable="true" />
             </column>
             <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
@@ -55,7 +55,7 @@
             <column name="df_key" type="string"/>
             <column name="df_value" type="string"/>
             <column name="create_time" type="date"/>
-            <column name="ytenant_id" type="string"/>
+            <column name="tenant_id" type="string"/>
             <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
         </loadData>
     </changeSet>

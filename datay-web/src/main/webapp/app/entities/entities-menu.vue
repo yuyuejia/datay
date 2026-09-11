@@ -1,25 +1,18 @@
 <template>
   <div>
-    <!-- <b-dropdown-item to="/etl-task">
-      <font-awesome-icon icon="asterisk" />
-      <span>ETL任务</span>
-    </b-dropdown-item> -->
-    <b-dropdown-item to="/data-sync">
-      <span>数据同步</span>
+    <b-dropdown-item to="/sql-job" active-class="active">
+        <span>SQL 任务</span>
     </b-dropdown-item>
-    <b-dropdown-item to="/dag-job">
+    <b-dropdown-item to="/dag-job" active-class="active">
       <span>任务编排</span>
     </b-dropdown-item>
-    <b-dropdown-item to="/sql-job">
-      <span>SQL 任务</span>
-    </b-dropdown-item>
-    <b-dropdown-item to="/shell-job">
+    <b-dropdown-item to="/shell-job" active-class="active">
       <span>Shell 任务</span>
     </b-dropdown-item>
-    <b-dropdown-item to="/job">
+    <b-dropdown-item to="/job" active-class="active">
       <span>任务定义</span>
     </b-dropdown-item>
-    <b-dropdown-item to="/job-instance">
+    <b-dropdown-item to="/job-instance" active-class="active">
       <span>任务实例</span>
     </b-dropdown-item>
 

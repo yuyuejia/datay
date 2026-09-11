@@ -1,2 +1,2 @@
-id;df_group;df_key;df_value;create_time;ytenant_id
+id;df_group;df_key;df_value;create_time;tenant_id
 1;task;logDir;log;2025-03-26T13:12:13;0

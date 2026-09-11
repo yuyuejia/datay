@@ -34,8 +34,8 @@ public class ServiceConfig implements Serializable, TenantAware {
     @Column(name = "create_time")
     private ZonedDateTime createTime;
 
-    @Column(name = "ytenant_id")
-    private String ytenantId;
+    @Column(name = "tenant_id")
+    private String tenantId;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -104,27 +104,17 @@ public class ServiceConfig implements Serializable, TenantAware {
         this.createTime = createTime;
     }
 
-    public String getYtenantId() {
-        return this.ytenantId;
+    public String getTenantId() {
+        return this.tenantId;
     }
 
-    public ServiceConfig ytenantId(String ytenantId) {
-        this.setYtenantId(ytenantId);
+    public ServiceConfig tenantId(String tenantId) {
+        this.setTenantId(tenantId);
         return this;
     }
 
-    public void setYtenantId(String ytenantId) {
-        this.ytenantId = ytenantId;
-    }
-
-    @Override
-    public String getTenantId() {
-        return this.ytenantId;
-    }
-
-    @Override
     public void setTenantId(String tenantId) {
-        this.ytenantId = tenantId;
+        this.tenantId = tenantId;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
@@ -155,7 +145,7 @@ public class ServiceConfig implements Serializable, TenantAware {
             ", dfKey='" + getDfKey() + "'" +
             ", dfValue='" + getDfValue() + "'" +
             ", createTime='" + getCreateTime() + "'" +
-            ", ytenantId='" + getYtenantId() + "'" +
+            ", tenantId='" + getTenantId() + "'" +
             "}";
     }
 }

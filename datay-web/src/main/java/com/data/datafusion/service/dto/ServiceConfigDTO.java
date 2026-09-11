@@ -20,7 +20,7 @@ public class ServiceConfigDTO implements Serializable {
 
     private ZonedDateTime createTime;
 
-    private String ytenantId;
+    private String tenantId;
 
     public Long getId() {
         return id;
@@ -62,12 +62,12 @@ public class ServiceConfigDTO implements Serializable {
         this.createTime = createTime;
     }
 
-    public String getYtenantId() {
-        return ytenantId;
+    public String getTenantId() {
+        return tenantId;
     }
 
-    public void setYtenantId(String ytenantId) {
-        this.ytenantId = ytenantId;
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     @Override
@@ -100,7 +100,7 @@ public class ServiceConfigDTO implements Serializable {
             ", dfKey='" + getDfKey() + "'" +
             ", dfValue='" + getDfValue() + "'" +
             ", createTime='" + getCreateTime() + "'" +
-            ", ytenantId='" + getYtenantId() + "'" +
+            ", tenantId='" + getTenantId() + "'" +
             "}";
     }
 }

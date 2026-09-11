@@ -56,69 +56,18 @@
         <b-nav-item v-if="authenticated" to="/data-model" exact>
           <span>数据模型</span>
         </b-nav-item>
-        <b-nav-item v-if="authenticated" to="/data-api" exact>
-          <span>数据服务</span>
-        </b-nav-item>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>
             <span class="navbar-dropdown-menu">
-              <span class="no-bold">任务管理</span>
+              <span class="no-bold">数据开发</span>
             </span>
           </template>
           <entities-menu></entities-menu>
           <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
         </b-nav-item-dropdown>
-        <b-nav-item-dropdown
-          right
-          id="admin-menu"
-          v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated"
-          :class="{ 'router-link-active': subIsActive('/admin') }"
-          active-class="active"
-          class="pointer"
-          data-cy="adminMenu"
-        >
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
-              <span class="no-bold">管理</span>
-            </span>
-          </template>
-          <b-dropdown-item to="/admin/user-management" active-class="active">
-            <font-awesome-icon icon="users" />
-            <span>用户管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/tenant-management" active-class="active">
-            <font-awesome-icon icon="building" />
-            <span>租户管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/metrics" active-class="active">
-            <font-awesome-icon icon="tachometer-alt" />
-            <span>资源监控</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/health" active-class="active">
-            <font-awesome-icon icon="heart" />
-            <span>服务状态</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/configuration" active-class="active">
-            <font-awesome-icon icon="cogs" />
-            <span>配置</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/logs" active-class="active">
-            <font-awesome-icon icon="tasks" />
-            <span>日志</span>
-          </b-dropdown-item>
-          <b-dropdown-item v-if="openAPIEnabled" to="/admin/docs" active-class="active">
-            <font-awesome-icon icon="book" />
-            <span>API</span>
-          </b-dropdown-item>
-          <b-dropdown-item v-if="!inProduction" href="./h2-console/" target="_tab">
-            <font-awesome-icon icon="database" />
-            <span>数据库</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/service-config">
-            <font-awesome-icon icon="asterisk" />
-            <span>系统配置</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
+        <b-nav-item v-if="authenticated" to="/data-api" exact>
+          <span>数据服务</span>
+        </b-nav-item>
         <b-nav-item-dropdown
           right
           id="account-menu"
@@ -139,6 +88,12 @@
           <b-dropdown-item data-cy="passwordItem" to="/account/password" v-if="authenticated" active-class="active">
             <font-awesome-icon icon="lock" />
             <span>密码</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/admin/user-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
+            <span>用户管理</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/admin/tenant-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
+            <span>租户管理</span>
           </b-dropdown-item>
           <b-dropdown-item data-cy="logout" v-if="authenticated" @click="logout()" id="logout" active-class="active">
             <font-awesome-icon icon="sign-out-alt" />
