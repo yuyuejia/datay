@@ -1,9 +1,16 @@
 package com.data.job.component.cdc;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.data.job.DatasourceInfo;
+import com.data.job.DebugMockUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.TableMeta;
+import com.data.metadata.util.DBUtils;
 
+import java.sql.Connection;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Pattern;
@@ -34,11 +41,63 @@ public class MySQLBinlogInput extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：不启动真实 Binlog 采集，根据源表结构生成一条模拟变更事件后结束
+        if (getContext() != null && getContext().isDebugMode()) {
+            executeDebugMock();
+            return;
+        }
         if (!started) {
             startBinlogCollector();
         } else {
             logInfo("Binlog采集器已经在运行中");
         }
+    }
+
+    /**
+     * 调试模式：生成一条模拟的 INSERT 变更事件 FlowFile 并结束。
+     */
+    private void executeDebugMock() {
+        TableMeta tableMeta = resolveDebugTableMeta();
+        JSONObject row = DebugMockUtils.sampleRow(tableMeta);
+        JSONArray rows = new JSONArray();
+        rows.add(row);
+
+        FlowFile mockFlowFile = new FlowFile();
+        mockFlowFile.setJsonArray(rows);
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE, "INSERT");
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, System.currentTimeMillis());
+        mockFlowFile.setAttribute("_debugMock", true);
+        writeRecords(mockFlowFile);
+        logInfo("调试模式：根据组件能力生成模拟 Binlog INSERT 事件，表 " + tableMeta.getSchema() + "." + tableMeta.getTable());
+    }
+
+    /**
+     * 尝试读取源库真实表结构用于生成模拟数据，失败时使用占位结构。
+     */
+    private TableMeta resolveDebugTableMeta() {
+        if (datasource == null || datasource.getUrl() == null) {
+            return DebugMockUtils.placeholderTableMeta(null, null);
+        }
+        String schema = datasource.getDbschema();
+        try (Connection conn = DBUtils.getConnection(datasource.getUrl(), datasource.getUsername(), datasource.getPassword())) {
+            List<TableMeta> tables = DBUtils.getTableList(conn, schema);
+            if (tables != null) {
+                for (TableMeta table : tables) {
+                    if (DebugMockUtils.matchesPattern(tableNamePattern, table.getTable())) {
+                        return DBUtils.getTableMetaData(conn, schema, table.getTable());
+                    }
+                }
+                if (!tables.isEmpty()) {
+                    return DBUtils.getTableMetaData(conn, schema, tables.get(0).getTable());
+                }
+            }
+        } catch (Exception e) {
+            logWarn("调试模式：读取源表结构失败，使用内置模拟结构：" + e.getMessage());
+        }
+        return DebugMockUtils.placeholderTableMeta(schema, null);
     }
 
     /**

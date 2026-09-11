@@ -181,6 +181,12 @@ public class JdbcInput extends FlowComponent {
                         batchRecords.clear();
                         logInfo(srcTable.getTable() + "已写入 " + totalCount + " 条记录到DuckDB表 " + targetTable.getTable());
                     }
+
+                    // 调试模式：达到采样行数上限后停止读取
+                    if (getContext() != null && getContext().isDebugMode() && totalCount >= getContext().getDebugRowLimit()) {
+                        logInfo("调试模式：表 " + srcTable.getTable() + " 达到采样行数上限 " + getContext().getDebugRowLimit());
+                        break;
+                    }
                 }
 
                 // 写入剩余记录

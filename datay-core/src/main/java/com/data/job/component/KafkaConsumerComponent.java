@@ -12,6 +12,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,6 +45,12 @@ public class KafkaConsumerComponent extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：不连接 Kafka，根据组件能力生成一条模拟消息后结束
+        if (getContext() != null && getContext().isDebugMode()) {
+            executeDebugMock();
+            return;
+        }
+
         logInfo("KafkaConsumer组件开始执行，topic: " + topic + ", bootstrapServers: " + bootstrapServers);
         
         try {
@@ -95,6 +102,33 @@ public class KafkaConsumerComponent extends FlowComponent {
         } finally {
             closeConsumer();
         }
+    }
+
+    /**
+     * 调试模式：生成一条模拟 Kafka 消息 FlowFile 并结束。
+     */
+    private void executeDebugMock() {
+        JSONObject record = new JSONObject();
+        record.put("_topic", topic);
+        record.put("_partition", partition != null && partition >= 0 ? partition : 0);
+        record.put("_offset", 0L);
+        record.put("_timestamp", System.currentTimeMillis());
+        record.put("_key", "debug-key");
+        // 模拟消息体中常见的业务字段
+        record.put("id", 1);
+        record.put("name", "debug");
+        record.put("event_time", new Timestamp(System.currentTimeMillis()));
+
+        JSONArray jsonArray = new JSONArray();
+        jsonArray.add(record);
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(jsonArray);
+        flowFile.setAttribute("_kafkaTopic", topic);
+        flowFile.setAttribute("_recordCount", 1);
+        flowFile.setAttribute("_debugMock", true);
+        writeRecords(flowFile);
+        logInfo("调试模式：根据组件能力生成模拟 Kafka 消息，topic: " + topic);
     }
 
     private boolean checkKafkaAvailability() {

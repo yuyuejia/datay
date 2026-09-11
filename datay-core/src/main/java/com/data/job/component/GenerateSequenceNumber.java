@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.data.expression.ParameterUtil;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
+import com.data.job.DebugLimitReachedException;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 import com.data.metadata.util.DBUtils;
@@ -62,6 +63,9 @@ public class GenerateSequenceNumber extends FlowComponent {
             } else {
                 executeSingleOutput(flowFile);
             }
+        } catch (DebugLimitReachedException e) {
+            // 调试采样上限，交由框架正常结束
+            throw e;
         } catch (Exception e) {
             logError("生成序列数时发生错误: " + e.getMessage());
             throw new RuntimeException("生成序列数失败", e);

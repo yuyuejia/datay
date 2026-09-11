@@ -18,10 +18,20 @@ import com.data.datafusion.service.dto.*;
 import com.data.datafusion.service.mapper.ETLEdgeMapper;
 import com.data.datafusion.service.mapper.ETLNodeMapper;
 import com.data.datafusion.service.mapper.ETLTaskMapper;
+import com.data.job.ETLFlowTask;
+import com.data.job.ExceptionUtils;
+import com.data.job.TaskInstance;
+import com.data.job.TaskLogger;
 import com.data.metadata.util.DBUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -38,6 +48,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ETLTaskService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ETLTaskService.class);
+
+    // 调试运行的整体超时时间（秒）
+    private static final long DEBUG_TIMEOUT_SECONDS = 60;
 
     private final ETLTaskRepository eTLTaskRepository;
 
@@ -166,12 +179,15 @@ public class ETLTaskService {
                     Map<String, Object> sourceId = new LinkedHashMap<>();
                     String dataSourceId = config.get(key).toString();
                     Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(Long.valueOf(dataSourceId));
+                    if (sourceOptional.isEmpty()) {
+                        throw new IllegalArgumentException("数据源不存在: " + dataSourceId);
+                    }
                     DataSourceDTO source = sourceOptional.get();
                     sourceId.put("url", source.getUrl());
                     sourceId.put("driver", DBUtils.getDriverClassName(source.getUrl()));
                     sourceId.put("username", source.getUsername());
                     sourceId.put("password", source.getPassword());
-                    sourceId.put("dbschema", config.get("schema").toString());
+                    sourceId.put("dbschema", config.get("schema") == null ? "" : config.get("schema").toString());
                     unit.put("sourceId", sourceId);
                 }
             }
@@ -361,5 +377,94 @@ public class ETLTaskService {
                 return etlTask;
             })
             .orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
+    }
+
+    /**
+     * 调试运行 ETL 任务。
+     * <p>
+     * 调试运行时：
+     * <ul>
+     *     <li>源组件最多读取 rowLimit 条数据；</li>
+     *     <li>所有数据输出（sink）组件只读取数据、不写入目标库；</li>
+     *     <li>不加载、也不保存增量同步状态；</li>
+     *     <li>当指定 targetNodeId 时，只运行该节点及其上游依赖。</li>
+     * </ul>
+     * 返回各组件输出的采样数据，供设计器展示上游数据以便配置下游组件。
+     *
+     * @param request 调试请求（任务图、采样行数、目标节点）
+     * @return 各节点采样结果
+     */
+    public ETLDebugResultDTO debug(ETLDebugDTO request) {
+        ETLDebugResultDTO result = new ETLDebugResultDTO();
+        long startTime = System.currentTimeMillis();
+        TaskLogger taskLogger = null;
+        try {
+            if (request == null || request.getTask() == null) {
+                throw new IllegalArgumentException("调试请求不能为空");
+            }
+            String jobJson = generateETLJobJson(request.getTask());
+            if (jobJson == null) {
+                throw new IllegalArgumentException("任务未配置任何节点，无法调试运行");
+            }
+
+            int rowLimit = request.getRowLimit() == null || request.getRowLimit() <= 0 ? 100 : request.getRowLimit();
+            String instanceCode = "debug_" + System.currentTimeMillis();
+
+            TaskInstance taskInstance = new TaskInstance();
+            taskInstance.setJobCode("debug");
+            taskInstance.setInstanceCode(instanceCode);
+            taskInstance.setJobContext(jobJson);
+            taskInstance.setType(TaskConstants.TASK_TYPE_ETL);
+
+            taskLogger = new TaskLogger("debug", instanceCode);
+            ETLFlowTask flowTask = new ETLFlowTask(taskInstance, taskLogger);
+            flowTask.getContext().setDebugMode(true);
+            flowTask.getContext().setDebugRowLimit(rowLimit);
+            flowTask.getContext().setDebugTargetNodeId(
+                request.getTargetNodeId() == null || request.getTargetNodeId().trim().isEmpty() ? null : request.getTargetNodeId()
+            );
+
+            // 调试运行整体超时保护，避免异常源组件导致请求线程长期阻塞
+            ExecutorService debugExecutor = Executors.newSingleThreadExecutor(r -> {
+                Thread thread = new Thread(r, "etl-debug-" + instanceCode);
+                thread.setDaemon(true);
+                return thread;
+            });
+            try {
+                Future<?> future = debugExecutor.submit(() -> {
+                    try {
+                        flowTask.runJob(jobJson);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                future.get(DEBUG_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                result.setNodes(flowTask.getContext().getDebugResults());
+            } catch (TimeoutException e) {
+                flowTask.cancel();
+                result.setError("调试运行超时（" + DEBUG_TIMEOUT_SECONDS + " 秒），已中止");
+            } catch (ExecutionException e) {
+                throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+            } finally {
+                debugExecutor.shutdownNow();
+            }
+        } catch (Exception e) {
+            LOG.error("ETL 调试运行失败", e);
+            String message = e.getMessage();
+            if (message == null || message.trim().isEmpty()) {
+                message = ExceptionUtils.describe(e);
+            }
+            result.setError(message);
+        } finally {
+            if (taskLogger != null) {
+                try {
+                    taskLogger.closeLogFile();
+                } catch (Exception ignore) {
+                    // ignore close failure
+                }
+            }
+            result.setElapsedMs(System.currentTimeMillis() - startTime);
+        }
+        return result;
     }
 }

@@ -33,6 +33,11 @@ public class DuckDBWrite extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：跳过实际写库
+        if (getContext() != null && getContext().isDebugMode()) {
+            logInfo("调试模式：跳过写入 DuckDB 表");
+            return;
+        }
         if (flowFile.getJsonArray() == null) {
             return;
         }

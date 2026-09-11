@@ -9,6 +9,7 @@ import { faBars } from '@fortawesome/free-solid-svg-icons/faBars';
 import { faBell } from '@fortawesome/free-solid-svg-icons/faBell';
 import { faBolt } from '@fortawesome/free-solid-svg-icons/faBolt';
 import { faBook } from '@fortawesome/free-solid-svg-icons/faBook';
+import { faBug } from '@fortawesome/free-solid-svg-icons/faBug';
 import { faClock } from '@fortawesome/free-solid-svg-icons/faClock';
 import { faCloud } from '@fortawesome/free-solid-svg-icons/faCloud';
 import { faCode } from '@fortawesome/free-solid-svg-icons/faCode';
@@ -65,6 +66,7 @@ export function initFortAwesome(vue) {
     faBell,
     faBolt,
     faBook,
+    faBug,
     faClock,
     faCloud,
     faCode,

@@ -98,6 +98,19 @@ export default class ETLTaskService {
     });
   }
 
+  debug(task: any, rowLimit: number, targetNodeId?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`${baseApiUrl}/debug`, { task, rowLimit, targetNodeId: targetNodeId || null })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   online(id: number): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios

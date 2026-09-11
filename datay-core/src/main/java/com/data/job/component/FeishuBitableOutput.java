@@ -75,6 +75,11 @@ public class FeishuBitableOutput extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：跳过实际写库
+        if (getContext() != null && getContext().isDebugMode()) {
+            logInfo("调试模式：跳过写入飞书多维表格");
+            return;
+        }
         if (flowFile.getData() == null) {
             return;
         }

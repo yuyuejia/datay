@@ -45,6 +45,11 @@ public class DorisStreamLoad extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：跳过实际写库
+        if (getContext() != null && getContext().isDebugMode()) {
+            logInfo("调试模式：跳过写入 Doris");
+            return;
+        }
         if (flowFile.getData() == null || flowFile.getJsonArray().isEmpty()) {
             return;
         }

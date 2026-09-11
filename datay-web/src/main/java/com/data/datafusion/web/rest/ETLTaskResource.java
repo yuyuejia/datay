@@ -5,6 +5,8 @@ import static com.data.datafusion.job.TaskConstants.TASK_STATUS_OFFLINE;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.JobInstanceService;
+import com.data.datafusion.service.dto.ETLDebugDTO;
+import com.data.datafusion.service.dto.ETLDebugResultDTO;
 import com.data.datafusion.service.dto.ETLTaskDTO;
 import com.data.datafusion.service.dto.JobInstanceDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
@@ -205,6 +207,18 @@ public class ETLTaskResource {
         LOG.debug("REST request to run ETLTask : {}", id);
         eTLTaskService.executeOnce(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * {@code POST  /etl-tasks/debug} : Debug-run the ETLTask graph with limited data and without writing to sinks.
+     *
+     * @param request the debug request containing the task graph, row limit and optional target node.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the sampled data per node.
+     */
+    @PostMapping("/debug")
+    public ResponseEntity<ETLDebugResultDTO> debugETLTask(@RequestBody ETLDebugDTO request) {
+        LOG.debug("REST request to debug ETLTask : {}", request != null && request.getTask() != null ? request.getTask().getId() : null);
+        return ResponseEntity.ok(eTLTaskService.debug(request));
     }
 
     /**

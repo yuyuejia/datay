@@ -37,6 +37,11 @@ public class JdbcOutput extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：跳过实际写库
+        if (getContext() != null && getContext().isDebugMode()) {
+            logInfo("调试模式：跳过写入目标库");
+            return;
+        }
         if (!upstreamFinish) {
             return;
         }

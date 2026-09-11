@@ -42,6 +42,11 @@ public class DuckLakeWrite extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：跳过实际写库
+        if (getContext() != null && getContext().isDebugMode()) {
+            logInfo("调试模式：跳过写入 DuckLake");
+            return;
+        }
         if (flowFile.getData() == null) {
             return;
         }

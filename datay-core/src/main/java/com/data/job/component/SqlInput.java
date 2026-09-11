@@ -147,6 +147,12 @@ public class SqlInput extends FlowComponent {
                         batchRecords.clear();
                         logInfo("已发送 " + batchCount + " 条记录到队列, 表名: " + tableName);
                     }
+
+                    // 调试模式：达到采样行数上限后停止读取
+                    if (getContext() != null && getContext().isDebugMode() && batchCount >= getContext().getDebugRowLimit()) {
+                        logInfo("调试模式：达到采样行数上限 " + getContext().getDebugRowLimit());
+                        break;
+                    }
                 }
 
                 // 发送剩余记录

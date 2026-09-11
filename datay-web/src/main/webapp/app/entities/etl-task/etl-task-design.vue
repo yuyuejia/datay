@@ -44,6 +44,13 @@ const vueFlowInstance = ref(null);
 const nodes = ref([]);
 const edges = ref([]);
 
+const DEBUG_ROW_LIMIT = 100;
+const debugResults = ref({});
+const debugRunning = ref(false);
+const debugError = ref('');
+const debugElapsed = ref(0);
+const activeConfigTab = ref('config');
+
 const route = useRoute();
 const router = useRouter();
 
@@ -214,6 +221,8 @@ onNodeDoubleClick(event => {
   selectedNode.value = event.node;
   editingNodeLabel.value = event.node.data?.label || '';
   currentSavedConfig.value = null;
+  activeConfigTab.value = 'config';
+  debugError.value = '';
   const componentType = event.node.data.type;
   selectedConfigComponent.value = componentConfigMap[componentType];
 
@@ -343,30 +352,101 @@ const saveNodeConfigFromDialog = () => {
 };
 const flow = ref(null);
 
+const buildTaskPayload = () => {
+  const updatedNodes = nodes.value.map(node => ({
+    id: node.data.id ? node.data.id : '',
+    label: node.data.label,
+    code: node.id,
+    type: node.data.type,
+    xAxis: node.position.x,
+    yAxis: node.position.y,
+    config: node.data.config ? JSON.stringify(node.data.config) : '',
+  }));
+
+  const updatedEdges = edges.value.map(edge => ({
+    code: edge.id,
+    source: edge.source,
+    target: edge.target,
+  }));
+
+  return { ...eTLTask.value, nodes: updatedNodes, edges: updatedEdges };
+};
+
+const runDebug = async targetNodeId => {
+  if (debugRunning.value) {
+    return;
+  }
+  debugRunning.value = true;
+  debugError.value = '';
+  try {
+    const payload = buildTaskPayload();
+    const res = await eTLTaskService().debug(payload, DEBUG_ROW_LIMIT, targetNodeId || null);
+    if (res.error) {
+      // 调试失败时保留上一次成功的结果，仅展示错误信息
+      debugError.value = res.error;
+      return;
+    }
+    debugElapsed.value = res.elapsedMs || 0;
+    debugResults.value = res.nodes || {};
+    debugError.value = '';
+  } catch (error) {
+    console.error('调试运行失败', error);
+    debugError.value = error?.response?.data?.message || error?.message || '调试运行失败';
+  } finally {
+    debugRunning.value = false;
+  }
+};
+
+const previewBlocks = computed(() => {
+  if (!selectedNode.value) {
+    return [];
+  }
+  const nodeId = selectedNode.value.id;
+  const blocks = [];
+  const upstreamIds = edges.value.filter(edge => edge.target === nodeId).map(edge => edge.source);
+  for (const upstreamId of upstreamIds) {
+    const node = nodes.value.find(n => n.id === upstreamId);
+    blocks.push({
+      key: `upstream-${upstreamId}`,
+      title: `上游 · ${node?.data?.label || upstreamId}`,
+      result: debugResults.value[upstreamId],
+    });
+  }
+  blocks.push({
+    key: `self-${nodeId}`,
+    title: `本组件输出 · ${selectedNode.value.data?.label || nodeId}`,
+    result: debugResults.value[nodeId],
+  });
+  return blocks;
+});
+
+const hasDebugResults = computed(() => Object.keys(debugResults.value || {}).length > 0);
+
+const hasAttributes = result => !!result && result.attributes && Object.keys(result.attributes).length > 0;
+
+const formatPreviewCell = value => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
 const saveTask = async () => {
   if (!eTLTask.value.taskName || !eTLTask.value.taskName.trim()) {
     alertService.showError('请输入任务名称');
     return;
   }
   try {
-    const updatedNodes = nodes.value.map(node => ({
-      id: node.data.id ? node.data.id : '',
-      label: node.data.label,
-      code: node.id,
-      type: node.data.type,
-      xAxis: node.position.x,
-      yAxis: node.position.y,
-      config: node.data.config ? JSON.stringify(node.data.config) : '',
-    }));
-
-    const updatedEdges = edges.value.map(edge => ({
-      code: edge.id,
-      source: edge.source,
-      target: edge.target,
-    }));
-
-    eTLTask.value.nodes = updatedNodes;
-    eTLTask.value.edges = updatedEdges;
+    const payload = buildTaskPayload();
+    eTLTask.value.nodes = payload.nodes;
+    eTLTask.value.edges = payload.edges;
 
     if (isCreateMode.value) {
       const res = await eTLTaskService().create(eTLTask.value);
@@ -476,14 +556,80 @@ const cancelTask = () => {
           />
         </div>
       </template>
-      <div class="modal-body config-modal-body">
-        <component
-          :is="selectedConfigComponent"
-          :node="selectedNode"
-          @save="handleComponentSave"
-          @cancel="closeConfigModal"
-          ref="configComponentRef"
-        />
+      <div class="config-modal-body">
+        <div class="config-tab-header">
+          <div
+            class="config-tab-item"
+            :class="{ active: activeConfigTab === 'config' }"
+            @click="activeConfigTab = 'config'"
+          >
+            配置
+          </div>
+          <div class="config-tab-item" :class="{ active: activeConfigTab === 'debug' }" @click="activeConfigTab = 'debug'">
+            调试
+          </div>
+        </div>
+        <div v-show="activeConfigTab === 'config'" class="config-tab-panel">
+          <component
+            :is="selectedConfigComponent"
+            :node="selectedNode"
+            @save="handleComponentSave"
+            @cancel="closeConfigModal"
+            ref="configComponentRef"
+          />
+        </div>
+        <div v-show="activeConfigTab === 'debug'" class="config-tab-panel">
+          <div class="debug-tab-toolbar">
+            <div class="debug-tab-hint">默认调试行数为 100 行（不可设置），调试运行时不写入目标库</div>
+            <div class="debug-tab-actions">
+              <el-button size="small" :loading="debugRunning" @click="runDebug(selectedNode && selectedNode.id)">
+                运行到此节点
+              </el-button>
+            </div>
+          </div>
+          <div class="debug-tab-status">
+            <span v-if="debugRunning" class="debug-preview-running">运行中...</span>
+            <span v-else-if="debugElapsed > 0">上次运行耗时 {{ debugElapsed }} ms</span>
+          </div>
+          <el-alert v-if="debugError" :title="debugError" type="error" :closable="false" show-icon class="debug-preview-error" />
+          <div v-if="debugError && hasDebugResults" class="debug-tab-hint">以下为上一次成功调试的数据</div>
+          <div v-for="block in previewBlocks" :key="block.key" class="debug-preview-block">
+            <div class="debug-preview-block-title">
+              <span>{{ block.title }}</span>
+              <span v-if="block.result" class="debug-preview-count">
+                {{ (block.result.rows || []).length }} 行{{ block.result.truncated ? '（已截断）' : '' }}
+              </span>
+            </div>
+            <template v-if="block.result">
+              <div v-if="hasAttributes(block.result)" class="debug-preview-attrs">
+                <div class="debug-preview-section-label">关键属性</div>
+                <div class="debug-preview-attr-list">
+                  <div v-for="(value, key) in block.result.attributes" :key="key" class="debug-preview-attr-item">
+                    <span class="debug-preview-attr-key" :title="key">{{ key }}</span>
+                    <span class="debug-preview-attr-value" :title="value">{{ value }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="debug-preview-section-label">数据</div>
+              <div v-if="block.result.columns && block.result.columns.length" class="debug-preview-table-wrap">
+                <table class="debug-preview-table">
+                  <thead>
+                    <tr>
+                      <th v-for="col in block.result.columns" :key="col">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, ridx) in block.result.rows" :key="ridx">
+                      <td v-for="(cell, cidx) in row" :key="cidx">{{ formatPreviewCell(cell) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="debug-preview-empty">暂无数据</div>
+            </template>
+            <div v-else class="debug-preview-empty">暂无数据，请点击上方按钮运行调试</div>
+          </div>
+        </div>
       </div>
       <template #modal-footer> </template>
     </b-modal>
@@ -781,5 +927,185 @@ const cancelTask = () => {
 .cron-preview-value {
   color: #409eff;
   font-family: Menlo, Monaco, Consolas, monospace;
+}
+
+.debug-tab-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.config-modal-body {
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.config-tab-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  margin-bottom: 12px;
+}
+
+.config-tab-item {
+  padding: 6px 16px;
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.config-tab-item:hover {
+  color: var(--el-color-primary, #409eff);
+}
+
+.config-tab-item.active {
+  color: var(--el-color-primary, #409eff);
+  border-bottom-color: var(--el-color-primary, #409eff);
+  font-weight: 600;
+}
+
+.config-tab-panel {
+  padding-top: 4px;
+}
+
+.debug-tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.debug-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.debug-tab-status {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  margin-bottom: 10px;
+}
+
+.debug-preview-running {
+  color: var(--el-color-primary, #409eff);
+}
+
+.debug-preview-error {
+  margin-bottom: 10px;
+}
+
+.debug-preview-error :deep(.el-alert__title) {
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.debug-preview-block {
+  margin-bottom: 12px;
+}
+
+.debug-preview-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular, #606266);
+  margin-bottom: 4px;
+}
+
+.debug-preview-count {
+  font-weight: normal;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.debug-preview-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary, #909399);
+  margin: 6px 0 4px;
+}
+
+.debug-preview-attr-list {
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.debug-preview-attr-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.debug-preview-attr-key {
+  flex-shrink: 0;
+  width: 140px;
+  color: var(--el-color-primary, #409eff);
+  word-break: break-all;
+}
+
+.debug-preview-attr-value {
+  flex: 1;
+  color: var(--el-text-color-regular, #606266);
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.debug-preview-table-wrap {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 4px;
+}
+
+.debug-preview-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.debug-preview-table th,
+.debug-preview-table td {
+  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  padding: 4px 8px;
+  text-align: left;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.debug-preview-table th {
+  position: sticky;
+  top: 0;
+  background-color: #f5f7fa;
+  color: var(--el-text-color-primary, #303133);
+  z-index: 1;
+}
+
+.debug-preview-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  background-color: #fafafa;
+  border-radius: 4px;
 }
 </style>

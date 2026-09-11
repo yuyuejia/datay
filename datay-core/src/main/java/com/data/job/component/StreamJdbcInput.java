@@ -192,6 +192,12 @@ public class StreamJdbcInput extends FlowComponent {
                         batchRecords.clear();
                         logInfo("已发送 " + batchCount + " 条记录到队列, table: " + srcTable.getTable());
                     }
+
+                    // 调试模式：达到采样行数上限后停止读取
+                    if (getContext() != null && getContext().isDebugMode() && batchCount >= getContext().getDebugRowLimit()) {
+                        logInfo("调试模式：表 " + srcTable.getTable() + " 达到采样行数上限 " + getContext().getDebugRowLimit());
+                        break;
+                    }
                 }
 
                 // 发送剩余记录,如果记录为 0 条,也发送一个空数据事件

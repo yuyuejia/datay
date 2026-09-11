@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.concurrent.Executors;
 
 /**
@@ -49,6 +50,12 @@ public class HttpListener extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        // 调试模式：不启动 HTTP 服务，根据组件能力生成一条模拟请求数据后结束
+        if (getContext() != null && getContext().isDebugMode()) {
+            executeDebugMock();
+            return;
+        }
+
         logInfo("HttpListener组件开始执行，监听地址: " + host + ":" + port + path);
 
         try {
@@ -71,6 +78,32 @@ public class HttpListener extends FlowComponent {
             // 停止HTTP服务器
             stopHttpServer();
         }
+    }
+
+    /**
+     * 调试模式：生成一条模拟 HTTP 请求 FlowFile 并结束。
+     */
+    private void executeDebugMock() {
+        JSONObject row = new JSONObject();
+        row.put("id", 1);
+        row.put("name", "debug");
+        row.put("event_time", new Timestamp(System.currentTimeMillis()));
+
+        JSONArray jsonArray = new JSONArray();
+        jsonArray.add(row);
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(jsonArray);
+        flowFile.setAttribute("_source", "HttpListener");
+        flowFile.setAttribute("_method", "POST");
+        flowFile.setAttribute("_path", path);
+        flowFile.setAttribute("_timestamp", System.currentTimeMillis());
+        flowFile.setAttribute("_clientAddress", "127.0.0.1");
+        flowFile.setAttribute("_contentType", "application/json");
+        flowFile.setAttribute("_dataFormat", "JSON_ARRAY");
+        flowFile.setAttribute("_debugMock", true);
+        writeRecords(flowFile);
+        logInfo("调试模式：根据组件能力生成模拟 HTTP 请求数据，path: " + path);
     }
 
     /**

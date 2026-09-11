@@ -3,6 +3,7 @@ package com.data.job.component;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.expression.ParameterUtil;
+import com.data.job.DebugLimitReachedException;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 
@@ -59,6 +60,9 @@ public class GenerateFlowFile extends FlowComponent {
                 // 单次输出模式
                 executeSingleOutput();
             }
+        } catch (DebugLimitReachedException e) {
+            // 调试采样上限，交由框架正常结束
+            throw e;
         } catch (Exception e) {
             logInfo("生成FlowFile时发生错误: " + e.getMessage());
             throw new RuntimeException("生成FlowFile失败", e);
@@ -108,6 +112,9 @@ public class GenerateFlowFile extends FlowComponent {
                         Thread.currentThread().interrupt(); // 恢复中断状态
                     }
                 }
+            } catch (DebugLimitReachedException e) {
+                // 调试采样上限，向上抛出以结束组件
+                throw e;
             } catch (Exception e) {
                 logInfo("第 " + i + " 次输出FlowFile时发生错误: " + e.getMessage());
                 // 检查是否是中断异常
