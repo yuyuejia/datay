@@ -140,9 +140,8 @@ for (const [path, module] of Object.entries(configModules)) {
   componentConfigMap[filename.replace(/Config$/, '')] = module.default;
 }
 
-componentConfigMap.StreamJdbcInput = componentConfigMap.InputNode;
-componentConfigMap.StreamJdbcOutput = componentConfigMap.OutputNode;
-componentConfigMap.StreamSqlUnit = componentConfigMap.SqlUnit;
+// SqlUnit 组件复用 StreamSqlUnit 的配置界面
+componentConfigMap.SqlUnit = componentConfigMap.StreamSqlUnit;
 
 const retrieveETLTask = async eTLTaskId => {
   try {
