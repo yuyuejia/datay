@@ -103,7 +103,7 @@ java -jar target/*.jar
 
 - **输入组件**: `StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`
 - **处理组件**: `DuckDBSql`、`StreamSqlUnit`、`JavaScriptComponent`
-- **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
+- **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**: `GenerateFlowFile`、`LogFlowFile`
 
 ### 任务类型

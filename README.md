@@ -159,6 +159,7 @@ java -jar target/*.jar    # http://localhost:8080
 - [DuckDBWrite](datay-core/docs/component/DuckDBWrite.md) : DuckDB写入
 - [DuckLakeWrite](datay-core/docs/component/DuckLakeWrite.md) : DuckLake写入
 - [DorisStreamLoad](datay-core/docs/component/DorisStreamLoad.md) : Doris流式加载
+- ModelWrite : DataY Web 模型写入组件，选择数据模型后翻译生成 StreamJdbcOutput 任务定义
 
 ### 其他组件
 - [HttpListener](datay-core/docs/component/HttpListener.md) : HTTP监听器，接受HTTP请求并触发数据处理任务

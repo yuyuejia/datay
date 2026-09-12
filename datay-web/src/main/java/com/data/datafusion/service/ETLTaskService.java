@@ -15,6 +15,9 @@ import com.data.datafusion.repository.ETLNodeRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.security.SecurityUtils;
 import com.data.datafusion.service.dto.*;
+import com.data.datafusion.service.etl.ETLNodeTranslationContext;
+import com.data.datafusion.service.etl.ETLNodeTranslator;
+import com.data.datafusion.service.etl.ETLNodeTranslatorRegistry;
 import com.data.datafusion.service.mapper.ETLEdgeMapper;
 import com.data.datafusion.service.mapper.ETLNodeMapper;
 import com.data.datafusion.service.mapper.ETLTaskMapper;
@@ -68,6 +71,8 @@ public class ETLTaskService {
 
     private final DataSourceService dataSourceService;
 
+    private final ETLNodeTranslatorRegistry etlNodeTranslatorRegistry;
+
     public ETLTaskService(
         ETLTaskRepository eTLTaskRepository,
         ETLNodeRepository eTLNodeRepository,
@@ -76,7 +81,8 @@ public class ETLTaskService {
         ETLNodeMapper eTLNodeMapper,
         ETLEdgeMapper etlEdgeMapper,
         JobService jobService,
-        DataSourceService dataSourceService
+        DataSourceService dataSourceService,
+        ETLNodeTranslatorRegistry etlNodeTranslatorRegistry
     ) {
         this.eTLTaskRepository = eTLTaskRepository;
         this.eTLNodeRepository = eTLNodeRepository;
@@ -86,6 +92,7 @@ public class ETLTaskService {
         this.etlEdgeMapper = etlEdgeMapper;
         this.jobService = jobService;
         this.dataSourceService = dataSourceService;
+        this.etlNodeTranslatorRegistry = etlNodeTranslatorRegistry;
     }
 
     /**
@@ -173,6 +180,13 @@ public class ETLTaskService {
             unit.put(".id", etlNode.getCode());
             unit.put(".name", etlNode.getType());
             JSONObject config = JSONUtil.parseObj(etlNode.getConfig());
+            ETLNodeTranslator translator = etlNodeTranslatorRegistry.get(etlNode.getType());
+            if (translator != null) {
+                // 设计器组件 -> 引擎组件：由注册的翻译器展开为后端可执行的任务定义
+                translator.translate(new ETLNodeTranslationContext(etlNode, config, unit));
+                units.add(unit);
+                continue;
+            }
             for (String key : config.keySet()) {
                 unit.put(key, config.get(key));
                 if (key.equals("sourceId")) {

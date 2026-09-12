@@ -26,3 +26,4 @@ id;name;code;jhi_desc;jhi_group;type;config;status;update_time;create_time;creat
 25;Kafka消费;KafkaConsumer;KafkaConsumer;实时输入;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
 26;飞书多维表格;FeishuBitableInput;FeishuBitableInput;数据输入;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
 27;飞书多维表格写入;FeishuBitableOutput;FeishuBitableOutput;数据输出;0;;0;2024-12-12T22:14:24;2024-12-12T19:05:10;admin;0;0
+28;模型写入;ModelWrite;选择数据模型，按模型绑定的数据源与表写入目标表;数据输出;0;;0;2026-09-10T00:00:00;2026-09-10T00:00:00;admin;0;0
