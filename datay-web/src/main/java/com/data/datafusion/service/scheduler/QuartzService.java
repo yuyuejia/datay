@@ -1,5 +1,6 @@
 package com.data.datafusion.service.scheduler;
 
+import com.data.datafusion.config.DeploymentProperties;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.cluster.ElectionListener;
@@ -270,7 +271,18 @@ public class QuartzService implements ElectionListener {
         initJobScheduler();
     }
 
+    /**
+     * 当前进程是否具备调度能力（master 职责）。worker 独立部署时不初始化调度器。
+     */
+    public boolean isSchedulerEnabled() {
+        return DeploymentProperties.get().isSchedulerEnabled();
+    }
+
     public void initJobScheduler() {
+        if (!isSchedulerEnabled()) {
+            log.info("当前部署模式为 worker，跳过 Quartz 调度初始化");
+            return;
+        }
         List<com.data.datafusion.domain.Job> jobs = jobRepository.findByStatus(TaskConstants.TASK_STATUS_ONLINE); //TODO 大批量任务时，初始化任务需要优化
         log.info("Init Job Schedule, job size:" + jobs.size());
         for (com.data.datafusion.domain.Job job : jobs) {

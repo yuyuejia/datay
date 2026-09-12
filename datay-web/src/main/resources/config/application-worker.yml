@@ -1,0 +1,21 @@
+# ===================================================================
+# DataY Web 调度 worker 独立部署 profile
+#
+# 用法：--spring.profiles.active=prod,worker
+#
+# worker 节点职责：
+#   - 从 Redis 队列消费 master 分发的待执行任务并执行
+#   - 上报任务执行状态与日志，供 master 落库与前端查看
+# worker 节点不参与调度、不初始化 Quartz，可水平扩展提升执行吞吐
+#
+# 说明：worker 复用同一套 Web 应用，保留任务停止、日志查询等接口，
+# 便于按节点定位并停止运行中的任务；如不需要可自行关闭对外的 HTTP 端口。
+# ===================================================================
+
+development:
+  mode: worker
+
+logging:
+  level:
+    com.data.datafusion.service.scheduler: WARN
+    com.data.datafusion.service.jobevent: INFO

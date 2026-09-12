@@ -1,0 +1,60 @@
+# 调度 master / worker 分离部署示例
+#
+# 适用场景：
+#   - master 独立部署（仅调度，可多副本，由 Leader 选举保证调度唯一性）
+#   - worker 独立部署（仅执行，可水平扩展提升吞吐）
+#   - 也可按需改为 master + worker 合并部署（development.mode=cluster）
+#
+# 使用：docker compose -f scheduler-cluster.yml up -d
+#       docker compose -f scheduler-cluster.yml up -d --scale worker=3   # worker 横向扩展
+# 注意：本文件为部署参考示例，镜像、资源与数据库连接请按实际环境调整
+name: datafusion-scheduler
+
+x-app-common: &app-common
+  image: datafusion:latest
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-db-env: &db-env
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/datafusion?useUnicode=true&characterEncoding=utf8&useSSL=false&useLegacyDatetimeCode=false&createDatabaseIfNotExist=true
+  SPRING_LIQUIBASE_URL: jdbc:mysql://mysql:3306/datafusion?useUnicode=true&characterEncoding=utf8&useSSL=false&useLegacyDatetimeCode=false&createDatabaseIfNotExist=true
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: '6379'
+
+services:
+  # master 独立部署：仅调度，不执行任务；多副本时由 Leader 选举产生唯一调度节点
+  master:
+    <<: *app-common
+    environment:
+      _JAVA_OPTIONS: -Xmx1024m -Xms512m
+      SPRING_PROFILES_ACTIVE: prod,master
+      <<: *db-env
+    ports:
+      - 127.0.0.1:8080:8080
+
+  # worker 独立部署：仅执行，不参与调度
+  worker:
+    <<: *app-common
+    environment:
+      _JAVA_OPTIONS: -Xmx2048m -Xms1024m
+      SPRING_PROFILES_ACTIVE: prod,worker
+      <<: *db-env
+    ports:
+      - 127.0.0.1:8081:8080
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql:
+    extends:
+      file: ./mysql.yml
+      service: mysql

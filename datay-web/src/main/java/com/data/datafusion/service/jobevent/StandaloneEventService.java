@@ -1,5 +1,6 @@
 package com.data.datafusion.service.jobevent;
 
+import com.data.datafusion.config.DeploymentProperties;
 import com.data.datafusion.domain.Job;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,10 +43,18 @@ public class StandaloneEventService implements IEventService {
         jobStatusQueue = new LinkedBlockingQueue<>(10000);
         addJobQueue = new LinkedBlockingQueue<>(10000);
         deleteJobQueue = new LinkedBlockingQueue<>(10000);
-        startJobEventExecutor.execute(new StartJobEventHandler());
-        jobStatusEventExecutor.execute(new JobStatusEventHandler());
-        addJobEventExecutor.execute(new AddJobEventHandler());
-        deleteJobEventExecutor.execute(new DeleteJobEventHandler());
+
+        DeploymentProperties deployment = DeploymentProperties.get();
+
+        // standalone 模式下 master 与 worker 在同一进程，两类事件都需要消费
+        if (deployment.isWorkerEnabled()) {
+            startJobEventExecutor.execute(new StartJobEventHandler());
+        }
+        if (deployment.isSchedulerEnabled()) {
+            jobStatusEventExecutor.execute(new JobStatusEventHandler());
+            addJobEventExecutor.execute(new AddJobEventHandler());
+            deleteJobEventExecutor.execute(new DeleteJobEventHandler());
+        }
     }
 
     public void pushStartJobEvent(JobStatusEvent startJobEvent) {
