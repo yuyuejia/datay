@@ -53,6 +53,12 @@ import { faUserPlus } from '@fortawesome/free-solid-svg-icons/faUserPlus';
 import { faUsers } from '@fortawesome/free-solid-svg-icons/faUsers';
 import { faUsersCog } from '@fortawesome/free-solid-svg-icons/faUsersCog';
 import { faWrench } from '@fortawesome/free-solid-svg-icons/faWrench';
+import { faRobot } from '@fortawesome/free-solid-svg-icons/faRobot';
+import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons/faWandMagicSparkles';
+import { faArrowRightToBracket } from '@fortawesome/free-solid-svg-icons/faArrowRightToBracket';
+import { faCheckCircle } from '@fortawesome/free-solid-svg-icons/faCheckCircle';
+import { faCircleNotch } from '@fortawesome/free-solid-svg-icons/faCircleNotch';
+import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy';
 
 export function initFortAwesome(vue) {
   vue.component('font-awesome-icon', FontAwesomeIcon);
@@ -110,5 +116,11 @@ export function initFortAwesome(vue) {
     faUsers,
     faUsersCog,
     faWrench,
+    faRobot,
+    faWandMagicSparkles,
+    faArrowRightToBracket,
+    faCheckCircle,
+    faCircleNotch,
+    faCopy,
   );
 }

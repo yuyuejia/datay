@@ -11,10 +11,12 @@ import { sql, MySQL, PostgreSQL, StandardSQL } from '@codemirror/lang-sql';
 import { autocompletion, completionKeymap, startCompletion } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { format } from 'sql-formatter';
+import DataQueryAi from './data-query-ai.vue';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'DataQuery',
+  components: { DataQueryAi },
   setup() {
     const route = useRoute();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
@@ -25,6 +27,7 @@ export default defineComponent({
     const dataSourceName = ref('');
     const dataSourceType = ref('');
     const isExecuting = ref(false);
+    const aiDrawerVisible = ref(false);
 
     const treeRef = ref();
     const treeData = ref<any[]>([]);
@@ -374,6 +377,21 @@ export default defineComponent({
       return `${(ms / 1000).toFixed(2)}s`;
     };
 
+    /**
+     * 接收 AI 助手生成的 SQL，写入编辑器并聚焦。
+     */
+    const applyAiSql = (sql: string) => {
+      if (!sql) return;
+      if (editorView) {
+        editorView.dispatch({
+          changes: { from: 0, to: editorView.state.doc.length, insert: sql },
+        });
+        editorView.focus();
+      } else {
+        sqlCode.value = sql;
+      }
+    };
+
     onMounted(async () => {
       try {
         const ds = await dataSourceService().find(dataSourceId.value);
@@ -409,6 +427,8 @@ export default defineComponent({
       executionTime,
       affectedRows,
       isExecuting,
+      aiDrawerVisible,
+      applyAiSql,
       startResize,
       handleNodeDblClick,
       loadTables,
