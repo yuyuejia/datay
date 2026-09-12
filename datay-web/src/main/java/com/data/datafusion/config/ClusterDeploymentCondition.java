@@ -1,12 +1,14 @@
 package com.data.datafusion.config;
 
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 
 /**
- * 条件匹配：集群类部署模式（master / worker / cluster）。
+ * 条件匹配：集群类部署角色（master / worker，可同时具备）。
  *
- * <p>standalone 为单机部署，不注册 Redis 与 Leader 选举相关 Bean，避免引入 Redis 强依赖。</p>
+ * <p>多角色用逗号分隔配置，如 {@code development.mode=master,worker}，
+ * 因此用 {@link ConditionalOnExpression} 判断角色集合中是否包含 master 或 worker。
+ * standalone 为单机部署，不注册 Redis 与 Leader 选举相关 Bean，避免引入 Redis 强依赖。</p>
  */
 public class ClusterDeploymentCondition extends AnyNestedCondition {
 
@@ -14,12 +16,9 @@ public class ClusterDeploymentCondition extends AnyNestedCondition {
         super(ConfigurationPhase.REGISTER_BEAN);
     }
 
-    @ConditionalOnProperty(name = DeploymentProperties.MODE_KEY, havingValue = DeploymentProperties.MODE_MASTER)
-    static class MasterMode {}
+    @ConditionalOnExpression("'${development.mode:standalone}'.contains('master')")
+    static class MasterRole {}
 
-    @ConditionalOnProperty(name = DeploymentProperties.MODE_KEY, havingValue = DeploymentProperties.MODE_WORKER)
-    static class WorkerMode {}
-
-    @ConditionalOnProperty(name = DeploymentProperties.MODE_KEY, havingValue = DeploymentProperties.MODE_CLUSTER)
-    static class ClusterMode {}
+    @ConditionalOnExpression("'${development.mode:standalone}'.contains('worker')")
+    static class WorkerRole {}
 }

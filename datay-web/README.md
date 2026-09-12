@@ -126,14 +126,14 @@ java -jar target/*.jar
 
 ### 调度部署模式
 
-调度系统由 **master（调度）** 与 **worker（执行）** 两类角色组成，通过 `development.mode` 配置项控制当前进程承担的角色：
+调度系统由 **master（调度）** 与 **worker（执行）** 两类角色组成，通过 `development.mode` 配置项声明当前进程承担的角色，多角色用逗号分隔：
 
-| 模式 | 说明 | 调度能力 | 执行能力 | 依赖 Redis |
+| 配置 | 说明 | 调度能力 | 执行能力 | 依赖 Redis |
 | --- | --- | --- | --- | --- |
 | `standalone` | 单机部署，调度与执行合一（默认） | 有 | 有 | 否 |
 | `master` | master 独立部署，只负责调度，不执行任务 | 有 | 无 | 是 |
 | `worker` | worker 独立部署，只负责执行任务，不参与调度 | 无 | 有 | 是 |
-| `cluster` | master 与 worker 合并部署（集群能力单进程） | 有 | 有 | 是 |
+| `master,worker` | 同一个服务同时具备调度与执行能力 | 有 | 有 | 是 |
 
 角色职责划分：
 
@@ -153,11 +153,11 @@ java -jar target/*.jar --spring.profiles.active=prod,master
 # worker 独立部署（仅执行，可水平扩展提升吞吐）
 java -jar target/*.jar --spring.profiles.active=prod,worker
 
-# master + worker 合并部署（集群能力，单进程同时具备调度与执行）
-java -jar target/*.jar --spring.profiles.active=prod,cluster
+# 同一个服务同时具备 master 与 worker 职能
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=master,worker
 ```
 
-集群模式（`master` / `worker` / `cluster`）需要配置 Redis：
+非单机角色（`master` / `worker` / `master,worker`）需要配置 Redis：
 
 ```yaml
 spring:
@@ -170,7 +170,7 @@ spring:
 ```
 
 也可以通过环境变量配置：`SPRING_DATA_REDIS_HOST` / `SPRING_DATA_REDIS_PORT` / `SPRING_DATA_REDIS_PASSWORD`，
-以及部署模式 `DEVELOPMENT_MODE`。
+以及部署角色 `DEVELOPMENT_MODE`（如 `DEVELOPMENT_MODE=master,worker`）。
 
 master / worker 分离部署的容器编排参考示例见 [`src/main/docker/scheduler-cluster.yml`](src/main/docker/scheduler-cluster.yml)：
 

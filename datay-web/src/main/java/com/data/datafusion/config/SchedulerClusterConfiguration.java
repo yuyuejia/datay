@@ -14,9 +14,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
 /**
- * 调度集群配置：为 master / worker / cluster 部署模式提供 Leader 选举与 Redis 客户端。
+ * 调度集群配置：为 master / worker 部署角色提供 Leader 选举与 Redis 客户端。
  *
- * <p>standalone 模式不注册这些 Bean（通过 {@code development.mode} 条件控制），避免对 Redis 的强依赖。</p>
+ * <p>standalone 角色不注册这些 Bean（通过 {@code development.mode} 条件控制），避免对 Redis 的强依赖。</p>
  *
  * <p>Leader 选举用于保证多 master 场景下只有一个 master 初始化 Quartz 调度并处理调度事件；
  * worker 节点同样参与选举（仅 master 角色会使用选举结果）。</p>

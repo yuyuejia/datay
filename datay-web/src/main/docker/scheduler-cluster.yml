@@ -3,7 +3,7 @@
 # 适用场景：
 #   - master 独立部署（仅调度，可多副本，由 Leader 选举保证调度唯一性）
 #   - worker 独立部署（仅执行，可水平扩展提升吞吐）
-#   - 也可按需改为 master + worker 合并部署（development.mode=cluster）
+#   - 也可按需改为 master + worker 合并部署（development.mode=master,worker）
 #
 # 使用：docker compose -f scheduler-cluster.yml up -d
 #       docker compose -f scheduler-cluster.yml up -d --scale worker=3   # worker 横向扩展
@@ -30,7 +30,8 @@ services:
     <<: *app-common
     environment:
       _JAVA_OPTIONS: -Xmx1024m -Xms512m
-      SPRING_PROFILES_ACTIVE: prod,master
+      SPRING_PROFILES_ACTIVE: prod
+      DEVELOPMENT_MODE: master
       <<: *db-env
     ports:
       - 127.0.0.1:8080:8080
@@ -40,7 +41,8 @@ services:
     <<: *app-common
     environment:
       _JAVA_OPTIONS: -Xmx2048m -Xms1024m
-      SPRING_PROFILES_ACTIVE: prod,worker
+      SPRING_PROFILES_ACTIVE: prod
+      DEVELOPMENT_MODE: worker
       <<: *db-env
     ports:
       - 127.0.0.1:8081:8080

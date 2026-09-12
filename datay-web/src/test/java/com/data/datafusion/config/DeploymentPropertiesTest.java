@@ -38,6 +38,7 @@ class DeploymentPropertiesTest {
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isFalse();
         assertThat(properties.isClusterMode()).isTrue();
+        assertThat(properties.hasRole(DeploymentProperties.MODE_MASTER)).isTrue();
     }
 
     @Test
@@ -49,11 +50,44 @@ class DeploymentPropertiesTest {
     }
 
     @Test
-    void clusterHasBothCapabilities() {
-        DeploymentProperties properties = of(DeploymentProperties.MODE_CLUSTER);
+    void masterAndWorkerInOneServiceHasBothCapabilities() {
+        DeploymentProperties properties = of("master,worker");
+        assertThat(properties.getMode()).isEqualTo("master,worker");
+        assertThat(properties.getRoles()).containsExactlyInAnyOrder(DeploymentProperties.MODE_MASTER, DeploymentProperties.MODE_WORKER);
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isTrue();
         assertThat(properties.isClusterMode()).isTrue();
+    }
+
+    @Test
+    void rolesSupportAlternativeSeparatorsAndOrder() {
+        assertThat(of(" worker  master ").getMode()).isEqualTo("worker,master");
+        assertThat(of("master;worker").getMode()).isEqualTo("master,worker");
+        assertThat(of("MASTER,Worker").getMode()).isEqualTo("master,worker");
+    }
+
+    @Test
+    void duplicatedRolesAreDeduplicated() {
+        assertThat(of("master,worker,master").getMode()).isEqualTo("master,worker");
+    }
+
+    @Test
+    void standaloneMixedWithRolesKeepsOnlyTheExplicitRole() {
+        DeploymentProperties worker = of("standalone,worker");
+        assertThat(worker.getMode()).isEqualTo("worker");
+        assertThat(worker.isSchedulerEnabled()).isFalse();
+        assertThat(worker.isWorkerEnabled()).isTrue();
+
+        DeploymentProperties master = of("master,standalone");
+        assertThat(master.getMode()).isEqualTo("master");
+        assertThat(master.isSchedulerEnabled()).isTrue();
+        assertThat(master.isWorkerEnabled()).isFalse();
+    }
+
+    @Test
+    void unknownModeFallsBackToStandalone() {
+        assertThat(of("cluster").getMode()).isEqualTo(DeploymentProperties.MODE_STANDALONE);
+        assertThat(of("unknown").getMode()).isEqualTo(DeploymentProperties.MODE_STANDALONE);
     }
 
     @Test

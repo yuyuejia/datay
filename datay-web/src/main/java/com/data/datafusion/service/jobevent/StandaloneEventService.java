@@ -46,7 +46,7 @@ public class StandaloneEventService implements IEventService {
 
         DeploymentProperties deployment = DeploymentProperties.get();
 
-        // standalone 模式下 master 与 worker 在同一进程，两类事件都需要消费
+        // standalone 单机部署，调度与执行同进程，两类事件都需要消费
         if (deployment.isWorkerEnabled()) {
             startJobEventExecutor.execute(new StartJobEventHandler());
         }

@@ -80,7 +80,7 @@ public class RedisEventService implements IEventService, ElectionListener {
     public void init() {
         if (redissonClient == null) {
             throw new IllegalStateException(
-                "集群模式(master/worker/cluster)需要 Redis(RedissonClient)，请检查 redisson 配置或改用 development.mode=standalone"
+                "集群角色(master/worker)需要 Redis(RedissonClient)，请检查 redisson 配置或改用 development.mode=standalone"
             );
         }
         startJobQueue = redissonClient.getBoundedBlockingQueue("startJobQueue");

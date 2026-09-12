@@ -5,11 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 事件服务工厂：根据部署模式({@code development.mode})返回对应的事件服务实现。
+ * 事件服务工厂：根据部署角色({@code development.mode})返回对应的事件服务实现。
  *
  * <ul>
  *     <li>{@code standalone}：{@link StandaloneEventService}，单机内存队列</li>
- *     <li>{@code master} / {@code worker} / {@code cluster}：{@link RedisEventService}，基于 Redis 队列分发</li>
+ *     <li>{@code master} / {@code worker} / {@code master,worker}：{@link RedisEventService}，基于 Redis 队列分发</li>
  * </ul>
  */
 public class EventServiceFactory {
