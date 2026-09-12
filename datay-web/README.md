@@ -106,42 +106,6 @@ java -jar target/*.jar
 - **输出组件**: `StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**: `GenerateFlowFile`、`LogFlowFile`
 
-#### 模型写入组件（ModelWrite）
-
-「模型写入」是 DataY Web 提供的**设计器输出组件**，用于把数据流写入数据模型所绑定的物理表：
-
-- 配置界面只需选择一个「数据模型」，目标数据源、Schema、目标表均取自模型绑定信息，无需重复选择
-- 保存任务时，后端将 `ModelWrite` 节点翻译为 DataY Core 的 `StreamJdbcOutput` 任务定义（`sourceId`、`schema`、`table`、`model` 等）
-- 模型需先在「数据模型」页面完成物化（绑定数据源、Schema 与物理表），否则保存任务时会给出明确提示
-- 支持配置写入策略（`overwrite`/`append`/`update`/`auto`）、更新字段与批处理数
-
-生成的 Job 定义示例（`ModelWrite` → `StreamJdbcOutput`）：
-
-```json
-{
-  ".id": "MODEL_OUT_01",
-  ".name": "StreamJdbcOutput",
-  "sourceId": {
-    "url": "jdbc:mysql://127.0.0.1:3306",
-    "driver": "com.mysql.cj.jdbc.Driver",
-    "username": "root",
-    "password": "password",
-    "dbschema": "dwd"
-  },
-  "schema": "dwd",
-  "table": "dim_customer",
-  "model": "overwrite"
-}
-```
-
-#### 组件翻译扩展机制
-
-「模型写入」基于可扩展的组件翻译机制实现：`ETLNodeTranslator`（SPI）+ `ETLNodeTranslatorRegistry`（注册表）。
-
-- 设计器组件与执行引擎组件解耦：新增翻译只需实现 `ETLNodeTranslator`（声明 `supportedType()` 并注册为 Spring Bean），无需修改 `ETLTaskService` 主流程
-- 未注册翻译器的组件走默认透传逻辑，行为与之前一致
-- 已内置 `ModelWriteNodeTranslator` 作为示例实现
-
 ### 任务类型
 
 | 类型 | 说明 |
