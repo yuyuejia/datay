@@ -222,9 +222,9 @@ jhipster:
 datay:
   ai:
     enabled: true
-    base-url: ${DATAY_AI_BASE_URL:https://api.openai.com/v1}
+    base-url: ${DATAY_AI_BASE_URL:https://api.deepseek.com}
     api-key: ${DATAY_AI_API_KEY:}
-    model: ${DATAY_AI_MODEL:gpt-4o-mini}
+    model: ${DATAY_AI_MODEL:deepseek-flash}
     temperature: 0.2
     timeout-seconds: 120
     # Agent 循环最大轮次：模型「思考-调用工具-再思考」的上限，达到后强制输出最终 SQL

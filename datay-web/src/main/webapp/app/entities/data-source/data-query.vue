@@ -66,10 +66,6 @@
                 <font-awesome-icon icon="indent" />
                 <span>格式化</span>
               </el-button>
-              <el-button size="small" text @click="aiDrawerVisible = true" class="ai-toolbar-btn" title="AI 助手生成 SQL">
-                <font-awesome-icon icon="wand-magic-sparkles" />
-                <span>AI 助手</span>
-              </el-button>
             </div>
             <span class="shortcut-hint" :class="{ 'has-selection': hasSelection }">
               {{ hasSelection ? '已选中，执行选中部分' : 'Ctrl+Space 提示 · Ctrl+Enter 执行 · Ctrl+Shift+F 格式化' }}

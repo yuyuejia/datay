@@ -1,4 +1,4 @@
-import { defineComponent, inject, ref, nextTick, onMounted, watch } from "vue";
+import { defineComponent, inject, ref, nextTick, onMounted, onBeforeUnmount, watch } from "vue";
 import { useAlertService } from "@/shared/alert/alert.service";
 import type {
   AiSqlStatus,
@@ -29,10 +29,11 @@ export default defineComponent({
   compatConfig: { MODE: 3 },
   name: "DataQueryAi",
   props: {
-    modelValue: { type: Boolean, default: false },
+    modelValue: { type: Boolean, default: undefined },
+    value: { type: Boolean, default: undefined }, // Vue 2 compat: v-model → value
     dataSourceId: { type: Number, default: undefined },
   },
-  emits: ["update:modelValue", "apply-sql"],
+  emits: ["update:modelValue", "input", "apply-sql"],
   setup(props, { emit }) {
     const alertService = inject("alertService", () => useAlertService(), true);
     const aiService = inject(
@@ -172,6 +173,20 @@ export default defineComponent({
       }
     };
 
+    /** 关闭抽屉 */
+    const close = () => {
+      visible.value = false;
+      emit("update:modelValue", false);
+      emit("input", false); // Vue 2 compat
+    };
+
+    /** ESC 键关闭 */
+    const onEscKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && visible.value) {
+        close();
+      }
+    };
+
     const applySample = (sample: string) => {
       input.value = sample;
     };
@@ -192,18 +207,29 @@ export default defineComponent({
       alertService.showSuccess("SQL 已应用到编辑器");
     };
 
-    onMounted(loadStatus);
+    onMounted(() => {
+      loadStatus();
+      document.addEventListener("keydown", onEscKeydown);
+    });
 
-    // 双向同步抽屉开合状态：内部关闭时通知父组件
+    onBeforeUnmount(() => {
+      document.removeEventListener("keydown", onEscKeydown);
+    });
+
+    // 双向同步：父组件改变 modelValue/value 时同步到本地 visible
     watch(
-      () => props.modelValue,
+      () => props.modelValue ?? props.value,
       (val) => {
-        if (val !== visible.value) {
+        if (val !== undefined && val !== visible.value) {
           visible.value = val;
         }
       },
     );
-    watch(visible, (val) => emit("update:modelValue", val));
+    // 本地 visible 变化时通知父组件
+    watch(visible, (val) => {
+      emit("update:modelValue", val);
+      emit("input", val); // Vue 2 compat
+    });
 
     return {
       visible,
@@ -216,6 +242,7 @@ export default defineComponent({
       samples,
       send,
       onKeydown,
+      close,
       applySample,
       copySql,
       applySql,
