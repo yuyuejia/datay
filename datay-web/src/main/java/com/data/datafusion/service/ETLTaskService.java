@@ -52,18 +52,6 @@ public class ETLTaskService {
     // 调试运行的整体超时时间（秒）
     private static final long DEBUG_TIMEOUT_SECONDS = 60;
 
-    /**
-     * 模型写入组件标识。
-     * <p>该组件仅用于 ETL 设计器：配置界面选择数据模型，任务定义阶段基于模型绑定的
-     * 数据源与表信息，转换为后端 {@code StreamJdbcOutput} 组件。
-     */
-    private static final String MODEL_WRITE_COMPONENT = "ModelWrite";
-
-    /**
-     * 模型写入组件转换后使用的后端组件名。
-     */
-    private static final String STREAM_JDBC_OUTPUT_COMPONENT = "StreamJdbcOutput";
-
     private final ETLTaskRepository eTLTaskRepository;
 
     private final ETLNodeRepository eTLNodeRepository;
@@ -80,8 +68,6 @@ public class ETLTaskService {
 
     private final DataSourceService dataSourceService;
 
-    private final DataModelService dataModelService;
-
     public ETLTaskService(
         ETLTaskRepository eTLTaskRepository,
         ETLNodeRepository eTLNodeRepository,
@@ -90,8 +76,7 @@ public class ETLTaskService {
         ETLNodeMapper eTLNodeMapper,
         ETLEdgeMapper etlEdgeMapper,
         JobService jobService,
-        DataSourceService dataSourceService,
-        DataModelService dataModelService
+        DataSourceService dataSourceService
     ) {
         this.eTLTaskRepository = eTLTaskRepository;
         this.eTLNodeRepository = eTLNodeRepository;
@@ -101,7 +86,6 @@ public class ETLTaskService {
         this.etlEdgeMapper = etlEdgeMapper;
         this.jobService = jobService;
         this.dataSourceService = dataSourceService;
-        this.dataModelService = dataModelService;
     }
 
     /**
@@ -189,12 +173,6 @@ public class ETLTaskService {
             unit.put(".id", etlNode.getCode());
             unit.put(".name", etlNode.getType());
             JSONObject config = JSONUtil.parseObj(etlNode.getConfig());
-            if (MODEL_WRITE_COMPONENT.equals(etlNode.getType())) {
-                // 模型写入组件：基于模型绑定的数据源和表信息，转换为 StreamJdbcOutput 任务定义
-                appendModelWriteUnit(unit, config);
-                units.add(unit);
-                continue;
-            }
             for (String key : config.keySet()) {
                 unit.put(key, config.get(key));
                 if (key.equals("sourceId")) {
@@ -228,61 +206,6 @@ public class ETLTaskService {
         etlJobJson.put("version", "1.0.0");
 
         return JSONUtil.toJsonStr(etlJobJson);
-    }
-
-    /**
-     * 将「模型写入」组件的配置转换为 {@code StreamJdbcOutput} 任务定义。
-     * <p>转换规则：
-     * <ul>
-     *     <li>从数据模型读取其绑定的数据源（dataSourceId）、schema（schemaName）、物理表（tableName）；</li>
-     *     <li>生成 {@code sourceId} 数据源连接信息、{@code schema}、{@code table} 等 StreamJdbcOutput 参数；</li>
-     *     <li>写入策略、更新字段、批处理数等参数沿用组件配置。</li>
-     * </ul>
-     *
-     * @param unit   待填充的任务单元定义
-     * @param config 模型写入组件的配置
-     */
-    private void appendModelWriteUnit(Map<String, Object> unit, JSONObject config) {
-        Object modelIdValue = config.get("modelId");
-        if (modelIdValue == null || modelIdValue.toString().trim().isEmpty()) {
-            throw new IllegalArgumentException("模型写入组件未选择数据模型");
-        }
-        DataModelDTO dataModel;
-        try {
-            dataModel = dataModelService.findOne(Long.valueOf(modelIdValue.toString().trim())).orElse(null);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("数据模型ID不合法: " + modelIdValue);
-        }
-        if (dataModel == null) {
-            throw new IllegalArgumentException("数据模型不存在: " + modelIdValue);
-        }
-        if (dataModel.getDataSourceId() == null) {
-            throw new IllegalArgumentException("数据模型未绑定数据源: " + dataModel.getName());
-        }
-        DataSourceDTO source = dataSourceService
-            .findOne(dataModel.getDataSourceId())
-            .orElseThrow(() -> new IllegalArgumentException("数据模型绑定的数据源不存在: " + dataModel.getDataSourceId()));
-
-        // 使用后端 StreamJdbcOutput 组件承载实际写入
-        unit.put(".name", STREAM_JDBC_OUTPUT_COMPONENT);
-
-        Map<String, Object> sourceId = new LinkedHashMap<>();
-        sourceId.put("url", source.getUrl());
-        sourceId.put("driver", DBUtils.getDriverClassName(source.getUrl()));
-        sourceId.put("username", source.getUsername());
-        sourceId.put("password", source.getPassword());
-        sourceId.put("dbschema", dataModel.getSchemaName() == null ? "" : dataModel.getSchemaName());
-        unit.put("sourceId", sourceId);
-
-        unit.put("schema", dataModel.getSchemaName() == null ? "" : dataModel.getSchemaName());
-        unit.put("table", dataModel.getTableName() == null ? "" : dataModel.getTableName());
-        unit.put("model", config.getStr("model", "append"));
-        if (config.get("updateColumn") != null) {
-            unit.put("updateColumn", config.get("updateColumn"));
-        }
-        if (config.get("maxRows") != null) {
-            unit.put("maxRows", config.get("maxRows"));
-        }
     }
 
     /**
