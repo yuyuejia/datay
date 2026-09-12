@@ -14,6 +14,12 @@
           <span>耗时: {{ formatTime(executionTime) }}</span>
           <span v-if="affectedRows !== null"> | 行数: {{ affectedRows }}</span>
         </span>
+        <el-tooltip content="AI 助手：用自然语言生成 SQL" placement="bottom">
+          <el-button @click="aiDrawerVisible = true" class="ai-entry-btn">
+            <font-awesome-icon icon="wand-magic-sparkles" class="mr-1" />
+            <span>AI 助手</span>
+          </el-button>
+        </el-tooltip>
         <el-button type="primary" :loading="isExecuting" @click="executeQuery">
           <font-awesome-icon icon="play" class="mr-1" />
           <span>执行</span>
@@ -111,6 +117,12 @@
         </div>
       </div>
     </div>
+
+    <data-query-ai
+      v-model="aiDrawerVisible"
+      :data-source-id="dataSourceId"
+      @apply-sql="applyAiSql"
+    />
   </div>
 </template>
 
@@ -372,5 +384,13 @@
 
 .mr-1 {
   margin-right: 4px;
+}
+
+.ai-entry-btn {
+  color: var(--el-color-primary, #409eff);
+}
+
+.ai-toolbar-btn {
+  color: var(--el-color-primary, #409eff);
 }
 </style>

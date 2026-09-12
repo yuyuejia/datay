@@ -214,6 +214,26 @@ jhipster:
   security:
     content-security-policy: "default-src 'self'; frame-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://storage.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
 
+# ===================================================================
+# AI 助手配置
+# 兼容 OpenAI Chat Completions 协议，OpenAI / DeepSeek / 通义千问 / Ollama 均可对接。
+# 也可通过环境变量覆盖：DATAY_AI_BASE_URL / DATAY_AI_API_KEY / DATAY_AI_MODEL
+# ===================================================================
+datay:
+  ai:
+    enabled: true
+    base-url: ${DATAY_AI_BASE_URL:https://api.deepseek.com}
+    api-key: ${DATAY_AI_API_KEY:}
+    model: ${DATAY_AI_MODEL:deepseek-flash}
+    temperature: 0.2
+    timeout-seconds: 120
+    # Agent 循环最大轮次：模型「思考-调用工具-再思考」的上限，达到后强制输出最终 SQL
+    max-tool-rounds: 6
+    # 单轮允许的最大工具调用次数，防止模型滥用工具
+    max-tool-calls-per-round: 8
+    # 是否允许调用具备副作用的写工具，默认关闭，保证 SQL 助手只读安全
+    allow-mutating-tools: false
+
 # jhipster-needle-add-application-yaml-document
 ---
 # ===================================================================
