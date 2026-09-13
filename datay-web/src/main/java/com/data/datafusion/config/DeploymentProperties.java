@@ -196,7 +196,7 @@ public class DeploymentProperties {
      * 表示「本机既是单机节点、又额外承担 worker 职能」）依然需要 Redis。
      * 只有纯 {@code standalone} 才走单机内存队列。
      */
-    public boolean isClusterEventChannel() {
+    public boolean isClusterMode() {
         return hasRole(MODE_MASTER) || hasRole(MODE_WORKER);
     }
 
