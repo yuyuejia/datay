@@ -22,7 +22,7 @@ public class EventServiceFactory {
 
     public static IEventService getEventService() {
         DeploymentProperties deployment = DeploymentProperties.get();
-        if (deployment.isClusterMode()) {
+        if (deployment.isClusterEventChannel()) {
             return RedisEventService.getInstance();
         }
         return StandaloneEventService.getInstance();

@@ -126,7 +126,7 @@ java -jar target/*.jar
 
 ### 调度部署模式
 
-调度系统由 **master（调度）** 与 **worker（执行）** 两类角色组成，通过 `development.mode` 配置项声明当前进程承担的角色，多角色用逗号分隔：
+调度系统由 **master（调度）** 与 **worker（执行）** 两类角色组成，通过 `development.mode` 配置项声明当前进程承担的角色：
 
 | 配置 | 说明 | 调度能力 | 执行能力 | 依赖 Redis |
 | --- | --- | --- | --- | --- |
@@ -134,6 +134,11 @@ java -jar target/*.jar
 | `master` | master 独立部署，只负责调度，不执行任务 | 有 | 无 | 是 |
 | `worker` | worker 独立部署，只负责执行任务，不参与调度 | 无 | 有 | 是 |
 | `master,worker` | 同一个服务同时具备调度与执行能力 | 有 | 有 | 是 |
+| `standalone,worker` | 按单机配置运行，同时额外承担 worker 职能 | 有 | 有 | 是 |
+
+`standalone` 表达的是「单机部署」这一形态，可以和 master / worker 角色组合书写；
+只写 `standalone` 时进程内事件不走 Redis，一旦带上 `master` / `worker` 就改用 Redis 事件通道。
+多个角色用逗号分隔，分隔符同时支持分号与空格，大小写不敏感。
 
 角色职责划分：
 
@@ -141,23 +146,23 @@ java -jar target/*.jar
 - **worker**：从 Redis 队列消费待执行任务并执行，上报执行状态与日志，不初始化 Quartz 调度
 - 多 master 部署时通过 Redis 分布式锁进行 Leader 选举，只有 Leader 负责调度，保证调度一致性
 
-启动方式：
+启动方式：部署角色统一由 `development.mode` 表达，**不需要额外的 Spring profile**：
 
 ```bash
 # 单机部署（默认，无需 Redis）
-java -jar target/*.jar --spring.profiles.active=prod,standalone
+java -jar target/*.jar --spring.profiles.active=prod
 
 # master 独立部署（仅调度，可多副本由 Leader 选举保证唯一性）
-java -jar target/*.jar --spring.profiles.active=prod,master
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=master
 
 # worker 独立部署（仅执行，可水平扩展提升吞吐）
-java -jar target/*.jar --spring.profiles.active=prod,worker
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=worker
 
 # 同一个服务同时具备 master 与 worker 职能
 java -jar target/*.jar --spring.profiles.active=prod --development.mode=master,worker
 ```
 
-非单机角色（`master` / `worker` / `master,worker`）需要配置 Redis：
+带 `master` / `worker` 角色的部署需要配置 Redis：
 
 ```yaml
 spring:

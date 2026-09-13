@@ -27,12 +27,16 @@ import org.springframework.stereotype.Component;
  * </ul>
  *
  * <p>同一个服务同时具备 master 与 worker 职能时，把角色用逗号（或空格）一起写上即可，
- * 例如 {@code development.mode=master,worker}，等价于按 master、worker 两个角色同时启动，
- * 不再单独提供合并部署的 {@code cluster} 模式。</p>
+ * 例如 {@code development.mode=master,worker}，等价于按 master、worker 两个角色同时启动。</p>
  *
- * <p>{@code standalone} 为单机专用角色，不能与 master / worker 混用；
- * master 与 worker 分离部署时依赖 Redis 进行事件分发与 Leader 选举，
- * 即除 {@code standalone} 外的角色组合均使用集群事件通道。</p>
+ * <p>{@code standalone} 表达的是「单机部署」这一形态，可与 master / worker 角色组合：
+ * 只写 {@code standalone} 表示单机部署（调度 + 执行，内存队列，不依赖 Redis）；
+ * 写 {@code standalone,worker} 表示本机既按单机配置运行、又额外承担 worker 职能；
+ * 写 {@code master} / {@code worker} / {@code master,worker} 表示多机部署，
+ * 需要 Redis 进行事件分发，多 master 时还需要 Leader 选举。</p>
+ *
+ * <p>角色相关配置（Redis 连接、Leader 锁名称等）直接作为普通配置项声明，
+ * 不再依赖 {@code application-master.yml} / {@code application-worker.yml} 之类的角色 profile。</p>
  */
 @Component
 @ConfigurationProperties(prefix = "development")
@@ -54,7 +58,8 @@ public class DeploymentProperties {
     private static final String ROLE_SEPARATOR = "[,;\\s]+";
 
     /**
-     * 部署角色，默认 standalone；多角色用逗号分隔，如 {@code master,worker}
+     * 部署角色，默认 standalone；多角色用逗号或空格分隔，如 {@code master,worker}
+     * 或 {@code standalone,worker}。
      */
     private String mode = MODE_STANDALONE;
 
@@ -109,20 +114,14 @@ public class DeploymentProperties {
      */
     private void normalize() {
         Set<String> declared = split(this.mode);
-        Set<String> knownRoles = declared.stream()
-            .filter(role -> MODE_MASTER.equals(role) || MODE_WORKER.equals(role))
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<String> parsed;
-        if (declared.contains(MODE_STANDALONE) && !knownRoles.isEmpty()) {
-            log.warn(
-                "######################## development.mode={} 混合了 standalone 与 master/worker，已忽略 standalone、按声明的角色处理",
-                mode
-            );
-            parsed = knownRoles;
-        } else if (declared.contains(MODE_STANDALONE) || knownRoles.isEmpty()) {
+        Set<String> parsed = declared.isEmpty()
+            ? defaultRoles()
+            : declared.stream()
+                .filter(role -> MODE_STANDALONE.equals(role) || MODE_MASTER.equals(role) || MODE_WORKER.equals(role))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (parsed.isEmpty()) {
+            log.warn("######################## development.mode={} 未识别到有效角色，按 standalone 处理", mode);
             parsed = defaultRoles();
-        } else {
-            parsed = knownRoles;
         }
         this.roles = parsed;
         this.mode = String.join(",", parsed);
@@ -192,16 +191,16 @@ public class DeploymentProperties {
     }
 
     /**
-     * 是否使用集群事件通道（Redis）。standalone 为单机内存队列，其余角色均需要 Redis。
+     * 是否使用集群事件通道（Redis）：进程内只要承担了 master 或 worker 角色就需要 Redis 分发事件，
+     * 即使同时写上了 {@code standalone}（例如 {@code development.mode=standalone,worker}
+     * 表示「本机既是单机节点、又额外承担 worker 职能」）依然需要 Redis。
+     * 只有纯 {@code standalone} 才走单机内存队列。
      */
-    public boolean isClusterMode() {
-        return !hasRole(MODE_STANDALONE);
+    public boolean isClusterEventChannel() {
+        return hasRole(MODE_MASTER) || hasRole(MODE_WORKER);
     }
 
     public String describe() {
-        if (hasRole(MODE_STANDALONE)) {
-            return "standalone 单机部署（调度 + 执行）";
-        }
         Set<String> capabilities = new TreeSet<>();
         if (isSchedulerEnabled()) {
             capabilities.add("调度");
@@ -209,6 +208,7 @@ public class DeploymentProperties {
         if (isWorkerEnabled()) {
             capabilities.add("执行");
         }
-        return String.join(" + ", capabilities) + " 部署";
+        String capability = String.join(" + ", capabilities) + " 部署";
+        return hasRole(MODE_STANDALONE) ? "standalone 单机部署（" + capability + "）" : capability;
     }
 }

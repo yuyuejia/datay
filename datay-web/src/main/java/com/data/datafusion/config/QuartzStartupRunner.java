@@ -44,7 +44,7 @@ public class QuartzStartupRunner implements CommandLineRunner {
             return;
         }
 
-        if (deployment.isClusterMode()) {
+        if (deployment.isClusterEventChannel()) {
             // 集群角色下由 Leader(master) 负责初始化调度，选举成功后经 ElectionListener 回调初始化
             LeaderElection leaderElection = leaderElectionProvider == null ? null : leaderElectionProvider.getIfAvailable();
             if (leaderElection != null) {

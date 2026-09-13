@@ -10,7 +10,7 @@ package com.data.datafusion;
  *
  * <pre>
  * # worker 独立部署（仅执行，可水平扩展）
- * java -cp datay-web.jar com.data.datafusion.WorkerApp --spring.profiles.active=prod,worker
+ * java -cp datay-web.jar com.data.datafusion.WorkerApp --spring.profiles.active=prod
  * </pre>
  */
 public final class WorkerApp {

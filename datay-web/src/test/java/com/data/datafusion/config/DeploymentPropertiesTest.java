@@ -9,9 +9,14 @@ import org.junit.jupiter.api.Test;
  */
 class DeploymentPropertiesTest {
 
+    /**
+     * 按配置值构造部署配置：mode 为 null 时不调用 setter，走字段默认值 standalone。
+     */
     private DeploymentProperties of(String mode) {
         DeploymentProperties properties = new DeploymentProperties();
-        properties.setMode(mode);
+        if (mode != null) {
+            properties.setMode(mode);
+        }
         return properties;
     }
 
@@ -21,7 +26,7 @@ class DeploymentPropertiesTest {
         assertThat(properties.getMode()).isEqualTo(DeploymentProperties.MODE_STANDALONE);
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isTrue();
-        assertThat(properties.isClusterMode()).isFalse();
+        assertThat(properties.isClusterEventChannel()).isFalse();
     }
 
     @Test
@@ -29,7 +34,7 @@ class DeploymentPropertiesTest {
         DeploymentProperties properties = of(DeploymentProperties.MODE_STANDALONE);
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isTrue();
-        assertThat(properties.isClusterMode()).isFalse();
+        assertThat(properties.isClusterEventChannel()).isFalse();
     }
 
     @Test
@@ -37,7 +42,7 @@ class DeploymentPropertiesTest {
         DeploymentProperties properties = of(DeploymentProperties.MODE_MASTER);
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isFalse();
-        assertThat(properties.isClusterMode()).isTrue();
+        assertThat(properties.isClusterEventChannel()).isTrue();
         assertThat(properties.hasRole(DeploymentProperties.MODE_MASTER)).isTrue();
     }
 
@@ -46,7 +51,7 @@ class DeploymentPropertiesTest {
         DeploymentProperties properties = of(DeploymentProperties.MODE_WORKER);
         assertThat(properties.isSchedulerEnabled()).isFalse();
         assertThat(properties.isWorkerEnabled()).isTrue();
-        assertThat(properties.isClusterMode()).isTrue();
+        assertThat(properties.isClusterEventChannel()).isTrue();
     }
 
     @Test
@@ -56,7 +61,7 @@ class DeploymentPropertiesTest {
         assertThat(properties.getRoles()).containsExactlyInAnyOrder(DeploymentProperties.MODE_MASTER, DeploymentProperties.MODE_WORKER);
         assertThat(properties.isSchedulerEnabled()).isTrue();
         assertThat(properties.isWorkerEnabled()).isTrue();
-        assertThat(properties.isClusterMode()).isTrue();
+        assertThat(properties.isClusterEventChannel()).isTrue();
     }
 
     @Test
@@ -72,16 +77,21 @@ class DeploymentPropertiesTest {
     }
 
     @Test
-    void standaloneMixedWithRolesKeepsOnlyTheExplicitRole() {
+    void standaloneMixedWithRolesKeepsAllDeclaredCapabilities() {
+        // standalone 是部署形态，worker 是额外承担的职能，两种能力都要保留
         DeploymentProperties worker = of("standalone,worker");
-        assertThat(worker.getMode()).isEqualTo("worker");
-        assertThat(worker.isSchedulerEnabled()).isFalse();
+        assertThat(worker.getMode()).isEqualTo("standalone,worker");
+        assertThat(worker.getRoles()).containsExactlyInAnyOrder(DeploymentProperties.MODE_STANDALONE, DeploymentProperties.MODE_WORKER);
+        assertThat(worker.isSchedulerEnabled()).isTrue();
         assertThat(worker.isWorkerEnabled()).isTrue();
+        // 额外承担 worker 职能后进程内不再只有本机事件，需要走 Redis 事件通道
+        assertThat(worker.isClusterEventChannel()).isTrue();
 
         DeploymentProperties master = of("master,standalone");
-        assertThat(master.getMode()).isEqualTo("master");
+        assertThat(master.getMode()).isEqualTo("master,standalone");
         assertThat(master.isSchedulerEnabled()).isTrue();
-        assertThat(master.isWorkerEnabled()).isFalse();
+        assertThat(master.isWorkerEnabled()).isTrue();
+        assertThat(master.isClusterEventChannel()).isTrue();
     }
 
     @Test
