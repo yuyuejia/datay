@@ -19,7 +19,7 @@ DataY Web 是基于 [DataY Core](../datay-core/README.md) 数据集成引擎构�
 - **数据同步**: 可视化选择同步表，自动完成目标表建表(DDL 转换)，支持全量/增量同步
 - **任务实例监控**: 实例状态、执行节点、开始/结束时间、执行消息全流程跟踪，支持运行中任务终止
 - **多数据源管理**: 统一管理数据源连接，支持连接测试与 schema/table/column 元数据浏览
-- **集群模式**: 支持 Standalone / Cluster 两种部署模式，Cluster 模式基于 Redis 队列进行分布式任务分发与 Leader 选举
+- **调度解耦部署**: 调度 master 与执行 worker 可独立部署，也可合并部署，基于 Redis 队列进行分布式任务分发与 Leader 选举
 - **AI SQL 助手**: 在数据查询页用自然语言生成 SQL，支持工具注册（function calling）与 Agent 循环，自动查询库表元数据并校验 SQL
 
 ## 系统架构
@@ -123,7 +123,68 @@ java -jar target/*.jar
 - **Cron 定时调度**: 基于 Quartz，任务上线后自动注册调度，支持动态上下线
 - **依赖调度**: 通过任务依赖(JobDepend)配置父子关系，父任务成功后触发子任务；依赖未满足时实例进入 WAITING 状态，由 WaitingJobQuartzTask 定时轮询恢复
 - **手动触发**: 支持任务立即执行一次（RUN）
-- **集群模式**: 设置 `development.mode=cluster` 开启，基于 Redis 队列进行任务事件分发，配合 Leader 选举保证调度一致性
+
+### 调度部署模式
+
+调度系统由 **master（调度）** 与 **worker（执行）** 两类角色组成，通过 `development.mode` 配置项声明当前进程承担的角色：
+
+| 配置 | 说明 | 调度能力 | 执行能力 | 依赖 Redis |
+| --- | --- | --- | --- | --- |
+| `standalone` | 单机部署，调度与执行合一（默认） | 有 | 有 | 否 |
+| `master` | master 独立部署，只负责调度，不执行任务 | 有 | 无 | 是 |
+| `worker` | worker 独立部署，只负责执行任务，不参与调度 | 无 | 有 | 是 |
+| `master,worker` | 同一个服务同时具备调度与执行能力 | 有 | 有 | 是 |
+| `standalone,worker` | 按单机配置运行，同时额外承担 worker 职能 | 有 | 有 | 是 |
+
+`standalone` 表达的是「单机部署」这一形态，可以和 master / worker 角色组合书写；
+只写 `standalone` 时进程内事件不走 Redis，一旦带上 `master` / `worker` 就改用 Redis 事件通道。
+多个角色用逗号分隔，分隔符同时支持分号与空格，大小写不敏感。
+
+角色职责划分：
+
+- **master**：初始化 Quartz 调度、维护任务上线/下线、接收 worker 上报的任务状态并落库，通过 Redis 队列下发待执行任务
+- **worker**：从 Redis 队列消费待执行任务并执行，上报执行状态与日志，不初始化 Quartz 调度
+- 多 master 部署时通过 Redis 分布式锁进行 Leader 选举，只有 Leader 负责调度，保证调度一致性
+
+启动方式：部署角色统一由 `development.mode` 表达，**不需要额外的 Spring profile**：
+
+```bash
+# 单机部署（默认，无需 Redis）
+java -jar target/*.jar --spring.profiles.active=prod
+
+# master 独立部署（仅调度，可多副本由 Leader 选举保证唯一性）
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=master
+
+# worker 独立部署（仅执行，可水平扩展提升吞吐）
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=worker
+
+# 同一个服务同时具备 master 与 worker 职能
+java -jar target/*.jar --spring.profiles.active=prod --development.mode=master,worker
+```
+
+带 `master` / `worker` 角色的部署需要配置 Redis：
+
+```yaml
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: ''
+      database: 0
+```
+
+也可以通过环境变量配置：`SPRING_DATA_REDIS_HOST` / `SPRING_DATA_REDIS_PORT` / `SPRING_DATA_REDIS_PASSWORD`，
+以及部署角色 `DEVELOPMENT_MODE`（如 `DEVELOPMENT_MODE=master,worker`）。
+
+master / worker 分离部署的容器编排参考示例见 [`src/main/docker/scheduler-cluster.yml`](src/main/docker/scheduler-cluster.yml)：
+
+```bash
+# 启动 master 与 worker
+docker compose -f src/main/docker/scheduler-cluster.yml up -d
+# worker 横向扩展
+docker compose -f src/main/docker/scheduler-cluster.yml up -d --scale worker=3
+```
 
 ## AI SQL 助手
 
