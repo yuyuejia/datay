@@ -25,10 +25,6 @@ public class TaskManagementService {
      * @return 是否成功停止
      */
     public boolean stopTask(String instanceCode) {
-        if (!DeploymentProperties.get().isWorkerEnabled()) {
-            log.warn("当前节点为 master 独立部署节点，不持有任务实例，无法停止任务: {}", instanceCode);
-            return false;
-        }
         return StartJobEventHandler.stopTask(instanceCode);
     }
 
