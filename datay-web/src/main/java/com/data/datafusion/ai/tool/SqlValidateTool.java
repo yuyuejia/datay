@@ -1,9 +1,11 @@
 package com.data.datafusion.ai.tool;
 
+import com.data.datafusion.ai.AiSqlMode;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.util.DBUtils;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,10 +39,11 @@ public class SqlValidateTool implements AiTool {
     @Override
     public String description() {
         return """
-            校验一段 SQL 是否可被当前数据源正确解析执行。
-            工具会以「不返回真实数据」的预检方式运行该 SQL，成功返回 valid=true，
-            失败返回 valid=false 及数据库报错信息。请在给出最终 SQL 前调用本工具自检，
-            若校验失败请依据报错修改后重试。
+            校验一段 SQL 是否可被当前数据源正确解析。工具不会执行任何写操作：
+            - SELECT 查询以「不返回真实数据」的方式预检语法与字段引用；
+            - 建表、写入等 DDL/DML 语句仅提交数据库驱动做解析校验，不会真正执行。
+            成功返回 valid=true，失败返回 valid=false 及数据库报错信息。
+            请在给出最终 SQL 前调用本工具自检，若校验失败请依据报错修改后重试。
             """;
     }
 
@@ -51,7 +54,7 @@ public class SqlValidateTool implements AiTool {
         Map<String, Object> props = new LinkedHashMap<>();
         Map<String, Object> sql = new LinkedHashMap<>();
         sql.put("type", "string");
-        sql.put("description", "待校验的 SQL 语句，必须是单条 SELECT 查询");
+        sql.put("description", "待校验的 SQL 语句");
         props.put("sql", sql);
         schema.put("properties", props);
         schema.put("required", List.of("sql"));
@@ -75,11 +78,15 @@ public class SqlValidateTool implements AiTool {
             return result;
         }
 
-        String probe = buildProbe(sql);
         try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-            dataSourceQueryService.executeQuery(dataSource, probe);
-            result.put("valid", true);
-            result.put("message", "SQL 语法与字段校验通过");
+            if (context.getMode().isTask() && !isReadOnlySql(sql)) {
+                validateByParse(connection, sql, result);
+            } else {
+                String probe = buildProbe(sql);
+                dataSourceQueryService.executeQuery(dataSource, probe);
+                result.put("valid", true);
+                result.put("message", "SQL 语法与字段校验通过");
+            }
         } catch (SQLException | IllegalArgumentException e) {
             LOG.debug("AI tool validate_sql rejected SQL: {}", e.getMessage());
             result.put("valid", false);
@@ -89,14 +96,39 @@ public class SqlValidateTool implements AiTool {
     }
 
     /**
-     * 将用户 SQL 包装为「零成本预检」：外层套 LIMIT 0，只走解析与类型推导，不实际拉取数据。
-     * 对已带 LIMIT 的语句，直接使用原语句即可。
+     * DDL/DML 的解析校验：借助 JDBC PreparedStatement 让数据库驱动解析语句结构，
+     * 但绝不调用 execute，因此不会产生任何真实的数据变更。
      */
-    private String buildProbe(String sql) {
+    private void validateByParse(Connection connection, String sql, Map<String, Object> result) {
+        String target = stripTrailingSemicolon(sql);
+        // 仅创建 PreparedStatement 触发数据库驱动的语法解析，不调用 execute，避免真实写操作
+        try (PreparedStatement ignored = connection.prepareStatement(target)) {
+            result.put("valid", true);
+            result.put("message", "语句已通过数据库解析校验（未执行）");
+        } catch (SQLException e) {
+            result.put("valid", false);
+            result.put("error", e.getMessage());
+        }
+    }
+
+    private static boolean isReadOnlySql(String sql) {
+        String normalized = sql.trim().toUpperCase();
+        return normalized.startsWith("SELECT") || normalized.startsWith("WITH");
+    }
+
+    private static String stripTrailingSemicolon(String sql) {
         String trimmed = sql.trim();
         while (trimmed.endsWith(";")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
         }
-        return "SELECT * FROM (" + trimmed + ") datay_ai_probe LIMIT 0";
+        return trimmed;
+    }
+
+    /**
+     * 将用户 SQL 包装为「零成本预检」：外层套 LIMIT 0，只走解析与类型推导，不实际拉取数据。
+     * 对已带 LIMIT 的语句，直接使用原语句即可。
+     */
+    private String buildProbe(String sql) {
+        return "SELECT * FROM (" + stripTrailingSemicolon(sql) + ") datay_ai_probe LIMIT 0";
     }
 }

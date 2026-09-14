@@ -12,7 +12,7 @@
       <div class="ai-drawer-header">
         <div class="ai-drawer-header-left">
           <font-awesome-icon icon="robot" class="ai-icon" />
-          <span class="ai-title">AI SQL 助手</span>
+          <span class="ai-title">{{ assistantTitle }}</span>
           <span
             v-if="status.available"
             class="ai-badge ai-badge-success"
@@ -57,7 +57,7 @@
           <!-- 空状态 -->
           <div v-if="messages.length === 0" class="ai-empty">
             <font-awesome-icon icon="wand-magic-sparkles" class="empty-icon" />
-            <p>用一句话描述你想查什么，我来生成 SQL</p>
+            <p>{{ emptyHint }}</p>
             <div class="ai-samples">
               <button
                 v-for="sample in samples"
@@ -172,7 +172,7 @@
           v-model="input"
           class="ai-textarea"
           :rows="2"
-          placeholder="描述你的数据需求，Enter 发送，Shift+Enter 换行"
+          :placeholder="inputPlaceholder"
           :disabled="generating || !status.available"
           @keydown="onKeydown"
         ></textarea>

@@ -13,6 +13,9 @@ public class AiSqlRequest {
     /** 当前会话绑定的数据源 ID，可选。 */
     private Long dataSourceId;
 
+    /** 生成场景模式：query（只读查询，默认）或 task（SQL 任务，允许 DDL/DML）。 */
+    private String mode;
+
     /** 历史对话，按 [{role, content}] 传递，role 仅支持 user/assistant。 */
     private List<HistoryMessage> history;
 
@@ -52,6 +55,14 @@ public class AiSqlRequest {
 
     public void setDataSourceId(Long dataSourceId) {
         this.dataSourceId = dataSourceId;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode = mode;
     }
 
     public List<HistoryMessage> getHistory() {

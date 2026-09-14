@@ -1,5 +1,6 @@
 package com.data.datafusion.ai.tool;
 
+import com.data.datafusion.ai.AiSqlMode;
 import com.data.datafusion.ai.llm.ToolDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,11 +70,15 @@ public class AiToolRegistry {
      * 构建可直接注入 LLM 请求的工具定义。
      *
      * @param allowMutating 为 false 时只暴露只读工具，防止模型触发写操作
+     * @param mode 生成模式，工具可据此决定是否在本次会话中暴露
      */
-    public List<ToolDefinition> definitions(boolean allowMutating) {
+    public List<ToolDefinition> definitions(boolean allowMutating, AiSqlMode mode) {
         List<ToolDefinition> definitions = new ArrayList<>();
         for (AiTool tool : tools.values()) {
             if (tool.mutating() && !allowMutating) {
+                continue;
+            }
+            if (!tool.supports(mode)) {
                 continue;
             }
             definitions.add(new ToolDefinition(tool.name(), tool.description(), tool.parametersSchema()));

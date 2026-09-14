@@ -1,9 +1,19 @@
-import { defineComponent, inject, ref, nextTick, onMounted, onBeforeUnmount, watch } from "vue";
+import {
+  defineComponent,
+  inject,
+  ref,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  watch,
+  computed,
+} from "vue";
 import { useAlertService } from "@/shared/alert/alert.service";
 import type {
   AiSqlStatus,
   AiToolInfo,
   AiToolTrace,
+  AiSqlMode,
 } from "./data-query-ai.service";
 import DataQueryAiService from "./data-query-ai.service";
 
@@ -18,11 +28,18 @@ interface AiChatMessage {
   meta?: { rounds?: number; toolCalls?: number; tokens?: number };
 }
 
-const SAMPLES = [
+const QUERY_SAMPLES = [
   "查询最近 7 天每天的订单总金额",
   "统计每个用户的下单次数，按次数倒序取前 20",
   "找出从未下过单的用户",
   "按月统计销售额环比增长",
+];
+
+const TASK_SAMPLES = [
+  "创建一张用户表，包含 id、姓名、邮箱、创建时间字段",
+  "把 orders 表中金额大于 1000 的订单同步到 vip_orders 表",
+  "给 users 表新增一个 last_login_time 字段",
+  "清空临时表 tmp_log 并重新初始化统计数据",
 ];
 
 export default defineComponent({
@@ -32,6 +49,7 @@ export default defineComponent({
     modelValue: { type: Boolean, default: undefined },
     value: { type: Boolean, default: undefined }, // Vue 2 compat: v-model → value
     dataSourceId: { type: Number, default: undefined },
+    mode: { type: String as () => AiSqlMode, default: "query" },
   },
   emits: ["update:modelValue", "input", "apply-sql"],
   setup(props, { emit }) {
@@ -41,6 +59,24 @@ export default defineComponent({
       () => new DataQueryAiService(),
     );
 
+    const isTaskMode = computed(() => props.mode === "task");
+    const assistantTitle = computed(() =>
+      isTaskMode.value ? "AI SQL 任务助手" : "AI SQL 助手",
+    );
+    const emptyHint = computed(() =>
+      isTaskMode.value
+        ? "用一句话描述你的 SQL 任务（建表、写入、查询等），我来生成脚本"
+        : "用一句话描述你想查什么，我来生成 SQL",
+    );
+    const inputPlaceholder = computed(() =>
+      isTaskMode.value
+        ? "描述你的 SQL 任务，Enter 发送，Shift+Enter 换行"
+        : "描述你的数据需求，Enter 发送，Shift+Enter 换行",
+    );
+    const samples = computed(() =>
+      isTaskMode.value ? TASK_SAMPLES : QUERY_SAMPLES,
+    );
+
     const visible = ref(false);
     const input = ref("");
     const generating = ref(false);
@@ -48,13 +84,12 @@ export default defineComponent({
     const messageListRef = ref<HTMLElement | null>(null);
     const status = ref<AiSqlStatus>({ available: false });
     const tools = ref<AiToolInfo[]>([]);
-    const samples = SAMPLES;
 
     const loadStatus = async () => {
       try {
         status.value = await aiService().getStatus();
         if (status.value.available) {
-          tools.value = await aiService().listTools();
+          tools.value = await aiService().listTools(props.mode);
         }
       } catch {
         status.value = { available: false, message: "无法获取 AI 助手状态" };
@@ -112,6 +147,7 @@ export default defineComponent({
           text,
           props.dataSourceId,
           history,
+          props.mode,
         );
         placeholder.loading = false;
         placeholder.content = result.explanation || "";
@@ -240,6 +276,10 @@ export default defineComponent({
       status,
       tools,
       samples,
+      isTaskMode,
+      assistantTitle,
+      emptyHint,
+      inputPlaceholder,
       send,
       onKeydown,
       close,

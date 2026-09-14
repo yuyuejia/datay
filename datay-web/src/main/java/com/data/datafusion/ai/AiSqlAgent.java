@@ -36,12 +36,20 @@ public class AiSqlAgent {
 
     private static final Logger LOG = LoggerFactory.getLogger(AiSqlAgent.class);
 
-    /** 收敛阶段提示词：工具已关闭，必须给出最终答案。 */
-    private static final String FINALIZE_INSTRUCTION = """
+    /** 查询模式收敛提示词：工具已关闭，必须给出最终答案。 */
+    private static final String QUERY_FINALIZE_INSTRUCTION = """
         你已获得足够信息，请立即给出最终 SQL 答案。不要再请求任何工具调用。
         输出格式要求：
         1. 先用 ```sql 代码块给出**完整可执行**的 SQL（仅限单条 SELECT，禁止 DDL/DML）；
         2. 代码块之后用简体中文简要说明查询逻辑与涉及的表。
+        """;
+
+    /** 任务模式收敛提示词：工具已关闭，必须给出最终答案。 */
+    private static final String TASK_FINALIZE_INSTRUCTION = """
+        你已获得足够信息，请立即给出最终 SQL。不要再请求任何工具调用。
+        输出格式要求：
+        1. 用 ```sql 代码块给出**完整可执行**的 SQL（DDL/DML/SELECT 均可，如有多条请按执行顺序全部列出）；
+        2. 代码块之后用简体中文简要说明每条语句的用途。
         """;
 
     private final AiToolRegistry toolRegistry;
@@ -60,24 +68,26 @@ public class AiSqlAgent {
      * @param userMessage 用户的自然语言需求
      * @param dataSource 当前绑定的数据源，可能为空（此时模型只能做理论推理）
      * @param history 历史对话（不含本轮 user 消息），可为空
+     * @param mode 生成模式：查询模式只读，任务模式允许 DDL/DML
      * @return 包含最终 SQL、说明与 loop 轨迹的结果
      */
-    public AiSqlResult generate(String userMessage, DataSourceDTO dataSource, List<ChatMessage> history) {
+    public AiSqlResult generate(String userMessage, DataSourceDTO dataSource, List<ChatMessage> history, AiSqlMode mode) {
         if (!properties.isConfigured()) {
             throw new IllegalStateException("AI 助手未配置，请先设置 datay.ai.api-key");
         }
+        AiSqlMode effectiveMode = mode == null ? AiSqlMode.QUERY : mode;
 
         Long dataSourceId = dataSource == null ? null : dataSource.getId();
-        AiToolContext context = new AiToolContext(dataSourceId, dataSource, userMessage);
+        AiToolContext context = new AiToolContext(dataSourceId, dataSource, userMessage, effectiveMode);
 
-        List<ToolDefinition> tools = toolRegistry.definitions(properties.isAllowMutatingTools());
+        List<ToolDefinition> tools = toolRegistry.definitions(properties.isAllowMutatingTools(), effectiveMode);
         Map<String, AiTool> toolIndex = new LinkedHashMap<>();
         for (AiTool tool : toolRegistry.all()) {
             toolIndex.put(tool.name(), tool);
         }
 
         List<ChatMessage> messages = new ArrayList<>();
-        messages.add(ChatMessage.system(buildSystemPrompt(dataSource)));
+        messages.add(ChatMessage.system(buildSystemPrompt(effectiveMode, dataSource)));
         if (history != null) {
             messages.addAll(history);
         }
@@ -95,7 +105,7 @@ public class AiSqlAgent {
 
             if (forceFinal) {
                 // 轮次耗尽且模型还在要工具：关掉工具，追加收敛指令，强制产出最终 SQL
-                messages.add(ChatMessage.user(FINALIZE_INSTRUCTION));
+                messages.add(ChatMessage.user(finalizeInstruction(effectiveMode)));
                 toolsAvailable = false;
             }
 
@@ -111,7 +121,7 @@ public class AiSqlAgent {
 
             if (!response.isToolCallRequested()) {
                 // 模型给出最终答复，loop 结束
-                return buildResult(response, traces, round, true);
+                return buildResult(response, traces, round, true, effectiveMode);
             }
 
             // 记录 assistant 的 tool_calls 消息，保证协议完整性
@@ -170,14 +180,20 @@ public class AiSqlAgent {
 
         // 理论上不会走到这里：最后一轮已关闭工具，模型必须给出内容
         if (lastResponse != null) {
-            return buildResult(lastResponse, traces, round, false);
+            return buildResult(lastResponse, traces, round, false, effectiveMode);
         }
         throw new IllegalStateException("AI 助手未能生成结果");
     }
 
-    private AiSqlResult buildResult(ChatResponse response, List<AiSqlResult.ToolTrace> traces, int rounds, boolean converged) {
+    private AiSqlResult buildResult(
+        ChatResponse response,
+        List<AiSqlResult.ToolTrace> traces,
+        int rounds,
+        boolean converged,
+        AiSqlMode mode
+    ) {
         String content = response.getContent() == null ? "" : response.getContent();
-        String sql = SqlExtractor.extract(content);
+        String sql = SqlExtractor.extract(content, mode);
         AiSqlResult result = new AiSqlResult();
         result.setSql(sql);
         result.setExplanation(content);
@@ -189,17 +205,34 @@ public class AiSqlAgent {
         return result;
     }
 
-    private String buildSystemPrompt(DataSourceDTO dataSource) {
+    private static String finalizeInstruction(AiSqlMode mode) {
+        return mode.isTask() ? TASK_FINALIZE_INSTRUCTION : QUERY_FINALIZE_INSTRUCTION;
+    }
+
+    private String buildSystemPrompt(AiSqlMode mode, DataSourceDTO dataSource) {
         StringBuilder sb = new StringBuilder();
-        sb.append("你是 DataY 数据平台内置的 SQL 助手，职责是把用户的自然语言数据需求翻译成正确的 SQL。\n\n");
-        sb.append("工作方式：\n");
-        sb.append("1. 先判断信息是否充分。若不清楚有哪些表、哪些字段，主动调用工具去查，不要凭经验猜测表名与字段名。\n");
-        sb.append("2. 典型的探索路径：list_database_objects(schemas) → list_database_objects(tables) → list_database_objects(columns)。\n");
-        sb.append("3. 写出 SQL 后，调用 validate_sql 自检；若有语法或字段错误，依据报错修正后重新校验。\n");
-        sb.append("4. 仅在确有必要时调用 preview_sql_result 试跑，用于确认口径，不要滥用。\n");
-        sb.append("5. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
-        sb.append("硬性约束：\n");
-        sb.append("- 只生成单条只读 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DDL 等任何写操作。\n");
+        if (mode.isTask()) {
+            sb.append("你是 DataY 数据平台内置的「SQL 任务」编写助手，职责是把用户的自然语言需求翻译成可写入 SQL 任务的 SQL 脚本。\n");
+            sb.append("SQL 任务常用于数据加工与调度，语句可能是查询，也可能是建表、写入、更新等 DDL/DML。\n\n");
+            sb.append("工作方式：\n");
+            sb.append("1. 先判断信息是否充分。若不清楚有哪些表、哪些字段，主动调用工具去查，不要凭经验猜测表名与字段名。\n");
+            sb.append("2. 典型的探索路径：list_database_objects(schemas) → list_database_objects(tables) → list_database_objects(columns)。\n");
+            sb.append("3. 写出 SQL 后，调用 validate_sql 自检语法；若有错误，依据报错修正后重新校验。\n");
+            sb.append("4. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
+            sb.append("硬性约束：\n");
+            sb.append("- 允许生成 DDL（CREATE/ALTER/DROP/TRUNCATE 等）与 DML（INSERT/UPDATE/DELETE/MERGE 等），也允许 SELECT。\n");
+            sb.append("- 不要调用试跑工具执行写操作；validate_sql 仅做解析校验，不会真正执行。\n");
+        } else {
+            sb.append("你是 DataY 数据平台内置的 SQL 助手，职责是把用户的自然语言数据需求翻译成正确的 SQL。\n\n");
+            sb.append("工作方式：\n");
+            sb.append("1. 先判断信息是否充分。若不清楚有哪些表、哪些字段，主动调用工具去查，不要凭经验猜测表名与字段名。\n");
+            sb.append("2. 典型的探索路径：list_database_objects(schemas) → list_database_objects(tables) → list_database_objects(columns)。\n");
+            sb.append("3. 写出 SQL 后，调用 validate_sql 自检；若有语法或字段错误，依据报错修正后重新校验。\n");
+            sb.append("4. 仅在确有必要时调用 preview_sql_result 试跑，用于确认口径，不要滥用。\n");
+            sb.append("5. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
+            sb.append("硬性约束：\n");
+            sb.append("- 只生成单条只读 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DDL 等任何写操作。\n");
+        }
         sb.append("- 严禁编造不存在的表名或字段名，所有标识符必须来自工具查询的真实元数据。\n");
         sb.append("- SQL 必须适配当前数据源的方言。\n");
         sb.append("- 输出用简体中文说明，SQL 放在 ```sql 代码块中。\n\n");
@@ -213,7 +246,8 @@ public class AiSqlAgent {
             }
             sb.append("- 数据源已在会话上下文中绑定，调用工具时无需传入数据源标识。\n");
         } else {
-            sb.append("本次会话未绑定具体数据源，若用户需要真实表结构，请提示其在数据查询页选择数据源后再试。\n");
+            String page = mode.isTask() ? "SQL 任务编辑页" : "数据查询页";
+            sb.append("本次会话未绑定具体数据源，若用户需要真实表结构，请提示其在").append(page).append("选择数据源后再试。\n");
         }
         return sb.toString();
     }

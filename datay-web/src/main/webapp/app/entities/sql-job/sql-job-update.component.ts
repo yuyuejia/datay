@@ -13,6 +13,7 @@ import { type IJob } from "@/shared/model/job.model";
 import { type IDataSource } from "@/shared/model/data-source.model";
 import { useAlertService } from "@/shared/alert/alert.service";
 import CronExpressionSelector from "@/components/CronExpressionSelector.vue";
+import DataQueryAi from "@/entities/data-source/data-query-ai.vue";
 
 import { EditorState } from "@codemirror/state";
 import {
@@ -37,6 +38,7 @@ export default defineComponent({
   name: "SqlJobUpdate",
   components: {
     CronExpressionSelector,
+    DataQueryAi,
   },
   setup() {
     const route = useRoute();
@@ -80,6 +82,7 @@ export default defineComponent({
     const executionTime = ref<number | null>(null);
     const affectedRows = ref<number | null>(null);
     const isExecuting = ref(false);
+    const aiDrawerVisible = ref(false);
 
     const getActiveSql = (): string => {
       if (!editorView) return sqlCode.value.trim();
@@ -512,6 +515,29 @@ export default defineComponent({
       return `${(ms / 1000).toFixed(2)}s`;
     };
 
+    const openAiDrawer = () => {
+      if (!dataSourceId.value) {
+        alertService.showWarning("请先选择数据源");
+        return;
+      }
+      aiDrawerVisible.value = true;
+    };
+
+    /**
+     * 接收 AI 助手生成的 SQL，写入编辑器并聚焦。
+     */
+    const applyAiSql = (sql: string) => {
+      if (!sql) return;
+      if (editorView) {
+        editorView.dispatch({
+          changes: { from: 0, to: editorView.state.doc.length, insert: sql },
+        });
+        editorView.focus();
+      } else {
+        sqlCode.value = sql;
+      }
+    };
+
     const parseJobContext = (jobContext?: string | null): void => {
       if (!jobContext) return;
       try {
@@ -641,6 +667,7 @@ export default defineComponent({
       executionTime,
       affectedRows,
       isExecuting,
+      aiDrawerVisible,
       startResize,
       handleNodeClick,
       handleNodeDblClick,
@@ -649,6 +676,8 @@ export default defineComponent({
       executeDebug,
       formatSql,
       formatTime,
+      openAiDrawer,
+      applyAiSql,
       save,
     };
   },

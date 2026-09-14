@@ -1,5 +1,6 @@
 package com.data.datafusion.ai.tool;
 
+import com.data.datafusion.ai.AiSqlMode;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import java.sql.SQLException;
@@ -32,6 +33,14 @@ public class SqlPreviewTool implements AiTool {
     @Override
     public String name() {
         return "preview_sql_result";
+    }
+
+    /**
+     * 试跑工具仅适用于只读查询场景；SQL 任务包含 DDL/DML，不提供试跑以避免误执行写操作。
+     */
+    @Override
+    public boolean supports(AiSqlMode mode) {
+        return mode != AiSqlMode.TASK;
     }
 
     @Override

@@ -2,6 +2,9 @@ import axios from "axios";
 
 const baseApiUrl = "api/ai/sql";
 
+/** 生成场景模式：query 只读查询，task SQL 任务（允许 DDL/DML）。 */
+export type AiSqlMode = "query" | "task";
+
 export interface AiHistoryMessage {
   role: "user" | "assistant";
   content: string;
@@ -51,17 +54,20 @@ export default class DataQueryAiService {
     return axios.get(`${baseApiUrl}/status`).then((res) => res.data);
   }
 
-  listTools(): Promise<AiToolInfo[]> {
-    return axios.get(`${baseApiUrl}/tools`).then((res) => res.data);
+  listTools(mode: AiSqlMode = "query"): Promise<AiToolInfo[]> {
+    return axios
+      .get(`${baseApiUrl}/tools`, { params: { mode } })
+      .then((res) => res.data);
   }
 
   generate(
     message: string,
     dataSourceId?: number,
     history: AiHistoryMessage[] = [],
+    mode: AiSqlMode = "query",
   ): Promise<AiSqlGenerateResult> {
     return axios
-      .post(`${baseApiUrl}/generate`, { message, dataSourceId, history })
+      .post(`${baseApiUrl}/generate`, { message, dataSourceId, history, mode })
       .then((res) => res.data);
   }
 }

@@ -65,11 +65,17 @@ public class AiSqlResource {
 
     /**
      * 查询已注册的工具清单，便于前端展示助手能力。
+     *
+     * @param mode 生成场景模式，用于过滤仅适用于特定模式的工具
      */
     @GetMapping("/tools")
-    public ResponseEntity<List<AiToolInfo>> tools() {
+    public ResponseEntity<List<AiToolInfo>> tools(@RequestParam(name = "mode", required = false) String mode) {
+        AiSqlMode effectiveMode = AiSqlMode.from(mode);
         List<AiToolInfo> tools = new ArrayList<>();
         for (AiTool tool : toolRegistry.all()) {
+            if (!tool.supports(effectiveMode)) {
+                continue;
+            }
             tools.add(new AiToolInfo(tool.name(), tool.description(), tool.mutating(), tool.parametersSchema()));
         }
         return ResponseEntity.ok(tools);
@@ -90,9 +96,10 @@ public class AiSqlResource {
         var dataSource = Optional.ofNullable(request.getDataSourceId())
             .flatMap(dataSourceService::findOne)
             .orElse(null);
+        AiSqlMode mode = AiSqlMode.from(request.getMode());
 
         try {
-            AiSqlResult result = aiSqlAgent.generate(request.getMessage(), dataSource, toHistory(request));
+            AiSqlResult result = aiSqlAgent.generate(request.getMessage(), dataSource, toHistory(request), mode);
             return ResponseEntity.ok(AiSqlResponse.from(result));
         } catch (IllegalStateException e) {
             LOG.warn("AI SQL generation failed: {}", e.getMessage());
