@@ -91,7 +91,7 @@ class ServiceConfigResourceIT {
             .dfKey(DEFAULT_DF_KEY)
             .dfValue(DEFAULT_DF_VALUE)
             .createTime(DEFAULT_CREATE_TIME)
-            .ytenantId(DEFAULT_YTENANT_ID);
+            .tenantId(DEFAULT_YTENANT_ID);
     }
 
     /**
@@ -106,7 +106,7 @@ class ServiceConfigResourceIT {
             .dfKey(UPDATED_DF_KEY)
             .dfValue(UPDATED_DF_VALUE)
             .createTime(UPDATED_CREATE_TIME)
-            .ytenantId(UPDATED_YTENANT_ID);
+            .tenantId(UPDATED_YTENANT_ID);
     }
 
     @BeforeEach
@@ -226,7 +226,7 @@ class ServiceConfigResourceIT {
             .dfKey(UPDATED_DF_KEY)
             .dfValue(UPDATED_DF_VALUE)
             .createTime(UPDATED_CREATE_TIME)
-            .ytenantId(UPDATED_YTENANT_ID);
+            .tenantId(UPDATED_YTENANT_ID);
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(updatedServiceConfig);
 
         restServiceConfigMockMvc
@@ -316,7 +316,7 @@ class ServiceConfigResourceIT {
         ServiceConfig partialUpdatedServiceConfig = new ServiceConfig();
         partialUpdatedServiceConfig.setId(serviceConfig.getId());
 
-        partialUpdatedServiceConfig.dfKey(UPDATED_DF_KEY).ytenantId(UPDATED_YTENANT_ID);
+            partialUpdatedServiceConfig.dfKey(UPDATED_DF_KEY).tenantId(UPDATED_YTENANT_ID);
 
         restServiceConfigMockMvc
             .perform(
@@ -352,7 +352,7 @@ class ServiceConfigResourceIT {
             .dfKey(UPDATED_DF_KEY)
             .dfValue(UPDATED_DF_VALUE)
             .createTime(UPDATED_CREATE_TIME)
-            .ytenantId(UPDATED_YTENANT_ID);
+            .tenantId(UPDATED_YTENANT_ID);
 
         restServiceConfigMockMvc
             .perform(

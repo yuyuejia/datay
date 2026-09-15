@@ -10,11 +10,11 @@ public class ServiceConfigTestSamples {
     private static final AtomicLong longCount = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
 
     public static ServiceConfig getServiceConfigSample1() {
-        return new ServiceConfig().id(1L).dfGroup("dfGroup1").dfKey("dfKey1").dfValue("dfValue1").ytenantId("ytenantId1");
+        return new ServiceConfig().id(1L).dfGroup("dfGroup1").dfKey("dfKey1").dfValue("dfValue1").tenantId("tenantId1");
     }
 
     public static ServiceConfig getServiceConfigSample2() {
-        return new ServiceConfig().id(2L).dfGroup("dfGroup2").dfKey("dfKey2").dfValue("dfValue2").ytenantId("ytenantId2");
+        return new ServiceConfig().id(2L).dfGroup("dfGroup2").dfKey("dfKey2").dfValue("dfValue2").tenantId("tenantId2");
     }
 
     public static ServiceConfig getServiceConfigRandomSampleGenerator() {
@@ -23,6 +23,6 @@ public class ServiceConfigTestSamples {
             .dfGroup(UUID.randomUUID().toString())
             .dfKey(UUID.randomUUID().toString())
             .dfValue(UUID.randomUUID().toString())
-            .ytenantId(UUID.randomUUID().toString());
+            .tenantId(UUID.randomUUID().toString());
     }
 }

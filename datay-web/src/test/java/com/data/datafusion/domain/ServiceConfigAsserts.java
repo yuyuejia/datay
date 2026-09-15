@@ -57,7 +57,7 @@ public class ServiceConfigAsserts {
                     .usingComparator(zonedDataTimeSameInstant)
                     .isEqualTo(expected.getCreateTime())
             )
-            .satisfies(a -> assertThat(a.getYtenantId()).as("check ytenantId").isEqualTo(expected.getYtenantId()));
+            .satisfies(a -> assertThat(a.getTenantId()).as("check tenantId").isEqualTo(expected.getTenantId()));
     }
 
     /**
