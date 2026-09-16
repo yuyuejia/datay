@@ -2,16 +2,24 @@ package com.data.datafusion.mcp;
 
 import static com.data.datafusion.job.TaskConstants.TASK_STATUS_OFFLINE;
 
+import com.data.datafusion.domain.Tenant;
+import com.data.datafusion.domain.User;
+import com.data.datafusion.repository.TenantRepository;
+import com.data.datafusion.security.TenantContext;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DataSyncService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
+import com.data.metadata.TableMeta;
+import com.data.metadata.util.DBUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
+import io.modelcontextprotocol.server.McpTransportContextExtractor;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 import io.modelcontextprotocol.server.transport.ServerTransportSecurityException;
 import io.modelcontextprotocol.server.transport.ServerTransportSecurityValidator;
@@ -19,7 +27,9 @@ import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.sql.Connection;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,6 +48,10 @@ import org.springframework.data.domain.PageRequest;
  *
  * <p>Exposes the DataY capabilities (data source registration, data query and sync task
  * creation) to AI clients through a streamable HTTP transport served at {@code /mcp}.
+ *
+ * <p>Clients authenticate with {@code Authorization: Bearer <mcp-token>} and may scope the data
+ * operations to a specific tenant with the optional {@code X-Tenant-Id} or {@code X-Tenant-Code}
+ * header. When neither header is present the authenticated user's default tenant is used.
  */
 @Configuration
 public class McpServerConfig {
@@ -46,45 +60,95 @@ public class McpServerConfig {
 
     private static final String MCP_ENDPOINT = "/mcp";
 
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private static final String TENANT_ID_HEADER = "X-Tenant-Id";
+
+    private static final String TENANT_CODE_HEADER = "X-Tenant-Code";
+
+    private static final int DEFAULT_TABLE_LIMIT = 200;
+
+    private static final int MAX_TABLE_LIMIT = 1000;
+
     private final ObjectMapper objectMapper;
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final DataSyncService dataSyncService;
     private final McpTokenService mcpTokenService;
+    private final TenantRepository tenantRepository;
 
     public McpServerConfig(
         ObjectMapper objectMapper,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
         DataSyncService dataSyncService,
-        McpTokenService mcpTokenService
+        McpTokenService mcpTokenService,
+        TenantRepository tenantRepository
     ) {
         this.objectMapper = objectMapper;
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.dataSyncService = dataSyncService;
         this.mcpTokenService = mcpTokenService;
+        this.tenantRepository = tenantRepository;
     }
 
     @Bean
     public HttpServletStreamableServerTransportProvider mcpTransportProvider() {
         return HttpServletStreamableServerTransportProvider.builder()
             .mcpEndpoint(MCP_ENDPOINT)
+            .contextExtractor(mcpContextExtractor())
             .securityValidator(mcpSecurityValidator())
             .build();
     }
 
+    /**
+     * Extract the bearer token and the optional tenant headers from the HTTP request into the
+     * {@link McpTransportContext} so that tool handlers can scope the data operations to the
+     * requested tenant. The tenant headers are optional: when absent the user's default tenant is used.
+     *
+     * @return the context extractor reading {@code Authorization}, {@code X-Tenant-Id} and {@code X-Tenant-Code}.
+     */
+    private McpTransportContextExtractor<HttpServletRequest> mcpContextExtractor() {
+        return request -> {
+            Map<String, Object> values = new LinkedHashMap<>();
+            putIfPresent(values, AUTHORIZATION_HEADER, stripBearerPrefix(request.getHeader(AUTHORIZATION_HEADER)));
+            putIfPresent(values, TENANT_ID_HEADER, request.getHeader(TENANT_ID_HEADER));
+            putIfPresent(values, TENANT_CODE_HEADER, request.getHeader(TENANT_CODE_HEADER));
+            return McpTransportContext.create(values);
+        };
+    }
+
+    private static void putIfPresent(Map<String, Object> values, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            values.put(key, value.trim());
+        }
+    }
+
     private ServerTransportSecurityValidator mcpSecurityValidator() {
         return headers -> {
-            String authorization = getHeaderIgnoreCase(headers, "Authorization");
-            if (authorization == null || !authorization.startsWith("Bearer ")) {
+            String authorization = getHeaderIgnoreCase(headers, AUTHORIZATION_HEADER);
+            if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
                 throw new ServerTransportSecurityException(HttpServletResponse.SC_UNAUTHORIZED, "Missing MCP Bearer token");
             }
-            String token = authorization.substring("Bearer ".length()).trim();
+            String token = stripBearerPrefix(authorization);
             if (!mcpTokenService.authenticate(token)) {
                 throw new ServerTransportSecurityException(HttpServletResponse.SC_UNAUTHORIZED, "Invalid MCP token");
             }
         };
+    }
+
+    private static String stripBearerPrefix(String authorization) {
+        if (authorization == null) {
+            return null;
+        }
+        String value = authorization.trim();
+        if (value.startsWith(BEARER_PREFIX)) {
+            return value.substring(BEARER_PREFIX.length()).trim();
+        }
+        return value;
     }
 
     private static String getHeaderIgnoreCase(Map<String, List<String>> headers, String name) {
@@ -111,6 +175,7 @@ public class McpServerConfig {
             .toolCall(datasourceRegisterTool(), this::registerDataSource)
             .toolCall(datasourceListTool(), this::listDataSources)
             .toolCall(datasourceQueryTool(), this::queryDataSource)
+            .toolCall(datasourceTablesTool(), this::listDataSourceTables)
             .toolCall(syncTaskCreateTool(), this::createSyncTask)
             .toolCall(syncTaskExecuteTool(), this::executeSyncTask)
             .build();
@@ -146,6 +211,17 @@ public class McpServerConfig {
         properties.put("sql", stringProp("要执行的 SQL 查询语句"));
         return Tool.builder("datasource_query", schema(properties, List.of("dataSourceId", "sql")))
             .description("在指定数据源上执行 SQL 查询，返回 columns、rows 与 affectedRows")
+            .build();
+    }
+
+    private Tool datasourceTablesTool() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("dataSourceId", integerProp("数据源 ID"));
+        properties.put("schema", stringProp("schema / 数据库名，可选，默认使用数据源配置的 schema"));
+        properties.put("search", stringProp("可选关键字，按表名模糊过滤"));
+        properties.put("limit", integerProp("最大返回表数量，默认 200，最大 1000"));
+        return Tool.builder("datasource_tables", schema(properties, List.of("dataSourceId")))
+            .description("列出指定数据源下某个 schema 的表清单，返回 schema、表名与注释")
             .build();
     }
 
@@ -190,7 +266,7 @@ public class McpServerConfig {
     // ---------------------------------------------------------------- handlers
 
     private CallToolResult registerDataSource(McpSyncServerExchange exchange, CallToolRequest request) {
-        try {
+        return runWithTenant(exchange, "数据源注册失败", () -> {
             Map<String, Object> args = request.arguments();
             DataSourceDTO dto = new DataSourceDTO();
             dto.setName(asString(args, "name"));
@@ -208,14 +284,11 @@ public class McpServerConfig {
 
             DataSourceDTO saved = dataSourceService.save(dto);
             return jsonResult(toDataSourceView(saved));
-        } catch (Exception e) {
-            LOG.error("Failed to register datasource", e);
-            return errorResult("数据源注册失败: " + e.getMessage());
-        }
+        });
     }
 
     private CallToolResult listDataSources(McpSyncServerExchange exchange, CallToolRequest request) {
-        try {
+        return runWithTenant(exchange, "数据源列表查询失败", () -> {
             Map<String, Object> args = request.arguments();
             String search = asString(args, "search");
             List<Map<String, Object>> result = new ArrayList<>();
@@ -224,14 +297,11 @@ public class McpServerConfig {
                 .getContent()
                 .forEach(dto -> result.add(toDataSourceView(dto)));
             return jsonResult(result);
-        } catch (Exception e) {
-            LOG.error("Failed to list datasources", e);
-            return errorResult("数据源列表查询失败: " + e.getMessage());
-        }
+        });
     }
 
     private CallToolResult queryDataSource(McpSyncServerExchange exchange, CallToolRequest request) {
-        try {
+        return runWithTenant(exchange, "查询失败", () -> {
             Map<String, Object> args = request.arguments();
             Long id = asLong(args, "dataSourceId");
             String sql = asString(args, "sql");
@@ -243,14 +313,40 @@ public class McpServerConfig {
                 return errorResult("数据源不存在: " + id);
             }
             return jsonResult(dataSourceQueryService.executeQuery(dataSource.orElseThrow(), sql));
-        } catch (Exception e) {
-            LOG.error("Failed to execute query", e);
-            return errorResult("查询失败: " + e.getMessage());
-        }
+        });
+    }
+
+    private CallToolResult listDataSourceTables(McpSyncServerExchange exchange, CallToolRequest request) {
+        return runWithTenant(exchange, "数据源表清单查询失败", () -> {
+            Map<String, Object> args = request.arguments();
+            Long id = asLong(args, "dataSourceId");
+            if (id == null) {
+                return errorResult("缺少 dataSourceId 参数");
+            }
+            Optional<DataSourceDTO> dataSource = dataSourceService.findOne(id);
+            if (dataSource.isEmpty()) {
+                return errorResult("数据源不存在: " + id);
+            }
+            DataSourceDTO dto = dataSource.orElseThrow();
+            String schema = asString(args, "schema");
+            if (schema == null || schema.isBlank()) {
+                schema = dto.getSchemaName();
+            }
+            String search = asString(args, "search");
+            int limit = resolveTableLimit(asLong(args, "limit"));
+
+            List<Map<String, Object>> tables = new ArrayList<>();
+            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dto))) {
+                for (TableMeta table : DBUtils.getTableList(connection, schema, limit, search)) {
+                    tables.add(toTableMetaView(table));
+                }
+            }
+            return jsonResult(tables);
+        });
     }
 
     private CallToolResult createSyncTask(McpSyncServerExchange exchange, CallToolRequest request) {
-        try {
+        return runWithTenant(exchange, "同步任务创建失败", () -> {
             Map<String, Object> args = request.arguments();
             Long sourceId = asLong(args, "sourceId");
             Long targetId = asLong(args, "targetId");
@@ -295,14 +391,11 @@ public class McpServerConfig {
             result.put("target", saved.getTarget());
             result.put("cron", saved.getCron());
             return jsonResult(result);
-        } catch (Exception e) {
-            LOG.error("Failed to create sync task", e);
-            return errorResult("同步任务创建失败: " + e.getMessage());
-        }
+        });
     }
 
     private CallToolResult executeSyncTask(McpSyncServerExchange exchange, CallToolRequest request) {
-        try {
+        return runWithTenant(exchange, "同步任务执行失败", () -> {
             Map<String, Object> args = request.arguments();
             Long id = asLong(args, "syncTaskId");
             if (id == null) {
@@ -313,9 +406,93 @@ public class McpServerConfig {
             result.put("id", id);
             result.put("executed", true);
             return jsonResult(result);
+        });
+    }
+
+    // ---------------------------------------------------------------- tenant
+
+    /**
+     * Resolve the tenant of the current tool call and run the operation within that tenant scope.
+     *
+     * <p>The tenant is taken from the {@code X-Tenant-Id} or {@code X-Tenant-Code} header when present,
+     * otherwise the authenticated user's default tenant is used. A requested tenant must belong to the
+     * authenticated user, otherwise the call is rejected.
+     */
+    private CallToolResult runWithTenant(McpSyncServerExchange exchange, String errorMessage, ToolOperation operation) {
+        McpTransportContext context = exchange.transportContext();
+        String token = contextValue(context, AUTHORIZATION_HEADER);
+        User user = mcpTokenService.authenticateUser(token).orElse(null);
+        if (user == null) {
+            return errorResult("无效或缺失的访问令牌");
+        }
+
+        Tenant tenant;
+        try {
+            tenant = resolveTenant(user, context);
+        } catch (TenantAccessException e) {
+            return errorResult(e.getMessage());
+        }
+        if (tenant == null) {
+            return errorResult("用户未关联任何租户");
+        }
+
+        TenantContext.setTenantId(tenant.getId());
+        TenantContext.setTenantCode(tenant.getCode());
+        try {
+            return operation.run();
         } catch (Exception e) {
-            LOG.error("Failed to execute sync task", e);
-            return errorResult("同步任务执行失败: " + e.getMessage());
+            LOG.error(errorMessage, e);
+            return errorResult(errorMessage + ": " + e.getMessage());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private Tenant resolveTenant(User user, McpTransportContext context) {
+        String headerTenantId = contextValue(context, TENANT_ID_HEADER);
+        String headerTenantCode = contextValue(context, TENANT_CODE_HEADER);
+        if (headerTenantId == null && headerTenantCode == null) {
+            return tenantRepository.findDefaultTenantByUserId(user.getId()).orElse(null);
+        }
+
+        List<Tenant> tenants = tenantRepository.findAllByUserId(user.getId());
+        if (headerTenantId != null) {
+            Long tenantId;
+            try {
+                tenantId = Long.valueOf(headerTenantId);
+            } catch (NumberFormatException e) {
+                throw new TenantAccessException("无效的租户标识: " + headerTenantId);
+            }
+            return tenants
+                .stream()
+                .filter(t -> tenantId.equals(t.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TenantAccessException("无权访问指定租户: " + headerTenantId));
+        }
+        return tenants
+            .stream()
+            .filter(t -> headerTenantCode.equals(t.getCode()))
+            .findFirst()
+            .orElseThrow(() -> new TenantAccessException("无权访问指定租户: " + headerTenantCode));
+    }
+
+    private static String contextValue(McpTransportContext context, String key) {
+        if (context == null) {
+            return null;
+        }
+        Object value = context.get(key);
+        return value == null ? null : String.valueOf(value);
+    }
+
+    @FunctionalInterface
+    private interface ToolOperation {
+        CallToolResult run() throws Exception;
+    }
+
+    private static class TenantAccessException extends RuntimeException {
+
+        TenantAccessException(String message) {
+            super(message);
         }
     }
 
@@ -339,6 +516,22 @@ public class McpServerConfig {
             }
         }
         return result;
+    }
+
+    private Map<String, Object> toTableMetaView(TableMeta table) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("schema", table.getSchema());
+        view.put("table", table.getTable());
+        view.put("catalog", table.getCatalog());
+        view.put("comment", table.getComment());
+        return view;
+    }
+
+    private static int resolveTableLimit(Long limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_TABLE_LIMIT;
+        }
+        return (int) Math.min(limit, MAX_TABLE_LIMIT);
     }
 
     private Map<String, Object> toDataSourceView(DataSourceDTO dto) {
