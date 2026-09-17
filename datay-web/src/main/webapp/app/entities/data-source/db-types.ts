@@ -6,6 +6,14 @@ export interface ExtraParamDef {
   description?: string;
 }
 
+export interface ConnectionModeDef {
+  value: string;
+  label: string;
+  description?: string;
+  defaultPort?: string;
+  extraParamsTemplate?: ExtraParamDef[];
+}
+
 export interface DbType {
   name: string;
   displayName: string;
@@ -15,6 +23,8 @@ export interface DbType {
   image?: string;
   icon?: string;
   extraParamsTemplate?: ExtraParamDef[];
+  connectionModes?: ConnectionModeDef[];
+  defaultConnectionMode?: string;
 }
 
 export const dbTypes: DbType[] = [
@@ -57,6 +67,24 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['0.8', '0.9', '1.0'],
     defaultPort: '',
     image: '/content/images/DuckDB.svg',
+    defaultConnectionMode: 'file',
+    connectionModes: [
+      {
+        value: 'file',
+        label: '本地文件',
+        description: '连接本地数据库文件，留空表示内存数据库，无需填写主机和端口',
+      },
+      {
+        value: 'quack',
+        label: 'Quack 协议',
+        defaultPort: '9494',
+        description: '通过 Quack 远程协议连接 DuckDB 服务',
+        extraParamsTemplate: [
+          { key: 'quack.token', label: 'Token', required: false, description: 'Quack 服务端认证 Token' },
+          { key: 'quack.disable_ssl', label: 'DISABLE_SSL', required: false, defaultValue: 'false', description: '远程非 localhost 时是否使用明文 HTTP 连接' },
+        ],
+      },
+    ],
   },
   {
     name: 'DUCKLAKE',

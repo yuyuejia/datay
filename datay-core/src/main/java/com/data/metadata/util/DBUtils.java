@@ -113,11 +113,14 @@ public class DBUtils {
         String url = datasourceInfo.getUrl();
         if (url != null && url.startsWith("ducklake:")) {
             setupDuckLakeConnection(conn, datasourceInfo);
+        } else if (url != null && url.startsWith("quack:")) {
+            setupQuackConnection(conn, datasourceInfo);
         }
         return conn;
     }
 
     private static final String DUCKLAKE_CATALOG = "ducklake";
+    private static final String QUACK_CATALOG = "quack";
 
     private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
         java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
@@ -162,6 +165,50 @@ public class DBUtils {
         String attachSql = String.format("ATTACH '%s' AS %s;", ducklakeFilePath, DUCKLAKE_CATALOG);
         stmt.execute(attachSql);
         try { stmt.close(); } catch (Exception ignored) {}
+    }
+
+    /**
+     * 初始化 Quack 远程连接：加载 quack 扩展并将远程 DuckDB 服务挂载为 catalog。
+     */
+    private static void setupQuackConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
+        String quackUri = datasourceInfo.getUrl();
+        java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
+
+        Statement stmt = conn.createStatement();
+        try { stmt.execute("INSTALL quack"); } catch (Exception ignored) {}
+        try { stmt.execute("LOAD quack"); } catch (Exception ignored) {}
+        try { stmt.close(); } catch (Exception ignored) {}
+
+        stmt = conn.createStatement();
+        try { stmt.execute(String.format("DETACH %s;", QUACK_CATALOG)); } catch (Exception ignored) {}
+        try { stmt.close(); } catch (Exception ignored) {}
+
+        StringBuilder attachSql = new StringBuilder(
+            String.format("ATTACH '%s' AS %s", escapeSqlString(quackUri), QUACK_CATALOG)
+        );
+        List<String> options = new ArrayList<>();
+        if (extraParams != null) {
+            String token = extraParams.get("quack.token");
+            if (token != null && !token.trim().isEmpty()) {
+                options.add(String.format("TOKEN '%s'", escapeSqlString(token)));
+            }
+            String disableSsl = extraParams.get("quack.disable_ssl");
+            if ("true".equalsIgnoreCase(disableSsl)) {
+                options.add("DISABLE_SSL true");
+            }
+        }
+        if (!options.isEmpty()) {
+            attachSql.append(" (").append(String.join(", ", options)).append(")");
+        }
+        attachSql.append(";");
+
+        stmt = conn.createStatement();
+        stmt.execute(attachSql.toString());
+        try { stmt.close(); } catch (Exception ignored) {}
+    }
+
+    private static String escapeSqlString(String value) {
+        return value == null ? "" : value.replace("'", "''");
     }
 
     /**
@@ -395,6 +442,24 @@ public class DBUtils {
         }
     }
 
+    /**
+     * 测试数据源连接（支持 DuckLake / Quack 等需要额外初始化步骤的数据源）
+     * @param datasourceInfo 数据源信息
+     * @return 连接测试结果，true表示连接成功，false表示连接失败
+     */
+    public static boolean testConnection(DatasourceInfo datasourceInfo) {
+        try (Connection connection = getConnection(datasourceInfo)) {
+            try (Statement statement = connection.createStatement()) {
+                String testQuery = getTestQuery(datasourceInfo.getUrl());
+                try (ResultSet resultSet = statement.executeQuery(testQuery)) {
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
     public static Statement createStreamStatement(String dbType, Connection conn) throws SQLException {
         Statement statement = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         if (DBType.MYSQL.name().equalsIgnoreCase(dbType)) {
@@ -425,7 +490,7 @@ public class DBUtils {
             return "SELECT 1";
         } else if (url.startsWith("jdbc:sqlserver:")) {
             return "SELECT 1";
-        } else if (url.startsWith("jdbc:duckdb:")) {
+        } else if (url.startsWith("jdbc:duckdb:") || url.startsWith("quack:")) {
             return "SELECT 1";
         } else if (url.startsWith("jdbc:clickhouse:")) {
             return "SELECT 1";
@@ -466,6 +531,9 @@ public class DBUtils {
                 String cat = rs.getString("TABLE_CAT");
                 if (DUCKLAKE_CATALOG.equals(cat)) {
                     return DUCKLAKE_CATALOG;
+                }
+                if (QUACK_CATALOG.equals(cat)) {
+                    return QUACK_CATALOG;
                 }
             }
         }
@@ -668,7 +736,7 @@ public class DBUtils {
             return DBType.POSTGRESQL.toString();
         } else if (jdbcUrl.startsWith("jdbc:sqlserver:")) {
             return DBType.SQLSERVER.toString();
-        } else if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+        } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
             return DBType.DUCKLAKE.toString();
@@ -688,7 +756,7 @@ public class DBUtils {
             return DBType.POSTGRESQL;
         } else if (jdbcUrl.startsWith("jdbc:sqlserver:")) {
             return DBType.SQLSERVER;
-        } else if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+        } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB;
         } else if (jdbcUrl.startsWith("jdbc:clickhouse:")) {
             return DBType.CLICKHOUSE;

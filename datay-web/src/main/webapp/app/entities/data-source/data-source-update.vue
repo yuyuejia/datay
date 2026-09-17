@@ -49,6 +49,64 @@
               </option>
             </select>
           </div>
+          <div
+            class="form-group"
+            v-if="selectedDbType && selectedDbType.connectionModes && selectedDbType.connectionModes.length > 0"
+          >
+            <label class="form-control-label">连接方式</label>
+            <div class="d-flex gap-3">
+              <div
+                v-for="mode in selectedDbType.connectionModes"
+                :key="mode.value"
+                class="connection-mode-option"
+                :class="{ selected: duckdbMode === mode.value }"
+                @click="onConnectionModeChange(mode.value)"
+              >
+                <span class="connection-mode-label">{{ mode.label }}</span>
+                <small v-if="mode.description" class="text-muted d-block">{{ mode.description }}</small>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" v-if="isDuckDb && duckdbMode === 'file'">
+            <label class="form-control-label" for="data-source-duckdb-file">数据库文件路径</label>
+            <input
+              type="text"
+              class="form-control"
+              name="duckdbFile"
+              id="data-source-duckdb-file"
+              data-cy="duckdbFile"
+              placeholder="留空表示内存数据库，例如 /data/analytics.duckdb"
+              v-model="duckdbFile"
+              @input="updateUrl"
+            />
+            <small class="text-muted">无需填写主机、端口、用户名和密码</small>
+          </div>
+          <div class="form-row" v-if="isDuckDb && duckdbMode === 'quack'">
+            <div class="form-group col-md-8">
+              <label class="form-control-label" for="data-source-hostname">Quack 服务地址</label>
+              <input
+                type="text"
+                class="form-control"
+                name="hostname"
+                id="data-source-hostname"
+                data-cy="hostname"
+                v-model="dataSource.hostname"
+                @input="updateUrl"
+              />
+            </div>
+            <div class="form-group col-md-4">
+              <label class="form-control-label" for="data-source-port">端口</label>
+              <input
+                type="text"
+                class="form-control"
+                name="port"
+                id="data-source-port"
+                data-cy="port"
+                v-model="dataSource.port"
+                @input="updateUrl"
+              />
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-control-label" for="data-source-url">Url</label>
             <input
@@ -59,9 +117,10 @@
               data-cy="url"
               :class="{ valid: !v$.url.$invalid, invalid: v$.url.$invalid }"
               v-model="dataSource.url"
+              :readonly="isDuckDb"
             />
           </div>
-          <div class="form-group">
+          <div class="form-group" v-if="!isDuckDb">
             <label class="form-control-label" for="data-source-schemaName">Schema Name</label>
             <input
               type="text"
@@ -73,7 +132,7 @@
               v-model="dataSource.schemaName"
             />
           </div>
-          <div class="form-group">
+          <div class="form-group" v-if="!isDuckDb">
             <label class="form-control-label" for="data-source-username">Username</label>
             <input
               type="text"
@@ -85,7 +144,7 @@
               v-model="v$.username.$model"
             />
           </div>
-          <div class="form-group">
+          <div class="form-group" v-if="!isDuckDb">
             <label class="form-control-label" for="data-source-password">Password</label>
             <input
               type="password"
@@ -99,7 +158,7 @@
           </div>
 
           <!-- 扩展参数设置区域 -->
-          <div class="form-group" v-if="selectedDbType && (selectedDbType.extraParamsTemplate || extraParamRows.length > 0)">
+          <div class="form-group" v-if="effectiveExtraParamsTemplate.length > 0 || extraParamRows.length > 0">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <label class="form-control-label mb-0">扩展参数</label>
               <button type="button" class="btn btn-sm btn-outline-primary" @click="addExtraParam">
@@ -118,8 +177,8 @@
                     type="text"
                     class="form-control form-control-sm"
                     v-model="row.key"
-                    placeholder="参数名"
-                    :readonly="!!selectedDbType?.extraParamsTemplate?.find(t => t.key === row.key)"
+                      placeholder="参数名"
+                      :readonly="!!effectiveExtraParamsTemplate.find(t => t.key === row.key)"
                   />
                   <input
                     type="text"
@@ -162,7 +221,7 @@
             data-cy="testConnectionButton"
             class="btn btn-info mr-2"
             @click="testConnection"
-            :disabled="isTestingConnection || !dataSource.type || !dataSource.url || !dataSource.username"
+            :disabled="testConnectionDisabled"
           >
             <font-awesome-icon icon="plug"></font-awesome-icon>&nbsp;
             <span v-if="isTestingConnection">测试中...</span>
@@ -174,3 +233,28 @@
   </div>
 </template>
 <script lang="ts" src="./data-source-update.component.ts"></script>
+<style scoped>
+.connection-mode-option {
+  flex: 1;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fff;
+}
+
+.connection-mode-option:hover {
+  border-color: #007bff;
+}
+
+.connection-mode-option.selected {
+  border-color: #007bff;
+  background-color: #e7f1ff;
+}
+
+.connection-mode-label {
+  font-weight: 600;
+  color: #212529;
+}
+</style>

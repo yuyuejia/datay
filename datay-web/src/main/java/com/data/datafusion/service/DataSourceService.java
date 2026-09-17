@@ -149,6 +149,6 @@ public class DataSourceService {
      */
     public boolean testConnection(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to test DataSource connection: {}", dataSourceDTO);
-        return DBUtils.testConnection(dataSourceDTO.getUrl(), dataSourceDTO.getUsername(), dataSourceDTO.getPassword());
+        return DBUtils.testConnection(DataSourceQueryService.toDatasourceInfo(dataSourceDTO));
     }
 }

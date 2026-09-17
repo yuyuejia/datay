@@ -1,7 +1,7 @@
 import { type Ref, computed, defineComponent, inject, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
-import { type DbType, dbTypes } from './db-types';
+import { type DbType, type ExtraParamDef, dbTypes } from './db-types';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -44,6 +44,10 @@ export default defineComponent({
     const isSaving = ref(false);
     const isTestingConnection = ref(false);
     const extraParamRows: Ref<ExtraParamRow[]> = ref([]);
+    const duckdbMode = ref('file');
+    const duckdbFile = ref('');
+
+    const isDuckDb = computed(() => dataSource.value.type === 'DUCKDB');
 
     watch(
       () => props.show,
@@ -66,13 +70,24 @@ export default defineComponent({
       },
     );
 
+    watch(duckdbMode, () => {
+      syncExtraParamsFromTemplate();
+    });
+
+    const effectiveExtraParamsTemplate = computed<ExtraParamDef[]>(() => {
+      const dbType = selectedDbType.value;
+      if (!dbType) return [];
+      const mode = dbType.connectionModes?.find(m => m.value === duckdbMode.value);
+      return mode?.extraParamsTemplate ?? dbType.extraParamsTemplate ?? [];
+    });
+
     const syncExtraParamsFromTemplate = () => {
       const dbType = selectedDbType.value;
       if (!dbType) {
         extraParamRows.value = [];
         return;
       }
-      const template = dbType.extraParamsTemplate;
+      const template = effectiveExtraParamsTemplate.value;
       if (!template || template.length === 0) {
         extraParamRows.value = [];
         return;
@@ -115,16 +130,25 @@ export default defineComponent({
       buildExtraParamsFromRows();
     };
 
+    const inferDuckdbMode = (url?: string | null) => (url && url.startsWith('quack:') ? 'quack' : 'file');
+
+    const extractDuckdbFile = (url?: string | null) =>
+      url && url.startsWith('jdbc:duckdb:') ? url.substring('jdbc:duckdb:'.length) : '';
+
     const initModal = async () => {
       dataSource.value = new DataSource();
       currentStep.value = 1;
       extraParamRows.value = [];
+      duckdbMode.value = 'file';
+      duckdbFile.value = '';
       if (props.mode === 'edit' && props.dataSourceId) {
         try {
           const res = await dataSourceService().find(props.dataSourceId as number);
           res.updateTime = new Date(res.updateTime);
           res.createTime = new Date(res.createTime);
           dataSource.value = res;
+          duckdbMode.value = inferDuckdbMode(res.url);
+          duckdbFile.value = extractDuckdbFile(res.url);
           currentStep.value = 2;
           syncExtraParamsFromTemplate();
         } catch (error) {
@@ -147,11 +171,21 @@ export default defineComponent({
 
     const selectDbType = (dbType: DbType) => {
       dataSource.value.type = dbType.name;
+      duckdbMode.value = dbType.defaultConnectionMode || 'file';
       if (dbType.defaultPort && !dataSource.value.port) {
         dataSource.value.port = dbType.defaultPort;
       }
       if (dbType.supportedVersions.length > 0 && !dataSource.value.version) {
         dataSource.value.version = dbType.supportedVersions[dbType.supportedVersions.length - 1];
+      }
+      updateUrl();
+    };
+
+    const onConnectionModeChange = (mode: string) => {
+      duckdbMode.value = mode;
+      const modeDef = selectedDbType.value?.connectionModes?.find(m => m.value === mode);
+      if (modeDef?.defaultPort && !dataSource.value.port) {
+        dataSource.value.port = modeDef.defaultPort;
       }
       updateUrl();
     };
@@ -164,6 +198,7 @@ export default defineComponent({
     const onTypeChange = () => {
       const dbType = selectedDbType.value;
       if (dbType) {
+        duckdbMode.value = dbType.defaultConnectionMode || 'file';
         if (dbType.defaultPort && !dataSource.value.port) {
           dataSource.value.port = dbType.defaultPort;
         }
@@ -177,6 +212,20 @@ export default defineComponent({
     const updateUrl = () => {
       const dbType = selectedDbType.value;
       if (!dbType) return;
+
+      if (dbType.name === 'DUCKDB') {
+        if (duckdbMode.value === 'quack') {
+          const host = dataSource.value.hostname || '';
+          if (!host) {
+            dataSource.value.url = '';
+            return;
+          }
+          dataSource.value.url = dataSource.value.port ? `quack:${host}:${dataSource.value.port}` : `quack:${host}`;
+        } else {
+          dataSource.value.url = 'jdbc:duckdb:' + (duckdbFile.value || '');
+        }
+        return;
+      }
 
       let urlTemplate = dbType.jdbcUrlTemplate;
       const hostname = dataSource.value.hostname || '{host}';
@@ -228,6 +277,13 @@ export default defineComponent({
         alertService.showError('请选择数据源类型');
         return false;
       }
+      if (isDuckDb.value) {
+        if (duckdbMode.value === 'quack' && (!dataSource.value.hostname || !dataSource.value.hostname.trim())) {
+          alertService.showError('请输入 Quack 服务地址');
+          return false;
+        }
+        return true;
+      }
       if (!dataSource.value.hostname || !dataSource.value.hostname.trim()) {
         alertService.showError('请输入IP/主机');
         return false;
@@ -235,8 +291,15 @@ export default defineComponent({
       return true;
     };
 
+    const testConnectionDisabled = computed(() => {
+      if (isTestingConnection.value || !dataSource.value.type || !dataSource.value.url) return true;
+      if (isDuckDb.value) return false;
+      return !dataSource.value.username;
+    });
+
     const save = async () => {
       if (!validateForm()) return;
+      updateUrl();
       buildExtraParamsFromRows();
 
       isSaving.value = true;
@@ -258,9 +321,14 @@ export default defineComponent({
     };
 
     const testConnection = async () => {
+      updateUrl();
       buildExtraParamsFromRows();
-      if (!dataSource.value.type || !dataSource.value.url || !dataSource.value.username) {
-        alertService.showError('请先填写数据库类型、URL和用户名');
+      if (!dataSource.value.type || !dataSource.value.url) {
+        alertService.showError('请先完成数据源配置');
+        return;
+      }
+      if (!isDuckDb.value && !dataSource.value.username) {
+        alertService.showError('请先填写用户名');
         return;
       }
 
@@ -290,9 +358,15 @@ export default defineComponent({
       selectedTypeName,
       selectedDbType,
       extraParamRows,
+      duckdbMode,
+      duckdbFile,
+      isDuckDb,
+      effectiveExtraParamsTemplate,
+      testConnectionDisabled,
       selectDbType,
       selectAndGo,
       onTypeChange,
+      onConnectionModeChange,
       updateUrl,
       goToStep,
       closeModal,

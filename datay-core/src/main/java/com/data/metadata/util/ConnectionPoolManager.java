@@ -99,6 +99,9 @@ public class ConnectionPoolManager {
         String resolvedUrl = url;
         if (dbType == DBType.DUCKLAKE) {
             resolvedUrl = convertDuckLakeUrlToDuckDBUrl(url);
+        } else if (url.startsWith("quack:")) {
+            // Quack 远程连接底层仍使用 DuckDB 驱动，实际的 ATTACH 在获取连接后完成
+            resolvedUrl = "jdbc:duckdb:";
         }
 
         config.setJdbcUrl(resolvedUrl);
