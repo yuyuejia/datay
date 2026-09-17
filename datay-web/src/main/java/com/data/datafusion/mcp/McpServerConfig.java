@@ -194,6 +194,11 @@ public class McpServerConfig {
         properties.put("port", stringProp("端口"));
         properties.put("schemaName", stringProp("默认 schema / 数据库名"));
         properties.put("description", stringProp("描述"));
+        Map<String, Object> extraParamsProp = new LinkedHashMap<>();
+        extraParamsProp.put("type", "object");
+        extraParamsProp.put("additionalProperties", Map.of("type", "string"));
+        extraParamsProp.put("description", "扩展参数，如 Quack 的 {\"quack.token\":\"...\"}");
+        properties.put("extraParams", extraParamsProp);
         return Tool.builder("datasource_register", schema(properties, List.of("name", "type", "url", "username", "password")))
             .description("注册一个新的数据源，返回数据源 ID 及基本信息（不含密码）")
             .build();
@@ -278,6 +283,16 @@ public class McpServerConfig {
             dto.setPort(asString(args, "port"));
             dto.setSchemaName(asString(args, "schemaName"));
             dto.setDescription(asString(args, "description"));
+            Object extraParams = args.get("extraParams");
+            if (extraParams instanceof Map<?, ?> map) {
+                Map<String, String> extra = new LinkedHashMap<>();
+                map.forEach((k, v) -> {
+                    if (k != null && v != null) {
+                        extra.put(k.toString(), v.toString());
+                    }
+                });
+                dto.setExtraParams(extra.isEmpty() ? null : extra);
+            }
             ZonedDateTime now = ZonedDateTime.now();
             dto.setCreateTime(now);
             dto.setUpdateTime(now);

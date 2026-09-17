@@ -120,7 +120,7 @@ public class DBUtils {
     }
 
     private static final String DUCKLAKE_CATALOG = "ducklake";
-    private static final String QUACK_CATALOG = "quack";
+    public static final String QUACK_CATALOG = "quack";
 
     private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
         java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
@@ -209,6 +209,58 @@ public class DBUtils {
 
     private static String escapeSqlString(String value) {
         return value == null ? "" : value.replace("'", "''");
+    }
+
+    /**
+     * 判断连接是否挂载了 Quack 远程 catalog。
+     */
+    public static boolean isQuackConnection(Connection conn) {
+        try {
+            try (ResultSet rs = conn.getMetaData().getCatalogs()) {
+                while (rs.next()) {
+                    if (QUACK_CATALOG.equals(rs.getString("TABLE_CAT"))) {
+                        return true;
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+            // ignore
+        }
+        return false;
+    }
+
+    /**
+     * 将 SQL 包装为 Quack 远程查询。
+     *
+     * <p>本地把远端挂载为 catalog {@code quack}，但 Quack 1.5.3 对
+     * {@code "quack"."schema"."table"} 形式的表引用有缺陷（会丢失 schema）。
+     * 这里去掉本地 catalog 限定符并交给 {@code quack.query()} 在远端执行。
+     */
+    public static String wrapQuackQuery(String sql) {
+        String remoteSql = sql.replaceAll("(?i)(?<![A-Za-z0-9_])\"?quack\"?\\s*\\.\\s*", "");
+        String tag = "$quack$";
+        if (remoteSql.contains(tag)) {
+            tag = "$quack_query$";
+        }
+        if (remoteSql.contains(tag)) {
+            return "SELECT * FROM quack.query('" + remoteSql.replace("'", "''") + "')";
+        }
+        return "SELECT * FROM quack.query(" + tag + remoteSql + tag + ")";
+    }
+
+    /**
+     * 在 Quack 远端执行非查询语句（DDL/DML）。
+     *
+     * @return 远端返回的结果行数
+     */
+    public static int executeQuack(Connection conn, String sql) throws SQLException {
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(wrapQuackQuery(sql))) {
+            int rows = 0;
+            while (rs.next()) {
+                rows++;
+            }
+            return rows;
+        }
     }
 
     /**
@@ -598,6 +650,11 @@ public class DBUtils {
             schema = null;
         }
 
+        // Quack 远程目录不会向本地 JDBC 元数据暴露表信息，改由 quack.query 在远端查询
+        if (jdbcUrl.startsWith("jdbc:duckdb:") && QUACK_CATALOG.equals(catalog)) {
+            return getQuackTableList(conn, schema, limit, search);
+        }
+
         try (ResultSet rs = metaData.getTables(catalog, schema, tableNamePattern, tableTypes)) {
             while (rs.next()) {
                 if (limit != null && tables.size() >= limit) {
@@ -623,13 +680,120 @@ public class DBUtils {
         return tables;
     }
 
+    /**
+     * 通过 Quack 远程查询获取表清单（远程目录不暴露 JDBC 元数据）。
+     */
+    private static List<TableMeta> getQuackTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
+        StringBuilder remoteSql = new StringBuilder(
+            "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE'"
+        );
+        if (schema != null && !schema.isEmpty()) {
+            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
+        }
+        if (search != null && !search.isEmpty()) {
+            remoteSql.append(" AND table_name ILIKE '%").append(escapeSqlString(search)).append("%'");
+        }
+        remoteSql.append(" ORDER BY table_schema, table_name");
+        if (limit != null) {
+            remoteSql.append(" LIMIT ").append(limit);
+        }
+
+        List<TableMeta> tables = new ArrayList<>();
+        try (
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT table_schema, table_name FROM quack.query($q$" + remoteSql + "$q$)")
+        ) {
+            while (rs.next()) {
+                TableMeta tableMeta = new TableMeta(rs.getString("table_name"));
+                tableMeta.setSchema(rs.getString("table_schema"));
+                tableMeta.setCatalog(QUACK_CATALOG);
+                tables.add(tableMeta);
+            }
+        }
+        return tables;
+    }
+
+    /**
+     * 通过 Quack 远程查询获取字段清单（远程目录不暴露 JDBC 元数据）。
+     */
+    private static TableMeta getQuackTableMetaData(Connection conn, String schema, String table) throws SQLException {
+        StringBuilder remoteSql = new StringBuilder(
+            "SELECT column_name, data_type, is_nullable, column_default, numeric_precision, numeric_scale, character_maximum_length " +
+            "FROM information_schema.columns WHERE table_name = '" + escapeSqlString(table) + "'"
+        );
+        if (schema != null && !schema.isEmpty()) {
+            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
+        }
+        remoteSql.append(" ORDER BY ordinal_position");
+
+        List<ColumnMeta> columns = new ArrayList<>();
+        try (
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM quack.query($q$" + remoteSql + "$q$)")
+        ) {
+            while (rs.next()) {
+                String name = rs.getString("column_name");
+                String type = rs.getString("data_type");
+                boolean nullable = !"NO".equalsIgnoreCase(rs.getString("is_nullable"));
+                String defaultValue = rs.getString("column_default");
+
+                int length = rs.getInt("character_maximum_length");
+                if (rs.wasNull()) {
+                    length = -1;
+                }
+                int precision = rs.getInt("numeric_precision");
+                if (rs.wasNull()) {
+                    precision = -1;
+                }
+                int scale = rs.getInt("numeric_scale");
+                if (rs.wasNull()) {
+                    scale = -1;
+                }
+
+                ColumnMeta column = new ColumnMeta(name, type, length, precision, scale);
+                column.setNullable(nullable);
+                column.setDefaultValue(defaultValue);
+                columns.add(column);
+            }
+        }
+        if (columns.isEmpty()) {
+            throw new SQLException("Table " + table + " not found.");
+        }
+        TableMeta tableMeta = new TableMeta(table, columns);
+        tableMeta.setDbType(DBType.DUCKDB.toString());
+        tableMeta.setCatalog(QUACK_CATALOG);
+        if (schema != null) {
+            tableMeta.setSchema(schema);
+        }
+        return tableMeta;
+    }
+
+    /**
+     * Quack 远程表存在性判断（远端 information_schema 查询）。
+     */
+    private static boolean quackTableExists(Connection conn, String schema, String table) throws SQLException {
+        StringBuilder remoteSql = new StringBuilder("SELECT 1 FROM information_schema.tables WHERE table_name = '")
+            .append(escapeSqlString(table))
+            .append("'");
+        if (schema != null && !schema.isEmpty()) {
+            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
+        }
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(wrapQuackQuery(remoteSql.toString()))) {
+            return rs.next();
+        }
+    }
+
     public static TableMeta getTableMetaData(Connection conn, String schema, String table) throws SQLException {
         String jdbcUrl = conn.getMetaData().getURL();
         String dbType = DBUtils.getDBType(jdbcUrl);
         TableMeta tableMeta = null;
         if (DBType.DUCKDB.toString().equals(dbType)) {
             String catalog = resolveDuckCatalog(conn.getMetaData());
-            tableMeta = getTableMetaData(conn, catalog, schema, table);
+            if (QUACK_CATALOG.equals(catalog)) {
+                tableMeta = getQuackTableMetaData(conn, schema, table);
+            } else {
+                tableMeta = getTableMetaData(conn, catalog, schema, table);
+            }
         } else if (DBType.ORACLE.toString().equals(dbType)) {
             tableMeta = getTableMetaData(conn, null, schema, table);
         } else if (DBType.POSTGRESQL.toString().equals(dbType)) {
@@ -954,9 +1118,21 @@ public class DBUtils {
      * @throws SQLException SQL执行异常
      */
     public static int execute(Connection conn, String sql, Object... params) throws SQLException {
+        // Quack 直接执行 DELETE/TRUNCATE 会报 “Can only delete from base table”，改由远端执行
+        if ((params == null || params.length == 0) && isQuackConnection(conn) && needsQuackRemoteExec(sql)) {
+            return executeQuack(conn, sql);
+        }
         try (PreparedStatement ps = StatementUtil.prepareStatement(conn, sql, params)) {
             return ps.executeUpdate();
         }
+    }
+
+    private static boolean needsQuackRemoteExec(String sql) {
+        if (sql == null) {
+            return false;
+        }
+        String s = sql.trim().toUpperCase();
+        return s.startsWith("DELETE") || s.startsWith("TRUNCATE");
     }
 
     /**
@@ -1308,6 +1484,9 @@ public class DBUtils {
     public static boolean tableExists(Connection conn, String schema, String table) throws SQLException {
         String jdbcUrl = conn.getMetaData().getURL();
         if (jdbcUrl.startsWith("jdbc:duckdb:")) {
+            if (isQuackConnection(conn)) {
+                return quackTableExists(conn, schema, table);
+            }
             return tableExists(conn, null, schema, table);
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {
             return tableExists(conn, null, schema, table);

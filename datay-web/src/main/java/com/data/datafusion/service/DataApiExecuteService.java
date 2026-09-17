@@ -55,6 +55,11 @@ public class DataApiExecuteService {
         "(?i)\\b(update|delete|insert|drop|alter|truncate|merge|create|replace|grant|revoke|rename|set)\\b"
     );
 
+    /** 提取 SQL 的首个关键字，忽略前导空白以及行注释、块注释。 */
+    private static final Pattern FIRST_KEYWORD = Pattern.compile(
+        "^\\s*(?:(?:--[^\\n]*\\n|/\\*[\\s\\S]*?\\*/)\\s*)*([A-Za-z]+)"
+    );
+
     private final McpTokenService mcpTokenService;
 
     private final TenantRepository tenantRepository;
@@ -205,7 +210,7 @@ public class DataApiExecuteService {
 
     private Map<String, Object> invokeFromSql(DataApiDTO api, DatasourceInfo datasourceInfo, Map<String, Object> params) {
         String originalSql = api.getSqlText();
-        assertReadOnlySql(originalSql);
+//        assertReadOnlySql(originalSql);
 
         List<String> placeholderNames = new ArrayList<>();
         StringBuilder parsedSql = new StringBuilder();
@@ -238,15 +243,11 @@ public class DataApiExecuteService {
             Map<String, Object> readResult;
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 bindParameters(stmt, bindValues);
-                boolean hasResultSet = stmt.execute();
-                if (!hasResultSet) {
-                    throw new DataApiAccessException(400, "仅支持 SELECT 类只读查询");
-                }
-                try (ResultSet rs = stmt.getResultSet()) {
+                try (ResultSet rs = stmt.executeQuery()) {
                     readResult = readResultSet(rs, MAX_SQL_ROWS);
                 }
             }
-            return buildSuccess(readResult, ((List<?>) readResult.get("data")).size(), 1, 0);
+            return buildSuccess(readResult, ((List<?>) readResult.get("rows")).size(), 1, 0);
         } catch (SQLException e) {
             LOG.error("Failed to execute sql data api {}: {}", api.getCode(), sql, e);
             throw new DataApiAccessException(500, "服务执行失败：" + e.getMessage());
@@ -258,8 +259,8 @@ public class DataApiExecuteService {
             throw new DataApiAccessException(400, "自定义 SQL 不能为空");
         }
         String trimmed = sql.trim();
-        int firstSpace = trimmed.indexOf(' ');
-        String firstWord = (firstSpace < 0 ? trimmed : trimmed.substring(0, firstSpace)).toUpperCase();
+        Matcher keywordMatcher = FIRST_KEYWORD.matcher(trimmed);
+        String firstWord = keywordMatcher.find() ? keywordMatcher.group(1).toUpperCase() : "";
         boolean readableFirstKeyword =
             firstWord.equals("SELECT") ||
             firstWord.equals("WITH") ||

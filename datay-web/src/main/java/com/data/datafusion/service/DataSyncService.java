@@ -220,16 +220,9 @@ public class DataSyncService {
 
         Optional<DataSourceDTO> target = dataSourceService.findOne(Long.valueOf(dataSyncDTO.getTarget()));
         if (source.isPresent() && target.isPresent()) {
-            DatasourceInfo sourceInfo = new DatasourceInfo();
-            sourceInfo.setUrl(source.get().getUrl());
-            sourceInfo.setUsername(source.get().getUsername());
-            sourceInfo.setPassword(source.get().getPassword());
-            sourceInfo.setDbschema(source.get().getSchemaName());
-            DatasourceInfo targetInfo = new DatasourceInfo();
-            targetInfo.setUrl(target.get().getUrl());
-            targetInfo.setUsername(target.get().getUsername());
-            targetInfo.setPassword(target.get().getPassword());
-            targetInfo.setDbschema(target.get().getSchemaName());
+            DatasourceInfo sourceInfo = DataSourceQueryService.toDatasourceInfo(source.get());
+            DatasourceInfo targetInfo = DataSourceQueryService.toDatasourceInfo(target.get());
+            boolean quackTarget = targetInfo.getUrl() != null && targetInfo.getUrl().startsWith("quack:");
             try (Connection sConnection = DBUtils.getConnection(sourceInfo); Connection tConnection = DBUtils.getConnection(targetInfo)) {
                 List<DataSyncTableConfigDTO> selectedTables = dataSyncDTO.getSelectedTables();
                 for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
@@ -247,6 +240,9 @@ public class DataSyncService {
                         );
                         targetTable.setTable(tableConfigDTO.getDesTableName());
                         targetTable.setSchema(tableConfigDTO.getDesSchemaName());
+                        if (quackTarget) {
+                            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+                        }
                         String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.get().getUrl()), targetTable);
                         DBUtils.execute(tConnection, ddl);
                     }
@@ -301,6 +297,10 @@ public class DataSyncService {
             sourceIdInput.put("username", source.getUsername());
             sourceIdInput.put("password", source.getPassword());
             sourceIdInput.put("dbschema", selectedTables.get(0).getSrcSchemaName());
+            sourceIdInput.put("type", source.getType());
+            sourceIdInput.put("hostname", source.getHostname());
+            sourceIdInput.put("port", source.getPort());
+            sourceIdInput.put("extraParams", source.getExtraParams());
             jdbcInput.put("sourceId", sourceIdInput);
         }
 
@@ -332,6 +332,10 @@ public class DataSyncService {
             sourceIdOutput.put("username", target.getUsername());
             sourceIdOutput.put("password", target.getPassword());
             sourceIdOutput.put("dbschema", selectedTables.get(0).getDesSchemaName());
+            sourceIdOutput.put("type", target.getType());
+            sourceIdOutput.put("hostname", target.getHostname());
+            sourceIdOutput.put("port", target.getPort());
+            sourceIdOutput.put("extraParams", target.getExtraParams());
             jdbcOutput.put("sourceId", sourceIdOutput);
         }
         jdbcOutput.put("table", ""); // 假设 DataSyncDTO 有 getDesTableName 方法

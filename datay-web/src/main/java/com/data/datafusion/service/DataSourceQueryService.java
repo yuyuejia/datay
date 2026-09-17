@@ -65,6 +65,7 @@ public class DataSourceQueryService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource))) {
+            boolean isQuack = dataSource.getUrl() != null && dataSource.getUrl().startsWith("quack:");
             String trimmedSql = sql.trim();
             boolean isSelect =
                 trimmedSql.toUpperCase().startsWith("SELECT") ||
@@ -74,10 +75,13 @@ public class DataSourceQueryService {
                 trimmedSql.toUpperCase().startsWith("DESC") ||
                 trimmedSql.toUpperCase().startsWith("EXPLAIN");
 
+            // Quack 1.5.3 对非 main schema 的目录/模式限定表引用有缺陷，统一改由 quack.query 在远端执行
+            String executeSql = isQuack ? DBUtils.wrapQuackQuery(sql) : sql;
+
             if (isSelect) {
                 try (
                     Statement stmt = connection.createStatement();
-                    ResultSet rs = stmt.executeQuery(sql)
+                    ResultSet rs = stmt.executeQuery(executeSql)
                 ) {
                     ResultSetMetaData meta = rs.getMetaData();
                     int columnCount = meta.getColumnCount();

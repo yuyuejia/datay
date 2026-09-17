@@ -133,12 +133,21 @@ public class DuckDBConverter implements TypeConverter {
         return column;
     }
 
+    private String qualifiedTableName(TableMeta table) {
+        StringBuilder sb = new StringBuilder();
+        if (table.getCatalog() != null && !table.getCatalog().isEmpty()) {
+            sb.append(table.getCatalog()).append(".");
+        }
+        if (table.getSchema() != null && !table.getSchema().isEmpty()) {
+            sb.append(table.getSchema()).append(".");
+        }
+        sb.append(table.getTable() == null ? "" : table.getTable().toLowerCase());
+        return sb.toString();
+    }
+
     public String generateTableDDL(TableMeta table) {
         StringBuilder ddl = new StringBuilder("CREATE TABLE ");
-        if (table.getSchema() != null) {
-            ddl.append(table.getSchema()).append(".");
-        }
-        ddl.append(table.getTable().toLowerCase()).append(" (\n");
+        ddl.append(qualifiedTableName(table)).append(" (\n");
 
         List<String> primaryKeys = new ArrayList<>();
 
@@ -186,7 +195,7 @@ public class DuckDBConverter implements TypeConverter {
         //        String columns = String.join(", ", columnNames);
         //        String placeholders = String.join(", ", Collections.nCopies(columnNames.size(), "?"));
         //
-        //        String tableName = tableMeta.getSchema() != null ? tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
+        //        String tableName = qualifiedTableName(tableMeta);
         //
         //        return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
     }
@@ -206,10 +215,10 @@ public class DuckDBConverter implements TypeConverter {
         String columns = String.join(", ", columnNames);
         String placeholders = String.join(", ", Collections.nCopies(columnNames.size(), "?"));
 
-        String tableName = tableMeta.getSchema() != null ? tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta);
 
-        // 如果没有主键，则回退到普通INSERT
-        if (primaryKeyColumns.isEmpty()) {
+        // 无主键，或目标为 Quack 远程 catalog（不支持 INSERT OR REPLACE）时回退到普通INSERT
+        if (primaryKeyColumns.isEmpty() || "quack".equalsIgnoreCase(tableMeta.getCatalog())) {
             return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
         }
 
@@ -235,7 +244,7 @@ public class DuckDBConverter implements TypeConverter {
             }
         }
 
-        String tableName = tableMeta.getSchema() != null ? tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta);
 
         // 如果有主键，使用主键作为WHERE条件
         if (!primaryKeyColumns.isEmpty()) {

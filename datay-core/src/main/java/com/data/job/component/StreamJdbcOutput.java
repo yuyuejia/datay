@@ -207,6 +207,9 @@ public class StreamJdbcOutput extends FlowComponent {
                         targetTable.setDbType(targetDbType);
                         targetTable.setTable(table);
                         targetTable.setSchema(schema);
+                        if (isQuackTarget()) {
+                            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+                        }
                     }
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
@@ -215,7 +218,11 @@ public class StreamJdbcOutput extends FlowComponent {
                     logInfo("表 " + schema + "." + table + " 已存在");
                     targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
                 }
-                
+                if (isQuackTarget() && targetTable != null) {
+                    // Quack 目标需带上远程 catalog 限定，写入才会落到远端
+                    targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+                }
+
                 // 处理overwrite模式（非dropIfTableExists为true的情况）
                 if ("overwrite".equals(this.model) && !Boolean.TRUE.equals(this.dropIfTableExists)) {
                     logInfo("清空表 " + schema + "." + table);
@@ -244,7 +251,7 @@ public class StreamJdbcOutput extends FlowComponent {
             eventType = this.model.toUpperCase();
         }
 
-        if ("duckdb".equalsIgnoreCase(targetDbType) && canUseDuckDBAppender(eventType)) {
+        if ("duckdb".equalsIgnoreCase(targetDbType) && !isQuackTarget() && canUseDuckDBAppender(eventType)) {
             migrateDataWithDuckDBAppender(targetConn, targetTable, flowFile);
         } else {
             migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
@@ -253,6 +260,10 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private boolean canUseDuckDBAppender(String eventType) {
         return "INSERT".equals(eventType) || "APPEND".equals(eventType) || "OVERWRITE".equals(eventType);
+    }
+
+    private boolean isQuackTarget() {
+        return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("quack:");
     }
 
     private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,
