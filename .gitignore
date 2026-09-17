@@ -157,3 +157,5 @@ test.db.wal
 etl_status.json
 metadata.ducklake
 metadata.ducklake.wal
+
+.opencode/
