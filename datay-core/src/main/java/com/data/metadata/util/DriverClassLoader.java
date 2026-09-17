@@ -21,6 +21,19 @@ public class DriverClassLoader extends URLClassLoader {
     }
 
     /**
+     * 回退类加载器：优先使用加载本类的类加载器（Spring Boot 可执行 jar 中为启动类加载器），
+     * 其次线程上下文类加载器，最后系统类加载器。避免在可执行 jar 中 {@code BOOT-INF/lib} 下的驱动无法被系统类加载器识别。
+     */
+    private static ClassLoader fallbackClassLoader() {
+        ClassLoader ownClassLoader = DriverClassLoader.class.getClassLoader();
+        if (ownClassLoader != null) {
+            return ownClassLoader;
+        }
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        return contextClassLoader != null ? contextClassLoader : ClassLoader.getSystemClassLoader();
+    }
+
+    /**
      * 添加驱动JAR文件到类路径
      */
     public void addDriverJar(String jarPath) {
@@ -60,23 +73,23 @@ public class DriverClassLoader extends URLClassLoader {
                     loadedClasses.put(name, loadedClass);
                     return loadedClass;
                 } catch (ClassNotFoundException e) {
-                    // 如果自定义类加载器找不到，回退到系统类加载器
+                    // 如果自定义类加载器找不到，回退到应用类加载器
                     try {
-                        loadedClass = getSystemClassLoader().loadClass(name);
+                        loadedClass = fallbackClassLoader().loadClass(name);
                         if (resolve) {
                             resolveClass(loadedClass);
                         }
                         return loadedClass;
                     } catch (ClassNotFoundException e2) {
-                        // 系统类加载器也找不到，抛出异常
-                        throw new ClassNotFoundException("Class not found by both custom and system class loaders: " + name, e2);
+                        // 应用类加载器也找不到，抛出异常
+                        throw new ClassNotFoundException("Class not found by both custom and fallback class loaders: " + name, e2);
                     }
                 }
             }
 
-            // 对于其他类，使用系统类加载器
+            // 对于其他类，使用回退类加载器
             try {
-                loadedClass = getSystemClassLoader().loadClass(name);
+                loadedClass = fallbackClassLoader().loadClass(name);
                 return loadedClass;
             } catch (ClassNotFoundException e) {
                 throw new ClassNotFoundException("Class not found: " + name);
