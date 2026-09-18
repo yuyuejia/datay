@@ -80,6 +80,10 @@ public class FlowFile {
         }
     }
 
+    public DataFormat getDataFormat() {
+        return dataFormat;
+    }
+
     public JSONArray getJsonArray() {
         return jsonArray;
     }

@@ -53,38 +53,41 @@ public class JavaScriptComponent extends FlowComponent {
     private String getDefaultScript() {
         return (
                 "import com.data.job.FlowFile;\n" +
+                        "import com.data.job.component.javascript.ScriptContext.LogFunction;\n" +
                         "import com.alibaba.fastjson2.JSONArray;\n" +
                         "import com.alibaba.fastjson2.JSONObject;\n" +
                         "import java.util.Map;\n\n" +
                         "public class UserScript {\n" +
                         "    public FlowFile process(FlowFile flowFile, Map<String, Object> context) {\n" +
-                        "        // 添加处理时间戳\n" +
-                        "        String event = flowFile.getAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE).toString();\n" +
-                        "        if(\"INSERT\".equals(event)){\n" +
-                        "        }else if(\"UPDATE\".equals(event)){\n" +
-                        "            //如果是 update 事件，获取 before 数据\n" +
+                        "        LogFunction log = (LogFunction) context.get(\"log\");\n\n" +
+                        "        // 1. 处理 JSON 数组：逐条读取、修改并输出\n" +
+                        "        if (flowFile.getJsonArray() != null) {\n" +
                         "            JSONArray records = flowFile.getJsonArray();\n" +
-                        "            for (Object record : records) {\n" +
-                        "                JSONObject jsonRecord = (JSONObject) record;\n" +
-                        "                JSONObject beforeRecord = jsonRecord.getJSONObject(\"__before\");\n" +
-                        "                Double order_amount = beforeRecord.getDouble(\"order_amount\");\n" +
-                        "                //如果是删除事件，金额字段加负号\n" +
-                        "                if(order_amount == null){\n" +
-                        "                    beforeRecord.put(\"order_amount\", -1 * order_amount);\n" +
+                        "            JSONArray result = new JSONArray();\n" +
+                        "            for (Object item : records) {\n" +
+                        "                JSONObject record = (JSONObject) item;\n" +
+                        "                // CDC 场景：UPDATE/DELETE 事件包含变更前数据 __before，先处理它\n" +
+                        "                JSONObject before = record.getJSONObject(\"__before\");\n" +
+                        "                if (before != null) {\n" +
+                        "                    before.put(\"__processed\", true);\n" +
+                        "                    result.add(before);\n" +
                         "                }\n" +
-                        "                records.add(beforeRecord);\n" +
+                        "                // 处理当前记录：新增/修改字段\n" +
+                        "                record.put(\"processed\", true);\n" +
+                        "                record.put(\"process_time\", System.currentTimeMillis());\n" +
+                        "                result.add(record);\n" +
                         "            }\n" +
-                        "        }else if(\"DELETE\".equals(event)){\n" +
-                        "            JSONArray records = flowFile.getJsonArray();\n" +
-                        "            for (Object record : records) {\n" +
-                        "                JSONObject jsonRecord = (JSONObject) record;\n" +
-                        "                Double order_amount = jsonRecord.getDouble(\"order_amount\");\n" +
-                        "                //如果是删除事件，金额字段加负号\n" +
-                        "                if(order_amount == null){\n" +
-                        "                    jsonRecord.put(\"order_amount\", -1 * order_amount);\n" +
-                        "                }\n" +
-                        "            }\n" +
-                        "        }" +
+                        "            flowFile.setJsonArray(result);\n" +
+                        "            log.info(\"JSON数组处理完成，输出 \" + result.size() + \" 条\");\n" +
+                        "        }\n\n" +
+                        "        // 2. 处理单个 JSON 对象\n" +
+                        "        if (flowFile.getJsonObject() != null) {\n" +
+                        "            JSONObject record = flowFile.getJsonObject();\n" +
+                        "            record.put(\"processed\", true);\n" +
+                        "            record.put(\"process_time\", System.currentTimeMillis());\n" +
+                        "            log.info(\"JSON对象处理完成\");\n" +
+                        "        }\n\n" +
+                        "        // 3. 其它格式（CSV/TEXT/BINARY）原样透传\n" +
                         "        return flowFile;\n" +
                         "    }\n" +
                         "}"

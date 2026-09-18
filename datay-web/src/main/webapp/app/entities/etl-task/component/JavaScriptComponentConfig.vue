@@ -11,20 +11,27 @@
         :rows="15"
         :maxlength="10000"
         placeholder='请输入Java脚本代码，例如：
-import com.data.job.etl.flow.FlowFile;
+import com.data.job.FlowFile;
+import com.data.job.component.javascript.ScriptContext.LogFunction;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.data.job.etl.flow.javascript.ScriptContext.LogFunction;
 import java.util.Map;
 
 public class UserScript {
     public FlowFile process(FlowFile flowFile, Map<String, Object> context) {
-        // 这里可以编写自定义的数据处理逻辑
-        // 示例：为flowFile添加一个属性
-        flowFile.setAttribute("processed_by_script", true);
-        // 记录日志
         LogFunction log = (LogFunction) context.get("log");
-        log.info("处理FlowFile，当前时间: " + System.currentTimeMillis());
+        // 处理 FlowFile 中的 JSON 数组数据
+        if (flowFile.getJsonArray() != null) {
+            JSONArray records = flowFile.getJsonArray();
+            JSONArray result = new JSONArray();
+            for (Object item : records) {
+                JSONObject record = (JSONObject) item;
+                record.put("processed", true);
+                result.add(record);
+            }
+            flowFile.setJsonArray(result);
+            log.info("JSON数组处理完成，输出 " + result.size() + " 条");
+        }
         return flowFile;
     }
 }'
@@ -75,20 +82,46 @@ const formData = reactive({
 });
 
 // 默认脚本模板
-const defaultScriptTemplate = `import com.data.job.etl.flow.FlowFile;
+const defaultScriptTemplate = `import com.data.job.FlowFile;
+import com.data.job.component.javascript.ScriptContext.LogFunction;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.data.job.etl.flow.javascript.ScriptContext.LogFunction;
 import java.util.Map;
 
 public class UserScript {
     public FlowFile process(FlowFile flowFile, Map<String, Object> context) {
-        // 这里可以编写自定义的数据处理逻辑
-        // 示例：为flowFile添加一个属性
-        flowFile.setAttribute("processed_by_script", true);
-        // 记录日志
         LogFunction log = (LogFunction) context.get("log");
-        log.info("处理FlowFile，当前时间: " + System.currentTimeMillis());
+
+        // 1. 处理 JSON 数组：逐条读取、修改并输出
+        if (flowFile.getJsonArray() != null) {
+            JSONArray records = flowFile.getJsonArray();
+            JSONArray result = new JSONArray();
+            for (Object item : records) {
+                JSONObject record = (JSONObject) item;
+                // CDC 场景：UPDATE/DELETE 事件包含变更前数据 __before，先处理它
+                JSONObject before = record.getJSONObject("__before");
+                if (before != null) {
+                    before.put("__processed", true);
+                    result.add(before);
+                }
+                // 处理当前记录：新增/修改字段
+                record.put("processed", true);
+                record.put("process_time", System.currentTimeMillis());
+                result.add(record);
+            }
+            flowFile.setJsonArray(result);
+            log.info("JSON数组处理完成，输出 " + result.size() + " 条");
+        }
+
+        // 2. 处理单个 JSON 对象
+        if (flowFile.getJsonObject() != null) {
+            JSONObject record = flowFile.getJsonObject();
+            record.put("processed", true);
+            record.put("process_time", System.currentTimeMillis());
+            log.info("JSON对象处理完成");
+        }
+
+        // 3. 其它格式（CSV/TEXT/BINARY）原样透传
         return flowFile;
     }
 }`;
@@ -125,7 +158,7 @@ const validateScript = () => {
   }
 
   // 检查必要的导入
-  const requiredImports = ['import com.data.job.etl.flow.FlowFile', 'import java.util.Map'];
+  const requiredImports = ['import com.data.job.FlowFile', 'import java.util.Map'];
 
   for (const requiredImport of requiredImports) {
     if (!scriptCode.includes(requiredImport)) {
