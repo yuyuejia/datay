@@ -34,6 +34,7 @@
         <el-table-column label="来源" width="100" align="center">
           <template #default="scope">
             <el-tag v-if="scope.row.sourceType === 'SQL'" type="warning" size="small">自定义 SQL</el-tag>
+            <el-tag v-else-if="scope.row.sourceType === 'API'" type="primary" size="small">已有 API</el-tag>
             <el-tag v-else type="success" size="small">数据表</el-tag>
           </template>
         </el-table-column>
@@ -41,7 +42,9 @@
           <template #default="scope">{{ tableDisplay(scope.row) }}</template>
         </el-table-column>
         <el-table-column label="数据源" width="140">
-          <template #default="scope">{{ dataSourceNames[scope.row.dataSourceId] || scope.row.dataSourceId }}</template>
+          <template #default="scope">
+            {{ scope.row.sourceType === 'API' ? '-' : dataSourceNames[scope.row.dataSourceId] || scope.row.dataSourceId }}
+          </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="scope">
@@ -102,7 +105,7 @@
           <tbody>
             <tr>
               <th style="width: 110px">请求方式</th>
-              <td>GET / POST</td>
+              <td>{{ docMethod }}</td>
             </tr>
             <tr>
               <th>请求地址</th>
@@ -124,12 +127,21 @@
                 Query 中与表字段同名的参数会按等值过滤；<code>pageNum</code>（默认 1）、<code>pageSize</code>（默认 20，最大 1000）用于分页。
               </td>
             </tr>
-            <tr v-else>
+            <tr v-else-if="docApi.sourceType === 'SQL'">
               <th>SQL 参数</th>
               <td>SQL 中形如 <code>$&#123;param&#125;</code> 的占位符需在调用时以同名参数传入，服务仅支持只读查询。</td>
             </tr>
+            <tr v-else>
+              <th>代理说明</th>
+              <td>
+                该服务代理注册的已有 API，调用时会转发到目标接口；可在调用参数中传入主请求配置里
+                <code>$&#123;param&#125;</code> 占位符对应的值，服务端会按需先获取 Token 再完成调用。
+              </td>
+            </tr>
           </tbody>
         </table>
+        <h6 class="mt-3">curl 示例</h6>
+        <pre class="bg-light border rounded p-3 mb-0" style="white-space: pre-wrap; word-break: break-all">{{ docCurl }}</pre>
       </div>
     </b-modal>
 

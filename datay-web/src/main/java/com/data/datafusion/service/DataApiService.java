@@ -153,10 +153,10 @@ public class DataApiService {
         if (dto.getCode() != null && !dto.getCode().matches("[A-Za-z0-9_\\-]+")) {
             throw new IllegalArgumentException("服务编码只能包含字母、数字、下划线和中划线");
         }
-        if (dto.getDataSourceId() == null) {
-            throw new IllegalArgumentException("请选择数据源");
-        }
         if (DataApi.SOURCE_TYPE_TABLE.equals(dto.getSourceType())) {
+            if (dto.getDataSourceId() == null) {
+                throw new IllegalArgumentException("请选择数据源");
+            }
             if (dto.getSchemaName() == null || dto.getSchemaName().trim().isEmpty()) {
                 throw new IllegalArgumentException("请选择数据表所属的 Schema");
             }
@@ -164,11 +164,18 @@ public class DataApiService {
                 throw new IllegalArgumentException("请选择数据表");
             }
         } else if (DataApi.SOURCE_TYPE_SQL.equals(dto.getSourceType())) {
+            if (dto.getDataSourceId() == null) {
+                throw new IllegalArgumentException("请选择数据源");
+            }
             if (dto.getSqlText() == null || dto.getSqlText().trim().isEmpty()) {
                 throw new IllegalArgumentException("自定义 SQL 不能为空");
             }
+        } else if (DataApi.SOURCE_TYPE_API.equals(dto.getSourceType())) {
+            if (dto.getApiConfig() == null || dto.getApiConfig().trim().isEmpty()) {
+                throw new IllegalArgumentException("请配置要注册的 API");
+            }
         } else {
-            throw new IllegalArgumentException("数据来源类型必须是 TABLE 或 SQL");
+            throw new IllegalArgumentException("数据来源类型必须是 TABLE、SQL 或 API");
         }
     }
 

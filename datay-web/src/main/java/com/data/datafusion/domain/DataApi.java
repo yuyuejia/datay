@@ -27,6 +27,9 @@ public class DataApi implements Serializable, TenantAware {
     /** 数据来源类型：自定义 SQL。 */
     public static final String SOURCE_TYPE_SQL = "SQL";
 
+    /** 数据来源类型：注册已存在的 HTTP API（并以数据服务形式对外代理）。 */
+    public static final String SOURCE_TYPE_API = "API";
+
     /** 服务状态：启用（可对外访问）。 */
     public static final String STATUS_ENABLED = "ENABLED";
 
@@ -63,6 +66,9 @@ public class DataApi implements Serializable, TenantAware {
 
     @Column(name = "sql_text")
     private String sqlText;
+
+    @Column(name = "api_config")
+    private String apiConfig;
 
     @Column(name = "status")
     private String status;
@@ -191,6 +197,19 @@ public class DataApi implements Serializable, TenantAware {
 
     public void setSqlText(String sqlText) {
         this.sqlText = sqlText;
+    }
+
+    public String getApiConfig() {
+        return this.apiConfig;
+    }
+
+    public DataApi apiConfig(String apiConfig) {
+        this.setApiConfig(apiConfig);
+        return this;
+    }
+
+    public void setApiConfig(String apiConfig) {
+        this.apiConfig = apiConfig;
     }
 
     public String getStatus() {

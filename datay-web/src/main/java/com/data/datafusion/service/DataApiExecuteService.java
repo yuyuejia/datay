@@ -1,5 +1,9 @@
 package com.data.datafusion.service;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONPath;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.Tenant;
 import com.data.datafusion.domain.User;
@@ -13,19 +17,33 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -51,6 +69,19 @@ public class DataApiExecuteService {
 
     private static final int MAX_SQL_ROWS = 10000;
 
+    private static final int DEFAULT_HTTP_TIMEOUT = 30000;
+
+    private static final int MAX_HTTP_TIMEOUT = 300000;
+
+    /** JDK HttpClient 禁止设置的受限请求头，遇到时跳过而不是抛出异常。 */
+    private static final Set<String> RESTRICTED_HEADERS = Set.of(
+        "connection",
+        "content-length",
+        "expect",
+        "host",
+        "upgrade"
+    );
+
     private static final Pattern DML_KEYWORD = Pattern.compile(
         "(?i)\\b(update|delete|insert|drop|alter|truncate|merge|create|replace|grant|revoke|rename|set)\\b"
     );
@@ -67,6 +98,9 @@ public class DataApiExecuteService {
     private final DataApiService dataApiService;
 
     private final DataSourceService dataSourceService;
+
+    /** 前置处理 Token 缓存，键为「服务 ID + 前置配置」，值为 Token 与过期时间。 */
+    private final Map<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
 
     public DataApiExecuteService(
         McpTokenService mcpTokenService,
@@ -106,6 +140,10 @@ public class DataApiExecuteService {
                 .orElseThrow(() -> new DataApiAccessException(404, "服务不存在或未发布：" + code));
             if (!DataApi.STATUS_ENABLED.equals(api.getStatus())) {
                 throw new DataApiAccessException(404, "服务不存在或未发布：" + code);
+            }
+
+            if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
+                return invokeFromApi(api, params);
             }
 
             DataSourceDTO dataSource = dataSourceService
@@ -253,6 +291,349 @@ public class DataApiExecuteService {
             throw new DataApiAccessException(500, "服务执行失败：" + e.getMessage());
         }
     }
+
+    // ------------------------------------------------------------------- api
+
+    /**
+     * 代理调用已注册的 HTTP API。
+     *
+     * <p>支持两种能力：其一，直接按配置的地址、方法、请求头、请求体转发；其二，先调用前置接口获取
+     * Token。URL、请求头、请求体中均可使用 {@code ${param}} 占位符，调用方同名参数会在转发前替换；
+     * 前置接口获取到的 Token 则以 {@code ${token}} 引用。</p>
+     */
+    private Map<String, Object> invokeFromApi(DataApiDTO api, Map<String, Object> params) {
+        JSONObject config = parseApiConfig(api.getApiConfig());
+        String url = config.getString("url");
+        if (url == null || url.isBlank()) {
+            throw new DataApiAccessException(500, "API 服务未配置请求地址");
+        }
+
+        Map<String, Object> context = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            if ("access_token".equals(entry.getKey())) {
+                continue;
+            }
+            String value = toStringValue(entry.getValue());
+            if (value != null) {
+                context.put(entry.getKey(), value);
+            }
+        }
+
+        String body = config.getString("body");
+        String method = normalizeHttpMethod(config.getString("method"), body);
+        JSONObject headers = new JSONObject();
+        JSONObject configuredHeaders = config.getJSONObject("headers");
+        if (configuredHeaders != null) {
+            headers.putAll(configuredHeaders);
+        }
+
+        JSONObject preProcess = config.getJSONObject("preProcess");
+        if (preProcess != null && preProcess.getBooleanValue("enabled", false)) {
+            context.put("token", resolvePreProcessToken(api, preProcess, context));
+        }
+
+        url = substitutePlaceholders(url, context, "请求地址");
+        body = substitutePlaceholders(body, context, "请求体");
+        headers = substituteHeaders(headers, context);
+
+        int timeout = clampTimeout(config.getIntValue("timeout", DEFAULT_HTTP_TIMEOUT));
+        boolean sslVerify = config.getBooleanValue("sslVerify", true);
+
+        HttpResponse<String> response = sendHttpRequest(method, url, headers, body, timeout, sslVerify);
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new DataApiAccessException(502, "上游接口调用失败（HTTP " + response.statusCode() + "）：" + truncate(response.body()));
+        }
+        return buildApiResult(response.body(), config.getString("jsonPath"));
+    }
+
+    private String resolvePreProcessToken(DataApiDTO api, JSONObject preProcess, Map<String, Object> context) {
+        int ttlSeconds = Math.max(0, preProcess.getIntValue("cacheTtlSeconds", 0));
+        String cacheKey = api.getId() + "|" + preProcess.toJSONString();
+        if (ttlSeconds > 0) {
+            CachedToken cached = tokenCache.get(cacheKey);
+            if (cached != null && cached.expireAt() > System.currentTimeMillis()) {
+                return cached.value();
+            }
+        }
+
+        String url = preProcess.getString("url");
+        if (url == null || url.isBlank()) {
+            throw new DataApiAccessException(500, "前置处理未配置请求地址");
+        }
+        String body = preProcess.getString("body");
+        String method = normalizeHttpMethod(preProcess.getString("method"), body);
+        JSONObject headers = new JSONObject();
+        JSONObject configuredHeaders = preProcess.getJSONObject("headers");
+        if (configuredHeaders != null) {
+            headers.putAll(configuredHeaders);
+        }
+
+        String resolvedUrl = substitutePlaceholders(url, context, "前置请求地址");
+        String resolvedBody = substitutePlaceholders(body, context, "前置请求体");
+        JSONObject resolvedHeaders = substituteHeaders(headers, context);
+
+        int timeout = clampTimeout(preProcess.getIntValue("timeout", DEFAULT_HTTP_TIMEOUT));
+        boolean sslVerify = preProcess.getBooleanValue("sslVerify", true);
+
+        HttpResponse<String> response = sendHttpRequest(method, resolvedUrl, resolvedHeaders, resolvedBody, timeout, sslVerify);
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new DataApiAccessException(
+                502,
+                "前置接口调用失败（HTTP " + response.statusCode() + "）：" + truncate(response.body())
+            );
+        }
+
+        String token = extractToken(response.body(), preProcess.getString("tokenPath"));
+        if (token == null || token.isBlank()) {
+            throw new DataApiAccessException(502, "未能从前置接口响应中提取 Token");
+        }
+        if (ttlSeconds > 0) {
+            tokenCache.put(cacheKey, new CachedToken(token, System.currentTimeMillis() + ttlSeconds * 1000L));
+        }
+        return token;
+    }
+
+    private static String extractToken(String responseBody, String tokenPath) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return null;
+        }
+        if (tokenPath == null || tokenPath.isBlank()) {
+            return responseBody.trim();
+        }
+        try {
+            Object value = JSONPath.eval(JSON.parse(responseBody), tokenPath);
+            return value == null ? null : String.valueOf(value);
+        } catch (Exception e) {
+            throw new DataApiAccessException(502, "Token 提取路径无效：" + tokenPath);
+        }
+    }
+
+    private HttpResponse<String> sendHttpRequest(
+        String method,
+        String url,
+        JSONObject headers,
+        String body,
+        int timeout,
+        boolean sslVerify
+    ) {
+        validateHttpUrl(url);
+        try {
+            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofMillis(timeout));
+            if (headers != null) {
+                for (Map.Entry<String, Object> entry : headers.entrySet()) {
+                    String name = entry.getKey();
+                    Object value = entry.getValue();
+                    if (name == null || value == null || RESTRICTED_HEADERS.contains(name.toLowerCase(Locale.ROOT))) {
+                        continue;
+                    }
+                    builder.header(name, String.valueOf(value));
+                }
+            }
+            HttpRequest.BodyPublisher publisher = (body == null || body.isEmpty())
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8);
+            builder.method(method, publisher);
+            HttpClient client = buildHttpClient(timeout, sslVerify);
+            return client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        } catch (DataApiAccessException e) {
+            throw e;
+        } catch (Exception e) {
+            LOG.error("Failed to call registered api: {} {}", method, url, e);
+            throw new DataApiAccessException(502, "调用上游接口失败：" + e.getMessage());
+        }
+    }
+
+    private static HttpClient buildHttpClient(int timeout, boolean sslVerify) {
+        HttpClient.Builder builder = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofMillis(Math.min(timeout, 30000)))
+            .followRedirects(HttpClient.Redirect.NORMAL);
+        if (!sslVerify) {
+            SSLParameters sslParameters = new SSLParameters();
+            sslParameters.setEndpointIdentificationAlgorithm("");
+            builder.sslContext(trustAllSslContext()).sslParameters(sslParameters);
+        }
+        return builder.build();
+    }
+
+    private static SSLContext trustAllSslContext() {
+        try {
+            TrustManager[] trustAll = new TrustManager[] {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) {
+                        // 信任所有客户端证书
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                        // 信任所有服务端证书
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                },
+            };
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAll, new SecureRandom());
+            return sslContext;
+        } catch (Exception e) {
+            throw new DataApiAccessException(500, "初始化 HTTPS 上下文失败：" + e.getMessage());
+        }
+    }
+
+    private static void validateHttpUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new DataApiAccessException(500, "API 服务未配置请求地址");
+        }
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            throw new DataApiAccessException(400, "非法的 API 地址：" + url);
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+            throw new DataApiAccessException(400, "仅支持 http/https 协议的 API 地址");
+        }
+    }
+
+    private static Map<String, Object> buildApiResult(String responseBody, String jsonPath) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("code", 0);
+        result.put("message", "success");
+
+        boolean hasPath = jsonPath != null && !jsonPath.isBlank();
+        List<String> columns = new ArrayList<>();
+        Object data = null;
+        long total = 0;
+
+        Object root = null;
+        boolean parsedJson = false;
+        if (responseBody != null && !responseBody.isBlank()) {
+            try {
+                root = JSON.parse(responseBody);
+                parsedJson = true;
+            } catch (Exception e) {
+                if (hasPath) {
+                    throw new DataApiAccessException(502, "响应内容不是合法 JSON，无法按路径提取数据");
+                }
+                data = responseBody;
+                total = 1;
+            }
+        }
+
+        if (parsedJson) {
+            Object value = root;
+            if (hasPath) {
+                try {
+                    value = JSONPath.eval(root, jsonPath);
+                } catch (Exception e) {
+                    throw new DataApiAccessException(502, "数据提取路径无效：" + jsonPath);
+                }
+                if (value == null) {
+                    throw new DataApiAccessException(502, "数据提取路径未匹配到数据：" + jsonPath);
+                }
+            }
+            data = value;
+            if (value instanceof JSONArray array) {
+                total = array.size();
+                if (!array.isEmpty() && array.get(0) instanceof JSONObject first) {
+                    columns.addAll(first.keySet());
+                }
+            } else if (value instanceof JSONObject object) {
+                total = 1;
+                columns.addAll(object.keySet());
+            } else {
+                total = 1;
+            }
+        } else if (hasPath) {
+            throw new DataApiAccessException(502, "响应内容为空，无法按路径提取数据");
+        }
+
+        result.put("data", data);
+        result.put("columns", columns);
+        result.put("total", total);
+        return result;
+    }
+
+    private static JSONObject parseApiConfig(String apiConfig) {
+        if (apiConfig == null || apiConfig.isBlank()) {
+            throw new DataApiAccessException(500, "API 服务未配置");
+        }
+        try {
+            return JSON.parseObject(apiConfig);
+        } catch (Exception e) {
+            throw new DataApiAccessException(500, "API 服务配置解析失败：" + e.getMessage());
+        }
+    }
+
+    private static String substitutePlaceholders(String template, Map<String, Object> context, String label) {
+        if (template == null || template.isEmpty()) {
+            return template;
+        }
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
+        StringBuilder builder = new StringBuilder();
+        List<String> missing = new ArrayList<>();
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            Object value = context.get(name);
+            if (value == null) {
+                missing.add(name);
+                matcher.appendReplacement(builder, Matcher.quoteReplacement(matcher.group(0)));
+            } else {
+                matcher.appendReplacement(builder, Matcher.quoteReplacement(String.valueOf(value)));
+            }
+        }
+        matcher.appendTail(builder);
+        if (!missing.isEmpty()) {
+            throw new DataApiAccessException(400, label + "缺少参数：" + String.join(", ", missing));
+        }
+        return builder.toString();
+    }
+
+    private static JSONObject substituteHeaders(JSONObject headers, Map<String, Object> context) {
+        JSONObject result = new JSONObject();
+        if (headers == null) {
+            return result;
+        }
+        for (Map.Entry<String, Object> entry : headers.entrySet()) {
+            if (entry.getKey() == null) {
+                continue;
+            }
+            Object value = entry.getValue();
+            result.put(
+                entry.getKey(),
+                value == null ? null : substitutePlaceholders(String.valueOf(value), context, "请求头")
+            );
+        }
+        return result;
+    }
+
+    private static String normalizeHttpMethod(String method, String body) {
+        if (method == null || method.isBlank()) {
+            return body == null || body.isBlank() ? "GET" : "POST";
+        }
+        return method.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static int clampTimeout(int timeout) {
+        if (timeout <= 0) {
+            return DEFAULT_HTTP_TIMEOUT;
+        }
+        return Math.min(timeout, MAX_HTTP_TIMEOUT);
+    }
+
+    private static String truncate(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() > 500 ? value.substring(0, 500) + "..." : value;
+    }
+
+    /** 缓存的前置处理 Token。 */
+    private record CachedToken(String value, long expireAt) {}
 
     private void assertReadOnlySql(String sql) {
         if (sql == null || sql.trim().isEmpty()) {

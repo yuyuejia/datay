@@ -19,6 +19,7 @@ public class DataApiDTO implements Serializable {
     private String schemaName;
     private String tableName;
     private String sqlText;
+    private String apiConfig;
     private String status;
     private String tenantId;
     private ZonedDateTime createTime;
@@ -94,6 +95,14 @@ public class DataApiDTO implements Serializable {
 
     public void setSqlText(String sqlText) {
         this.sqlText = sqlText;
+    }
+
+    public String getApiConfig() {
+        return apiConfig;
+    }
+
+    public void setApiConfig(String apiConfig) {
+        this.apiConfig = apiConfig;
     }
 
     public String getStatus() {

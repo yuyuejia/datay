@@ -2,7 +2,7 @@ import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch }
 
 import DataSourceService from '@/entities/data-source/data-source.service';
 import DataApiService from './data-api.service';
-import { type IDataApi } from '@/shared/model/data-api.model';
+import { type IDataApi, parseApiConfig } from '@/shared/model/data-api.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -152,15 +152,61 @@ export default defineComponent({
     // 调用说明弹窗
     const docApi = ref<IDataApi | null>(null);
     const docUrl = ref('');
+    const docMethod = ref('GET / POST');
+    const docCurl = ref('');
     const docModalVisible = ref(false);
+
+    const buildCurl = (row: IDataApi, url: string, method: string): string => {
+      if (row.sourceType === 'API') {
+        const verbMethod = method.toUpperCase();
+        const verb = verbMethod === 'GET' ? '' : `-X ${verbMethod} `;
+        const hasBody = verbMethod === 'POST' || verbMethod === 'PUT' || verbMethod === 'PATCH';
+        const body = hasBody ? ` \\\n  -H "Content-Type: application/json" \\\n  -d '{"param":"value"}'` : '';
+        return [
+          '# Header 鉴权',
+          `curl ${verb}"${url}" \\`,
+          `  -H "Authorization: Bearer mcp_xxx"${body}`,
+          '',
+          '# Query 鉴权',
+          `curl ${verb}"${url}?access_token=mcp_xxx"${body}`,
+        ].join('\n');
+      }
+      if (row.sourceType === 'SQL') {
+        return [
+          '# Header 鉴权',
+          `curl "${url}?param=value" \\`,
+          '  -H "Authorization: Bearer mcp_xxx"',
+          '',
+          '# Query 鉴权',
+          `curl "${url}?param=value&access_token=mcp_xxx"`,
+        ].join('\n');
+      }
+      return [
+        '# Header 鉴权',
+        `curl "${url}?status=PAID&pageNum=1&pageSize=20" \\`,
+        '  -H "Authorization: Bearer mcp_xxx"',
+        '',
+        '# Query 鉴权',
+        `curl "${url}?status=PAID&pageNum=1&pageSize=20&access_token=mcp_xxx"`,
+      ].join('\n');
+    };
+
     const openDoc = (row: IDataApi) => {
       docApi.value = row;
       docUrl.value = `${window.location.origin}/open-api/data/${row.code}`;
+      docMethod.value = row.sourceType === 'API' ? parseApiConfig(row.apiConfig)?.method || 'GET' : 'GET / POST';
+      docCurl.value = buildCurl(row, docUrl.value, docMethod.value);
       docModalVisible.value = true;
     };
 
     const sourceTypeLabel = (type: string | null | undefined) => {
-      return type === 'SQL' ? 'SQL' : '数据表';
+      if (type === 'SQL') {
+        return 'SQL';
+      }
+      if (type === 'API') {
+        return '已有 API';
+      }
+      return '数据表';
     };
 
     const statusLabel = (status: string | null | undefined) => {
@@ -170,6 +216,10 @@ export default defineComponent({
     const tableDisplay = (row: IDataApi) => {
       if (row.sourceType === 'SQL') {
         return row.sqlText ? row.sqlText.replace(/\s+/g, ' ').slice(0, 40) : '-';
+      }
+      if (row.sourceType === 'API') {
+        const config = parseApiConfig(row.apiConfig);
+        return config?.url || '-';
       }
       return row.schemaName && row.tableName ? `${row.schemaName}.${row.tableName}` : '-';
     };
@@ -197,6 +247,8 @@ export default defineComponent({
       handleSortChange,
       docApi,
       docUrl,
+      docMethod,
+      docCurl,
       docModalVisible,
       openDoc,
       sourceTypeLabel,

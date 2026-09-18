@@ -8,6 +8,8 @@ import com.data.job.ComponentRegister;
 import com.data.job.ExceptionUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.TableMeta;
+import com.data.metadata.util.JsonTableMetaUtils;
 import okhttp3.*;
 
 import java.io.IOException;
@@ -318,9 +320,11 @@ public class HttpInvoke extends FlowComponent {
                 if (extractedData instanceof JSONArray) {
                     flowFile.setJsonArray((JSONArray) extractedData);
                     flowFile.setAttribute("_extractedDataType", "JSON_ARRAY");
+                    buildTableMetadata(flowFile, extractedData);
                 } else if (extractedData instanceof JSONObject) {
                     flowFile.setJsonObject((JSONObject) extractedData);
                     flowFile.setAttribute("_extractedDataType", "JSON_OBJECT");
+                    buildTableMetadata(flowFile, extractedData);
                 } else if (extractedData instanceof String) {
                     flowFile.setTextData((String) extractedData);
                     flowFile.setAttribute("_extractedDataType", "STRING");
@@ -343,6 +347,21 @@ public class HttpInvoke extends FlowComponent {
         } catch (Exception e) {
             logWarn("JSONPath提取失败: " + e.getMessage());
             flowFile.setAttribute("_jsonPathError", e.getMessage());
+        }
+    }
+
+    /**
+     * 根据提取的JSON数据推断表结构，生成FlowFile的表元数据属性，
+     * 供下游StreamJdbcOutput组件自动建表使用。
+     */
+    private void buildTableMetadata(FlowFile flowFile, Object jsonData) {
+        try {
+            TableMeta tableMeta = JsonTableMetaUtils.build(jsonData);
+            if (tableMeta != null) {
+                flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+            }
+        } catch (Exception e) {
+            logWarn("生成表元数据失败: " + e.getMessage());
         }
     }
 
