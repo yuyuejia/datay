@@ -8,6 +8,7 @@ import { MarkerType } from '@vue-flow/core';
 import ETLComponentService from '../etl-component/etl-component.service';
 import ETLTaskService from '../etl-task/etl-task.service';
 import ETLTaskNode from './etl-task-node.vue';
+import DynamicParameterHelp from './DynamicParameterHelp.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 import '@vue-flow/core/dist/style.css';
@@ -538,6 +539,7 @@ const cancelTask = () => {
         </div>
       </div>
       <div class="header-actions">
+        <DynamicParameterHelp />
         <el-button type="primary" @click="saveTask">
           <font-awesome-icon icon="save" class="mr-1" />
           <span>保存</span>

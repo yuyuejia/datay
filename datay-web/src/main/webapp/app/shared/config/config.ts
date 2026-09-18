@@ -58,6 +58,7 @@ import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons/faWandMag
 import { faArrowRightToBracket } from '@fortawesome/free-solid-svg-icons/faArrowRightToBracket';
 import { faCheckCircle } from '@fortawesome/free-solid-svg-icons/faCheckCircle';
 import { faCircleNotch } from '@fortawesome/free-solid-svg-icons/faCircleNotch';
+import { faCircleQuestion } from '@fortawesome/free-solid-svg-icons/faCircleQuestion';
 import { faCopy } from '@fortawesome/free-solid-svg-icons/faCopy';
 
 export function initFortAwesome(vue) {
@@ -121,6 +122,7 @@ export function initFortAwesome(vue) {
     faArrowRightToBracket,
     faCheckCircle,
     faCircleNotch,
+    faCircleQuestion,
     faCopy,
   );
 }
