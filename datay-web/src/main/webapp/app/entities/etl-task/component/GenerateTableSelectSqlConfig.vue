@@ -75,6 +75,8 @@ const saveConfig = async () => {
 const cancelConfig = () => {
   emits('cancel');
 };
+
+defineExpose({ saveConfig });
 </script>
 
 <style scoped>

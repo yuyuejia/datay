@@ -234,9 +234,28 @@ onNodeDoubleClick(event => {
   showConfigModal.value = true;
 });
 
+const isApplyingConfig = ref(false);
+let appliedConfigForDebug = false;
+
+const applyConfigToSelectedNode = config => {
+  const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
+  if (nodeIndex !== -1) {
+    nodes.value[nodeIndex].data.config = config;
+    if (editingNodeLabel.value && editingNodeLabel.value.trim()) {
+      nodes.value[nodeIndex].data.label = editingNodeLabel.value.trim();
+    }
+  }
+};
+
 const handleComponentSave = config => {
   currentSavedConfig.value = config;
-  saveNodeConfigWithLabel(config, editingNodeLabel.value);
+  applyConfigToSelectedNode(config);
+  if (isApplyingConfig.value) {
+    appliedConfigForDebug = true;
+    return;
+  }
+  configEntity.value.hide();
+  showConfigModal.value = false;
 };
 
 const saveNodeConfig = config => {
@@ -395,6 +414,31 @@ const runDebug = async targetNodeId => {
   } finally {
     debugRunning.value = false;
   }
+};
+
+const applyConfigAndRunDebug = async () => {
+  if (debugRunning.value) {
+    return;
+  }
+  const nodeId = selectedNode.value && selectedNode.value.id;
+  const instance = configComponentRef.value;
+  if (instance && typeof instance.saveConfig === 'function') {
+    isApplyingConfig.value = true;
+    appliedConfigForDebug = false;
+    try {
+      await instance.saveConfig();
+    } catch (error) {
+      console.error('应用节点配置失败', error);
+      return;
+    } finally {
+      isApplyingConfig.value = false;
+    }
+    if (!appliedConfigForDebug) {
+      // 配置校验未通过，保留当前调试结果
+      return;
+    }
+  }
+  await runDebug(nodeId);
 };
 
 const previewBlocks = computed(() => {
@@ -580,10 +624,10 @@ const cancelTask = () => {
         </div>
         <div v-show="activeConfigTab === 'debug'" class="config-tab-panel">
           <div class="debug-tab-toolbar">
-            <div class="debug-tab-hint">默认调试行数为 100 行（不可设置），调试运行时不写入目标库</div>
+            <div class="debug-tab-hint">运行调试将使用当前配置（无需先保存）；默认调试行数为 100 行（不可设置），调试运行时不写入目标库</div>
             <div class="debug-tab-actions">
-              <el-button size="small" :loading="debugRunning" @click="runDebug(selectedNode && selectedNode.id)">
-                运行到此节点
+              <el-button type="primary" size="small" :loading="debugRunning" @click="applyConfigAndRunDebug">
+                运行调试
               </el-button>
             </div>
           </div>
@@ -930,6 +974,8 @@ const cancelTask = () => {
 }
 
 .debug-tab-hint {
+  flex: 1;
+  min-width: 260px;
   font-size: 12px;
   color: var(--el-text-color-secondary, #909399);
 }
@@ -937,6 +983,10 @@ const cancelTask = () => {
 .config-modal-body {
   max-height: 72vh;
   overflow-y: auto;
+}
+
+.config-modal-body :deep(.form-actions) {
+  padding-right: 16px;
 }
 
 .config-tab-header {

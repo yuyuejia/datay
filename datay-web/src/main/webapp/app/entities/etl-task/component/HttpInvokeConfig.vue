@@ -1,5 +1,23 @@
 <template>
   <form name="editForm" novalidate>
+    <div class="curl-import">
+      <el-button size="small" @click="showCurlImport = !showCurlImport">
+        {{ showCurlImport ? '收起 cURL 导入' : '从 cURL 导入' }}
+      </el-button>
+      <span class="curl-import-tip">粘贴 cURL 命令，自动填充请求地址、方法、请求头和请求体</span>
+      <div v-if="showCurlImport" class="curl-import-panel">
+        <textarea
+          class="form-control"
+          v-model="curlText"
+          :rows="4"
+          placeholder="例如: curl -X POST 'https://api.example.com/users' -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;tom&quot;}'"
+        ></textarea>
+        <div class="curl-import-actions">
+          <el-button type="primary" size="small" @click="applyCurl">解析并填充</el-button>
+          <el-button size="small" @click="clearCurlImport">取消</el-button>
+        </div>
+      </div>
+    </div>
     <div class="form-group">
       <label for="url">请求URL</label>
       <input type="text" class="form-control" id="url" name="url" v-model="formData.url" placeholder="请输入HTTP请求URL" required />
@@ -9,9 +27,13 @@
       <select class="form-control" v-model="formData.method">
         <option value="GET">GET</option>
         <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+        <option value="HEAD">HEAD</option>
       </select>
     </div>
-    <div class="form-group" v-if="formData.method === 'POST'">
+    <div class="form-group" v-if="hasBody">
       <label for="body">请求体</label>
       <textarea class="form-control" id="body" name="body" v-model="formData.body" :rows="4" placeholder='请输入JSON格式的请求体'></textarea>
     </div>
@@ -48,9 +70,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus';
+import { parseCurl } from '@/shared/util/curl';
 
 const props = defineProps({
   node: Object,
@@ -73,6 +96,61 @@ const formData = reactive({
   sslVerify: props.node?.data?.config?.sslVerify !== false,
 });
 
+const showCurlImport = ref(false);
+const curlText = ref('');
+
+const hasBody = computed(() => formData.method !== 'GET' && formData.method !== 'HEAD');
+
+const parseHeadersText = () => {
+  if (!formData.headersText.trim()) {
+    return {};
+  }
+  try {
+    return JSON.parse(formData.headersText);
+  } catch {
+    return {};
+  }
+};
+
+const applyCurl = () => {
+  if (!curlText.value.trim()) {
+    ElMessage.warning('请先粘贴 cURL 命令');
+    return;
+  }
+  const parsed = parseCurl(curlText.value);
+  if (!parsed.url) {
+    ElMessage.error('未能从 cURL 命令中解析出请求URL');
+    return;
+  }
+  formData.url = parsed.url;
+  if (parsed.method) {
+    formData.method = parsed.method;
+  }
+  if (parsed.body !== undefined) {
+    formData.body = parsed.body;
+  }
+  if (parsed.timeout) {
+    formData.timeout = parsed.timeout;
+  }
+  if (parsed.sslVerify === false) {
+    formData.sslVerify = false;
+  }
+  const mergedHeaders = { ...parseHeadersText(), ...parsed.headers };
+  formData.headersText = JSON.stringify(mergedHeaders, null, 2);
+
+  if (parsed.warnings.length > 0) {
+    ElMessage.warning(parsed.warnings.join('；'));
+  } else {
+    ElMessage.success('已根据 cURL 命令填充配置');
+  }
+  clearCurlImport();
+};
+
+const clearCurlImport = () => {
+  curlText.value = '';
+  showCurlImport.value = false;
+};
+
 const saveConfig = async () => {
   if (!formData.url.trim()) {
     ElMessage.error('请输入请求URL');
@@ -82,7 +160,7 @@ const saveConfig = async () => {
   if (formData.headersText.trim()) {
     try {
       headers = JSON.parse(formData.headersText);
-    } catch (e) {
+    } catch {
       ElMessage.error('请求头JSON格式错误');
       return;
     }
@@ -93,9 +171,30 @@ const saveConfig = async () => {
 const cancelConfig = () => {
   emits('cancel');
 };
+
+defineExpose({ saveConfig });
 </script>
 
 <style scoped>
+.curl-import {
+  margin-bottom: 20px;
+  padding: 12px;
+  border: 1px dashed #c0c4cc;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+.curl-import-tip {
+  margin-left: 10px;
+  color: #909399;
+  font-size: 12px;
+}
+.curl-import-panel {
+  margin-top: 10px;
+}
+.curl-import-actions {
+  margin-top: 8px;
+  text-align: right;
+}
 .form-group {
   margin-bottom: 20px;
 }

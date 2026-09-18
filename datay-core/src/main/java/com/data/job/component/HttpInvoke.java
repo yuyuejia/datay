@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONPath;
 import com.data.expression.ParameterUtil;
 import com.data.job.ComponentRegister;
+import com.data.job.ExceptionUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 import okhttp3.*;
@@ -86,7 +87,8 @@ public class HttpInvoke extends FlowComponent {
             writeRecords(resultFlowFile);
 
         } catch (Exception e) {
-            throw new RuntimeException("HttpInvoke组件执行失败", e);
+            logError("HttpInvoke组件执行失败: " + ExceptionUtils.describe(e));
+            throw new RuntimeException("HttpInvoke组件执行失败: " + ExceptionUtils.describe(e), e);
         }
     }
 
@@ -125,8 +127,11 @@ public class HttpInvoke extends FlowComponent {
         setRequestHeaders(requestBuilder, flowFile);
 
         // 设置请求方法和请求体
-        if ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)) {
-            setRequestBody(requestBuilder, flowFile);
+        String normalizedMethod = (method == null || method.trim().isEmpty()) ? "GET" : method.trim().toUpperCase();
+        if ("GET".equals(normalizedMethod) || "HEAD".equals(normalizedMethod)) {
+            requestBuilder.method(normalizedMethod, null);
+        } else {
+            setRequestBody(requestBuilder, flowFile, normalizedMethod);
         }
 
         return requestBuilder.build();
@@ -157,13 +162,13 @@ public class HttpInvoke extends FlowComponent {
     /**
      * 设置请求体
      */
-    private void setRequestBody(Request.Builder requestBuilder, FlowFile flowFile) {
+    private void setRequestBody(Request.Builder requestBuilder, FlowFile flowFile, String method) {
         String requestBody = ParameterUtil.replaceParameters(this.body, flowFile);
         if (requestBody != null && !requestBody.trim().isEmpty()) {
             RequestBody body = RequestBody.create(requestBody.getBytes(StandardCharsets.UTF_8));
-            requestBuilder.method(method.toUpperCase(), body);
+            requestBuilder.method(method, body);
         } else {
-            requestBuilder.method(method.toUpperCase(), RequestBody.create(new byte[0], null));
+            requestBuilder.method(method, RequestBody.create(new byte[0], null));
         }
     }
 
@@ -172,21 +177,72 @@ public class HttpInvoke extends FlowComponent {
      */
     private Response executeHttpRequest(Request request) throws IOException {
         IOException lastException = null;
+        Response lastResponse = null;
+        int attempts = Math.max(1, retryCount);
 
-        for (int attempt = 0; attempt < retryCount; attempt++) {
+        for (int attempt = 0; attempt < attempts; attempt++) {
             try {
                 Response response = httpClient.newCall(request).execute();
-                if (response.isSuccessful() || attempt == retryCount) {
+                if (response.isSuccessful()) {
                     return response;
                 }
-                response.close(); // 关闭不成功的响应
+                // 非成功响应：保留最后一次，之前的结果释放掉
+                if (lastResponse != null) {
+                    lastResponse.close();
+                }
+                lastResponse = response;
+                lastException = null;
+                logWarn(
+                    "HttpInvoke请求返回非成功状态码: "
+                        + response.code()
+                        + "，第 "
+                        + (attempt + 1)
+                        + "/"
+                        + attempts
+                        + " 次请求");
             } catch (IOException e) {
                 lastException = e;
-                logError("HttpInvoke组件执行请求失败: " + e.getMessage());
+                if (lastResponse != null) {
+                    lastResponse.close();
+                    lastResponse = null;
+                }
+                logError("HttpInvoke组件执行请求失败(第 " + (attempt + 1) + "/" + attempts + " 次): " + e.getMessage());
             }
         }
 
+        if (lastResponse != null) {
+            String detail = buildHttpErrorDetail(lastResponse);
+            lastResponse.close();
+            throw new IOException(detail);
+        }
         throw lastException != null ? lastException : new IOException("HTTP请求失败");
+    }
+
+    /**
+     * 组装HTTP错误响应的详细描述，包含请求方法、URL、状态码、状态信息和响应体片段。
+     */
+    private String buildHttpErrorDetail(Response response) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("HTTP请求失败: ").append(method).append(" ").append(url);
+        builder.append("，状态码: ").append(response.code());
+        if (response.message() != null && !response.message().trim().isEmpty()) {
+            builder.append(" ").append(response.message().trim());
+        }
+        try {
+            if (response.body() != null) {
+                String body = response.body().string();
+                if (body != null && !body.trim().isEmpty()) {
+                    body = body.trim();
+                    if (body.length() > 500) {
+                        body = body.substring(0, 500) + "...(已截断)";
+                    }
+                    builder.append("，响应内容: ").append(body);
+                }
+            }
+        } catch (IOException e) {
+            logWarn("读取HTTP错误响应体失败: " + e.getMessage());
+        }
+        return builder.toString();
     }
 
     /**
