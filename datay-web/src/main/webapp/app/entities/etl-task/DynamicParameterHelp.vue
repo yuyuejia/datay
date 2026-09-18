@@ -24,6 +24,7 @@ const timeExamples = [
   { expr: '#{NOW - 1d}', desc: '昨天当前时刻，默认格式 yyyy-MM-dd HH:mm:ss' },
   { expr: '#{NOW + 2H}', desc: '2 小时后的时刻' },
   { expr: '#{NOW - 1d, yyyy-MM-dd HH:mm:ss}', desc: '昨天当前时刻，自定义格式 yyyy-MM-dd HH:mm:ss' },
+  { expr: '#{NOW - 1d, timestamp}', desc: '昨天当前时刻的毫秒时间戳' },
   { expr: '#{NOW - 7d, yyyy-MM-dd}', desc: '7 天前的日期' },
   { expr: '#{NOW + 0d, yyyyMMdd}', desc: '当前时间，自定义格式' },
 ];
@@ -77,7 +78,7 @@ const dateKeywords = [
             <code class="dp-code">{{ u.unit }}</code> {{ u.desc }}<span v-if="idx < timeUnits.length - 1">、</span>
           </span>
           。逗号后可指定输出格式（Java <code class="dp-code">DateTimeFormatter</code> 模式），省略时默认
-          <code class="dp-code">yyyy-MM-dd HH:mm:ss</code>。
+          <code class="dp-code">yyyy-MM-dd HH:mm:ss</code>；也可填 <code class="dp-code">timestamp</code> 输出毫秒时间戳。
         </p>
         <table class="dp-table">
           <thead>

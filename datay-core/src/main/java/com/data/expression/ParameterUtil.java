@@ -168,6 +168,11 @@ public class ParameterUtil {
                 default -> now;
             };
 
+            // 支持时间计算结果转换为时间戳（毫秒）
+            if ("timestamp".equalsIgnoreCase(format)) {
+                return String.valueOf(result.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
+            }
+
             // 如果指定了格式，则使用指定格式；否则使用默认格式
             if (format != null && !format.isEmpty()) {
                 try {

@@ -49,4 +49,14 @@ public class ParameterUtilTest {
         System.out.println(ParameterUtil.replaceParameters(text));
 
     }
+
+    @Test
+    public void testTimeToTimestamp() throws Exception {
+        String text = "#{NOW - 1d, timestamp}";
+        String result = ParameterUtil.replaceParameters(text);
+        System.out.println(result);
+        long expected = java.time.LocalDateTime.now().minusDays(1)
+                .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        org.junit.jupiter.api.Assertions.assertTrue(Math.abs(Long.parseLong(result) - expected) < 5000);
+    }
 }
