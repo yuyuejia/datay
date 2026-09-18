@@ -104,10 +104,11 @@ public class ETLTaskService {
     public ETLTaskDTO save(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to save ETLTask : {}", eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
-        updateNodesAndEdges(eTLTaskDTO);
         Job job = saveETLJob(eTLTaskDTO);
         eTLTask.setJobId(job.getId());
         eTLTask = eTLTaskRepository.save(eTLTask);
+        eTLTaskDTO.setId(eTLTask.getId());
+        updateNodesAndEdges(eTLTaskDTO);
         return eTLTaskMapper.toDto(eTLTask);
     }
 

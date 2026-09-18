@@ -45,6 +45,8 @@ const vueFlowInstance = ref(null);
 const nodes = ref([]);
 const edges = ref([]);
 
+let skipNextCanvasFit = false;
+
 const DEBUG_ROW_LIMIT = 100;
 const debugResults = ref({});
 const debugRunning = ref(false);
@@ -204,6 +206,10 @@ watch(
   () => route.params.eTLTaskId,
   async () => {
     await loadTaskData();
+    if (skipNextCanvasFit) {
+      skipNextCanvasFit = false;
+      return;
+    }
     fitCanvasView();
   },
 );
@@ -496,6 +502,7 @@ const saveTask = async () => {
     if (isCreateMode.value) {
       const res = await eTLTaskService().create(eTLTask.value);
       alertService.showSuccess('任务创建成功');
+      skipNextCanvasFit = true;
       router.push({ name: 'ETLTaskDesign', params: { eTLTaskId: res.id } });
     } else {
       await eTLTaskService().update(eTLTask.value);
