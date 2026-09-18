@@ -640,7 +640,7 @@ public class DBUtils {
 
         String[] tableTypes;
         if (jdbcUrl.startsWith("jdbc:duckdb:")) {
-            tableTypes = new String[] { "BASE TABLE" };
+            tableTypes = new String[] { "TABLE", "BASE TABLE" };
         } else {
             tableTypes = new String[] { "TABLE" };
         }
