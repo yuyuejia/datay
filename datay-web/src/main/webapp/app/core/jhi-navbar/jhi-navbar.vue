@@ -47,9 +47,21 @@
         <b-nav-item to="/" exact>
           <span>首页</span>
         </b-nav-item>
-        <b-nav-item v-if="authenticated" to="/data-source" exact>
-          <span>数据源</span>
-        </b-nav-item>
+        <b-nav-item-dropdown v-if="authenticated" id="datasource-menu" active-class="active" class="pointer">
+          <template #button-content>
+            <span class="navbar-dropdown-menu">
+              <span class="no-bold">数据源</span>
+            </span>
+          </template>
+          <b-dropdown-item to="/data-source" exact>
+            <font-awesome-icon icon="database" class="mr-1"></font-awesome-icon>
+            <span>数据源管理</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/file-management" exact>
+            <font-awesome-icon icon="folder-open" class="mr-1"></font-awesome-icon>
+            <span>文件管理</span>
+          </b-dropdown-item>
+        </b-nav-item-dropdown>
         <b-nav-item v-if="authenticated" to="/etl-task" exact>
           <span>数据集成</span>
         </b-nav-item>
@@ -94,6 +106,10 @@
           </b-dropdown-item>
           <b-dropdown-item to="/admin/tenant-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
             <span>租户管理</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/service-config" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
+            <font-awesome-icon icon="cog" />
+            <span>服务配置</span>
           </b-dropdown-item>
           <b-dropdown-item data-cy="logout" v-if="authenticated" @click="logout()" id="logout" active-class="active">
             <font-awesome-icon icon="sign-out-alt" />

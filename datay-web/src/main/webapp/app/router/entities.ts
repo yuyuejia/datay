@@ -8,6 +8,8 @@ const DataSourceDetails = () =>
   import("@/entities/data-source/data-source-details.vue");
 const DataSourceQuery = () => import("@/entities/data-source/data-query.vue");
 
+const FileManagement = () => import("@/entities/file-management/file-management.vue");
+
 const JobInstance = () => import("@/entities/job-instance/job-instance.vue");
 const JobInstanceUpdate = () =>
   import("@/entities/job-instance/job-instance-update.vue");
@@ -120,6 +122,12 @@ export default {
       path: "data-source/:dataSourceId/query",
       name: "DataSourceQuery",
       component: DataSourceQuery,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "file-management",
+      name: "FileManagement",
+      component: FileManagement,
       meta: { authorities: [Authority.USER] },
     },
     {
@@ -396,25 +404,25 @@ export default {
       path: "service-config",
       name: "ServiceConfig",
       component: ServiceConfig,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN] },
     },
     {
       path: "service-config/new",
       name: "ServiceConfigCreate",
       component: ServiceConfigUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN] },
     },
     {
       path: "service-config/:serviceConfigId/edit",
       name: "ServiceConfigEdit",
       component: ServiceConfigUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN] },
     },
     {
       path: "service-config/:serviceConfigId/view",
       name: "ServiceConfigView",
       component: ServiceConfigDetails,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN] },
     },
     {
       path: "data-model",
