@@ -54,11 +54,9 @@
             </span>
           </template>
           <b-dropdown-item to="/data-source" exact>
-            <font-awesome-icon icon="database" class="mr-1"></font-awesome-icon>
             <span>数据源管理</span>
           </b-dropdown-item>
           <b-dropdown-item to="/file-management" exact>
-            <font-awesome-icon icon="folder-open" class="mr-1"></font-awesome-icon>
             <span>文件管理</span>
           </b-dropdown-item>
         </b-nav-item-dropdown>
