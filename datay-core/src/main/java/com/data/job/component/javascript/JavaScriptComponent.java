@@ -1,5 +1,6 @@
 package com.data.job.component.javascript;
 
+import com.data.job.ExceptionUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 
@@ -41,9 +42,8 @@ public class JavaScriptComponent extends FlowComponent {
             // 将处理后的结果写入输出
             writeRecords(result);
         } catch (Exception e) {
-            logInfo("Java脚本执行错误: " + e.getMessage());
-            // 发生错误时传递原始flowFile
-            writeRecords(flowFile);
+            logError("Java脚本执行错误: " + ExceptionUtils.describe(e));
+            throw new RuntimeException("Java脚本执行错误: " + ExceptionUtils.describe(e), e);
         }
     }
 

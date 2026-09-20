@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JavaScriptComponentTest {
@@ -125,16 +126,12 @@ public class JavaScriptComponentTest {
 
     @Test
     @Timeout(60000)
-    public void testInvalidScriptFallsBackToOriginalFlowFile() throws Exception {
+    public void testInvalidScriptFailsTask() {
         component.setScriptCode("this is not valid java code");
 
         FlowFile flowFile = new FlowFile();
         flowFile.setTextData("hello");
-        component.execute(flowFile);
-
-        FlowFile result = (FlowFile) outputQueue.poll();
-        assertNotNull(result);
-        assertEquals("hello", result.getTextData());
+        assertThrows(RuntimeException.class, () -> component.execute(flowFile));
     }
 
     @Test
