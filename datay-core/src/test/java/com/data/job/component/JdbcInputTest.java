@@ -6,6 +6,7 @@ import com.data.job.ExecutionContext;
 import com.data.job.FlowFile;
 import com.data.job.TaskLogger;
 import com.data.job.component.JdbcInput;
+import com.data.metadata.TableMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -148,5 +149,37 @@ public class JdbcInputTest {
         } catch (Exception e) {
             // Expected
         }
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testResolveTargetTableNameDefaultsToSourceTable() {
+        TableMeta srcTable = new TableMeta();
+        srcTable.setTable("dwd_fie_aai_voucher_detail");
+
+        assertEquals("dwd_fie_aai_voucher_detail", component.resolveTargetTableName(srcTable));
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testResolveTargetTableNameUsesOutputTableWhenConfigured() {
+        component.setOutputTable("my_output_table");
+
+        TableMeta srcTable = new TableMeta();
+        srcTable.setTable("dwd_fie_aai_voucher_detail");
+
+        assertEquals("my_output_table", component.resolveTargetTableName(srcTable));
+        assertEquals("my_output_table", component.getOutputTable());
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testResolveTargetTableNameFallsBackWhenOutputTableBlank() {
+        component.setOutputTable("   ");
+
+        TableMeta srcTable = new TableMeta();
+        srcTable.setTable("test_table");
+
+        assertEquals("test_table", component.resolveTargetTableName(srcTable));
     }
 }

@@ -26,6 +26,9 @@ import java.util.Map;
 @ComponentRegister("JdbcInput")
 public class JdbcInput extends AbstractJdbcInput {
 
+    // 可选配置：写入 DuckDB 的目标表名；未配置时使用源表名
+    private String outputTable;
+
     // 目标 DuckDB 连接
     private Connection duckdbConn;
 
@@ -42,6 +45,11 @@ public class JdbcInput extends AbstractJdbcInput {
     @Override
     protected void beforeProcess() throws SQLException {
         this.duckdbConn = DuckDBEngine.getInstance().getConnection(getContext().getJobInstanceCode());
+    }
+
+    @Override
+    protected boolean materializesToDuckDB() {
+        return true;
     }
 
     @Override
@@ -73,7 +81,7 @@ public class JdbcInput extends AbstractJdbcInput {
      * 获取目标表元数据
      */
     private synchronized TableMeta getTargetTableMeta(TableMeta srcTable, Connection duckdbConn) throws SQLException {
-        String targetTableName = getOutputTableName(0);
+        String targetTableName = resolveTargetTableName(srcTable);
         TableMeta targetTable = this.tableMetaMap.get(targetTableName);
 
         if (targetTable == null) {
@@ -103,6 +111,16 @@ public class JdbcInput extends AbstractJdbcInput {
     }
 
     /**
+     * 解析写入 DuckDB 的目标表名：配置了 outputTable 时使用配置值，否则使用源表名。
+     */
+    String resolveTargetTableName(TableMeta srcTable) {
+        if (outputTable != null && !outputTable.trim().isEmpty()) {
+            return outputTable.trim();
+        }
+        return srcTable.getTable();
+    }
+
+    /**
      * 批量写入数据到DuckDB
      */
     private void writeBatchToDuckDB(Connection duckdbConn, TableMeta targetTable, List<JSONObject> batchRecords) throws SQLException {
@@ -120,5 +138,14 @@ public class JdbcInput extends AbstractJdbcInput {
                 appender.endRow();
             }
         }
+    }
+
+    // 自动注入参数的setters
+    public void setOutputTable(String outputTable) {
+        this.outputTable = outputTable;
+    }
+
+    public String getOutputTable() {
+        return outputTable;
     }
 }

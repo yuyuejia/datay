@@ -1,145 +1,49 @@
 package com.data.job.component;
 
-import com.data.job.Component.ComponentType;
-import com.data.job.ExecutionContext;
-import com.data.job.FlowFile;
-import com.data.job.TaskLogger;
-import com.data.job.component.DuckDBSql;
-import org.junit.jupiter.api.BeforeEach;
+import com.data.job.Component;
+import com.data.job.ComponentFactory;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DuckDBSqlTest {
 
-    private DuckDBSql component;
-    private ExecutionContext context;
-    private TaskLogger taskLogger;
-
-    @BeforeEach
-    public void setUp() {
-        component = new DuckDBSql();
-        
-        context = new ExecutionContext();
-        context.setJobInstanceCode("test-instance");
-        context.setJobCode("test-job");
-        
-        taskLogger = new TaskLogger("test-job", "test-instance");
-        
-        component.setContext(context);
-        component.setTaskLogger(taskLogger);
-        component.setId("test-duckdb-sql");
-        component.setName("DuckDBSql");
-        component.setActiveThreads(new AtomicInteger(1));
+    @Test
+    public void testResolveOutputTableDefaults() {
+        DuckDBSql component = new DuckDBSql();
+        assertEquals("duckdb_query_result", component.resolveOutputTable());
     }
 
     @Test
-    @Timeout(60000)
-    public void testComponentType() {
-        assertEquals(ComponentType.OPERATOR, component.getType());
+    public void testResolveOutputTableUsesConfiguredValue() {
+        DuckDBSql component = new DuckDBSql();
+        component.setOutputTable("my_result");
+        assertEquals("my_result", component.resolveOutputTable());
+        assertEquals("my_result", component.getOutputTable());
     }
 
     @Test
-    @Timeout(60000)
-    public void testDuckDBSqlWithSelectQuery() {
-        component.setSql("SELECT 1 as id, 'test' as name");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected to fail without proper DuckDB setup, but should not throw unexpected errors
-        }
+    public void testResolveOutputTableFallsBackWhenBlank() {
+        DuckDBSql component = new DuckDBSql();
+        component.setOutputTable("   ");
+        assertEquals("duckdb_query_result", component.resolveOutputTable());
     }
 
     @Test
-    @Timeout(60000)
-    public void testDuckDBSqlWithCreateTable() {
-        component.setSql("CREATE TABLE test_table (id INTEGER, name VARCHAR)");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected to fail without proper DuckDB setup
-        }
-    }
+    public void testFactoryBindsOutputTable() {
+        Map<String, Object> params = new HashMap<>();
+        params.put(".id", "sql1");
+        params.put(".name", "DuckDBSql");
+        params.put("sql", "SELECT 1");
+        params.put("outputTable", "configured_result");
 
-    @Test
-    @Timeout(60000)
-    public void testDuckDBSqlWithInsert() {
-        component.setSql("INSERT INTO test_table VALUES (1, 'test')");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected to fail without proper table
-        }
-    }
+        Component component = ComponentFactory.create("DuckDBSql", params);
 
-    @Test
-    @Timeout(60000)
-    public void testDuckDBSqlNotUpstreamFinish() {
-        component.setSql("SELECT 1");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = false;
-        
-        component.execute(flowFile);
-    }
-
-    @Test
-    @Timeout(60000)
-    public void testDuckDBSqlMultipleStatements() {
-        component.setSql("CREATE TABLE test_multi (id INTEGER); INSERT INTO test_multi VALUES (1); SELECT * FROM test_multi");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected to fail
-        }
-    }
-
-    @Test
-    @Timeout(60000)
-    public void testDuckDBSqlWithComment() {
-        component.setSql("-- This is a comment\nSELECT 1 as num");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected
-        }
-    }
-
-    @Test
-    @Timeout(60000)
-    public void testDuckDBSqlWithBlockComment() {
-        component.setSql("/* Block comment */ SELECT 1 as num");
-        
-        FlowFile flowFile = new FlowFile();
-        component.upstreamFinish = true;
-        
-        try {
-            component.execute(flowFile);
-        } catch (Exception e) {
-            // Expected
-        }
+        assertTrue(component instanceof DuckDBSql);
+        assertEquals("configured_result", ((DuckDBSql) component).resolveOutputTable());
     }
 }

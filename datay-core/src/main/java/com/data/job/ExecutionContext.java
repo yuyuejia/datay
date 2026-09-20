@@ -144,14 +144,14 @@ public class ExecutionContext {
     }
 
     /**
-     * 记录组件的输出采样数据（DuckDB 物化路径）。
+     * 记录组件的输出采样数据（DuckDB 物化路径：当前节点执行后 DuckDB 中存在的所有表）。
      */
-    public void captureDebugOutputRows(String nodeId, List<String> columns, List<List<Object>> rows, boolean truncated) {
+    public void captureDebugOutputTables(String nodeId, List<DebugResult.DebugTable> tables) {
         if (!debugMode || nodeId == null) {
             return;
         }
         DebugResult result = debugResults.computeIfAbsent(nodeId, key -> new DebugResult());
-        result.setIfEmpty(columns, rows, truncated);
+        result.setTablesIfEmpty(tables);
     }
 
     /**
@@ -159,6 +159,11 @@ public class ExecutionContext {
      */
     public boolean hasDebugOutput(String nodeId) {
         DebugResult result = debugResults.get(nodeId);
-        return result != null && result.getRows() != null && !result.getRows().isEmpty();
+        if (result == null) {
+            return false;
+        }
+        boolean hasRows = result.getRows() != null && !result.getRows().isEmpty();
+        boolean hasTables = result.getTables() != null && !result.getTables().isEmpty();
+        return hasRows || hasTables;
     }
 }

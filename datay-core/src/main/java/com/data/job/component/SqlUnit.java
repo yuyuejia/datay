@@ -19,8 +19,8 @@ import java.util.regex.Pattern;
 @ComponentRegister("SqlUnit")
 public class SqlUnit extends FlowComponent {
 
-    // 对应job.json参数
-    private JSONObject sql;
+    // 对应job.json参数（兼容字符串与 {query, tablemap} 对象两种形式）
+    private Object sql;
 
     private static final int FETCH_SIZE = 5000;
 
@@ -48,17 +48,23 @@ public class SqlUnit extends FlowComponent {
         }
     }
 
+    @Override
+    protected boolean materializesToDuckDB() {
+        return true;
+    }
+
     /**
      * 处理SQL查询，包括表名替换和CTAS执行
      */
     private void processSqlQuery(Connection targetConn) throws SQLException {
-        if (sql == null) {
+        JSONObject sqlConfig = resolveSqlConfig();
+        if (sqlConfig == null) {
             throw new IllegalArgumentException("sql参数不能为空");
         }
 
         // 获取查询语句和表映射
-        String query = sql.getString("query");
-        JSONObject tableMap = sql.getJSONObject("tablemap");
+        String query = sqlConfig.getString("query");
+        JSONObject tableMap = sqlConfig.getJSONObject("tablemap");
 
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("query参数不能为空");
@@ -125,7 +131,32 @@ public class SqlUnit extends FlowComponent {
     }
 
     // 自动注入参数的setters
-    public void setSql(JSONObject sql) {
+    /**
+     * 兼容两种 sql 配置：
+     * <p>
+     * 1. 设计器配置：sql 为纯 SQL 字符串；<br>
+     * 2. 旧配置：sql 为 {@code {query, tablemap}} 对象。
+     */
+    public void setSql(Object sql) {
         this.sql = sql;
+    }
+
+    public Object getSql() {
+        return sql;
+    }
+
+    /**
+     * 将 sql 配置统一解析为 {@code {query, tablemap}} 对象。
+     */
+    JSONObject resolveSqlConfig() {
+        if (sql instanceof JSONObject) {
+            return (JSONObject) sql;
+        }
+        if (sql == null) {
+            return null;
+        }
+        JSONObject sqlConfig = new JSONObject();
+        sqlConfig.put("query", sql.toString());
+        return sqlConfig;
     }
 }

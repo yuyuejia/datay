@@ -1,6 +1,7 @@
 package com.data.job;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 
 import java.sql.ResultSet;
@@ -159,11 +160,28 @@ public abstract class FlowComponent extends Component {
     }
 
     /**
-     * 调试模式下，对于把结果物化到 DuckDB 临时表的组件（如 JdbcInput），
-     * 从输出表读取采样数据，便于下游组件配置时查看。
+     * 组件是否将结果物化到 DuckDB。
+     * <p>调试模式据此决定是否采集 DuckDB 表元数据：仅物化到 DuckDB 的组件（如 JdbcInput、SqlUnit）
+     * 展示 DuckDB 表信息，其余组件仍展示 FlowFile 采样数据。
+     */
+    protected boolean materializesToDuckDB() {
+        return false;
+    }
+
+    /**
+     * 调试模式下，对于把结果物化到 DuckDB 的组件（如 JdbcInput），
+     * 记录当前节点执行后 DuckDB 中存在的所有表的元数据与采样数据，便于下游组件配置时查看。
      */
     private void captureMaterializedOutputIfNeeded() {
         if (getContext() == null || !getContext().isDebugMode()) {
+            return;
+        }
+        // 仅物化到 DuckDB 的组件才采集 DuckDB 表元数据，避免覆盖 FlowFile 采样数据
+        if (!materializesToDuckDB()) {
+            return;
+        }
+        // 有输入源的组件需等输入全部处理完成后再采集，避免提前采集上游表
+        if (!getInput().isEmpty() && !upstreamFinish) {
             return;
         }
         if (getContext().hasDebugOutput(getId())) {
@@ -173,37 +191,49 @@ public abstract class FlowComponent extends Component {
         if (dbFile == null || dbFile.trim().isEmpty()) {
             return;
         }
-        String tableName = getOutputTableName(0);
         try (java.sql.Connection conn = DuckDBEngine.getInstance().getConnection(dbFile)) {
-            if (!DBUtils.tableExists(conn, "main", tableName)) {
-                return;
-            }
             int limit = getContext().getDebugRowLimit();
-            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(
-                "SELECT * FROM main." + tableName + " LIMIT " + (limit + 1))) {
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
-                List<String> columns = new ArrayList<>(columnCount);
-                for (int i = 1; i <= columnCount; i++) {
-                    columns.add(metaData.getColumnName(i));
+            List<DebugResult.DebugTable> tables = new ArrayList<>();
+            for (TableMeta table : DBUtils.getTableList(conn, "main")) {
+                String tableName = table.getTable();
+                if (tableName == null || tableName.trim().isEmpty()) {
+                    continue;
                 }
-                List<List<Object>> rows = new ArrayList<>();
-                boolean truncated = false;
-                while (rs.next()) {
-                    if (rows.size() >= limit) {
-                        truncated = true;
-                        break;
-                    }
-                    List<Object> row = new ArrayList<>(columnCount);
+                try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(
+                    "SELECT * FROM main." + tableName + " LIMIT " + (limit + 1))) {
+                    ResultSetMetaData metaData = rs.getMetaData();
+                    int columnCount = metaData.getColumnCount();
+                    List<String> columns = new ArrayList<>(columnCount);
+                    List<String> columnTypes = new ArrayList<>(columnCount);
                     for (int i = 1; i <= columnCount; i++) {
-                        row.add(rs.getObject(i));
+                        columns.add(metaData.getColumnName(i));
+                        columnTypes.add(metaData.getColumnTypeName(i));
                     }
-                    rows.add(row);
+                    List<List<Object>> rows = new ArrayList<>();
+                    boolean truncated = false;
+                    while (rs.next()) {
+                        if (rows.size() >= limit) {
+                            truncated = true;
+                            break;
+                        }
+                        List<Object> row = new ArrayList<>(columnCount);
+                        for (int i = 1; i <= columnCount; i++) {
+                            row.add(rs.getObject(i));
+                        }
+                        rows.add(row);
+                    }
+                    DebugResult.DebugTable debugTable = new DebugResult.DebugTable();
+                    debugTable.setTableName(tableName);
+                    debugTable.setColumns(columns);
+                    debugTable.setColumnTypes(columnTypes);
+                    debugTable.setRows(rows);
+                    debugTable.setTruncated(truncated);
+                    tables.add(debugTable);
                 }
-                getContext().captureDebugOutputRows(getId(), columns, rows, truncated);
             }
+            getContext().captureDebugOutputTables(getId(), tables);
         } catch (Exception e) {
-            logDebug("调试模式：从 DuckDB 输出表 " + tableName + " 采集数据失败：" + e.getMessage());
+            logDebug("调试模式：从 DuckDB 采集表元数据失败：" + e.getMessage());
         }
     }
 

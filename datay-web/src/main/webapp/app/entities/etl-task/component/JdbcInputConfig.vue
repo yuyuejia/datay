@@ -15,6 +15,18 @@
       <small class="form-text text-muted"> 支持多表同步，多个表用英文逗号分隔 </small>
     </div>
     <div class="form-group">
+      <label for="outputTable">输出表名</label>
+      <input
+        type="text"
+        class="form-control"
+        id="outputTable"
+        name="outputTable"
+        v-model="formData.outputTable"
+        placeholder="可选，默认为源表名"
+      />
+      <small class="form-text text-muted"> 写入 DuckDB 的表名，下游组件通过该表名引用数据；未填写时使用源表名 </small>
+    </div>
+    <div class="form-group">
       <label for="incrColumn">增量字段</label>
       <input type="text" class="form-control" id="incrColumn" name="incrColumn" v-model="formData.incrColumn" placeholder="请输入增量同步字段名" />
       <small class="form-text text-muted"> 用于增量同步的字段，多表用逗号分隔对应 </small>
@@ -46,6 +58,7 @@ const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId,
   schema: props.node?.data?.config?.schema,
   table: props.node?.data?.config?.table || '',
+  outputTable: props.node?.data?.config?.outputTable || '',
   incrColumn: props.node?.data?.config?.incrColumn || '',
   where: props.node?.data?.config?.where || '',
 });
@@ -64,6 +77,11 @@ const saveConfig = async () => {
     ElMessage.error('请输入源表名');
     return;
   }
+  if (formData.outputTable && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(formData.outputTable.trim())) {
+    ElMessage.error('输出表名只能包含字母、数字和下划线，且不能以数字开头');
+    return;
+  }
+  formData.outputTable = formData.outputTable ? formData.outputTable.trim() : '';
   emits('save', formData);
 };
 

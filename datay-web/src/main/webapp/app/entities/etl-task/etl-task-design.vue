@@ -663,22 +663,55 @@ const cancelTask = () => {
                   </div>
                 </div>
               </div>
-              <div class="debug-preview-section-label">数据</div>
-              <div v-if="block.result.columns && block.result.columns.length" class="debug-preview-table-wrap">
-                <table class="debug-preview-table">
-                  <thead>
-                    <tr>
-                      <th v-for="col in block.result.columns" :key="col">{{ col }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(row, ridx) in block.result.rows" :key="ridx">
-                      <td v-for="(cell, cidx) in row" :key="cidx">{{ formatPreviewCell(cell) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-else class="debug-preview-empty">暂无数据</div>
+              <template v-if="block.result.tables && block.result.tables.length">
+                <div class="debug-preview-section-label">DuckDB 表元数据</div>
+                <div v-for="tbl in block.result.tables" :key="tbl.tableName" class="debug-preview-table-block">
+                  <div class="debug-preview-meta-item">
+                    <span class="debug-preview-meta-label">表名</span>
+                    <code class="debug-preview-meta-table">{{ tbl.tableName }}</code>
+                    <span class="debug-preview-count">
+                      {{ (tbl.rows || []).length }} 行{{ tbl.truncated ? '（已截断）' : '' }}
+                    </span>
+                  </div>
+                  <div v-if="tbl.columns && tbl.columns.length" class="debug-preview-table-wrap">
+                    <table class="debug-preview-table">
+                      <thead>
+                        <tr>
+                          <th v-for="(col, cidx) in tbl.columns" :key="col">
+                            <span>{{ col }}</span>
+                            <small v-if="tbl.columnTypes && tbl.columnTypes[cidx]" class="debug-preview-col-type">
+                              {{ tbl.columnTypes[cidx] }}
+                            </small>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(row, ridx) in tbl.rows" :key="ridx">
+                          <td v-for="(cell, cidx) in row" :key="cidx">{{ formatPreviewCell(cell) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div class="debug-preview-section-label">数据</div>
+                <div v-if="block.result.columns && block.result.columns.length" class="debug-preview-table-wrap">
+                  <table class="debug-preview-table">
+                    <thead>
+                      <tr>
+                        <th v-for="col in block.result.columns" :key="col">{{ col }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, ridx) in block.result.rows" :key="ridx">
+                        <td v-for="(cell, cidx) in row" :key="cidx">{{ formatPreviewCell(cell) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div v-else class="debug-preview-empty">暂无数据</div>
+              </template>
             </template>
             <div v-else class="debug-preview-empty">暂无数据，请点击上方按钮运行调试</div>
           </div>
@@ -1132,6 +1165,43 @@ const cancelTask = () => {
   overflow: auto;
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   border-radius: 4px;
+}
+
+.debug-preview-meta {
+  margin-bottom: 6px;
+}
+
+.debug-preview-table-block {
+  margin-bottom: 10px;
+}
+
+.debug-preview-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.debug-preview-meta-label {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.debug-preview-meta-table {
+  color: var(--el-color-primary, #409eff);
+  background-color: #f5f7fa;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
+
+.debug-preview-col-type {
+  display: block;
+  font-weight: normal;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 10px;
+  margin-top: 1px;
 }
 
 .debug-preview-table {

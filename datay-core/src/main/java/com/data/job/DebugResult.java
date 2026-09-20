@@ -21,6 +21,9 @@ public class DebugResult {
 
     private List<List<Object>> rows = new ArrayList<>();
 
+    // 物化到 DuckDB 的表（当前节点执行后 DuckDB 中存在的表），供下游组件配置时引用
+    private List<DebugTable> tables = new ArrayList<>();
+
     // 关键属性信息（FlowFile attributes），首次出现即保留，供下游组件配置参考
     private Map<String, String> attributes = new LinkedHashMap<>();
 
@@ -106,19 +109,71 @@ public class DebugResult {
     }
 
     /**
-     * 仅在尚无采样数据时写入（用于从 DuckDB 物化表回填）。
+     * 仅在尚无采样数据时写入（用于从 DuckDB 物化表回填当前节点执行后的所有表）。
      */
-    public synchronized void setIfEmpty(List<String> newColumns, List<List<Object>> newRows, boolean truncated) {
-        if (!rows.isEmpty()) {
+    public synchronized void setTablesIfEmpty(List<DebugTable> newTables) {
+        if (!rows.isEmpty() || !tables.isEmpty()) {
             return;
         }
-        if (newColumns != null) {
-            this.columns = new ArrayList<>(newColumns);
+        if (newTables != null) {
+            this.tables = new ArrayList<>(newTables);
         }
-        if (newRows != null) {
-            this.rows = new ArrayList<>(newRows);
+    }
+
+    /**
+     * 调试结果中的 DuckDB 表元数据及采样数据。
+     */
+    public static class DebugTable {
+
+        private String tableName;
+
+        private List<String> columns = new ArrayList<>();
+
+        private List<String> columnTypes = new ArrayList<>();
+
+        private List<List<Object>> rows = new ArrayList<>();
+
+        private boolean truncated = false;
+
+        public String getTableName() {
+            return tableName;
         }
-        this.truncated = truncated;
+
+        public void setTableName(String tableName) {
+            this.tableName = tableName;
+        }
+
+        public List<String> getColumns() {
+            return columns;
+        }
+
+        public void setColumns(List<String> columns) {
+            this.columns = columns;
+        }
+
+        public List<String> getColumnTypes() {
+            return columnTypes;
+        }
+
+        public void setColumnTypes(List<String> columnTypes) {
+            this.columnTypes = columnTypes;
+        }
+
+        public List<List<Object>> getRows() {
+            return rows;
+        }
+
+        public void setRows(List<List<Object>> rows) {
+            this.rows = rows;
+        }
+
+        public boolean isTruncated() {
+            return truncated;
+        }
+
+        public void setTruncated(boolean truncated) {
+            this.truncated = truncated;
+        }
     }
 
     /**
@@ -197,6 +252,14 @@ public class DebugResult {
 
     public void setColumns(List<String> columns) {
         this.columns = columns;
+    }
+
+    public List<DebugTable> getTables() {
+        return tables;
+    }
+
+    public void setTables(List<DebugTable> tables) {
+        this.tables = tables;
     }
 
     public List<List<Object>> getRows() {

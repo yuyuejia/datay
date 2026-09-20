@@ -20,6 +20,11 @@ public class DuckDBSql extends FlowComponent {
     // 对应job.json参数
     private String sql;
 
+    // 可选配置：查询结果的输出表名
+    private String outputTable;
+
+    private static final String DEFAULT_OUTPUT_TABLE = "duckdb_query_result";
+
     private static final int FETCH_SIZE = 10000;
 
     public DuckDBSql() {
@@ -75,7 +80,7 @@ public class DuckDBSql extends FlowComponent {
                 // 获取结果集元数据
                 TableMeta outputTableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
                 outputTableMeta.setDbType("duckdb");
-                outputTableMeta.setTable("duckdb_query_result");
+                outputTableMeta.setTable(resolveOutputTable());
                 // 分页处理结果集数据
                 JSONArray resultRecords = new JSONArray();
                 int recordCount = 0;
@@ -100,6 +105,7 @@ public class DuckDBSql extends FlowComponent {
                         FlowFile outFile = new FlowFile();
                         outFile.setJsonArray(resultRecords);
                         outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, outputTableMeta);
+                        outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE,outputTableMeta.getTable());
                         outFile.setAttribute("_batchIndex", batchCount);
                         outFile.setAttribute("_isLastBatch", false);
 
@@ -120,6 +126,7 @@ public class DuckDBSql extends FlowComponent {
                     FlowFile outFile = new FlowFile();
                     outFile.setJsonArray(resultRecords);
                     outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, outputTableMeta);
+                    outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE,outputTableMeta.getTable());
                     outFile.setAttribute("_batchIndex", batchCount);
                     outFile.setAttribute("_isLastBatch", true);
 
@@ -183,5 +190,24 @@ public class DuckDBSql extends FlowComponent {
     // 自动注入方法
     public void setSql(String sql) {
         this.sql = sql;
+    }
+
+    // 自动注入方法
+    public void setOutputTable(String outputTable) {
+        this.outputTable = outputTable;
+    }
+
+    public String getOutputTable() {
+        return outputTable;
+    }
+
+    /**
+     * 解析输出表名：配置了 outputTable 时使用配置值，否则使用默认值。
+     */
+    String resolveOutputTable() {
+        if (outputTable != null && !outputTable.trim().isEmpty()) {
+            return outputTable.trim();
+        }
+        return DEFAULT_OUTPUT_TABLE;
     }
 }
