@@ -1,0 +1,6 @@
+department_id,department_name,head_id,budget,location,established
+D1,Engineering,109,500000.00,Building A,2019-01-01
+D2,Sales,102,350000.00,Building B,2020-03-15
+D3,HR,110,120000.00,Building C,2018-06-01
+D4,Finance,107,280000.00,Building D,2017-09-20
+D5,Marketing,,200000.00,Building E,2021-04-10

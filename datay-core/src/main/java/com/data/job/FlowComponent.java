@@ -6,8 +6,11 @@ import com.data.metadata.util.DBUtils;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -218,7 +221,7 @@ public abstract class FlowComponent extends Component {
                         }
                         List<Object> row = new ArrayList<>(columnCount);
                         for (int i = 1; i <= columnCount; i++) {
-                            row.add(rs.getObject(i));
+                            row.add(readDebugValue(rs, i));
                         }
                         rows.add(row);
                     }
@@ -235,6 +238,18 @@ public abstract class FlowComponent extends Component {
         } catch (Exception e) {
             logDebug("调试模式：从 DuckDB 采集表元数据失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 读取一行中的一个字段用于调试展示：二进制字段转为 Base64，其余转换为可 JSON 序列化的值。
+     */
+    private Object readDebugValue(ResultSet rs, int columnIndex) throws SQLException {
+        int sqlType = rs.getMetaData().getColumnType(columnIndex);
+        if (sqlType == Types.BINARY || sqlType == Types.VARBINARY || sqlType == Types.LONGVARBINARY || sqlType == Types.BLOB) {
+            byte[] bytes = rs.getBytes(columnIndex);
+            return bytes == null ? null : Base64.getEncoder().encodeToString(bytes);
+        }
+        return DebugResult.toSerializable(rs.getObject(columnIndex));
     }
 
     public void writeEndRecord() {

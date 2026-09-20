@@ -1,0 +1,7 @@
+project_id,project_name,department_name,budget,start_date,end_date,status
+P1,Data Platform,Engineering,120000.00,2023-01-10,2024-06-30,active
+P2,Sales Dashboard,Sales,85000.00,2023-03-01,2023-12-15,completed
+P3,Recruitment Portal,HR,45000.00,2023-05-20,2024-01-31,active
+P4,Financial Report System,Finance,95000.00,2022-11-01,2023-10-31,completed
+P5,AI Assistant,Engineering,200000.00,2024-02-01,2025-12-31,active
+P6,Customer CRM,Sales,110000.00,2024-01-15,,planned

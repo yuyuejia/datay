@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260920000000-1" author="datay">
+        <insert tableName="dp_etl_component">
+            <column name="id" valueComputed="(SELECT MAX(id) + 1 FROM dp_etl_component)"/>
+            <column name="name" value="多表关联"/>
+            <column name="code" value="Join"/>
+            <column name="jhi_desc" value="配置多表关联并生成 DuckDB SQL，结果输出到结果集表。支持流式上游先写入 DuckDB，待上游完成后执行 Join。"/>
+            <column name="jhi_group" value="数据处理"/>
+            <column name="type" value="0"/>
+            <column name="config" value=""/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="update_time" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="creater" value="admin"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" value="0"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

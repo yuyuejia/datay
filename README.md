@@ -152,6 +152,7 @@ java -jar target/*.jar    # http://localhost:8080
 ### 处理组件
 - [DuckDBSql](datay-core/docs/component/DuckDBSql.md) : DuckDB SQL处理
 - [StreamSqlUnit](datay-core/docs/component/StreamSqlUnit.md) : 流式SQL处理，使用DuckDB对流式数据进行SQL处理
+- [Join](datay-core/docs/component/Join.md) : 多表关联，配置生成DuckDB SQL并输出结果集
 - [JavaScriptComponent](datay-core/docs/component/JavaScriptComponent.md) : Java脚本组件，支持在任务中执行自定义逻辑
 
 ### 输出组件

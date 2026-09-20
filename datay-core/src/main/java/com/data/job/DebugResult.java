@@ -5,7 +5,9 @@ import com.alibaba.fastjson2.JSONObject;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
 
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,14 +72,14 @@ public class DebugResult {
                     }
                     List<Object> row = new ArrayList<>(columns.size());
                     for (String column : columns) {
-                        row.add(record.get(column));
+                        row.add(toSerializable(record.get(column)));
                     }
                     rows.add(row);
                 } else {
                     if (columns.isEmpty()) {
                         columns.add("value");
                     }
-                    rows.add(new ArrayList<>(Collections.singletonList(item)));
+                    rows.add(new ArrayList<>(Collections.singletonList(toSerializable(item))));
                 }
             }
         } else if (data instanceof JSONObject) {
@@ -93,7 +95,7 @@ public class DebugResult {
             }
             List<Object> row = new ArrayList<>(columns.size());
             for (String column : columns) {
-                row.add(record.get(column));
+                row.add(toSerializable(record.get(column)));
             }
             rows.add(row);
         } else {
@@ -104,7 +106,7 @@ public class DebugResult {
             if (columns.isEmpty()) {
                 columns.add("value");
             }
-            rows.add(new ArrayList<>(Collections.singletonList(data)));
+            rows.add(new ArrayList<>(Collections.singletonList(toSerializable(data))));
         }
     }
 
@@ -276,5 +278,63 @@ public class DebugResult {
 
     public void setTruncated(boolean truncated) {
         this.truncated = truncated;
+    }
+
+    /**
+     * 将 JDBC/驱动返回的值转换为可 JSON 序列化的值，避免调试接口因驱动特有类型（如 DuckDB 的 Blob 对象）序列化失败。
+     * <p>
+     * 二进制转为 Base64 字符串，Clob 转为文本，无法识别的驱动类型转为字符串。
+     */
+    public static Object toSerializable(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            return Base64.getEncoder().encodeToString((byte[]) value);
+        }
+        if (value instanceof java.sql.Blob) {
+            try (InputStream in = ((java.sql.Blob) value).getBinaryStream()) {
+                return Base64.getEncoder().encodeToString(readAllBytes(in));
+            } catch (Exception e) {
+                return "<blob>";
+            }
+        }
+        if (value instanceof java.sql.Clob) {
+            try {
+                java.sql.Clob clob = (java.sql.Clob) value;
+                int length = (int) Math.min(clob.length(), MAX_ATTRIBUTE_LENGTH);
+                return clob.getSubString(1, length);
+            } catch (Exception e) {
+                return "<clob>";
+            }
+        }
+        if (isJsonSafeType(value.getClass())) {
+            return value;
+        }
+        return String.valueOf(value);
+    }
+
+    private static boolean isJsonSafeType(Class<?> type) {
+        return Number.class.isAssignableFrom(type)
+            || CharSequence.class.isAssignableFrom(type)
+            || Boolean.class == type
+            || Character.class == type
+            || java.util.Date.class.isAssignableFrom(type)
+            || java.time.temporal.Temporal.class.isAssignableFrom(type)
+            || java.time.temporal.TemporalAmount.class.isAssignableFrom(type)
+            || java.util.UUID.class == type
+            || type.isEnum()
+            || Map.class.isAssignableFrom(type)
+            || List.class.isAssignableFrom(type);
+    }
+
+    private static byte[] readAllBytes(InputStream in) throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 }

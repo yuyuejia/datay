@@ -27,6 +27,7 @@ public class ComponentFactory {
         components.put("StreamJdbcInput", "com.data.job.component.StreamJdbcInput");
         components.put("Channel", "com.data.job.component.Channel");
         components.put("StreamSqlUnit", "com.data.job.component.StreamSqlUnit");
+        components.put("Join", "com.data.job.component.Join");
         components.put("DuckDBWrite", "com.data.job.component.DuckDBWrite");
         components.put("DuckDBSql", "com.data.job.component.DuckDBSql");
         components.put("SqlInput", "com.data.job.component.SqlInput");

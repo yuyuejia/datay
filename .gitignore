@@ -159,5 +159,4 @@ metadata.ducklake
 metadata.ducklake.wal
 
 .opencode/
-/data/
 *.db.wal

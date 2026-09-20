@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, inject, computed, watch, markRaw } from 'vue';
+import { ref, reactive, onMounted, inject, provide, computed, watch, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -422,6 +422,155 @@ const runDebug = async targetNodeId => {
     debugRunning.value = false;
   }
 };
+
+/**
+ * 从调试结果中收集上游组件输出的表清单（含字段）。
+ * 物化到 DuckDB 的组件从 tables 中取表名与字段，流式组件从 _table / _tableMetadata 属性与采样列中解析。
+ */
+const parseMetadataTableName = meta => {
+  const text = String(meta).trim();
+  const bracketIndex = text.indexOf(' [');
+  let head = bracketIndex >= 0 ? text.substring(0, bracketIndex) : text;
+  const parenIndex = head.indexOf(' (');
+  if (parenIndex >= 0) {
+    head = head.substring(0, parenIndex);
+  }
+  return head.includes('.') ? head.substring(head.lastIndexOf('.') + 1) : head;
+};
+
+/**
+ * 从 _tableMetadata 属性字符串中解析字段名。格式：schema.table [dbType] (col:type, col:type, ...)
+ * 类型可能含括号与逗号（如 DECIMAL(10,2)），按括号嵌套层级切分。
+ */
+const parseMetadataColumns = meta => {
+  const text = String(meta);
+  const open = text.indexOf('(');
+  const close = text.lastIndexOf(')');
+  if (open < 0 || close <= open) {
+    return [];
+  }
+  const inner = text.substring(open + 1, close);
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const char of inner) {
+    if (char === '(') {
+      depth++;
+    } else if (char === ')') {
+      depth--;
+    }
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+  return parts
+    .map(part => {
+      const trimmed = part.trim();
+      const colon = trimmed.indexOf(':');
+      return colon >= 0 ? trimmed.substring(0, colon).trim() : trimmed;
+    })
+    .filter(Boolean);
+};
+
+const collectUpstreamTables = debugMap => {
+  const tableMap = new Map();
+  const ensureTable = name => {
+    const key = (name || '').toString().trim();
+    if (!key) {
+      return null;
+    }
+    if (!tableMap.has(key)) {
+      tableMap.set(key, new Set());
+    }
+    return tableMap.get(key);
+  };
+
+  Object.values(debugMap || {}).forEach(result => {
+    if (!result) {
+      return;
+    }
+    const tables = result.tables || [];
+    if (tables.length > 0) {
+      tables.forEach(table => {
+        if (!table || !table.tableName) {
+          return;
+        }
+        const columns = ensureTable(table.tableName);
+        if (columns) {
+          (table.columns || []).forEach(column => columns.add(column));
+        }
+      });
+      return;
+    }
+    const attributes = result.attributes || {};
+    let tableName = attributes['_table'] ? String(attributes['_table']).trim() : '';
+    if (!tableName && attributes['_tableMetadata']) {
+      tableName = parseMetadataTableName(attributes['_tableMetadata']);
+    }
+    const columns = ensureTable(tableName);
+    if (columns) {
+      let fieldNames = attributes['_tableMetadata'] ? parseMetadataColumns(attributes['_tableMetadata']) : [];
+      if (fieldNames.length === 0) {
+        fieldNames = result.columns || [];
+      }
+      fieldNames.forEach(column => columns.add(column));
+    }
+  });
+
+  return Array.from(tableMap.entries())
+    .map(([name, columns]) => ({ name, columns: Array.from(columns).sort() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+/**
+ * 调试当前节点的直接上游组件，返回上游输出的表清单。
+ * 供下游组件（如 Join）配置时以下拉方式选择表名。
+ */
+const debugUpstreamTables = async nodeId => {
+  if (!nodeId) {
+    return { tables: [], error: '节点信息为空' };
+  }
+  if (debugRunning.value) {
+    return { tables: [], error: '正在调试中，请稍候再试' };
+  }
+  const upstreamIds = edges.value.filter(edge => edge.target === nodeId).map(edge => edge.source);
+  if (upstreamIds.length === 0) {
+    return { tables: [], error: '当前节点没有上游组件，无法获取表清单' };
+  }
+  debugRunning.value = true;
+  const merged = {};
+  const errors = [];
+  try {
+    for (const upstreamId of upstreamIds) {
+      try {
+        const payload = buildTaskPayload();
+        const res = await eTLTaskService().debug(payload, DEBUG_ROW_LIMIT, upstreamId);
+        if (res && res.error) {
+          errors.push(res.error);
+        }
+        if (res && res.nodes) {
+          Object.assign(merged, res.nodes);
+        }
+      } catch (error) {
+        errors.push(error?.response?.data?.message || error?.message || '调试失败');
+      }
+    }
+    debugResults.value = { ...debugResults.value, ...merged };
+    const tables = collectUpstreamTables(merged);
+    return { tables, error: tables.length === 0 && errors.length > 0 ? errors.join('; ') : '' };
+  } finally {
+    debugRunning.value = false;
+  }
+};
+
+provide('etlTaskDesignContext', {
+  debugUpstreamTables,
+  debugRunning,
+});
 
 const applyConfigAndRunDebug = async () => {
   if (debugRunning.value) {
