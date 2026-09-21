@@ -243,7 +243,7 @@ public class DataTransform extends FlowComponent {
                     outFile.setAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE, eventType);
                 }
                 outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, outputMeta);
-                outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, outputMeta);
+                outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, outputMeta.getTable());
                 outFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, DUCKDB_SCHEMA);
                 writeRecords(outFile);
                 logInfo("数据转换输出 " + output.size() + " 条记录");

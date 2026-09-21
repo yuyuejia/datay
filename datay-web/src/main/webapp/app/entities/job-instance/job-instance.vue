@@ -31,7 +31,11 @@
         <!-- <el-table-column prop="jobCode" label="Job Code" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <!-- <el-table-column prop="jobContext" label="Job Context" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="status" label="状态" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="status" label="状态" sortable="custom" width="150">
+          <template #default="scope">
+            <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
+          </template>
+        </el-table-column>
         <!-- <el-table-column prop="jobMessage" label="Job Message" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="startTime" label="开始时间" sortable="custom" width="200">
           <template #default="scope">

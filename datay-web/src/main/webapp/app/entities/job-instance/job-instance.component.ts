@@ -41,6 +41,25 @@ export default defineComponent({
       page.value = 1;
     };
 
+    // 新增：状态标签类型映射（成功绿、失败红、终止黄、其他灰）
+    const getStatusType = (status?: string | null): 'success' | 'danger' | 'warning' | 'info' => {
+      const normalized = status?.toUpperCase();
+      switch (normalized) {
+        case 'SUCCESSFUL':
+        case 'SUCCESS':
+          return 'success';
+        case 'FAILED':
+          return 'danger';
+        case 'INTERRUPTED':
+        case 'STOPPED':
+        case 'KILLED':
+        case 'TERMINATED':
+          return 'warning';
+        default:
+          return 'info';
+      }
+    };
+
     const sort = (): Array<any> => {
       const result = [`${propOrder.value},${reverse.value ? 'desc' : 'asc'}`];
       if (propOrder.value !== 'id') {
@@ -325,6 +344,7 @@ export default defineComponent({
       downloadLog,
       handleSortChange,
       formatDateTime,
+      getStatusType,
       prepareStopJobInstance,
       stopJobInstance,
       closeStopDialog,
