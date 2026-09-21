@@ -22,10 +22,6 @@
       ></textarea>
       <small class="form-text text-muted"> 支持标准SQL语法，留空时将使用上游传递的SQL语句 </small>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -39,7 +35,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId,
@@ -58,10 +54,6 @@ const saveConfig = async () => {
     return;
   }
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

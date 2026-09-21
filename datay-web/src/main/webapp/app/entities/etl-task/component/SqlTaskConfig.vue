@@ -14,10 +14,6 @@
       <textarea class="form-control" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入要执行的SQL语句"></textarea>
       <small class="form-text text-muted"> 支持DDL、DML等各种SQL操作，如CREATE TABLE, INSERT, UPDATE等 </small>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -31,7 +27,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId,
@@ -54,10 +50,6 @@ const saveConfig = async () => {
     return;
   }
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

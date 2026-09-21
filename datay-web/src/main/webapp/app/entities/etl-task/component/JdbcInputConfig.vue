@@ -35,10 +35,6 @@
       <label for="where">过滤条件</label>
       <textarea class="form-control" id="where" name="where" v-model="formData.where" :rows="3" placeholder="请输入WHERE条件，如 status=1"></textarea>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -52,7 +48,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId,
@@ -83,10 +79,6 @@ const saveConfig = async () => {
   }
   formData.outputTable = formData.outputTable ? formData.outputTable.trim() : '';
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

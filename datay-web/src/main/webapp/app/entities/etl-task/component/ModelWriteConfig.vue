@@ -60,10 +60,6 @@
       </div>
     </div>
 
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -79,7 +75,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const dataModelService = new DataModelService();
 const dataSourceService = new DataSourceService();
@@ -167,10 +163,6 @@ const saveConfig = () => {
     updateColumn: formData.updateColumn,
     maxRows: formData.maxRows,
   });
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

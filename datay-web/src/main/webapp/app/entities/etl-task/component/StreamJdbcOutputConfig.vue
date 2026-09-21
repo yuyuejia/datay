@@ -48,10 +48,6 @@
       </div>
     </div>
 
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -65,7 +61,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 // 写入策略选项
 const writeModeOptions = [
@@ -198,10 +194,6 @@ const handleColumnsSelected = selectedFields => {
 
 const saveConfig = async () => {
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

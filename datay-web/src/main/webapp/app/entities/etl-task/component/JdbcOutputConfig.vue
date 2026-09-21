@@ -39,10 +39,6 @@
       </div>
       <small class="form-text text-muted"> 配置源字段到目标字段的映射关系，留空则按字段名自动映射 </small>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -56,7 +52,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const mappings = ref(props.node?.data?.config?.header_map || []);
 
@@ -91,10 +87,6 @@ const saveConfig = async () => {
     return;
   }
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

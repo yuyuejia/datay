@@ -12,10 +12,6 @@
       />
       <small class="form-text text-muted"> 根据该属性值进行哈希路由，将数据分发到不同下游 </small>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -28,7 +24,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const formData = reactive({
   hashKey: props.node?.data?.config?.hashKey || '',
@@ -40,10 +36,6 @@ const saveConfig = async () => {
     return;
   }
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

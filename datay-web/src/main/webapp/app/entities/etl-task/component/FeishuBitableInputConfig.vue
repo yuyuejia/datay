@@ -32,10 +32,6 @@
         <option value="created_time">增量同步（按创建时间）</option>
       </select>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -48,7 +44,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const cfg = props.node?.data?.config || {};
 
@@ -84,10 +80,6 @@ const saveConfig = () => {
     return;
   }
   emits('save', { ...formData });
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

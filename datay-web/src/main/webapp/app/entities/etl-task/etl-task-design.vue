@@ -367,14 +367,13 @@ const onDragOver = event => {
 
 const configComponentRef = ref(null);
 
-const saveNodeConfigFromDialog = () => {
+const handleConfigSave = async () => {
   const componentInstance = configComponentRef.value;
   if (componentInstance && typeof componentInstance.saveConfig === 'function') {
-    componentInstance.saveConfig();
+    await componentInstance.saveConfig();
   } else {
     console.warn('子组件未提供 saveConfig 方法');
   }
-  configEntity.value.hide();
 };
 const flow = ref(null);
 
@@ -772,13 +771,7 @@ const cancelTask = () => {
           </div>
         </div>
         <div v-show="activeConfigTab === 'config'" class="config-tab-panel">
-          <component
-            :is="selectedConfigComponent"
-            :node="selectedNode"
-            @save="handleComponentSave"
-            @cancel="closeConfigModal"
-            ref="configComponentRef"
-          />
+          <component :is="selectedConfigComponent" :node="selectedNode" @save="handleComponentSave" ref="configComponentRef" />
         </div>
         <div v-show="activeConfigTab === 'debug'" class="config-tab-panel">
           <div class="debug-tab-toolbar">
@@ -866,7 +859,10 @@ const cancelTask = () => {
           </div>
         </div>
       </div>
-      <template #modal-footer> </template>
+      <template #modal-footer>
+        <el-button type="primary" @click="handleConfigSave">保存</el-button>
+        <el-button @click="closeConfigModal">取消</el-button>
+      </template>
     </b-modal>
 
   </div>

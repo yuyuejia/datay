@@ -84,8 +84,6 @@
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
       <el-button type="info" @click="validateConfig">验证配置</el-button>
     </div>
   </form>
@@ -100,7 +98,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 // 写入策略选项
 const writeModeOptions = [
@@ -257,11 +255,6 @@ const saveConfig = async () => {
   };
 
   emits('save', saveData);
-};
-
-// 取消配置
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

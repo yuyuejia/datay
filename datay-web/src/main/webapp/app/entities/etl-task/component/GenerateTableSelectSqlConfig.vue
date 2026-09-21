@@ -28,10 +28,6 @@
       <input type="number" class="form-control" id="partitionCount" name="partitionCount" v-model.number="formData.partitionCount" :min="1" :max="256" />
       <small class="form-text text-muted"> 大数据量表的分区查询数量，默认4 </small>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -45,7 +41,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId,
@@ -70,10 +66,6 @@ const saveConfig = async () => {
     return;
   }
   emits('save', formData);
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

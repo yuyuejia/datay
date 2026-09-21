@@ -63,10 +63,6 @@
         <input type="text" class="form-control" id="where" name="where" v-model="formData.where" />
       </div>
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -82,7 +78,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 // 解析已保存的表名（后端以逗号分隔字符串存储）
 const initTables = () => {
@@ -196,10 +192,6 @@ const saveConfig = async () => {
     where: formData.where,
     incrColumn,
   });
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

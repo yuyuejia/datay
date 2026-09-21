@@ -32,10 +32,6 @@
       <label for="baseUrl">开放平台地址</label>
       <input type="text" class="form-control" id="baseUrl" name="baseUrl" v-model="formData.baseUrl" placeholder="默认 https://open.feishu.cn" />
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -48,7 +44,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const cfg = props.node?.data?.config || {};
 
@@ -81,10 +77,6 @@ const saveConfig = () => {
     return;
   }
   emits('save', { ...formData });
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

@@ -49,8 +49,6 @@
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
       <el-button type="info" @click="validateDuckDBSql">验证SQL</el-button>
       <el-button type="success" @click="showDuckDBHelp">DuckDB帮助</el-button>
     </div>
@@ -66,7 +64,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 // 配置项定义
 const configItems = [
@@ -227,11 +225,6 @@ const saveConfig = async () => {
   }
 
   emits('save', formData);
-};
-
-// 取消配置
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

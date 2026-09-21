@@ -62,10 +62,6 @@
       <label for="sslVerify">启用SSL证书验证</label>
       <el-switch v-model="formData.sslVerify" />
     </div>
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
   </form>
 </template>
 
@@ -79,7 +75,7 @@ const props = defineProps({
   node: Object,
 });
 
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const headersObj = ref(props.node?.data?.config?.headers || {});
 const headersText = ref(JSON.stringify(headersObj.value, null, 2));
@@ -166,10 +162,6 @@ const saveConfig = async () => {
     }
   }
   emits('save', { ...formData, headers });
-};
-
-const cancelConfig = () => {
-  emits('cancel');
 };
 
 defineExpose({ saveConfig });

@@ -57,11 +57,6 @@
       <small class="form-text text-muted">不填则默认读取 Excel 第一个 sheet</small>
     </div>
 
-    <div class="form-actions">
-      <el-button type="primary" @click="saveConfig">保存</el-button>
-      <el-button @click="cancelConfig">取消</el-button>
-    </div>
-
     <b-modal v-model="showPicker" title="选择文件" size="lg">
       <div class="picker-breadcrumb">
         <span
@@ -151,7 +146,7 @@ import { ElMessage } from 'element-plus';
 import FileManagementService from '@/entities/file-management/file-management.service';
 
 const props = defineProps({ node: Object });
-const emits = defineEmits(['save', 'cancel']);
+const emits = defineEmits(['save']);
 
 const fileService = new FileManagementService();
 
@@ -300,10 +295,6 @@ function saveConfig() {
     return;
   }
   emits('save', { ...formData });
-}
-
-function cancelConfig() {
-  emits('cancel');
 }
 
 defineExpose({ saveConfig });
