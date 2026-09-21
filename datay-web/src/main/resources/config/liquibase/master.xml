@@ -40,6 +40,7 @@
     <include file="config/liquibase/changelog/20260918000000_add_api_config_to_data_api.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260919000000_seed_file_input_component.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260920000000_seed_join_component.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260921000000_seed_data_transform_component.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

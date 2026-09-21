@@ -64,15 +64,19 @@
               </select>
               <select class="form-control" v-model="join.leftField">
                 <option value="">左字段</option>
-                <option v-for="column in columnOptions(join.leftTable || formData.fromTable, join.leftField)" :key="column" :value="column">
-                  {{ column }}
+                <option
+                  v-for="column in columnOptions(join.leftTable || formData.fromTable, join.leftField)"
+                  :key="column.name"
+                  :value="column.name"
+                >
+                  {{ columnLabel(column) }}
                 </option>
               </select>
               <span class="mapping-arrow">=</span>
               <select class="form-control" v-model="join.rightField">
                 <option value="">右字段</option>
-                <option v-for="column in columnOptions(join.table, join.rightField)" :key="column" :value="column">
-                  {{ column }}
+                <option v-for="column in columnOptions(join.table, join.rightField)" :key="column.name" :value="column.name">
+                  {{ columnLabel(column) }}
                 </option>
               </select>
             </div>
@@ -164,14 +168,26 @@ const columnsOf = table => {
   return found ? found.columns : [];
 };
 
+const columnTypesOf = table => {
+  const value = (table || '').trim();
+  if (!value) {
+    return {};
+  }
+  const found = upstreamTables.value.find(item => item.name === value);
+  return found && found.columnTypes ? found.columnTypes : {};
+};
+
 const columnOptions = (table, current) => {
-  const options = [...columnsOf(table)];
+  const types = columnTypesOf(table);
+  const options = columnsOf(table).map(name => ({ name, type: types[name] || '' }));
   const value = (current || '').trim();
-  if (value && !options.includes(value)) {
-    options.unshift(value);
+  if (value && !options.some(column => column.name === value)) {
+    options.unshift({ name: value, type: types[value] || '' });
   }
   return options;
 };
+
+const columnLabel = column => (column.type ? `${column.name} (${column.type})` : column.name);
 
 const leftTableOptions = index => {
   const options = [];

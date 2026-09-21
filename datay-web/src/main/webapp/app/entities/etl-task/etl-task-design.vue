@@ -438,7 +438,7 @@ const parseMetadataTableName = meta => {
 };
 
 /**
- * 从 _tableMetadata 属性字符串中解析字段名。格式：schema.table [dbType] (col:type, col:type, ...)
+ * 从 _tableMetadata 属性字符串中解析字段名与类型。格式：schema.table [dbType] (col:type, col:type, ...)
  * 类型可能含括号与逗号（如 DECIMAL(10,2)），按括号嵌套层级切分。
  */
 const parseMetadataColumns = meta => {
@@ -470,12 +470,16 @@ const parseMetadataColumns = meta => {
     .map(part => {
       const trimmed = part.trim();
       const colon = trimmed.indexOf(':');
-      return colon >= 0 ? trimmed.substring(0, colon).trim() : trimmed;
+      if (colon < 0) {
+        return { name: trimmed, type: '' };
+      }
+      return { name: trimmed.substring(0, colon).trim(), type: trimmed.substring(colon + 1).trim() };
     })
-    .filter(Boolean);
+    .filter(item => item.name);
 };
 
 const collectUpstreamTables = debugMap => {
+  // name -> Map<字段名, 字段类型>
   const tableMap = new Map();
   const ensureTable = name => {
     const key = (name || '').toString().trim();
@@ -483,9 +487,17 @@ const collectUpstreamTables = debugMap => {
       return null;
     }
     if (!tableMap.has(key)) {
-      tableMap.set(key, new Set());
+      tableMap.set(key, new Map());
     }
     return tableMap.get(key);
+  };
+  const putColumn = (columns, name, type) => {
+    if (!columns || !name) {
+      return;
+    }
+    if (!columns.has(name) || (!columns.get(name) && type)) {
+      columns.set(name, type || '');
+    }
   };
 
   Object.values(debugMap || {}).forEach(result => {
@@ -499,9 +511,12 @@ const collectUpstreamTables = debugMap => {
           return;
         }
         const columns = ensureTable(table.tableName);
-        if (columns) {
-          (table.columns || []).forEach(column => columns.add(column));
+        if (!columns) {
+          return;
         }
+        const names = table.columns || [];
+        const types = table.columnTypes || [];
+        names.forEach((column, index) => putColumn(columns, column, types[index]));
       });
       return;
     }
@@ -511,17 +526,25 @@ const collectUpstreamTables = debugMap => {
       tableName = parseMetadataTableName(attributes['_tableMetadata']);
     }
     const columns = ensureTable(tableName);
-    if (columns) {
-      let fieldNames = attributes['_tableMetadata'] ? parseMetadataColumns(attributes['_tableMetadata']) : [];
-      if (fieldNames.length === 0) {
-        fieldNames = result.columns || [];
-      }
-      fieldNames.forEach(column => columns.add(column));
+    if (!columns) {
+      return;
     }
+    let fields = attributes['_tableMetadata'] ? parseMetadataColumns(attributes['_tableMetadata']) : [];
+    if (fields.length === 0) {
+      fields = (result.columns || []).map(column => ({ name: column, type: '' }));
+    }
+    fields.forEach(field => putColumn(columns, field.name, field.type));
   });
 
   return Array.from(tableMap.entries())
-    .map(([name, columns]) => ({ name, columns: Array.from(columns).sort() }))
+    .map(([name, columnMap]) => {
+      const columns = Array.from(columnMap.keys()).sort();
+      const columnTypes = {};
+      columns.forEach(column => {
+        columnTypes[column] = columnMap.get(column) || '';
+      });
+      return { name, columns, columnTypes };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 };
 
