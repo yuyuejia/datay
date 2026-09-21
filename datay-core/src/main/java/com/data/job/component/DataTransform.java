@@ -44,11 +44,13 @@ import java.util.Set;
  * {
  *   "rules": [
  *     {"type": "cast", "column": "age", "targetType": "INTEGER"},
- *     {"type": "upper", "column": "name", "targetColumn": "name_upper"},
- *     {"type": "filter", "column": "status", "operator": "=", "value": "ACTIVE"}
+ *     {"type": "upper", "column": "name", "targetColumn": "name_upper"}
  *   ],
+ *   "filters": [
+ *     {"column": "status", "operator": "=", "value": "ACTIVE"}
+ *   ],
+ *   "filterLogic": "AND",
  *   "selectColumns": "",
- *   "filter": "",
  *   "outputTable": "transform_result"
  * }
  * </pre>
@@ -62,11 +64,14 @@ public class DataTransform extends FlowComponent {
     // 转换规则列表
     private Object rules;
 
+    // 结构化过滤规则列表
+    private Object filters;
+
+    // 过滤规则之间的逻辑关系：AND（默认）或 OR
+    private String filterLogic;
+
     // 基础输出字段，为空时输出 * EXCLUDE(被覆盖/删除/重命名的字段)
     private String selectColumns;
-
-    // 额外的原始 WHERE 条件
-    private String filter;
 
     // 输出表名（仅用于下游的表元数据标识）
     private String outputTable;
@@ -99,7 +104,8 @@ public class DataTransform extends FlowComponent {
                 qualify(inputTable.getTable()),
                 TransformSqlBuilder.resolveRules(rules),
                 selectColumns,
-                filter
+                TransformSqlBuilder.resolveRules(filters),
+                filterLogic
             );
             logInfo("执行数据转换 SQL: " + sql);
             emitResult(conn, sql, flowFile);
@@ -285,12 +291,16 @@ public class DataTransform extends FlowComponent {
         this.rules = rules;
     }
 
-    public void setSelectColumns(String selectColumns) {
-        this.selectColumns = selectColumns;
+    public void setFilters(Object filters) {
+        this.filters = filters;
     }
 
-    public void setFilter(String filter) {
-        this.filter = filter;
+    public void setFilterLogic(String filterLogic) {
+        this.filterLogic = filterLogic;
+    }
+
+    public void setSelectColumns(String selectColumns) {
+        this.selectColumns = selectColumns;
     }
 
     public void setOutputTable(String outputTable) {

@@ -201,14 +201,32 @@ public class TransformSqlBuilder {
     }
 
     /**
+     * 根据规则生成 SELECT 语句（无过滤条件）。
+     *
+     * @param qualifiedTable 输入表，需已限定 schema，例如 {@code main.tmp_xxx}
+     * @param rules          转换规则列表
+     * @param selectColumns  基础输出字段，可为空；为空时输出 {@code * EXCLUDE(被覆盖/删除/重命名的字段)}
+     */
+    public static String buildSelectSql(String qualifiedTable, JSONArray rules, String selectColumns) {
+        return buildSelectSql(qualifiedTable, rules, selectColumns, null, null);
+    }
+
+    /**
      * 根据规则生成 SELECT 语句。
      *
      * @param qualifiedTable 输入表，需已限定 schema，例如 {@code main.tmp_xxx}
      * @param rules          转换规则列表
      * @param selectColumns  基础输出字段，可为空；为空时输出 {@code * EXCLUDE(被覆盖/删除/重命名的字段)}
-     * @param filter         额外的原始 WHERE 条件，可为空
+     * @param filters        结构化过滤规则列表，可为空
+     * @param filterLogic    过滤规则之间的逻辑关系，{@code AND}（默认）或 {@code OR}
      */
-    public static String buildSelectSql(String qualifiedTable, JSONArray rules, String selectColumns, String filter) {
+    public static String buildSelectSql(
+        String qualifiedTable,
+        JSONArray rules,
+        String selectColumns,
+        JSONArray filters,
+        String filterLogic
+    ) {
         if (qualifiedTable == null || qualifiedTable.trim().isEmpty()) {
             throw new IllegalArgumentException("输入表不能为空");
         }
@@ -251,14 +269,39 @@ public class TransformSqlBuilder {
         sql.append(" FROM ").append(qualifiedTable.trim());
 
         List<String> wheres = new ArrayList<>();
-        if (filter != null && !filter.trim().isEmpty()) {
-            wheres.add("(" + filter.trim() + ")");
+        String filterClause = buildFilterClause(filters, filterLogic);
+        if (filterClause != null) {
+            wheres.add(filterClause);
         }
         wheres.addAll(whereConditions);
         if (!wheres.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", wheres));
         }
         return sql.toString();
+    }
+
+    /**
+     * 将结构化过滤规则组合为 WHERE 条件：多条规则按 {@code logic}（默认 AND）连接。
+     *
+     * @return 组合后的条件，filters 为空时返回 null
+     */
+    public static String buildFilterClause(JSONArray filters, String filterLogic) {
+        if (filters == null || filters.isEmpty()) {
+            return null;
+        }
+        List<String> conditions = new ArrayList<>();
+        for (Object item : filters) {
+            RuleResult result = buildFilter(toJsonObject(item));
+            if (result != null && result.getWhere() != null) {
+                conditions.add(result.getWhere());
+            }
+        }
+        if (conditions.isEmpty()) {
+            return null;
+        }
+        String operator = "OR".equalsIgnoreCase(filterLogic == null ? "" : filterLogic.trim()) ? " OR " : " AND ";
+        String joined = String.join(operator, conditions);
+        return conditions.size() == 1 ? joined : "(" + joined + ")";
     }
 
     private static String baseSelect(String selectColumns, Set<String> excluded) {
@@ -303,28 +346,36 @@ public class TransformSqlBuilder {
         }
         if ("IN".equals(operator) || "NOT IN".equals(operator)) {
             List<String> items = new ArrayList<>();
-            Object value = rule.get("value");
-            if (value instanceof Collection) {
-                for (Object item : (Collection<?>) value) {
-                    items.add(operandValue(rule, item));
-                }
-            } else {
-                items.add(String.valueOf(value));
+            for (Object item : filterValues(rule.get("value"))) {
+                items.add(literal(item));
             }
             return RuleResult.where(col + " " + operator + " (" + String.join(", ", items) + ")");
         }
         if ("BETWEEN".equals(operator) || "NOT BETWEEN".equals(operator)) {
-            Object value = rule.get("value");
-            List<Object> items = new ArrayList<>();
-            if (value instanceof Collection) {
-                items.addAll((Collection<?>) value);
-            }
+            List<Object> items = filterValues(rule.get("value"));
             if (items.size() != 2) {
                 throw new IllegalArgumentException("BETWEEN 规则需要两个值: " + rule);
             }
             return RuleResult.where(col + " " + operator + " " + literal(items.get(0)) + " AND " + literal(items.get(1)));
         }
-        return RuleResult.where(col + " " + operator + " " + operand(rule));
+        return RuleResult.where(col + " " + operator + " " + literal(rule.get("value")));
+    }
+
+    /**
+     * 解析过滤值：数组按元素取值，字符串按逗号切分（兼容前端单输入框输入多个值）。
+     */
+    private static List<Object> filterValues(Object value) {
+        List<Object> values = new ArrayList<>();
+        if (value instanceof Collection) {
+            values.addAll((Collection<?>) value);
+        } else if (value != null) {
+            for (String item : String.valueOf(value).split(",")) {
+                if (!item.trim().isEmpty()) {
+                    values.add(item.trim());
+                }
+            }
+        }
+        return values;
     }
 
     private static RuleResult expr(JSONObject rule, String expression) {
@@ -393,16 +444,13 @@ public class TransformSqlBuilder {
         return columns;
     }
 
+    /**
+     * 解析四则运算的操作数：{@code valueIsColumn=true} 时作为字段名，否则作为常量。
+     */
     private static String operand(JSONObject rule) {
-        return operandValue(rule, rule.get("value"));
-    }
-
-    private static String operandValue(JSONObject rule, Object value) {
+        Object value = rule.get("value");
         if (rule.getBooleanValue("valueIsColumn", false)) {
             return identifier(String.valueOf(value));
-        }
-        if (rule.getBooleanValue("raw", false)) {
-            return String.valueOf(value);
         }
         return literal(value);
     }

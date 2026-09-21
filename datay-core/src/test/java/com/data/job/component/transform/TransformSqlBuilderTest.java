@@ -26,7 +26,7 @@ public class TransformSqlBuilderTest {
 
     @Test
     public void testEmptyRulesSelectAll() {
-        assertEquals("SELECT * FROM main.t", TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null, null));
+        assertEquals("SELECT * FROM main.t", TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null));
     }
 
     @Test
@@ -36,7 +36,7 @@ public class TransformSqlBuilderTest {
         cast.put("targetType", "INTEGER");
         assertEquals(
             "SELECT * EXCLUDE (age), CAST(age AS INTEGER) AS age FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null)
         );
     }
 
@@ -48,7 +48,7 @@ public class TransformSqlBuilderTest {
         cast.put("targetType", "DECIMAL(10,2)");
         assertEquals(
             "SELECT *, CAST(amount AS DECIMAL(10,2)) AS amount_dec FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null)
         );
     }
 
@@ -61,7 +61,7 @@ public class TransformSqlBuilderTest {
         cast.put("scale", 4);
         assertEquals(
             "SELECT * EXCLUDE (amount), CAST(amount AS DECIMAL(12,4)) AS amount FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null)
         );
     }
 
@@ -73,7 +73,7 @@ public class TransformSqlBuilderTest {
         cast.put("precision", 18);
         assertEquals(
             "SELECT * EXCLUDE (amount), CAST(amount AS NUMERIC(18,0)) AS amount FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null)
         );
     }
 
@@ -84,7 +84,7 @@ public class TransformSqlBuilderTest {
         upper.put("targetColumn", "name_upper");
         assertEquals(
             "SELECT *, UPPER(name) AS name_upper FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), null)
         );
     }
 
@@ -97,7 +97,7 @@ public class TransformSqlBuilderTest {
         rename.put("targetColumn", "new_name");
         assertEquals(
             "SELECT * EXCLUDE (secret, old_name), old_name AS new_name FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(drop, rename), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(drop, rename), null)
         );
     }
 
@@ -109,12 +109,12 @@ public class TransformSqlBuilderTest {
         filter.put("value", "ACTIVE");
         assertEquals(
             "SELECT * FROM main.t WHERE status = 'ACTIVE'",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(filter), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(filter), null)
         );
     }
 
     @Test
-    public void testMultipleFiltersAndGlobalFilter() {
+    public void testMultipleRuleFilters() {
         JSONObject f1 = rule("filter");
         f1.put("column", "age");
         f1.put("operator", ">=");
@@ -124,8 +124,8 @@ public class TransformSqlBuilderTest {
         f2.put("operator", "IN");
         f2.put("value", values("IT", "HR"));
         assertEquals(
-            "SELECT * FROM main.t WHERE (t.tenant_id = 1) AND age >= 18 AND dept IN ('IT', 'HR')",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(f1, f2), null, "t.tenant_id = 1")
+            "SELECT * FROM main.t WHERE age >= 18 AND dept IN ('IT', 'HR')",
+            TransformSqlBuilder.buildSelectSql("main.t", rules(f1, f2), null)
         );
     }
 
@@ -140,7 +140,72 @@ public class TransformSqlBuilderTest {
         isNull.put("operator", "IS NULL");
         assertEquals(
             "SELECT * FROM main.t WHERE age BETWEEN 18 AND 60 AND email IS NULL",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(between, isNull), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(between, isNull), null)
+        );
+    }
+
+    @Test
+    public void testMultipleFiltersWithOrLogic() {
+        JSONObject f1 = rule("filter");
+        f1.put("column", "status");
+        f1.put("value", "ACTIVE");
+        JSONObject f2 = rule("filter");
+        f2.put("column", "age");
+        f2.put("operator", ">=");
+        f2.put("value", 18);
+        assertEquals(
+            "SELECT * FROM main.t WHERE (status = 'ACTIVE' OR age >= 18)",
+            TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null, rules(f1, f2), "OR")
+        );
+    }
+
+    @Test
+    public void testMultipleFiltersWithDefaultAndLogic() {
+        JSONObject f1 = rule("filter");
+        f1.put("column", "status");
+        f1.put("value", "ACTIVE");
+        JSONObject f2 = rule("filter");
+        f2.put("column", "age");
+        f2.put("operator", ">=");
+        f2.put("value", 18);
+        assertEquals(
+            "SELECT * FROM main.t WHERE (status = 'ACTIVE' AND age >= 18)",
+            TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null, rules(f1, f2), null)
+        );
+    }
+
+    @Test
+    public void testCustomFilterExpression() {
+        JSONObject filter = new JSONObject();
+        filter.put("expression", "amount > 100 AND amount IS NOT NULL");
+        assertEquals(
+            "SELECT * FROM main.t WHERE (amount > 100 AND amount IS NOT NULL)",
+            TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null, rules(filter), "AND")
+        );
+    }
+
+    @Test
+    public void testSingleFilterClauseWithoutParentheses() {
+        JSONObject filter = rule("filter");
+        filter.put("column", "status");
+        filter.put("value", "ACTIVE");
+        assertEquals(
+            "SELECT * FROM main.t WHERE status = 'ACTIVE'",
+            TransformSqlBuilder.buildSelectSql("main.t", new JSONArray(), null, rules(filter), "AND")
+        );
+    }
+
+    @Test
+    public void testFiltersCombineWithRules() {
+        JSONObject filter = rule("filter");
+        filter.put("column", "status");
+        filter.put("value", "ACTIVE");
+        JSONObject upper = rule("upper");
+        upper.put("column", "name");
+        upper.put("targetColumn", "name_upper");
+        assertEquals(
+            "SELECT *, UPPER(name) AS name_upper FROM main.t WHERE status = 'ACTIVE'",
+            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), null, rules(filter), "AND")
         );
     }
 
@@ -163,7 +228,7 @@ public class TransformSqlBuilderTest {
         assertEquals(
             "SELECT * EXCLUDE (phone), REPLACE(phone, '-', '') AS phone, SUBSTRING(code, 1, 3) AS prefix, " +
                 "CONCAT_WS(' ', first_name, last_name) AS full_name FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(replace, substring, concat), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(replace, substring, concat), null)
         );
     }
 
@@ -184,7 +249,7 @@ public class TransformSqlBuilderTest {
         assertEquals(
             "SELECT *, ROUND(amount, 2) AS amount_round, DATE_PART('year', create_time) AS year, " +
                 "STRFTIME(create_time, '%Y-%m-%d') AS create_date FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(round, extract, dateFormat), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(round, extract, dateFormat), null)
         );
     }
 
@@ -197,7 +262,7 @@ public class TransformSqlBuilderTest {
         multiply.put("targetColumn", "total");
         assertEquals(
             "SELECT *, (quantity * price) AS total FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(multiply), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(multiply), null)
         );
     }
 
@@ -209,7 +274,7 @@ public class TransformSqlBuilderTest {
         custom.put("expression", "{column} * 1.13");
         assertEquals(
             "SELECT *, price * 1.13 AS price_tax FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(custom), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(custom), null)
         );
     }
 
@@ -220,7 +285,7 @@ public class TransformSqlBuilderTest {
         upper.put("targetColumn", "name_upper");
         assertEquals(
             "SELECT id, age, UPPER(name) AS name_upper FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), "id, age", null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), "id, age")
         );
     }
 
@@ -231,7 +296,7 @@ public class TransformSqlBuilderTest {
         upper.put("targetColumn", "First Name");
         assertEquals(
             "SELECT *, UPPER(\"first name\") AS \"First Name\" FROM main.t",
-            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), null, null)
+            TransformSqlBuilder.buildSelectSql("main.t", rules(upper), null)
         );
     }
 
@@ -242,7 +307,7 @@ public class TransformSqlBuilderTest {
         cast.put("targetType", "INTEGER); DROP TABLE main.t; --");
         assertThrows(
             IllegalArgumentException.class,
-            () -> TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null, null)
+            () -> TransformSqlBuilder.buildSelectSql("main.t", rules(cast), null)
         );
     }
 
@@ -252,7 +317,7 @@ public class TransformSqlBuilderTest {
         unknown.put("column", "age");
         assertThrows(
             IllegalArgumentException.class,
-            () -> TransformSqlBuilder.buildSelectSql("main.t", rules(unknown), null, null)
+            () -> TransformSqlBuilder.buildSelectSql("main.t", rules(unknown), null)
         );
     }
 

@@ -72,7 +72,6 @@ public class DataTransformTest {
         params.put(".id", "dt2");
         params.put(".name", "DataTransform");
         params.put("rules", rules);
-        params.put("filter", "id > 0");
         params.put("outputTable", "my_out");
 
         Component created = ComponentFactory.create("DataTransform", params);
@@ -108,6 +107,46 @@ public class DataTransformTest {
         assertEquals(20, row.getIntValue("age"));
         assertEquals("ALICE", row.getString("name_upper"));
         assertEquals(95.5d, row.getDoubleValue("score_num"), 0.0001d);
+
+        try (Connection conn = DuckDBEngine.getInstance().getConnection(DB_FILE);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS main.tmp_dt1");
+        } finally {
+            component.outputs.clear();
+            DuckDBEngine.deleteDBFile(DB_FILE);
+        }
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testFiltersConfigWithOrLogic() throws Exception {
+        JSONArray records = new JSONArray();
+        records.add(row(1, "alice", 20, "95.5"));
+        records.add(row(2, "bob", 17, "88"));
+        records.add(row(3, "carol", 30, "70"));
+        records.add(row(4, "dave", 10, "60"));
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(records);
+
+        JSONArray filters = new JSONArray();
+        JSONObject ageFilter = new JSONObject();
+        ageFilter.put("column", "age");
+        ageFilter.put("operator", ">=");
+        // 前端输入框为文本，数值型值以字符串传递
+        ageFilter.put("value", "18");
+        filters.add(ageFilter);
+        JSONObject nameFilter = new JSONObject();
+        nameFilter.put("expression", "name = 'bob'");
+        filters.add(nameFilter);
+
+        component.setFilters(filters);
+        component.setFilterLogic("OR");
+        component.execute(flowFile);
+
+        assertEquals(1, component.outputs.size());
+        JSONArray output = component.outputs.get(0).getJsonArray();
+        assertEquals(3, output.size());
 
         try (Connection conn = DuckDBEngine.getInstance().getConnection(DB_FILE);
              Statement stmt = conn.createStatement()) {

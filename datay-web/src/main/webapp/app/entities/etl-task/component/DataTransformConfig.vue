@@ -34,7 +34,7 @@
               </option>
             </select>
             <input
-              v-if="!isFilter(rule.type) && !isDrop(rule.type)"
+              v-if="!isDrop(rule.type)"
               type="text"
               class="form-control"
               v-model="rule.targetColumn"
@@ -54,24 +54,6 @@
             <input type="number" class="form-control" v-model.number="rule.precision" min="1" max="38" placeholder="精度，如 10" />
             <input type="number" class="form-control" v-model.number="rule.scale" min="0" max="38" placeholder="小数位，如 2" />
           </div>
-
-          <template v-if="isFilter(rule.type)">
-            <div class="mapping-row">
-              <select class="form-control" v-model="rule.operator">
-                <option v-for="op in operators" :key="op" :value="op">
-                  {{ op }}
-                </option>
-              </select>
-              <select class="form-control" v-model="rule.valueMode">
-                <option value="literal">常量</option>
-                <option value="column">字段</option>
-                <option value="raw">表达式</option>
-              </select>
-            </div>
-            <div v-if="!isNullOperator(rule.operator)" class="mapping-row">
-              <input type="text" class="form-control" v-model="rule.value" :placeholder="valuePlaceholder(rule)" />
-            </div>
-          </template>
 
           <div v-if="rule.type === 'replace'" class="mapping-row">
             <input type="text" class="form-control" v-model="rule.search" placeholder="查找内容" />
@@ -138,6 +120,66 @@
     </div>
 
     <div class="form-group">
+      <label>过滤规则</label>
+      <div class="mapping-container">
+        <div v-if="formData.filters.length > 1" class="mapping-row">
+          <span class="mapping-arrow">组合逻辑</span>
+          <select class="form-control" v-model="formData.filterLogic">
+            <option value="AND">AND（同时满足）</option>
+            <option value="OR">OR（任一满足）</option>
+          </select>
+        </div>
+        <div v-for="(filter, index) in formData.filters" :key="index" class="mapping-item">
+          <div class="mapping-item-header">
+            <span>过滤 {{ index + 1 }}{{ filter.mode === 'custom' ? ' · 自定义' : '' }}</span>
+            <button type="button" class="btn-remove" @click="removeFilter(index)">删除</button>
+          </div>
+
+          <div class="mapping-row">
+            <select class="form-control" v-model="filter.mode">
+              <option value="condition">条件</option>
+              <option value="custom">自定义表达式</option>
+            </select>
+          </div>
+
+          <template v-if="filter.mode === 'custom'">
+            <div class="mapping-row">
+              <textarea
+                class="form-control"
+                v-model="filter.expression"
+                :rows="2"
+                placeholder="DuckDB 布尔表达式，例如：amount > 100 AND status != 'DELETED'"
+              ></textarea>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="mapping-row">
+              <select class="form-control" v-model="filter.column">
+                <option value="">请选择字段</option>
+                <option v-for="column in optionsWith(filter.column)" :key="column.name" :value="column.name">
+                  {{ columnLabel(column) }}
+                </option>
+              </select>
+            </div>
+            <div class="mapping-row">
+              <select class="form-control" v-model="filter.operator">
+                <option v-for="op in operators" :key="op" :value="op">
+                  {{ op }}
+                </option>
+              </select>
+            </div>
+            <div v-if="!isNullOperator(filter.operator)" class="mapping-row">
+              <input type="text" class="form-control" v-model="filter.value" :placeholder="valuePlaceholder(filter)" />
+            </div>
+          </template>
+        </div>
+        <el-button type="primary" size="small" @click="addFilter">添加过滤规则</el-button>
+      </div>
+      <small class="form-text text-muted"> 支持多条过滤规则，按组合逻辑连接；自定义表达式可直接书写 DuckDB 布尔条件 </small>
+    </div>
+
+    <div class="form-group">
       <label for="selectColumns">基础输出字段</label>
       <textarea
         class="form-control"
@@ -146,18 +188,6 @@
         v-model="formData.selectColumns"
         :rows="2"
         placeholder="留空表示输出全部字段（被覆盖/删除/重命名的字段自动排除），例如：id, name"
-      ></textarea>
-    </div>
-
-    <div class="form-group">
-      <label for="filter">额外过滤条件</label>
-      <textarea
-        class="form-control"
-        id="filter"
-        name="filter"
-        v-model="formData.filter"
-        :rows="2"
-        placeholder="原始 WHERE 条件（可空），例如：tenant_id = 1 AND status != 'DELETED'"
       ></textarea>
     </div>
 
@@ -200,7 +230,6 @@ const tableError = ref('');
 
 const ruleTypes = [
   { value: 'cast', label: '类型转换' },
-  { value: 'filter', label: '过滤条件' },
   { value: 'rename', label: '字段重命名' },
   { value: 'drop', label: '删除字段' },
   { value: 'upper', label: '转大写' },
@@ -256,7 +285,6 @@ const defaultRule = (type) => ({
   scale: 2,
   operator: '=',
   value: '',
-  valueMode: 'literal',
   valueIsColumn: false,
   search: '',
   replacement: '',
@@ -277,7 +305,6 @@ const fromConfigRule = (rule) => {
   const normalized = { ...defaultRule(rule.type), ...rule };
   normalized.valueIsColumn = !!rule.valueIsColumn;
   normalized.otherColumns = Array.isArray(rule.columns) ? rule.columns.join(', ') : rule.columns || '';
-  normalized.valueMode = rule.valueIsColumn ? 'column' : rule.raw ? 'raw' : 'literal';
   // 兼容历史配置：targetType 直接写成 DECIMAL(10,2) 时拆分为基础类型 + 精度 + 小数位
   if (rule.targetType) {
     const match = /^([A-Za-z]+)\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)$/.exec(String(rule.targetType).trim());
@@ -292,12 +319,40 @@ const fromConfigRule = (rule) => {
   return normalized;
 };
 
+const defaultFilterRule = (mode) => ({
+  mode: mode || 'condition',
+  column: '',
+  operator: '=',
+  value: '',
+  expression: '',
+});
+
+const fromConfigFilter = (filter) => {
+  // 兼容只有 expression 的过滤规则
+  const hasExpression = !!(filter.expression && String(filter.expression).trim());
+  const mode = filter.mode === 'custom' || (hasExpression && !filter.column) ? 'custom' : 'condition';
+  const value = Array.isArray(filter.value) ? filter.value.join(',') : filter.value || '';
+  return {
+    mode,
+    column: filter.column || '',
+    operator: filter.operator || '=',
+    value,
+    expression: filter.expression || '',
+  };
+};
+
 const buildForm = () => {
   const config = props.node?.data?.config || {};
+  const rawRules = Array.isArray(config.rules) ? config.rules : [];
+  // 兼容历史配置：将 rules 中的 filter 规则迁移到独立的过滤规则列表
+  const legacyFilters = rawRules.filter((rule) => rule.type === 'filter');
+  const rules = rawRules.filter((rule) => rule.type !== 'filter');
+  const filters = [...(Array.isArray(config.filters) ? config.filters : []), ...legacyFilters].map(fromConfigFilter);
   return {
-    rules: Array.isArray(config.rules) ? config.rules.map(fromConfigRule) : [],
+    rules: rules.map(fromConfigRule),
+    filters,
+    filterLogic: (config.filterLogic || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND',
     selectColumns: config.selectColumns || '',
-    filter: config.filter || '',
     outputTable: config.outputTable || '',
   };
 };
@@ -350,20 +405,14 @@ const resolvedCastType = (rule) => {
   return `${type}(${precision},${scale})`;
 };
 
-const valuePlaceholder = (rule) => {
-  if (rule.operator === 'IN' || rule.operator === 'NOT IN') {
+const valuePlaceholder = (filter) => {
+  if (filter.operator === 'IN' || filter.operator === 'NOT IN') {
     return '多个值用逗号分隔，如 A,B';
   }
-  if (rule.operator === 'BETWEEN' || rule.operator === 'NOT BETWEEN') {
+  if (filter.operator === 'BETWEEN' || filter.operator === 'NOT BETWEEN') {
     return '两个值用逗号分隔，如 18,60';
   }
-  if (rule.valueMode === 'column') {
-    return '字段名';
-  }
-  if (rule.valueMode === 'raw') {
-    return 'DuckDB 表达式';
-  }
-  return '常量值';
+  return '值';
 };
 
 const refreshTables = async () => {
@@ -402,6 +451,14 @@ const addRule = () => {
 
 const removeRule = (index) => {
   formData.rules.splice(index, 1);
+};
+
+const addFilter = () => {
+  formData.filters.push(defaultFilterRule('condition'));
+};
+
+const removeFilter = (index) => {
+  formData.filters.splice(index, 1);
 };
 
 const onRuleTypeChange = (rule) => {
@@ -507,50 +564,56 @@ const buildRuleExpression = (rule) => {
   }
 };
 
-const buildFilterCondition = (rule) => {
-  const col = identifier(rule.column);
-  const operator = (rule.operator || '=').toUpperCase();
+const splitValues = (value) =>
+  String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const buildFilterCondition = (filter) => {
+  const col = identifier(filter.column);
+  const operator = (filter.operator || '=').toUpperCase();
   if (isNullOperator(operator)) {
     return `${col} ${operator}`;
   }
-  const renderValue = (value, useColumn) => (useColumn ? identifier(value) : literal(value));
   if (operator === 'IN' || operator === 'NOT IN') {
-    const items = String(rule.value || '')
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((item) => renderValue(item, rule.valueMode === 'column'));
+    const items = splitValues(filter.value).map(literal);
     return `${col} ${operator} (${items.join(', ')})`;
   }
   if (operator === 'BETWEEN' || operator === 'NOT BETWEEN') {
-    const items = String(rule.value || '')
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-    return `${col} ${operator} ${renderValue(items[0], rule.valueMode === 'column')} AND ${renderValue(items[1], rule.valueMode === 'column')}`;
+    const items = splitValues(filter.value);
+    return `${col} ${operator} ${literal(items[0])} AND ${literal(items[1])}`;
   }
-  if (rule.valueMode === 'raw') {
-    return `${col} ${operator} ${rule.value}`;
+  return `${col} ${operator} ${literal(filter.value)}`;
+};
+
+const buildFilterClause = () => {
+  const parts = [];
+  formData.filters.forEach((filter) => {
+    if (filter.mode === 'custom') {
+      if ((filter.expression || '').trim()) {
+        parts.push(`(${filter.expression.trim()})`);
+      }
+      return;
+    }
+    if (filter.column) {
+      parts.push(buildFilterCondition(filter));
+    }
+  });
+  if (parts.length === 0) {
+    return '';
   }
-  return `${col} ${operator} ${renderValue(rule.value, rule.valueMode === 'column')}`;
+  const operator = formData.filterLogic === 'OR' ? ' OR ' : ' AND ';
+  const joined = parts.join(operator);
+  return parts.length > 1 ? `(${joined})` : joined;
 };
 
 const previewSql = computed(() => {
   const computedItems = [];
   const excluded = [];
-  const wheres = [];
 
   formData.rules.forEach((rule) => {
-    if (!rule.type) {
-      return;
-    }
-    if (rule.type === 'filter') {
-      if (rule.column) {
-        wheres.push(buildFilterCondition(rule));
-      }
-      return;
-    }
-    if (!rule.column) {
+    if (!rule.type || !rule.column) {
       return;
     }
     if (rule.type === 'drop') {
@@ -581,13 +644,9 @@ const previewSql = computed(() => {
   const inputTable = upstreamTables.value.length ? `main.${upstreamTables.value[0].name}` : 'main.input_table';
   let sql = `SELECT ${items.join(', ')} FROM ${inputTable}`;
 
-  const conditions = [];
-  if ((formData.filter || '').trim()) {
-    conditions.push(`(${formData.filter.trim()})`);
-  }
-  conditions.push(...wheres);
-  if (conditions.length) {
-    sql += ` WHERE ${conditions.join(' AND ')}`;
+  const filterClause = buildFilterClause();
+  if (filterClause) {
+    sql += ` WHERE ${filterClause}`;
   }
   return sql;
 });
@@ -604,17 +663,6 @@ const serializeRule = (rule) => {
       if (isDecimalType(rule.targetType)) {
         result.precision = Number(rule.precision) || 10;
         result.scale = rule.scale === null || rule.scale === undefined || rule.scale === '' ? 2 : Number(rule.scale);
-      }
-      break;
-    case 'filter':
-      result.operator = rule.operator;
-      if (!isNullOperator(rule.operator)) {
-        if (rule.valueMode === 'column') {
-          result.valueIsColumn = true;
-        } else if (rule.valueMode === 'raw') {
-          result.raw = true;
-        }
-        result.value = rule.value;
       }
       break;
     case 'replace':
@@ -673,6 +721,22 @@ const serializeRule = (rule) => {
   return result;
 };
 
+const serializeFilter = (filter) => {
+  if (filter.mode === 'custom') {
+    return { expression: (filter.expression || '').trim() };
+  }
+  const operator = (filter.operator || '=').toUpperCase();
+  const result = { column: (filter.column || '').trim(), operator };
+  if (!isNullOperator(operator)) {
+    if (operator === 'IN' || operator === 'NOT IN' || operator === 'BETWEEN' || operator === 'NOT BETWEEN') {
+      result.value = splitValues(filter.value);
+    } else {
+      result.value = filter.value;
+    }
+  }
+  return result;
+};
+
 const saveConfig = async () => {
   const rules = [];
   for (let i = 0; i < formData.rules.length; i++) {
@@ -704,10 +768,26 @@ const saveConfig = async () => {
     rules.push(serializeRule(rule));
   }
 
+  const filters = [];
+  for (let i = 0; i < formData.filters.length; i++) {
+    const filter = formData.filters[i];
+    if (filter.mode === 'custom') {
+      if (!(filter.expression || '').trim()) {
+        ElMessage.error(`请填写第 ${i + 1} 条过滤规则的自定义表达式`);
+        return;
+      }
+    } else if (!(filter.column || '').trim()) {
+      ElMessage.error(`请选择第 ${i + 1} 条过滤规则的字段`);
+      return;
+    }
+    filters.push(serializeFilter(filter));
+  }
+
   emits('save', {
     rules,
+    filters,
+    filterLogic: formData.filterLogic,
     selectColumns: (formData.selectColumns || '').trim(),
-    filter: (formData.filter || '').trim(),
     outputTable: (formData.outputTable || '').trim(),
   });
 };
