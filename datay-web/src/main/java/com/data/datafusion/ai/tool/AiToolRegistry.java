@@ -1,6 +1,6 @@
 package com.data.datafusion.ai.tool;
 
-import com.data.datafusion.ai.AiSqlMode;
+import com.data.datafusion.ai.assistant.AiAssistant;
 import com.data.datafusion.ai.llm.ToolDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>收集容器中所有 {@link AiTool} 实现，并按工具名索引，向上层提供：
  * <ul>
- *     <li>可下发给模型的工具定义列表（{@link #definitions(boolean)}）</li>
+ *     <li>指定助手可用的工具集合（{@link #allowed(boolean, AiAssistant)}）与可下发给模型的工具定义（{@link #definitions(boolean, AiAssistant)}）</li>
  *     <li>按名查找与执行（{@link #find(String)}）</li>
  * </ul>
  *
@@ -67,20 +67,31 @@ public class AiToolRegistry {
     }
 
     /**
-     * 构建可直接注入 LLM 请求的工具定义。
+     * 解析指定助手在当前安全边界下可用的工具集合。
      *
      * @param allowMutating 为 false 时只暴露只读工具，防止模型触发写操作
-     * @param mode 生成模式，工具可据此决定是否在本次会话中暴露
+     * @param assistant 目标助手，仅暴露其在 {@link AiAssistant#toolNames()} 中显式声明的工具
      */
-    public List<ToolDefinition> definitions(boolean allowMutating, AiSqlMode mode) {
-        List<ToolDefinition> definitions = new ArrayList<>();
+    public List<AiTool> allowed(boolean allowMutating, AiAssistant assistant) {
+        List<AiTool> allowed = new ArrayList<>();
         for (AiTool tool : tools.values()) {
             if (tool.mutating() && !allowMutating) {
                 continue;
             }
-            if (!tool.supports(mode)) {
+            if (!assistant.supportsTool(tool)) {
                 continue;
             }
+            allowed.add(tool);
+        }
+        return allowed;
+    }
+
+    /**
+     * 构建可直接注入 LLM 请求的工具定义，等价于对 {@link #allowed(boolean, AiAssistant)} 的映射。
+     */
+    public List<ToolDefinition> definitions(boolean allowMutating, AiAssistant assistant) {
+        List<ToolDefinition> definitions = new ArrayList<>();
+        for (AiTool tool : allowed(allowMutating, assistant)) {
             definitions.add(new ToolDefinition(tool.name(), tool.description(), tool.parametersSchema()));
         }
         return definitions;

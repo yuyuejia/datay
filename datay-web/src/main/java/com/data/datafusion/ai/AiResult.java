@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AI 生成 SQL 的结果，附带 tool-calling loop 的执行轨迹，便于前端展示与问题排查。
+ * AI 生成结果，附带 tool-calling loop 的执行轨迹，便于前端展示与问题排查。
  */
-public class AiSqlResult {
+public class AiResult {
 
     private String sql;
     private String explanation;

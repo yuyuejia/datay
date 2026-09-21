@@ -1,6 +1,5 @@
 package com.data.datafusion.ai.tool;
 
-import com.data.datafusion.ai.AiSqlMode;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.util.DBUtils;
@@ -23,6 +22,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class SqlValidateTool implements AiTool {
 
+    /** 工具名常量，供助手显式声明工具集合时引用，避免字符串拼写漂移。 */
+    public static final String NAME = "validate_sql";
+
     private static final Logger LOG = LoggerFactory.getLogger(SqlValidateTool.class);
 
     private final DataSourceQueryService dataSourceQueryService;
@@ -33,7 +35,7 @@ public class SqlValidateTool implements AiTool {
 
     @Override
     public String name() {
-        return "validate_sql";
+        return NAME;
     }
 
     @Override
@@ -79,7 +81,7 @@ public class SqlValidateTool implements AiTool {
         }
 
         try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-            if (context.getMode().isTask() && !isReadOnlySql(sql)) {
+            if (context.getAssistant().allowWrites() && !isReadOnlySql(sql)) {
                 validateByParse(connection, sql, result);
             } else {
                 String probe = buildProbe(sql);

@@ -20,9 +20,20 @@
           >
           <span v-else class="ai-badge ai-badge-info">未配置</span>
         </div>
-        <button class="ai-close-btn" @click="close" title="关闭">
-          <font-awesome-icon icon="times" />
-        </button>
+        <div class="ai-drawer-header-actions">
+          <button
+            class="ai-new-session-btn"
+            :disabled="generating || (messages.length === 0 && !input)"
+            @click="newSession"
+            title="清空当前对话，开启新会话"
+          >
+            <font-awesome-icon icon="plus" />
+            <span>新会话</span>
+          </button>
+          <button class="ai-close-btn" @click="close" title="关闭">
+            <font-awesome-icon icon="times" />
+          </button>
+        </div>
       </div>
 
       <!-- 主体 -->
@@ -285,6 +296,38 @@
 .ai-close-btn:hover {
   background: #f0f2f5;
   color: #303133;
+}
+
+.ai-drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-new-session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  color: #606266;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-new-session-btn:hover:not(:disabled) {
+  border-color: #409eff;
+  color: #409eff;
+  background: #ecf5ff;
+}
+
+.ai-new-session-btn:disabled {
+  color: #c0c4cc;
+  border-color: #ebeef5;
+  cursor: not-allowed;
 }
 
 /* ===== 标签徽章 ===== */

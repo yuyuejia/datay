@@ -231,7 +231,7 @@ datay:
     max-tool-rounds: 6
     # 单轮允许的最大工具调用次数，防止模型滥用工具
     max-tool-calls-per-round: 8
-    # 是否允许调用具备副作用的写工具，默认关闭，保证 SQL 助手只读安全
+    # 是否允许调用具备副作用的写工具，默认关闭；需与助手自身声明同时放行
     allow-mutating-tools: false
 
 # jhipster-needle-add-application-yaml-document

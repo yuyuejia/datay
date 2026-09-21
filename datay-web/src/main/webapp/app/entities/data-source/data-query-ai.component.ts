@@ -10,12 +10,11 @@ import {
 } from "vue";
 import { useAlertService } from "@/shared/alert/alert.service";
 import type {
-  AiSqlStatus,
-  AiToolInfo,
+  AiStatus,
   AiToolTrace,
-  AiSqlMode,
-} from "./data-query-ai.service";
-import DataQueryAiService from "./data-query-ai.service";
+  AiAssistantInfo,
+} from "./ai-assistant.service";
+import AiAssistantService from "./ai-assistant.service";
 
 interface AiChatMessage {
   role: "user" | "assistant";
@@ -28,20 +27,6 @@ interface AiChatMessage {
   meta?: { rounds?: number; toolCalls?: number; tokens?: number };
 }
 
-const QUERY_SAMPLES = [
-  "查询最近 7 天每天的订单总金额",
-  "统计每个用户的下单次数，按次数倒序取前 20",
-  "找出从未下过单的用户",
-  "按月统计销售额环比增长",
-];
-
-const TASK_SAMPLES = [
-  "创建一张用户表，包含 id、姓名、邮箱、创建时间字段",
-  "把 orders 表中金额大于 1000 的订单同步到 vip_orders 表",
-  "给 users 表新增一个 last_login_time 字段",
-  "清空临时表 tmp_log 并重新初始化统计数据",
-];
-
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: "DataQueryAi",
@@ -49,32 +34,14 @@ export default defineComponent({
     modelValue: { type: Boolean, default: undefined },
     value: { type: Boolean, default: undefined }, // Vue 2 compat: v-model → value
     dataSourceId: { type: Number, default: undefined },
-    mode: { type: String as () => AiSqlMode, default: "query" },
+    assistantId: { type: String, default: "query" },
   },
   emits: ["update:modelValue", "input", "apply-sql"],
   setup(props, { emit }) {
     const alertService = inject("alertService", () => useAlertService(), true);
     const aiService = inject(
-      "dataQueryAiService",
-      () => new DataQueryAiService(),
-    );
-
-    const isTaskMode = computed(() => props.mode === "task");
-    const assistantTitle = computed(() =>
-      isTaskMode.value ? "AI SQL 任务助手" : "AI SQL 助手",
-    );
-    const emptyHint = computed(() =>
-      isTaskMode.value
-        ? "用一句话描述你的 SQL 任务（建表、写入、查询等），我来生成脚本"
-        : "用一句话描述你想查什么，我来生成 SQL",
-    );
-    const inputPlaceholder = computed(() =>
-      isTaskMode.value
-        ? "描述你的 SQL 任务，Enter 发送，Shift+Enter 换行"
-        : "描述你的数据需求，Enter 发送，Shift+Enter 换行",
-    );
-    const samples = computed(() =>
-      isTaskMode.value ? TASK_SAMPLES : QUERY_SAMPLES,
+      "aiAssistantService",
+      () => new AiAssistantService(),
     );
 
     const visible = ref(false);
@@ -82,14 +49,31 @@ export default defineComponent({
     const generating = ref(false);
     const messages = ref<AiChatMessage[]>([]);
     const messageListRef = ref<HTMLElement | null>(null);
-    const status = ref<AiSqlStatus>({ available: false });
-    const tools = ref<AiToolInfo[]>([]);
+    const status = ref<AiStatus>({ available: false });
+    const assistants = ref<AiAssistantInfo[]>([]);
+
+    const currentAssistant = computed(() =>
+      assistants.value.find((item) => item.id === props.assistantId),
+    );
+    const assistantTitle = computed(
+      () => currentAssistant.value?.name || "AI 助手",
+    );
+    const emptyHint = computed(
+      () =>
+        currentAssistant.value?.description ||
+        "用一句话描述你的需求，我来生成 SQL",
+    );
+    const inputPlaceholder = computed(
+      () => "描述你的需求，Enter 发送，Shift+Enter 换行",
+    );
+    const samples = computed(() => currentAssistant.value?.samplePrompts || []);
+    const tools = computed(() => currentAssistant.value?.tools || []);
 
     const loadStatus = async () => {
       try {
         status.value = await aiService().getStatus();
         if (status.value.available) {
-          tools.value = await aiService().listTools(props.mode);
+          assistants.value = await aiService().listAssistants();
         }
       } catch {
         status.value = { available: false, message: "无法获取 AI 助手状态" };
@@ -147,7 +131,7 @@ export default defineComponent({
           text,
           props.dataSourceId,
           history,
-          props.mode,
+          props.assistantId,
         );
         placeholder.loading = false;
         placeholder.content = result.explanation || "";
@@ -227,6 +211,18 @@ export default defineComponent({
       input.value = sample;
     };
 
+    /**
+     * 新开会话：清空当前对话与输入，后续请求不再携带历史上下文。
+     * 生成过程中禁止操作，避免打断进行中的请求。
+     */
+    const newSession = () => {
+      if (generating.value) return;
+      if (messages.value.length === 0 && !input.value) return;
+      messages.value = [];
+      input.value = "";
+      alertService.showSuccess("已开启新会话");
+    };
+
     const copySql = async (sql?: string) => {
       if (!sql) return;
       try {
@@ -274,14 +270,16 @@ export default defineComponent({
       messages,
       messageListRef,
       status,
-      tools,
+      assistants,
+      currentAssistant,
       samples,
-      isTaskMode,
+      tools,
       assistantTitle,
       emptyHint,
       inputPlaceholder,
       send,
       onKeydown,
+      newSession,
       close,
       applySample,
       copySql,

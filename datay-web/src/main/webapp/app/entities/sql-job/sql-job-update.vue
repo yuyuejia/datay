@@ -184,7 +184,7 @@
     <data-query-ai
       v-model="aiDrawerVisible"
       :data-source-id="dataSourceId"
-      mode="task"
+      assistant-id="sql-task"
       @apply-sql="applyAiSql"
     />
   </div>

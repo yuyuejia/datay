@@ -3,9 +3,9 @@ package com.data.datafusion.ai.dto;
 import java.util.List;
 
 /**
- * AI 生成 SQL 的请求体。
+ * AI 生成请求体。
  */
-public class AiSqlRequest {
+public class AiGenerateRequest {
 
     /** 用户本轮的自然语言需求。 */
     private String message;
@@ -13,7 +13,13 @@ public class AiSqlRequest {
     /** 当前会话绑定的数据源 ID，可选。 */
     private Long dataSourceId;
 
-    /** 生成场景模式：query（只读查询，默认）或 task（SQL 任务，允许 DDL/DML）。 */
+    /** 目标助手 id，缺省时回退到注册顺序中的第一个助手。 */
+    private String assistantId;
+
+    /**
+     * 兼容旧调用的场景标识：query / task。
+     * 仅在 {@link #assistantId} 为空时用于解析助手。
+     */
     private String mode;
 
     /** 历史对话，按 [{role, content}] 传递，role 仅支持 user/assistant。 */
@@ -55,6 +61,14 @@ public class AiSqlRequest {
 
     public void setDataSourceId(Long dataSourceId) {
         this.dataSourceId = dataSourceId;
+    }
+
+    public String getAssistantId() {
+        return assistantId;
+    }
+
+    public void setAssistantId(String assistantId) {
+        this.assistantId = assistantId;
     }
 
     public String getMode() {

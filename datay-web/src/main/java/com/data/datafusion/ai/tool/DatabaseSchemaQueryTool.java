@@ -25,6 +25,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DatabaseSchemaQueryTool implements AiTool {
 
+    /** 工具名常量，供助手显式声明工具集合时引用，避免字符串拼写漂移。 */
+    public static final String NAME = "list_database_objects";
+
     private static final Logger LOG = LoggerFactory.getLogger(DatabaseSchemaQueryTool.class);
 
     /** 单次最多返回的表/字段数量，避免上下文爆炸。 */
@@ -38,7 +41,7 @@ public class DatabaseSchemaQueryTool implements AiTool {
 
     @Override
     public String name() {
-        return "list_database_objects";
+        return NAME;
     }
 
     @Override

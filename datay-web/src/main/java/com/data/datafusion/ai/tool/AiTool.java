@@ -1,6 +1,5 @@
 package com.data.datafusion.ai.tool;
 
-import com.data.datafusion.ai.AiSqlMode;
 import java.util.Map;
 
 /**
@@ -32,14 +31,6 @@ public interface AiTool {
      */
     default boolean mutating() {
         return false;
-    }
-
-    /**
-     * 该工具是否适用于指定的生成模式。默认对所有模式开放，
-     * 工具可重写以限制仅在特定场景（如只读查询）下暴露给模型。
-     */
-    default boolean supports(AiSqlMode mode) {
-        return true;
     }
 
     /**
