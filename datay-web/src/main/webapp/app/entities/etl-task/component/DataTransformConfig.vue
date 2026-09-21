@@ -3,7 +3,7 @@
     <div class="form-group">
       <label>上游字段</label>
       <div class="table-toolbar">
-        <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables">调试上游获取字段</el-button>
+        <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables(true)">调试上游获取字段</el-button>
         <span v-if="columnOptions.length" class="form-text text-muted">已获取 {{ columnOptions.length }} 个字段</span>
         <span v-else class="form-text text-muted">{{ tableError || '点击按钮调试上游组件，获取可转换的字段' }}</span>
       </div>
@@ -415,7 +415,7 @@ const valuePlaceholder = (filter) => {
   return '值';
 };
 
-const refreshTables = async () => {
+const refreshTables = async (force = false) => {
   if (!designContext || typeof designContext.debugUpstreamTables !== 'function') {
     tableError.value = '当前环境无法调试上游组件';
     return;
@@ -423,7 +423,8 @@ const refreshTables = async () => {
   loadingTables.value = true;
   tableError.value = '';
   try {
-    const res = await designContext.debugUpstreamTables(props.node?.id);
+    // 设计器会缓存各节点的上游字段：已有缓存时不会重新执行调试，force=true 时强制重新获取
+    const res = await designContext.debugUpstreamTables(props.node?.id, force);
     upstreamTables.value = res.tables || [];
     tableError.value = res.error || '';
   } catch (error) {

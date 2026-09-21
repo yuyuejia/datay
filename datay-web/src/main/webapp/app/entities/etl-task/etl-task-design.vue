@@ -50,6 +50,8 @@ let skipNextCanvasFit = false;
 const DEBUG_ROW_LIMIT = 100;
 const debugResults = ref({});
 const debugRunning = ref(false);
+// 各节点调试获取到的上游表清单缓存，避免每次打开配置界面都自动执行调试
+const upstreamTablesCache = new Map();
 const debugError = ref('');
 const debugElapsed = ref(0);
 const activeConfigTab = ref('config');
@@ -69,7 +71,7 @@ const componentGroupMap = computed(() => {
   return map;
 });
 
-const deleteNode = nodeId => {
+const deleteNode = (nodeId) => {
   removeNodes([nodeId]);
 };
 
@@ -83,9 +85,9 @@ const loadComponents = async () => {
 };
 
 const expandedGroups = reactive({
-  '数据输入': true,
-  '数据处理': true,
-  '数据输出': true,
+  数据输入: true,
+  数据处理: true,
+  数据输出: true,
 });
 
 const groupOrder = ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'];
@@ -121,7 +123,7 @@ const groupedComponents = computed(() => {
     if (ib === -1) return -1;
     return ia - ib;
   });
-  return sortedGroups.map(g => ({ group: g, components: map[g] }));
+  return sortedGroups.map((g) => ({ group: g, components: map[g] }));
 });
 
 const toggleGroup = (group) => {
@@ -146,21 +148,24 @@ const configModules = import.meta.glob('./component/*Config.vue', { eager: true 
 
 const componentConfigMap = {};
 for (const [path, module] of Object.entries(configModules)) {
-  const filename = path.split('/').pop().replace(/\.vue$/, '');
+  const filename = path
+    .split('/')
+    .pop()
+    .replace(/\.vue$/, '');
   componentConfigMap[filename.replace(/Config$/, '')] = module.default;
 }
 
 // SqlUnit 组件复用 StreamSqlUnit 的配置界面
 componentConfigMap.SqlUnit = componentConfigMap.StreamSqlUnit;
 
-const retrieveETLTask = async eTLTaskId => {
+const retrieveETLTask = async (eTLTaskId) => {
   try {
     const res = await eTLTaskService().find(eTLTaskId);
     res.updateTime = new Date(res.updateTime);
     res.createTime = new Date(res.createTime);
     eTLTask.value = res;
 
-    const convertedNodes = (res.nodes || []).map(node => ({
+    const convertedNodes = (res.nodes || []).map((node) => ({
       id: node.code.toString(),
       type: 'etl',
       data: {
@@ -174,7 +179,7 @@ const retrieveETLTask = async eTLTaskId => {
       position: { x: parseFloat(node.xAxis), y: parseFloat(node.yAxis) },
     }));
 
-    const convertedEdges = (res.edges || []).map(edge => ({
+    const convertedEdges = (res.edges || []).map((edge) => ({
       id: edge.code.toString(),
       source: edge.source.toString(),
       target: edge.target.toString(),
@@ -214,7 +219,7 @@ watch(
   },
 );
 
-onInit(instance => {
+onInit((instance) => {
   vueFlowInstance.value = instance;
 });
 
@@ -224,7 +229,7 @@ const fitCanvasView = () => {
   }
 };
 
-onNodeDoubleClick(event => {
+onNodeDoubleClick((event) => {
   selectedNode.value = event.node;
   editingNodeLabel.value = event.node.data?.label || '';
   currentSavedConfig.value = null;
@@ -244,8 +249,8 @@ onNodeDoubleClick(event => {
 const isApplyingConfig = ref(false);
 let appliedConfigForDebug = false;
 
-const applyConfigToSelectedNode = config => {
-  const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
+const applyConfigToSelectedNode = (config) => {
+  const nodeIndex = nodes.value.findIndex((node) => node.id === selectedNode.value.id);
   if (nodeIndex !== -1) {
     nodes.value[nodeIndex].data.config = config;
     if (editingNodeLabel.value && editingNodeLabel.value.trim()) {
@@ -254,7 +259,7 @@ const applyConfigToSelectedNode = config => {
   }
 };
 
-const handleComponentSave = config => {
+const handleComponentSave = (config) => {
   currentSavedConfig.value = config;
   applyConfigToSelectedNode(config);
   if (isApplyingConfig.value) {
@@ -265,8 +270,8 @@ const handleComponentSave = config => {
   showConfigModal.value = false;
 };
 
-const saveNodeConfig = config => {
-  const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
+const saveNodeConfig = (config) => {
+  const nodeIndex = nodes.value.findIndex((node) => node.id === selectedNode.value.id);
   if (nodeIndex !== -1) {
     nodes.value[nodeIndex].data.config = config;
   }
@@ -275,7 +280,7 @@ const saveNodeConfig = config => {
 };
 
 const saveNodeConfigWithLabel = (config, label) => {
-  const nodeIndex = nodes.value.findIndex(node => node.id === selectedNode.value.id);
+  const nodeIndex = nodes.value.findIndex((node) => node.id === selectedNode.value.id);
   if (nodeIndex !== -1) {
     nodes.value[nodeIndex].data.config = config;
     if (label && label.trim()) {
@@ -290,7 +295,7 @@ onNodeDragStop(({ event, nodes, node }) => {
   console.log('Node Drag Stop', { event, nodes, node });
 });
 
-onConnect(connection => {
+onConnect((connection) => {
   addEdges({
     ...connection,
     markerEnd: { type: MarkerType.ArrowClosed },
@@ -298,7 +303,7 @@ onConnect(connection => {
 });
 
 function updatePos() {
-  nodes.value = nodes.value.map(node => {
+  nodes.value = nodes.value.map((node) => {
     return {
       ...node,
       position: {
@@ -330,7 +335,7 @@ const onDragStart = (event, component) => {
   event.dataTransfer.setData('text/plain', JSON.stringify(component));
 };
 
-const onDrop = event => {
+const onDrop = (event) => {
   event.preventDefault();
   const componentJson = event.dataTransfer.getData('text/plain');
   const component = JSON.parse(componentJson);
@@ -361,7 +366,7 @@ const onDrop = event => {
   });
 };
 
-const onDragOver = event => {
+const onDragOver = (event) => {
   event.preventDefault();
 };
 
@@ -378,7 +383,7 @@ const handleConfigSave = async () => {
 const flow = ref(null);
 
 const buildTaskPayload = () => {
-  const updatedNodes = nodes.value.map(node => ({
+  const updatedNodes = nodes.value.map((node) => ({
     id: node.data.id ? node.data.id : '',
     label: node.data.label,
     code: node.id,
@@ -388,7 +393,7 @@ const buildTaskPayload = () => {
     config: node.data.config ? JSON.stringify(node.data.config) : '',
   }));
 
-  const updatedEdges = edges.value.map(edge => ({
+  const updatedEdges = edges.value.map((edge) => ({
     code: edge.id,
     source: edge.source,
     target: edge.target,
@@ -397,7 +402,7 @@ const buildTaskPayload = () => {
   return { ...eTLTask.value, nodes: updatedNodes, edges: updatedEdges };
 };
 
-const runDebug = async targetNodeId => {
+const runDebug = async (targetNodeId) => {
   if (debugRunning.value) {
     return;
   }
@@ -426,7 +431,7 @@ const runDebug = async targetNodeId => {
  * 从调试结果中收集上游组件输出的表清单（含字段）。
  * 物化到 DuckDB 的组件从 tables 中取表名与字段，流式组件从 _table / _tableMetadata 属性与采样列中解析。
  */
-const parseMetadataTableName = meta => {
+const parseMetadataTableName = (meta) => {
   const text = String(meta).trim();
   const bracketIndex = text.indexOf(' [');
   let head = bracketIndex >= 0 ? text.substring(0, bracketIndex) : text;
@@ -441,7 +446,7 @@ const parseMetadataTableName = meta => {
  * 从 _tableMetadata 属性字符串中解析字段名与类型。格式：schema.table [dbType] (col:type, col:type, ...)
  * 类型可能含括号与逗号（如 DECIMAL(10,2)），按括号嵌套层级切分。
  */
-const parseMetadataColumns = meta => {
+const parseMetadataColumns = (meta) => {
   const text = String(meta);
   const open = text.indexOf('(');
   const close = text.lastIndexOf(')');
@@ -467,7 +472,7 @@ const parseMetadataColumns = meta => {
   }
   parts.push(current);
   return parts
-    .map(part => {
+    .map((part) => {
       const trimmed = part.trim();
       const colon = trimmed.indexOf(':');
       if (colon < 0) {
@@ -475,13 +480,13 @@ const parseMetadataColumns = meta => {
       }
       return { name: trimmed.substring(0, colon).trim(), type: trimmed.substring(colon + 1).trim() };
     })
-    .filter(item => item.name);
+    .filter((item) => item.name);
 };
 
-const collectUpstreamTables = debugMap => {
+const collectUpstreamTables = (debugMap) => {
   // name -> Map<字段名, 字段类型>
   const tableMap = new Map();
-  const ensureTable = name => {
+  const ensureTable = (name) => {
     const key = (name || '').toString().trim();
     if (!key) {
       return null;
@@ -500,13 +505,13 @@ const collectUpstreamTables = debugMap => {
     }
   };
 
-  Object.values(debugMap || {}).forEach(result => {
+  Object.values(debugMap || {}).forEach((result) => {
     if (!result) {
       return;
     }
     const tables = result.tables || [];
     if (tables.length > 0) {
-      tables.forEach(table => {
+      tables.forEach((table) => {
         if (!table || !table.tableName) {
           return;
         }
@@ -531,16 +536,16 @@ const collectUpstreamTables = debugMap => {
     }
     let fields = attributes['_tableMetadata'] ? parseMetadataColumns(attributes['_tableMetadata']) : [];
     if (fields.length === 0) {
-      fields = (result.columns || []).map(column => ({ name: column, type: '' }));
+      fields = (result.columns || []).map((column) => ({ name: column, type: '' }));
     }
-    fields.forEach(field => putColumn(columns, field.name, field.type));
+    fields.forEach((field) => putColumn(columns, field.name, field.type));
   });
 
   return Array.from(tableMap.entries())
     .map(([name, columnMap]) => {
       const columns = Array.from(columnMap.keys()).sort();
       const columnTypes = {};
-      columns.forEach(column => {
+      columns.forEach((column) => {
         columnTypes[column] = columnMap.get(column) || '';
       });
       return { name, columns, columnTypes };
@@ -552,14 +557,18 @@ const collectUpstreamTables = debugMap => {
  * 调试当前节点的直接上游组件，返回上游输出的表清单。
  * 供下游组件（如 Join）配置时以下拉方式选择表名。
  */
-const debugUpstreamTables = async nodeId => {
+const debugUpstreamTables = async (nodeId, force = false) => {
   if (!nodeId) {
     return { tables: [], error: '节点信息为空' };
+  }
+  // 已有字段信息时直接返回缓存，不再自动执行调试；force=true 时忽略缓存重新获取
+  if (!force && upstreamTablesCache.has(nodeId)) {
+    return { tables: upstreamTablesCache.get(nodeId), error: '' };
   }
   if (debugRunning.value) {
     return { tables: [], error: '正在调试中，请稍候再试' };
   }
-  const upstreamIds = edges.value.filter(edge => edge.target === nodeId).map(edge => edge.source);
+  const upstreamIds = edges.value.filter((edge) => edge.target === nodeId).map((edge) => edge.source);
   if (upstreamIds.length === 0) {
     return { tables: [], error: '当前节点没有上游组件，无法获取表清单' };
   }
@@ -583,6 +592,9 @@ const debugUpstreamTables = async nodeId => {
     }
     debugResults.value = { ...debugResults.value, ...merged };
     const tables = collectUpstreamTables(merged);
+    if (tables.length) {
+      upstreamTablesCache.set(nodeId, tables);
+    }
     return { tables, error: tables.length === 0 && errors.length > 0 ? errors.join('; ') : '' };
   } finally {
     debugRunning.value = false;
@@ -625,9 +637,9 @@ const previewBlocks = computed(() => {
   }
   const nodeId = selectedNode.value.id;
   const blocks = [];
-  const upstreamIds = edges.value.filter(edge => edge.target === nodeId).map(edge => edge.source);
+  const upstreamIds = edges.value.filter((edge) => edge.target === nodeId).map((edge) => edge.source);
   for (const upstreamId of upstreamIds) {
-    const node = nodes.value.find(n => n.id === upstreamId);
+    const node = nodes.value.find((n) => n.id === upstreamId);
     blocks.push({
       key: `upstream-${upstreamId}`,
       title: `上游 · ${node?.data?.label || upstreamId}`,
@@ -644,9 +656,9 @@ const previewBlocks = computed(() => {
 
 const hasDebugResults = computed(() => Object.keys(debugResults.value || {}).length > 0);
 
-const hasAttributes = result => !!result && result.attributes && Object.keys(result.attributes).length > 0;
+const hasAttributes = (result) => !!result && result.attributes && Object.keys(result.attributes).length > 0;
 
-const formatPreviewCell = value => {
+const formatPreviewCell = (value) => {
   if (value === null || value === undefined) {
     return '';
   }
@@ -782,27 +794,19 @@ const cancelTask = () => {
       </template>
       <div class="config-modal-body">
         <div class="config-tab-header">
-          <div
-            class="config-tab-item"
-            :class="{ active: activeConfigTab === 'config' }"
-            @click="activeConfigTab = 'config'"
-          >
-            配置
-          </div>
-          <div class="config-tab-item" :class="{ active: activeConfigTab === 'debug' }" @click="activeConfigTab = 'debug'">
-            调试
-          </div>
+          <div class="config-tab-item" :class="{ active: activeConfigTab === 'config' }" @click="activeConfigTab = 'config'">配置</div>
+          <div class="config-tab-item" :class="{ active: activeConfigTab === 'debug' }" @click="activeConfigTab = 'debug'">调试</div>
         </div>
         <div v-show="activeConfigTab === 'config'" class="config-tab-panel">
           <component :is="selectedConfigComponent" :node="selectedNode" @save="handleComponentSave" ref="configComponentRef" />
         </div>
         <div v-show="activeConfigTab === 'debug'" class="config-tab-panel">
           <div class="debug-tab-toolbar">
-            <div class="debug-tab-hint">运行调试将使用当前配置（无需先保存）；默认调试行数为 100 行（不可设置），调试运行时不写入目标库</div>
+            <div class="debug-tab-hint">
+              运行调试将使用当前配置（无需先保存）；默认调试行数为 100 行（不可设置），调试运行时不写入目标库
+            </div>
             <div class="debug-tab-actions">
-              <el-button type="primary" size="small" :loading="debugRunning" @click="applyConfigAndRunDebug">
-                运行调试
-              </el-button>
+              <el-button type="primary" size="small" :loading="debugRunning" @click="applyConfigAndRunDebug"> 运行调试 </el-button>
             </div>
           </div>
           <div class="debug-tab-status">
@@ -834,9 +838,7 @@ const cancelTask = () => {
                   <div class="debug-preview-meta-item">
                     <span class="debug-preview-meta-label">表名</span>
                     <code class="debug-preview-meta-table">{{ tbl.tableName }}</code>
-                    <span class="debug-preview-count">
-                      {{ (tbl.rows || []).length }} 行{{ tbl.truncated ? '（已截断）' : '' }}
-                    </span>
+                    <span class="debug-preview-count"> {{ (tbl.rows || []).length }} 行{{ tbl.truncated ? '（已截断）' : '' }} </span>
                   </div>
                   <div v-if="tbl.columns && tbl.columns.length" class="debug-preview-table-wrap">
                     <table class="debug-preview-table">
@@ -887,7 +889,6 @@ const cancelTask = () => {
         <el-button @click="closeConfigModal">取消</el-button>
       </template>
     </b-modal>
-
   </div>
 </template>
 

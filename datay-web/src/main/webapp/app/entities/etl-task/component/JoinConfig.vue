@@ -3,7 +3,7 @@
     <div class="form-group">
       <label>上游表清单</label>
       <div class="table-toolbar">
-        <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables">调试上游获取表</el-button>
+        <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables(true)">调试上游获取表</el-button>
         <span v-if="upstreamTables.length" class="form-text text-muted">已获取 {{ upstreamTables.length }} 张表</span>
         <span v-else class="form-text text-muted">{{ tableError || '点击按钮调试上游组件，获取上游输出的表与字段' }}</span>
       </div>
@@ -104,7 +104,6 @@
       <label>生成的 SQL 预览</label>
       <pre class="sql-preview">{{ previewSql }}</pre>
     </div>
-
   </form>
 </template>
 
@@ -132,7 +131,7 @@ const buildForm = () => {
     selectColumns: config.selectColumns || '',
     fromTable: config.fromTable || '',
     joins: Array.isArray(config.joins)
-      ? config.joins.map(join => ({
+      ? config.joins.map((join) => ({
           type: join.type || 'INNER',
           table: join.table || '',
           on: join.on || '',
@@ -150,8 +149,8 @@ const resetForm = () => {
   Object.assign(formData, buildForm());
 };
 
-const tableOptions = current => {
-  const options = upstreamTables.value.map(table => table.name);
+const tableOptions = (current) => {
+  const options = upstreamTables.value.map((table) => table.name);
   const value = (current || '').trim();
   if (value && !options.includes(value)) {
     options.unshift(value);
@@ -159,55 +158,55 @@ const tableOptions = current => {
   return options;
 };
 
-const columnsOf = table => {
+const columnsOf = (table) => {
   const value = (table || '').trim();
   if (!value) {
     return [];
   }
-  const found = upstreamTables.value.find(item => item.name === value);
+  const found = upstreamTables.value.find((item) => item.name === value);
   return found ? found.columns : [];
 };
 
-const columnTypesOf = table => {
+const columnTypesOf = (table) => {
   const value = (table || '').trim();
   if (!value) {
     return {};
   }
-  const found = upstreamTables.value.find(item => item.name === value);
+  const found = upstreamTables.value.find((item) => item.name === value);
   return found && found.columnTypes ? found.columnTypes : {};
 };
 
 const columnOptions = (table, current) => {
   const types = columnTypesOf(table);
-  const options = columnsOf(table).map(name => ({ name, type: types[name] || '' }));
+  const options = columnsOf(table).map((name) => ({ name, type: types[name] || '' }));
   const value = (current || '').trim();
-  if (value && !options.some(column => column.name === value)) {
+  if (value && !options.some((column) => column.name === value)) {
     options.unshift({ name: value, type: types[value] || '' });
   }
   return options;
 };
 
-const columnLabel = column => (column.type ? `${column.name} (${column.type})` : column.name);
+const columnLabel = (column) => (column.type ? `${column.name} (${column.type})` : column.name);
 
-const leftTableOptions = index => {
+const leftTableOptions = (index) => {
   const options = [];
-  const push = table => {
+  const push = (table) => {
     const value = (table || '').trim();
     if (value && !options.includes(value)) {
       options.push(value);
     }
   };
   push(formData.fromTable);
-  formData.joins.slice(0, index).forEach(join => push(join.table));
+  formData.joins.slice(0, index).forEach((join) => push(join.table));
   return options;
 };
 
-const simpleName = name => {
+const simpleName = (name) => {
   const value = (name || '').trim();
   return value.includes('.') ? value.substring(value.lastIndexOf('.') + 1) : value;
 };
 
-const buildOnSql = join => {
+const buildOnSql = (join) => {
   const leftField = (join.leftField || '').trim();
   const rightField = (join.rightField || '').trim();
   if (!leftField || !rightField) {
@@ -218,7 +217,7 @@ const buildOnSql = join => {
   return `${leftTable}.${leftField} = ${rightTable}.${rightField}`;
 };
 
-const refreshTables = async () => {
+const refreshTables = async (force = false) => {
   if (!designContext || typeof designContext.debugUpstreamTables !== 'function') {
     tableError.value = '当前环境无法调试上游组件';
     return;
@@ -226,7 +225,8 @@ const refreshTables = async () => {
   loadingTables.value = true;
   tableError.value = '';
   try {
-    const res = await designContext.debugUpstreamTables(props.node?.id);
+    // 设计器会缓存各节点的上游表：已有缓存时不会重新执行调试，force=true 时强制重新获取
+    const res = await designContext.debugUpstreamTables(props.node?.id, force);
     upstreamTables.value = res.tables || [];
     tableError.value = res.error || '';
   } catch (error) {
@@ -259,11 +259,11 @@ const addJoin = () => {
   });
 };
 
-const removeJoin = index => {
+const removeJoin = (index) => {
   formData.joins.splice(index, 1);
 };
 
-const qualify = name => {
+const qualify = (name) => {
   const trimmed = (name || '').trim();
   if (!trimmed) {
     return '';
@@ -278,7 +278,7 @@ const previewSql = computed(() => {
   }
   const select = (formData.selectColumns || '').trim() || '*';
   let sql = `SELECT ${select} FROM ${qualify(fromTable)}`;
-  formData.joins.forEach(join => {
+  formData.joins.forEach((join) => {
     const table = (join.table || '').trim();
     if (!table) {
       return;

@@ -74,7 +74,7 @@ public class FileInputNodeTranslator implements ETLNodeTranslator {
     }
 
     /**
-     * 与 {@link com.data.datafusion.config.DelegatingFileStorageStrategy#toTenantPath(String)}
+     * 与 {@link com.data.datafusion.config.DelegatingFileStorageStrategy}
      * 逻辑完全一致，保证翻译后的物理路径与实际文件存储路径对齐。
      */
     private static String toTenantPath(String path) {
