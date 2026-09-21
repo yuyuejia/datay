@@ -33,16 +33,16 @@ const removeSelf = event => {
 </script>
 
 <template>
-  <div class="etl-task-node" :class="[`etl-node-category-${category}`, { selected }]">
+  <div class="etl-task-node" :class="[`etl-node-category-${category}`, { selected }]" :title="`${data.label} · ${data.type}`">
     <Handle type="target" :position="Position.Top" class="etl-handle" />
     <div class="etl-node-header">
       <span class="etl-node-chip">{{ data.group || '其他' }}</span>
+      <span class="etl-node-type" :title="data.type">{{ data.type }}</span>
       <span class="etl-node-remove" title="删除节点" @click="removeSelf">×</span>
     </div>
-    <div class="etl-node-name" :title="data.label">{{ data.label }}</div>
-    <div class="etl-node-meta">
-      <span class="etl-node-code" :title="data.type">{{ data.type }}</span>
-      <span class="etl-node-config" :class="{ configured }">{{ configured ? '已配置' : '未配置' }}</span>
+    <div class="etl-node-name">
+      <span class="etl-node-name-text">{{ data.label }}</span>
+      <span class="etl-node-dot" :class="{ configured }" :title="configured ? '已配置' : '未配置'"></span>
     </div>
     <Handle type="source" :position="Position.Bottom" class="etl-handle" />
   </div>
@@ -73,7 +73,7 @@ const removeSelf = event => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 4px 8px;
+  padding: 2px 6px 2px 8px;
   border-bottom: 1px solid #eef0f3;
 }
 
@@ -84,7 +84,19 @@ const removeSelf = event => {
   color: #409eff;
   background-color: #ecf5ff;
   border-radius: 3px;
-  padding: 1px 6px;
+  padding: 0 5px;
+  line-height: 16px;
+}
+
+.etl-node-type {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  color: #909399;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 6px;
 }
 
 .etl-node-remove {
@@ -109,37 +121,30 @@ const removeSelf = event => {
 }
 
 .etl-node-name {
-  padding: 8px 10px 2px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.etl-node-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 10px 8px;
+  gap: 5px;
+  padding: 4px 8px;
+  font-weight: 600;
 }
 
-.etl-node-code {
-  font-size: 11px;
-  color: #909399;
+.etl-node-name-text {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.etl-node-config {
+.etl-node-dot {
   flex-shrink: 0;
-  font-size: 11px;
-  color: #c0c4cc;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #dcdfe6;
 }
 
-.etl-node-config.configured {
-  color: #1f9d55;
+.etl-node-dot.configured {
+  background-color: #1f9d55;
 }
 
 .etl-node-category-input {
