@@ -1,4 +1,4 @@
-package com.data.datafusion.ai.llm;
+package com.data.ai.llm;
 
 import java.util.List;
 

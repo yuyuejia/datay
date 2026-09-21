@@ -1,4 +1,4 @@
-package com.data.datafusion.ai.llm;
+package com.data.ai.llm;
 
 /**
  * 模型返回的一次工具调用请求。

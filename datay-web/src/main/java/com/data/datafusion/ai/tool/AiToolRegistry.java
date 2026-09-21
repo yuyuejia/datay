@@ -1,7 +1,7 @@
 package com.data.datafusion.ai.tool;
 
 import com.data.datafusion.ai.assistant.AiAssistant;
-import com.data.datafusion.ai.llm.ToolDefinition;
+import com.data.ai.llm.ToolDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;

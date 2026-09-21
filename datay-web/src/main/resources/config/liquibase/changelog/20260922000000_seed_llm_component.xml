@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260922000000-1" author="datay">
+        <insert tableName="dp_etl_component">
+            <column name="id" valueComputed="(SELECT MAX(id) + 1 FROM dp_etl_component)"/>
+            <column name="name" value="大模型"/>
+            <column name="code" value="LlmComponent"/>
+            <column name="jhi_desc" value="按行调用 OpenAI 兼容的大模型接口。支持配置系统提示词与用户输入，用户输入支持动态参数并依据上游行数据赋值；输出为 JSON 时扩充到该行数据，否则写入 llm_result 字段。"/>
+            <column name="jhi_group" value="数据处理"/>
+            <column name="type" value="0"/>
+            <column name="config" value=""/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="update_time" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="creater" value="admin"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" value="0"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

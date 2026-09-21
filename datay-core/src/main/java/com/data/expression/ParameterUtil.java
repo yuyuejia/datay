@@ -73,6 +73,18 @@ public class ParameterUtil {
     }
 
     public static String replaceParameters(String text, FlowFile flowFile) {
+        return replaceParameters(text, flowFile, null);
+    }
+
+    /**
+     * 替换文本中的参数，优先使用 variables（例如当前行数据字段），其次回退到 FlowFile 属性。
+     *
+     * @param text      包含参数的文本
+     * @param flowFile  当前 FlowFile，提供属性与内置参数上下文
+     * @param variables 优先匹配的变量集合，可为 null
+     * @return 替换参数后的文本
+     */
+    public static String replaceParameters(String text, FlowFile flowFile, Map<String, Object> variables) {
         if (text == null || text.trim().isEmpty()) {
             return text;
         }
@@ -84,9 +96,14 @@ public class ParameterUtil {
         // 获取并打印解析结果
         for (ParameterInfo param : parameters) {
             if(param.getType() == ParameterType.DOLLAR_CURLY_ATTR||param.getType() == ParameterType.DOLLAR_CURLY) {
-                if(attributes != null && attributes.containsKey(param.getName())) {
-                    String replacement = attributes.get(param.getName()).toString();
-                    text = text.replace(param.getFullMatch(), replacement);
+                Object value = null;
+                if(variables != null && variables.containsKey(param.getName())) {
+                    value = variables.get(param.getName());
+                } else if(attributes != null && attributes.containsKey(param.getName())) {
+                    value = attributes.get(param.getName());
+                }
+                if(value != null) {
+                    text = text.replace(param.getFullMatch(), String.valueOf(value));
                 }
             }else if(param.getType() == ParameterType.HASH_CURLY) {
                 String replacement = getParameterValue(param.getName(), param.getType());

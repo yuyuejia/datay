@@ -1,5 +1,6 @@
-package com.data.datafusion.ai.llm;
+package com.data.ai.llm;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -33,11 +34,11 @@ public class ToolDefinition {
      * 转换为 OpenAI Chat Completions 的 tools 数组元素。
      */
     public Map<String, Object> toOpenAiFormat() {
-        Map<String, Object> function = new java.util.LinkedHashMap<>();
+        Map<String, Object> function = new LinkedHashMap<>();
         function.put("name", name);
         function.put("description", description);
         function.put("parameters", parameters);
-        Map<String, Object> tool = new java.util.LinkedHashMap<>();
+        Map<String, Object> tool = new LinkedHashMap<>();
         tool.put("type", "function");
         tool.put("function", function);
         return tool;

@@ -2,12 +2,12 @@ package com.data.datafusion.ai;
 
 import com.data.datafusion.ai.assistant.AiAssistant;
 import com.data.datafusion.ai.assistant.AiAssistantContext;
+import com.data.ai.llm.ChatMessage;
+import com.data.ai.llm.ChatResponse;
+import com.data.ai.llm.OpenAiCompatibleClient;
+import com.data.ai.llm.ToolCall;
+import com.data.ai.llm.ToolDefinition;
 import com.data.datafusion.ai.llm.AiProperties;
-import com.data.datafusion.ai.llm.ChatMessage;
-import com.data.datafusion.ai.llm.ChatResponse;
-import com.data.datafusion.ai.llm.OpenAiCompatibleClient;
-import com.data.datafusion.ai.llm.ToolCall;
-import com.data.datafusion.ai.llm.ToolDefinition;
 import com.data.datafusion.ai.tool.AiTool;
 import com.data.datafusion.ai.tool.AiToolContext;
 import com.data.datafusion.ai.tool.AiToolRegistry;

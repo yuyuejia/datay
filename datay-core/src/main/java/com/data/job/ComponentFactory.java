@@ -42,6 +42,7 @@ public class ComponentFactory {
         components.put("FeishuBitableInput", "com.data.job.component.FeishuBitableInput");
         components.put("FeishuBitableOutput", "com.data.job.component.FeishuBitableOutput");
         components.put("FileInput", "com.data.job.component.FileInput");
+        components.put("LlmComponent", "com.data.job.component.LlmComponent");
     }
 
     /**

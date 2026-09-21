@@ -1,10 +1,12 @@
-package com.data.datafusion.ai.llm;
+package com.data.ai.llm;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 对话消息。统一承载 user / assistant / tool 三种角色的消息形态。
+ * 对话消息。统一承载 system / user / assistant / tool 四种角色的消息形态。
  */
 public class ChatMessage {
 
@@ -51,7 +53,7 @@ public class ChatMessage {
      * 转换为 OpenAI Chat Completions 的消息结构。
      */
     public Map<String, Object> toOpenAiFormat() {
-        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        Map<String, Object> map = new LinkedHashMap<>();
         map.put("role", role);
         if (content != null) {
             map.put("content", content);
@@ -63,12 +65,12 @@ public class ChatMessage {
             map.put("name", name);
         }
         if (toolCalls != null && !toolCalls.isEmpty()) {
-            List<Map<String, Object>> calls = new java.util.ArrayList<>();
+            List<Map<String, Object>> calls = new ArrayList<>();
             for (ToolCall call : toolCalls) {
-                Map<String, Object> function = new java.util.LinkedHashMap<>();
+                Map<String, Object> function = new LinkedHashMap<>();
                 function.put("name", call.getName());
                 function.put("arguments", call.getArguments());
-                Map<String, Object> item = new java.util.LinkedHashMap<>();
+                Map<String, Object> item = new LinkedHashMap<>();
                 item.put("id", call.getId());
                 item.put("type", "function");
                 item.put("function", function);
