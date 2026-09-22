@@ -3,6 +3,7 @@ package com.data.datafusion.web.rest;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
+import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.util.DBUtils;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
@@ -46,14 +47,18 @@ public class DataSourceResource {
 
     private final DataSourceQueryService dataSourceQueryService;
 
+    private final DefaultWarehouseConfigService defaultWarehouseConfigService;
+
     public DataSourceResource(
         DataSourceService dataSourceService,
         DataSourceRepository dataSourceRepository,
-        DataSourceQueryService dataSourceQueryService
+        DataSourceQueryService dataSourceQueryService,
+        DefaultWarehouseConfigService defaultWarehouseConfigService
     ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
         this.dataSourceQueryService = dataSourceQueryService;
+        this.defaultWarehouseConfigService = defaultWarehouseConfigService;
     }
 
     /**
@@ -188,6 +193,41 @@ public class DataSourceResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    /**
+     * 获取当前租户的默认数仓数据源。
+     *
+     * @return 默认数仓配置，包含 dataSourceId（未设置时为 null）。
+     */
+    @GetMapping("/default-warehouse")
+    public ResponseEntity<Map<String, Object>> getDefaultWarehouse() {
+        LOG.debug("REST request to get default warehouse data source");
+        Map<String, Object> result = new HashMap<>();
+        Long dataSourceId = defaultWarehouseConfigService.getDefaultDataSourceId().orElse(null);
+        if (dataSourceId != null && !dataSourceRepository.existsById(dataSourceId)) {
+            dataSourceId = null;
+        }
+        result.put("dataSourceId", dataSourceId);
+        return ResponseEntity.ok().body(result);
+    }
+
+    /**
+     * 将指定数据源设置为当前租户的默认数仓。
+     *
+     * @param id 数据源ID。
+     * @return 设置结果。
+     */
+    @PutMapping("/{id}/default-warehouse")
+    public ResponseEntity<Map<String, Object>> setDefaultWarehouse(@PathVariable("id") Long id) {
+        LOG.debug("REST request to set default warehouse data source : {}", id);
+        if (!dataSourceRepository.existsById(id)) {
+            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
+        }
+        defaultWarehouseConfigService.setDefaultDataSourceId(id);
+        Map<String, Object> result = new HashMap<>();
+        result.put("dataSourceId", id);
+        return ResponseEntity.ok().body(result);
     }
 
     //根据数据库id获取schema信息

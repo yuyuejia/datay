@@ -82,7 +82,7 @@ describe('Service Tests', () => {
           dfKey: 'BBBBBB',
           dfValue: 'BBBBBB',
           createTime: dayjs(currentDate).format(DATE_TIME_FORMAT),
-          ytenantId: 'BBBBBB',
+          tenantId: 'BBBBBB',
           ...elemDefault,
         };
 
@@ -134,7 +134,7 @@ describe('Service Tests', () => {
           dfKey: 'BBBBBB',
           dfValue: 'BBBBBB',
           createTime: dayjs(currentDate).format(DATE_TIME_FORMAT),
-          ytenantId: 'BBBBBB',
+          tenantId: 'BBBBBB',
           ...elemDefault,
         };
         const expected = { createTime: currentDate, ...returnedFromService };

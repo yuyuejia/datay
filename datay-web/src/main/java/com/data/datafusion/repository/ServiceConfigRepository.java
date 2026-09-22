@@ -13,6 +13,8 @@ public interface ServiceConfigRepository extends JpaRepository<ServiceConfig, Lo
 
     Optional<ServiceConfig> findByDfGroupAndDfKey(String dfGroup, String dfKey);
 
+    Optional<ServiceConfig> findByDfGroupAndDfKeyAndTenantId(String dfGroup, String dfKey, String tenantId);
+
     List<ServiceConfig> findByDfGroup(String dfGroup);
 
     void deleteByDfGroupAndDfKey(String dfGroup, String dfKey);

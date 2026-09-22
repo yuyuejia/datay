@@ -85,6 +85,32 @@ export default class DataSourceService {
     });
   }
 
+  getDefaultWarehouse(): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/default-warehouse`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  setDefaultWarehouse(id: number): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .put(`${baseApiUrl}/${id}/default-warehouse`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   getSchemas(id: number): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

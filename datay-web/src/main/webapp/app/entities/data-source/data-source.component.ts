@@ -25,6 +25,7 @@ export default defineComponent({
     const search = ref('');
 
     const dataSources: Ref<IDataSource[]> = ref([]);
+    const defaultDataSourceId: Ref<number | null> = ref(null);
 
     const isFetching = ref(false);
 
@@ -38,6 +39,53 @@ export default defineComponent({
         result.push('id');
       }
       return result;
+    };
+
+    const retrieveDefaultWarehouse = async () => {
+      try {
+        const res = await dataSourceService().getDefaultWarehouse();
+        defaultDataSourceId.value = res.data?.dataSourceId ?? null;
+      } catch (err) {
+        console.warn('加载默认数仓失败', err);
+      }
+    };
+
+    const isDefaultWarehouse = (row: IDataSource): boolean => {
+      return row.id != null && row.id === defaultDataSourceId.value;
+    };
+
+    const defaultWarehouseModal = ref<any>(null);
+    const defaultWarehouseOptions: Ref<IDataSource[]> = ref([]);
+    const selectedDefaultId: Ref<number | null> = ref(null);
+
+    const openDefaultDialog = async () => {
+      selectedDefaultId.value = defaultDataSourceId.value;
+      try {
+        const res = await dataSourceService().retrieve({ page: 0, size: 1000, sort: ['id,asc'] });
+        defaultWarehouseOptions.value = res.data || [];
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+      defaultWarehouseModal.value?.show();
+    };
+
+    const closeDefaultDialog = () => {
+      defaultWarehouseModal.value?.hide();
+    };
+
+    const saveDefaultWarehouse = async () => {
+      if (selectedDefaultId.value == null) {
+        alertService.showWarning('请选择数据源');
+        return;
+      }
+      try {
+        await dataSourceService().setDefaultWarehouse(selectedDefaultId.value);
+        defaultDataSourceId.value = selectedDefaultId.value;
+        alertService.showSuccess('默认数仓设置成功');
+        closeDefaultDialog();
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
     };
 
     const retrieveDataSources = async () => {
@@ -82,7 +130,7 @@ export default defineComponent({
     });
 
     onMounted(async () => {
-      await retrieveDataSources();
+      await Promise.all([retrieveDataSources(), retrieveDefaultWarehouse()]);
     });
 
     const removeId: Ref<number> = ref(null);
@@ -101,6 +149,7 @@ export default defineComponent({
         alertService.showInfo(message, { variant: 'danger' });
         removeId.value = null;
         retrieveDataSources();
+        retrieveDefaultWarehouse();
         closeDialog();
       } catch (error) {
         alertService.showHttpError(error.response);
@@ -158,6 +207,15 @@ export default defineComponent({
 
     return {
       dataSources,
+      defaultDataSourceId,
+      isDefaultWarehouse,
+      defaultWarehouseModal,
+      defaultWarehouseOptions,
+      selectedDefaultId,
+      openDefaultDialog,
+      closeDefaultDialog,
+      saveDefaultWarehouse,
+      retrieveDefaultWarehouse,
       isFetching,
       retrieveDataSources,
       clear,

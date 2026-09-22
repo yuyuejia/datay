@@ -4,7 +4,7 @@ export interface IServiceConfig {
   dfKey?: string | null;
   dfValue?: string | null;
   createTime?: Date | null;
-  ytenantId?: string | null;
+  tenantId?: string | null;
 }
 
 export class ServiceConfig implements IServiceConfig {
@@ -14,6 +14,6 @@ export class ServiceConfig implements IServiceConfig {
     public dfKey?: string | null,
     public dfValue?: string | null,
     public createTime?: Date | null,
-    public ytenantId?: string | null,
+    public tenantId?: string | null,
   ) {}
 }

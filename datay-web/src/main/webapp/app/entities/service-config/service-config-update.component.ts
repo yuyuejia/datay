@@ -44,7 +44,7 @@ export default defineComponent({
       dfKey: {},
       dfValue: {},
       createTime: {},
-      ytenantId: {},
+      tenantId: {},
     };
     const v$ = useVuelidate(validationRules, serviceConfig as any);
     v$.value.$validate();
@@ -70,7 +70,7 @@ export default defineComponent({
           .then(param => {
             this.isSaving = false;
             this.previousState();
-            this.alertService.showInfo(`A ServiceConfig is updated with identifier ${param.id}`);
+            this.alertService.showInfo(`服务配置 ${param.id} 已更新`);
           })
           .catch(error => {
             this.isSaving = false;
@@ -82,7 +82,7 @@ export default defineComponent({
           .then(param => {
             this.isSaving = false;
             this.previousState();
-            this.alertService.showSuccess(`A ServiceConfig is created with identifier ${param.id}`);
+            this.alertService.showSuccess(`服务配置 ${param.id} 已创建`);
           })
           .catch(error => {
             this.isSaving = false;

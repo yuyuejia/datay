@@ -3,7 +3,7 @@
     <div class="col-8">
       <form name="editForm" novalidate @submit.prevent="save()">
         <h2 id="datafusionApp.serviceConfig.home.createOrEditLabel" data-cy="ServiceConfigCreateUpdateHeading">
-          创建或编辑 Service Config
+          创建或编辑服务配置
         </h2>
         <div>
           <div class="form-group" v-if="serviceConfig.id">
@@ -11,7 +11,7 @@
             <input type="text" class="form-control" id="id" name="id" v-model="serviceConfig.id" readonly />
           </div>
           <div class="form-group">
-            <label class="form-control-label" for="service-config-dfGroup">Df Group</label>
+            <label class="form-control-label" for="service-config-dfGroup">配置分组</label>
             <input
               type="text"
               class="form-control"
@@ -23,7 +23,7 @@
             />
           </div>
           <div class="form-group">
-            <label class="form-control-label" for="service-config-dfKey">Df Key</label>
+            <label class="form-control-label" for="service-config-dfKey">配置项</label>
             <input
               type="text"
               class="form-control"
@@ -35,7 +35,7 @@
             />
           </div>
           <div class="form-group">
-            <label class="form-control-label" for="service-config-dfValue">Df Value</label>
+            <label class="form-control-label" for="service-config-dfValue">配置值</label>
             <input
               type="text"
               class="form-control"
@@ -47,7 +47,7 @@
             />
           </div>
           <div class="form-group">
-            <label class="form-control-label" for="service-config-createTime">Create Time</label>
+            <label class="form-control-label" for="service-config-createTime">创建时间</label>
             <div class="d-flex">
               <input
                 id="service-config-createTime"
@@ -62,15 +62,15 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-control-label" for="service-config-ytenantId">Ytenant Id</label>
+            <label class="form-control-label" for="service-config-tenantId">租户ID</label>
             <input
               type="text"
               class="form-control"
-              name="ytenantId"
-              id="service-config-ytenantId"
-              data-cy="ytenantId"
-              :class="{ valid: !v$.ytenantId.$invalid, invalid: v$.ytenantId.$invalid }"
-              v-model="v$.ytenantId.$model"
+              name="tenantId"
+              id="service-config-tenantId"
+              data-cy="tenantId"
+              :class="{ valid: !v$.tenantId.$invalid, invalid: v$.tenantId.$invalid }"
+              v-model="v$.tenantId.$model"
             />
           </div>
         </div>

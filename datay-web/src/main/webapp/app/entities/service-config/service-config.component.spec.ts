@@ -43,6 +43,9 @@ describe('Component Tests', () => {
           'jhi-sort-indicator': true,
           'b-button': true,
           'router-link': true,
+          'el-table': true,
+          'el-table-column': true,
+          'el-button': true,
         },
         directives: {
           'b-modal': {},

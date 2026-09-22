@@ -11,6 +11,15 @@
           placeholder="按名称 / IP / 端口 / 地址搜索"
         />
         <button
+          @click="openDefaultDialog"
+          id="jh-set-default-warehouse"
+          data-cy="setDefaultWarehouseButton"
+          class="btn btn-warning create-data-source mr-2"
+        >
+          <font-awesome-icon icon="database"></font-awesome-icon>
+          <span>设置默认数仓</span>
+        </button>
+        <button
           @click="openCreateModal"
           id="jh-create-entity"
           data-cy="entityCreateButton"
@@ -28,6 +37,11 @@
     <div v-if="dataSources && dataSources.length > 0">
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="name" label="名称" sortable="custom" width="150"></el-table-column>
+        <el-table-column label="默认数仓" width="100">
+          <template #default="scope">
+            <el-tag v-if="isDefaultWarehouse(scope.row)" type="success" size="small">默认</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <el-table-column prop="url" label="地址" sortable="custom" width="350"></el-table-column>
@@ -81,6 +95,33 @@
             @click="removeDataSource()"
           >
             删除
+          </button>
+        </div>
+      </template>
+    </b-modal>
+
+    <b-modal ref="defaultWarehouseModal" id="defaultWarehouseModal">
+      <template #modal-title>
+        <span id="datafusionApp.dataSource.defaultWarehouse.title">设置默认数仓</span>
+      </template>
+      <div class="modal-body">
+        <p>选择该租户的默认数仓，数据模型物化时将默认使用该数据源。</p>
+        <select class="form-control" v-model="selectedDefaultId" style="width: 320px">
+          <option :value="null" disabled>请选择数据源</option>
+          <option v-for="ds in defaultWarehouseOptions" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
+        </select>
+      </div>
+      <template #modal-footer>
+        <div>
+          <button type="button" class="btn btn-secondary" @click="closeDefaultDialog()">取消</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            id="jhi-confirm-default-warehouse"
+            data-cy="confirmDefaultWarehouseButton"
+            @click="saveDefaultWarehouse()"
+          >
+            保存
           </button>
         </div>
       </template>

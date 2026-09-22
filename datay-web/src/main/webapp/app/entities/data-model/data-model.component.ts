@@ -97,6 +97,7 @@ export default defineComponent({
     const materializeDialogVisible = ref(false);
     const materializeLoading = ref(false);
     const dataSources: Ref<any[]> = ref([]);
+    const defaultWarehouseId = ref<number | null>(null);
     const materializeSchemas: Ref<string[]> = ref([]);
     const materializeTableExists = ref(false);
     const materializeDDLPreview = ref("");
@@ -159,10 +160,26 @@ export default defineComponent({
       materializeFields.value = [];
       materializeSchemas.value = [];
       materializePhysicalTypes.value = [];
+      defaultWarehouseId.value = null;
 
       try {
-        const dsRes = await dataSourceService().retrieve();
+        const [dsRes, defaultRes] = await Promise.all([
+          dataSourceService().retrieve(),
+          dataSourceService()
+            .getDefaultWarehouse()
+            .catch(() => null),
+        ]);
         dataSources.value = dsRes.data || [];
+        defaultWarehouseId.value = defaultRes?.data?.dataSourceId ?? null;
+        if (!materializeForm.value.dataSourceId) {
+          materializeForm.value.dataSourceId = defaultWarehouseId.value;
+        }
+        if (!materializeForm.value.schemaName) {
+          const ds = dataSources.value.find(d => d.id === materializeForm.value.dataSourceId);
+          if (ds?.schemaName) {
+            materializeForm.value.schemaName = ds.schemaName;
+          }
+        }
       } catch (err) {
         alertService.showHttpError(err.response);
       }
@@ -200,7 +217,14 @@ export default defineComponent({
           if (currentSchema && materializeSchemas.value.includes(currentSchema)) {
             materializeForm.value.schemaName = currentSchema;
           } else {
-            materializeForm.value.schemaName = materializeSchemas.value[0] || "";
+            const defaultDs = dataSources.value.find(d => d.id === defaultWarehouseId.value);
+            const selectedDs = dataSources.value.find(d => d.id === dsId);
+            const fallbackSchema = defaultDs?.schemaName || selectedDs?.schemaName;
+            if (fallbackSchema && materializeSchemas.value.includes(fallbackSchema)) {
+              materializeForm.value.schemaName = fallbackSchema;
+            } else {
+              materializeForm.value.schemaName = materializeSchemas.value[0] || "";
+            }
           }
         } catch (e) {
           materializeSchemas.value = [];

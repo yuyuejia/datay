@@ -325,42 +325,48 @@
     >
       <div class="modal-body">
         <el-form label-width="100px" size="default">
-          <el-form-item label="目标数据源" required>
-            <select
-              class="form-control"
-              v-model="materializeForm.dataSourceId"
-              style="width: 300px"
-              @change="onDataSourceChange"
-            >
-              <option :value="null" disabled>请选择数据源</option>
-              <option
-                v-for="ds in dataSources"
-                :key="ds.id"
-                :value="ds.id"
-              >{{ ds.name }} ({{ ds.type }})</option>
-            </select>
-          </el-form-item>
-          <el-form-item label="Schema">
-            <select
-              v-if="materializeSchemas.length > 0"
-              class="form-control"
-              v-model="materializeForm.schemaName"
-              style="width: 300px"
-              @change="checkMaterializeTableExists"
-            >
-              <option
-                v-for="schema in materializeSchemas"
-                :key="schema"
-                :value="schema"
-              >{{ schema }}</option>
-            </select>
-            <b-form-input
-              v-else
-              v-model="materializeForm.schemaName"
-              placeholder="默认Schema"
-              style="width: 300px"
-            />
-          </el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="目标数据源" required>
+                <select
+                  class="form-control"
+                  v-model="materializeForm.dataSourceId"
+                  style="width: 100%"
+                  @change="onDataSourceChange"
+                >
+                  <option :value="null" disabled>请选择数据源</option>
+                  <option
+                    v-for="ds in dataSources"
+                    :key="ds.id"
+                    :value="ds.id"
+                  >{{ ds.name }} ({{ ds.type }})</option>
+                </select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="Schema">
+                <select
+                  v-if="materializeSchemas.length > 0"
+                  class="form-control"
+                  v-model="materializeForm.schemaName"
+                  style="width: 100%"
+                  @change="checkMaterializeTableExists"
+                >
+                  <option
+                    v-for="schema in materializeSchemas"
+                    :key="schema"
+                    :value="schema"
+                  >{{ schema }}</option>
+                </select>
+                <b-form-input
+                  v-else
+                  v-model="materializeForm.schemaName"
+                  placeholder="默认Schema"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
           <el-form-item label="表名" required>
             <b-form-input
               v-model="materializeForm.tableName"

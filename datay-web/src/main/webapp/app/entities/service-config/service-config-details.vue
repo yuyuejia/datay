@@ -2,37 +2,37 @@
   <div class="row justify-content-center">
     <div class="col-8">
       <div v-if="serviceConfig">
-        <h2 class="jh-entity-heading" data-cy="serviceConfigDetailsHeading"><span>Service Config</span> {{ serviceConfig.id }}</h2>
+        <h2 class="jh-entity-heading" data-cy="serviceConfigDetailsHeading"><span>服务配置</span> {{ serviceConfig.id }}</h2>
         <dl class="row jh-entity-details">
           <dt>
-            <span>Df Group</span>
+            <span>配置分组</span>
           </dt>
           <dd>
             <span>{{ serviceConfig.dfGroup }}</span>
           </dd>
           <dt>
-            <span>Df Key</span>
+            <span>配置项</span>
           </dt>
           <dd>
             <span>{{ serviceConfig.dfKey }}</span>
           </dd>
           <dt>
-            <span>Df Value</span>
+            <span>配置值</span>
           </dt>
           <dd>
             <span>{{ serviceConfig.dfValue }}</span>
           </dd>
           <dt>
-            <span>Create Time</span>
+            <span>创建时间</span>
           </dt>
           <dd>
             <span v-if="serviceConfig.createTime">{{ formatDateLong(serviceConfig.createTime) }}</span>
           </dd>
           <dt>
-            <span>Ytenant Id</span>
+            <span>租户ID</span>
           </dt>
           <dd>
-            <span>{{ serviceConfig.ytenantId }}</span>
+            <span>{{ serviceConfig.tenantId }}</span>
           </dd>
         </dl>
         <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">
