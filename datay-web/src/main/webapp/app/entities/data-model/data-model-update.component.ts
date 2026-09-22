@@ -469,10 +469,24 @@ export default defineComponent({
 
     const onModelModeChange = async () => {
       if (modelMode.value === "register") {
-        registerSelectedDataSourceId.value = dataModel.value.dataSourceId ?? null;
-        registerSelectedSchema.value = dataModel.value.schemaName || null;
-        registerSelectedTable.value = dataModel.value.tableName || null;
         await loadRegisterDataSources();
+        let dataSourceId = dataModel.value.dataSourceId ?? null;
+        let schemaName = dataModel.value.schemaName || null;
+        if (!dataSourceId) {
+          try {
+            const res = await dataSourceService().getDefaultWarehouse();
+            dataSourceId = res.data?.dataSourceId ?? null;
+          } catch (err) {
+            dataSourceId = null;
+          }
+          if (dataSourceId && !schemaName) {
+            const defaultDs = registerAvailableDataSources.value.find((d) => d.id === dataSourceId);
+            schemaName = defaultDs?.schemaName || null;
+          }
+        }
+        registerSelectedDataSourceId.value = dataSourceId;
+        registerSelectedSchema.value = schemaName;
+        registerSelectedTable.value = dataModel.value.tableName || null;
         if (registerSelectedDataSourceId.value) {
           await onRegisterDataSourceChange();
         }
@@ -490,6 +504,7 @@ export default defineComponent({
     };
 
     const onRegisterDataSourceChange = async () => {
+      const previousSchema = registerSelectedSchema.value;
       registerSelectedSchema.value = null;
       registerTables.value = [];
       registerSelectedTable.value = null;
@@ -504,14 +519,12 @@ export default defineComponent({
         if (registerSchemas.value.length === 0) {
           registerSchemas.value = ["public"];
         }
-        if (dataModel.value.schemaName && registerSchemas.value.includes(dataModel.value.schemaName)) {
-          registerSelectedSchema.value = dataModel.value.schemaName;
+        const selectedDs = registerAvailableDataSources.value.find((d) => d.id === dataSourceId);
+        const candidates = [previousSchema, dataModel.value.schemaName, selectedDs?.schemaName];
+        const matched = candidates.find((s) => s && registerSchemas.value.includes(s));
+        registerSelectedSchema.value = matched || registerSchemas.value[0] || null;
+        if (registerSelectedSchema.value) {
           await onRegisterSchemaChange();
-        } else {
-          registerSelectedSchema.value = registerSchemas.value[0] || null;
-          if (registerSelectedSchema.value) {
-            await onRegisterSchemaChange();
-          }
         }
       } catch (err) {
         alertService.showHttpError(err.response);
