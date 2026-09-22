@@ -1,5 +1,6 @@
 package com.data.job.component.router;
 
+import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.Connection;
 import com.data.job.FlowFile;
@@ -12,6 +13,13 @@ import java.util.Random;
  * RandomRouter组件 - 将FlowFile随机路由到下游队列
  * 上游输入的FlowFile会随机发送到下游队列中
  */
+@ComponentRegister(
+    value = "RandomRouter",
+    name = "随机路由",
+    group = "数据处理",
+    desc = "将 FlowFile 随机路由到下游队列。",
+    order = 100
+)
 public class RandomRouter extends FlowComponent {
 
     private Random random;

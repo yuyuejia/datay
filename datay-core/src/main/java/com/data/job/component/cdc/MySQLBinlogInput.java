@@ -2,6 +2,7 @@ package com.data.job.component.cdc;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.DebugMockUtils;
 import com.data.job.FlowComponent;
@@ -19,6 +20,13 @@ import java.util.regex.Pattern;
  * MySQL Binlog采集组件
  * 作为ETL流程的输入组件，实时采集MySQL的Binlog数据变更
  */
+@ComponentRegister(
+    value = "MySQLBinlogInput",
+    name = "Mysql CDC",
+    group = "实时输入",
+    desc = "基于 MySQL Binlog 实时捕获数据库数据变更（INSERT/UPDATE/DELETE），作为流式 ETL 输入。",
+    order = 10
+)
 public class MySQLBinlogInput extends FlowComponent {
 
     public MySQLBinlogInput() {

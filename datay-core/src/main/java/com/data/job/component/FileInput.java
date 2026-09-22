@@ -28,7 +28,13 @@ import java.util.List;
  *   <li>minio  - 构造 s3:// URL，并在 DuckDB 连接上 CREATE SECRET 注入 MinIO 凭证</li>
  * </ul>
  */
-@ComponentRegister("FileInput")
+@ComponentRegister(
+    value = "FileInput",
+    name = "文件数据源",
+    group = "数据输入",
+    desc = "从文件管理中读取 csv / excel / parquet 文件，通过 DuckDB 流式输出到下游，支持本地和 MinIO 存储。",
+    order = 40
+)
 public class FileInput extends FlowComponent {
 
     private static final int FETCH_SIZE = 10000;

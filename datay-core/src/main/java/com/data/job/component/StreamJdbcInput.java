@@ -14,7 +14,13 @@ import java.util.List;
  * 从源库流式读取数据，按批下沉为 FlowFile 传递给下游，增量状态随 FlowFile 携带。
  * 公共读取逻辑见 {@link AbstractJdbcInput}。
  */
-@ComponentRegister("StreamJdbcInput")
+@ComponentRegister(
+    value = "StreamJdbcInput",
+    name = "数据源输入",
+    group = "数据输入",
+    desc = "从关系型数据库流式读取数据，按批下沉为 FlowFile 传递到下游，支持全量/增量同步与多表同步。",
+    order = 10
+)
 public class StreamJdbcInput extends AbstractJdbcInput {
 
     public StreamJdbcInput() {

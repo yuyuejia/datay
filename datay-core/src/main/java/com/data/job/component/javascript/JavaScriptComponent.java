@@ -1,5 +1,6 @@
 package com.data.job.component.javascript;
 
+import com.data.job.ComponentRegister;
 import com.data.job.ExceptionUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -8,6 +9,13 @@ import com.data.job.FlowFile;
  * JavaScript组件 - 支持用户自定义Java代码处理flowfile的数据和属性
  * 在Spring Boot RestartClassLoader环境下工作
  */
+@ComponentRegister(
+    value = "JavaScriptComponent",
+    name = "JAVA脚本",
+    group = "数据处理",
+    desc = "使用用户自定义 Java 脚本处理 FlowFile 的数据和属性，支持运行时动态编译执行。",
+    order = 60
+)
 public class JavaScriptComponent extends FlowComponent {
 
     private String scriptCode;

@@ -35,7 +35,13 @@ import java.util.concurrent.TimeUnit;
  *   "batchSize": "500"
  * }
  */
-@ComponentRegister("FeishuBitableOutput")
+@ComponentRegister(
+    value = "FeishuBitableOutput",
+    name = "飞书多维表格写入",
+    group = "数据输出",
+    desc = "将上游记录写入飞书多维表格，根据是否包含 record_id 自动新增或更新。",
+    order = 40
+)
 public class FeishuBitableOutput extends FlowComponent {
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");

@@ -23,7 +23,13 @@ import java.util.concurrent.TimeUnit;
  * 支持GET/POST请求，可配置URL、Header、Body等参数
  * 支持JSON响应数据解析，可提取JSON属性生成FlowFile
  */
-@ComponentRegister("HttpInvoke")
+@ComponentRegister(
+    value = "HttpInvoke",
+    name = "HTTP调用",
+    group = "数据输入",
+    desc = "调用外部 HTTP 接口获取数据，支持 GET/POST、Header、Body 配置及 JSON 响应解析。",
+    order = 60
+)
 public class HttpInvoke extends FlowComponent {
 
     // HTTP请求URL

@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.DuckDBEngine;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -15,6 +16,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+@ComponentRegister(
+    value = "DuckDBSql",
+    name = "DuckDB SQL",
+    group = "DuckDB 组件",
+    desc = "在 DuckDB 中执行 SQL 语句，支持多条语句并将查询结果输出到下游。",
+    order = 20
+)
 public class DuckDBSql extends FlowComponent {
 
     // 对应job.json参数

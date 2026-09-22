@@ -4,6 +4,7 @@ import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataModelDTO;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.job.ComponentDescriptor;
 import com.data.metadata.util.DBUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,6 +37,18 @@ public class ModelWriteNodeTranslator implements ETLNodeTranslator {
     @Override
     public String supportedType() {
         return COMPONENT_TYPE;
+    }
+
+    @Override
+    public ComponentDescriptor descriptor() {
+        return new ComponentDescriptor(
+            COMPONENT_TYPE,
+            "模型写入",
+            "数据输出",
+            "选择数据模型，按模型绑定的数据源与表写入目标表。",
+            getClass().getName(),
+            50
+        );
     }
 
     @Override

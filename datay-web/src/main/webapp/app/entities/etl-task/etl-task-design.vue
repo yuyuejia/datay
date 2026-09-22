@@ -77,8 +77,7 @@ const deleteNode = (nodeId) => {
 
 const loadComponents = async () => {
   try {
-    const response = await etlComponentService.retrieve({ page: 0, size: 1000 });
-    etlComponents.value = response.data;
+    etlComponents.value = await etlComponentService.catalog();
   } catch (error) {
     console.error('获取 ETL 组件数据失败', error);
   }
@@ -754,6 +753,7 @@ const cancelTask = () => {
                 :key="component.code"
                 class="draggable-component"
                 draggable
+                :title="component.desc"
                 @dragstart="onDragStart($event, component)"
               >
                 {{ component.name }}

@@ -1,5 +1,6 @@
 package com.data.job.component;
 
+import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.DuckDBEngine;
 import com.data.job.FlowComponent;
@@ -16,6 +17,13 @@ import java.util.Map;
  * 用于将外部数据源通过DuckDB插件机制attach到DuckDB中
  * 使用DatasourceInfo作为数据源信息参数
  */
+@ComponentRegister(
+    value = "DuckDBRegister",
+    name = "注册表",
+    group = "DuckDB 组件",
+    desc = "将外部数据源通过 DuckDB 插件机制 attach 到 DuckDB 中，便于统一查询。",
+    order = 10
+)
 public class DuckDBRegister extends FlowComponent {
 
     // 数据源信息（包含URL、用户名、密码等）

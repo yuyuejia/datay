@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 
@@ -9,6 +10,13 @@ import com.data.job.FlowFile;
  * LogFlowFile组件 - 接收flowfile并记录数据内容
  * 该组件用于调试和监控数据流，记录接收到的flowfile数据内容
  */
+@ComponentRegister(
+    value = "LogFlowFile",
+    name = "日志输出",
+    group = "调试组件",
+    desc = "接收 FlowFile 并记录其数据内容与属性，用于调试和监控数据流。",
+    order = 20
+)
 public class LogFlowFile extends FlowComponent {
 
     // 日志级别：DEBUG, INFO, WARN, ERROR

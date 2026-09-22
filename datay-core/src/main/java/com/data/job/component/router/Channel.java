@@ -2,9 +2,17 @@ package com.data.job.component.router;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 
+@ComponentRegister(
+    value = "Channel",
+    name = "Channel",
+    group = "数据处理",
+    desc = "按事件类型（INSERT/UPDATE/DELETE）对 CDC 数据进行分流处理。",
+    order = 80
+)
 public class Channel extends FlowComponent {
 
 

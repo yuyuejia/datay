@@ -1,5 +1,7 @@
 package com.data.datafusion.service.etl;
 
+import com.data.job.ComponentDescriptor;
+
 /**
  * ETL 节点翻译器 SPI。
  * <p>用于将「设计器组件」翻译为后端 DataY Core 可直接执行的任务单元定义。
@@ -24,4 +26,16 @@ public interface ETLNodeTranslator {
      * @param context 翻译上下文
      */
     void translate(ETLNodeTranslationContext context);
+
+    /**
+     * 组件的设计器侧元数据（名称、分类、描述等）。
+     * <p>仅当该翻译器对应的设计器组件在 DataY Core 中没有同名组件时才需要返回，
+     * 用于让前端组件面板自动发现该仅存在于设计器侧的组件；返回 {@code null} 表示使用
+     * Core 自动发现的同名组件元数据。
+     *
+     * @return 组件元数据，或 {@code null}
+     */
+    default ComponentDescriptor descriptor() {
+        return null;
+    }
 }

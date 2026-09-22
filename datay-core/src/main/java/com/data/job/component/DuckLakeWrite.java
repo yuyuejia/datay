@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.DuckDBEngine;
 import com.data.job.FlowComponent;
@@ -21,6 +22,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@ComponentRegister(
+    value = "DuckLakeWrite",
+    name = "写入DuckLake",
+    group = "DuckDB 组件",
+    desc = "将上游数据写入 DuckLake，支持 append/update/replace/overwrite 写入模式。",
+    order = 40
+)
 public class DuckLakeWrite extends FlowComponent {
 
     // 对应job.json参数

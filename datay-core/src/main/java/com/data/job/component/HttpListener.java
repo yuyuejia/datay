@@ -20,7 +20,13 @@ import java.util.concurrent.Executors;
  * HttpListener组件 - 启动HTTP服务器监听HTTP请求，将请求体生成FlowFile传递到下游
  * 该组件作为数据流的源头，接收HTTP请求并转换为数据流
  */
-@ComponentRegister("HttpListener")
+@ComponentRegister(
+    value = "HttpListener",
+    name = "HTTP监听",
+    group = "实时输入",
+    desc = "启动 HTTP 服务监听请求，将请求体转换为 FlowFile 传递到下游。",
+    order = 20
+)
 public class HttpListener extends FlowComponent {
 
     // 监听端口号

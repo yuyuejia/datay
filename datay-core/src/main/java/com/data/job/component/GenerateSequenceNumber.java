@@ -20,7 +20,13 @@ import java.util.Map;
  * 支持指定开始和结束数据，按顺序生成flowfile并传递给下游
  * 开始和结束值支持参数替换
  */
-@ComponentRegister("GenerateSequenceNumber")
+@ComponentRegister(
+    value = "GenerateSequenceNumber",
+    name = "生成序列数",
+    group = "调试组件",
+    desc = "按指定起止值生成序列数据，支持从数据库读取，用于测试和调试。",
+    order = 30
+)
 public class GenerateSequenceNumber extends FlowComponent {
 
     // 序列开始值

@@ -32,7 +32,13 @@ import java.util.Map;
  * 每行独立调用模型：若模型返回 JSON 对象，则将其属性扩充到该行数据；否则将文本结果写入
  * {@code llm_result} 字段后传递到下游。
  */
-@ComponentRegister("LlmComponent")
+@ComponentRegister(
+    value = "LlmComponent",
+    name = "大模型",
+    group = "数据处理",
+    desc = "按行调用 OpenAI 兼容的大模型接口，支持系统提示词与动态用户输入，输出为 JSON 时扩充到行数据。",
+    order = 19
+)
 public class LlmComponent extends FlowComponent {
 
     public static final String RESULT_FIELD = "llm_result";

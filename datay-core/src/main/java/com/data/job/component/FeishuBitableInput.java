@@ -38,7 +38,13 @@ import java.util.concurrent.TimeUnit;
  *   "incrColumn": "last_modified_time"
  * }
  */
-@ComponentRegister("FeishuBitableInput")
+@ComponentRegister(
+    value = "FeishuBitableInput",
+    name = "飞书多维表格",
+    group = "数据输入",
+    desc = "通过飞书开放平台 API 读取多维表格记录，分页读取后以 JSON 数组传递给下游。",
+    order = 70
+)
 public class FeishuBitableInput extends FlowComponent {
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");

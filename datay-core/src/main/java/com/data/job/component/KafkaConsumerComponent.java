@@ -20,7 +20,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
-@ComponentRegister("KafkaConsumer")
+@ComponentRegister(
+    value = "KafkaConsumer",
+    name = "Kafka消费",
+    group = "实时输入",
+    desc = "消费 Kafka 主题消息并转换为 FlowFile 传递到下游。",
+    order = 30
+)
 public class KafkaConsumerComponent extends FlowComponent {
 
     private String bootstrapServers = "localhost:9092";

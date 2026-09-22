@@ -3,6 +3,7 @@ package com.data.job.component;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.expression.ParameterUtil;
+import com.data.job.ComponentRegister;
 import com.data.job.DebugLimitReachedException;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -11,6 +12,13 @@ import com.data.job.FlowFile;
  * GenerateFlowFile组件 - 支持手动输入文本数据和数据格式，生成FlowFile
  * 该组件可以作为数据流的源头，生成指定格式的数据流
  */
+@ComponentRegister(
+    value = "GenerateFlowFile",
+    name = "数据生成",
+    group = "调试组件",
+    desc = "根据文本、CSV、JSON 等格式生成 FlowFile，用于调试和测试数据流。",
+    order = 10
+)
 public class GenerateFlowFile extends FlowComponent {
 
     private String attribute; //属性内容

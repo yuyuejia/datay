@@ -1,5 +1,6 @@
 package com.data.job.component.router;
 
+import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.Connection;
 import com.data.job.FlowFile;
@@ -12,6 +13,13 @@ import java.util.Objects;
  * HashRouter组件 - 根据FlowFile中的属性值进行哈希路由
  * 支持通过配置指定用于哈希的属性名和下游队列数量
  */
+@ComponentRegister(
+    value = "HashRouter",
+    name = "哈希路由",
+    group = "数据处理",
+    desc = "根据 FlowFile 属性值哈希路由到不同下游队列。",
+    order = 90
+)
 public class HashRouter extends FlowComponent {
 
     // 默认配置参数

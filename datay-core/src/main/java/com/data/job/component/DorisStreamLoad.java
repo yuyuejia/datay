@@ -27,7 +27,13 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-@ComponentRegister("DorisStreamLoad")
+@ComponentRegister(
+    value = "DorisStreamLoad",
+    name = "Doris写入",
+    group = "数据输出",
+    desc = "通过 Stream Load 将数据批量导入 Doris，支持 insert/update/delete 写入模式。",
+    order = 30
+)
 public class DorisStreamLoad extends FlowComponent {
 
     // 对应job.json参数

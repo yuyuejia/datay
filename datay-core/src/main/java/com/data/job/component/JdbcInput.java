@@ -23,7 +23,13 @@ import java.util.Map;
  * 读取逻辑复用 {@link AbstractJdbcInput}，本类负责将每批记录物化到 DuckDB 临时表，
  * 增量状态直接写入执行上下文。
  */
-@ComponentRegister("JdbcInput")
+@ComponentRegister(
+    value = "JdbcInput",
+    name = "JDBC输入",
+    group = "数据输入",
+    desc = "通过 JDBC 从源数据库读取数据并物化到 DuckDB 临时表，供下游组件使用。",
+    order = 20
+)
 public class JdbcInput extends AbstractJdbcInput {
 
     // 可选配置：写入 DuckDB 的目标表名；未配置时使用源表名

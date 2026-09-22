@@ -21,7 +21,13 @@ import java.util.Map;
 /**
  * StreamSqlUnit组件 - 支持通过SQL语句从源数据库读取数据并写入到DuckDB中
  */
-@ComponentRegister("StreamSqlUnit")
+@ComponentRegister(
+    value = "StreamSqlUnit",
+    name = "SQL组件",
+    group = "数据处理",
+    desc = "执行自定义 SQL 从源数据库读取数据并写入 DuckDB，可用于复杂查询与数据加工。",
+    order = 20
+)
 public class StreamSqlUnit extends FlowComponent {
 
     // 对应job.json参数

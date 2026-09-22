@@ -2,77 +2,81 @@ package com.data.job;
 
 import cn.hutool.core.util.ClassUtil;
 import cn.hutool.core.util.StrUtil;
-import java.util.HashMap;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+/**
+ * ETL 组件工厂。
+ * <p>
+ * 启动时自动扫描 {@code com.data.job.component} 包（含子包）下所有带有
+ * {@link ComponentRegister} 注解的组件实现，注册组件编码到实现类的映射，
+ * 同时收集组件的名称、分类、描述等元数据，供前端组件面板自动发现使用。
+ */
 public class ComponentFactory {
 
-    public static Map<String, String> components = new HashMap<>();
+    /** 组件编码 -> 实现类全限定名。 */
+    public static final Map<String, String> components = new LinkedHashMap<>();
+
+    /** 组件编码 -> 组件元数据。 */
+    private static final Map<String, ComponentDescriptor> descriptors = new LinkedHashMap<>();
+
+    /** 组件扫描包。 */
+    private static final String COMPONENT_PACKAGE = "com.data.job.component";
 
     static {
-        // 保留现有的手动注册作为备用
-        registerDefaultComponents();
-        // 尝试自动扫描和注册带有ETLComponent注解的组件
         try {
             scanAndRegisterComponents();
         } catch (Exception e) {
-            System.err.println("自动扫描组件失败，使用默认注册: " + e.getMessage());
+            System.err.println("自动扫描 ETL 组件失败: " + e.getMessage());
         }
     }
 
     /**
-     * 注册默认组件
-     */
-    private static void registerDefaultComponents() {
-        components.put("StreamJdbcInput", "com.data.job.component.StreamJdbcInput");
-        components.put("Channel", "com.data.job.component.Channel");
-        components.put("StreamSqlUnit", "com.data.job.component.StreamSqlUnit");
-        components.put("Join", "com.data.job.component.Join");
-        components.put("DuckDBWrite", "com.data.job.component.DuckDBWrite");
-        components.put("DuckDBSql", "com.data.job.component.DuckDBSql");
-        components.put("SqlInput", "com.data.job.component.SqlInput");
-        components.put("DuckDBRegister", "com.data.job.component.DuckDBRegister");
-        components.put("JavaScriptComponent", "com.data.job.component.javascript.JavaScriptComponent");
-        components.put("GenerateFlowFile", "com.data.job.component.GenerateFlowFile");
-        components.put("LogFlowFile", "com.data.job.component.LogFlowFile");
-        components.put("MySQLBinlogInput", "com.data.job.component.cdc.MySQLBinlogInput");
-        components.put("DuckLakeWrite", "com.data.job.component.DuckLakeWrite");
-        components.put("HashRouter", "com.data.job.component.router.HashRouter");
-        components.put("RandomRouter", "com.data.job.component.router.RandomRouter");
-        components.put("FeishuBitableInput", "com.data.job.component.FeishuBitableInput");
-        components.put("FeishuBitableOutput", "com.data.job.component.FeishuBitableOutput");
-        components.put("FileInput", "com.data.job.component.FileInput");
-        components.put("LlmComponent", "com.data.job.component.LlmComponent");
-    }
-
-    /**
-     * 扫描并注册带有ETLComponent注解的组件
+     * 扫描并注册带有 {@link ComponentRegister} 注解的组件（含子包）。
      */
     private static void scanAndRegisterComponents() {
-        // 使用Hutool的ClassUtil扫描com.data.job.etl包下的所有类
-        // 注意：这里假设Hutool的ClassUtil可用，根据代码中已有的cn.hutool.core.bean.BeanUtil判断项目已引入Hutool
-        String packageName = "com.data.job.component";
-        for (Class<?> clazz : ClassUtil.scanPackage(packageName)) {
-            // 检查类是否有ETLComponent注解
+        for (Class<?> clazz : ClassUtil.scanPackage(COMPONENT_PACKAGE)) {
             ComponentRegister annotation = clazz.getAnnotation(ComponentRegister.class);
-            if (annotation != null && Component.class.isAssignableFrom(clazz)) {
-                // 获取组件名称
-                String componentName = annotation.value();
-                if (StrUtil.isBlank(componentName)) {
-                    // 如果注解没有指定名称，使用类名
-                    componentName = clazz.getSimpleName();
-                }
-                // 注册组件
-                components.put(componentName, clazz.getName());
+            if (annotation == null || !Component.class.isAssignableFrom(clazz) || Modifier.isAbstract(clazz.getModifiers())) {
+                continue;
             }
+            String code = StrUtil.isBlank(annotation.value()) ? clazz.getSimpleName() : annotation.value();
+            String name = StrUtil.isBlank(annotation.name()) ? code : annotation.name();
+            components.put(code, clazz.getName());
+            descriptors.put(code, new ComponentDescriptor(code, name, annotation.group(), annotation.desc(), clazz.getName(), annotation.order()));
         }
     }
 
     /**
-     * 添加组件注册方法，允许运行时手动注册组件
+     * 添加组件注册方法，允许运行时手动注册组件。
      */
     public static void registerComponent(String componentName, String className) {
         components.put(componentName, className);
+    }
+
+    /**
+     * 获取所有自动发现的组件元数据，按分组及排序值排列。
+     *
+     * @return 组件元数据列表
+     */
+    public static List<ComponentDescriptor> listDescriptors() {
+        List<ComponentDescriptor> list = new ArrayList<>(descriptors.values());
+        list.sort(Comparator.comparing(ComponentDescriptor::getGroup).thenComparingInt(ComponentDescriptor::getOrder));
+        return list;
+    }
+
+    /**
+     * 获取指定编码的组件元数据。
+     *
+     * @param code 组件编码
+     * @return 组件元数据，不存在时返回 {@code null}
+     */
+    public static ComponentDescriptor getDescriptor(String code) {
+        return descriptors.get(code);
     }
 
     // 新增支持直接传递类名和参数的构造方法

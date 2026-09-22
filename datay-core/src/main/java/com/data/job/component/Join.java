@@ -46,7 +46,13 @@ import java.util.Set;
  * }
  * </pre>
  */
-@ComponentRegister("Join")
+@ComponentRegister(
+    value = "Join",
+    name = "多表关联",
+    group = "数据处理",
+    desc = "配置多表关联并生成 DuckDB SQL，结果输出到结果集表。支持流式上游先写入 DuckDB，待上游完成后执行 Join。",
+    order = 18
+)
 public class Join extends FlowComponent {
 
     private static final String DEFAULT_OUTPUT_TABLE = "join_result";

@@ -55,7 +55,13 @@ import java.util.Set;
  * }
  * </pre>
  */
-@ComponentRegister("DataTransform")
+@ComponentRegister(
+    value = "DataTransform",
+    name = "数据转换",
+    group = "数据处理",
+    desc = "预置常用转换规则（类型转换、过滤、字符串/数学/日期函数），基于配置生成 DuckDB SQL。上游 FlowFile 先写入临时表，转换后向下游输出 FlowFile。",
+    order = 17
+)
 public class DataTransform extends FlowComponent {
 
     private static final String DUCKDB_SCHEMA = "main";

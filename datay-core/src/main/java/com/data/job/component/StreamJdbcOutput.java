@@ -23,7 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@ComponentRegister("StreamJdbcOutput")
+@ComponentRegister(
+    value = "StreamJdbcOutput",
+    name = "数据源输出",
+    group = "数据输出",
+    desc = "将上游数据流按批写入关系型数据库，支持 append/update/replace 写入模式与字段映射。",
+    order = 10
+)
 public class StreamJdbcOutput extends FlowComponent {
 
     // 对应job.json参数

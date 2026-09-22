@@ -20,7 +20,13 @@ import java.util.List;
  * 该组件可以作为数据流的源头，为下游SqlInput组件提供SQL语句
  * 支持大数据量表同步优化：根据主键字段生成分区SQL，并发执行
  */
-@ComponentRegister("GenerateTableSelectSql")
+@ComponentRegister(
+    value = "GenerateTableSelectSql",
+    name = "生成表SQL",
+    group = "数据输入",
+    desc = "获取指定数据源和 schema 下的所有表并生成 select 语句，为下游 SqlInput 提供 SQL。",
+    order = 50
+)
 public class GenerateTableSelectSql extends FlowComponent {
 
     private DatasourceInfo datasource;

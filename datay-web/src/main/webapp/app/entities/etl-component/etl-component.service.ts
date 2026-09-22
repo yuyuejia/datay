@@ -33,6 +33,19 @@ export default class ETLComponentService {
     });
   }
 
+  catalog(): Promise<IETLComponent[]> {
+    return new Promise<IETLComponent[]>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/catalog`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   delete(id: number): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

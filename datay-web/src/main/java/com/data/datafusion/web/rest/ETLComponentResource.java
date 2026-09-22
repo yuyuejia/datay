@@ -1,6 +1,7 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.repository.ETLComponentRepository;
+import com.data.datafusion.service.ETLComponentCatalogService;
 import com.data.datafusion.service.ETLComponentService;
 import com.data.datafusion.service.dto.ETLComponentDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
@@ -40,9 +41,16 @@ public class ETLComponentResource {
 
     private final ETLComponentRepository eTLComponentRepository;
 
-    public ETLComponentResource(ETLComponentService eTLComponentService, ETLComponentRepository eTLComponentRepository) {
+    private final ETLComponentCatalogService eTLComponentCatalogService;
+
+    public ETLComponentResource(
+        ETLComponentService eTLComponentService,
+        ETLComponentRepository eTLComponentRepository,
+        ETLComponentCatalogService eTLComponentCatalogService
+    ) {
         this.eTLComponentService = eTLComponentService;
         this.eTLComponentRepository = eTLComponentRepository;
+        this.eTLComponentCatalogService = eTLComponentCatalogService;
     }
 
     /**
@@ -131,6 +139,18 @@ public class ETLComponentResource {
             result,
             HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, eTLComponentDTO.getId().toString())
         );
+    }
+
+    /**
+     * {@code GET  /etl-components/catalog} : get all auto-discovered ETL components.
+     * <p>组件元数据来源于组件实现上的 {@code @ComponentRegister} 注解，无需注册到数据库。
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the component catalog in body.
+     */
+    @GetMapping("/catalog")
+    public ResponseEntity<List<ETLComponentDTO>> getETLComponentCatalog() {
+        LOG.debug("REST request to get ETL component catalog");
+        return ResponseEntity.ok().body(eTLComponentCatalogService.listCatalog());
     }
 
     /**

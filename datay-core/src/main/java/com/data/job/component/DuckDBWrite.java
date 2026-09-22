@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentRegister;
 import com.data.job.DuckDBEngine;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -18,6 +19,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
+@ComponentRegister(value = "DuckDBWrite", name = "写入DuckDB", group = "DuckDB 组件", desc = "将上游 FlowFile 数据写入 DuckDB 表。", order = 30)
 public class DuckDBWrite extends FlowComponent {
 
     // 对应job.json参数

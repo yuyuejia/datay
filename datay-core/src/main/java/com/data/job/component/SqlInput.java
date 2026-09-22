@@ -18,7 +18,13 @@ import java.util.List;
  * 1. 通过setSql方法直接设置SQL语句
  * 2. 从上游FlowFile中获取SQL语句
  */
-@ComponentRegister("SqlInput")
+@ComponentRegister(
+    value = "SqlInput",
+    name = "SQL输入",
+    group = "数据输入",
+    desc = "执行自定义 SQL 查询读取数据，SQL 可直接设置或从上游 FlowFile 获取。",
+    order = 30
+)
 public class SqlInput extends FlowComponent {
 
     private String sql;
