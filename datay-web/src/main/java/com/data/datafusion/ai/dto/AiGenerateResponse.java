@@ -12,6 +12,7 @@ public class AiGenerateResponse {
 
     private boolean available;
     private String sql;
+    private String code;
     private String explanation;
     private int rounds;
     private boolean converged;
@@ -30,6 +31,8 @@ public class AiGenerateResponse {
         AiGenerateResponse response = new AiGenerateResponse();
         response.available = true;
         response.sql = result.getSql();
+        // code 与 sql 同为「模型抽取出的最终产物」，脚本类助手用它承载生成的 Java 代码
+        response.code = result.getSql();
         response.explanation = result.getExplanation();
         response.rounds = result.getRounds();
         response.converged = result.isConverged();
@@ -56,6 +59,10 @@ public class AiGenerateResponse {
 
     public String getSql() {
         return sql;
+    }
+
+    public String getCode() {
+        return code;
     }
 
     public String getExplanation() {

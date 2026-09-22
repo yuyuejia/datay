@@ -89,9 +89,6 @@ public class ParameterUtil {
             return text;
         }
         Map<String, Object> attributes = flowFile.getAttributeMap();
-        if(flowFile.getData() != null) {
-            attributes.put("FLOW_FILE_DATA", flowFile.getData());
-        }
         List<ParameterInfo> parameters = parseParameters(text);
         // 获取并打印解析结果
         for (ParameterInfo param : parameters) {
@@ -101,6 +98,8 @@ public class ParameterUtil {
                     value = variables.get(param.getName());
                 } else if(attributes != null && attributes.containsKey(param.getName())) {
                     value = attributes.get(param.getName());
+                }else if(param.getName().equals("FLOW_FILE_DATA")) {
+                    value = flowFile.getData();
                 }
                 if(value != null) {
                     text = text.replace(param.getFullMatch(), String.valueOf(value));

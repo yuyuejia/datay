@@ -119,7 +119,7 @@ public class DBUtils {
         return conn;
     }
 
-    private static final String DUCKLAKE_CATALOG = "ducklake";
+    public static final String DUCKLAKE_CATALOG = "ducklake";
     public static final String QUACK_CATALOG = "quack";
 
     private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
@@ -219,6 +219,24 @@ public class DBUtils {
             try (ResultSet rs = conn.getMetaData().getCatalogs()) {
                 while (rs.next()) {
                     if (QUACK_CATALOG.equals(rs.getString("TABLE_CAT"))) {
+                        return true;
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+            // ignore
+        }
+        return false;
+    }
+
+    /**
+     * 判断连接是否挂载了 DuckLake catalog。
+     */
+    public static boolean isDuckLakeConnection(Connection conn) {
+        try {
+            try (ResultSet rs = conn.getMetaData().getCatalogs()) {
+                while (rs.next()) {
+                    if (DUCKLAKE_CATALOG.equals(rs.getString("TABLE_CAT"))) {
                         return true;
                     }
                 }
@@ -1486,6 +1504,9 @@ public class DBUtils {
         if (jdbcUrl.startsWith("jdbc:duckdb:")) {
             if (isQuackConnection(conn)) {
                 return quackTableExists(conn, schema, table);
+            }
+            if (isDuckLakeConnection(conn)) {
+                return tableExists(conn, DUCKLAKE_CATALOG, schema, table);
             }
             return tableExists(conn, null, schema, table);
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {

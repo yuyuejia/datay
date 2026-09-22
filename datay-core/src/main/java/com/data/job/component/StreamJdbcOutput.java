@@ -199,7 +199,7 @@ public class StreamJdbcOutput extends FlowComponent {
                 // 处理overwrite模式且dropIfTableExists为true的情况
                 if ("overwrite".equals(this.model) && Boolean.TRUE.equals(this.dropIfTableExists) && tableExists) {
                     logInfo("模式为overwrite且dropIfTableExists为true，删除表 " + schema + "." + table);
-                    DBUtils.execute(targetConn, String.format("DROP TABLE %s", schema + "." + table));
+                    DBUtils.execute(targetConn, String.format("DROP TABLE %s", qualifiedTableName(schema, table)));
                     tableExists = false; // 表已被删除
                     tableExistsCache.put(tableKey, false); // 更新缓存
                 }
@@ -213,9 +213,7 @@ public class StreamJdbcOutput extends FlowComponent {
                         targetTable.setDbType(targetDbType);
                         targetTable.setTable(table);
                         targetTable.setSchema(schema);
-                        if (isQuackTarget()) {
-                            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
-                        }
+                        targetTable.setCatalog(resolveTargetCatalog());
                     }
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
@@ -224,15 +222,15 @@ public class StreamJdbcOutput extends FlowComponent {
                     logInfo("表 " + schema + "." + table + " 已存在");
                     targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
                 }
-                if (isQuackTarget() && targetTable != null) {
-                    // Quack 目标需带上远程 catalog 限定，写入才会落到远端
-                    targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+                if (targetTable != null && resolveTargetCatalog() != null) {
+                    // Quack/DuckLake 目标需带上远程 catalog 限定，写入才会落到远端
+                    targetTable.setCatalog(resolveTargetCatalog());
                 }
 
                 // 处理overwrite模式（非dropIfTableExists为true的情况）
                 if ("overwrite".equals(this.model) && !Boolean.TRUE.equals(this.dropIfTableExists)) {
                     logInfo("清空表 " + schema + "." + table);
-                    DBUtils.execute(targetConn, String.format("DELETE FROM %s", schema + "." + table));
+                    DBUtils.execute(targetConn, String.format("DELETE FROM %s", qualifiedTableName(schema, table)));
                 }
             } catch (SQLException e) {
                 logError("获取表元数据失败，" + e.getMessage());
@@ -270,6 +268,33 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private boolean isQuackTarget() {
         return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("quack:");
+    }
+
+    private boolean isDuckLakeTarget() {
+        return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("ducklake:");
+    }
+
+    /**
+     * 目标 catalog：Quack/DuckLake 需要显式限定 catalog，否则会落到默认的 memory catalog。
+     */
+    private String resolveTargetCatalog() {
+        if (isQuackTarget()) {
+            return DBUtils.QUACK_CATALOG;
+        }
+        if (isDuckLakeTarget()) {
+            return DBUtils.DUCKLAKE_CATALOG;
+        }
+        return null;
+    }
+
+    /**
+     * 生成带 catalog 限定的表名（仅 DuckLake 需要，Quack 有独立的远程执行逻辑）。
+     */
+    private String qualifiedTableName(String schema, String table) {
+        if (isDuckLakeTarget()) {
+            return DBUtils.DUCKLAKE_CATALOG + "." + schema + "." + table;
+        }
+        return schema + "." + table;
     }
 
     private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,

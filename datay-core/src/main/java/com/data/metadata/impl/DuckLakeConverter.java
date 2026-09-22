@@ -164,6 +164,18 @@ public class DuckLakeConverter implements TypeConverter {
         return ddl.toString();
     }
 
+    private String qualifiedTableName(TableMeta tableMeta) {
+        StringBuilder sb = new StringBuilder();
+        if (tableMeta.getCatalog() != null && !tableMeta.getCatalog().isEmpty()) {
+            sb.append(tableMeta.getCatalog()).append(".");
+        }
+        if (tableMeta.getSchema() != null && !tableMeta.getSchema().isEmpty()) {
+            sb.append(tableMeta.getSchema()).append(".");
+        }
+        sb.append(tableMeta.getTable());
+        return sb.toString();
+    }
+
     // 新增：生成INSERT语句（append模式）
     public String generateInsertSQL(TableMeta tableMeta) {
         List<String> columnNames = new ArrayList<>();
@@ -175,7 +187,7 @@ public class DuckLakeConverter implements TypeConverter {
         String columns = String.join(", ", columnNames);
         String placeholders = String.join(", ", Collections.nCopies(columnNames.size(), "?"));
 
-        String tableName = tableMeta.getSchema() != null ? tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta);
 
         // DuckDB使用INSERT OR REPLACE语法
         return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
@@ -196,7 +208,7 @@ public class DuckLakeConverter implements TypeConverter {
         String columns = String.join(", ", columnNames);
         String placeholders = String.join(", ", Collections.nCopies(columnNames.size(), "?"));
 
-        String tableName = tableMeta.getCatalog() + "." + tableMeta.getSchema() + "." + tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta);
 
         // 如果没有主键，则回退到普通INSERT
         if (primaryKeyColumns.isEmpty()) {
@@ -225,7 +237,7 @@ public class DuckLakeConverter implements TypeConverter {
             }
         }
 
-        String tableName = tableMeta.getSchema() != null ? tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta);
 
         // 如果有主键，使用主键作为WHERE条件
         if (!primaryKeyColumns.isEmpty()) {

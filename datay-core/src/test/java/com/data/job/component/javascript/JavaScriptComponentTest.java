@@ -141,6 +141,26 @@ public class JavaScriptComponentTest {
         engine.compileScript("UserScript", JavaScriptComponentExample.simpleAttributeScript());
         engine.compileScript("UserScript", JavaScriptComponentExample.jsonDataProcessingScript());
         engine.compileScript("UserScript", JavaScriptComponentExample.complexTransformationScript());
+        engine.compileScript("UserScript", JavaScriptComponentExample.addFieldWithMetadataScript());
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testSwitchOnEnumScriptExecutes() throws Exception {
+        // 回归：switch-on-enum 会生成辅助类 UserScript$1，必须与主类一同加载，
+        // 否则运行时抛 NoClassDefFoundError: UserScript$1。
+        component.setScriptCode(JavaScriptComponentExample.complexTransformationScript());
+
+        FlowFile flowFile = new FlowFile();
+        JSONArray records = new JSONArray();
+        records.add(new JSONObject());
+        flowFile.setJsonArray(records);
+
+        component.execute(flowFile);
+
+        FlowFile result = (FlowFile) outputQueue.poll();
+        assertNotNull(result);
+        assertNotNull(result.getJsonArray());
     }
 
     @Test

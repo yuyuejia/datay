@@ -16,13 +16,13 @@ import java.util.regex.Pattern;
 /**
  * SqlUnit组件 - 根据sql配置中的tablemap替换query中的表名，并将select语句转换为create table as select并执行
  */
-@ComponentRegister(
-    value = "SqlUnit",
-    name = "SQL单元",
-    group = "数据处理",
-    desc = "根据 tablemap 替换 query 中的表名，将 select 语句转换为 create table as select 并执行。",
-    order = 20
-)
+//@ComponentRegister(
+//    value = "SqlUnit",
+//    name = "SQL单元",
+//    group = "数据处理",
+//    desc = "根据 tablemap 替换 query 中的表名，将 select 语句转换为 create table as select 并执行。",
+//    order = 20
+//)
 public class SqlUnit extends FlowComponent {
 
     // 对应job.json参数（兼容字符串与 {query, tablemap} 对象两种形式）

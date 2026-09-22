@@ -16,13 +16,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@ComponentRegister(
-    value = "JdbcOutput",
-    name = "JDBC输出",
-    group = "数据输出",
-    desc = "通过 JDBC 将上游数据写入目标数据库，支持 append/overwrite/update 写入模式。",
-    order = 20
-)
+//@ComponentRegister(
+//    value = "JdbcOutput",
+//    name = "JDBC输出",
+//    group = "数据输出",
+//    desc = "通过 JDBC 将上游数据写入目标数据库，支持 append/overwrite/update 写入模式。",
+//    order = 20
+//)
 public class JdbcOutput extends FlowComponent {
 
     // 对应job.json参数

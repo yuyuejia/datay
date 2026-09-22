@@ -1,6 +1,7 @@
 package com.data.datafusion.ai.assistant;
 
 import com.data.datafusion.service.dto.DataSourceDTO;
+import java.util.Map;
 
 /**
  * 助手会话上下文。
@@ -11,10 +12,16 @@ public class AiAssistantContext {
 
     private final DataSourceDTO dataSource;
     private final String userMessage;
+    private final Map<String, Object> contextData;
 
     public AiAssistantContext(DataSourceDTO dataSource, String userMessage) {
+        this(dataSource, userMessage, Map.of());
+    }
+
+    public AiAssistantContext(DataSourceDTO dataSource, String userMessage, Map<String, Object> contextData) {
         this.dataSource = dataSource;
         this.userMessage = userMessage;
+        this.contextData = contextData == null ? Map.of() : contextData;
     }
 
     public DataSourceDTO getDataSource() {
@@ -23,5 +30,12 @@ public class AiAssistantContext {
 
     public String getUserMessage() {
         return userMessage;
+    }
+
+    /**
+     * 会话附加上下文，如上游组件的调试采样数据；缺省为空 Map，永不为 null。
+     */
+    public Map<String, Object> getContextData() {
+        return contextData;
     }
 }

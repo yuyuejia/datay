@@ -16,13 +16,13 @@ import java.util.List;
  * SqlTask组件 - 支持在指定的数据库连接中执行SQL语句
  * 参考DuckDBSql的实现，但支持多种数据库类型
  */
-@ComponentRegister(
-    value = "SqlTask",
-    name = "SQL任务",
-    group = "数据处理",
-    desc = "在指定数据库连接中执行 SQL 语句，支持多种数据库类型。",
-    order = 30
-)
+//@ComponentRegister(
+//    value = "SqlTask",
+//    name = "SQL任务",
+//    group = "数据处理",
+//    desc = "在指定数据库连接中执行 SQL 语句，支持多种数据库类型。",
+//    order = 30
+//)
 public class SqlTask extends FlowComponent {
 
     // 对应job.json参数

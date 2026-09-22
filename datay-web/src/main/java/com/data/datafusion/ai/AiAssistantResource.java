@@ -107,7 +107,13 @@ public class AiAssistantResource {
             .orElse(null);
 
         try {
-            AiResult result = aiAgent.generate(assistant.get(), request.getMessage(), dataSource, toHistory(request));
+            AiResult result = aiAgent.generate(
+                assistant.get(),
+                request.getMessage(),
+                dataSource,
+                toHistory(request),
+                request.getContextData()
+            );
             return ResponseEntity.ok(AiGenerateResponse.from(result));
         } catch (IllegalStateException e) {
             LOG.warn("AI generation failed for assistant {}: {}", assistant.get().id(), e.getMessage());

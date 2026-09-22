@@ -16,7 +16,10 @@ export interface AiToolTrace {
 
 export interface AiGenerateResult {
   available: boolean;
+  /** 模型抽取出的最终 SQL（SQL 类助手）。 */
   sql?: string;
+  /** 模型抽取出的最终产物，脚本类助手用它承载生成的 Java 代码。 */
+  code?: string;
   explanation?: string;
   rounds?: number;
   converged?: boolean;
@@ -71,6 +74,7 @@ export default class AiAssistantService {
     dataSourceId: number | undefined,
     history: AiHistoryMessage[] = [],
     assistantId = "query",
+    contextData?: Record<string, any>,
   ): Promise<AiGenerateResult> {
     return axios
       .post(`${baseApiUrl}/generate`, {
@@ -78,6 +82,7 @@ export default class AiAssistantService {
         dataSourceId,
         history,
         assistantId,
+        contextData,
       })
       .then((res) => res.data);
   }

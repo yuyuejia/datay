@@ -57,9 +57,16 @@ public class AiAgent {
      * @param userMessage 用户的自然语言需求
      * @param dataSource 当前绑定的数据源，可能为空（此时模型只能做理论推理）
      * @param history 历史对话（不含本轮 user 消息），可为空
+     * @param contextData 会话附加上下文，如上游组件调试采样数据，可为空
      * @return 包含最终 SQL、说明与 loop 轨迹的结果
      */
-    public AiResult generate(AiAssistant assistant, String userMessage, DataSourceDTO dataSource, List<ChatMessage> history) {
+    public AiResult generate(
+        AiAssistant assistant,
+        String userMessage,
+        DataSourceDTO dataSource,
+        List<ChatMessage> history,
+        Map<String, Object> contextData
+    ) {
         if (!properties.isConfigured()) {
             throw new IllegalStateException("AI 助手未配置，请先设置 datay.ai.api-key");
         }
@@ -79,7 +86,7 @@ public class AiAgent {
         }
 
         List<ChatMessage> messages = new ArrayList<>();
-        messages.add(ChatMessage.system(assistant.buildSystemPrompt(new AiAssistantContext(dataSource, userMessage))));
+        messages.add(ChatMessage.system(assistant.buildSystemPrompt(new AiAssistantContext(dataSource, userMessage, contextData))));
         if (history != null) {
             messages.addAll(history);
         }

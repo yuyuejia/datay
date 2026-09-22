@@ -52,12 +52,18 @@ public class JavaScriptComponentExample {
             "                processedArray.add(obj);\n" +
             "            }\n" +
             "            flowFile.setJsonArray(processedArray);\n" +
+            "            // 新增字段后同步表元数据，确保下游组件能识别\n" +
+            "            flowFile.upsertColumnMeta(\"processed\", \"BOOLEAN\");\n" +
+            "            flowFile.upsertColumnMeta(\"process_timestamp\", \"BIGINT\");\n" +
             "        }\n\n" +
             "        // 处理JSON对象数据\n" +
             "        if (flowFile.getJsonObject() != null) {\n" +
             "            JSONObject jsonObject = flowFile.getJsonObject();\n" +
             "            jsonObject.put(\"processed\", true);\n" +
             "            jsonObject.put(\"process_timestamp\", System.currentTimeMillis());\n" +
+            "            // 新增字段后同步表元数据，确保下游组件能识别\n" +
+            "            flowFile.upsertColumnMeta(\"processed\", \"BOOLEAN\");\n" +
+            "            flowFile.upsertColumnMeta(\"process_timestamp\", \"BIGINT\");\n" +
             "        }\n\n" +
             "        return flowFile;\n" +
             "    }\n" +
@@ -121,6 +127,46 @@ public class JavaScriptComponentExample {
             "        String text = flowFile.getTextData();\n" +
             "        log.info(\"处理文本数据，长度: \" + text.length());\n" +
             "        // 这里可以添加文本处理逻辑\n" +
+            "        return flowFile;\n" +
+            "    }\n" +
+            "}"
+        );
+    }
+
+    /**
+     * 示例4：新增字段并同步表元数据
+     * 对已有数据增加字段时，必须同时更新 FlowFile 的表元数据属性，
+     * 否则下游组件读取不到新字段，导致数据丢失或结构不一致。
+     */
+    public static String addFieldWithMetadataScript() {
+        return (
+            "import com.data.job.FlowFile;\n" +
+            "import com.data.job.component.javascript.ScriptContext.LogFunction;\n" +
+            "import com.alibaba.fastjson2.JSONArray;\n" +
+            "import com.alibaba.fastjson2.JSONObject;\n" +
+            "import java.util.Map;\n\n" +
+            "public class UserScript {\n" +
+            "    public FlowFile process(FlowFile flowFile, Map<String, Object> context) {\n" +
+            "        LogFunction log = (LogFunction) context.get(\"log\");\n\n" +
+            "        if (flowFile.getJsonArray() != null) {\n" +
+            "            JSONArray records = flowFile.getJsonArray();\n" +
+            "            JSONArray result = new JSONArray();\n" +
+            "            for (Object item : records) {\n" +
+            "                JSONObject record = (JSONObject) item;\n" +
+            "                // 基于上游已有字段 amount 计算并新增 tax_amount\n" +
+            "                Object amount = record.get(\"amount\");\n" +
+            "                if (amount instanceof Number) {\n" +
+            "                    record.put(\"tax_amount\", ((Number) amount).doubleValue() * 1.13);\n" +
+            "                }\n" +
+            "                result.add(record);\n" +
+            "            }\n" +
+            "            flowFile.setJsonArray(result);\n" +
+            "            // 关键：新增字段后同步表元数据，下游组件才能识别 tax_amount\n" +
+            "            flowFile.upsertColumnMeta(\"tax_amount\", \"DOUBLE\");\n" +
+            "            log.info(\"已新增字段 tax_amount，共 \" + result.size() + \" 条\");\n" +
+            "        }\n\n" +
+            "        // 删除字段：flowFile.removeColumnMeta(\"字段名\");\n" +
+            "        // 重命名字段：flowFile.renameColumnMeta(\"旧名\", \"新名\");\n" +
             "        return flowFile;\n" +
             "    }\n" +
             "}"

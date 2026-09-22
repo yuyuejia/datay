@@ -2,6 +2,8 @@ package com.data.job;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.metadata.ColumnMeta;
+import com.data.metadata.TableMeta;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -135,5 +137,65 @@ public class FlowFile {
 
     public Map<String, Object> getStatusMap() {
         return status;
+    }
+
+    /**
+     * 同步表元数据属性中的列：列已存在则更新类型，不存在则追加。
+     *
+     * <p>脚本对数据新增或修改字段后应调用本方法，确保下游组件能识别新字段。
+     * 仅当 FlowFile 已携带表元数据（{@link #ATTRIBUTE_TABLE_METADATA}）时生效；
+     * 缺失元数据时不做处理，交由下游按数据自行推断。
+     *
+     * @param columnName 字段名
+     * @param columnType 字段类型，如 BOOLEAN、BIGINT、DOUBLE、VARCHAR
+     */
+    public void upsertColumnMeta(String columnName, String columnType) {
+        Object meta = attributes.get(ATTRIBUTE_TABLE_METADATA);
+        if (!(meta instanceof TableMeta)) {
+            return;
+        }
+        if (columnName == null || columnName.trim().isEmpty()) {
+            return;
+        }
+        TableMeta tableMeta = (TableMeta) meta;
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (columnName.equals(column.getName())) {
+                column.setType(columnType);
+                return;
+            }
+        }
+        tableMeta.addColumn(new ColumnMeta(columnName, columnType));
+    }
+
+    /**
+     * 从表元数据属性中移除列。脚本删除字段后应调用本方法。
+     *
+     * @param columnName 字段名
+     */
+    public void removeColumnMeta(String columnName) {
+        Object meta = attributes.get(ATTRIBUTE_TABLE_METADATA);
+        if (!(meta instanceof TableMeta) || columnName == null) {
+            return;
+        }
+        ((TableMeta) meta).columns().removeIf(column -> columnName.equals(column.getName()));
+    }
+
+    /**
+     * 重命名表元数据属性中的列。脚本重命名字段后应调用本方法。
+     *
+     * @param oldColumnName 原字段名
+     * @param newColumnName 新字段名
+     */
+    public void renameColumnMeta(String oldColumnName, String newColumnName) {
+        Object meta = attributes.get(ATTRIBUTE_TABLE_METADATA);
+        if (!(meta instanceof TableMeta) || oldColumnName == null || newColumnName == null) {
+            return;
+        }
+        for (ColumnMeta column : ((TableMeta) meta).columns()) {
+            if (oldColumnName.equals(column.getName())) {
+                column.setName(newColumnName);
+                return;
+            }
+        }
     }
 }

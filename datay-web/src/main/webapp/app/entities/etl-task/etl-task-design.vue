@@ -600,8 +600,98 @@ const debugUpstreamTables = async (nodeId, force = false) => {
   }
 };
 
+/** 传递给大模型的调试采样上限，避免提示词过长。 */
+const UPSTREAM_SAMPLE_ROW_LIMIT = 10;
+const UPSTREAM_SAMPLE_CELL_LIMIT = 200;
+const UPSTREAM_SAMPLE_TABLE_LIMIT = 3;
+const UPSTREAM_CONTEXT_CHAR_LIMIT = 20000;
+
+const normalizeSampleCell = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  const text = String(value);
+  return text.length > UPSTREAM_SAMPLE_CELL_LIMIT ? `${text.slice(0, UPSTREAM_SAMPLE_CELL_LIMIT)}…` : text;
+};
+
+const buildUpstreamSample = (upstreamId, node, result) => {
+  const sample = { node: node?.data?.label || upstreamId };
+  const attributes = result.attributes || {};
+  const attrKeys = Object.keys(attributes);
+  if (attrKeys.length) {
+    sample.attributes = {};
+    attrKeys.slice(0, UPSTREAM_SAMPLE_ROW_LIMIT).forEach((key) => {
+      sample.attributes[key] = normalizeSampleCell(attributes[key]);
+    });
+  }
+  if (Array.isArray(result.tables) && result.tables.length) {
+    sample.tables = result.tables.slice(0, UPSTREAM_SAMPLE_TABLE_LIMIT).map((table) => ({
+      tableName: table.tableName,
+      columns: (table.columns || []).map((name, index) => ({ name, type: (table.columnTypes || [])[index] || '' })),
+      rows: (table.rows || []).slice(0, UPSTREAM_SAMPLE_ROW_LIMIT).map((row) => (row || []).map(normalizeSampleCell)),
+      truncated: !!table.truncated,
+    }));
+  } else if (Array.isArray(result.columns) && result.columns.length) {
+    sample.columns = result.columns.map((name) => ({ name, type: '' }));
+    sample.rows = (result.rows || []).slice(0, UPSTREAM_SAMPLE_ROW_LIMIT).map((row) => (row || []).map(normalizeSampleCell));
+    sample.truncated = !!result.truncated;
+  }
+  return sample;
+};
+
+/**
+ * 整体超出长度上限时，退化为只保留字段名与类型，去掉样例行，避免提示词过大。
+ */
+const trimUpstreamContext = (upstream) => {
+  if (JSON.stringify(upstream).length <= UPSTREAM_CONTEXT_CHAR_LIMIT) {
+    return upstream;
+  }
+  return upstream.map((entry) => {
+    const trimmed = { ...entry };
+    if (Array.isArray(trimmed.tables)) {
+      trimmed.tables = trimmed.tables.map((table) => {
+        const schemaOnly = { ...table };
+        delete schemaOnly.rows;
+        return schemaOnly;
+      });
+    }
+    delete trimmed.rows;
+    return trimmed;
+  });
+};
+
+/**
+ * 获取当前节点直接上游组件的调试采样数据，供下游组件（如 Java 脚本）交给大模型参考。
+ * 无有效采样时返回空数组；force=true 时忽略缓存重新调试。
+ */
+const debugUpstreamData = async (nodeId, force = false) => {
+  if (!nodeId) {
+    return { upstream: [], error: '节点信息为空' };
+  }
+  const res = await debugUpstreamTables(nodeId, force);
+  const upstreamIds = edges.value.filter((edge) => edge.target === nodeId).map((edge) => edge.source);
+  const upstream = [];
+  upstreamIds.forEach((upstreamId) => {
+    const snapshot = debugResults.value[upstreamId];
+    if (!snapshot) {
+      return;
+    }
+    const node = nodes.value.find((n) => n.id === upstreamId);
+    upstream.push(buildUpstreamSample(upstreamId, node, snapshot));
+  });
+  return { upstream: trimUpstreamContext(upstream), error: res.error || '' };
+};
+
 provide('etlTaskDesignContext', {
   debugUpstreamTables,
+  debugUpstreamData,
   debugRunning,
 });
 

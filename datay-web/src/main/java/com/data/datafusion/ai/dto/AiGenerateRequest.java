@@ -1,6 +1,7 @@
 package com.data.datafusion.ai.dto;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI 生成请求体。
@@ -24,6 +25,12 @@ public class AiGenerateRequest {
 
     /** 历史对话，按 [{role, content}] 传递，role 仅支持 user/assistant。 */
     private List<HistoryMessage> history;
+
+    /**
+     * 会话附加上下文，如上游组件的调试采样数据。
+     * 由助手在构建提示词时按需取用，缺省为空。
+     */
+    private Map<String, Object> contextData;
 
     public static class HistoryMessage {
 
@@ -85,5 +92,13 @@ public class AiGenerateRequest {
 
     public void setHistory(List<HistoryMessage> history) {
         this.history = history;
+    }
+
+    public Map<String, Object> getContextData() {
+        return contextData;
+    }
+
+    public void setContextData(Map<String, Object> contextData) {
+        this.contextData = contextData;
     }
 }

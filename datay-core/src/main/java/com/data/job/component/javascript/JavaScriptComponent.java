@@ -14,7 +14,7 @@ import com.data.job.FlowFile;
     name = "JAVA脚本",
     group = "数据处理",
     desc = "使用用户自定义 Java 脚本处理 FlowFile 的数据和属性，支持运行时动态编译执行。",
-    order = 60
+    order = 19
 )
 public class JavaScriptComponent extends FlowComponent {
 
@@ -86,6 +86,9 @@ public class JavaScriptComponent extends FlowComponent {
                         "                result.add(record);\n" +
                         "            }\n" +
                         "            flowFile.setJsonArray(result);\n" +
+                        "            // 新增字段后同步表元数据，确保下游组件能识别\n" +
+                        "            flowFile.upsertColumnMeta(\"processed\", \"BOOLEAN\");\n" +
+                        "            flowFile.upsertColumnMeta(\"process_time\", \"BIGINT\");\n" +
                         "            log.info(\"JSON数组处理完成，输出 \" + result.size() + \" 条\");\n" +
                         "        }\n\n" +
                         "        // 2. 处理单个 JSON 对象\n" +
@@ -93,6 +96,9 @@ public class JavaScriptComponent extends FlowComponent {
                         "            JSONObject record = flowFile.getJsonObject();\n" +
                         "            record.put(\"processed\", true);\n" +
                         "            record.put(\"process_time\", System.currentTimeMillis());\n" +
+                        "            // 新增字段后同步表元数据，确保下游组件能识别\n" +
+                        "            flowFile.upsertColumnMeta(\"processed\", \"BOOLEAN\");\n" +
+                        "            flowFile.upsertColumnMeta(\"process_time\", \"BIGINT\");\n" +
                         "            log.info(\"JSON对象处理完成\");\n" +
                         "        }\n\n" +
                         "        // 3. 其它格式（CSV/TEXT/BINARY）原样透传\n" +

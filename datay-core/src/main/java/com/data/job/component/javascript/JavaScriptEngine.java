@@ -51,6 +51,22 @@ public class JavaScriptEngine {
      * @throws Exception 编译异常
      */
     public byte[] compileScript(String className, String javaCode) throws Exception {
+        return compileScriptClasses(className, javaCode).get(className);
+    }
+
+    /**
+     * 编译用户自定义Java代码，返回全部编译产物。
+     *
+     * <p>javac 除了主类外，还会为 switch-on-enum、匿名内部类、lambda、局部类等生成辅助类
+     * （如 {@code UserScript$1}）。这些辅助类与主类同属一次编译，必须一并交给类加载器，
+     * 否则运行时会抛 {@link NoClassDefFoundError}。
+     *
+     * @param className 类名
+     * @param javaCode Java源代码
+     * @return 类名到字节码的映射，包含主类与全部辅助类
+     * @throws Exception 编译异常
+     */
+    public Map<String, byte[]> compileScriptClasses(String className, String javaCode) throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("无法获取Java编译器，请确保在JDK环境中运行");
@@ -86,8 +102,8 @@ public class JavaScriptEngine {
             throw new CompilationException("Java代码编译失败:\n" + errorWriter.toString());
         }
 
-        // 获取编译后的字节码
-        return fileManager.getClassBytes(className);
+        // 获取编译后的全部字节码（主类 + 辅助类）
+        return fileManager.getAllClassBytes();
     }
 
     /**
@@ -101,8 +117,8 @@ public class JavaScriptEngine {
      */
     public FlowFile executeScript(String className, String javaCode, FlowFile flowFile, ScriptContext context) throws Exception {
         if (scriptInstance == null) {
-            byte[] classBytes = compileScript(className, javaCode);
-            // 使用自定义类加载器加载编译后的类
+            Map<String, byte[]> classBytes = compileScriptClasses(className, javaCode);
+            // 使用自定义类加载器加载编译后的类（含辅助类）
             ScriptClassLoader classLoader = new ScriptClassLoader(parentClassLoader);
             compiledClass = classLoader.loadClass(className, classBytes);
             // 创建脚本实例并执行
@@ -242,9 +258,12 @@ public class JavaScriptEngine {
             return super.isSameFile(a, b);
         }
 
-        public byte[] getClassBytes(String className) {
-            MemoryClassFileObject classFile = classFiles.get(className);
-            return classFile != null ? classFile.getBytes() : null;
+        public Map<String, byte[]> getAllClassBytes() {
+            Map<String, byte[]> all = new HashMap<>();
+            for (Map.Entry<String, MemoryClassFileObject> entry : classFiles.entrySet()) {
+                all.put(entry.getKey(), entry.getValue().getBytes());
+            }
+            return all;
         }
     }
 
@@ -409,8 +428,8 @@ public class JavaScriptEngine {
             this.classBytes = new HashMap<>();
         }
 
-        public Class<?> loadClass(String name, byte[] bytes) throws ClassNotFoundException {
-            classBytes.put(name, bytes);
+        public Class<?> loadClass(String name, Map<String, byte[]> bytes) throws ClassNotFoundException {
+            classBytes.putAll(bytes);
             return loadClass(name);
         }
 
