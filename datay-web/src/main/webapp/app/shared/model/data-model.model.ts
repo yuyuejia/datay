@@ -5,6 +5,8 @@ export interface IDataModel {
   description?: string | null;
   directoryId?: number | null;
   modelType?: string | null;
+  dimensionKind?: string | null;
+  levelCount?: number | null;
   isRegistered?: boolean | null;
   project?: string | null;
   tenantId?: string | null;
@@ -23,6 +25,8 @@ export class DataModel implements IDataModel {
     public description?: string | null,
     public directoryId?: number | null,
     public modelType?: string | null,
+    public dimensionKind?: string | null,
+    public levelCount?: number | null,
     public isRegistered?: boolean | null,
     public project?: string | null,
     public tenantId?: string | null,

@@ -160,3 +160,5 @@ metadata.ducklake.wal
 
 .opencode/
 *.db.wal
+*.duckdb
+*.duckdb.wal

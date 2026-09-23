@@ -155,6 +155,9 @@ export default defineComponent({
     const retrieveDataModel = async (modelId: number) => {
       try {
         const res = await dataModelService().find(modelId);
+        if (res.modelType === "DIMENSION" && !res.dimensionKind) {
+          res.dimensionKind = "NORMAL";
+        }
         dataModel.value = res;
         const fieldsRes = await dataModelService().getFields(modelId);
         fields.value = fieldsRes.data;
@@ -168,15 +171,21 @@ export default defineComponent({
     const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
     const needsLength = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_LENGTH_ONLY.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_LENGTH_ONLY.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     const needsPrecision = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     const needsScale = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     const clearLengthAndPrecisionIfUnneeded = (row: IModelField) => {
@@ -189,6 +198,133 @@ export default defineComponent({
       }
     };
 
+    const FIELD_ROLE_LABELS: Record<string, string> = {
+      LEVEL_ID: "层级ID",
+      LEVEL_NAME: "层级名称",
+      MEMBER_ID: "成员ID",
+      MEMBER_NAME: "成员名称",
+      HIERARCHY: "层级字段",
+    };
+
+    const fieldRoleLabel = (role?: string | null) => {
+      return role ? FIELD_ROLE_LABELS[role] || role : "-";
+    };
+
+    const isGeneratedField = (row: IModelField) => {
+      return !!(row && row.fieldRole);
+    };
+
+    const reorderGeneratedLast = () => {
+      const normal = fields.value.filter((f) => !f.fieldRole);
+      const generated = fields.value.filter((f) => f.fieldRole);
+      fields.value = [...normal, ...generated];
+      fields.value.forEach((f, index) => {
+        f.sortOrder = index;
+      });
+    };
+
+    const makeGeneratedField = (
+      name: string,
+      role: string,
+      levelIndex: number | null,
+      description: string,
+      isPrimaryKey: boolean,
+    ): IModelField => {
+      const field = new ModelField();
+      field.modelId = dataModel.value.id || undefined;
+      field.fieldName = name;
+      field.fieldType = "VARCHAR";
+      field.fieldLength = 255;
+      field.fieldRole = role;
+      field.levelIndex = levelIndex;
+      field.description = description;
+      field.isPartitionKey = false;
+      field.isPrimaryKey = isPrimaryKey;
+      return field;
+    };
+
+    const syncHierarchyFields = () => {
+      const normalFields = fields.value.filter((f) => !f.fieldRole);
+      const generated: IModelField[] = [];
+      if (
+        dataModel.value.modelType === "DIMENSION" &&
+        dataModel.value.dimensionKind === "HIERARCHY"
+      ) {
+        const count = Number(dataModel.value.levelCount) || 0;
+        for (let i = 1; i <= count; i++) {
+          generated.push(
+            makeGeneratedField(
+              `level${i}_id`,
+              "LEVEL_ID",
+              i,
+              `${i}级层级ID`,
+              false,
+            ),
+          );
+          generated.push(
+            makeGeneratedField(
+              `level${i}_name`,
+              "LEVEL_NAME",
+              i,
+              `${i}级层级名称`,
+              false,
+            ),
+          );
+        }
+        generated.push(
+          makeGeneratedField(
+            "member_id",
+            "MEMBER_ID",
+            null,
+            "成员ID(末级)",
+            true,
+          ),
+        );
+        generated.push(
+          makeGeneratedField(
+            "member_name",
+            "MEMBER_NAME",
+            null,
+            "成员名称(末级)",
+            false,
+          ),
+        );
+        generated.push(
+          makeGeneratedField("hierarchy", "HIERARCHY", null, "层级字段", false),
+        );
+      }
+      fields.value = [...normalFields, ...generated];
+      fields.value.forEach((f, index) => {
+        f.sortOrder = index;
+      });
+    };
+
+    const onModelTypeChange = () => {
+      if (dataModel.value.modelType === "DIMENSION") {
+        if (!dataModel.value.dimensionKind) {
+          dataModel.value.dimensionKind = "NORMAL";
+        }
+      } else {
+        dataModel.value.dimensionKind = "NORMAL";
+        dataModel.value.levelCount = null;
+      }
+      syncHierarchyFields();
+    };
+
+    const onDimensionKindChange = () => {
+      if (
+        dataModel.value.dimensionKind === "HIERARCHY" &&
+        !dataModel.value.levelCount
+      ) {
+        dataModel.value.levelCount = 1;
+      }
+      syncHierarchyFields();
+    };
+
+    const onLevelCountChange = () => {
+      syncHierarchyFields();
+    };
+
     const addField = () => {
       const newField = new ModelField();
       newField.modelId = dataModel.value.id || undefined;
@@ -196,6 +332,7 @@ export default defineComponent({
       newField.isPartitionKey = false;
       newField.isPrimaryKey = false;
       fields.value.push(newField);
+      reorderGeneratedLast();
     };
 
     const handlePrimaryKeyChange = (row: IModelField) => {
@@ -228,10 +365,7 @@ export default defineComponent({
 
     const mapJdbcTypeToFieldType = (jdbcType: string): string => {
       const type = (jdbcType || "").toUpperCase();
-      if (
-        type.includes("TEXT") ||
-        type.includes("CLOB")
-      ) {
+      if (type.includes("TEXT") || type.includes("CLOB")) {
         return "TEXT";
       }
       if (
@@ -266,7 +400,11 @@ export default defineComponent({
       ) {
         return "DECIMAL";
       }
-      if (type.includes("DATE") && !type.includes("DATETIME") && !type.includes("TIMESTAMP")) {
+      if (
+        type.includes("DATE") &&
+        !type.includes("DATETIME") &&
+        !type.includes("TIMESTAMP")
+      ) {
         return "DATE";
       }
       if (
@@ -284,14 +422,14 @@ export default defineComponent({
       ) {
         return "BINARY";
       }
-        if (
-          type.includes("BLOB") ||
-          type.includes("LONGBLOB") ||
-          type.includes("MEDIUMBLOB") ||
-          type.includes("TINYBLOB")
-        ) {
-          return "BLOB";
-        }
+      if (
+        type.includes("BLOB") ||
+        type.includes("LONGBLOB") ||
+        type.includes("MEDIUMBLOB") ||
+        type.includes("TINYBLOB")
+      ) {
+        return "BLOB";
+      }
       if (type.includes("BOOL") || type.includes("BIT")) {
         return "BOOLEAN";
       }
@@ -352,7 +490,7 @@ export default defineComponent({
         const res = await dataSourceService().getTables(dataSourceId, schema);
         const tables = res.data || res || [];
         importTables.value = tables.map((t: any) =>
-          typeof t === "string" ? t : t.table ?? t.tableName ?? t.name ?? t,
+          typeof t === "string" ? t : (t.table ?? t.tableName ?? t.name ?? t),
         );
       } catch (err) {
         alertService.showHttpError(err.response);
@@ -370,12 +508,18 @@ export default defineComponent({
       }
       importFieldsLoading.value = true;
       try {
-        const res = await dataSourceService().getFields(dataSourceId, schema, table);
+        const res = await dataSourceService().getFields(
+          dataSourceId,
+          schema,
+          table,
+        );
         const columns = res.data || res || [];
         importSourceFields.value = columns.map((col: any, index: number) => ({
           tempId: `import_${index}`,
           fieldName: col.columnName || col.name || col.field || "",
-          fieldType: mapJdbcTypeToFieldType(col.dataType || col.type || col.typeName || ""),
+          fieldType: mapJdbcTypeToFieldType(
+            col.dataType || col.type || col.typeName || "",
+          ),
           _rawType: col.dataType || col.type || col.typeName || "",
           fieldLength: col.length ?? col.columnSize ?? col.size ?? null,
           fieldPrecision: col.precision ?? null,
@@ -452,9 +596,7 @@ export default defineComponent({
         }
       }
       fields.value.push(...newFields);
-      for (let i = 0; i < fields.value.length; i++) {
-        fields.value[i].sortOrder = i;
-      }
+      reorderGeneratedLast();
       importDialogVisible.value = false;
     };
 
@@ -480,7 +622,9 @@ export default defineComponent({
             dataSourceId = null;
           }
           if (dataSourceId && !schemaName) {
-            const defaultDs = registerAvailableDataSources.value.find((d) => d.id === dataSourceId);
+            const defaultDs = registerAvailableDataSources.value.find(
+              (d) => d.id === dataSourceId,
+            );
             schemaName = defaultDs?.schemaName || null;
           }
         }
@@ -519,10 +663,19 @@ export default defineComponent({
         if (registerSchemas.value.length === 0) {
           registerSchemas.value = ["public"];
         }
-        const selectedDs = registerAvailableDataSources.value.find((d) => d.id === dataSourceId);
-        const candidates = [previousSchema, dataModel.value.schemaName, selectedDs?.schemaName];
-        const matched = candidates.find((s) => s && registerSchemas.value.includes(s));
-        registerSelectedSchema.value = matched || registerSchemas.value[0] || null;
+        const selectedDs = registerAvailableDataSources.value.find(
+          (d) => d.id === dataSourceId,
+        );
+        const candidates = [
+          previousSchema,
+          dataModel.value.schemaName,
+          selectedDs?.schemaName,
+        ];
+        const matched = candidates.find(
+          (s) => s && registerSchemas.value.includes(s),
+        );
+        registerSelectedSchema.value =
+          matched || registerSchemas.value[0] || null;
         if (registerSelectedSchema.value) {
           await onRegisterSchemaChange();
         }
@@ -543,9 +696,12 @@ export default defineComponent({
         const res = await dataSourceService().getTables(dataSourceId, schema);
         const tables = res.data || res || [];
         registerTables.value = tables.map((t: any) =>
-          typeof t === "string" ? t : t.table ?? t.tableName ?? t.name ?? t,
+          typeof t === "string" ? t : (t.table ?? t.tableName ?? t.name ?? t),
         );
-        if (dataModel.value.tableName && registerTables.value.includes(dataModel.value.tableName)) {
+        if (
+          dataModel.value.tableName &&
+          registerTables.value.includes(dataModel.value.tableName)
+        ) {
           registerSelectedTable.value = dataModel.value.tableName;
           await onRegisterTableChange(true);
         }
@@ -563,17 +719,25 @@ export default defineComponent({
       }
       registerFieldsLoading.value = true;
       try {
-        const res = await dataSourceService().getFields(dataSourceId, schema, table);
+        const res = await dataSourceService().getFields(
+          dataSourceId,
+          schema,
+          table,
+        );
         const columns = res.data || res || [];
         const newFields = columns.map((col: any, index: number) => {
           const newField = new ModelField();
           newField.modelId = dataModel.value.id || undefined;
           newField.fieldName = col.columnName || col.name || col.field || "";
-          newField.fieldType = mapJdbcTypeToFieldType(col.dataType || col.type || col.typeName || "");
-          newField.fieldLength = col.length ?? col.columnSize ?? col.size ?? null;
+          newField.fieldType = mapJdbcTypeToFieldType(
+            col.dataType || col.type || col.typeName || "",
+          );
+          newField.fieldLength =
+            col.length ?? col.columnSize ?? col.size ?? null;
           newField.fieldPrecision = col.precision ?? null;
           newField.fieldScale = col.scale ?? null;
-          newField.description = col.remarks || col.comment || col.description || "";
+          newField.description =
+            col.remarks || col.comment || col.description || "";
           newField.sortOrder = index;
           newField.isPartitionKey = false;
           newField.isPrimaryKey = !!(col.primaryKey ?? col.isPrimaryKey);
@@ -643,6 +807,11 @@ export default defineComponent({
       previousState,
       getDimensionFields,
       handleDimensionModelChange,
+      fieldRoleLabel,
+      isGeneratedField,
+      onModelTypeChange,
+      onDimensionKindChange,
+      onLevelCountChange,
       addField,
       removeField,
       handlePrimaryKeyChange,
@@ -686,8 +855,14 @@ export default defineComponent({
       this.isSaving = true;
       try {
         if (this.modelMode === "register") {
-          if (!this.registerSelectedDataSourceId || !this.registerSelectedSchema || !this.registerSelectedTable) {
-            this.alertService.showWarning("注册模式下请选择完整的数据源、Schema和数据表");
+          if (
+            !this.registerSelectedDataSourceId ||
+            !this.registerSelectedSchema ||
+            !this.registerSelectedTable
+          ) {
+            this.alertService.showWarning(
+              "注册模式下请选择完整的数据源、Schema和数据表",
+            );
             this.isSaving = false;
             return;
           }

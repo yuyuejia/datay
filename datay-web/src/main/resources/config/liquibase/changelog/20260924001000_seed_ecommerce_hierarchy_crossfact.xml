@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <property name="ecNow2" value="now()" dbms="h2"/>
+    <property name="ecNow2" value="NOW(3)" dbms="mysql"/>
+
+    <!-- 1. 商品品类层级维度（3 级：一级/二级/三级品类） -->
+    <changeSet id="20260924001000-1" author="datafusion">
+        <insert tableName="data_model">
+            <column name="id" valueNumeric="3005"/>
+            <column name="name" value="商品品类层级维度"/>
+            <column name="code" value="dim_category"/>
+            <column name="description" value="商品品类层级维度（一级/二级/三级品类），末级为叶子品类，供指标按任意层级汇总。"/>
+            <column name="directory_id" valueNumeric="1003"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="dimension_kind" value="HIERARCHY"/>
+            <column name="level_count" valueNumeric="3"/>
+            <column name="is_registered" valueBoolean="false"/>
+            <column name="project" value="retail"/>
+            <column name="schema_name" value="main"/>
+            <column name="table_name" value="dim_category"/>
+            <column name="data_source_id" valueNumeric="1600"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20260924001000-2" author="datafusion">
+        <!-- level1 -->
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7000"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level1_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="一级层级ID"/>
+            <column name="sort_order" valueNumeric="1"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="1"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7001"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level1_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="一级层级名称"/>
+            <column name="sort_order" valueNumeric="2"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="1"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <!-- level2 -->
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7002"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level2_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="二级层级ID"/>
+            <column name="sort_order" valueNumeric="3"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="2"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7003"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level2_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="二级层级名称"/>
+            <column name="sort_order" valueNumeric="4"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="2"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <!-- level3 -->
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7004"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level3_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="三级层级ID"/>
+            <column name="sort_order" valueNumeric="5"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="3"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7005"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="level3_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="三级层级名称"/>
+            <column name="sort_order" valueNumeric="6"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="3"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <!-- member (primary key) -->
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7006"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="member_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="成员ID(末级)"/>
+            <column name="sort_order" valueNumeric="7"/>
+            <column name="is_primary_key" valueBoolean="true"/>
+            <column name="field_role" value="MEMBER_ID"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7007"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="member_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="成员名称(末级)"/>
+            <column name="sort_order" valueNumeric="8"/>
+            <column name="field_role" value="MEMBER_NAME"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7008"/>
+            <column name="model_id" valueNumeric="3005"/>
+            <column name="field_name" value="hierarchy"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="500"/>
+            <column name="description" value="层级字段"/>
+            <column name="sort_order" valueNumeric="9"/>
+            <column name="field_role" value="HIERARCHY"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <!-- 3. 事实表关联层级维度：category_id -> dim_category.member_id -->
+    <changeSet id="20260924001000-3" author="datafusion">
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7009"/>
+            <column name="model_id" valueNumeric="3101"/>
+            <column name="field_name" value="category_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="末级品类成员ID(关联商品品类层级维度)"/>
+            <column name="sort_order" valueNumeric="90"/>
+            <column name="dimension_model_id" valueNumeric="3005"/>
+            <column name="dimension_field_id" valueNumeric="7006"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <!-- 4. 跨事实表指标：订单事实表（3100）指标 -->
+    <changeSet id="20260924001000-4" author="datafusion">
+        <insert tableName="dp_metric">
+            <column name="id" valueNumeric="2618"/>
+            <column name="name" value="订单金额"/>
+            <column name="code" value="order_amount"/>
+            <column name="description" value="订单原始金额合计（订单事实表）。"/>
+            <column name="directory_id" valueNumeric="2510"/>
+            <column name="metric_type" value="ATOMIC"/>
+            <column name="status" value="ENABLED"/>
+            <column name="fact_model_id" valueNumeric="3100"/>
+            <column name="unit" value="元"/>
+            <column name="data_type" value="DECIMAL"/>
+            <column name="is_additive" valueBoolean="true"/>
+            <column name="formula" value="SUM(order_amount)"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="dp_metric">
+            <column name="id" valueNumeric="2619"/>
+            <column name="name" value="订单实付金额"/>
+            <column name="code" value="order_pay_amount"/>
+            <column name="description" value="订单实付金额合计（订单事实表）。"/>
+            <column name="directory_id" valueNumeric="2510"/>
+            <column name="metric_type" value="ATOMIC"/>
+            <column name="status" value="ENABLED"/>
+            <column name="fact_model_id" valueNumeric="3100"/>
+            <column name="unit" value="元"/>
+            <column name="data_type" value="DECIMAL"/>
+            <column name="is_additive" valueBoolean="true"/>
+            <column name="formula" value="SUM(pay_amount)"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="dp_metric">
+            <column name="id" valueNumeric="2620"/>
+            <column name="name" value="订单数"/>
+            <column name="code" value="order_num"/>
+            <column name="description" value="去重订单数量（订单事实表）。"/>
+            <column name="directory_id" valueNumeric="2510"/>
+            <column name="metric_type" value="ATOMIC"/>
+            <column name="status" value="ENABLED"/>
+            <column name="fact_model_id" valueNumeric="3100"/>
+            <column name="unit" value="单"/>
+            <column name="data_type" value="LONG"/>
+            <column name="is_additive" valueBoolean="false"/>
+            <column name="formula" value="COUNT(DISTINCT order_id)"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="dp_metric">
+            <column name="id" valueNumeric="2621"/>
+            <column name="name" value="平均订单金额"/>
+            <column name="code" value="avg_order_amount"/>
+            <column name="description" value="平均订单金额 = 订单实付金额 / 订单数（订单事实表）。"/>
+            <column name="directory_id" valueNumeric="2510"/>
+            <column name="metric_type" value="DERIVED"/>
+            <column name="status" value="ENABLED"/>
+            <column name="unit" value="元"/>
+            <column name="data_type" value="DECIMAL"/>
+            <column name="is_additive" valueBoolean="false"/>
+            <column name="formula" value="${order_pay_amount} / ${order_num}"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <!-- 5. 层级维度同步 ETL 任务 -->
+    <changeSet id="20260924001000-5" author="datafusion">
+        <insert tableName="dp_etl_task">
+            <column name="id" valueNumeric="2405"/>
+            <column name="task_name" value="电商-商品品类层级同步"/>
+            <column name="task_code" value="EC_DIM_CATEGORY_SYNC"/>
+            <column name="task_desc" value="从文件 dim_category.csv 同步商品品类层级维度到数据模型 dim_category。"/>
+            <column name="dir" value="电商同步"/>
+            <column name="type" value="0"/>
+            <column name="status" value="OFFLINE"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="creater" value="admin"/>
+            <column name="project" value="0"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20260924001000-6" author="datafusion">
+        <insert tableName="dp_etl_node">
+            <column name="task_id" value="2405"/>
+            <column name="label" value="品类文件"/>
+            <column name="code" value="EC_CAT_IN"/>
+            <column name="jhi_desc" value="读取 dim_category.csv"/>
+            <column name="type" value="FileInput"/>
+            <column name="config" value='{"filePath":"model/dim_category.csv","format":"csv","csvHasHeader":true}'/>
+            <column name="x_axis" value="120"/>
+            <column name="y_axis" value="120"/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+        <insert tableName="dp_etl_node">
+            <column name="task_id" value="2405"/>
+            <column name="label" value="品类层级维度写入"/>
+            <column name="code" value="EC_CAT_OUT"/>
+            <column name="jhi_desc" value="写入 dim_category 模型"/>
+            <column name="type" value="ModelWrite"/>
+            <column name="config" value='{"modelId":3005,"model":"overwrite"}'/>
+            <column name="x_axis" value="460"/>
+            <column name="y_axis" value="120"/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="${ecNow2}"/>
+            <column name="update_time" valueComputed="${ecNow2}"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+        <insert tableName="dp_etl_edge">
+            <column name="task_id" value="2405"/>
+            <column name="name" value="品类层级同步"/>
+            <column name="code" value="EC_EDGE_CAT"/>
+            <column name="source" value="EC_CAT_IN"/>
+            <column name="target" value="EC_CAT_OUT"/>
+            <column name="config" value="{}"/>
+            <column name="status" value="0"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

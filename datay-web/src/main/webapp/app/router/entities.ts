@@ -78,6 +78,9 @@ const DataModelList = () => import("@/entities/data-model/data-model.vue");
 const DataModelUpdate = () =>
   import("@/entities/data-model/data-model-update.vue");
 
+const MetricList = () => import("@/entities/metric/metric.vue");
+const MetricUpdate = () => import("@/entities/metric/metric-update.vue");
+
 const DataApiList = () => import("@/entities/data-api/data-api.vue");
 const DataApiUpdate = () => import("@/entities/data-api/data-api-update.vue");
 
@@ -440,6 +443,24 @@ export default {
       path: "data-model/:dataModelId/edit",
       name: "DataModelEdit",
       component: DataModelUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "metric",
+      name: "Metric",
+      component: MetricList,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "metric/new",
+      name: "MetricCreate",
+      component: MetricUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "metric/:metricId/edit",
+      name: "MetricEdit",
+      component: MetricUpdate,
       meta: { authorities: [Authority.USER] },
     },
     {

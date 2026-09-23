@@ -1,0 +1,13 @@
+level1_id,level1_name,level2_id,level2_name,level3_id,level3_name,member_id,member_name,hierarchy
+L1_ELEC,电子产品,L2_PHONE,手机,C_ELEC_PHONE_SMART,智能手机,C_ELEC_PHONE_SMART,智能手机,电子产品/手机/智能手机
+L1_ELEC,电子产品,L2_PC,电脑,C_ELEC_PC_LAPTOP,笔记本电脑,C_ELEC_PC_LAPTOP,笔记本电脑,电子产品/电脑/笔记本电脑
+L1_ELEC,电子产品,L2_EAR,耳机,C_ELEC_EAR_WIRELESS,无线耳机,C_ELEC_EAR_WIRELESS,无线耳机,电子产品/耳机/无线耳机
+L1_ELEC,电子产品,L2_EAR,耳机,C_ELEC_EAR_ANC,降噪耳机,C_ELEC_EAR_ANC,降噪耳机,电子产品/耳机/降噪耳机
+L1_ELEC,电子产品,L2_TV,电视,C_ELEC_TV_SMART,智能电视,C_ELEC_TV_SMART,智能电视,电子产品/电视/智能电视
+L1_APPAREL,服装,L2_SPORT,运动服饰,C_APPAREL_SPORT_TEE,T恤,C_APPAREL_SPORT_TEE,T恤,服装/运动服饰/T恤
+L1_APPAREL,服装,L2_SPORT,运动服饰,C_APPAREL_SPORT_COAT,外套,C_APPAREL_SPORT_COAT,外套,服装/运动服饰/外套
+L1_APPAREL,服装,L2_SHOES,鞋类,C_APPAREL_SHOES_RUN,跑步鞋,C_APPAREL_SHOES_RUN,跑步鞋,服装/鞋类/跑步鞋
+L1_DAILY,日用百货,L2_CARE,洗护用品,C_DAILY_CARE_BODY,沐浴露,C_DAILY_CARE_BODY,沐浴露,日用百货/洗护用品/沐浴露
+L1_DAILY,日用百货,L2_CARE,洗护用品,C_DAILY_CARE_HAIR,洗发水,C_DAILY_CARE_HAIR,洗发水,日用百货/洗护用品/洗发水
+L1_FOOD,食品饮料,L2_COFFEE,咖啡,C_FOOD_COFFEE_INST,速溶咖啡,C_FOOD_COFFEE_INST,速溶咖啡,食品饮料/咖啡/速溶咖啡
+L1_FOOD,食品饮料,L2_SODA,碳酸饮料,C_FOOD_SODA_COLA,可乐,C_FOOD_SODA_COLA,可乐,食品饮料/碳酸饮料/可乐

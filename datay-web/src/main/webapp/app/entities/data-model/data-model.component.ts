@@ -1,4 +1,12 @@
-import { type Ref, defineComponent, inject, nextTick, onMounted, ref, computed } from "vue";
+import {
+  type Ref,
+  defineComponent,
+  inject,
+  nextTick,
+  onMounted,
+  ref,
+  computed,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import DataModelService from "./data-model.service";
@@ -116,7 +124,9 @@ export default defineComponent({
         materializeForm.value.dataSourceId !== null &&
         materializeForm.value.tableName.trim() !== "" &&
         materializeFields.value.length > 0 &&
-        materializeFields.value.every((f) => f.physicalType && f.physicalType.trim() !== "")
+        materializeFields.value.every(
+          (f) => f.physicalType && f.physicalType.trim() !== "",
+        )
       );
     });
 
@@ -133,15 +143,21 @@ export default defineComponent({
     });
 
     const needsMaterializeLength = (logicalType: string) => {
-      return FIELD_TYPES_WITH_LENGTH_ONLY.includes((logicalType || "").toUpperCase());
+      return FIELD_TYPES_WITH_LENGTH_ONLY.includes(
+        (logicalType || "").toUpperCase(),
+      );
     };
 
     const needsMaterializePrecision = (logicalType: string) => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((logicalType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (logicalType || "").toUpperCase(),
+      );
     };
 
     const needsMaterializeScale = (logicalType: string) => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((logicalType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (logicalType || "").toUpperCase(),
+      );
     };
 
     const openMaterializeDialog = async () => {
@@ -155,7 +171,11 @@ export default defineComponent({
       materializeForm.value = {
         dataSourceId: selectedModel.value.dataSourceId ?? null,
         schemaName: selectedModel.value.schemaName || "",
-        tableName: selectedModel.value.tableName || selectedModel.value.code || selectedModel.value.name || "",
+        tableName:
+          selectedModel.value.tableName ||
+          selectedModel.value.code ||
+          selectedModel.value.name ||
+          "",
       };
       materializeFields.value = [];
       materializeSchemas.value = [];
@@ -175,7 +195,9 @@ export default defineComponent({
           materializeForm.value.dataSourceId = defaultWarehouseId.value;
         }
         if (!materializeForm.value.schemaName) {
-          const ds = dataSources.value.find(d => d.id === materializeForm.value.dataSourceId);
+          const ds = dataSources.value.find(
+            (d) => d.id === materializeForm.value.dataSourceId,
+          );
           if (ds?.schemaName) {
             materializeForm.value.schemaName = ds.schemaName;
           }
@@ -197,11 +219,15 @@ export default defineComponent({
       materializeDDLPreview.value = "";
 
       try {
-        const res = await dataModelService().getMaterializeFields(selectedModel.value!.id!, dsId);
+        const res = await dataModelService().getMaterializeFields(
+          selectedModel.value!.id!,
+          dsId,
+        );
         materializeFields.value = res.data || [];
 
         try {
-          const typeRes = await dataModelService().getSupportedPhysicalTypes(dsId);
+          const typeRes =
+            await dataModelService().getSupportedPhysicalTypes(dsId);
           materializePhysicalTypes.value = typeRes.data || [];
         } catch (e) {
           materializePhysicalTypes.value = [];
@@ -214,16 +240,26 @@ export default defineComponent({
             materializeSchemas.value = ["public"];
           }
           const currentSchema = materializeForm.value.schemaName;
-          if (currentSchema && materializeSchemas.value.includes(currentSchema)) {
+          if (
+            currentSchema &&
+            materializeSchemas.value.includes(currentSchema)
+          ) {
             materializeForm.value.schemaName = currentSchema;
           } else {
-            const defaultDs = dataSources.value.find(d => d.id === defaultWarehouseId.value);
-            const selectedDs = dataSources.value.find(d => d.id === dsId);
-            const fallbackSchema = defaultDs?.schemaName || selectedDs?.schemaName;
-            if (fallbackSchema && materializeSchemas.value.includes(fallbackSchema)) {
+            const defaultDs = dataSources.value.find(
+              (d) => d.id === defaultWarehouseId.value,
+            );
+            const selectedDs = dataSources.value.find((d) => d.id === dsId);
+            const fallbackSchema =
+              defaultDs?.schemaName || selectedDs?.schemaName;
+            if (
+              fallbackSchema &&
+              materializeSchemas.value.includes(fallbackSchema)
+            ) {
               materializeForm.value.schemaName = fallbackSchema;
             } else {
-              materializeForm.value.schemaName = materializeSchemas.value[0] || "";
+              materializeForm.value.schemaName =
+                materializeSchemas.value[0] || "";
             }
           }
         } catch (e) {
@@ -240,14 +276,21 @@ export default defineComponent({
     };
 
     const checkMaterializeTableExists = async () => {
-      if (!materializeForm.value.dataSourceId || !materializeForm.value.tableName) return;
+      if (
+        !materializeForm.value.dataSourceId ||
+        !materializeForm.value.tableName
+      )
+        return;
 
       try {
-        const res = await dataModelService().checkMaterialize(selectedModel.value!.id!, {
-          dataSourceId: materializeForm.value.dataSourceId,
-          schemaName: materializeForm.value.schemaName,
-          tableName: materializeForm.value.tableName,
-        });
+        const res = await dataModelService().checkMaterialize(
+          selectedModel.value!.id!,
+          {
+            dataSourceId: materializeForm.value.dataSourceId,
+            schemaName: materializeForm.value.schemaName,
+            tableName: materializeForm.value.tableName,
+          },
+        );
         materializeTableExists.value = res.data?.tableExists || false;
       } catch (err) {
         console.warn("检查表存在性失败", err);
@@ -261,12 +304,15 @@ export default defineComponent({
       }
       materializeLoading.value = true;
       try {
-        const res = await dataModelService().generateMaterializeDDL(selectedModel.value!.id!, {
-          dataSourceId: materializeForm.value.dataSourceId,
-          schemaName: materializeForm.value.schemaName,
-          tableName: materializeForm.value.tableName,
-          fields: materializeFields.value,
-        });
+        const res = await dataModelService().generateMaterializeDDL(
+          selectedModel.value!.id!,
+          {
+            dataSourceId: materializeForm.value.dataSourceId,
+            schemaName: materializeForm.value.schemaName,
+            tableName: materializeForm.value.tableName,
+            fields: materializeFields.value,
+          },
+        );
         materializeDDLPreview.value = res.data?.ddl || res.data || "";
       } catch (err) {
         alertService.showHttpError(err.response);
@@ -283,19 +329,26 @@ export default defineComponent({
 
       materializeLoading.value = true;
       try {
-        const res = await dataModelService().materialize(selectedModel.value!.id!, {
-          dataSourceId: materializeForm.value.dataSourceId,
-          schemaName: materializeForm.value.schemaName,
-          tableName: materializeForm.value.tableName,
-          overwrite: true,
-          fields: materializeFields.value,
-        });
+        const res = await dataModelService().materialize(
+          selectedModel.value!.id!,
+          {
+            dataSourceId: materializeForm.value.dataSourceId,
+            schemaName: materializeForm.value.schemaName,
+            tableName: materializeForm.value.tableName,
+            overwrite: true,
+            fields: materializeFields.value,
+          },
+        );
 
         const result = res.data;
         if (result?.success) {
-          alertService.showSuccess(`物化成功！已生成表 ${materializeForm.value.schemaName ? materializeForm.value.schemaName + '.' : ''}${materializeForm.value.tableName}`);
+          alertService.showSuccess(
+            `物化成功！已生成表 ${materializeForm.value.schemaName ? materializeForm.value.schemaName + "." : ""}${materializeForm.value.tableName}`,
+          );
           materializeDialogVisible.value = false;
-          const updated = await dataModelService().find(selectedModel.value!.id!);
+          const updated = await dataModelService().find(
+            selectedModel.value!.id!,
+          );
           selectedModel.value = updated;
           const updateNode = (nodes: TreeNode[]): boolean => {
             for (const node of nodes) {
@@ -320,7 +373,9 @@ export default defineComponent({
       }
     };
 
-    const getDataSourceName = (dataSourceId: number | null | undefined): string => {
+    const getDataSourceName = (
+      dataSourceId: number | null | undefined,
+    ): string => {
       if (!dataSourceId) return "-";
       const ds = dataSources.value.find((d) => d.id === dataSourceId);
       return ds?.name || String(dataSourceId);
@@ -508,15 +563,21 @@ export default defineComponent({
     };
 
     const needsLength = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_LENGTH_ONLY.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_LENGTH_ONLY.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     const needsPrecision = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     const needsScale = (fieldType: string | null | undefined): boolean => {
-      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes((fieldType || "").toUpperCase());
+      return FIELD_TYPES_WITH_PRECISION_AND_SCALE.includes(
+        (fieldType || "").toUpperCase(),
+      );
     };
 
     onMounted(async () => {

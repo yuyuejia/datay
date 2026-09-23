@@ -74,8 +74,8 @@ export class DataApi implements IDataApi {
   ) {}
 }
 
-export const DATA_API_SOURCE_TYPE_TABLE = 'TABLE';
-export const DATA_API_SOURCE_TYPE_SQL = 'SQL';
-export const DATA_API_SOURCE_TYPE_API = 'API';
-export const DATA_API_STATUS_ENABLED = 'ENABLED';
-export const DATA_API_STATUS_DISABLED = 'DISABLED';
+export const DATA_API_SOURCE_TYPE_TABLE = "TABLE";
+export const DATA_API_SOURCE_TYPE_SQL = "SQL";
+export const DATA_API_SOURCE_TYPE_API = "API";
+export const DATA_API_STATUS_ENABLED = "ENABLED";
+export const DATA_API_STATUS_DISABLED = "DISABLED";

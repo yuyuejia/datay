@@ -58,6 +58,12 @@ public class ModelField implements Serializable, TenantAware {
     @Column(name = "dimension_field_id")
     private Long dimensionFieldId;
 
+    @Column(name = "field_role")
+    private String fieldRole;
+
+    @Column(name = "level_index")
+    private Integer levelIndex;
+
     @Column(name = "create_time")
     private ZonedDateTime createTime;
 
@@ -246,6 +252,32 @@ public class ModelField implements Serializable, TenantAware {
         this.dimensionFieldId = dimensionFieldId;
     }
 
+    public String getFieldRole() {
+        return this.fieldRole;
+    }
+
+    public ModelField fieldRole(String fieldRole) {
+        this.setFieldRole(fieldRole);
+        return this;
+    }
+
+    public void setFieldRole(String fieldRole) {
+        this.fieldRole = fieldRole;
+    }
+
+    public Integer getLevelIndex() {
+        return this.levelIndex;
+    }
+
+    public ModelField levelIndex(Integer levelIndex) {
+        this.setLevelIndex(levelIndex);
+        return this;
+    }
+
+    public void setLevelIndex(Integer levelIndex) {
+        this.levelIndex = levelIndex;
+    }
+
     public ZonedDateTime getCreateTime() {
         return this.createTime;
     }
@@ -304,6 +336,8 @@ public class ModelField implements Serializable, TenantAware {
             ", isPrimaryKey=" + getIsPrimaryKey() +
             ", dimensionModelId=" + getDimensionModelId() +
             ", dimensionFieldId=" + getDimensionFieldId() +
+            ", fieldRole='" + getFieldRole() + "'" +
+            ", levelIndex=" + getLevelIndex() +
             ", createTime='" + getCreateTime() + "'" +
             ", updateTime='" + getUpdateTime() + "'" +
             "}";

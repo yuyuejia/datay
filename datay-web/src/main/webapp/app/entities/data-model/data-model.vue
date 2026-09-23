@@ -83,7 +83,11 @@
           <div class="detail-header">
             <h4>{{ selectedModel.name }}</h4>
             <div class="detail-actions">
-              <el-button type="warning" size="small" @click="openMaterializeDialog">
+              <el-button
+                type="warning"
+                size="small"
+                @click="openMaterializeDialog"
+              >
                 <font-awesome-icon icon="database" /> 物化
               </el-button>
               <router-link
@@ -121,16 +125,15 @@
                 </el-col>
                 <el-col :span="8">
                   <el-form-item label="模型编码">
-                    <span class="detail-value">{{ selectedModel.code || '-' }}</span>
+                    <span class="detail-value">{{
+                      selectedModel.code || "-"
+                    }}</span>
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
                   <el-form-item label="模型类型">
                     <span class="detail-value">
-                      <el-tag
-                        :type="modelTypeTagType"
-                        size="small"
-                      >
+                      <el-tag :type="modelTypeTagType" size="small">
                         {{ modelTypeLabel }}
                       </el-tag>
                     </span>
@@ -145,34 +148,50 @@
                         :type="selectedModel.isRegistered ? 'success' : 'info'"
                         size="small"
                       >
-                        {{ selectedModel.isRegistered ? '注册模式' : '普通模式' }}
+                        {{
+                          selectedModel.isRegistered ? "注册模式" : "普通模式"
+                        }}
                       </el-tag>
                     </span>
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
                   <el-form-item label="创建时间">
-                    <span class="detail-value">{{ formatDateLong(selectedModel.createTime) || '-' }}</span>
+                    <span class="detail-value">{{
+                      formatDateLong(selectedModel.createTime) || "-"
+                    }}</span>
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
                   <el-form-item label="更新时间">
-                    <span class="detail-value">{{ formatDateLong(selectedModel.updateTime) || '-' }}</span>
+                    <span class="detail-value">{{
+                      formatDateLong(selectedModel.updateTime) || "-"
+                    }}</span>
                   </el-form-item>
                 </el-col>
               </el-row>
               <el-row v-if="selectedModel.dataSourceId" :gutter="20">
                 <el-col :span="8">
                   <el-form-item label="数据源">
-                    <span class="detail-value">{{ getDataSourceName(selectedModel.dataSourceId) }}</span>
+                    <span class="detail-value">{{
+                      getDataSourceName(selectedModel.dataSourceId)
+                    }}</span>
                   </el-form-item>
                 </el-col>
                 <el-col :span="16">
                   <el-form-item label="物理表">
                     <span class="detail-value">
-                      <code v-if="selectedModel.schemaName" class="table-schema">{{ selectedModel.schemaName }}</code>
-                      <span v-if="selectedModel.schemaName" class="table-dot">.</span>
-                      <code class="table-name">{{ selectedModel.tableName || '-' }}</code>
+                      <code
+                        v-if="selectedModel.schemaName"
+                        class="table-schema"
+                        >{{ selectedModel.schemaName }}</code
+                      >
+                      <span v-if="selectedModel.schemaName" class="table-dot"
+                        >.</span
+                      >
+                      <code class="table-name">{{
+                        selectedModel.tableName || "-"
+                      }}</code>
                     </span>
                   </el-form-item>
                 </el-col>
@@ -180,7 +199,9 @@
               <el-row :gutter="20">
                 <el-col :span="24">
                   <el-form-item label="描述">
-                    <span class="detail-value detail-description">{{ selectedModel.description || '-' }}</span>
+                    <span class="detail-value detail-description">{{
+                      selectedModel.description || "-"
+                    }}</span>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -204,25 +225,25 @@
               </el-table-column>
               <el-table-column label="长度" width="80">
                 <template #default="{ row }">
-                  <span v-if="needsLength(row.fieldType)"
-                    >{{ row.fieldLength ?? "-" }}</span
-                  >
+                  <span v-if="needsLength(row.fieldType)">{{
+                    row.fieldLength ?? "-"
+                  }}</span>
                   <span v-else class="muted">-</span>
                 </template>
               </el-table-column>
               <el-table-column label="精度" width="80">
                 <template #default="{ row }">
-                  <span v-if="needsPrecision(row.fieldType)"
-                    >{{ row.fieldPrecision ?? "-" }}</span
-                  >
+                  <span v-if="needsPrecision(row.fieldType)">{{
+                    row.fieldPrecision ?? "-"
+                  }}</span>
                   <span v-else class="muted">-</span>
                 </template>
               </el-table-column>
               <el-table-column label="小数位" width="80">
                 <template #default="{ row }">
-                  <span v-if="needsScale(row.fieldType)"
-                    >{{ row.fieldScale ?? "-" }}</span
-                  >
+                  <span v-if="needsScale(row.fieldType)">{{
+                    row.fieldScale ?? "-"
+                  }}</span>
                   <span v-else class="muted">-</span>
                 </template>
               </el-table-column>
@@ -335,11 +356,9 @@
                   @change="onDataSourceChange"
                 >
                   <option :value="null" disabled>请选择数据源</option>
-                  <option
-                    v-for="ds in dataSources"
-                    :key="ds.id"
-                    :value="ds.id"
-                  >{{ ds.name }} ({{ ds.type }})</option>
+                  <option v-for="ds in dataSources" :key="ds.id" :value="ds.id">
+                    {{ ds.name }} ({{ ds.type }})
+                  </option>
                 </select>
               </el-form-item>
             </el-col>
@@ -356,7 +375,9 @@
                     v-for="schema in materializeSchemas"
                     :key="schema"
                     :value="schema"
-                  >{{ schema }}</option>
+                  >
+                    {{ schema }}
+                  </option>
                 </select>
                 <b-form-input
                   v-else
@@ -412,12 +433,16 @@
                   v-model="row.physicalType"
                   style="width: 100%"
                 >
-                  <option v-if="!row.physicalType" value="" disabled>选择类型</option>
+                  <option v-if="!row.physicalType" value="" disabled>
+                    选择类型
+                  </option>
                   <option
                     v-for="pt in materializePhysicalTypes"
                     :key="pt"
                     :value="pt"
-                  >{{ pt }}</option>
+                  >
+                    {{ pt }}
+                  </option>
                 </select>
               </template>
             </el-table-column>
@@ -469,7 +494,7 @@
                   type="checkbox"
                   :checked="!!row.isPrimaryKey"
                   @change="row.isPrimaryKey = !!$event.target.checked"
-                  style="width: 16px; height: 16px; cursor: pointer; margin: 0;"
+                  style="width: 16px; height: 16px; cursor: pointer; margin: 0"
                 />
               </template>
             </el-table-column>
@@ -480,11 +505,7 @@
         <div v-if="materializeDDLPreview" class="materialize-ddl-preview">
           <div class="materialize-ddl-header">
             <span>DDL 预览</span>
-            <el-button
-              link
-              size="small"
-              @click="materializeDDLPreview = ''"
-            >
+            <el-button link size="small" @click="materializeDDLPreview = ''">
               <font-awesome-icon icon="times" />
             </el-button>
           </div>
@@ -590,7 +611,6 @@
 
 .detail-panel {
   flex: 1;
-  padding: 20px;
   overflow-y: auto;
   background: #f5f7fa;
 }
@@ -619,9 +639,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e4e7ed;
 }
 
 .detail-header h4 {
@@ -662,7 +680,8 @@
 
 .table-schema,
 .table-name {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
   font-size: 13px;
   background: #f5f7fa;
   border: 1px solid #e4e7ed;

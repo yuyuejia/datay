@@ -13,6 +13,8 @@ public class DataModelDTO implements Serializable {
     private String description;
     private Long directoryId;
     private String modelType;
+    private String dimensionKind;
+    private Integer levelCount;
     private Boolean isRegistered;
     private String project;
     private String tenantId;
@@ -68,6 +70,22 @@ public class DataModelDTO implements Serializable {
 
     public void setModelType(String modelType) {
         this.modelType = modelType;
+    }
+
+    public String getDimensionKind() {
+        return dimensionKind;
+    }
+
+    public void setDimensionKind(String dimensionKind) {
+        this.dimensionKind = dimensionKind;
+    }
+
+    public Integer getLevelCount() {
+        return levelCount;
+    }
+
+    public void setLevelCount(Integer levelCount) {
+        this.levelCount = levelCount;
     }
 
     public Boolean getIsRegistered() {
@@ -159,6 +177,8 @@ public class DataModelDTO implements Serializable {
             ", description='" + getDescription() + "'" +
             ", directoryId=" + getDirectoryId() +
             ", modelType='" + getModelType() + "'" +
+            ", dimensionKind='" + getDimensionKind() + "'" +
+            ", levelCount=" + getLevelCount() +
             ", isRegistered=" + getIsRegistered() +
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +

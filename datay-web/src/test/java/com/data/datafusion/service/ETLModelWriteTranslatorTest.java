@@ -13,6 +13,7 @@ import com.data.datafusion.repository.ETLNodeRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.dto.DataModelDTO;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.ETLNodeDTO;
 import com.data.datafusion.service.dto.ETLTaskDTO;
 import com.data.datafusion.service.etl.ETLNodeTranslatorRegistry;
 import com.data.datafusion.service.etl.ModelWriteNodeTranslator;
@@ -71,6 +72,12 @@ class ETLModelWriteTranslatorTest {
         return node;
     }
 
+    private ETLTaskDTO etlTaskWithNodes() {
+        ETLTaskDTO dto = new ETLTaskDTO();
+        dto.setNodes(List.of(new ETLNodeDTO()));
+        return dto;
+    }
+
     private void mockDataModelBound() {
         DataModelDTO dataModel = new DataModelDTO();
         dataModel.setId(3001L);
@@ -94,7 +101,7 @@ class ETLModelWriteTranslatorTest {
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
         mockDataModelBound();
 
-        String jobJson = etlTaskService.generateETLJobJson(new ETLTaskDTO());
+        String jobJson = etlTaskService.generateETLJobJson(etlTaskWithNodes());
 
         assertThat(jobJson).isNotNull();
         var units = JSONUtil.parseObj(jobJson).getJSONArray("units");
@@ -113,12 +120,23 @@ class ETLModelWriteTranslatorTest {
     }
 
     @Test
+    void shouldPassDropIfTableExists() {
+        when(eTLNodeMapper.toEntity(anyList()))
+            .thenReturn(List.of(modelWriteNode("{\"modelId\":3001,\"model\":\"overwrite\",\"dropIfTableExists\":true}")));
+        when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
+        mockDataModelBound();
+
+        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(etlTaskWithNodes())).getJSONArray("units").getJSONObject(0);
+        assertThat(unit.getBool("dropIfTableExists")).isTrue();
+    }
+
+    @Test
     void shouldDefaultWriteModeToAppend() {
         when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(modelWriteNode("{\"modelId\":3001}")));
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
         mockDataModelBound();
 
-        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(new ETLTaskDTO())).getJSONArray("units").getJSONObject(0);
+        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(etlTaskWithNodes())).getJSONArray("units").getJSONObject(0);
         assertThat(unit.getStr("model")).isEqualTo("append");
     }
 
@@ -127,7 +145,7 @@ class ETLModelWriteTranslatorTest {
         when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(modelWriteNode("{}")));
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(new ETLTaskDTO()))
+        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(etlTaskWithNodes()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("未选择数据模型");
     }
@@ -142,7 +160,7 @@ class ETLModelWriteTranslatorTest {
         dataModel.setName("客户维度");
         when(dataModelService.findOne(3001L)).thenReturn(Optional.of(dataModel));
 
-        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(new ETLTaskDTO()))
+        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(etlTaskWithNodes()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("未绑定数据源");
     }
@@ -158,7 +176,7 @@ class ETLModelWriteTranslatorTest {
         dataModel.setDataSourceId(9L);
         when(dataModelService.findOne(3001L)).thenReturn(Optional.of(dataModel));
 
-        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(new ETLTaskDTO()))
+        assertThatThrownBy(() -> etlTaskService.generateETLJobJson(etlTaskWithNodes()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("未绑定物理表");
     }
@@ -172,7 +190,7 @@ class ETLModelWriteTranslatorTest {
         when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(sqlNode));
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
 
-        String jobJson = etlTaskService.generateETLJobJson(new ETLTaskDTO());
+        String jobJson = etlTaskService.generateETLJobJson(etlTaskWithNodes());
 
         var units = JSONUtil.parseObj(jobJson).getJSONArray("units");
         assertThat(units.getJSONObject(0).getStr(".name")).isEqualTo("DuckDBSql");

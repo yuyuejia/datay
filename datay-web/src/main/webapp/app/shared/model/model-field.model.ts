@@ -12,6 +12,8 @@ export interface IModelField {
   isPrimaryKey?: boolean | null;
   dimensionModelId?: number | null;
   dimensionFieldId?: number | null;
+  fieldRole?: string | null;
+  levelIndex?: number | null;
   createTime?: Date | null;
   updateTime?: Date | null;
 }
@@ -31,6 +33,8 @@ export class ModelField implements IModelField {
     public isPrimaryKey?: boolean | null,
     public dimensionModelId?: number | null,
     public dimensionFieldId?: number | null,
+    public fieldRole?: string | null,
+    public levelIndex?: number | null,
     public createTime?: Date | null,
     public updateTime?: Date | null,
   ) {}

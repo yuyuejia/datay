@@ -1,0 +1,267 @@
+package com.data.datafusion.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.data.datafusion.domain.DataModel;
+import com.data.datafusion.domain.Metric;
+import com.data.datafusion.domain.ModelField;
+import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.repository.MetricRepository;
+import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dto.MetricQueryDTO;
+import com.data.datafusion.service.dto.MetricQueryFieldDTO;
+import com.data.datafusion.service.dto.MetricQueryTimeRangeDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * {@link MetricQueryService} 查询 SQL 生成的单元测试。
+ */
+class MetricQueryServiceTest {
+
+    private MetricRepository metricRepository;
+    private DataModelRepository dataModelRepository;
+    private ModelFieldRepository modelFieldRepository;
+    private MetricQueryService metricQueryService;
+
+    private Metric salesAmount;
+    private Metric salesQuantity;
+    private Metric avgPrice;
+
+    @BeforeEach
+    void setUp() {
+        metricRepository = mock(MetricRepository.class);
+        dataModelRepository = mock(DataModelRepository.class);
+        modelFieldRepository = mock(ModelFieldRepository.class);
+        metricQueryService = new MetricQueryService(
+            metricRepository,
+            dataModelRepository,
+            modelFieldRepository,
+            mock(DataSourceService.class),
+            mock(DataSourceQueryService.class),
+            new ObjectMapper()
+        );
+
+        DataModel factModel = new DataModel();
+        factModel.setId(3101L);
+        factModel.setModelType("DWD");
+        factModel.setName("销售订单明细事实表");
+        factModel.setSchemaName("main");
+        factModel.setTableName("fact_sales_order_item");
+
+        DataModel dimProduct = new DataModel();
+        dimProduct.setId(3003L);
+        dimProduct.setName("商品维度");
+        dimProduct.setSchemaName("main");
+        dimProduct.setTableName("dim_product");
+
+        ModelField orderStatus = new ModelField();
+        orderStatus.setFieldName("order_status");
+        ModelField productSk = new ModelField();
+        productSk.setFieldName("product_sk");
+        productSk.setDimensionModelId(3003L);
+        ModelField customerSk = new ModelField();
+        customerSk.setFieldName("customer_sk");
+        customerSk.setDimensionModelId(3001L);
+        ModelField orderDateSk = new ModelField();
+        orderDateSk.setFieldName("order_date_sk");
+        ModelField category = new ModelField();
+        category.setFieldName("category_l1");
+        ModelField productPk = new ModelField();
+        productPk.setFieldName("product_sk");
+        productPk.setIsPrimaryKey(true);
+
+        DataModel dimCustomer = new DataModel();
+        dimCustomer.setId(3001L);
+        dimCustomer.setName("客户维度");
+        dimCustomer.setSchemaName("main");
+        dimCustomer.setTableName("dim_customer");
+
+        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(factModel));
+        when(dataModelRepository.findById(3003L)).thenReturn(Optional.of(dimProduct));
+        when(dataModelRepository.findById(3001L)).thenReturn(Optional.of(dimCustomer));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L))
+            .thenReturn(List.of(orderStatus, productSk, customerSk, orderDateSk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3003L)).thenReturn(List.of(productPk, category));
+
+        salesAmount = atomic(2610L, "sales_amount", "SUM(amount)");
+        salesQuantity = atomic(2611L, "sales_quantity", "SUM(quantity)");
+        avgPrice = new Metric();
+        avgPrice.setId(2615L);
+        avgPrice.setCode("avg_selling_price");
+        avgPrice.setName("平均销售价格");
+        avgPrice.setMetricType(Metric.TYPE_DERIVED);
+        avgPrice.setFormula("${sales_amount} / ${sales_quantity}");
+
+        when(metricRepository.findAll()).thenReturn(List.of(salesAmount, salesQuantity, avgPrice));
+        when(metricRepository.findById(2610L)).thenReturn(Optional.of(salesAmount));
+        when(metricRepository.findById(2615L)).thenReturn(Optional.of(avgPrice));
+    }
+
+    private Metric atomic(Long id, String code, String formula) {
+        Metric metric = new Metric();
+        metric.setId(id);
+        metric.setCode(code);
+        metric.setName(code);
+        metric.setMetricType(Metric.TYPE_ATOMIC);
+        metric.setFactModelId(3101L);
+        metric.setFormula(formula);
+        return metric;
+    }
+
+    @Test
+    void shouldBuildAtomicSqlWithDimensionFilterAndTimeRange() {
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricId(2610L);
+
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setFactFieldName("product_sk");
+        dimension.setDimensionModelId(3003L);
+        dimension.setDimensionFieldName("category_l1");
+        dto.setDimensions(List.of(dimension));
+        dto.setFilterConfig(
+            "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionModelId\":3003,\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"电子产品\",\"logic\":\"AND\"}]}"
+        );
+        MetricQueryTimeRangeDTO timeRange = new MetricQueryTimeRangeDTO();
+        timeRange.setFactFieldName("order_date_sk");
+        timeRange.setStart("20240101");
+        timeRange.setEnd("20241231");
+        dto.setTimeRange(timeRange);
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("d0.category_l1 AS category_l1");
+        assertThat(sql).doesNotContain("category_l1_1");
+        assertThat(sql).contains("AS sales_amount");
+        assertThat(sql).contains("FROM main.fact_sales_order_item f");
+        assertThat(sql).contains("LEFT JOIN main.dim_product d0 ON f.product_sk = d0.product_sk");
+        assertThat(sql).contains("GROUP BY d0.product_sk, d0.category_l1");
+        assertThat(sql).contains("d0.category_l1 = '电子产品'");
+        assertThat(sql).contains("f.order_date_sk BETWEEN 20240101 AND 20241231");
+    }
+
+    @Test
+    void shouldBuildDerivedSqlBySubstitutingReferencedMetrics() {
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricId(2615L);
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("AS avg_selling_price");
+        assertThat(sql).contains("(SUM(amount))");
+        assertThat(sql).contains("(SUM(quantity))");
+        assertThat(sql).doesNotContain("${");
+    }
+
+    @Test
+    void shouldBuildMultiFactSqlWithCommonDimensions() {
+        DataModel orderFact = new DataModel();
+        orderFact.setId(3100L);
+        orderFact.setModelType("DWD");
+        orderFact.setName("销售订单事实表");
+        orderFact.setSchemaName("main");
+        orderFact.setTableName("fact_sales_order");
+
+        ModelField orderProductSk = new ModelField();
+        orderProductSk.setFieldName("product_sk");
+        orderProductSk.setDimensionModelId(3003L);
+        ModelField orderAmount = new ModelField();
+        orderAmount.setFieldName("order_amount");
+
+        Metric orderMetric = atomic(2700L, "order_amount_metric", "SUM(order_amount)");
+        orderMetric.setFactModelId(3100L);
+
+        when(dataModelRepository.findById(3100L)).thenReturn(Optional.of(orderFact));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3100L)).thenReturn(List.of(orderProductSk, orderAmount));
+        when(metricRepository.findAll()).thenReturn(List.of(salesAmount, salesQuantity, avgPrice, orderMetric));
+        when(metricRepository.findById(2700L)).thenReturn(Optional.of(orderMetric));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricIds(List.of(2610L, 2700L));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelId(3003L);
+        dimension.setDimensionFieldName("category_l1");
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("FULL OUTER JOIN");
+        assertThat(sql).contains("COALESCE");
+        assertThat(sql).contains("t0.key_0 = t1.key_0");
+        assertThat(sql).contains("dim_0_category_l1");
+        assertThat(sql).contains("t0.sales_amount");
+        assertThat(sql).contains("t1.order_amount_metric");
+        assertThat(sql).contains("main.fact_sales_order_item");
+        assertThat(sql).contains("main.fact_sales_order");
+    }
+
+    @Test
+    void shouldAggregateHierarchyDimensionByLevel() {
+        DataModel dimRegion = new DataModel();
+        dimRegion.setId(4000L);
+        dimRegion.setName("地区维度");
+        dimRegion.setSchemaName("main");
+        dimRegion.setTableName("dim_region");
+        dimRegion.setDimensionKind("HIERARCHY");
+        dimRegion.setLevelCount(2);
+
+        ModelField regionSk = new ModelField();
+        regionSk.setFieldName("region_sk");
+        regionSk.setDimensionModelId(4000L);
+
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(regionSk));
+        when(dataModelRepository.findById(4000L)).thenReturn(Optional.of(dimRegion));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(4000L))
+            .thenReturn(
+                List.of(
+                    hierarchyField("level1_id", "LEVEL_ID", 1, false),
+                    hierarchyField("level1_name", "LEVEL_NAME", 1, false),
+                    hierarchyField("level2_id", "LEVEL_ID", 2, false),
+                    hierarchyField("level2_name", "LEVEL_NAME", 2, false),
+                    hierarchyField("member_id", "MEMBER_ID", null, true),
+                    hierarchyField("member_name", "MEMBER_NAME", null, false),
+                    hierarchyField("hierarchy", "HIERARCHY", null, false)
+                )
+            );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricIds(List.of(2610L));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelId(4000L);
+        dimension.setLevelIndex(1);
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("LEFT JOIN main.dim_region d0 ON f.region_sk = d0.member_id");
+        assertThat(sql).contains("d0.level1_name AS level1_name");
+        assertThat(sql).contains("GROUP BY d0.level1_id, d0.level1_name");
+    }
+
+    private ModelField hierarchyField(String name, String role, Integer levelIndex, boolean primaryKey) {
+        ModelField field = new ModelField();
+        field.setFieldName(name);
+        field.setFieldRole(role);
+        field.setLevelIndex(levelIndex);
+        field.setIsPrimaryKey(primaryKey);
+        return field;
+    }
+
+    @Test
+    void shouldReturnAssociatedDimensionsInQueryMeta() {
+        when(metricRepository.findById(2610L)).thenReturn(Optional.of(salesAmount));
+        MetricQueryDTO request = new MetricQueryDTO();
+        request.setMetricIds(List.of(2610L));
+        Map<String, Object> meta = metricQueryService.queryMeta(request);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
+        assertThat(dimensions).hasSize(2);
+        assertThat(dimensions.get(0))
+            .containsEntry("dimensionModelId", 3003L)
+            .containsEntry("dimensionModelName", "商品维度")
+            .containsEntry("factFieldName", "product_sk");
+        assertThat(dimensions.get(1)).containsEntry("dimensionModelId", 3001L).containsEntry("factFieldName", "customer_sk");
+    }
+}

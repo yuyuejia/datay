@@ -20,6 +20,8 @@ public class ModelFieldDTO implements Serializable {
     private Boolean isPrimaryKey;
     private Long dimensionModelId;
     private Long dimensionFieldId;
+    private String fieldRole;
+    private Integer levelIndex;
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
@@ -125,6 +127,22 @@ public class ModelFieldDTO implements Serializable {
 
     public void setDimensionFieldId(Long dimensionFieldId) {
         this.dimensionFieldId = dimensionFieldId;
+    }
+
+    public String getFieldRole() {
+        return fieldRole;
+    }
+
+    public void setFieldRole(String fieldRole) {
+        this.fieldRole = fieldRole;
+    }
+
+    public Integer getLevelIndex() {
+        return levelIndex;
+    }
+
+    public void setLevelIndex(Integer levelIndex) {
+        this.levelIndex = levelIndex;
     }
 
     public ZonedDateTime getCreateTime() {

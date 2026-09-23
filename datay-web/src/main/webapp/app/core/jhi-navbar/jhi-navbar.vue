@@ -63,9 +63,19 @@
         <b-nav-item v-if="authenticated" to="/etl-task" exact>
           <span>数据集成</span>
         </b-nav-item>
-        <b-nav-item v-if="authenticated" to="/data-model" exact>
-          <span>数据模型</span>
-        </b-nav-item>
+        <b-nav-item-dropdown v-if="authenticated" id="model-menu" active-class="active" class="pointer">
+          <template #button-content>
+            <span class="navbar-dropdown-menu">
+              <span class="no-bold">数据模型</span>
+            </span>
+          </template>
+          <b-dropdown-item to="/data-model" exact>
+            <span>维度建模</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/metric" exact>
+            <span>指标管理</span>
+          </b-dropdown-item>
+        </b-nav-item-dropdown>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>
             <span class="navbar-dropdown-menu">

@@ -34,6 +34,12 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "model_type")
     private String modelType;
 
+    @Column(name = "dimension_kind")
+    private String dimensionKind;
+
+    @Column(name = "level_count")
+    private Integer levelCount;
+
     @Column(name = "is_registered")
     private Boolean isRegistered;
 
@@ -134,6 +140,32 @@ public class DataModel implements Serializable, TenantAware {
 
     public void setModelType(String modelType) {
         this.modelType = modelType;
+    }
+
+    public String getDimensionKind() {
+        return this.dimensionKind;
+    }
+
+    public DataModel dimensionKind(String dimensionKind) {
+        this.setDimensionKind(dimensionKind);
+        return this;
+    }
+
+    public void setDimensionKind(String dimensionKind) {
+        this.dimensionKind = dimensionKind;
+    }
+
+    public Integer getLevelCount() {
+        return this.levelCount;
+    }
+
+    public DataModel levelCount(Integer levelCount) {
+        this.setLevelCount(levelCount);
+        return this;
+    }
+
+    public void setLevelCount(Integer levelCount) {
+        this.levelCount = levelCount;
     }
 
     public Boolean getIsRegistered() {
@@ -265,6 +297,8 @@ public class DataModel implements Serializable, TenantAware {
             ", description='" + getDescription() + "'" +
             ", directoryId=" + getDirectoryId() +
             ", modelType='" + getModelType() + "'" +
+            ", dimensionKind='" + getDimensionKind() + "'" +
+            ", levelCount=" + getLevelCount() +
             ", isRegistered=" + getIsRegistered() +
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +

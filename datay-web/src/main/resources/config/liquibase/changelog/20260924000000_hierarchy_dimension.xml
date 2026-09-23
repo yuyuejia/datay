@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260924000000-1" author="datafusion">
+        <addColumn tableName="data_model">
+            <column name="dimension_kind" type="varchar(32)" defaultValue="NORMAL">
+                <constraints nullable="true" />
+            </column>
+            <column name="level_count" type="integer">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260924000000-2" author="datafusion">
+        <addColumn tableName="model_field">
+            <column name="field_role" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+            <column name="level_index" type="integer">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

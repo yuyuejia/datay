@@ -63,6 +63,7 @@ public class ModelWriteNodeTranslator implements ETLNodeTranslator {
         unit.put("schema", nullToEmpty(dataModel.getSchemaName()));
         unit.put("table", nullToEmpty(dataModel.getTableName()));
         unit.put("model", context.getConfigString("model", "append"));
+        putIfPresent(context, unit, "dropIfTableExists");
         putIfPresent(context, unit, "updateColumn");
         putIfPresent(context, unit, "maxRows");
         putIfPresent(context, unit, "columnsMap");

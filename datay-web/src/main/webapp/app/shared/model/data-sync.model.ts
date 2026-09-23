@@ -1,4 +1,4 @@
-import { DataSyncTableConfig } from '@/shared/model/data-sync-table-config.model';
+import type { DataSyncTableConfig } from "@/shared/model/data-sync-table-config.model";
 
 export interface IDataSync {
   id?: number;

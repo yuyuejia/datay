@@ -125,7 +125,9 @@ export default class DataModelService {
   getMaterializeFields(modelId: number, dataSourceId: number): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/${modelId}/materialize-fields`, { params: { dataSourceId } })
+        .get(`${baseApiUrl}/${modelId}/materialize-fields`, {
+          params: { dataSourceId },
+        })
         .then((res) => {
           resolve(res);
         })
