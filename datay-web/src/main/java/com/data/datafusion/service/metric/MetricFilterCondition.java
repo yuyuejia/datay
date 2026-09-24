@@ -25,6 +25,9 @@ public class MetricFilterCondition {
     /** 维度模型 id（仅维度条件或维度时间字段时使用）。 */
     private Long dimensionModelId;
 
+    /** 维度模型编码（指标查询时使用，优先于 dimensionModelId）。 */
+    private String dimensionModelCode;
+
     /** 维度字段名（仅维度条件或维度时间字段时使用）。 */
     private String dimensionFieldName;
 
@@ -62,6 +65,14 @@ public class MetricFilterCondition {
 
     public void setDimensionModelId(Long dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
+    }
+
+    public String getDimensionModelCode() {
+        return dimensionModelCode;
+    }
+
+    public void setDimensionModelCode(String dimensionModelCode) {
+        this.dimensionModelCode = dimensionModelCode;
     }
 
     public String getDimensionFieldName() {

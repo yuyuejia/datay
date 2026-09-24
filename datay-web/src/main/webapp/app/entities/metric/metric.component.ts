@@ -10,7 +10,6 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import DataModelService from "@/entities/data-model/data-model.service";
 import MetricService from "./metric.service";
 import MetricDirectoryService from "./metric-directory.service";
 import {
@@ -35,6 +34,18 @@ import {
 import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
 
+const toDateTimeText = (value: any): string | null => {
+  if (!value) {
+    return null;
+  }
+  const text = String(value).trim().replace("T", " ");
+  if (!text) {
+    return null;
+  }
+  // datetime-local 值为 YYYY-MM-DDTHH:mm（或含秒），统一为 YYYY-MM-DD HH:mm:ss
+  return text.length === 16 ? `${text}:00` : text;
+};
+
 interface TreeNode {
   id: number;
   label: string;
@@ -52,10 +63,6 @@ export default defineComponent({
     const metricDirectoryService = inject(
       "metricDirectoryService",
       () => new MetricDirectoryService(),
-    );
-    const dataModelService = inject(
-      "dataModelService",
-      () => new DataModelService(),
     );
     const alertService = inject("alertService", () => useAlertService(), true);
 
@@ -295,7 +302,6 @@ export default defineComponent({
     const queryDimensions: Ref<any[]> = ref([]);
     const queryConditions: Ref<any[]> = ref([]);
     const queryTimeRange: Ref<any> = ref({
-      factFieldName: null,
       start: "",
       end: "",
     });
@@ -325,39 +331,33 @@ export default defineComponent({
     const queryDimensionOptions = computed<any[]>(
       () => queryMeta.value?.dimensions || [],
     );
-    const queryDateFields = computed<any[]>(
-      () => queryMeta.value?.dateFields || [],
+    const queryTimeFields = computed<any[]>(
+      () => queryMeta.value?.timeFields || [],
     );
-    const selectedQueryMetricIds = computed<number[]>(() =>
+    const selectedQueryMetricCodes = computed<string[]>(() =>
       queryMetricRows.value
-        .map((row: any) => row.metricId)
-        .filter((id: any): id is number => !!id),
+        .map((row: any) => row.metricCode)
+        .filter((code: any): code is string => !!code),
     );
 
-    const loadDimensionFieldsFor = async (target: any) => {
-      if (!target.dimensionModelId) {
-        target._dimensionFields = [];
-        return;
-      }
-      try {
-        const res = await dataModelService().getFields(target.dimensionModelId);
-        target._dimensionFields = res.data || [];
-      } catch {
-        target._dimensionFields = [];
-      }
+    const loadDimensionFieldsFor = (target: any) => {
+      const option = queryDimensionOptions.value.find(
+        (o: any) => o.dimensionModelCode === target.dimensionModelCode,
+      );
+      target._dimensionFields = option?.fields || [];
     };
 
     const resetQueryForm = () => {
       queryDimensions.value = [];
       queryConditions.value = [];
-      queryTimeRange.value = { factFieldName: null, start: "", end: "" };
+      queryTimeRange.value = { start: "", end: "" };
       queryColumns.value = [];
       queryRows.value = [];
       querySql.value = "";
     };
 
     const loadQueryMeta = async () => {
-      if (selectedQueryMetricIds.value.length === 0) {
+      if (selectedQueryMetricCodes.value.length === 0) {
         queryMeta.value = null;
         resetQueryForm();
         return;
@@ -365,7 +365,7 @@ export default defineComponent({
       queryMetaLoading.value = true;
       try {
         const res = await metricService().getQueryMeta({
-          metricIds: selectedQueryMetricIds.value,
+          metricCodes: selectedQueryMetricCodes.value,
         });
         queryMeta.value = res;
         resetQueryForm();
@@ -378,7 +378,9 @@ export default defineComponent({
 
     const openQuery = async () => {
       queryMode.value = true;
-      queryMetricRows.value = [{ metricId: selectedMetric.value?.id ?? null }];
+      queryMetricRows.value = [
+        { metricCode: selectedMetric.value?.code ?? null },
+      ];
       await loadQueryMeta();
     };
 
@@ -387,7 +389,7 @@ export default defineComponent({
     };
 
     const addQueryMetric = () => {
-      queryMetricRows.value.push({ metricId: null });
+      queryMetricRows.value.push({ metricCode: null });
     };
 
     const removeQueryMetric = async (index: number) => {
@@ -401,7 +403,7 @@ export default defineComponent({
 
     const addDimension = () => {
       queryDimensions.value.push({
-        dimensionModelId: null,
+        dimensionModelCode: null,
         dimensionFieldNames: [],
         levelIndex: null,
         _dimensionFields: [],
@@ -414,7 +416,7 @@ export default defineComponent({
 
     const dimensionOption = (dimension: any) => {
       return queryDimensionOptions.value.find(
-        (o: any) => o.dimensionModelId === dimension.dimensionModelId,
+        (o: any) => o.dimensionModelCode === dimension.dimensionModelCode,
       );
     };
 
@@ -482,11 +484,11 @@ export default defineComponent({
 
     const dimensionSelectionText = (dimension: any) => {
       const selected = dimension.dimensionFieldNames || [];
-      return selected.length > 0 ? selected.join(", ") : "选择显示字段";
+      return selected.length > 0 ? selected.join(", ") : "默认按主键汇总";
     };
 
     const createQueryCondition = () => ({
-      dimensionModelId: null,
+      dimensionModelCode: null,
       dimensionFieldName: null,
       operator: "EQ",
       value: null,
@@ -508,10 +510,14 @@ export default defineComponent({
       await loadDimensionFieldsFor(condition);
     };
 
+    const clearQueryTimeRange = () => {
+      queryTimeRange.value = { start: "", end: "" };
+    };
+
     const buildQueryPayload = () => {
       const dimensions = queryDimensions.value
         .map((d: any) => {
-          if (!d.dimensionModelId) {
+          if (!d.dimensionModelCode) {
             return null;
           }
           if (isHierarchyDimension(d)) {
@@ -519,24 +525,22 @@ export default defineComponent({
               return null;
             }
             return {
-              dimensionModelId: d.dimensionModelId,
+              dimensionModelCode: d.dimensionModelCode,
               levelIndex: d.levelIndex,
             };
           }
-          if (!(d.dimensionFieldNames || []).length) {
-            return null;
-          }
+          // 未选择显示字段时不传字段，后端默认按维度主键汇总并显示主键
           return {
-            dimensionModelId: d.dimensionModelId,
-            dimensionFieldNames: d.dimensionFieldNames,
+            dimensionModelCode: d.dimensionModelCode,
+            dimensionFieldNames: d.dimensionFieldNames || [],
           };
         })
         .filter((d: any) => d !== null);
       const conditions = queryConditions.value
-        .filter((c: any) => c.dimensionModelId && c.dimensionFieldName)
+        .filter((c: any) => c.dimensionModelCode && c.dimensionFieldName)
         .map((c: any) => ({
           type: FILTER_TYPE_DIMENSION,
-          dimensionModelId: c.dimensionModelId,
+          dimensionModelCode: c.dimensionModelCode,
           dimensionFieldName: c.dimensionFieldName,
           operator: c.operator,
           value: c.value,
@@ -544,16 +548,17 @@ export default defineComponent({
           logic: c.logic,
         }));
       const range = queryTimeRange.value;
+      const start = toDateTimeText(range.start);
+      const end = toDateTimeText(range.end);
       const timeRange =
-        range.factFieldName && (range.start || range.end)
+        start || end
           ? {
-              factFieldName: range.factFieldName,
-              start: range.start || null,
-              end: range.end || null,
+              start,
+              end,
             }
           : null;
       return {
-        metricIds: selectedQueryMetricIds.value,
+        metricCodes: selectedQueryMetricCodes.value,
         dimensions,
         filterConfig:
           conditions.length > 0
@@ -564,7 +569,7 @@ export default defineComponent({
     };
 
     const runQuery = async () => {
-      if (selectedQueryMetricIds.value.length === 0) {
+      if (selectedQueryMetricCodes.value.length === 0) {
         alertService.showError("请至少选择一个指标");
         return;
       }
@@ -582,7 +587,7 @@ export default defineComponent({
     };
 
     const previewQuerySql = async () => {
-      if (selectedQueryMetricIds.value.length === 0) {
+      if (selectedQueryMetricCodes.value.length === 0) {
         alertService.showError("请至少选择一个指标");
         return;
       }
@@ -727,8 +732,8 @@ export default defineComponent({
       filterOperators,
       allMetricOptions,
       queryDimensionOptions,
-      queryDateFields,
-      selectedQueryMetricIds,
+      queryTimeFields,
+      selectedQueryMetricCodes,
       openQuery,
       closeQuery,
       addQueryMetric,
@@ -745,6 +750,7 @@ export default defineComponent({
       addQueryCondition,
       removeQueryCondition,
       onQueryConditionModelChange,
+      clearQueryTimeRange,
       runQuery,
       previewQuerySql,
       isUnaryOperator,

@@ -50,13 +50,16 @@ class MetricQueryServiceTest {
 
         DataModel factModel = new DataModel();
         factModel.setId(3101L);
+        factModel.setCode("fact_sales_order_item");
         factModel.setModelType("DWD");
         factModel.setName("销售订单明细事实表");
         factModel.setSchemaName("main");
         factModel.setTableName("fact_sales_order_item");
+        factModel.setTimeFieldName("order_date_sk");
 
         DataModel dimProduct = new DataModel();
         dimProduct.setId(3003L);
+        dimProduct.setCode("dim_product");
         dimProduct.setName("商品维度");
         dimProduct.setSchemaName("main");
         dimProduct.setTableName("dim_product");
@@ -79,6 +82,7 @@ class MetricQueryServiceTest {
 
         DataModel dimCustomer = new DataModel();
         dimCustomer.setId(3001L);
+        dimCustomer.setCode("dim_customer");
         dimCustomer.setName("客户维度");
         dimCustomer.setSchemaName("main");
         dimCustomer.setTableName("dim_customer");
@@ -86,6 +90,8 @@ class MetricQueryServiceTest {
         when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(factModel));
         when(dataModelRepository.findById(3003L)).thenReturn(Optional.of(dimProduct));
         when(dataModelRepository.findById(3001L)).thenReturn(Optional.of(dimCustomer));
+        when(dataModelRepository.findFirstByCode("dim_product")).thenReturn(Optional.of(dimProduct));
+        when(dataModelRepository.findFirstByCode("dim_customer")).thenReturn(Optional.of(dimCustomer));
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L))
             .thenReturn(List.of(orderStatus, productSk, customerSk, orderDateSk));
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3003L)).thenReturn(List.of(productPk, category));
@@ -100,8 +106,9 @@ class MetricQueryServiceTest {
         avgPrice.setFormula("${sales_amount} / ${sales_quantity}");
 
         when(metricRepository.findAll()).thenReturn(List.of(salesAmount, salesQuantity, avgPrice));
-        when(metricRepository.findById(2610L)).thenReturn(Optional.of(salesAmount));
-        when(metricRepository.findById(2615L)).thenReturn(Optional.of(avgPrice));
+        when(metricRepository.findByCode("sales_amount")).thenReturn(Optional.of(salesAmount));
+        when(metricRepository.findByCode("sales_quantity")).thenReturn(Optional.of(salesQuantity));
+        when(metricRepository.findByCode("avg_selling_price")).thenReturn(Optional.of(avgPrice));
     }
 
     private Metric atomic(Long id, String code, String formula) {
@@ -118,18 +125,17 @@ class MetricQueryServiceTest {
     @Test
     void shouldBuildAtomicSqlWithDimensionFilterAndTimeRange() {
         MetricQueryDTO dto = new MetricQueryDTO();
-        dto.setMetricId(2610L);
+        dto.setMetricCodes(List.of("sales_amount"));
 
         MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
         dimension.setFactFieldName("product_sk");
-        dimension.setDimensionModelId(3003L);
+        dimension.setDimensionModelCode("dim_product");
         dimension.setDimensionFieldName("category_l1");
         dto.setDimensions(List.of(dimension));
         dto.setFilterConfig(
-            "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionModelId\":3003,\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"电子产品\",\"logic\":\"AND\"}]}"
+            "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionModelCode\":\"dim_product\",\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"电子产品\",\"logic\":\"AND\"}]}"
         );
         MetricQueryTimeRangeDTO timeRange = new MetricQueryTimeRangeDTO();
-        timeRange.setFactFieldName("order_date_sk");
         timeRange.setStart("20240101");
         timeRange.setEnd("20241231");
         dto.setTimeRange(timeRange);
@@ -146,15 +152,101 @@ class MetricQueryServiceTest {
     }
 
     @Test
+    void shouldDefaultToPrimaryKeyWhenNoDisplayField() {
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_product");
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("d0.product_sk AS product_sk");
+        assertThat(sql).contains("GROUP BY d0.product_sk");
+    }
+
+    @Test
     void shouldBuildDerivedSqlBySubstitutingReferencedMetrics() {
         MetricQueryDTO dto = new MetricQueryDTO();
-        dto.setMetricId(2615L);
+        dto.setMetricCodes(List.of("avg_selling_price"));
 
         String sql = metricQueryService.buildSqlFor(dto);
         assertThat(sql).contains("AS avg_selling_price");
         assertThat(sql).contains("(SUM(amount))");
         assertThat(sql).contains("(SUM(quantity))");
         assertThat(sql).doesNotContain("${");
+    }
+
+    @Test
+    void shouldIgnoreTimeRangeWhenFactModelHasNoTimeField() {
+        DataModel noTimeFact = new DataModel();
+        noTimeFact.setId(3101L);
+        noTimeFact.setModelType("DWD");
+        noTimeFact.setSchemaName("main");
+        noTimeFact.setTableName("fact_sales_order_item");
+        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(noTimeFact));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryTimeRangeDTO timeRange = new MetricQueryTimeRangeDTO();
+        timeRange.setStart("20240101");
+        timeRange.setEnd("20241231");
+        dto.setTimeRange(timeRange);
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).doesNotContain("BETWEEN");
+        assertThat(sql).doesNotContain("order_date_sk");
+    }
+
+    @Test
+    void shouldNormalizeNumericTimeFieldDateValues() {
+        DataModel factModel = new DataModel();
+        factModel.setId(3101L);
+        factModel.setModelType("DWD");
+        factModel.setSchemaName("main");
+        factModel.setTableName("fact_sales_order_item");
+        factModel.setTimeFieldName("order_date_sk");
+        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(factModel));
+
+        ModelField orderDateSk = new ModelField();
+        orderDateSk.setFieldName("order_date_sk");
+        orderDateSk.setFieldType("LONG");
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(orderDateSk));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryTimeRangeDTO timeRange = new MetricQueryTimeRangeDTO();
+        timeRange.setStart("2024-01-01");
+        timeRange.setEnd("2024-12-31");
+        dto.setTimeRange(timeRange);
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("f.order_date_sk BETWEEN 20240101 AND 20241231");
+    }
+
+    @Test
+    void shouldConvertTimeRangeByFieldType() {
+        DataModel factModel = new DataModel();
+        factModel.setId(3101L);
+        factModel.setModelType("DWD");
+        factModel.setSchemaName("main");
+        factModel.setTableName("fact_sales_order_item");
+        factModel.setTimeFieldName("order_date");
+        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(factModel));
+
+        ModelField orderDate = new ModelField();
+        orderDate.setFieldName("order_date");
+        orderDate.setFieldType("DATE");
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(orderDate));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryTimeRangeDTO timeRange = new MetricQueryTimeRangeDTO();
+        timeRange.setStart("2024-01-01 00:00:00");
+        timeRange.setEnd("2024-12-31 23:59:59");
+        dto.setTimeRange(timeRange);
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("f.order_date BETWEEN '2024-01-01' AND '2024-12-31'");
     }
 
     @Test
@@ -178,12 +270,12 @@ class MetricQueryServiceTest {
         when(dataModelRepository.findById(3100L)).thenReturn(Optional.of(orderFact));
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3100L)).thenReturn(List.of(orderProductSk, orderAmount));
         when(metricRepository.findAll()).thenReturn(List.of(salesAmount, salesQuantity, avgPrice, orderMetric));
-        when(metricRepository.findById(2700L)).thenReturn(Optional.of(orderMetric));
+        when(metricRepository.findByCode("order_amount_metric")).thenReturn(Optional.of(orderMetric));
 
         MetricQueryDTO dto = new MetricQueryDTO();
-        dto.setMetricIds(List.of(2610L, 2700L));
+        dto.setMetricCodes(List.of("sales_amount", "order_amount_metric"));
         MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
-        dimension.setDimensionModelId(3003L);
+        dimension.setDimensionModelCode("dim_product");
         dimension.setDimensionFieldName("category_l1");
         dto.setDimensions(List.of(dimension));
 
@@ -202,6 +294,7 @@ class MetricQueryServiceTest {
     void shouldAggregateHierarchyDimensionByLevel() {
         DataModel dimRegion = new DataModel();
         dimRegion.setId(4000L);
+        dimRegion.setCode("dim_region");
         dimRegion.setName("地区维度");
         dimRegion.setSchemaName("main");
         dimRegion.setTableName("dim_region");
@@ -213,6 +306,7 @@ class MetricQueryServiceTest {
         regionSk.setDimensionModelId(4000L);
 
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(regionSk));
+        when(dataModelRepository.findFirstByCode("dim_region")).thenReturn(Optional.of(dimRegion));
         when(dataModelRepository.findById(4000L)).thenReturn(Optional.of(dimRegion));
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(4000L))
             .thenReturn(
@@ -228,9 +322,9 @@ class MetricQueryServiceTest {
             );
 
         MetricQueryDTO dto = new MetricQueryDTO();
-        dto.setMetricIds(List.of(2610L));
+        dto.setMetricCodes(List.of("sales_amount"));
         MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
-        dimension.setDimensionModelId(4000L);
+        dimension.setDimensionModelCode("dim_region");
         dimension.setLevelIndex(1);
         dto.setDimensions(List.of(dimension));
 
@@ -251,17 +345,16 @@ class MetricQueryServiceTest {
 
     @Test
     void shouldReturnAssociatedDimensionsInQueryMeta() {
-        when(metricRepository.findById(2610L)).thenReturn(Optional.of(salesAmount));
         MetricQueryDTO request = new MetricQueryDTO();
-        request.setMetricIds(List.of(2610L));
+        request.setMetricCodes(List.of("sales_amount"));
         Map<String, Object> meta = metricQueryService.queryMeta(request);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
         assertThat(dimensions).hasSize(2);
         assertThat(dimensions.get(0))
-            .containsEntry("dimensionModelId", 3003L)
+            .containsEntry("dimensionModelCode", "dim_product")
             .containsEntry("dimensionModelName", "商品维度")
             .containsEntry("factFieldName", "product_sk");
-        assertThat(dimensions.get(1)).containsEntry("dimensionModelId", 3001L).containsEntry("factFieldName", "customer_sk");
+        assertThat(dimensions.get(1)).containsEntry("dimensionModelCode", "dim_customer").containsEntry("factFieldName", "customer_sk");
     }
 }

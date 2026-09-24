@@ -7,6 +7,7 @@ export interface IDataModel {
   modelType?: string | null;
   dimensionKind?: string | null;
   levelCount?: number | null;
+  timeFieldName?: string | null;
   isRegistered?: boolean | null;
   project?: string | null;
   tenantId?: string | null;
@@ -27,6 +28,7 @@ export class DataModel implements IDataModel {
     public modelType?: string | null,
     public dimensionKind?: string | null,
     public levelCount?: number | null,
+    public timeFieldName?: string | null,
     public isRegistered?: boolean | null,
     public project?: string | null,
     public tenantId?: string | null,

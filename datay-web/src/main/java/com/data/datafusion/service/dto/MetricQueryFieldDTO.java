@@ -11,7 +11,7 @@ import java.util.List;
 public class MetricQueryFieldDTO implements Serializable {
 
     private String factFieldName;
-    private Long dimensionModelId;
+    private String dimensionModelCode;
     private String dimensionFieldName;
 
     /** 维度显示字段（可多个）。 */
@@ -28,12 +28,12 @@ public class MetricQueryFieldDTO implements Serializable {
         this.factFieldName = factFieldName;
     }
 
-    public Long getDimensionModelId() {
-        return dimensionModelId;
+    public String getDimensionModelCode() {
+        return dimensionModelCode;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
-        this.dimensionModelId = dimensionModelId;
+    public void setDimensionModelCode(String dimensionModelCode) {
+        this.dimensionModelCode = dimensionModelCode;
     }
 
     public String getDimensionFieldName() {

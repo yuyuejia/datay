@@ -67,6 +67,19 @@ export default defineComponent({
     const fields: Ref<IModelField[]> = ref([]);
     const originalFields: Ref<IModelField[]> = ref([]);
 
+    const timeFieldOptions = computed(() => {
+      const seen = new Set<string>();
+      const result: Array<{ fieldName: string; fieldType: string }> = [];
+      for (const field of fields.value) {
+        const name = field.fieldName;
+        if (name && !seen.has(name)) {
+          seen.add(name);
+          result.push({ fieldName: name, fieldType: field.fieldType || "" });
+        }
+      }
+      return result;
+    });
+
     const directoryTreeData: Ref<TreeNode[]> = ref([]);
     const dimensionModels: Ref<IDataModel[]> = ref([]);
     const dimensionFieldsCache: Ref<Record<number, IModelField[]>> = ref({});
@@ -307,6 +320,9 @@ export default defineComponent({
       } else {
         dataModel.value.dimensionKind = "NORMAL";
         dataModel.value.levelCount = null;
+      }
+      if (dataModel.value.modelType !== "DWD") {
+        dataModel.value.timeFieldName = null;
       }
       syncHierarchyFields();
     };
@@ -799,6 +815,7 @@ export default defineComponent({
       registerFieldsLoading,
       registerAutoAdded,
       fields,
+      timeFieldOptions,
       directoryTreeData,
       flatDirectoryOptions,
       dimensionModels,
@@ -875,6 +892,14 @@ export default defineComponent({
           this.dataModel.dataSourceId = null;
           this.dataModel.schemaName = null;
           this.dataModel.tableName = null;
+        }
+
+        const fieldNames = this.fields.map((f) => f.fieldName);
+        if (
+          this.dataModel.timeFieldName &&
+          !fieldNames.includes(this.dataModel.timeFieldName)
+        ) {
+          this.dataModel.timeFieldName = null;
         }
 
         if (this.dataModel.id) {

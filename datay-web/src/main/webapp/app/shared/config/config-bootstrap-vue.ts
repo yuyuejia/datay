@@ -26,35 +26,35 @@ import {
   BProgressBar,
   ToastPlugin,
   VBModal,
-} from 'bootstrap-vue';
+} from "bootstrap-vue";
 
 export function initBootstrapVue(vue) {
   vue.use(ToastPlugin);
 
-  vue.component('b-badge', BBadge);
-  vue.component('b-dropdown', BDropdown);
-  vue.component('b-dropdown-item', BDropdownItem);
-  vue.component('b-link', BLink);
-  vue.component('b-alert', BAlert);
-  vue.component('b-button', BButton);
-  vue.component('b-navbar', BNavbar);
-  vue.component('b-navbar-nav', BNavbarNav);
-  vue.component('b-navbar-brand', BNavbarBrand);
-  vue.component('b-navbar-toggle', BNavbarToggle);
-  vue.component('b-pagination', BPagination);
-  vue.component('b-progress', BProgress);
-  vue.component('b-progress-bar', BProgressBar);
-  vue.component('b-form', BForm);
-  vue.component('b-form-input', BFormInput);
-  vue.component('b-form-group', BFormGroup);
-  vue.component('b-form-checkbox', BFormCheckbox);
-  vue.component('b-form-file', BFormFile);
-  vue.component('b-collapse', BCollapse);
-  vue.component('b-nav-item', BNavItem);
-  vue.component('b-nav-item-dropdown', BNavItemDropdown);
-  vue.component('b-modal', BModal);
-  vue.directive('b-modal', VBModal);
-  vue.component('b-form-datepicker', BFormDatepicker);
-  vue.component('b-input-group', BInputGroup);
-  vue.component('b-input-group-prepend', BInputGroupPrepend);
+  vue.component("BBadge", BBadge);
+  vue.component("BDropdown", BDropdown);
+  vue.component("BDropdownItem", BDropdownItem);
+  vue.component("BLink", BLink);
+  vue.component("BAlert", BAlert);
+  vue.component("BButton", BButton);
+  vue.component("BNavbar", BNavbar);
+  vue.component("BNavbarNav", BNavbarNav);
+  vue.component("BNavbarBrand", BNavbarBrand);
+  vue.component("BNavbarToggle", BNavbarToggle);
+  vue.component("BPagination", BPagination);
+  vue.component("BProgress", BProgress);
+  vue.component("BProgressBar", BProgressBar);
+  vue.component("BForm", BForm);
+  vue.component("BFormInput", BFormInput);
+  vue.component("BFormGroup", BFormGroup);
+  vue.component("BFormCheckbox", BFormCheckbox);
+  vue.component("BFormFile", BFormFile);
+  vue.component("BCollapse", BCollapse);
+  vue.component("BNavItem", BNavItem);
+  vue.component("BNavItemDropdown", BNavItemDropdown);
+  vue.component("BModal", BModal);
+  vue.directive("b-modal", VBModal);
+  vue.component("BFormDatepicker", BFormDatepicker);
+  vue.component("BInputGroup", BInputGroup);
+  vue.component("BInputGroupPrepend", BInputGroupPrepend);
 }

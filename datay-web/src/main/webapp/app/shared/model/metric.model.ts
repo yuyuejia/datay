@@ -12,6 +12,7 @@ export interface IMetricFilterCondition {
   type?: string | null;
   factFieldName?: string | null;
   dimensionModelId?: number | null;
+  dimensionModelCode?: string | null;
   dimensionFieldName?: string | null;
   operator?: string | null;
   value?: string | null;
@@ -25,20 +26,19 @@ export interface IMetricFilterConfig {
 
 export interface IMetricQueryField {
   factFieldName?: string | null;
-  dimensionModelId?: number | null;
+  dimensionModelCode?: string | null;
   dimensionFieldName?: string | null;
+  dimensionFieldNames?: string[] | null;
+  levelIndex?: number | null;
 }
 
 export interface IMetricQueryTimeRange {
-  factFieldName?: string | null;
-  dimensionModelId?: number | null;
-  dimensionFieldName?: string | null;
   start?: string | null;
   end?: string | null;
 }
 
 export interface IMetricQueryRequest {
-  metricIds?: number[];
+  metricCodes?: string[];
   dimensions?: IMetricQueryField[];
   filterConfig?: string | null;
   timeRange?: IMetricQueryTimeRange | null;

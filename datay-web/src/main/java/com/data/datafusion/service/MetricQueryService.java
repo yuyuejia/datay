@@ -42,7 +42,6 @@ public class MetricQueryService {
 
     private static final Pattern FORMULA_REF_PATTERN = Pattern.compile("\\$\\{([A-Za-z0-9_\\-]+)}");
     private static final Pattern NUMBER_PATTERN = Pattern.compile("^-?\\d+(\\.\\d+)?$");
-    private static final Pattern DATE_NAME_PATTERN = Pattern.compile("date|time", Pattern.CASE_INSENSITIVE);
 
     /** 事实表别名，避免与维度表字段重名。 */
     private static final String FACT_ALIAS = "f";
@@ -111,19 +110,17 @@ public class MetricQueryService {
         List<Map<String, Object>> metrics = new ArrayList<>();
         for (Metric metric : context.metrics) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", metric.getId());
             item.put("name", metric.getName());
             item.put("code", metric.getCode());
             item.put("metricType", metric.getMetricType());
-            item.put("factModelId", context.metricFactModel.get(metric.getId()));
             metrics.add(item);
         }
 
         List<Map<String, Object>> dimensions = new ArrayList<>();
         for (Long dimensionModelId : context.commonDimensionModelIds) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("dimensionModelId", dimensionModelId);
             DataModel dimensionModel = dataModelRepository.findById(dimensionModelId).orElse(null);
+            item.put("dimensionModelCode", dimensionModel == null ? null : dimensionModel.getCode());
             item.put("dimensionModelName", dimensionModel == null ? null : dimensionModel.getName());
             item.put("factFieldName", context.single ? context.factDimensionMaps.get(context.factModels.get(0).getId()).get(dimensionModelId) : null);
             boolean hierarchy = dimensionModel != null && DIMENSION_KIND_HIERARCHY.equalsIgnoreCase(dimensionModel.getDimensionKind());
@@ -141,15 +138,35 @@ public class MetricQueryService {
                 }
                 item.put("levels", levels);
             }
+            List<Map<String, Object>> dimensionFields = new ArrayList<>();
+            for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId)) {
+                Map<String, Object> fieldItem = new LinkedHashMap<>();
+                fieldItem.put("fieldName", field.getFieldName());
+                fieldItem.put("fieldType", field.getFieldType());
+                dimensionFields.add(fieldItem);
+            }
+            item.put("fields", dimensionFields);
             dimensions.add(item);
         }
 
-        List<Map<String, Object>> dateFields = new ArrayList<>();
-        for (String fieldName : context.commonDateFieldNames) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("fieldName", fieldName);
-            item.put("fieldType", context.dateFieldType.get(fieldName));
-            dateFields.add(item);
+        List<Map<String, Object>> timeFields = new ArrayList<>();
+        Set<String> seenTimeFields = new LinkedHashSet<>();
+        for (DataModel factModel : context.factModels) {
+            String timeField = factModel.getTimeFieldName();
+            if (timeField != null && !timeField.isBlank() && seenTimeFields.add(timeField)) {
+                String fieldType = context.factFields
+                    .getOrDefault(factModel.getId(), List.of())
+                    .stream()
+                    .filter(f -> timeField.equals(f.getFieldName()))
+                    .findFirst()
+                    .map(ModelField::getFieldType)
+                    .orElse(null);
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("fieldName", timeField);
+                item.put("fieldType", fieldType);
+                item.put("factTable", physicalTableName(factModel));
+                timeFields.add(item);
+            }
         }
 
         List<String> factTableNames = new ArrayList<>();
@@ -159,7 +176,7 @@ public class MetricQueryService {
         result.put("metrics", metrics);
         result.put("factTables", factTableNames);
         result.put("dimensions", dimensions);
-        result.put("dateFields", dateFields);
+        result.put("timeFields", timeFields);
         return result;
     }
 
@@ -189,30 +206,20 @@ public class MetricQueryService {
         }
 
         context.commonDimensionModelIds = commonDimensions(context.factModels);
-        context.commonDateFieldNames = commonDateFieldNames(context.factModels);
-        List<ModelField> firstFactFields = context.factFields.get(context.factModels.get(0).getId());
-        for (String fieldName : context.commonDateFieldNames) {
-            String fieldType = firstFactFields
-                .stream()
-                .filter(f -> f.getFieldName().equals(fieldName))
-                .findFirst()
-                .map(ModelField::getFieldType)
-                .orElse(null);
-            context.dateFieldType.put(fieldName, fieldType);
-        }
 
         context.dimensions = new ArrayList<>();
         for (MetricQueryFieldDTO dimension : dto.getDimensions() == null ? List.<MetricQueryFieldDTO>of() : dto.getDimensions()) {
-            Long dimensionModelId = dimension.getDimensionModelId();
-            if (dimensionModelId == null) {
+            String dimensionModelCode = dimension.getDimensionModelCode();
+            if (dimensionModelCode == null || dimensionModelCode.isBlank()) {
                 continue;
             }
-            if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
-                throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelId);
-            }
             DataModel dimensionModel = dataModelRepository
-                .findById(dimensionModelId)
-                .orElseThrow(() -> new IllegalArgumentException("维度模型不存在：" + dimensionModelId));
+                .findFirstByCode(dimensionModelCode)
+                .orElseThrow(() -> new IllegalArgumentException("维度模型不存在：" + dimensionModelCode));
+            Long dimensionModelId = dimensionModel.getId();
+            if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
+                throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
+            }
             boolean hierarchy = DIMENSION_KIND_HIERARCHY.equalsIgnoreCase(dimensionModel.getDimensionKind());
 
             DimSelection selection = new DimSelection();
@@ -238,10 +245,15 @@ public class MetricQueryService {
                 if (displayFields.isEmpty() && dimension.getDimensionFieldName() != null && !dimension.getDimensionFieldName().isBlank()) {
                     displayFields.add(dimension.getDimensionFieldName());
                 }
+                List<String> primaryKeys = primaryKeyFields(dimensionModelId);
                 if (displayFields.isEmpty()) {
-                    continue;
+                    // 未选择显示字段时，默认按维度主键汇总并显示维度主键
+                    if (primaryKeys.isEmpty()) {
+                        continue;
+                    }
+                    displayFields.addAll(primaryKeys);
                 }
-                selection.groupKeyFields = primaryKeyFields(dimensionModelId);
+                selection.groupKeyFields = primaryKeys;
                 selection.displayFields = displayFields;
             }
             context.dimensions.add(selection);
@@ -254,15 +266,20 @@ public class MetricQueryService {
                 if (!MetricFilterCondition.TYPE_DIMENSION.equals(condition.getType())) {
                     throw new IllegalArgumentException("业务限定仅支持按维度过滤");
                 }
-                if (
-                    condition.getDimensionModelId() == null ||
-                    condition.getDimensionFieldName() == null ||
-                    condition.getDimensionFieldName().isBlank()
-                ) {
+                Long dimensionModelId = condition.getDimensionModelId();
+                String dimensionModelCode = condition.getDimensionModelCode();
+                if (dimensionModelCode != null && !dimensionModelCode.isBlank()) {
+                    dimensionModelId = dataModelRepository
+                        .findFirstByCode(dimensionModelCode)
+                        .orElseThrow(() -> new IllegalArgumentException("业务限定维度模型不存在：" + dimensionModelCode))
+                        .getId();
+                    condition.setDimensionModelId(dimensionModelId);
+                }
+                if (dimensionModelId == null || condition.getDimensionFieldName() == null || condition.getDimensionFieldName().isBlank()) {
                     continue;
                 }
-                if (!context.commonDimensionModelIds.contains(condition.getDimensionModelId())) {
-                    throw new IllegalArgumentException("业务限定维度不在所选指标事实表的共同维度中：" + condition.getDimensionModelId());
+                if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
+                    throw new IllegalArgumentException("业务限定维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
                 }
                 context.conditions.add(condition);
             }
@@ -455,23 +472,30 @@ public class MetricQueryService {
         }
 
         MetricQueryTimeRangeDTO timeRange = context.timeRange;
-        if (
-            timeRange != null &&
-            timeRange.getFactFieldName() != null &&
-            !timeRange.getFactFieldName().isBlank() &&
-            ((timeRange.getStart() != null && !timeRange.getStart().isBlank()) || (timeRange.getEnd() != null && !timeRange.getEnd().isBlank()))
-        ) {
-            Set<String> factFieldNames = new HashSet<>();
-            context.factFields.get(factModel.getId()).forEach(f -> factFieldNames.add(f.getFieldName()));
-            if (factFieldNames.contains(timeRange.getFactFieldName())) {
-                String column = FACT_ALIAS + "." + timeRange.getFactFieldName();
-                String prefix = fragments.isEmpty() ? "" : " AND ";
-                if (timeRange.getStart() != null && !timeRange.getStart().isBlank() && timeRange.getEnd() != null && !timeRange.getEnd().isBlank()) {
-                    fragments.add(prefix + "(" + column + " BETWEEN " + quote(timeRange.getStart()) + " AND " + quote(timeRange.getEnd()) + ")");
-                } else if (timeRange.getStart() != null && !timeRange.getStart().isBlank()) {
-                    fragments.add(prefix + "(" + column + " >= " + quote(timeRange.getStart()) + ")");
-                } else {
-                    fragments.add(prefix + "(" + column + " <= " + quote(timeRange.getEnd()) + ")");
+        boolean hasStart = timeRange != null && timeRange.getStart() != null && !timeRange.getStart().isBlank();
+        boolean hasEnd = timeRange != null && timeRange.getEnd() != null && !timeRange.getEnd().isBlank();
+        if (hasStart || hasEnd) {
+            // 时间过滤字段由事实表模型配置的「时间周期字段」决定；未配置时忽略时间过滤
+            String timeField = factModel.getTimeFieldName();
+            if (timeField != null && !timeField.isBlank()) {
+                ModelField timeFieldMeta = context.factFields
+                    .getOrDefault(factModel.getId(), List.of())
+                    .stream()
+                    .filter(f -> timeField.equals(f.getFieldName()))
+                    .findFirst()
+                    .orElse(null);
+                if (timeFieldMeta != null) {
+                    String column = FACT_ALIAS + "." + timeField;
+                    String start = normalizeTimeValue(timeRange.getStart(), timeFieldMeta.getFieldType());
+                    String end = normalizeTimeValue(timeRange.getEnd(), timeFieldMeta.getFieldType());
+                    String prefix = fragments.isEmpty() ? "" : " AND ";
+                    if (hasStart && hasEnd) {
+                        fragments.add(prefix + "(" + column + " BETWEEN " + quote(start) + " AND " + quote(end) + ")");
+                    } else if (hasStart) {
+                        fragments.add(prefix + "(" + column + " >= " + quote(start) + ")");
+                    } else {
+                        fragments.add(prefix + "(" + column + " <= " + quote(end) + ")");
+                    }
                 }
             }
         }
@@ -531,20 +555,23 @@ public class MetricQueryService {
     }
 
     private List<Metric> resolveMetrics(MetricQueryDTO dto) {
-        List<Long> ids = new ArrayList<>();
-        if (dto.getMetricIds() != null) {
-            ids.addAll(dto.getMetricIds());
+        List<String> codes = new ArrayList<>();
+        if (dto.getMetricCodes() != null) {
+            codes.addAll(dto.getMetricCodes());
         }
-        if (ids.isEmpty() && dto.getMetricId() != null) {
-            ids.add(dto.getMetricId());
-        }
-        if (ids.isEmpty()) {
+        if (codes.isEmpty()) {
             throw new IllegalArgumentException("请选择要查询的指标");
         }
-        LinkedHashSet<Long> unique = new LinkedHashSet<>(ids);
+        LinkedHashSet<String> unique = new LinkedHashSet<>(codes);
         List<Metric> metrics = new ArrayList<>();
-        for (Long id : unique) {
-            metrics.add(metricRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("指标不存在：" + id)));
+        for (String code : unique) {
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            metrics.add(metricRepository.findByCode(code).orElseThrow(() -> new IllegalArgumentException("指标不存在：" + code)));
+        }
+        if (metrics.isEmpty()) {
+            throw new IllegalArgumentException("请选择要查询的指标");
         }
         return metrics;
     }
@@ -590,38 +617,6 @@ public class MetricQueryService {
             }
         }
         return common;
-    }
-
-    private List<String> commonDateFieldNames(List<DataModel> factModels) {
-        if (factModels.isEmpty()) {
-            return List.of();
-        }
-        LinkedHashSet<String> common = new LinkedHashSet<>();
-        for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModels.get(0).getId())) {
-            if (!isDateLike(field)) {
-                continue;
-            }
-            boolean existsInAll = true;
-            for (int i = 1; i < factModels.size(); i++) {
-                boolean found = modelFieldRepository
-                    .findByModelIdOrderBySortOrderAsc(factModels.get(i).getId())
-                    .stream()
-                    .anyMatch(f -> f.getFieldName().equals(field.getFieldName()));
-                if (!found) {
-                    existsInAll = false;
-                    break;
-                }
-            }
-            if (existsInAll) {
-                common.add(field.getFieldName());
-            }
-        }
-        return new ArrayList<>(common);
-    }
-
-    private boolean isDateLike(ModelField field) {
-        String type = field.getFieldType() == null ? "" : field.getFieldType().toUpperCase();
-        return type.equals("DATE") || type.equals("DATETIME") || type.equals("TIMESTAMP") || DATE_NAME_PATTERN.matcher(field.getFieldName()).find();
     }
 
     private String metricExpression(String code, Map<String, Metric> byCode, Set<String> visiting) {
@@ -719,6 +714,34 @@ public class MetricQueryService {
         return "'" + trimmed.replace("'", "''") + "'";
     }
 
+    /**
+     * 时间过滤取值归一化：数值型时间键（如 yyyyMMdd 的 order_date_sk）会将日期字符串转换为数值形式。
+     */
+    private String normalizeTimeValue(String value, String fieldType) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        String normalized = value.trim().replace('T', ' ');
+        String datePart = normalized.length() >= 10 ? normalized.substring(0, 10) : normalized;
+        String type = fieldType == null ? "" : fieldType.toUpperCase();
+        if ("DATE".equals(type)) {
+            return datePart;
+        }
+        if (isNumericFieldType(type)) {
+            return datePart.replace("-", "");
+        }
+        // DATETIME / TIMESTAMP 及其它：保留完整日期时间
+        return normalized;
+    }
+
+    private boolean isNumericFieldType(String fieldType) {
+        if (fieldType == null) {
+            return false;
+        }
+        String type = fieldType.toUpperCase();
+        return type.equals("INTEGER") || type.equals("LONG") || type.equals("DOUBLE") || type.equals("DECIMAL");
+    }
+
     private String physicalTableName(DataModel model) {
         List<String> parts = new ArrayList<>();
         if (model.getSchemaName() != null && !model.getSchemaName().isBlank()) {
@@ -788,8 +811,6 @@ public class MetricQueryService {
         Map<Long, List<ModelField>> factFields = new HashMap<>();
         Map<Long, Map<Long, String>> factDimensionMaps = new HashMap<>();
         List<Long> commonDimensionModelIds = new ArrayList<>();
-        List<String> commonDateFieldNames = new ArrayList<>();
-        Map<String, String> dateFieldType = new HashMap<>();
         List<DimSelection> dimensions = new ArrayList<>();
         List<MetricFilterCondition> conditions = new ArrayList<>();
         MetricQueryTimeRangeDTO timeRange;

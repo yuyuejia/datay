@@ -9,11 +9,8 @@ import java.util.List;
  */
 public class MetricQueryDTO implements Serializable {
 
-    /** 查询的指标（原子或衍生原子指标），支持多个。 */
-    private List<Long> metricIds = new ArrayList<>();
-
-    /** 兼容单个指标查询。 */
-    private Long metricId;
+    /** 查询的指标编码（原子或衍生原子指标），支持多个。 */
+    private List<String> metricCodes = new ArrayList<>();
 
     /** 分组维度。 */
     private List<MetricQueryFieldDTO> dimensions = new ArrayList<>();
@@ -24,20 +21,12 @@ public class MetricQueryDTO implements Serializable {
     /** 时间统计范围。 */
     private MetricQueryTimeRangeDTO timeRange;
 
-    public List<Long> getMetricIds() {
-        return metricIds;
+    public List<String> getMetricCodes() {
+        return metricCodes;
     }
 
-    public void setMetricIds(List<Long> metricIds) {
-        this.metricIds = metricIds;
-    }
-
-    public Long getMetricId() {
-        return metricId;
-    }
-
-    public void setMetricId(Long metricId) {
-        this.metricId = metricId;
+    public void setMetricCodes(List<String> metricCodes) {
+        this.metricCodes = metricCodes;
     }
 
     public List<MetricQueryFieldDTO> getDimensions() {

@@ -179,15 +179,15 @@
               >
                 <select
                   class="query-control"
-                  v-model="row.metricId"
+                  v-model="row.metricCode"
                   style="min-width: 320px"
                   @change="onQueryMetricChange"
                 >
                   <option :value="null" disabled>请选择指标</option>
                   <option
                     v-for="m in allMetricOptions"
-                    :key="m.id"
-                    :value="m.id"
+                    :key="m.code"
+                    :value="m.code"
                   >
                     {{ m.name }} ({{ m.code }})
                   </option>
@@ -239,22 +239,23 @@
               >
                 <select
                   class="query-control"
-                  v-model="dim.dimensionModelId"
+                  v-model="dim.dimensionModelCode"
                   @change="onDimensionModelChange(dim)"
                 >
                   <option :value="null" disabled>选择维度</option>
                   <option
                     v-for="dimension in queryDimensionOptions"
-                    :key="dimension.dimensionModelId"
-                    :value="dimension.dimensionModelId"
+                    :key="dimension.dimensionModelCode"
+                    :value="dimension.dimensionModelCode"
                   >
                     {{
-                      dimension.dimensionModelName || dimension.dimensionModelId
+                      dimension.dimensionModelName ||
+                      dimension.dimensionModelCode
                     }}
                   </option>
                 </select>
                 <select
-                  v-if="dim.dimensionModelId && isHierarchyDimension(dim)"
+                  v-if="dim.dimensionModelCode && isHierarchyDimension(dim)"
                   class="query-control"
                   v-model="dim.levelIndex"
                 >
@@ -268,7 +269,7 @@
                   </option>
                 </select>
                 <b-dropdown
-                  v-else-if="dim.dimensionModelId"
+                  v-else-if="dim.dimensionModelCode"
                   :text="dimensionSelectionText(dim)"
                   variant="outline-secondary"
                   size="sm"
@@ -332,22 +333,23 @@
                 <span v-else class="query-logic placeholder">条件</span>
                 <select
                   class="query-control"
-                  v-model="condition.dimensionModelId"
+                  v-model="condition.dimensionModelCode"
                   @change="onQueryConditionModelChange(condition)"
                 >
                   <option :value="null" disabled>选择维度</option>
                   <option
                     v-for="dimension in queryDimensionOptions"
-                    :key="dimension.dimensionModelId"
-                    :value="dimension.dimensionModelId"
+                    :key="dimension.dimensionModelCode"
+                    :value="dimension.dimensionModelCode"
                   >
                     {{
-                      dimension.dimensionModelName || dimension.dimensionModelId
+                      dimension.dimensionModelName ||
+                      dimension.dimensionModelCode
                     }}
                   </option>
                 </select>
                 <select
-                  v-if="condition.dimensionModelId"
+                  v-if="condition.dimensionModelCode"
                   class="query-control"
                   v-model="condition.dimensionFieldName"
                 >
@@ -410,30 +412,44 @@
                 <h5>时间统计范围</h5>
               </div>
               <div class="query-row">
-                <select
-                  class="query-control"
-                  v-model="queryTimeRange.factFieldName"
-                >
-                  <option :value="null">选择日期字段</option>
-                  <option
-                    v-for="field in queryDateFields"
-                    :key="field.fieldName"
-                    :value="field.fieldName"
-                  >
-                    {{ field.fieldName }}
-                  </option>
-                </select>
                 <input
-                  class="query-control"
+                  type="datetime-local"
+                  step="1"
+                  class="form-control query-date-picker"
                   v-model="queryTimeRange.start"
-                  placeholder="开始，如 20240101"
                 />
                 <span class="query-placeholder">~</span>
                 <input
-                  class="query-control"
+                  type="datetime-local"
+                  step="1"
+                  class="form-control query-date-picker"
                   v-model="queryTimeRange.end"
-                  placeholder="结束，如 20241231"
                 />
+                <el-button
+                  v-if="queryTimeRange.start || queryTimeRange.end"
+                  link
+                  type="info"
+                  size="small"
+                  @click="clearQueryTimeRange"
+                >
+                  <font-awesome-icon icon="times" /> 清除
+                </el-button>
+              </div>
+              <div v-if="queryTimeFields.length > 0" class="query-time-hint">
+                <span class="query-time-hint-label"
+                  >时间字段（事实表配置）：</span
+                >
+                <el-tag
+                  v-for="field in queryTimeFields"
+                  :key="field.fieldName"
+                  size="small"
+                  type="info"
+                >
+                  {{ field.fieldName }}
+                </el-tag>
+              </div>
+              <div v-else class="query-time-hint-empty">
+                所选指标的事实表未配置时间周期字段，时间范围将不生效
               </div>
             </div>
 
@@ -1018,6 +1034,25 @@
   font-size: 13px;
 }
 
+.query-time-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.query-time-hint-label {
+  color: #909399;
+  font-size: 13px;
+}
+
+.query-time-hint-empty {
+  margin-top: 8px;
+  color: #e6a23c;
+  font-size: 13px;
+}
+
 .query-empty {
   color: #909399;
   font-size: 13px;
@@ -1057,6 +1092,10 @@
 
 .query-control.operator {
   min-width: 130px;
+}
+
+.query-date-picker {
+  width: 220px;
 }
 
 .query-control.value {

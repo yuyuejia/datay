@@ -89,6 +89,27 @@
         </el-col>
       </el-row>
 
+      <el-row v-if="dataModel.modelType === 'DWD'" :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="时间周期字段">
+            <select
+              class="form-control"
+              v-model="dataModel.timeFieldName"
+              style="width: 100%"
+            >
+              <option :value="null">未设置</option>
+              <option
+                v-for="field in timeFieldOptions"
+                :key="field.fieldName"
+                :value="field.fieldName"
+              >
+                {{ field.fieldName }} ({{ field.fieldType }})
+              </option>
+            </select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
       <el-row
         v-if="modelMode === 'register'"
         :gutter="20"

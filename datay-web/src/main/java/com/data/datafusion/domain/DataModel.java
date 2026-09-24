@@ -40,6 +40,9 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "level_count")
     private Integer levelCount;
 
+    @Column(name = "time_field")
+    private String timeFieldName;
+
     @Column(name = "is_registered")
     private Boolean isRegistered;
 
@@ -166,6 +169,19 @@ public class DataModel implements Serializable, TenantAware {
 
     public void setLevelCount(Integer levelCount) {
         this.levelCount = levelCount;
+    }
+
+    public String getTimeFieldName() {
+        return this.timeFieldName;
+    }
+
+    public DataModel timeFieldName(String timeFieldName) {
+        this.setTimeFieldName(timeFieldName);
+        return this;
+    }
+
+    public void setTimeFieldName(String timeFieldName) {
+        this.timeFieldName = timeFieldName;
     }
 
     public Boolean getIsRegistered() {
@@ -299,6 +315,7 @@ public class DataModel implements Serializable, TenantAware {
             ", modelType='" + getModelType() + "'" +
             ", dimensionKind='" + getDimensionKind() + "'" +
             ", levelCount=" + getLevelCount() +
+            ", timeFieldName='" + getTimeFieldName() + "'" +
             ", isRegistered=" + getIsRegistered() +
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +
