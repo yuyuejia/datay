@@ -5,12 +5,14 @@ import com.data.datafusion.service.DataModelMaterializeService;
 import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.ModelFieldService;
+import com.data.datafusion.service.TimeDimensionDataService;
 import com.data.datafusion.service.dto.DataModelDTO;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MaterializeFieldDTO;
 import com.data.datafusion.service.dto.MaterializeRequestDTO;
 import com.data.datafusion.service.dto.MaterializeResponseDTO;
 import com.data.datafusion.service.dto.ModelFieldDTO;
+import com.data.datafusion.service.dto.TimeDataRequestDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.impl.LogicConverter;
@@ -47,19 +49,22 @@ public class DataModelResource {
     private final ModelFieldService modelFieldService;
     private final DataModelMaterializeService materializeService;
     private final DataSourceService dataSourceService;
+    private final TimeDimensionDataService timeDimensionDataService;
 
     public DataModelResource(
         DataModelService dataModelService,
         DataModelRepository dataModelRepository,
         ModelFieldService modelFieldService,
         DataModelMaterializeService materializeService,
-        DataSourceService dataSourceService
+        DataSourceService dataSourceService,
+        TimeDimensionDataService timeDimensionDataService
     ) {
         this.dataModelService = dataModelService;
         this.dataModelRepository = dataModelRepository;
         this.modelFieldService = modelFieldService;
         this.materializeService = materializeService;
         this.dataSourceService = dataSourceService;
+        this.timeDimensionDataService = timeDimensionDataService;
     }
 
     @PostMapping("")
@@ -256,9 +261,37 @@ public class DataModelResource {
                 existing.setTableName(request.getTableName());
                 dataModelService.partialUpdate(existing);
             });
+            if (Boolean.TRUE.equals(request.getGenerateData())) {
+                try {
+                    TimeDataRequestDTO dataRequest = new TimeDataRequestDTO();
+                    dataRequest.setDataSourceId(request.getDataSourceId());
+                    dataRequest.setSchemaName(request.getSchemaName());
+                    dataRequest.setTableName(request.getTableName());
+                    dataRequest.setStart(request.getDataStart());
+                    dataRequest.setEnd(request.getDataEnd());
+                    dataRequest.setOverwrite(true);
+                    int rows = timeDimensionDataService.generate(id, dataRequest);
+                    response.setDataRows(rows);
+                    response.setMessage(response.getMessage() + "，已生成预置数据 " + rows + " 行");
+                } catch (RuntimeException e) {
+                    LOG.warn("生成时间维度预置数据失败: {}", e.getMessage());
+                    response.setMessage(response.getMessage() + "；生成预置数据失败：" + e.getMessage());
+                }
+            }
             return ResponseEntity.ok().body(response);
         } else {
             return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/{id}/generate-time-data")
+    public ResponseEntity<?> generateTimeData(@PathVariable("id") Long id, @RequestBody TimeDataRequestDTO request) {
+        LOG.debug("REST request to generate time dimension data for DataModel : {}", id);
+        try {
+            int rows = timeDimensionDataService.generate(id, request);
+            return ResponseEntity.ok().body(Map.of("rows", rows));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "timeDataError");
         }
     }
 }

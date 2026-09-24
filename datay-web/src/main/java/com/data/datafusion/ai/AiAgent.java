@@ -127,7 +127,7 @@ public class AiAgent {
 
             if (!response.isToolCallRequested()) {
                 // 模型给出最终答复，loop 结束
-                return buildResult(assistant, response, traces, round, true);
+                return buildResult(assistant, response, traces, round, true, context.getArtifacts());
             }
 
             // 记录 assistant 的 tool_calls 消息，保证协议完整性
@@ -177,7 +177,7 @@ public class AiAgent {
 
         // 理论上不会走到这里：最后一轮已关闭工具，模型必须给出内容
         if (lastResponse != null) {
-            return buildResult(assistant, lastResponse, traces, round, false);
+            return buildResult(assistant, lastResponse, traces, round, false, context.getArtifacts());
         }
         throw new IllegalStateException("AI 助手未能生成结果");
     }
@@ -191,7 +191,8 @@ public class AiAgent {
         ChatResponse response,
         List<AiResult.ToolTrace> traces,
         int rounds,
-        boolean converged
+        boolean converged,
+        Map<String, Object> artifacts
     ) {
         String content = response.getContent() == null ? "" : response.getContent();
         AiResult result = new AiResult();
@@ -200,6 +201,7 @@ public class AiAgent {
         result.setRounds(rounds);
         result.setConverged(converged);
         result.setToolCalls(traces);
+        result.setArtifacts(artifacts);
         result.setPromptTokens(response.getPromptTokens());
         result.setCompletionTokens(response.getCompletionTokens());
         return result;

@@ -146,7 +146,8 @@ class MetricQueryServiceTest {
         assertThat(sql).contains("AS sales_amount");
         assertThat(sql).contains("FROM main.fact_sales_order_item f");
         assertThat(sql).contains("LEFT JOIN main.dim_product d0 ON f.product_sk = d0.product_sk");
-        assertThat(sql).contains("GROUP BY d0.product_sk, d0.category_l1");
+        assertThat(sql).contains("GROUP BY d0.category_l1");
+        assertThat(sql).doesNotContain("GROUP BY d0.product_sk");
         assertThat(sql).contains("d0.category_l1 = '电子产品'");
         assertThat(sql).contains("f.order_date_sk BETWEEN 20240101 AND 20241231");
     }
@@ -332,6 +333,154 @@ class MetricQueryServiceTest {
         assertThat(sql).contains("LEFT JOIN main.dim_region d0 ON f.region_sk = d0.member_id");
         assertThat(sql).contains("d0.level1_name AS level1_name");
         assertThat(sql).contains("GROUP BY d0.level1_id, d0.level1_name");
+    }
+
+    @Test
+    void shouldGroupByTimeDimensionPeriodFields() {
+        DataModel dimDate = new DataModel();
+        dimDate.setId(3000L);
+        dimDate.setCode("dim_date");
+        dimDate.setName("日期维度");
+        dimDate.setSchemaName("main");
+        dimDate.setTableName("dim_date");
+
+        ModelField dateSk = new ModelField();
+        dateSk.setFieldName("date_sk");
+        dateSk.setIsPrimaryKey(true);
+        ModelField year = new ModelField();
+        year.setFieldName("year");
+        ModelField month = new ModelField();
+        month.setFieldName("month");
+
+        ModelField orderDateSk = new ModelField();
+        orderDateSk.setFieldName("order_date_sk");
+        orderDateSk.setDimensionModelId(3000L);
+
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(orderDateSk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3000L)).thenReturn(List.of(dateSk, year, month));
+        when(dataModelRepository.findFirstByCode("dim_date")).thenReturn(Optional.of(dimDate));
+        when(dataModelRepository.findById(3000L)).thenReturn(Optional.of(dimDate));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_date");
+        dimension.setDimensionFieldNames(List.of("year", "month"));
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("LEFT JOIN main.dim_date d0 ON f.order_date_sk = d0.date_sk");
+        assertThat(sql).contains("d0.year AS year");
+        assertThat(sql).contains("d0.month AS month");
+        assertThat(sql).contains("GROUP BY d0.year, d0.month");
+
+        Map<String, Object> meta = metricQueryService.queryMeta(dto);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
+        assertThat(dimensions.get(0)).containsEntry("isTimeDimension", true);
+        @SuppressWarnings("unchecked")
+        List<String> periodFields = (List<String>) dimensions.get(0).get("periodFields");
+        assertThat(periodFields).contains("year", "month");
+    }
+
+    @Test
+    void shouldAggregateSingleFactBySelectedDimensionFields() {
+        DataModel dimDate = new DataModel();
+        dimDate.setId(3000L);
+        dimDate.setCode("dim_date");
+        dimDate.setName("日期维度");
+        dimDate.setSchemaName("main");
+        dimDate.setTableName("dim_date");
+
+        ModelField orderDateSk = new ModelField();
+        orderDateSk.setFieldName("order_date_sk");
+        orderDateSk.setDimensionModelId(3000L);
+
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(orderDateSk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3000L))
+            .thenReturn(
+                List.of(
+                    modelField("date_sk", true, null, null),
+                    modelField("year", false, null, null),
+                    modelField("month", false, null, null)
+                )
+            );
+        when(dataModelRepository.findFirstByCode("dim_date")).thenReturn(Optional.of(dimDate));
+        when(dataModelRepository.findById(3000L)).thenReturn(Optional.of(dimDate));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_date");
+        dimension.setDimensionFieldNames(List.of("year", "month"));
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("d0.year AS year");
+        assertThat(sql).contains("d0.month AS month");
+        assertThat(sql).contains("GROUP BY d0.year, d0.month");
+        assertThat(sql).doesNotContain("GROUP BY d0.date_sk");
+    }
+
+    private ModelField modelField(String name, boolean primaryKey, String role, Integer levelIndex) {
+        ModelField field = new ModelField();
+        field.setFieldName(name);
+        field.setIsPrimaryKey(primaryKey);
+        field.setFieldRole(role);
+        field.setLevelIndex(levelIndex);
+        return field;
+    }
+
+    @Test
+    void shouldAggregateTimeDimensionByLevel() {
+        DataModel dimTime = new DataModel();
+        dimTime.setId(3000L);
+        dimTime.setCode("dim_time");
+        dimTime.setName("时间维度");
+        dimTime.setSchemaName("main");
+        dimTime.setTableName("dim_time");
+        dimTime.setDimensionKind("TIME");
+        dimTime.setTimeLevels("YEAR,MONTH");
+
+        ModelField orderDateSk = new ModelField();
+        orderDateSk.setFieldName("order_date_sk");
+        orderDateSk.setDimensionModelId(3000L);
+
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(orderDateSk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3000L))
+            .thenReturn(
+                List.of(
+                    hierarchyField("year_id", "LEVEL_ID", 1, false),
+                    hierarchyField("year_name", "LEVEL_NAME", 1, false),
+                    hierarchyField("month_id", "LEVEL_ID", 2, false),
+                    hierarchyField("month_name", "LEVEL_NAME", 2, false),
+                    hierarchyField("date_key", "MEMBER_ID", null, true),
+                    hierarchyField("hierarchy", "HIERARCHY", null, false)
+                )
+            );
+        when(dataModelRepository.findFirstByCode("dim_time")).thenReturn(Optional.of(dimTime));
+        when(dataModelRepository.findById(3000L)).thenReturn(Optional.of(dimTime));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_time");
+        dimension.setLevelIndex(2);
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("LEFT JOIN main.dim_time d0 ON f.order_date_sk = d0.date_key");
+        assertThat(sql).contains("d0.month_name AS month_name");
+        assertThat(sql).contains("GROUP BY d0.month_id, d0.month_name");
+
+        Map<String, Object> meta = metricQueryService.queryMeta(dto);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
+        assertThat(dimensions.get(0)).containsEntry("isHierarchy", true).containsEntry("dimensionKind", "TIME");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> levels = (List<Map<String, Object>>) dimensions.get(0).get("levels");
+        assertThat(levels.get(1)).containsEntry("granularity", "MONTH").containsEntry("label", "月");
+        assertThat(levels.get(1)).containsEntry("idField", "month_id").containsEntry("nameField", "month_name");
     }
 
     private ModelField hierarchyField(String name, String role, Integer levelIndex, boolean primaryKey) {

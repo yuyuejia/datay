@@ -118,6 +118,15 @@ export default defineComponent({
     });
 
     const materializeFields: Ref<any[]> = ref([]);
+    const materializeGenerateData = ref(false);
+    const materializeDataStart = ref("");
+    const materializeDataEnd = ref("");
+
+    const isTimeDimensionModel = computed(
+      () =>
+        selectedModel.value?.modelType === "DIMENSION" &&
+        selectedModel.value?.dimensionKind === "TIME",
+    );
 
     const canMaterialize = computed(() => {
       return (
@@ -181,6 +190,9 @@ export default defineComponent({
       materializeSchemas.value = [];
       materializePhysicalTypes.value = [];
       defaultWarehouseId.value = null;
+      materializeGenerateData.value = isTimeDimensionModel.value;
+      materializeDataStart.value = selectedModel.value.timeStart || "";
+      materializeDataEnd.value = selectedModel.value.timeEnd || "";
 
       try {
         const [dsRes, defaultRes] = await Promise.all([
@@ -337,13 +349,21 @@ export default defineComponent({
             tableName: materializeForm.value.tableName,
             overwrite: true,
             fields: materializeFields.value,
+            generateData:
+              isTimeDimensionModel.value && materializeGenerateData.value,
+            dataStart: materializeDataStart.value || null,
+            dataEnd: materializeDataEnd.value || null,
           },
         );
 
         const result = res.data;
         if (result?.success) {
+          const dataRowsHint =
+            result.dataRows != null
+              ? `，已生成预置数据 ${result.dataRows} 行`
+              : "";
           alertService.showSuccess(
-            `物化成功！已生成表 ${materializeForm.value.schemaName ? materializeForm.value.schemaName + "." : ""}${materializeForm.value.tableName}`,
+            `物化成功！已生成表 ${materializeForm.value.schemaName ? materializeForm.value.schemaName + "." : ""}${materializeForm.value.tableName}${dataRowsHint}`,
           );
           materializeDialogVisible.value = false;
           const updated = await dataModelService().find(
@@ -368,6 +388,38 @@ export default defineComponent({
         }
       } catch (err: any) {
         alertService.showError(err?.response?.data?.message || "物化失败");
+      } finally {
+        materializeLoading.value = false;
+      }
+    };
+
+    const regenerateTimeData = async () => {
+      if (!selectedModel.value || !isTimeDimensionModel.value) {
+        alertService.showWarning("仅时间维度支持生成预置数据");
+        return;
+      }
+      if (!selectedModel.value.dataSourceId || !selectedModel.value.tableName) {
+        alertService.showWarning("请先物化该时间维度");
+        return;
+      }
+      materializeLoading.value = true;
+      try {
+        const res = await dataModelService().generateTimeData(
+          selectedModel.value.id!,
+          {
+            dataSourceId: selectedModel.value.dataSourceId,
+            schemaName: selectedModel.value.schemaName,
+            tableName: selectedModel.value.tableName,
+            start: selectedModel.value.timeStart,
+            end: selectedModel.value.timeEnd,
+            overwrite: true,
+          },
+        );
+        alertService.showSuccess(`已生成预置数据 ${res.data?.rows ?? 0} 行`);
+      } catch (err: any) {
+        alertService.showError(
+          err?.response?.data?.message || "生成预置数据失败",
+        );
       } finally {
         materializeLoading.value = false;
       }
@@ -632,6 +684,10 @@ export default defineComponent({
       materializeTableExists,
       materializeDDLPreview,
       materializePhysicalTypes,
+      materializeGenerateData,
+      materializeDataStart,
+      materializeDataEnd,
+      isTimeDimensionModel,
       canMaterialize,
       modelTypeLabel,
       modelTypeTagType,
@@ -650,6 +706,7 @@ export default defineComponent({
       checkMaterializeTableExists,
       previewMaterializeDDL,
       confirmMaterialize,
+      regenerateTimeData,
       getFieldTypeLabel,
       needsLength,
       needsPrecision,

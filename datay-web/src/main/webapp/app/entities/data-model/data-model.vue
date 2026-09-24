@@ -90,6 +90,15 @@
               >
                 <font-awesome-icon icon="database" /> 物化
               </el-button>
+              <el-button
+                v-if="isTimeDimensionModel"
+                type="success"
+                size="small"
+                :loading="materializeLoading"
+                @click="regenerateTimeData"
+              >
+                <font-awesome-icon icon="calendar-days" /> 生成预置数据
+              </el-button>
               <router-link
                 :to="{
                   name: 'DataModelEdit',
@@ -400,6 +409,37 @@
             </div>
           </el-form-item>
         </el-form>
+
+        <div v-if="isTimeDimensionModel" class="materialize-section">
+          <div class="materialize-section-header">
+            <span>时间维度预置数据</span>
+          </div>
+          <el-row :gutter="16" style="align-items: center">
+            <el-col :span="8">
+              <el-checkbox v-model="materializeGenerateData">
+                物化后生成预置数据
+              </el-checkbox>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="起始日期" label-width="80px">
+                <b-form-input
+                  type="date"
+                  v-model="materializeDataStart"
+                  :disabled="!materializeGenerateData"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="结束日期" label-width="80px">
+                <b-form-input
+                  type="date"
+                  v-model="materializeDataEnd"
+                  :disabled="!materializeGenerateData"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
         <div class="materialize-section">
           <div class="materialize-section-header">

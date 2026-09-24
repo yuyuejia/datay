@@ -9,6 +9,9 @@ public class MaterializeResponseDTO implements Serializable {
     private String ddl;
     private boolean tableExists;
 
+    /** 时间维度生成预置数据的行数，未生成时为 null。 */
+    private Integer dataRows;
+
     public boolean isSuccess() {
         return success;
     }
@@ -39,5 +42,13 @@ public class MaterializeResponseDTO implements Serializable {
 
     public void setTableExists(boolean tableExists) {
         this.tableExists = tableExists;
+    }
+
+    public Integer getDataRows() {
+        return dataRows;
+    }
+
+    public void setDataRows(Integer dataRows) {
+        this.dataRows = dataRows;
     }
 }

@@ -219,6 +219,15 @@ export default defineComponent({
       HIERARCHY: "层级字段",
     };
 
+    const TIME_GRANULARITY_ORDER = ["YEAR", "QUARTER", "MONTH", "WEEK", "DAY"];
+    const TIME_GRANULARITY_LABELS: Record<string, string> = {
+      YEAR: "年",
+      QUARTER: "季",
+      MONTH: "月",
+      WEEK: "周",
+      DAY: "日",
+    };
+
     const fieldRoleLabel = (role?: string | null) => {
       return role ? FIELD_ROLE_LABELS[role] || role : "-";
     };
@@ -312,6 +321,94 @@ export default defineComponent({
       });
     };
 
+    const timeGranularityOptions = TIME_GRANULARITY_ORDER.map((code) => ({
+      code,
+      label: TIME_GRANULARITY_LABELS[code],
+    }));
+
+    const selectedTimeLevels = computed<string[]>(() => {
+      const raw = dataModel.value.timeLevels || "";
+      const selected = new Set(
+        raw
+          .split(",")
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean),
+      );
+      return TIME_GRANULARITY_ORDER.filter((code) => selected.has(code));
+    });
+
+    const isTimeLevelSelected = (code: string) => {
+      return selectedTimeLevels.value.includes(code);
+    };
+
+    const toggleTimeLevel = (code: string) => {
+      const current = selectedTimeLevels.value;
+      const next = current.includes(code)
+        ? current.filter((c) => c !== code)
+        : [...current, code];
+      dataModel.value.timeLevels = TIME_GRANULARITY_ORDER.filter((c) =>
+        next.includes(c),
+      ).join(",");
+      syncTimeFields();
+    };
+
+    const syncTimeFields = () => {
+      const normalFields = fields.value.filter((f) => !f.fieldRole);
+      const generated: IModelField[] = [];
+      if (
+        dataModel.value.modelType === "DIMENSION" &&
+        dataModel.value.dimensionKind === "TIME"
+      ) {
+        const levels = selectedTimeLevels.value;
+        levels.forEach((code, index) => {
+          const levelIndex = index + 1;
+          const label = TIME_GRANULARITY_LABELS[code] || code;
+          generated.push(
+            makeGeneratedField(
+              `${code.toLowerCase()}_id`,
+              "LEVEL_ID",
+              levelIndex,
+              `${label}ID`,
+              false,
+            ),
+          );
+          generated.push(
+            makeGeneratedField(
+              `${code.toLowerCase()}_name`,
+              "LEVEL_NAME",
+              levelIndex,
+              `${label}名称`,
+              false,
+            ),
+          );
+        });
+        generated.push(
+          makeGeneratedField(
+            "date_key",
+            "MEMBER_ID",
+            null,
+            "日期主键(与最末级粒度一致)",
+            true,
+          ),
+        );
+        generated.push(
+          makeGeneratedField("hierarchy", "HIERARCHY", null, "层级路径", false),
+        );
+      }
+      fields.value = [...normalFields, ...generated];
+      fields.value.forEach((f, index) => {
+        f.sortOrder = index;
+      });
+    };
+
+    const syncDimensionFields = () => {
+      if (dataModel.value.dimensionKind === "TIME") {
+        syncTimeFields();
+      } else {
+        syncHierarchyFields();
+      }
+    };
+
     const onModelTypeChange = () => {
       if (dataModel.value.modelType === "DIMENSION") {
         if (!dataModel.value.dimensionKind) {
@@ -320,21 +417,34 @@ export default defineComponent({
       } else {
         dataModel.value.dimensionKind = "NORMAL";
         dataModel.value.levelCount = null;
+        dataModel.value.timeLevels = null;
+        dataModel.value.timeStart = null;
+        dataModel.value.timeEnd = null;
       }
       if (dataModel.value.modelType !== "DWD") {
         dataModel.value.timeFieldName = null;
       }
-      syncHierarchyFields();
+      syncDimensionFields();
     };
 
     const onDimensionKindChange = () => {
-      if (
-        dataModel.value.dimensionKind === "HIERARCHY" &&
-        !dataModel.value.levelCount
-      ) {
-        dataModel.value.levelCount = 1;
+      if (dataModel.value.dimensionKind === "HIERARCHY") {
+        if (!dataModel.value.levelCount) {
+          dataModel.value.levelCount = 1;
+        }
+      } else if (dataModel.value.dimensionKind === "TIME") {
+        dataModel.value.levelCount = null;
+        if (!dataModel.value.timeLevels) {
+          dataModel.value.timeLevels = "YEAR,QUARTER,MONTH,DAY";
+        }
+        if (!dataModel.value.timeStart) {
+          dataModel.value.timeStart = "2024-01-01";
+        }
+        if (!dataModel.value.timeEnd) {
+          dataModel.value.timeEnd = "2024-12-31";
+        }
       }
-      syncHierarchyFields();
+      syncDimensionFields();
     };
 
     const onLevelCountChange = () => {
@@ -829,6 +939,10 @@ export default defineComponent({
       onModelTypeChange,
       onDimensionKindChange,
       onLevelCountChange,
+      timeGranularityOptions,
+      selectedTimeLevels,
+      isTimeLevelSelected,
+      toggleTimeLevel,
       addField,
       removeField,
       handlePrimaryKeyChange,
@@ -900,6 +1014,28 @@ export default defineComponent({
           !fieldNames.includes(this.dataModel.timeFieldName)
         ) {
           this.dataModel.timeFieldName = null;
+        }
+
+        if (this.dataModel.dimensionKind === "TIME") {
+          if (!this.dataModel.timeLevels) {
+            this.alertService.showWarning("请至少选择一个时间粒度");
+            this.isSaving = false;
+            return;
+          }
+          const start = this.dataModel.timeStart;
+          const end = this.dataModel.timeEnd;
+          if (start && end && start > end) {
+            this.alertService.showWarning("起始日期不能晚于结束日期");
+            this.isSaving = false;
+            return;
+          }
+        } else {
+          this.dataModel.timeLevels = null;
+          this.dataModel.timeStart = null;
+          this.dataModel.timeEnd = null;
+        }
+        if (this.dataModel.dimensionKind !== "HIERARCHY") {
+          this.dataModel.levelCount = null;
         }
 
         if (this.dataModel.id) {

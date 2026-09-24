@@ -75,6 +75,9 @@
           <b-dropdown-item to="/metric" exact>
             <span>指标管理</span>
           </b-dropdown-item>
+          <b-dropdown-item to="/metric-ai" exact>
+            <span>智能问数</span>
+          </b-dropdown-item>
         </b-nav-item-dropdown>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>

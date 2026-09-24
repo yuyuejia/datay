@@ -49,9 +49,31 @@ public class MetricQueryService {
     /** 层级维度类型。 */
     private static final String DIMENSION_KIND_HIERARCHY = "HIERARCHY";
 
+    /** 时间维度类型，与层级维度一样支持按层级（时间粒度）分组。 */
+    private static final String DIMENSION_KIND_TIME = "TIME";
+
+    /** 时间维度层级字段的中文标签，用于元数据展示。 */
+    private static final Map<String, String> TIME_LEVEL_LABELS = Map.of(
+        "YEAR",
+        "年",
+        "QUARTER",
+        "季",
+        "MONTH",
+        "月",
+        "WEEK",
+        "周",
+        "DAY",
+        "日"
+    );
+
     /** 字段角色。 */
     private static final String ROLE_LEVEL_ID = "LEVEL_ID";
     private static final String ROLE_LEVEL_NAME = "LEVEL_NAME";
+
+    /** 可用于时间分组的周期字段（按年/季/月/周/日等）。 */
+    private static final Pattern PERIOD_FIELD_PATTERN = Pattern.compile(
+        "(?i)^(year|quarter|month|week_of_year|week|day_of_week|day|full_date|date)(_id|_name)?$"
+    );
 
     private final MetricRepository metricRepository;
     private final DataModelRepository dataModelRepository;
@@ -123,29 +145,47 @@ public class MetricQueryService {
             item.put("dimensionModelCode", dimensionModel == null ? null : dimensionModel.getCode());
             item.put("dimensionModelName", dimensionModel == null ? null : dimensionModel.getName());
             item.put("factFieldName", context.single ? context.factDimensionMaps.get(context.factModels.get(0).getId()).get(dimensionModelId) : null);
-            boolean hierarchy = dimensionModel != null && DIMENSION_KIND_HIERARCHY.equalsIgnoreCase(dimensionModel.getDimensionKind());
+            boolean hierarchy = dimensionModel != null && isHierarchyLike(dimensionModel.getDimensionKind());
             item.put("isHierarchy", hierarchy);
-            item.put("levelCount", hierarchy ? dimensionModel.getLevelCount() : null);
+            item.put("dimensionKind", dimensionModel == null ? null : dimensionModel.getDimensionKind());
+            boolean timeKind = dimensionModel != null && DIMENSION_KIND_TIME.equalsIgnoreCase(dimensionModel.getDimensionKind());
+            item.put("levelCount", hierarchy ? resolveLevelCount(dimensionModel) : null);
+            item.put("isTimeDimension", isTimeDimension(context, dimensionModelId) || timeKind);
             if (hierarchy) {
-                int levelCount = dimensionModel.getLevelCount() == null ? 0 : dimensionModel.getLevelCount();
+                int levelCount = resolveLevelCount(dimensionModel);
                 List<Map<String, Object>> levels = new ArrayList<>();
                 for (int level = 1; level <= levelCount; level++) {
                     Map<String, Object> levelItem = new LinkedHashMap<>();
                     levelItem.put("levelIndex", level);
                     levelItem.put("idField", levelFieldName(dimensionModelId, level, ROLE_LEVEL_ID));
                     levelItem.put("nameField", levelFieldName(dimensionModelId, level, ROLE_LEVEL_NAME));
+                    if (timeKind) {
+                        String granularity = timeGranularityCode(dimensionModel, level);
+                        levelItem.put("granularity", granularity);
+                        levelItem.put("label", TIME_LEVEL_LABELS.getOrDefault(granularity, granularity));
+                    }
                     levels.add(levelItem);
                 }
                 item.put("levels", levels);
             }
             List<Map<String, Object>> dimensionFields = new ArrayList<>();
+            List<String> periodFields = new ArrayList<>();
             for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId)) {
                 Map<String, Object> fieldItem = new LinkedHashMap<>();
                 fieldItem.put("fieldName", field.getFieldName());
                 fieldItem.put("fieldType", field.getFieldType());
+                if (field.getDescription() != null && !field.getDescription().isBlank()) {
+                    fieldItem.put("description", field.getDescription());
+                }
                 dimensionFields.add(fieldItem);
+                if (field.getFieldName() != null && PERIOD_FIELD_PATTERN.matcher(field.getFieldName()).matches()) {
+                    periodFields.add(field.getFieldName());
+                }
             }
             item.put("fields", dimensionFields);
+            if (!periodFields.isEmpty()) {
+                item.put("periodFields", periodFields);
+            }
             dimensions.add(item);
         }
 
@@ -220,13 +260,13 @@ public class MetricQueryService {
             if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
                 throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
             }
-            boolean hierarchy = DIMENSION_KIND_HIERARCHY.equalsIgnoreCase(dimensionModel.getDimensionKind());
+            boolean hierarchy = isHierarchyLike(dimensionModel.getDimensionKind());
 
             DimSelection selection = new DimSelection();
             selection.dimensionModelId = dimensionModelId;
 
             if (hierarchy) {
-                int levelCount = dimensionModel.getLevelCount() == null ? 0 : dimensionModel.getLevelCount();
+                int levelCount = resolveLevelCount(dimensionModel);
                 int level = dimension.getLevelIndex() == null ? levelCount : dimension.getLevelIndex();
                 if (level < 1 || level > levelCount) {
                     throw new IllegalArgumentException("层级维度层级序号超出范围：" + level);
@@ -252,8 +292,15 @@ public class MetricQueryService {
                         continue;
                     }
                     displayFields.addAll(primaryKeys);
+                    selection.groupKeyFields = primaryKeys;
+                } else if (context.single) {
+                    // 单事实表且指定了显示字段时，按显示字段汇总（维度主键仅用于关联，不参与分组），
+                    // 例如按日期维度的 year+month 汇总得到月度粒度，而非按 date_sk 的日粒度
+                    selection.groupKeyFields = new ArrayList<>(displayFields);
+                } else {
+                    // 多事实表需要以维度主键作为跨事实表的关联键
+                    selection.groupKeyFields = primaryKeys;
                 }
-                selection.groupKeyFields = primaryKeys;
                 selection.displayFields = displayFields;
             }
             context.dimensions.add(selection);
@@ -592,6 +639,68 @@ public class MetricQueryService {
             }
         }
         return map;
+    }
+
+    /** 层级维度与时间维度均支持按层级分组。 */
+    private static boolean isHierarchyLike(String dimensionKind) {
+        return DIMENSION_KIND_HIERARCHY.equalsIgnoreCase(dimensionKind) || DIMENSION_KIND_TIME.equalsIgnoreCase(dimensionKind);
+    }
+
+    private int resolveLevelCount(DataModel dimensionModel) {
+        if (dimensionModel == null) {
+            return 0;
+        }
+        if (DIMENSION_KIND_TIME.equalsIgnoreCase(dimensionModel.getDimensionKind())) {
+            String levels = dimensionModel.getTimeLevels();
+            if (levels == null || levels.isBlank()) {
+                return 0;
+            }
+            int count = 0;
+            for (String token : levels.split(",")) {
+                if (!token.isBlank()) {
+                    count++;
+                }
+            }
+            return count;
+        }
+        return dimensionModel.getLevelCount() == null ? 0 : dimensionModel.getLevelCount();
+    }
+
+    private String timeGranularityCode(DataModel dimensionModel, int level) {
+        String levels = dimensionModel.getTimeLevels();
+        if (levels == null || levels.isBlank()) {
+            return null;
+        }
+        int index = 0;
+        for (String token : levels.split(",")) {
+            String value = token.trim();
+            if (value.isEmpty()) {
+                continue;
+            }
+            index++;
+            if (index == level) {
+                return value.toUpperCase();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 判断维度是否为事实表时间字段所关联的日期/时间维度（用于按年/月/周等时间分组）。
+     */
+    private boolean isTimeDimension(QueryContext context, Long dimensionModelId) {
+        for (DataModel factModel : context.factModels) {
+            String timeField = factModel.getTimeFieldName();
+            if (timeField == null || timeField.isBlank()) {
+                continue;
+            }
+            Map<Long, String> joinMap = context.factDimensionMaps.get(factModel.getId());
+            String joinField = joinMap == null ? null : joinMap.get(dimensionModelId);
+            if (timeField.equalsIgnoreCase(joinField)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<Long> commonDimensions(List<DataModel> factModels) {

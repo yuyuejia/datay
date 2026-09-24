@@ -233,6 +233,26 @@ datay:
     max-tool-calls-per-round: 8
     # 是否允许调用具备副作用的写工具，默认关闭；需与助手自身声明同时放行
     allow-mutating-tools: false
+    # 指标问数知识库（RAG）：把指标、维度字段、维度成员向量化到独立 DuckDB，提升模糊匹配精度
+    rag:
+      enabled: true
+      # 索引文件，与业务数仓隔离
+      db-file: ./data/metric-rag.duckdb
+      # 向量化提供方：local（本地字符 n-gram，开箱可用）/ openai（OpenAI 兼容 /embeddings）
+      provider: ${DATAY_AI_RAG_PROVIDER:local}
+      # 本地向量维度
+      local-dimensions: 512
+      # 外部 embedding 配置，provider=openai 时生效；api-key 缺省回退 datay.ai.api-key
+      embedding-base-url: ${DATAY_AI_RAG_EMBEDDING_BASE_URL:}
+      embedding-model: ${DATAY_AI_RAG_EMBEDDING_MODEL:text-embedding-3-small}
+      embedding-api-key: ${DATAY_AI_RAG_EMBEDDING_API_KEY:}
+      embedding-timeout-seconds: 60
+      # 默认每类候选数量
+      top-k: 8
+      # 是否索引维度成员值（如「北京」）
+      member-index-enabled: true
+      # 单字段成员抽样上限
+      member-sample-limit: 200
 
 # jhipster-needle-add-application-yaml-document
 ---

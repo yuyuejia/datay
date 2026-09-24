@@ -201,4 +201,17 @@ export default class DataModelService {
         });
     });
   }
+
+  generateTimeData(modelId: number, request: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`${baseApiUrl}/${modelId}/generate-time-data`, request)
+        .then((res) => {
+          resolve(res);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    });
+  }
 }

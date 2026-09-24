@@ -1,6 +1,7 @@
 package com.data.datafusion.ai;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -9,11 +10,15 @@ import java.util.Map;
  */
 public class AiResult {
 
+    /** 指标问数产物在 artifacts 中的键：一次指标查询的 columns / rows / sql。 */
+    public static final String ARTIFACT_METRIC_QUERY = "metricQuery";
+
     private String sql;
     private String explanation;
     private int rounds;
     private boolean converged;
     private List<ToolTrace> toolCalls = new ArrayList<>();
+    private Map<String, Object> artifacts = new LinkedHashMap<>();
     private int promptTokens;
     private int completionTokens;
 
@@ -89,6 +94,14 @@ public class AiResult {
 
     public void setToolCalls(List<ToolTrace> toolCalls) {
         this.toolCalls = toolCalls;
+    }
+
+    public Map<String, Object> getArtifacts() {
+        return artifacts;
+    }
+
+    public void setArtifacts(Map<String, Object> artifacts) {
+        this.artifacts = artifacts == null ? new LinkedHashMap<>() : artifacts;
     }
 
     public int getPromptTokens() {

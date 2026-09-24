@@ -17,6 +17,12 @@ public class AiGenerateResponse {
     private int rounds;
     private boolean converged;
     private List<Map<String, Object>> toolCalls;
+
+    /**
+     * 结构化产物：指标问数场景下承载一次指标查询的 columns / rows / sql，
+     * 供前端在对话中直接渲染数据表；其它助手可能为空。
+     */
+    private Map<String, Object> data;
     private int promptTokens;
     private int completionTokens;
 
@@ -50,6 +56,12 @@ public class AiGenerateResponse {
                 return item;
             })
             .toList();
+        Object metricData = result.getArtifacts().get(AiResult.ARTIFACT_METRIC_QUERY);
+        if (metricData instanceof Map<?, ?> map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cast = (Map<String, Object>) map;
+            response.data = cast;
+        }
         return response;
     }
 
@@ -79,6 +91,10 @@ public class AiGenerateResponse {
 
     public List<Map<String, Object>> getToolCalls() {
         return toolCalls;
+    }
+
+    public Map<String, Object> getData() {
+        return data;
     }
 
     public int getPromptTokens() {

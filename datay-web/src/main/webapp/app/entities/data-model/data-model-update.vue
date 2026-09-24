@@ -73,6 +73,7 @@
             >
               <option value="NORMAL">普通维度</option>
               <option value="HIERARCHY">层级维度</option>
+              <option value="TIME">时间维度</option>
             </select>
           </el-form-item>
         </el-col>
@@ -85,6 +86,46 @@
               max="10"
               @change="onLevelCountChange"
             />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row
+        v-if="
+          dataModel.modelType === 'DIMENSION' &&
+          dataModel.dimensionKind === 'TIME'
+        "
+        :gutter="20"
+      >
+        <el-col :span="12">
+          <el-form-item label="时间粒度" required>
+            <div class="time-granularity">
+              <label
+                v-for="opt in timeGranularityOptions"
+                :key="opt.code"
+                class="time-granularity-item"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isTimeLevelSelected(opt.code)"
+                  @change="toggleTimeLevel(opt.code)"
+                />
+                <span>{{ opt.label }}</span>
+              </label>
+            </div>
+            <div class="time-granularity-hint">
+              按由粗到细生成层级字段，最末级粒度决定成员与主键 date_key
+            </div>
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="起始日期">
+            <b-form-input type="date" v-model="dataModel.timeStart" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="6">
+          <el-form-item label="结束日期">
+            <b-form-input type="date" v-model="dataModel.timeEnd" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -645,6 +686,34 @@
 .field-placeholder {
   color: #c0c4cc;
   font-size: 13px;
+}
+
+.time-granularity {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.time-granularity-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: normal;
+  cursor: pointer;
+  margin: 0;
+}
+
+.time-granularity-item input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.time-granularity-hint {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .muted {

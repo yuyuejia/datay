@@ -16,6 +16,9 @@ public class DataModelDTO implements Serializable {
     private String dimensionKind;
     private Integer levelCount;
     private String timeFieldName;
+    private String timeLevels;
+    private String timeStart;
+    private String timeEnd;
     private Boolean isRegistered;
     private String project;
     private String tenantId;
@@ -95,6 +98,30 @@ public class DataModelDTO implements Serializable {
 
     public void setTimeFieldName(String timeFieldName) {
         this.timeFieldName = timeFieldName;
+    }
+
+    public String getTimeLevels() {
+        return timeLevels;
+    }
+
+    public void setTimeLevels(String timeLevels) {
+        this.timeLevels = timeLevels;
+    }
+
+    public String getTimeStart() {
+        return timeStart;
+    }
+
+    public void setTimeStart(String timeStart) {
+        this.timeStart = timeStart;
+    }
+
+    public String getTimeEnd() {
+        return timeEnd;
+    }
+
+    public void setTimeEnd(String timeEnd) {
+        this.timeEnd = timeEnd;
     }
 
     public Boolean getIsRegistered() {
@@ -189,6 +216,9 @@ public class DataModelDTO implements Serializable {
             ", dimensionKind='" + getDimensionKind() + "'" +
             ", levelCount=" + getLevelCount() +
             ", timeFieldName='" + getTimeFieldName() + "'" +
+            ", timeLevels='" + getTimeLevels() + "'" +
+            ", timeStart='" + getTimeStart() + "'" +
+            ", timeEnd='" + getTimeEnd() + "'" +
             ", isRegistered=" + getIsRegistered() +
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +

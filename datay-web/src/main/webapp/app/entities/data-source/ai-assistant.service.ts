@@ -14,6 +14,15 @@ export interface AiToolTrace {
   elapsedMs: number;
 }
 
+export interface AiMetricQueryData {
+  columns?: string[];
+  rows?: Record<string, any>[];
+  sql?: string;
+  totalRows?: number;
+  truncated?: boolean;
+  parsed?: Record<string, any>;
+}
+
 export interface AiGenerateResult {
   available: boolean;
   /** 模型抽取出的最终 SQL（SQL 类助手）。 */
@@ -24,6 +33,8 @@ export interface AiGenerateResult {
   rounds?: number;
   converged?: boolean;
   toolCalls?: AiToolTrace[];
+  /** 指标问数产物：一次指标查询的列与数据行，供前端直接渲染数据表。 */
+  data?: AiMetricQueryData;
   promptTokens?: number;
   completionTokens?: number;
 }

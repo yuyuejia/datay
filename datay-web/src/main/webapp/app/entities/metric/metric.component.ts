@@ -438,6 +438,10 @@ export default defineComponent({
 
     const levelLabel = (dimension: any, levelIndex: number) => {
       const levels = dimensionLevels(dimension);
+      const current = levels.find((l: any) => l.levelIndex === levelIndex);
+      if (current && current.label) {
+        return current.label;
+      }
       const last =
         levels.length > 0 &&
         levels[levels.length - 1].levelIndex === levelIndex;

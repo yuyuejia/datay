@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <property name="tdNow" value="now()" dbms="h2"/>
+    <property name="tdNow" value="NOW(3)" dbms="mysql"/>
+
+    <!-- 1. 时间维度模型（年/季/月/日） -->
+    <changeSet id="20260925001000-1" author="datafusion">
+        <insert tableName="data_model">
+            <column name="id" valueNumeric="3006"/>
+            <column name="name" value="时间维度"/>
+            <column name="code" value="dim_time"/>
+            <column name="description" value="时间维度（年/季/月/日层级），member 粒度到日，供指标按任意时间粒度汇总。"/>
+            <column name="directory_id" valueNumeric="1002"/>
+            <column name="model_type" value="DIMENSION"/>
+            <column name="dimension_kind" value="TIME"/>
+            <column name="time_levels" value="YEAR,QUARTER,MONTH,DAY"/>
+            <column name="time_start" value="2024-01-01"/>
+            <column name="time_end" value="2024-12-31"/>
+            <column name="is_registered" valueBoolean="false"/>
+            <column name="project" value="retail"/>
+            <column name="schema_name" value="main"/>
+            <column name="table_name" value="dim_time"/>
+            <column name="data_source_id" valueNumeric="1600"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <!-- 2. 时间维度字段：year/quarter/month/day 的 id/name + 主键 date_key + hierarchy -->
+    <changeSet id="20260925001000-2" author="datafusion">
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7100"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="year_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="年ID"/>
+            <column name="sort_order" valueNumeric="1"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="1"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7101"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="year_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="年名称"/>
+            <column name="sort_order" valueNumeric="2"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="1"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7102"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="quarter_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="季度ID"/>
+            <column name="sort_order" valueNumeric="3"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="2"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7103"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="quarter_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="季度名称"/>
+            <column name="sort_order" valueNumeric="4"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="2"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7104"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="month_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="月ID"/>
+            <column name="sort_order" valueNumeric="5"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="3"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7105"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="month_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="月名称"/>
+            <column name="sort_order" valueNumeric="6"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="3"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7106"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="day_id"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="日ID"/>
+            <column name="sort_order" valueNumeric="7"/>
+            <column name="field_role" value="LEVEL_ID"/>
+            <column name="level_index" valueNumeric="4"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7107"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="day_name"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="日名称"/>
+            <column name="sort_order" valueNumeric="8"/>
+            <column name="field_role" value="LEVEL_NAME"/>
+            <column name="level_index" valueNumeric="4"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7108"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="date_key"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="255"/>
+            <column name="description" value="日期主键(与最末级粒度一致)"/>
+            <column name="sort_order" valueNumeric="9"/>
+            <column name="is_primary_key" valueBoolean="true"/>
+            <column name="field_role" value="MEMBER_ID"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+        <insert tableName="model_field">
+            <column name="id" valueNumeric="7109"/>
+            <column name="model_id" valueNumeric="3006"/>
+            <column name="field_name" value="hierarchy"/>
+            <column name="field_type" value="VARCHAR"/>
+            <column name="field_length" valueNumeric="500"/>
+            <column name="description" value="层级路径"/>
+            <column name="sort_order" valueNumeric="10"/>
+            <column name="field_role" value="HIERARCHY"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+        </insert>
+    </changeSet>
+
+    <!-- 3. 时间维度同步 ETL 任务（文件 -> 模型） -->
+    <changeSet id="20260925001000-3" author="datafusion">
+        <insert tableName="dp_etl_task">
+            <column name="id" valueNumeric="2406"/>
+            <column name="task_name" value="电商-时间维度同步"/>
+            <column name="task_code" value="EC_DIM_TIME_SYNC"/>
+            <column name="task_desc" value="从文件 dim_time.csv 同步时间维度数据到数据模型 dim_time。"/>
+            <column name="dir" value="电商同步"/>
+            <column name="type" value="0"/>
+            <column name="status" value="OFFLINE"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="creater" value="admin"/>
+            <column name="project" value="0"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="20260925001000-4" author="datafusion">
+        <insert tableName="dp_etl_node">
+            <column name="task_id" value="2406"/>
+            <column name="label" value="时间文件"/>
+            <column name="code" value="EC_TIME_IN"/>
+            <column name="jhi_desc" value="读取 dim_time.csv"/>
+            <column name="type" value="FileInput"/>
+            <column name="config" value='{"filePath":"model/dim_time.csv","format":"csv","csvHasHeader":true}'/>
+            <column name="x_axis" value="120"/>
+            <column name="y_axis" value="120"/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+        <insert tableName="dp_etl_node">
+            <column name="task_id" value="2406"/>
+            <column name="label" value="时间维度写入"/>
+            <column name="code" value="EC_TIME_OUT"/>
+            <column name="jhi_desc" value="写入 dim_time 模型"/>
+            <column name="type" value="ModelWrite"/>
+            <column name="config" value='{"modelId":3006,"model":"overwrite"}'/>
+            <column name="x_axis" value="460"/>
+            <column name="y_axis" value="120"/>
+            <column name="status" value="0"/>
+            <column name="create_time" valueComputed="${tdNow}"/>
+            <column name="update_time" valueComputed="${tdNow}"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+        <insert tableName="dp_etl_edge">
+            <column name="task_id" value="2406"/>
+            <column name="name" value="时间维度同步"/>
+            <column name="code" value="EC_EDGE_TIME"/>
+            <column name="source" value="EC_TIME_IN"/>
+            <column name="target" value="EC_TIME_OUT"/>
+            <column name="config" value="{}"/>
+            <column name="status" value="0"/>
+            <column name="tenant_id" value="0"/>
+            <column name="dr" valueNumeric="0"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

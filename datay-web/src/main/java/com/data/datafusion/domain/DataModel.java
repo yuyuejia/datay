@@ -43,6 +43,18 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "time_field")
     private String timeFieldName;
 
+    /** 时间维度选中的时间粒度（逗号分隔，如 YEAR,QUARTER,MONTH,DAY）。 */
+    @Column(name = "time_levels")
+    private String timeLevels;
+
+    /** 时间维度预置数据起始日期（yyyy-MM-dd）。 */
+    @Column(name = "time_start")
+    private String timeStart;
+
+    /** 时间维度预置数据结束日期（yyyy-MM-dd）。 */
+    @Column(name = "time_end")
+    private String timeEnd;
+
     @Column(name = "is_registered")
     private Boolean isRegistered;
 
@@ -184,6 +196,45 @@ public class DataModel implements Serializable, TenantAware {
         this.timeFieldName = timeFieldName;
     }
 
+    public String getTimeLevels() {
+        return this.timeLevels;
+    }
+
+    public DataModel timeLevels(String timeLevels) {
+        this.setTimeLevels(timeLevels);
+        return this;
+    }
+
+    public void setTimeLevels(String timeLevels) {
+        this.timeLevels = timeLevels;
+    }
+
+    public String getTimeStart() {
+        return this.timeStart;
+    }
+
+    public DataModel timeStart(String timeStart) {
+        this.setTimeStart(timeStart);
+        return this;
+    }
+
+    public void setTimeStart(String timeStart) {
+        this.timeStart = timeStart;
+    }
+
+    public String getTimeEnd() {
+        return this.timeEnd;
+    }
+
+    public DataModel timeEnd(String timeEnd) {
+        this.setTimeEnd(timeEnd);
+        return this;
+    }
+
+    public void setTimeEnd(String timeEnd) {
+        this.timeEnd = timeEnd;
+    }
+
     public Boolean getIsRegistered() {
         return this.isRegistered;
     }
@@ -316,6 +367,9 @@ public class DataModel implements Serializable, TenantAware {
             ", dimensionKind='" + getDimensionKind() + "'" +
             ", levelCount=" + getLevelCount() +
             ", timeFieldName='" + getTimeFieldName() + "'" +
+            ", timeLevels='" + getTimeLevels() + "'" +
+            ", timeStart='" + getTimeStart() + "'" +
+            ", timeEnd='" + getTimeEnd() + "'" +
             ", isRegistered=" + getIsRegistered() +
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +
