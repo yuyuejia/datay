@@ -1,33 +1,66 @@
-# DataY - 轻量、可嵌入、可扩展、高性能、流批一体的数据平台
+# DataY · 轻量数据平台，2C4G 搞定全场景
 
-## 项目简介
+> 数据平台可以很小，功能不打折。一套 DataY 跑起来，数据集成、任务调度、高性能数仓、智能问数 —— 全有。
 
 🌐 **产品首页**: [http://datay.yuyuejia.com.cn/](http://datay.yuyuejia.com.cn/)
 
-DataY 是一个集**数据集成引擎**与**数据平台产品**于一体的多模块项目，包含两个子模块：
+## 为什么是 DataY？
 
-- **[DataY Core](datay-core/README.md)**: 轻量、可嵌入、可扩展、高性能、流批一体的数据集成引擎，内置 DuckDB 引擎和组件，通过 JSON 配置文件定义数据集成任务，支持自动创建目标表。
-- **[DataY Web](datay-web/README.md)**: 基于 DataY Core 构建的数据平台产品，提供可视化的**任务设计**与**任务调度**能力，通过拖拽画布编排 ETL 数据流，支持定时调度、任务依赖。
+传统数据平台动辄十几台机器、上百 G 内存，部署复杂、运维成本高。DataY 的理念是：**用最极致的硬件利用，交付最完整的数据能力。**
 
-DataY Core 负责高性能的数据处理执行，DataY Web 负责任务的可视化设计与统一调度，两者配合即可完成从任务编排到数据落地的完整数据平台闭环。
+| 传统方案 | DataY |
+| --- | --- |
+| 需要 Hadoop / Spark / Flink / ClickHouse / Doris 一整套 | 一个 JAR，内嵌 DuckDB，拒绝组件地狱 |
+| 几十上百台机器起步 | **2 核 4G** 即可跑通数据集成 → 数仓 → 问数的完整链路 |
+| 运维门槛高，需要专职大数据工程师 | 零依赖启动，10 分钟搭好开发环境 |
 
-## 模块结构
+DataY 不是某个单点工具，而是覆盖数据全链路的**一体化数据平台**：
+
+```
+数据集成 ──▶ 任务调度 ──▶ 高性能数仓 ──▶ 智能问数
+  ETL/CDC      Cron/DAG      DuckDB      自然语言
+```
+
+## 项目结构
+
+DataY 分两个子模块，Core 负责引擎，Web 负责平台产品：
 
 ```
 datay/
 ├── pom.xml          # Maven 父模块
-├── datay-core/      # 集成引擎（可嵌入、可扩展、高性能）
-└── datay-web/       # 数据平台产品（任务设计 + 任务调度）
+├── datay-core/      # 轻量、高性能、流批一体的数据集成引擎
+└── datay-web/       # 可视化数据平台（任务设计 + 调度 + 数仓 + 问数）
 ```
 
-## 核心特性
+## 四大能力，一个平台
 
-- **简单易用**: 支持 Cli 模式运行任务，支持嵌入应用，同时提供拖拽式任务设计界面
-- **流批一体**: 支持流处理和批处理任务，可根据场景选择合适的处理模式
-- **可扩展**: 支持组件扩展，满足多样化需求，支持 Java 脚本组件自定义数据处理逻辑
-- **高性能**: 内置 DuckDB 引擎，支持 SQL 进行高效数据处理
-- **任务调度**: 支持定时调度、任务依赖调度、手动触发执行
-- **解耦部署**: 调度 master 与执行 worker 可独立部署或合并部署，横向扩展计算节点
+### 🔌 数据集成（Data Integration）
+
+- 支持 MySQL / PostgreSQL / Oracle / Doris / ClickHouse / DuckDB 等十余种数据源
+- 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
+- 支持全量同步、增量同步、MySQL CDC 实时同步
+- 自动建表（DDL 转换），源表改字段自动同步到目标
+
+### ⏰ 任务调度（Job Scheduler）
+
+- Cron 定时调度，Quartz 引擎精准到秒
+- DAG 工作流编排，父子任务自动拓扑排序
+- 支持手动触发、暂停/恢复、失败重试
+- 调度 master 与执行 worker 可分离部署，单机就能跑，集群也能扩
+
+### 🚀 高性能数仓（High-Performance Warehouse）
+
+- **内嵌 DuckDB**，列存 + 向量化 + 无锁并发，单机就能跑出分布式数仓的性能
+- 支持 Star Schema / Snowflake 维度建模，原子指标 / 衍生指标定义
+- 支持 Doris / ClickHouse 流式加载，需要大规模查询可随时外挂
+- 支持 DuckLake（Iceberg 格式），低成本构建数据湖
+
+### 🤖 智能问数（AI Data Agent）
+
+- 自然语言 → 指标 → 维度 → 时间过滤 → 取数，**一句话拿报表**
+- RAG 本地向量索引，指标口径不跑偏
+- 指标管理模块统一维护业务口径，问数有依据
+- 也支持 AI SQL 助手：自然语言 → 可执行 SQL
 
 
 ## 环境要求
@@ -36,94 +69,47 @@ datay/
 - Maven 3.6+
 - Node 22+（构建 DataY Web 前端）
 
-## 构建项目
+## 快速开始（10 分钟跑通全链路）
+
+### 最低要求：一台 2C4G 的服务器
+
+DataY 生产部署只需要一个 JDK 17+ 环境，**不需要 Redis、不需要 Zookeeper、不需要 K8s**。
+
+### 一键部署
 
 ```bash
-# 1. 构建并安装 datay-core 到本地仓库
-mvn -pl datay-core clean install -DskipTests
-
-# 2. 构建 datay-web
-mvn -pl datay-web clean package
-
-# 或一次构建所有模块
+# 1. 构建（或下载预编译 JAR）
 mvn clean package -DskipTests
+
+# 2. 启动（单机模式，调度+执行合一）
+java -jar datay-web/target/*.jar
+
+# 3. 浏览器打开 http://localhost:8080，默认账号 admin/admin
 ```
 
-## 快速开始
+### 跑一条数据同步任务
 
-### DataY Core：构建 jar 包运行
+1. 登录后进入 **数据源** → 新建数据源（MySQL / DuckDB 均可）
+2. 进入 **数据集成** → 新建任务，拖拽 `StreamJdbcInput` → `StreamJdbcOutput` 连线
+3. 双击节点配置源表和目标表，点「上线」
+4. 进入 **任务实例** 看运行结果
 
-先构建项目（参考上方「构建项目」章节），构建完成后在 `datay-core/target/` 目录下可找到带依赖的 jar 包。
+### Core 独立运行（嵌入 / CLI 模式）
 
-Mysql同步到Mysql任务配置文件示例：
+```bash
+# JSON 定义任务，直接跑
+java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.json
+```
 
 ```json
 {
   "units": [
-    {
-      ".id": "c125de36",
-      ".name": "StreamJdbcInput",
-      "datasource": {
-        "url": "jdbc:mysql://127.0.0.1:3306",
-        "driver": "com.mysql.jdbc.Driver",
-        "username": "root",
-        "password": "password",
-        "dbschema": "source"
-      },
-      "table": "table1,table2",
-      "incrColumn": "",
-      "where": ""
-    },
-    {
-      ".id": "a949c10a",
-      ".name": "StreamJdbcOutput",
-      "datasource": {
-        "url": "jdbc:mysql://127.0.0.1:3306",
-        "driver": "com.mysql.jdbc.Driver",
-        "username": "root",
-        "password": "password",
-        "dbschema": "target"
-      },
-      "schema": "target",
-      "table": "",
-      "model": "overwrite"
-    }
+    { ".name": "StreamJdbcInput", "table": "orders" },
+    { ".name": "StreamJdbcOutput", "table": "orders_sync" }
   ],
-  "connections": [
-    {
-      "sourceId": "c125de36",
-      "targetId": "a949c10a"
-    }
-  ]
+  "connections": [{ "sourceId": "...", "targetId": "..." }]
 }
 ```
-
-运行任务：
-
-```bash
-java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.json
-```
-
-### DataY Web：启动 Web 平台
-
-开发模式默认账号：`admin / admin`
-
-```bash
-# 开发模式（两个终端）
-./mvnw                    # 后端，http://localhost:8080
-./npmw start              # 前端，http://localhost:9000
-
-# 生产模式
-./mvnw -Pprod clean verify
-java -jar target/*.jar    # http://localhost:8080
-```
-
-使用步骤：
-
-1. 进入「数据源」页面，添加源/目标数据源并测试连接
-2. 进入「ETL 任务」页面新建任务，拖拽组件、连线编排数据流，配置调度并保存
-3. 任务列表点击「上线」，任务即加入调度
-4. 进入「任务实例」页面查看任务运行状态
 
 ## 常用场景案例
 
@@ -142,36 +128,6 @@ java -jar target/*.jar    # http://localhost:8080
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
 - **CDC**: MySQL Binlog
-
-## 核心组件
-
-### 输入组件
-- [StreamJdbcInput](datay-core/docs/component/StreamJdbcInput.md) : JDBC数据源输入
-- [MySQLBinlogInput](datay-core/docs/component/MySQLBinlogInput.md) : 读取MySQL Binlog日志，支持增量数据同步
-
-### 处理组件
-- [DuckDBSql](datay-core/docs/component/DuckDBSql.md) : DuckDB SQL处理
-- [StreamSqlUnit](datay-core/docs/component/StreamSqlUnit.md) : 流式SQL处理，使用DuckDB对流式数据进行SQL处理
-- [Join](datay-core/docs/component/Join.md) : 多表关联，配置生成DuckDB SQL并输出结果集
-- [LlmComponent](datay-core/docs/component/LlmComponent.md) : 大模型组件，按行调用 OpenAI 兼容接口，支持动态参数与结果扩充
-- [JavaScriptComponent](datay-core/docs/component/JavaScriptComponent.md) : Java脚本组件，支持在任务中执行自定义逻辑
-
-### 输出组件
-- [StreamJdbcOutput](datay-core/docs/component/StreamJdbcOutput.md) : JDBC数据源输出
-- [DuckDBWrite](datay-core/docs/component/DuckDBWrite.md) : DuckDB写入
-- [DuckLakeWrite](datay-core/docs/component/DuckLakeWrite.md) : DuckLake写入
-- [DorisStreamLoad](datay-core/docs/component/DorisStreamLoad.md) : Doris流式加载
-- ModelWrite : DataY Web 模型写入组件，选择数据模型后翻译生成 StreamJdbcOutput 任务定义
-
-### 其他组件
-- [HttpListener](datay-core/docs/component/HttpListener.md) : HTTP监听器，接受HTTP请求并触发数据处理任务
-
-## 监控与日志
-
-- 任务增量状态记录，支持增量数据处理
-- 支持本地文件状态存储，MinIO分布式状态存储
-- 记录执行节点、开始/结束时间、执行消息
-- 详细的执行日志记录
 
 ## 联系方式
 

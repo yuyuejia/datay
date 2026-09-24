@@ -373,25 +373,53 @@ public class ETLTaskService {
     }
 
     /**
-     * 立即执行ETL任务一次
+     * 立即执行ETL任务一次。
+     * 如果任务尚未生成对应的 Job 定义（jobId 为空，或 Job 的 jobContext 为空），
+     * 则先基于任务设计图（nodes/edges）生成 Job 定义并保存，再执行。
      *
      * @param id ETLTask的ID
      */
     public void executeOnce(Long id) {
         LOG.debug("Request to executeOnce ETLTask : {}", id);
-        eTLTaskRepository
-            .findById(id)
-            .map(etlTask -> {
-                if (etlTask.getJobId() == null) {
-                    throw new RuntimeException("ETLTask has no job, please save task first: " + id);
+        ETLTask etlTask = eTLTaskRepository.findById(id).orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
+
+        Job job;
+        if (etlTask.getJobId() == null) {
+            LOG.info("ETLTask {} has no jobId, generating job definition before execution", id);
+            ETLTaskDTO taskDto = buildTaskDTO(etlTask);
+            job = saveETLJob(taskDto);
+            etlTask.setJobId(job.getId());
+            eTLTaskRepository.save(etlTask);
+        } else {
+            Optional<Job> jobOpt = jobService.findOneJob(etlTask.getJobId());
+            if (jobOpt.isEmpty()) {
+                LOG.info("ETLTask {} job {} not found, regenerating job definition before execution", id, etlTask.getJobId());
+                ETLTaskDTO taskDto = buildTaskDTO(etlTask);
+                job = saveETLJob(taskDto);
+                etlTask.setJobId(job.getId());
+                eTLTaskRepository.save(etlTask);
+            } else {
+                job = jobOpt.get();
+                if (job.getJobContext() == null || job.getJobContext().trim().isEmpty()) {
+                    LOG.info("ETLTask {} job {} has empty jobContext, regenerating before execution", id, job.getId());
+                    ETLTaskDTO taskDto = buildTaskDTO(etlTask);
+                    taskDto.setJobId(job.getId());
+                    taskDto.setUpdateTime(ZonedDateTime.now());
+                    job = saveETLJob(taskDto);
                 }
-                Job job = jobService
-                    .findOneJob(etlTask.getJobId())
-                    .orElseThrow(() -> new RuntimeException("Job not found with id: " + etlTask.getJobId()));
-                jobService.executeOnce(job);
-                return etlTask;
-            })
-            .orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
+            }
+        }
+
+        jobService.executeOnce(job);
+    }
+
+    private ETLTaskDTO buildTaskDTO(ETLTask etlTask) {
+        ETLTaskDTO dto = eTLTaskMapper.toDto(etlTask);
+        List<ETLNodeDTO> nodes = eTLNodeRepository.findAllByTaskId(String.valueOf(etlTask.getId())).map(eTLNodeMapper::toDto).orElse(Collections.emptyList());
+        List<ETLEdgeDTO> edges = etlEdgeRepository.findAllByTaskId(String.valueOf(etlTask.getId())).map(etlEdgeMapper::toDto).orElse(Collections.emptyList());
+        dto.setNodes(nodes);
+        dto.setEdges(edges);
+        return dto;
     }
 
     /**

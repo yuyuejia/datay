@@ -38,10 +38,7 @@
     <include file="config/liquibase/changelog/20260909000000_added_entity_DataApi.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260909010000_seed_data_api.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260918000000_add_api_config_to_data_api.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260919000000_seed_file_input_component.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260920000000_seed_join_component.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260921000000_seed_data_transform_component.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260922000000_seed_llm_component.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260923000000_added_entity_Metric.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260923001000_seed_ecommerce.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260924000000_hierarchy_dimension.xml" relativeToChangelogFile="false"/>
