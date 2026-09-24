@@ -69,32 +69,181 @@ datay/
 - Maven 3.6+
 - Node 22+（构建 DataY Web 前端）
 
-## 快速开始（10 分钟跑通全链路）
-
-### 最低要求：一台 2C4G 的服务器
-
-DataY 生产部署只需要一个 JDK 17+ 环境，**不需要 Redis、不需要 Zookeeper、不需要 K8s**。
-
-### 一键部署
+## 一键部署
 
 ```bash
-# 1. 构建（或下载预编译 JAR）
+# 1. 克隆仓库
+git clone https://cnb.cool/yuyuejia/datay
+
+# 2. 构建项目
+cd datay
 mvn clean package -DskipTests
 
-# 2. 启动（单机模式，调度+执行合一）
-java -jar datay-web/target/*.jar
+# 3. 启动（单机模式，调度+执行合一），AI 能力需要提供 AI API Key，默认为 Deepseek 原厂Key
+java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
-# 3. 浏览器打开 http://localhost:8080，默认账号 admin/admin
+# 4. 浏览器打开 http://localhost:8080，默认账号 admin/admin
 ```
 
-### 跑一条数据同步任务
+在线演示地址：[http://datay-demo.yuyuejia.com.cn/](http://datay-demo.yuyuejia.com.cn/)
 
-1. 登录后进入 **数据源** → 新建数据源（MySQL / DuckDB 均可）
-2. 进入 **数据集成** → 新建任务，拖拽 `StreamJdbcInput` → `StreamJdbcOutput` 连线
-3. 双击节点配置源表和目标表，点「上线」
-4. 进入 **任务实例** 看运行结果
+### 开箱即用：已预置好的电商资产
 
-### Core 独立运行（嵌入 / CLI 模式）
+平台启动时自动通过数据库迁移脚本预置了一整套电商示例，**登录就能看到**：
+
+| 类型 | 预置内容 |
+| --- | --- |
+| 数据源 | `电商数仓(DuckDB)` |
+| 维度表 | `dim_date`、`dim_customer`、`dim_store`、`dim_product`、`dim_brand`、`dim_category`（3 级层级）、`dim_time`（年/季/月/日） |
+| 事实表 | `fact_sales_order`、`fact_sales_order_item`、`fact_customer_member` |
+| 指标 | 销售额、销量、成本、毛利、毛利率、客单价等 12 个 |
+| 同步任务 | `EC_DIM_*` / `EC_FACT_*` 系列，文件 → 模型 |
+
+![首页资产概览](datay-web/docs/images/首页资产概览.png)
+
+---
+
+## 数据接入（10 分钟）
+
+**目标**：把源数据（文件 / MySQL / API）同步进数仓物理表。
+
+### 注册数据源
+
+导航：**数据源 → 数据源管理**。
+
+1. 点击「新建数据源」
+2. 填写名称、类型（示例用 `DUCKDB`）、连接 URL、默认 schema
+3. 点「测试连接」确认后保存
+
+![数据源列表](datay-web/docs/images/数据源列表.png)
+
+### 编排同步任务
+
+两种方式选一种：
+
+**方式 A：可视化 ETL 画布**（适合复杂任务）
+**数据集成** → 新建任务 → 拖拽 `FileInput`（或 `StreamJdbcInput`）和 `ModelWrite` → 连线 → 双击节点配置 → 保存。
+
+**方式 B：数据同步**（适合简单表同步）
+**数据同步** 页面选源表和目标，自动建表全量/增量同步。
+
+![ETL画布](datay-web/docs/images/ETL画布.png)
+![节点配置弹框](datay-web/docs/images/节点配置弹框.png)
+
+### 执行并校验
+
+任务「执行一次」或「上线」后，到 **任务实例** 页看状态；在 **数据源元数据浏览** 里确认目标表已生成且有数据。
+
+![任务实例运行成功](datay-web/docs/images/任务实例运行成功.png)
+
+---
+
+## 维度建模（10 分钟）
+
+**目标**：用星型模型定义维度表和事实表的关联关系，让后续指标和问数有业务语义。
+
+导航：**数据模型 → 维度建模**。
+
+### 三种维度类型
+
+创建维度模型时，选对类型能省很多事：
+
+| 类型 | 自动生成什么 | 什么时候用 |
+| --- | --- | --- |
+| 普通维度 | 基础字段 + `member_id/member_name` | 客户、门店、商品 |
+| 层级维度 | `level1_id/level1_name` … 自动层级字段 | 品类（一级/二级/三级） |
+| 时间维度 | `year/month/day` 粒度字段 + 预置日期数据 | 按时间趋势分析 |
+
+### 时间维度
+
+1. 新建模型，类型选 **时间维度**
+2. 勾选粒度：`年 / 季 / 月 / 日`（自动按由粗到细排序）
+3. 填日期范围（如 `2024-01-01 ~ 2024-12-31`）
+4. 保存后自动生成：`year_id/month_id/day_id` + 主键 `date_key` + 层级路径 `hierarchy`
+5. 点「物化」→ 勾选「生成预置数据」→ 建表并写入日期数据
+
+![时间维度粒度勾选](datay-web/docs/images/时间维度粒度勾选.png)
+![物化弹窗](datay-web/docs/images/物化弹窗.png)
+
+### 事实表关联维度
+
+1. 新建事实模型，类型选 `DWD 明细层`
+2. 用「注册模式」从物理表自动导入字段
+3. 对每个外键字段，在「关联维度」列指向对应维度模型
+4. 选一个时间字段作为「时间周期字段」
+
+示例：`fact_sales_order_item.order_date_sk → dim_date`、`product_sk → dim_product`、`store_sk → dim_store`
+
+![事实表字段关联维度配置](datay-web/docs/images/事实表字段关联维度配置.png)
+
+---
+
+## 指标管理（10 分钟）
+
+**目标**：用统一的公式定义业务指标口径，问数有依据、报表对得上。
+
+导航：**数据模型 → 指标管理**。
+
+### 原子指标（基础度量）
+
+1. 新建指标，类型选 **原子指标**
+2. 填名称、编码、单位（如 `销售额 sales_amount`，单位「元」）
+3. 选绑定的事实表（如 `fact_sales_order_item`）
+4. 写计算公式：`SUM(amount)`、`COUNT(DISTINCT order_id)` 等
+5. 可选配置「业务限定」（只算已支付订单等）
+6. 点「预览 SQL」核对口径后保存
+
+### 衍生指标（组合公式）
+
+类型选 **衍生原子指标**，用 `${指标编码}` 引用已有指标：
+
+```
+毛利率 = ${gross_profit} / ${sales_amount}
+客单价 = ${sales_amount} / ${order_count}
+```
+
+![新建原子指标表单](datay-web/docs/images/新建原子指标表单.png)
+![衍生指标公式编辑](datay-web/docs/images/衍生指标公式编辑.png)
+
+---
+
+## 智能问数（真正的亮点，5 分钟体验）
+
+**目标**：用自然语言直接拿数，不需要会写 SQL。
+
+导航：**数据模型 → 智能问数**。
+
+### 构建知识索引
+
+首次使用点 **「重建知识索引」**，平台会把以下内容向量化：
+
+- 指标（名称 + 编码 + 口径描述）
+- 维度字段
+- 维度成员值（门店城市、品类名称等）
+
+索引完成后，AI 才能正确理解你的业务语义。
+
+![智能问数页头](datay-web/docs/images/智能问数页头.png)
+
+### 开始问数
+
+在输入框里像跟老板说话一样描述需求：
+
+```
+各品类的销售额和毛利率
+最近一周北京的销售额
+每个月的销售额趋势对比
+今年一季度 vs 去年一季度的客单价
+```
+
+AI 会自动完成：**知识检索 → 指标匹配 → 维度/时间识别 → 业务限定解析 → 取数**，
+最终用 **Markdown 表格** 给你答案。
+
+![一次完整问数的解析与结果](datay-web/docs/images/一次完整问数的解析与结果.png)
+
+---
+
+## Core 独立运行（嵌入 / CLI 模式）
 
 ```bash
 # JSON 定义任务，直接跑
@@ -131,6 +280,6 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 
 ## 联系方式
 
-插件不断完善中，如有问题或建议，请通过项目Issue或加微信号进行反馈，我们会尽快回复您。支持个性化需求，可以加微信联系我们。
+有问题或建议，请通过项目Issue或加微信号进行反馈，我们会尽快回复您。
 
-<img src="datay-core/docs/images/datay.jpg" width="350" height="500" alt="DataY">
+<img src="datay-core/docs/images/weixin.png" width="300" height="300" alt="DataY">
