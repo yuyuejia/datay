@@ -41,7 +41,7 @@ export default defineComponent({
 
     const tenantId = route.params?.tenantId;
 
-    if (tenantId) {
+    if (tenantId != null) {
       loadTenant(tenantId as string);
     }
 

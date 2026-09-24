@@ -38,7 +38,7 @@ export default defineComponent({
 
     const tenantId = Number(route.params?.tenantId);
 
-    if (tenantId) {
+    if (route.params?.tenantId != null && !Number.isNaN(tenantId)) {
       loadTenant(tenantId);
       loadUsers(tenantId);
     }
