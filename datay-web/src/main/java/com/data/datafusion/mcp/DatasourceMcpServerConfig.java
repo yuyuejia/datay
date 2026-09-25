@@ -38,27 +38,28 @@ import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.PageRequest;
 
 /**
- * MCP (Model Context Protocol) server embedded in the DataY web application.
+ * 数据源 MCP (Model Context Protocol) 服务端，挂载在 {@code /mcp/datasource}。
  *
- * <p>Exposes the DataY capabilities (data source registration, data query and sync task
- * creation) to AI clients through a streamable HTTP transport served at {@code /mcp}.
+ * <p>把 DataY 的数据源能力（数据源注册、SQL 查询、表清单、同步任务创建与执行）通过
+ * streamable HTTP transport 暴露给 AI 客户端，与指标问数 MCP 服务（{@code /mcp/metric}）相互独立。
  *
- * <p>Clients authenticate with {@code Authorization: Bearer <mcp-token>} and may scope the data
- * operations to a specific tenant with the optional {@code X-Tenant-Id} or {@code X-Tenant-Code}
- * header. When neither header is present the authenticated user's default tenant is used.
+ * <p>客户端使用 {@code Authorization: Bearer <mcp-token>} 鉴权，可用可选的
+ * {@code X-Tenant-Id} 或 {@code X-Tenant-Code} 头把操作限定到指定租户；
+ * 两者都缺省时使用已认证用户的默认租户。
  */
 @Configuration
-public class McpServerConfig {
+public class DatasourceMcpServerConfig {
 
-    private static final Logger LOG = LoggerFactory.getLogger(McpServerConfig.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DatasourceMcpServerConfig.class);
 
-    private static final String MCP_ENDPOINT = "/mcp";
+    private static final String MCP_ENDPOINT = "/mcp/datasource";
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
 
@@ -79,7 +80,7 @@ public class McpServerConfig {
     private final McpTokenService mcpTokenService;
     private final TenantRepository tenantRepository;
 
-    public McpServerConfig(
+    public DatasourceMcpServerConfig(
         ObjectMapper objectMapper,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
@@ -95,8 +96,8 @@ public class McpServerConfig {
         this.tenantRepository = tenantRepository;
     }
 
-    @Bean
-    public HttpServletStreamableServerTransportProvider mcpTransportProvider() {
+    @Bean("datasourceMcpTransportProvider")
+    public HttpServletStreamableServerTransportProvider datasourceMcpTransportProvider() {
         return HttpServletStreamableServerTransportProvider.builder()
             .mcpEndpoint(MCP_ENDPOINT)
             .contextExtractor(mcpContextExtractor())
@@ -161,16 +162,18 @@ public class McpServerConfig {
     }
 
     @Bean
-    public ServletRegistrationBean<HttpServletStreamableServerTransportProvider> mcpServletRegistration(
-        HttpServletStreamableServerTransportProvider transportProvider
+    public ServletRegistrationBean<HttpServletStreamableServerTransportProvider> datasourceMcpServletRegistration(
+        @Qualifier("datasourceMcpTransportProvider") HttpServletStreamableServerTransportProvider transportProvider
     ) {
         return new ServletRegistrationBean<>(transportProvider, MCP_ENDPOINT);
     }
 
-    @Bean
-    public McpSyncServer mcpSyncServer(HttpServletStreamableServerTransportProvider transportProvider) {
+    @Bean("datasourceMcpSyncServer")
+    public McpSyncServer datasourceMcpSyncServer(
+        @Qualifier("datasourceMcpTransportProvider") HttpServletStreamableServerTransportProvider transportProvider
+    ) {
         return McpServer.sync(transportProvider)
-            .serverInfo("datay-mcp-server", "1.0.0")
+            .serverInfo("datay-datasource-mcp-server", "1.0.0")
             .capabilities(ServerCapabilities.builder().tools(true).build())
             .toolCall(datasourceRegisterTool(), this::registerDataSource)
             .toolCall(datasourceListTool(), this::listDataSources)

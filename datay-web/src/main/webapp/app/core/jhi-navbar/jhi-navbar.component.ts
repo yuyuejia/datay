@@ -45,6 +45,9 @@ export default defineComponent({
       () => store.activeProfiles.indexOf("prod") > -1,
     );
     const authenticated = computed(() => store.authenticated);
+    const accountLabel = computed(() =>
+      authenticated.value ? (store.account?.login ?? "账号") : "账号",
+    );
 
     const availableTenants: Ref<any[]> = ref([]);
     const currentTenantId: Ref<number | null> = ref(null);
@@ -164,6 +167,7 @@ export default defineComponent({
       openAPIEnabled,
       inProduction,
       authenticated,
+      accountLabel,
       availableTenants,
       currentTenantId,
       currentTenantDisplay,

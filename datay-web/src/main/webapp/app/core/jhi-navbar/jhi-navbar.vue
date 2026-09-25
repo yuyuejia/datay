@@ -101,7 +101,7 @@
         >
           <template #button-content>
             <span class="navbar-dropdown-menu">
-              <span class="no-bold">账号</span>
+              <span class="no-bold">{{ accountLabel }}</span>
             </span>
           </template>
           <b-dropdown-item data-cy="settings" to="/account/settings" v-if="authenticated" active-class="active">
