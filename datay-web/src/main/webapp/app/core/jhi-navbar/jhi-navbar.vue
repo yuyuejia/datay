@@ -118,6 +118,12 @@
           <b-dropdown-item to="/admin/tenant-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
             <span>租户管理</span>
           </b-dropdown-item>
+          <b-dropdown-item to="/admin/role-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
+            <span>角色管理</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/admin/role-data-scope" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
+            <span>数据权限</span>
+          </b-dropdown-item>
           <b-dropdown-item to="/service-config" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
             <font-awesome-icon icon="cog" />
             <span>服务配置</span>

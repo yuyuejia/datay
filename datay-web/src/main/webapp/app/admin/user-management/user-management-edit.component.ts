@@ -1,16 +1,28 @@
-import { type Ref, defineComponent, inject, ref } from 'vue';
-import { useVuelidate } from '@vuelidate/core';
-import { email, maxLength, minLength, required } from '@vuelidate/validators';
-import { useRoute, useRouter } from 'vue-router';
-import UserManagementService from './user-management.service';
-import { type IUser, User } from '@/shared/model/user.model';
-import { useAlertService } from '@/shared/alert/alert.service';
+import { type Ref, defineComponent, inject, ref } from "vue";
+import { useVuelidate } from "@vuelidate/core";
+import { maxLength, minLength, required } from "@vuelidate/validators";
+import { useRoute, useRouter } from "vue-router";
+import UserManagementService from "./user-management.service";
+import { type IUser, User } from "@/shared/model/user.model";
+import { useAlertService } from "@/shared/alert/alert.service";
 
 const loginValidator = (value: string) => {
   if (!value) {
     return true;
   }
-  return /^[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$|^[_.@A-Za-z0-9-]+$/.test(value);
+  return /^[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$|^[_.@A-Za-z0-9-]+$/.test(
+    value,
+  );
+};
+
+/**
+ * 与后端 Hibernate @Email 对齐：邮箱可选，允许内网域名（如 admin@localhost），不做 TLD 强校验。
+ */
+const emailValidator = (value: string) => {
+  if (!value) {
+    return true;
+  }
+  return /^[^\s@]+@[^\s@]+$/.test(value);
 };
 
 const validations: any = {
@@ -27,24 +39,27 @@ const validations: any = {
       maxLength: maxLength(50),
     },
     email: {
-      required,
-      email,
+      format: emailValidator,
       minLength: minLength(5),
-      maxLength: maxLength(50),
+      maxLength: maxLength(254),
     },
   },
 };
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  name: 'JhiUserManagementEdit',
+  name: "JhiUserManagementEdit",
   validations,
   setup() {
     const route = useRoute();
     const router = useRouter();
 
-    const alertService = inject('alertService', () => useAlertService(), true);
-    const userManagementService = inject('userManagementService', () => new UserManagementService(), true);
+    const alertService = inject("alertService", () => useAlertService(), true);
+    const userManagementService = inject(
+      "userManagementService",
+      () => new UserManagementService(),
+      true,
+    );
     const previousState = () => router.go(-1);
 
     const userAccount: Ref<IUser> = ref({ ...new User(), authorities: [] });
@@ -83,23 +98,23 @@ export default defineComponent({
       if (this.userAccount.id) {
         this.userManagementService
           .update(this.userAccount)
-          .then(res => {
+          .then((res) => {
             this.returnToList();
             this.alertService.showInfo(this.getToastMessageFromHeader(res));
           })
-          .catch(error => {
+          .catch((error) => {
             this.isSaving = true;
             this.alertService.showHttpError(error.response);
           });
       } else {
-        this.userAccount.langKey = this.userAccount.langKey ?? 'zh-cn';
+        this.userAccount.langKey = this.userAccount.langKey ?? "zh-cn";
         this.userManagementService
           .create(this.userAccount)
-          .then(res => {
+          .then((res) => {
             this.returnToList();
             this.alertService.showSuccess(this.getToastMessageFromHeader(res));
           })
-          .catch(error => {
+          .catch((error) => {
             this.isSaving = true;
             this.alertService.showHttpError(error.response);
           });
@@ -112,7 +127,7 @@ export default defineComponent({
     },
 
     getToastMessageFromHeader(res: any): string {
-      return res.headers['x-datafusionapp-alert'];
+      return res.headers["x-datafusionapp-alert"];
     },
   },
 });

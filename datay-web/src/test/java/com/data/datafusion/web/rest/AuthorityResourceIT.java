@@ -56,7 +56,7 @@ class AuthorityResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Authority createEntity() {
-        return new Authority().name(UUID.randomUUID().toString());
+        return new Authority().name("ROLE_" + UUID.randomUUID());
     }
 
     /**
@@ -66,7 +66,7 @@ class AuthorityResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Authority createUpdatedEntity() {
-        return new Authority().name(UUID.randomUUID().toString());
+        return new Authority().name("ROLE_" + UUID.randomUUID());
     }
 
     @BeforeEach

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20260926000000-1" author="datafusion">
+        <createTable tableName="dp_role_data_scope">
+            <column name="id" type="bigint" autoIncrement="true" startWith="2700">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="role_name" type="varchar(50)">
+                <constraints nullable="true" />
+            </column>
+            <column name="dimension_model_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="filter_config" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="dp_role_data_scope" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="dp_role_data_scope" columnName="update_time" columnDataType="${datetimeType}"/>
+    </changeSet>
+
+    <changeSet id="20260926000000-2" author="datafusion">
+        <createIndex tableName="dp_role_data_scope" indexName="idx_role_data_scope_role">
+            <column name="role_name"/>
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

@@ -151,6 +151,19 @@ public final class SecurityUtils {
         return hasCurrentUserAnyOfAuthorities(authority);
     }
 
+    /**
+     * Get all authorities of the current user.
+     *
+     * @return the current user's authorities, empty if not authenticated.
+     */
+    public static java.util.Set<String> getCurrentUserAuthorities() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return java.util.Set.of();
+        }
+        return getAuthorities(authentication).collect(java.util.stream.Collectors.toSet());
+    }
+
     private static Stream<String> getAuthorities(Authentication authentication) {
         return authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority);
     }

@@ -4,6 +4,7 @@ import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.service.DataModelMaterializeService;
 import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceService;
+import com.data.datafusion.service.DimensionValueService;
 import com.data.datafusion.service.ModelFieldService;
 import com.data.datafusion.service.TimeDimensionDataService;
 import com.data.datafusion.service.dto.DataModelDTO;
@@ -50,6 +51,7 @@ public class DataModelResource {
     private final DataModelMaterializeService materializeService;
     private final DataSourceService dataSourceService;
     private final TimeDimensionDataService timeDimensionDataService;
+    private final DimensionValueService dimensionValueService;
 
     public DataModelResource(
         DataModelService dataModelService,
@@ -57,7 +59,8 @@ public class DataModelResource {
         ModelFieldService modelFieldService,
         DataModelMaterializeService materializeService,
         DataSourceService dataSourceService,
-        TimeDimensionDataService timeDimensionDataService
+        TimeDimensionDataService timeDimensionDataService,
+        DimensionValueService dimensionValueService
     ) {
         this.dataModelService = dataModelService;
         this.dataModelRepository = dataModelRepository;
@@ -65,6 +68,7 @@ public class DataModelResource {
         this.materializeService = materializeService;
         this.dataSourceService = dataSourceService;
         this.timeDimensionDataService = timeDimensionDataService;
+        this.dimensionValueService = dimensionValueService;
     }
 
     @PostMapping("")
@@ -165,6 +169,22 @@ public class DataModelResource {
         LOG.debug("REST request to get ModelFields for DataModel : {}", id);
         List<ModelFieldDTO> fields = modelFieldService.findByModelId(id);
         return ResponseEntity.ok().body(fields);
+    }
+
+    @GetMapping("/{id}/values")
+    public ResponseEntity<Map<String, Object>> getDimensionValues(
+        @PathVariable("id") Long id,
+        @RequestParam("fieldName") String fieldName,
+        @RequestParam(value = "keyword", required = false) String keyword,
+        @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
+        @RequestParam(value = "size", required = false, defaultValue = "20") Integer size
+    ) {
+        LOG.debug("REST request to get dimension values for DataModel : {}, field : {}", id, fieldName);
+        try {
+            return ResponseEntity.ok().body(dimensionValueService.pageValues(id, fieldName, keyword, page, size));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "dimensionValueError");
+        }
     }
 
     @PostMapping("/{id}/fields")

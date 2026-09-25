@@ -34,4 +34,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u JOIN u.tenants t WHERE t.id = :tenantId")
     Page<User> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.authorities a WHERE a.name = :name")
+    long countByAuthoritiesName(@Param("name") String name);
 }

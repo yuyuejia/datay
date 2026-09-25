@@ -45,7 +45,8 @@ public class AuthorityAsserts {
     public static void assertAuthorityUpdatableFieldsEquals(Authority expected, Authority actual) {
         assertThat(actual)
             .as("Verify Authority relevant properties")
-            .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()));
+            .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()))
+            .satisfies(a -> assertThat(a.getDescription()).as("check description").isEqualTo(expected.getDescription()));
     }
 
     /**

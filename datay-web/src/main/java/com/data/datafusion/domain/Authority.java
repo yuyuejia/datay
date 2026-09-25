@@ -28,6 +28,11 @@ public class Authority implements Serializable, Persistable<String> {
     @Transient
     private boolean isPersisted;
 
+    /** 角色描述。 */
+    @Size(max = 255)
+    @Column(name = "description", length = 255)
+    private String description;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public String getName() {
@@ -41,6 +46,19 @@ public class Authority implements Serializable, Persistable<String> {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public Authority description(String description) {
+        this.setDescription(description);
+        return this;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     @PostLoad
@@ -89,6 +107,7 @@ public class Authority implements Serializable, Persistable<String> {
     public String toString() {
         return "Authority{" +
             "name=" + getName() +
+            ", description='" + getDescription() + "'" +
             "}";
     }
 }

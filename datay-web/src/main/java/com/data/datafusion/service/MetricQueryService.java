@@ -13,6 +13,7 @@ import com.data.datafusion.service.dto.MetricQueryTimeRangeDTO;
 import com.data.datafusion.service.metric.MetricFilterCondition;
 import com.data.datafusion.service.metric.MetricFilterConfig;
 import com.data.datafusion.service.metric.MetricFilterOperator;
+import com.data.datafusion.service.metric.ScopedDimension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.SQLException;
@@ -28,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,12 +77,17 @@ public class MetricQueryService {
         "(?i)^(year|quarter|month|week_of_year|week|day_of_week|day|full_date|date)(_id|_name)?$"
     );
 
+    /** 事实表缺少受控维度时的策略：SKIP 跳过并告警，DENY 直接拒绝查询。 */
+    @Value("${datay.security.data-scope.missing-dimension-policy:SKIP}")
+    private String missingDimensionPolicy;
+
     private final MetricRepository metricRepository;
     private final DataModelRepository dataModelRepository;
     private final ModelFieldRepository modelFieldRepository;
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final ObjectMapper objectMapper;
+    private final RoleDataScopeService roleDataScopeService;
 
     public MetricQueryService(
         MetricRepository metricRepository,
@@ -88,7 +95,8 @@ public class MetricQueryService {
         ModelFieldRepository modelFieldRepository,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        RoleDataScopeService roleDataScopeService
     ) {
         this.metricRepository = metricRepository;
         this.dataModelRepository = dataModelRepository;
@@ -96,6 +104,7 @@ public class MetricQueryService {
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.objectMapper = objectMapper;
+        this.roleDataScopeService = roleDataScopeService;
     }
 
     /**
@@ -332,6 +341,9 @@ public class MetricQueryService {
             }
         }
 
+        // 基于 RBAC 的维度成员范围：作为强制过滤条件，用户业务限定无法绕过
+        context.dataScopes = roleDataScopeService.resolveEffectiveScopes();
+
         context.timeRange = dto.getTimeRange();
         return context;
     }
@@ -498,7 +510,79 @@ public class MetricQueryService {
         Map<Long, String> dimensionAlias,
         StringBuilder joins
     ) {
-        List<String> fragments = new ArrayList<>();
+        List<String> parts = new ArrayList<>();
+        String scopePredicate = buildScopePredicate(context, factModel, dimensionJoin, dimensionAlias, joins);
+        if (!scopePredicate.isEmpty()) {
+            parts.add("(" + scopePredicate + ")");
+        }
+        String conditionPredicate = buildConditionPredicate(context, dimensionJoin, dimensionAlias, joins);
+        if (!conditionPredicate.isEmpty()) {
+            parts.add("(" + conditionPredicate + ")");
+        }
+        String timePredicate = buildTimePredicate(context, factModel);
+        if (!timePredicate.isEmpty()) {
+            parts.add("(" + timePredicate + ")");
+        }
+        return String.join(" AND ", parts);
+    }
+
+    /**
+     * 构建当前用户角色的维度成员范围条件：同一维度内多条条件 OR，跨维度 AND。
+     * <p>
+     * 该条件为用户业务限定的强制前置条件，无法被查询入参绕过。
+     */
+    private String buildScopePredicate(
+        QueryContext context,
+        DataModel factModel,
+        Map<Long, String> dimensionJoin,
+        Map<Long, String> dimensionAlias,
+        StringBuilder joins
+    ) {
+        if (context.dataScopes == null || context.dataScopes.isEmpty()) {
+            return "";
+        }
+        List<String> groupPredicates = new ArrayList<>();
+        for (ScopedDimension scope : context.dataScopes) {
+            Long dimensionModelId = scope.getDimensionModelId();
+            String factFieldName = dimensionJoin.get(dimensionModelId);
+            if (factFieldName == null) {
+                if ("DENY".equalsIgnoreCase(missingDimensionPolicy)) {
+                    throw new IllegalArgumentException(
+                        "当前指标事实表缺少受控维度，无法应用数据权限：" + physicalTableName(factModel) + " 缺少维度 " + dimensionModelId
+                    );
+                }
+                LOG.warn(
+                    "数据权限维度未与事实表关联，已按 {} 策略跳过：fact={} dimensionModelId={}",
+                    missingDimensionPolicy,
+                    physicalTableName(factModel),
+                    dimensionModelId
+                );
+                continue;
+            }
+            String alias = ensureDimensionJoin(factFieldName, dimensionModelId, dimensionAlias, joins);
+            List<String> inner = new ArrayList<>();
+            for (MetricFilterCondition condition : scope.getConditions()) {
+                // 层级维度按层级字段过滤时，自然包含该层级下的所有下级成员，无需额外展开
+                String column = alias + "." + condition.getDimensionFieldName();
+                String predicate = buildPredicate(condition, column);
+                if (predicate != null) {
+                    inner.add("(" + predicate + ")");
+                }
+            }
+            if (!inner.isEmpty()) {
+                groupPredicates.add("(" + String.join(" OR ", inner) + ")");
+            }
+        }
+        return String.join(" AND ", groupPredicates);
+    }
+
+    private String buildConditionPredicate(
+        QueryContext context,
+        Map<Long, String> dimensionJoin,
+        Map<Long, String> dimensionAlias,
+        StringBuilder joins
+    ) {
+        StringBuilder predicate = new StringBuilder();
         for (MetricFilterCondition condition : context.conditions) {
             String alias = ensureDimensionJoin(
                 dimensionJoin.get(condition.getDimensionModelId()),
@@ -507,46 +591,50 @@ public class MetricQueryService {
                 joins
             );
             String column = alias + "." + condition.getDimensionFieldName();
-            String predicate = buildPredicate(condition, column);
-            if (predicate != null) {
-                if (fragments.isEmpty()) {
-                    fragments.add("(" + predicate + ")");
+            String item = buildPredicate(condition, column);
+            if (item != null) {
+                if (predicate.length() == 0) {
+                    predicate.append("(").append(item).append(")");
                 } else {
                     String logic = "OR".equalsIgnoreCase(condition.getLogic()) ? " OR " : " AND ";
-                    fragments.add(logic + "(" + predicate + ")");
+                    predicate.append(logic).append("(").append(item).append(")");
                 }
             }
         }
+        return predicate.toString();
+    }
 
+    private String buildTimePredicate(QueryContext context, DataModel factModel) {
         MetricQueryTimeRangeDTO timeRange = context.timeRange;
         boolean hasStart = timeRange != null && timeRange.getStart() != null && !timeRange.getStart().isBlank();
         boolean hasEnd = timeRange != null && timeRange.getEnd() != null && !timeRange.getEnd().isBlank();
-        if (hasStart || hasEnd) {
-            // 时间过滤字段由事实表模型配置的「时间周期字段」决定；未配置时忽略时间过滤
-            String timeField = factModel.getTimeFieldName();
-            if (timeField != null && !timeField.isBlank()) {
-                ModelField timeFieldMeta = context.factFields
-                    .getOrDefault(factModel.getId(), List.of())
-                    .stream()
-                    .filter(f -> timeField.equals(f.getFieldName()))
-                    .findFirst()
-                    .orElse(null);
-                if (timeFieldMeta != null) {
-                    String column = FACT_ALIAS + "." + timeField;
-                    String start = normalizeTimeValue(timeRange.getStart(), timeFieldMeta.getFieldType());
-                    String end = normalizeTimeValue(timeRange.getEnd(), timeFieldMeta.getFieldType());
-                    String prefix = fragments.isEmpty() ? "" : " AND ";
-                    if (hasStart && hasEnd) {
-                        fragments.add(prefix + "(" + column + " BETWEEN " + quote(start) + " AND " + quote(end) + ")");
-                    } else if (hasStart) {
-                        fragments.add(prefix + "(" + column + " >= " + quote(start) + ")");
-                    } else {
-                        fragments.add(prefix + "(" + column + " <= " + quote(end) + ")");
-                    }
-                }
-            }
+        if (!hasStart && !hasEnd) {
+            return "";
         }
-        return String.join("", fragments);
+        // 时间过滤字段由事实表模型配置的「时间周期字段」决定；未配置时忽略时间过滤
+        String timeField = factModel.getTimeFieldName();
+        if (timeField == null || timeField.isBlank()) {
+            return "";
+        }
+        ModelField timeFieldMeta = context.factFields
+            .getOrDefault(factModel.getId(), List.of())
+            .stream()
+            .filter(f -> timeField.equals(f.getFieldName()))
+            .findFirst()
+            .orElse(null);
+        if (timeFieldMeta == null) {
+            return "";
+        }
+        String column = FACT_ALIAS + "." + timeField;
+        String start = normalizeTimeValue(timeRange.getStart(), timeFieldMeta.getFieldType());
+        String end = normalizeTimeValue(timeRange.getEnd(), timeFieldMeta.getFieldType());
+        if (hasStart && hasEnd) {
+            return column + " BETWEEN " + quote(start) + " AND " + quote(end);
+        }
+        if (hasStart) {
+            return column + " >= " + quote(start);
+        }
+        return column + " <= " + quote(end);
     }
 
     private String coalesceDimField(int dimIndex, String field, int factCount) {
@@ -922,6 +1010,7 @@ public class MetricQueryService {
         List<Long> commonDimensionModelIds = new ArrayList<>();
         List<DimSelection> dimensions = new ArrayList<>();
         List<MetricFilterCondition> conditions = new ArrayList<>();
+        List<ScopedDimension> dataScopes = new ArrayList<>();
         MetricQueryTimeRangeDTO timeRange;
     }
 

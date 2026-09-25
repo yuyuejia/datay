@@ -1,6 +1,7 @@
 package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -13,12 +14,15 @@ import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
 import com.data.datafusion.service.dto.MetricQueryTimeRangeDTO;
+import com.data.datafusion.service.metric.MetricFilterCondition;
+import com.data.datafusion.service.metric.ScopedDimension;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * {@link MetricQueryService} 查询 SQL 生成的单元测试。
@@ -28,6 +32,7 @@ class MetricQueryServiceTest {
     private MetricRepository metricRepository;
     private DataModelRepository dataModelRepository;
     private ModelFieldRepository modelFieldRepository;
+    private RoleDataScopeService roleDataScopeService;
     private MetricQueryService metricQueryService;
 
     private Metric salesAmount;
@@ -39,13 +44,15 @@ class MetricQueryServiceTest {
         metricRepository = mock(MetricRepository.class);
         dataModelRepository = mock(DataModelRepository.class);
         modelFieldRepository = mock(ModelFieldRepository.class);
+        roleDataScopeService = mock(RoleDataScopeService.class);
         metricQueryService = new MetricQueryService(
             metricRepository,
             dataModelRepository,
             modelFieldRepository,
             mock(DataSourceService.class),
             mock(DataSourceQueryService.class),
-            new ObjectMapper()
+            new ObjectMapper(),
+            roleDataScopeService
         );
 
         DataModel factModel = new DataModel();
@@ -505,5 +512,138 @@ class MetricQueryServiceTest {
             .containsEntry("dimensionModelName", "商品维度")
             .containsEntry("factFieldName", "product_sk");
         assertThat(dimensions.get(1)).containsEntry("dimensionModelCode", "dim_customer").containsEntry("factFieldName", "customer_sk");
+    }
+
+    @Test
+    void shouldApplyRoleDataScopeAndCombineWithUserConditions() {
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(scopedDimension(3003L, scopeCondition("category_l1", "IN", "电子产品,图书")))
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_product");
+        dimension.setDimensionFieldName("category_l1");
+        dto.setDimensions(List.of(dimension));
+        dto.setFilterConfig(
+            "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionModelCode\":\"dim_product\",\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"图书\",\"logic\":\"AND\"}]}"
+        );
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("d0.category_l1 IN ('电子产品', '图书')");
+        assertThat(sql).contains("d0.category_l1 = '图书'");
+        assertThat(sql.indexOf("IN ('电子产品")).isLessThan(sql.indexOf("= '图书'"));
+        assertThat(sql).contains(") AND ((");
+    }
+
+    @Test
+    void shouldOrWithinDimensionAndAndAcrossDimensions() {
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(
+                scopedDimension(
+                    3003L,
+                    scopeCondition("category_l1", "IN", "A"),
+                    scopeCondition("category_l1", "IN", "B")
+                ),
+                scopedDimension(3001L, scopeCondition("city", "EQ", "北京"))
+            )
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("d0.category_l1 IN ('A')");
+        assertThat(sql).contains(") OR (");
+        assertThat(sql).contains("d0.category_l1 IN ('B')");
+        assertThat(sql).contains("d1.city = '北京'");
+    }
+
+    @Test
+    void shouldSkipScopeWhenFactHasNoControlledDimension() {
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(scopedDimension(9999L, scopeCondition("region", "EQ", "华东")))
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).doesNotContain("region");
+        assertThat(sql).doesNotContain("WHERE");
+    }
+
+    @Test
+    void shouldDenyScopeWhenMissingDimensionPolicyIsDeny() {
+        ReflectionTestUtils.setField(metricQueryService, "missingDimensionPolicy", "DENY");
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(scopedDimension(9999L, scopeCondition("region", "EQ", "华东")))
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+
+        assertThatThrownBy(() -> metricQueryService.buildSqlFor(dto))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少受控维度");
+    }
+
+    @Test
+    void shouldApplyRoleDataScopeToEveryFactSubquery() {
+        DataModel orderFact = new DataModel();
+        orderFact.setId(3100L);
+        orderFact.setModelType("DWD");
+        orderFact.setName("销售订单事实表");
+        orderFact.setSchemaName("main");
+        orderFact.setTableName("fact_sales_order");
+        ModelField orderProductSk = new ModelField();
+        orderProductSk.setFieldName("product_sk");
+        orderProductSk.setDimensionModelId(3003L);
+        ModelField orderAmount = new ModelField();
+        orderAmount.setFieldName("order_amount");
+
+        Metric orderMetric = atomic(2700L, "order_amount_metric", "SUM(order_amount)");
+        orderMetric.setFactModelId(3100L);
+
+        when(dataModelRepository.findById(3100L)).thenReturn(Optional.of(orderFact));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3100L)).thenReturn(List.of(orderProductSk, orderAmount));
+        when(metricRepository.findAll()).thenReturn(List.of(salesAmount, salesQuantity, avgPrice, orderMetric));
+        when(metricRepository.findByCode("order_amount_metric")).thenReturn(Optional.of(orderMetric));
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(scopedDimension(3003L, scopeCondition("category_l1", "IN", "电子产品")))
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount", "order_amount_metric"));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(countOccurrences(sql, "d0.category_l1 IN ('电子产品')")).isEqualTo(2);
+    }
+
+    private static int countOccurrences(String text, String token) {
+        int count = 0;
+        int index = text.indexOf(token);
+        while (index >= 0) {
+            count++;
+            index = text.indexOf(token, index + token.length());
+        }
+        return count;
+    }
+
+    private static ScopedDimension scopedDimension(Long dimensionModelId, MetricFilterCondition... conditions) {
+        ScopedDimension scoped = new ScopedDimension();
+        scoped.setDimensionModelId(dimensionModelId);
+        scoped.setConditions(List.of(conditions));
+        return scoped;
+    }
+
+    private static MetricFilterCondition scopeCondition(String fieldName, String operator, String value) {
+        MetricFilterCondition condition = new MetricFilterCondition();
+        condition.setType(MetricFilterCondition.TYPE_DIMENSION);
+        condition.setDimensionFieldName(fieldName);
+        condition.setOperator(operator);
+        condition.setValue(value);
+        return condition;
     }
 }
