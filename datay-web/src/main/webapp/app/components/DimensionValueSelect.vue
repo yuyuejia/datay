@@ -1,23 +1,19 @@
 <template>
   <div ref="root" class="dimension-value-select">
     <div v-if="multiple && selectedValues.length" class="dv-tags">
-      <span v-for="value in selectedValues" :key="value" class="dv-tag">
-        <span class="dv-tag-text">{{ value }}</span>
-        <button
-          type="button"
-          class="dv-tag-remove"
-          :disabled="disabled"
-          @click="removeValue(value)"
-        >
-          ×
-        </button>
-      </span>
+      <el-tag
+        v-for="value in selectedValues"
+        :key="value"
+        closable
+        :disable-transitions="true"
+        @close="removeValue(value)"
+      >
+        {{ value }}
+      </el-tag>
     </div>
-    <input
+    <el-input
       ref="inputRef"
       v-model="keyword"
-      type="text"
-      class="form-control"
       :disabled="disabled"
       :placeholder="displayPlaceholder"
       autocomplete="off"
@@ -45,23 +41,13 @@
           </div>
         </template>
         <div v-if="options.length > 0" class="dv-pager">
-          <button
-            type="button"
-            class="dv-page-btn"
-            :disabled="page <= 1"
-            @click.stop="changePage(page - 1)"
-          >
+          <el-button size="small" :disabled="page <= 1" @click.stop="changePage(page - 1)">
             上一页
-          </button>
+          </el-button>
           <span class="dv-page-info">{{ page }} / {{ totalPages }}</span>
-          <button
-            type="button"
-            class="dv-page-btn"
-            :disabled="page >= totalPages"
-            @click.stop="changePage(page + 1)"
-          >
+          <el-button size="small" :disabled="page >= totalPages" @click.stop="changePage(page + 1)">
             下一页
-          </button>
+          </el-button>
           <span class="dv-total">共 {{ total }} 条</span>
         </div>
       </div>
@@ -102,7 +88,7 @@ const emit = defineEmits<{
 const service = new DimensionValueService();
 
 const root = ref<HTMLElement | null>(null);
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = ref<any>(null);
 const panel = ref<HTMLElement | null>(null);
 const panelStyle = ref<Record<string, string>>({});
 const keyword = ref("");
@@ -143,7 +129,7 @@ const totalPages = computed(() =>
 const isSelected = (option: string) => selectedValues.value.includes(option);
 
 const updatePanelPosition = () => {
-  const el = inputRef.value;
+  const el = (inputRef.value?.$el ?? inputRef.value) as HTMLElement | undefined;
   if (!el) {
     return;
   }

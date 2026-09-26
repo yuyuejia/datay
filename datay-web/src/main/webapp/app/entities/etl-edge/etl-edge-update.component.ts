@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { ETLEdge, type IETLEdge } from '@/shared/model/etl-edge.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLEdgeUpdate',
   setup() {
     const eTLEdgeService = inject('eTLEdgeService', () => new ETLEdgeService());

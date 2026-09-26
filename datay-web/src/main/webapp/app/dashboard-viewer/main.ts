@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import ElementPlus from "element-plus";
+import zhCn from "element-plus/es/locale/lang/zh-cn";
 import "element-plus/dist/index.css";
 
 import { setupAxiosInterceptors } from "@/shared/config/axios-interceptor";
@@ -18,4 +19,4 @@ setupAxiosInterceptors(
   (error) => Promise.reject(error),
 );
 
-createApp(App).use(ElementPlus).mount("#dashboard-app");
+createApp(App).use(ElementPlus, { locale: zhCn }).mount("#dashboard-app");

@@ -3,31 +3,15 @@
     <h2 id="page-heading" data-cy="DataSourceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="data-source-heading">数据源列表</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 280px"
-          v-model="search"
-          placeholder="按名称 / IP / 端口 / 地址搜索"
-        />
-        <button
-          @click="openDefaultDialog"
-          id="jh-set-default-warehouse"
-          data-cy="setDefaultWarehouseButton"
-          class="btn btn-warning create-data-source mr-2"
-        >
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / IP / 端口 / 地址搜索" clearable/>
+        <el-button type="warning" @click="openDefaultDialog" id="jh-set-default-warehouse" data-cy="setDefaultWarehouseButton" class="create-data-source mr-2">
           <font-awesome-icon icon="database"></font-awesome-icon>
           <span>设置默认数仓</span>
-        </button>
-        <button
-          @click="openCreateModal"
-          id="jh-create-entity"
-          data-cy="entityCreateButton"
-          class="btn btn-primary jh-create-entity create-data-source"
-        >
+        </el-button>
+        <el-button type="primary" @click="openCreateModal" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-source">
           <font-awesome-icon icon="plus"></font-awesome-icon>
           <span>创建数据源</span>
-        </button>
+        </el-button>
       </div>
     </h2>
     <br />
@@ -55,21 +39,15 @@
         <el-table-column label="操作" fixed="right" min-width="260">
           <template #default="scope">
             <div class="btn-group">
-              <el-button @click="openEditModal(scope.row)" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+              <el-button type="primary" size="small" @click="openEditModal(scope.row)" class="edit" data-cy="entityEditButton">
                 <span class="d-none d-md-inline">编辑</span>
               </el-button>
               <router-link :to="{ name: 'DataSourceQuery', params: { dataSourceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-success btn-sm query" data-cy="entityQueryButton">
+                <el-button type="success" size="small" @click="navigate" class="query" data-cy="entityQueryButton">
                   <span class="d-none d-md-inline">数据查询</span>
                 </el-button>
               </router-link>
-              <el-button
-                @click="prepareRemove(scope.row)"
-                variant="danger"
-                class="btn btn-danger btn-sm"
-                data-cy="entityDeleteButton"
-                v-b-modal.removeEntity
-              >
+              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -77,7 +55,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span id="datafusionApp.dataSource.delete.question" data-cy="dataSourceDeleteDialogHeading">确认删除</span>
       </template>
@@ -86,21 +64,15 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            id="jhi-confirm-delete-dataSource"
-            data-cy="entityConfirmDeleteButton"
-            @click="removeDataSource()"
-          >
+          <el-button @click="closeDialog()">取消</el-button>
+          <el-button type="primary" id="jhi-confirm-delete-dataSource" data-cy="entityConfirmDeleteButton" @click="removeDataSource()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal ref="defaultWarehouseModal" id="defaultWarehouseModal">
+    <app-modal ref="defaultWarehouseModal" id="defaultWarehouseModal">
       <template #modal-title>
         <span id="datafusionApp.dataSource.defaultWarehouse.title">设置默认数仓</span>
       </template>
@@ -113,19 +85,13 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDefaultDialog()">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            id="jhi-confirm-default-warehouse"
-            data-cy="confirmDefaultWarehouseButton"
-            @click="saveDefaultWarehouse()"
-          >
+          <el-button @click="closeDefaultDialog()">取消</el-button>
+          <el-button type="primary" id="jhi-confirm-default-warehouse" data-cy="confirmDefaultWarehouseButton" @click="saveDefaultWarehouse()">
             保存
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
     <data-source-modal
       v-model:show="modalShow"
@@ -135,11 +101,17 @@
     ></data-source-modal>
 
     <div v-show="dataSources && dataSources.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>

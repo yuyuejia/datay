@@ -4,7 +4,6 @@ import ConfigurationService from './configuration.service';
 import { orderAndFilterBy } from '@/shared/computables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiConfiguration',
   setup() {
     const configurationService = inject('configurationService', () => new ConfigurationService(), true);

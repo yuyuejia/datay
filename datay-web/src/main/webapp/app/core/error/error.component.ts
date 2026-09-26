@@ -3,7 +3,6 @@ import { useRoute } from 'vue-router';
 import { useLoginModal } from '@/account/login-modal';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'Error',
   setup() {
     const { showLogin } = useLoginModal();

@@ -1,214 +1,161 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label>上游字段</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="上游字段">
       <div class="table-toolbar">
         <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables(true)">调试上游获取字段</el-button>
         <span v-if="columnOptions.length" class="form-text text-muted">已获取 {{ columnOptions.length }} 个字段</span>
         <span v-else class="form-text text-muted">{{ tableError || '点击按钮调试上游组件，获取可转换的字段' }}</span>
       </div>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label>转换规则</label>
+    <el-form-item label="转换规则">
       <div class="mapping-container">
         <div v-for="(rule, index) in formData.rules" :key="index" class="mapping-item">
           <div class="mapping-item-header">
             <span>规则 {{ index + 1 }} · {{ ruleLabel(rule.type) }}</span>
-            <button type="button" class="btn-remove" @click="removeRule(index)">删除</button>
+            <el-button type="danger" link size="small" @click="removeRule(index)">删除</el-button>
           </div>
 
           <div class="mapping-row">
-            <select class="form-control" v-model="rule.type" @change="onRuleTypeChange(rule)">
-              <option v-for="item in ruleTypes" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
+            <el-select v-model="rule.type" @change="onRuleTypeChange(rule)">
+            <el-option v-for="item in ruleTypes" :key="item.value" :value="item.value" :label="item.label" />
+          </el-select>
           </div>
 
           <div class="mapping-row">
-            <select class="form-control" v-model="rule.column">
-              <option value="">请选择字段</option>
-              <option v-for="column in optionsWith(rule.column)" :key="column.name" :value="column.name">
-                {{ columnLabel(column) }}
-              </option>
-            </select>
-            <input
-              v-if="!isDrop(rule.type)"
-              type="text"
-              class="form-control"
-              v-model="rule.targetColumn"
-              :placeholder="rule.type === 'rename' ? '新字段名' : '输出字段（留空覆盖原字段）'"
-            />
+            <el-select v-model="rule.column" placeholder="请选择字段">
+            <el-option v-for="column in optionsWith(rule.column)" :key="column.name" :value="column.name" :label="columnLabel(column)" />
+          </el-select>
+            <el-input v-if="!isDrop(rule.type)" v-model="rule.targetColumn" :placeholder="rule.type === 'rename' ? '新字段名' : '输出字段（留空覆盖原字段）'" />
           </div>
 
           <div v-if="rule.type === 'cast'" class="mapping-row">
-            <select class="form-control" v-model="rule.targetType">
-              <option v-for="type in castTypes" :key="type" :value="type">
-                {{ type }}
-              </option>
-            </select>
+            <el-select v-model="rule.targetType">
+            <el-option v-for="type in castTypes" :key="type" :value="type" :label="type" />
+          </el-select>
           </div>
 
           <div v-if="rule.type === 'cast' && isDecimalType(rule.targetType)" class="mapping-row">
-            <input type="number" class="form-control" v-model.number="rule.precision" min="1" max="38" placeholder="精度，如 10" />
-            <input type="number" class="form-control" v-model.number="rule.scale" min="0" max="38" placeholder="小数位，如 2" />
+            <el-input-number :controls="false"  v-model="rule.precision" :min="1" :max="38" placeholder="精度，如 10" />
+            <el-input-number :controls="false"  v-model="rule.scale" :min="0" :max="38" placeholder="小数位，如 2" />
           </div>
 
           <div v-if="rule.type === 'replace'" class="mapping-row">
-            <input type="text" class="form-control" v-model="rule.search" placeholder="查找内容" />
-            <input type="text" class="form-control" v-model="rule.replacement" placeholder="替换为（可空）" />
+            <el-input v-model="rule.search" placeholder="查找内容" />
+            <el-input v-model="rule.replacement" placeholder="替换为（可空）" />
           </div>
 
           <div v-if="rule.type === 'substring'" class="mapping-row">
-            <input type="number" class="form-control" v-model.number="rule.start" placeholder="起始位置（从1开始）" />
-            <input type="number" class="form-control" v-model.number="rule.length" placeholder="长度（可空）" />
+            <el-input-number :controls="false"  v-model="rule.start" placeholder="起始位置（从1开始）" />
+            <el-input-number :controls="false"  v-model="rule.length" placeholder="长度（可空）" />
           </div>
 
           <div v-if="rule.type === 'concat'" class="mapping-row">
-            <input type="text" class="form-control" v-model="rule.otherColumns" placeholder="其他字段，逗号分隔，如 last_name" />
-            <input type="text" class="form-control" v-model="rule.separator" placeholder="分隔符（可空）" />
+            <el-input v-model="rule.otherColumns" placeholder="其他字段，逗号分隔，如 last_name" />
+            <el-input v-model="rule.separator" placeholder="分隔符（可空）" />
           </div>
 
           <div v-if="rule.type === 'coalesce'" class="mapping-row">
-            <input type="text" class="form-control" v-model="rule.defaultValue" placeholder="空值填充值" />
+            <el-input v-model="rule.defaultValue" placeholder="空值填充值" />
           </div>
 
           <div v-if="rule.type === 'round'" class="mapping-row">
-            <input type="number" class="form-control" v-model.number="rule.decimals" placeholder="小数位数" />
+            <el-input-number :controls="false"  v-model="rule.decimals" placeholder="小数位数" />
           </div>
 
           <div v-if="isDateFormat(rule.type)" class="mapping-row">
-            <input type="text" class="form-control" v-model="rule.format" placeholder="日期格式，如 %Y-%m-%d" />
+            <el-input v-model="rule.format" placeholder="日期格式，如 %Y-%m-%d" />
           </div>
 
           <div v-if="rule.type === 'extract'" class="mapping-row">
-            <select class="form-control" v-model="rule.part">
-              <option v-for="part in dateParts" :key="part" :value="part">
-                {{ part }}
-              </option>
-            </select>
+            <el-select v-model="rule.part">
+            <el-option v-for="part in dateParts" :key="part" :value="part" :label="part" />
+          </el-select>
           </div>
 
           <div v-if="rule.type === 'split'" class="mapping-row">
-            <input type="text" class="form-control" v-model="rule.delimiter" placeholder="分隔符" />
-            <input type="number" class="form-control" v-model.number="rule.index" placeholder="取第几段" />
+            <el-input v-model="rule.delimiter" placeholder="分隔符" />
+            <el-input-number :controls="false"  v-model="rule.index" placeholder="取第几段" />
           </div>
 
           <template v-if="isArithmetic(rule.type)">
             <div class="mapping-row">
-              <input type="text" class="form-control" v-model="rule.value" placeholder="运算值" />
-              <label class="inline-check">
-                <input type="checkbox" v-model="rule.valueIsColumn" />
-                值来自字段
-              </label>
+              <el-input v-model="rule.value" placeholder="运算值" />
+              <el-checkbox v-model="rule.valueIsColumn">值来自字段</el-checkbox>
             </div>
           </template>
 
           <div v-if="rule.type === 'custom'" class="mapping-row">
-            <textarea
-              class="form-control"
-              v-model="rule.expression"
-              :rows="2"
-              placeholder="DuckDB 表达式，{column} 表示输入字段，如 {column} * 1.13"
-            ></textarea>
+            <el-input type="textarea" v-model="rule.expression" :rows="2" placeholder="DuckDB 表达式，{column} 表示输入字段，如 {column} * 1.13" />
           </div>
         </div>
         <el-button type="primary" size="small" @click="addRule">添加转换规则</el-button>
       </div>
       <small class="form-text text-muted"> 每条规则对选中的字段执行转换，输出字段留空表示覆盖原字段 </small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label>过滤规则</label>
+    <el-form-item label="过滤规则">
       <div class="mapping-container">
         <div v-if="formData.filters.length > 1" class="mapping-row">
           <span class="mapping-arrow">组合逻辑</span>
-          <select class="form-control" v-model="formData.filterLogic">
-            <option value="AND">AND（同时满足）</option>
-            <option value="OR">OR（任一满足）</option>
-          </select>
+          <el-select v-model="formData.filterLogic">
+            <el-option value="AND" label="AND（同时满足）" />
+            <el-option value="OR" label="OR（任一满足）" />
+          </el-select>
         </div>
         <div v-for="(filter, index) in formData.filters" :key="index" class="mapping-item">
           <div class="mapping-item-header">
             <span>过滤 {{ index + 1 }}{{ filter.mode === 'custom' ? ' · 自定义' : '' }}</span>
-            <button type="button" class="btn-remove" @click="removeFilter(index)">删除</button>
+            <el-button type="danger" link size="small" @click="removeFilter(index)">删除</el-button>
           </div>
 
           <div class="mapping-row">
-            <select class="form-control" v-model="filter.mode">
-              <option value="condition">条件</option>
-              <option value="custom">自定义表达式</option>
-            </select>
+            <el-select v-model="filter.mode">
+            <el-option value="condition" label="条件" />
+            <el-option value="custom" label="自定义表达式" />
+          </el-select>
           </div>
 
           <template v-if="filter.mode === 'custom'">
             <div class="mapping-row">
-              <textarea
-                class="form-control"
-                v-model="filter.expression"
-                :rows="2"
-                placeholder="DuckDB 布尔表达式，例如：amount > 100 AND status != 'DELETED'"
-              ></textarea>
+              <el-input type="textarea" v-model="filter.expression" :rows="2" placeholder="DuckDB 布尔表达式，例如：amount > 100 AND status != 'DELETED'" />
             </div>
           </template>
 
           <template v-else>
             <div class="mapping-row">
-              <select class="form-control" v-model="filter.column">
-                <option value="">请选择字段</option>
-                <option v-for="column in optionsWith(filter.column)" :key="column.name" :value="column.name">
-                  {{ columnLabel(column) }}
-                </option>
-              </select>
+              <el-select v-model="filter.column" placeholder="请选择字段">
+            <el-option v-for="column in optionsWith(filter.column)" :key="column.name" :value="column.name" :label="columnLabel(column)" />
+          </el-select>
             </div>
             <div class="mapping-row">
-              <select class="form-control" v-model="filter.operator">
-                <option v-for="op in operators" :key="op" :value="op">
-                  {{ op }}
-                </option>
-              </select>
+              <el-select v-model="filter.operator">
+            <el-option v-for="op in operators" :key="op" :value="op" :label="op" />
+          </el-select>
             </div>
             <div v-if="!isNullOperator(filter.operator)" class="mapping-row">
-              <input type="text" class="form-control" v-model="filter.value" :placeholder="valuePlaceholder(filter)" />
+              <el-input v-model="filter.value" :placeholder="valuePlaceholder(filter)" />
             </div>
           </template>
         </div>
         <el-button type="primary" size="small" @click="addFilter">添加过滤规则</el-button>
       </div>
       <small class="form-text text-muted"> 支持多条过滤规则，按组合逻辑连接；自定义表达式可直接书写 DuckDB 布尔条件 </small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="selectColumns">基础输出字段</label>
-      <textarea
-        class="form-control"
-        id="selectColumns"
-        name="selectColumns"
-        v-model="formData.selectColumns"
-        :rows="2"
-        placeholder="留空表示输出全部字段（被覆盖/删除/重命名的字段自动排除），例如：id, name"
-      ></textarea>
-    </div>
+    <el-form-item label="基础输出字段">
+      <el-input type="textarea" id="selectColumns" name="selectColumns" v-model="formData.selectColumns" :rows="2" placeholder="留空表示输出全部字段（被覆盖/删除/重命名的字段自动排除），例如：id, name" />
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="outputTable">输出表名</label>
-      <input
-        type="text"
-        class="form-control"
-        id="outputTable"
-        name="outputTable"
-        v-model="formData.outputTable"
-        placeholder="transform_result"
-      />
+    <el-form-item label="输出表名">
+      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="transform_result" />
       <small class="form-text text-muted"> 转换结果输出给下游时携带的表名；留空默认使用上游输入表名，上游无表名时使用临时表名 </small>
-    </div>
+    </el-form-item>
 
-    <div v-if="previewSql" class="form-group">
-      <label>生成的 SQL 预览</label>
+    <el-form-item v-if="previewSql" label="生成的 SQL 预览">
       <pre class="sql-preview">{{ previewSql }}</pre>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>
@@ -797,106 +744,93 @@ defineExpose({ saveConfig });
 </script>
 
 <style scoped>
-.form-group {
-  margin-bottom: 20px;
-}
-.form-control {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 14px;
-}
-.form-control:focus {
-  border-color: #409eff;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-}
-.form-text {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 4px;
-}
 .table-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
-.table-toolbar .form-text {
-  margin-top: 0;
-}
+
 .mapping-container {
+  width: 100%;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
-  background-color: #fafafa;
+  background-color: #fafcff;
 }
+
 .mapping-item {
-  border-bottom: 1px dashed #dcdfe6;
-  padding-bottom: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 10px 12px;
   margin-bottom: 12px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
-.mapping-item:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-  margin-bottom: 8px;
-}
+
 .mapping-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  color: #606266;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
+  color: #303133;
   font-size: 13px;
+  font-weight: 600;
 }
+
 .mapping-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
+
 .mapping-row:last-child {
   margin-bottom: 0;
 }
-.mapping-row .form-control {
-  flex: 1;
+
+.mapping-row > :deep(.el-select),
+.mapping-row > :deep(.el-input),
+.mapping-row > :deep(.el-textarea),
+.mapping-row > :deep(.el-input-number) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
 }
-.inline-check {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+
+.mapping-row > :deep(.el-checkbox) {
+  flex: none;
+}
+
+.mapping-arrow {
+  flex: none;
+  color: #909399;
   font-size: 12px;
-  color: #606266;
   white-space: nowrap;
 }
-.btn-remove {
-  padding: 4px 10px;
-  border: 1px solid #f56c6c;
-  background: #fff;
-  color: #f56c6c;
-  border-radius: 4px;
-  cursor: pointer;
+
+.form-text {
+  color: #909399;
   font-size: 12px;
-  white-space: nowrap;
+  margin-top: 4px;
 }
-.btn-remove:hover {
-  background: #f56c6c;
-  color: #fff;
-}
-textarea {
-  resize: vertical;
-  min-height: 56px;
-}
+
 .sql-preview {
-  background-color: #f5f5f5;
+  width: 100%;
+  background-color: #f5f7fa;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 10px;
   margin: 0;
   font-size: 12px;
   font-family: 'Courier New', monospace;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+textarea {
+  resize: vertical;
 }
 </style>

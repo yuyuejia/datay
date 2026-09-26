@@ -10,7 +10,6 @@ import { DpTable, type IDpTable } from '@/shared/model/dp-table.model';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DpTableUpdate',
   components: {
     DataSourceSelector,

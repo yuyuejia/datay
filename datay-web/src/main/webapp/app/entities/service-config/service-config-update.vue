@@ -1,94 +1,41 @@
 <template>
   <div class="row justify-content-center">
     <div class="col-8">
-      <form name="editForm" novalidate @submit.prevent="save()">
+      <el-form name="editForm" label-width="160px" @submit.prevent="save()">
         <h2 id="datafusionApp.serviceConfig.home.createOrEditLabel" data-cy="ServiceConfigCreateUpdateHeading">
           创建或编辑服务配置
         </h2>
         <div>
-          <div class="form-group" v-if="serviceConfig.id">
-            <label for="id">ID</label>
-            <input type="text" class="form-control" id="id" name="id" v-model="serviceConfig.id" readonly />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="service-config-dfGroup">配置分组</label>
-            <input
-              type="text"
-              class="form-control"
-              name="dfGroup"
-              id="service-config-dfGroup"
-              data-cy="dfGroup"
-              :class="{ valid: !v$.dfGroup.$invalid, invalid: v$.dfGroup.$invalid }"
-              v-model="v$.dfGroup.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="service-config-dfKey">配置项</label>
-            <input
-              type="text"
-              class="form-control"
-              name="dfKey"
-              id="service-config-dfKey"
-              data-cy="dfKey"
-              :class="{ valid: !v$.dfKey.$invalid, invalid: v$.dfKey.$invalid }"
-              v-model="v$.dfKey.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="service-config-dfValue">配置值</label>
-            <input
-              type="text"
-              class="form-control"
-              name="dfValue"
-              id="service-config-dfValue"
-              data-cy="dfValue"
-              :class="{ valid: !v$.dfValue.$invalid, invalid: v$.dfValue.$invalid }"
-              v-model="v$.dfValue.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="service-config-createTime">创建时间</label>
+          <el-form-item v-if="serviceConfig.id" label="ID">
+            <el-input id="id" name="id" v-model="serviceConfig.id" readonly />
+          </el-form-item>
+          <el-form-item label="配置分组">
+            <el-input name="dfGroup" id="service-config-dfGroup" data-cy="dfGroup" v-model="v$.dfGroup.$model" />
+          </el-form-item>
+          <el-form-item label="配置项">
+            <el-input name="dfKey" id="service-config-dfKey" data-cy="dfKey" v-model="v$.dfKey.$model" />
+          </el-form-item>
+          <el-form-item label="配置值">
+            <el-input name="dfValue" id="service-config-dfValue" data-cy="dfValue" v-model="v$.dfValue.$model" />
+          </el-form-item>
+          <el-form-item label="创建时间">
             <div class="d-flex">
-              <input
-                id="service-config-createTime"
-                data-cy="createTime"
-                type="datetime-local"
-                class="form-control"
-                name="createTime"
-                :class="{ valid: !v$.createTime.$invalid, invalid: v$.createTime.$invalid }"
-                :value="convertDateTimeFromServer(v$.createTime.$model)"
-                @change="updateZonedDateTimeField('createTime', $event)"
-              />
+              <el-date-picker type="datetime" value-format="YYYY-MM-DDTHH:mm" id="service-config-createTime" data-cy="createTime" name="createTime" :model-value="convertDateTimeFromServer(v$.createTime.$model)" @update:model-value="value => updateZonedDateTimeField('createTime', value)" />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="service-config-tenantId">租户ID</label>
-            <input
-              type="text"
-              class="form-control"
-              name="tenantId"
-              id="service-config-tenantId"
-              data-cy="tenantId"
-              :class="{ valid: !v$.tenantId.$invalid, invalid: v$.tenantId.$invalid }"
-              v-model="v$.tenantId.$model"
-            />
-          </div>
+          </el-form-item>
+          <el-form-item label="租户ID">
+            <el-input name="tenantId" id="service-config-tenantId" data-cy="tenantId" v-model="v$.tenantId.$model" />
+          </el-form-item>
         </div>
         <div>
-          <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
+          <el-button id="cancel-save" data-cy="entityCreateCancelButton" @click="previousState()">
             <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
-          </button>
-          <button
-            type="submit"
-            id="save-entity"
-            data-cy="entityCreateSaveButton"
-            :disabled="v$.$invalid || isSaving"
-            class="btn btn-primary"
-          >
+          </el-button>
+          <el-button type="primary" native-type="submit" id="save-entity" data-cy="entityCreateSaveButton" :disabled="v$.$invalid || isSaving">
             <font-awesome-icon icon="save"></font-awesome-icon>&nbsp;<span>保存</span>
-          </button>
+          </el-button>
         </div>
-      </form>
+      </el-form>
     </div>
   </div>
 </template>

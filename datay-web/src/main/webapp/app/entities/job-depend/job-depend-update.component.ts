@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { type IJobDepend, JobDepend } from '@/shared/model/job-depend.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JobDependUpdate',
   setup() {
     const jobDependService = inject('jobDependService', () => new JobDependService());

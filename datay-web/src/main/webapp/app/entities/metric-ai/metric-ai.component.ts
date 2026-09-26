@@ -34,7 +34,6 @@ interface AiChatMessage {
  * 调用指标查询接口取数，并以 Markdown（含表格）呈现分析结果。
  */
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "MetricAi",
   setup() {
     const alertService = inject("alertService", () => useAlertService(), true);

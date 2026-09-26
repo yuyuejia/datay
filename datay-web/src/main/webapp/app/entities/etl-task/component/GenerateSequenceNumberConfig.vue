@@ -1,60 +1,52 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="mode">生成模式</label>
-      <select class="form-control" v-model="formData.mode" @change="handleModeChange">
-        <option value="SEQUENCE">序列生成</option>
-        <option value="DATABASE">数据库读取</option>
-      </select>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="生成模式">
+      <el-select v-model="formData.mode" @change="handleModeChange">
+            <el-option value="SEQUENCE" label="序列生成" />
+            <el-option value="DATABASE" label="数据库读取" />
+          </el-select>
       <small class="form-text text-muted"> SEQUENCE: 按配置生成连续序列数; DATABASE: 从数据库读取记录 </small>
-    </div>
+    </el-form-item>
 
-    <div v-if="formData.mode === 'SEQUENCE'" class="form-group">
-      <label for="startValue">起始值</label>
-      <input type="number" class="form-control" id="startValue" name="startValue" v-model="formData.startValue" placeholder="起始值，支持参数替换如 ${param}" />
-    </div>
+    <el-form-item v-if="formData.mode === 'SEQUENCE'" label="起始值">
+      <el-input-number :controls="false"  id="startValue" name="startValue" v-model="formData.startValue" placeholder="起始值，支持参数替换如 ${param}" />
+    </el-form-item>
 
-    <div v-if="formData.mode === 'SEQUENCE'" class="form-group">
-      <label for="countValue">生成数量</label>
-      <input type="number" class="form-control" id="countValue" name="countValue" v-model="formData.countValue" placeholder="生成序列的数量" />
-    </div>
+    <el-form-item v-if="formData.mode === 'SEQUENCE'" label="生成数量">
+      <el-input-number :controls="false"  id="countValue" name="countValue" v-model="formData.countValue" placeholder="生成序列的数量" />
+    </el-form-item>
 
-    <div v-if="formData.mode === 'SEQUENCE'" class="form-group">
-      <label for="length">序列长度</label>
-      <input type="number" class="form-control" id="length" name="length" v-model="formData.length" placeholder="0表示不补零，大于0时前面补零" />
+    <el-form-item v-if="formData.mode === 'SEQUENCE'" label="序列长度">
+      <el-input-number :controls="false"  id="length" name="length" v-model="formData.length" placeholder="0表示不补零，大于0时前面补零" />
       <small class="form-text text-muted"> 例如长度为4时，1会格式化为0001 </small>
-    </div>
+    </el-form-item>
 
-    <div v-if="formData.mode === 'DATABASE'" class="form-group">
-      <label for="sourceId">数据源</label>
+    <el-form-item v-if="formData.mode === 'DATABASE'" label="数据源">
       <DataSourceSelector
         type="source"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
+    </el-form-item>
 
-    <div v-if="formData.mode === 'DATABASE'" class="form-group">
-      <label for="table">表名</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入表名，可选" />
+    <el-form-item v-if="formData.mode === 'DATABASE'" label="表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入表名，可选" />
       <small class="form-text text-muted"> 若不填SQL，则使用 SELECT * FROM 表名 </small>
-    </div>
+    </el-form-item>
 
-    <div v-if="formData.mode === 'DATABASE'" class="form-group">
-      <label for="sql">SQL语句</label>
-      <textarea class="form-control" id="sql" name="sql" v-model="formData.sql" :rows="4" placeholder="请输入SQL语句，可选"></textarea>
-    </div>
+    <el-form-item v-if="formData.mode === 'DATABASE'" label="SQL语句">
+      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="4" placeholder="请输入SQL语句，可选" />
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="dataFormat">数据格式</label>
-      <select class="form-control" v-model="formData.dataFormat">
-        <option value="TEXT">文本格式 (TEXT)</option>
-        <option value="JSON_ARRAY">JSON数组格式</option>
-      </select>
-    </div>
+    <el-form-item label="数据格式">
+      <el-select v-model="formData.dataFormat">
+            <el-option value="TEXT" label="文本格式 (TEXT)" />
+            <el-option value="JSON_ARRAY" label="JSON数组格式" />
+          </el-select>
+    </el-form-item>
 
-  </form>
+  </el-form>
 </template>
 
 <script setup>

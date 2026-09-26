@@ -1,61 +1,45 @@
-import type { BvToast } from 'bootstrap-vue';
-import { getCurrentInstance } from 'vue';
+import { ElMessage } from 'element-plus';
 
-export const useAlertService = () => {
-  const bvToast = getCurrentInstance().root.proxy._bv__toast;
-  if (!bvToast) {
-    throw new Error('BootstrapVue toast component was not found');
+const toMessageType = (variant?: string): 'success' | 'warning' | 'info' | 'error' => {
+  switch (variant) {
+    case 'success':
+      return 'success';
+    case 'warning':
+      return 'warning';
+    case 'danger':
+    case 'error':
+      return 'error';
+    default:
+      return 'info';
   }
-  return new AlertService({
-    bvToast,
-  });
 };
 
+export const useAlertService = () => new AlertService();
+
 export default class AlertService {
-  private bvToast: BvToast;
-
-  constructor({ bvToast }: { bvToast: BvToast }) {
-    this.bvToast = bvToast;
-  }
-
   showInfo(toastMessage: string, toastOptions?: any) {
-    this.bvToast.toast(toastMessage, {
-      toaster: 'b-toaster-top-center',
-      title: 'Info',
-      variant: 'info',
-      solid: true,
-      autoHideDelay: 5000,
-      ...toastOptions,
-    });
+    this.show(toastMessage, { variant: 'info', ...toastOptions });
   }
 
   showSuccess(toastMessage: string) {
-    this.bvToast.toast(toastMessage, {
-      toaster: 'b-toaster-top-center',
-      title: 'Success',
-      variant: 'success',
-      solid: true,
-      autoHideDelay: 5000,
-    });
+    this.show(toastMessage, { variant: 'success' });
   }
 
   showWarning(toastMessage: string) {
-    this.bvToast.toast(toastMessage, {
-      toaster: 'b-toaster-top-center',
-      title: 'Warning',
-      variant: 'warning',
-      solid: true,
-      autoHideDelay: 5000,
-    });
+    this.show(toastMessage, { variant: 'warning' });
   }
 
   showError(toastMessage: string) {
-    this.bvToast.toast(toastMessage, {
-      toaster: 'b-toaster-top-center',
-      title: 'Error',
-      variant: 'danger',
-      solid: true,
-      autoHideDelay: 5000,
+    this.show(toastMessage, { variant: 'danger' });
+  }
+
+  private show(message: string, options: { variant?: string; [key: string]: any }) {
+    const { variant, autoHideDelay } = options;
+    ElMessage({
+      message,
+      type: toMessageType(variant),
+      duration: autoHideDelay ?? 5000,
+      showClose: true,
     });
   }
 
@@ -67,7 +51,7 @@ export default class AlertService {
         break;
 
       case 400: {
-        const arr = Object.keys(httpErrorResponse.headers);
+        const arr = Object.keys(httpErrorResponse.headers ?? {});
         for (const entry of arr) {
           if (entry.toLowerCase().endsWith('app-error')) {
             errorMessage = httpErrorResponse.headers[entry];
@@ -76,7 +60,7 @@ export default class AlertService {
         if (!errorMessage && httpErrorResponse.data?.fieldErrors) {
           errorMessage = 'Validation error';
         } else if (!errorMessage) {
-          errorMessage = httpErrorResponse.data.message;
+          errorMessage = httpErrorResponse.data?.message;
         }
         break;
       }
@@ -86,7 +70,10 @@ export default class AlertService {
         break;
 
       default:
-        errorMessage = httpErrorResponse.data.message;
+        errorMessage = httpErrorResponse.data?.message;
+    }
+    if (!errorMessage) {
+      errorMessage = '请求失败';
     }
     this.showError(errorMessage);
   }

@@ -4,7 +4,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { useDateFormat } from '@/shared/composables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiTenantManagementComponent',
   mounted(): void {
     this.loadAll();

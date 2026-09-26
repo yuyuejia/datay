@@ -27,7 +27,6 @@ const validations = {
 };
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'Settings',
   validations,
   setup() {

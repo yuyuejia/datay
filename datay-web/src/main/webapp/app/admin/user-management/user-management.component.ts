@@ -5,7 +5,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { useDateFormat } from '@/shared/composables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiUserManagementComponent',
   mounted(): void {
     this.loadAll();
@@ -99,12 +98,27 @@ export default defineComponent({
         this.transition();
       }
     },
+    handleSizeChange(): void {
+      this.page = 1;
+      this.previousPage = 1;
+      this.loadAll();
+    },
     transition(): void {
       this.loadAll();
     },
     changeOrder(propOrder: string): void {
       this.propOrder = propOrder;
       this.reverse = !this.reverse;
+      this.transition();
+    },
+    handleSortChange(column: { prop: string; order: 'ascending' | 'descending' | null }): void {
+      if (!column.prop || !column.order) {
+        return;
+      }
+      this.propOrder = column.prop;
+      this.reverse = column.order === 'descending';
+      this.page = 1;
+      this.previousPage = 1;
       this.transition();
     },
     deleteUser(): void {

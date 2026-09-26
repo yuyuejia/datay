@@ -1,7 +1,6 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">Doris数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="Doris数据源">
       <DataSourceSelector
         type="target"
         :datasourceId="formData.sourceId"
@@ -9,24 +8,21 @@
         @selected="handleDataSourceSelected"
       />
       <small class="form-text text-muted"> 选择Doris数据库数据源 </small>
-    </div>
-    <div class="form-group">
-      <label for="table">目标表名</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入Doris表名" required />
-    </div>
-    <div class="form-group">
-      <label for="schema">Schema</label>
-      <input type="text" class="form-control" id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
-    </div>
-    <div class="form-group">
-      <label for="model">写入模式</label>
-      <select class="form-control" v-model="formData.model">
-        <option value="INSERT">INSERT</option>
-        <option value="DELETE">DELETE</option>
-      </select>
+    </el-form-item>
+    <el-form-item label="目标表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入Doris表名" required />
+    </el-form-item>
+    <el-form-item label="Schema">
+      <el-input id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
+    </el-form-item>
+    <el-form-item label="写入模式">
+      <el-select v-model="formData.model">
+            <el-option value="INSERT" label="INSERT" />
+            <el-option value="DELETE" label="DELETE" />
+          </el-select>
       <small class="form-text text-muted"> Doris StreamLoad支持的写入模式 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

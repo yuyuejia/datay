@@ -1,28 +1,18 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="数据源">
       <DataSourceSelector
         type="source"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
-    <div class="form-group">
-      <label for="sql">SQL语句</label>
-      <textarea
-        class="form-control"
-        id="sql"
-        name="sql"
-        v-model="formData.sql"
-        :rows="8"
-        :maxlength="5000"
-        placeholder="请输入SQL查询语句，留空则使用上游FlowFile中的SQL"
-      ></textarea>
+    </el-form-item>
+    <el-form-item label="SQL语句">
+      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入SQL查询语句，留空则使用上游FlowFile中的SQL" />
       <small class="form-text text-muted"> 支持标准SQL语法，留空时将使用上游传递的SQL语句 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

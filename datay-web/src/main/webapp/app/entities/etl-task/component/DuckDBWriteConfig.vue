@@ -1,43 +1,29 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 目标表配置 -->
-      <div class="form-group">
-        <label for="table">目标表名</label>
-        <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入DuckDB表名" required />
+      <el-form-item label="目标表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入DuckDB表名" required />
         <small class="form-text text-muted"> 数据将写入到此DuckDB表中，如果表不存在会自动创建 </small>
-      </div>
+    </el-form-item>
 
       <!-- 写入策略 -->
-      <div class="form-group">
-        <label for="model">写入策略</label>
-        <select class="form-control" v-model="formData.model">
-          <option v-for="item in writeModeOptions" :key="item.value" :value="item.value">
-            {{ item.name }}
-          </option>
-        </select>
+      <el-form-item label="写入策略">
+      <el-select v-model="formData.model">
+            <el-option v-for="item in writeModeOptions" :key="item.value" :value="item.value" :label="item.name" />
+          </el-select>
         <small class="form-text text-muted"> 选择数据写入DuckDB的方式 </small>
-      </div>
+    </el-form-item>
 
       <!-- 批量处理配置 -->
-      <div class="form-group">
-        <label for="fetchSize">批量处理大小</label>
-        <input
-          type="number"
-          class="form-control"
-          id="fetchSize"
-          name="fetchSize"
-          v-model.number="formData.fetchSize"
-          min="1000"
-          max="50000"
-          step="1000"
-        />
+      <el-form-item label="批量处理大小">
+      <el-input-number :controls="false"  id="fetchSize" name="fetchSize" v-model="formData.fetchSize" :min="1000" :max="50000" :step="1000" />
         <small class="form-text text-muted"> 每次批量写入DuckDB的记录数，默认值：5000 </small>
-      </div>
+    </el-form-item>
 
       <!-- 高级配置 -->
-      <div class="form-group">
-        <el-collapse>
+      <el-form-item label="表存在时的处理">
+      <el-collapse>
           <el-collapse-item title="高级配置">
             <!-- 表创建选项 -->
             <div class="form-group">
@@ -47,12 +33,12 @@
 
             <!-- 表存在处理 -->
             <div class="form-group" v-if="formData.autoCreateTable">
-              <label for="tableExistsAction">表存在时的处理</label>
-              <select class="form-control" v-model="formData.tableExistsAction">
-                <option value="skip">跳过（不创建）</option>
-                <option value="drop">删除并重建</option>
-                <option value="append">追加数据</option>
-              </select>
+              
+              <el-select v-model="formData.tableExistsAction">
+            <el-option value="skip" label="跳过（不创建）" />
+            <el-option value="drop" label="删除并重建" />
+            <el-option value="append" label="追加数据" />
+          </el-select>
               <small class="form-text text-muted"> 当目标表已存在时的处理方式 </small>
             </div>
 
@@ -65,28 +51,19 @@
             <!-- 内存限制 -->
             <div class="form-group" v-if="formData.optimizePerformance">
               <label for="memoryLimit">内存限制(MB)</label>
-              <input
-                type="number"
-                class="form-control"
-                id="memoryLimit"
-                name="memoryLimit"
-                v-model.number="formData.memoryLimit"
-                min="0"
-                max="8192"
-                step="128"
-              />
+              <el-input-number :controls="false"  id="memoryLimit" name="memoryLimit" v-model="formData.memoryLimit" :min="0" :max="8192" :step="128" />
               <small class="form-text text-muted"> 设置DuckDB写入操作的内存限制，0表示使用默认值 </small>
             </div>
           </el-collapse-item>
         </el-collapse>
-      </div>
+    </el-form-item>
     </div>
 
     <!-- 操作按钮 -->
     <div class="form-actions">
       <el-button type="info" @click="validateConfig">验证配置</el-button>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>

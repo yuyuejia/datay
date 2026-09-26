@@ -14,7 +14,7 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="模型名称" required>
-            <b-form-input
+            <el-input
               v-model="dataModel.name"
               placeholder="请输入模型名称"
             />
@@ -22,7 +22,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="模型编码" required>
-            <b-form-input
+            <el-input
               v-model="dataModel.code"
               placeholder="请输入模型编码"
             />
@@ -32,32 +32,21 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="模型类型" required>
-            <select
-              class="form-control"
-              v-model="dataModel.modelType"
-              style="width: 100%"
-              @change="onModelTypeChange"
-            >
-              <option value="" disabled>请选择模型类型</option>
-              <option value="ODS">ODS 贴源层</option>
-              <option value="DIMENSION">DIM 维度表</option>
-              <option value="DWD">DWD 明细层</option>
-              <option value="DWS">DWS 汇总层</option>
-              <option value="ADS">ADS 应用层</option>
-            </select>
+            <el-select v-model="dataModel.modelType" style="width: 100%" @change="onModelTypeChange" placeholder="请选择模型类型">
+            <el-option value="ODS" label="ODS 贴源层" />
+            <el-option value="DIMENSION" label="DIM 维度表" />
+            <el-option value="DWD" label="DWD 明细层" />
+            <el-option value="DWS" label="DWS 汇总层" />
+            <el-option value="ADS" label="ADS 应用层" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="创建模式" required>
-            <select
-              class="form-control"
-              v-model="modelMode"
-              style="width: 100%"
-              @change="onModelModeChange"
-            >
-              <option value="normal">普通模式</option>
-              <option value="register">注册模式</option>
-            </select>
+            <el-select v-model="modelMode" style="width: 100%" @change="onModelModeChange">
+            <el-option value="normal" label="普通模式" />
+            <el-option value="register" label="注册模式" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
@@ -65,27 +54,16 @@
       <el-row v-if="dataModel.modelType === 'DIMENSION'" :gutter="20">
         <el-col :span="12">
           <el-form-item label="维度类型" required>
-            <select
-              class="form-control"
-              v-model="dataModel.dimensionKind"
-              style="width: 100%"
-              @change="onDimensionKindChange"
-            >
-              <option value="NORMAL">普通维度</option>
-              <option value="HIERARCHY">层级维度</option>
-              <option value="TIME">时间维度</option>
-            </select>
+            <el-select v-model="dataModel.dimensionKind" style="width: 100%" @change="onDimensionKindChange">
+            <el-option value="NORMAL" label="普通维度" />
+            <el-option value="HIERARCHY" label="层级维度" />
+            <el-option value="TIME" label="时间维度" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col v-if="dataModel.dimensionKind === 'HIERARCHY'" :span="12">
           <el-form-item label="层级数量" required>
-            <b-form-input
-              type="number"
-              v-model.number="dataModel.levelCount"
-              min="1"
-              max="10"
-              @change="onLevelCountChange"
-            />
+            <el-input-number :controls="false" v-model="dataModel.levelCount" :min="1" :max="10" @change="onLevelCountChange" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -93,20 +71,10 @@
       <el-row v-if="dataModel.modelType === 'DIMENSION'" :gutter="20">
         <el-col :span="12">
           <el-form-item label="默认显示字段">
-            <select
-              class="form-control"
-              v-model="dataModel.displayFieldName"
-              style="width: 100%"
-            >
-              <option :value="null">自动（优先名称字段）</option>
-              <option
-                v-for="field in displayFieldOptions"
-                :key="field.fieldName"
-                :value="field.fieldName"
-              >
-                {{ field.fieldName }} ({{ field.fieldType }})
-              </option>
-            </select>
+            <el-select v-model="dataModel.displayFieldName" style="width: 100%">
+            <el-option :value="null" label="自动（优先名称字段）" />
+            <el-option v-for="field in displayFieldOptions" :key="field.fieldName" :value="field.fieldName" :label="`${field.fieldName} (${field.fieldType})`" />
+          </el-select>
             <div class="time-granularity-hint">
               图表与筛选默认展示该字段，留空则自动选择名称字段
             </div>
@@ -129,12 +97,12 @@
                 :key="opt.code"
                 class="time-granularity-item"
               >
-                <input
-                  type="checkbox"
-                  :checked="isTimeLevelSelected(opt.code)"
+                <el-checkbox
+                  :model-value="isTimeLevelSelected(opt.code)"
                   @change="toggleTimeLevel(opt.code)"
-                />
-                <span>{{ opt.label }}</span>
+                >
+                  {{ opt.label }}
+                </el-checkbox>
               </label>
             </div>
             <div class="time-granularity-hint">
@@ -144,12 +112,12 @@
         </el-col>
         <el-col :span="6">
           <el-form-item label="起始日期">
-            <b-form-input type="date" v-model="dataModel.timeStart" />
+            <el-date-picker type="date" value-format="YYYY-MM-DD" v-model="dataModel.timeStart" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
           <el-form-item label="结束日期">
-            <b-form-input type="date" v-model="dataModel.timeEnd" />
+            <el-date-picker type="date" value-format="YYYY-MM-DD" v-model="dataModel.timeEnd" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -157,20 +125,10 @@
       <el-row v-if="dataModel.modelType === 'DWD'" :gutter="20">
         <el-col :span="12">
           <el-form-item label="时间周期字段">
-            <select
-              class="form-control"
-              v-model="dataModel.timeFieldName"
-              style="width: 100%"
-            >
-              <option :value="null">未设置</option>
-              <option
-                v-for="field in timeFieldOptions"
-                :key="field.fieldName"
-                :value="field.fieldName"
-              >
-                {{ field.fieldName }} ({{ field.fieldType }})
-              </option>
-            </select>
+            <el-select v-model="dataModel.timeFieldName" style="width: 100%">
+            <el-option :value="null" label="未设置" />
+            <el-option v-for="field in timeFieldOptions" :key="field.fieldName" :value="field.fieldName" :label="`${field.fieldName} (${field.fieldType})`" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
@@ -182,61 +140,26 @@
       >
         <el-col :span="8">
           <el-form-item label="数据源" required>
-            <select
-              class="form-control"
-              v-model="registerSelectedDataSourceId"
-              style="width: 100%"
-              @change="onRegisterDataSourceChange"
-            >
-              <option :value="null" disabled>请选择数据源</option>
-              <option
-                v-for="ds in registerAvailableDataSources"
-                :key="ds.id"
-                :value="ds.id"
-              >
-                {{ ds.name }}
-              </option>
-            </select>
+            <el-select v-model="registerSelectedDataSourceId" style="width: 100%" @change="onRegisterDataSourceChange">
+            <el-option :value="null" disabled label="请选择数据源" />
+            <el-option v-for="ds in registerAvailableDataSources" :key="ds.id" :value="ds.id" :label="ds.name" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="Schema" required>
-            <select
-              class="form-control"
-              v-model="registerSelectedSchema"
-              :disabled="!registerSelectedDataSourceId"
-              style="width: 100%"
-              @change="onRegisterSchemaChange"
-            >
-              <option :value="null" disabled>请选择Schema</option>
-              <option
-                v-for="schema in registerSchemas"
-                :key="schema"
-                :value="schema"
-              >
-                {{ schema }}
-              </option>
-            </select>
+            <el-select v-model="registerSelectedSchema" :disabled="!registerSelectedDataSourceId" style="width: 100%" @change="onRegisterSchemaChange">
+            <el-option :value="null" disabled label="请选择Schema" />
+            <el-option v-for="schema in registerSchemas" :key="schema" :value="schema" :label="schema" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="数据表" required>
-            <select
-              class="form-control"
-              v-model="registerSelectedTable"
-              :disabled="!registerSelectedSchema"
-              style="width: 100%"
-              @change="onRegisterTableChange"
-            >
-              <option :value="null" disabled>请选择数据表</option>
-              <option
-                v-for="table in registerTables"
-                :key="table"
-                :value="table"
-              >
-                {{ table }}
-              </option>
-            </select>
+            <el-select v-model="registerSelectedTable" :disabled="!registerSelectedSchema" style="width: 100%" @change="onRegisterTableChange">
+            <el-option :value="null" disabled label="请选择数据表" />
+            <el-option v-for="table in registerTables" :key="table" :value="table" :label="table" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
@@ -270,33 +193,17 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="所属目录">
-            <select
-              class="form-control"
-              v-model="dataModel.directoryId"
-              style="width: 100%"
-            >
-              <option :value="null">请选择所属目录</option>
-              <template
-                v-for="dir in flatDirectoryOptions"
-                :key="'dir-' + dir.id"
-              >
-                <option :value="dir.id">
-                  {{ "\u00A0\u00A0".repeat(dir.level) + dir.name }}
-                </option>
-              </template>
-            </select>
+            <el-select v-model="dataModel.directoryId" style="width: 100%">
+            <el-option :value="null" label="请选择所属目录" />
+            <el-option v-for="dir in flatDirectoryOptions" :key="dir.id" :value="dir.id" :label="'\u00A0\u00A0'.repeat(dir.level) + dir.name" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
       <el-row :gutter="20">
         <el-col :span="24">
           <el-form-item label="描述">
-            <textarea
-              class="form-control"
-              v-model="dataModel.description"
-              :rows="3"
-              placeholder="请输入模型描述"
-            ></textarea>
+            <el-input type="textarea" v-model="dataModel.description" :rows="3" placeholder="请输入模型描述" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -320,9 +227,8 @@
         </el-table-column>
         <el-table-column label="字段名称" width="180">
           <template #default="{ row }">
-            <b-form-input
+            <el-input
               v-model="row.fieldName"
-              size="sm"
               placeholder="字段名称"
               :disabled="isGeneratedField(row)"
             />
@@ -330,22 +236,9 @@
         </el-table-column>
         <el-table-column label="字段类型" width="160">
           <template #default="{ row }">
-            <select
-              class="form-control form-control-sm"
-              v-model="row.fieldType"
-              style="width: 100%"
-              :disabled="isGeneratedField(row)"
-              @change="clearLengthAndPrecisionIfUnneeded(row)"
-            >
-              <option value="" disabled>字段类型</option>
-              <option
-                v-for="lt in logicalTypes"
-                :key="lt.type"
-                :value="lt.type"
-              >
-                {{ lt.label }}
-              </option>
-            </select>
+            <el-select v-model="row.fieldType" style="width: 100%" :disabled="isGeneratedField(row)" @change="clearLengthAndPrecisionIfUnneeded(row)" placeholder="字段类型">
+            <el-option v-for="lt in logicalTypes" :key="lt.type" :value="lt.type" :label="lt.label" />
+          </el-select>
           </template>
         </el-table-column>
         <el-table-column label="角色" width="100">
@@ -356,40 +249,40 @@
             <span v-else class="field-placeholder">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="长度" width="90">
+        <el-table-column label="长度" width="100">
           <template #default="{ row }">
-            <b-form-input
+            <el-input-number
               v-if="needsLength(row.fieldType)"
+              :controls="false"
               v-model="row.fieldLength"
-              type="number"
-              size="sm"
               placeholder="长度"
+              style="width: 100%"
               :disabled="isGeneratedField(row)"
             />
             <span v-else class="field-placeholder">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="精度" width="90">
+        <el-table-column label="精度" width="100">
           <template #default="{ row }">
-            <b-form-input
+            <el-input-number
               v-if="needsPrecision(row.fieldType)"
+              :controls="false"
               v-model="row.fieldPrecision"
-              type="number"
-              size="sm"
               placeholder="精度"
+              style="width: 100%"
               :disabled="isGeneratedField(row)"
             />
             <span v-else class="field-placeholder">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="小数位" width="90">
+        <el-table-column label="小数位" width="100">
           <template #default="{ row }">
-            <b-form-input
+            <el-input-number
               v-if="needsScale(row.fieldType)"
+              :controls="false"
               v-model="row.fieldScale"
-              type="number"
-              size="sm"
               placeholder="小数位"
+              style="width: 100%"
               :disabled="isGeneratedField(row)"
             />
             <span v-else class="field-placeholder">-</span>
@@ -397,9 +290,9 @@
         </el-table-column>
         <el-table-column label="描述" min-width="180">
           <template #default="{ row }">
-            <b-form-input
+            <el-input
               v-model="row.description"
-              size="sm"
+              style="width: 100%"
               placeholder="字段描述"
               :disabled="isGeneratedField(row)"
             />
@@ -407,37 +300,25 @@
         </el-table-column>
         <el-table-column label="主键" width="80" align="center">
           <template #default="{ row }">
-            <input
-              type="checkbox"
-              :checked="!!row.isPrimaryKey"
+            <el-checkbox
+              :model-value="!!row.isPrimaryKey"
               :disabled="isGeneratedField(row)"
               @change="
-                row.isPrimaryKey = !!$event.target.checked;
-                handlePrimaryKeyChange(row);
+                val => {
+                  row.isPrimaryKey = !!val;
+                  handlePrimaryKeyChange(row);
+                }
               "
-              style="width: 16px; height: 16px; cursor: pointer; margin: 0"
+              style="margin: 0"
             />
           </template>
         </el-table-column>
         <el-table-column label="关联维度" width="220">
           <template #default="{ row }">
             <div class="dimension-select">
-              <select
-                class="form-control form-control-sm"
-                v-model="row.dimensionModelId"
-                style="width: 100%"
-                :disabled="isGeneratedField(row)"
-                @change="handleDimensionModelChange(row, $event.target.value)"
-              >
-                <option value="">选择维度模型</option>
-                <option
-                  v-for="dim in dimensionModels"
-                  :key="dim.id"
-                  :value="dim.id"
-                >
-                  {{ dim.name }}
-                </option>
-              </select>
+              <el-select v-model="row.dimensionModelId" style="width: 100%" :disabled="isGeneratedField(row)" @change="val => handleDimensionModelChange(row, val)" placeholder="选择维度模型">
+            <el-option v-for="dim in dimensionModels" :key="dim.id" :value="dim.id" :label="dim.name" />
+          </el-select>
             </div>
           </template>
         </el-table-column>
@@ -445,7 +326,6 @@
           <template #default="{ row }">
             <el-input-number
               v-model="row.sortOrder"
-              size="small"
               :min="0"
               controls-position="right"
               style="width: 100%"
@@ -469,58 +349,27 @@
       </el-table>
     </div>
 
-    <b-modal v-model="importDialogVisible" title="从已有表引入字段" size="lg">
+    <app-modal v-model="importDialogVisible" title="从已有表引入字段" size="lg">
       <div class="modal-body">
         <div class="form-row">
-          <div class="form-group col-md-4">
-            <label class="form-control-label">数据源</label>
-            <select
-              class="form-control"
-              v-model="importSelectedDataSourceId"
-              @change="onImportDataSourceChange"
-            >
-              <option :value="null" disabled>请选择数据源</option>
-              <option
-                v-for="ds in importAvailableDataSources"
-                :key="ds.id"
-                :value="ds.id"
-              >
-                {{ ds.name }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group col-md-4">
-            <label class="form-control-label">Schema</label>
-            <select
-              class="form-control"
-              v-model="importSelectedSchema"
-              :disabled="!importSelectedDataSourceId"
-              @change="onImportSchemaChange"
-            >
-              <option :value="null" disabled>请选择Schema</option>
-              <option
-                v-for="schema in importSchemas"
-                :key="schema"
-                :value="schema"
-              >
-                {{ schema }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group col-md-4">
-            <label class="form-control-label">数据表</label>
-            <select
-              class="form-control"
-              v-model="importSelectedTable"
-              :disabled="!importSelectedSchema"
-              @change="onImportTableChange"
-            >
-              <option :value="null" disabled>请选择数据表</option>
-              <option v-for="table in importTables" :key="table" :value="table">
-                {{ table }}
-              </option>
-            </select>
-          </div>
+          <el-form-item class="col-md-4" label="数据源">
+            <el-select v-model="importSelectedDataSourceId" @change="onImportDataSourceChange">
+            <el-option :value="null" disabled label="请选择数据源" />
+            <el-option v-for="ds in importAvailableDataSources" :key="ds.id" :value="ds.id" :label="ds.name" />
+          </el-select>
+          </el-form-item>
+          <el-form-item class="col-md-4" label="Schema">
+            <el-select v-model="importSelectedSchema" :disabled="!importSelectedDataSourceId" @change="onImportSchemaChange">
+            <el-option :value="null" disabled label="请选择Schema" />
+            <el-option v-for="schema in importSchemas" :key="schema" :value="schema" :label="schema" />
+          </el-select>
+          </el-form-item>
+          <el-form-item class="col-md-4" label="数据表">
+            <el-select v-model="importSelectedTable" :disabled="!importSelectedSchema" @change="onImportTableChange">
+            <el-option :value="null" disabled label="请选择数据表" />
+            <el-option v-for="table in importTables" :key="table" :value="table" :label="table" />
+          </el-select>
+          </el-form-item>
         </div>
         <div
           v-if="importSourceFields.length > 0"
@@ -533,9 +382,8 @@
             <thead>
               <tr>
                 <th style="width: 50px; text-align: center">
-                  <input
-                    type="checkbox"
-                    :checked="isAllFieldsSelected"
+                  <el-checkbox
+                    :model-value="isAllFieldsSelected"
                     @change="toggleAllFields"
                   />
                 </th>
@@ -555,9 +403,8 @@
                 :key="field.tempId"
               >
                 <td style="text-align: center">
-                  <input
-                    type="checkbox"
-                    :checked="isFieldSelected(field)"
+                  <el-checkbox
+                    :model-value="isFieldSelected(field)"
                     @change="toggleField(field)"
                   />
                 </td>
@@ -596,24 +443,15 @@
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="importDialogVisible = false"
-          >
+          <el-button @click="importDialogVisible = false">
             取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="importSelectedFields.length === 0"
-            @click="confirmImportFields"
-          >
+          </el-button>
+          <el-button type="primary" :disabled="importSelectedFields.length === 0" @click="confirmImportFields">
             引入选中字段 ({{ importSelectedFields.length }})
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

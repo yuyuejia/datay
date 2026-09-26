@@ -2,9 +2,9 @@
   <div>
     <h2>
       <span id="metrics-page-heading" data-cy="metricsPageHeading">应用程序资源监控</span>
-      <button class="btn btn-primary float-right" @click="refresh()">
+      <el-button type="primary" class="float-right" @click="refresh()">
         <font-awesome-icon icon="sync"></font-awesome-icon> <span>刷新</span>
-      </button>
+      </el-button>
     </h2>
 
     <h3>JVM 资源监控</h3>
@@ -20,53 +20,58 @@
               <span>{{ key }}</span> {{ formatNumber1(entry.used / 1048576) }}M
             </span>
             <div>Committed : {{ formatNumber1(entry.committed / 1048576) }}M</div>
-            <b-progress v-if="entry.max !== -1" variant="success" animated :max="entry.max" striped>
-              <b-progress-bar :value="entry.used" :label="formatNumber1((entry.used * 100) / entry.max) + '%'"> </b-progress-bar>
-            </b-progress>
+            <el-progress
+  v-if="entry.max !== -1"
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="entry.max ? Math.min(100, (entry.used) * 100 / (entry.max)) : 0"
+  :format="() => formatNumber1((entry.used * 100) / entry.max) + '%'"
+/>
           </div>
         </div>
       </div>
       <div class="col-md-4">
         <h4>线程</h4>
         <span><span>可运行</span> {{ threadStats.threadDumpRunnable }}</span>
-        <b-progress variant="success" :max="threadStats.threadDumpAll" striped>
-          <b-progress-bar
-            :value="threadStats.threadDumpRunnable"
-            :label="formatNumber1((threadStats.threadDumpRunnable * 100) / threadStats.threadDumpAll) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="threadStats.threadDumpAll ? Math.min(100, (threadStats.threadDumpRunnable) * 100 / (threadStats.threadDumpAll)) : 0"
+  :format="() => formatNumber1((threadStats.threadDumpRunnable * 100) / threadStats.threadDumpAll) + '%'"
+/>
 
         <span><span>定时等待</span> ({{ threadStats.threadDumpTimedWaiting }})</span>
-        <b-progress variant="success" :max="threadStats.threadDumpAll" striped>
-          <b-progress-bar
-            :value="threadStats.threadDumpTimedWaiting"
-            :label="formatNumber1((threadStats.threadDumpTimedWaiting * 100) / threadStats.threadDumpAll) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="threadStats.threadDumpAll ? Math.min(100, (threadStats.threadDumpTimedWaiting) * 100 / (threadStats.threadDumpAll)) : 0"
+  :format="() => formatNumber1((threadStats.threadDumpTimedWaiting * 100) / threadStats.threadDumpAll) + '%'"
+/>
 
         <span><span>等待中</span> ({{ threadStats.threadDumpWaiting }})</span>
-        <b-progress variant="success" :max="threadStats.threadDumpAll" striped>
-          <b-progress-bar
-            :value="threadStats.threadDumpWaiting"
-            :label="formatNumber1((threadStats.threadDumpWaiting * 100) / threadStats.threadDumpAll) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="threadStats.threadDumpAll ? Math.min(100, (threadStats.threadDumpWaiting) * 100 / (threadStats.threadDumpAll)) : 0"
+  :format="() => formatNumber1((threadStats.threadDumpWaiting * 100) / threadStats.threadDumpAll) + '%'"
+/>
 
         <span><span>阻塞中</span> ({{ threadStats.threadDumpBlocked }})</span>
-        <b-progress variant="success" :max="threadStats.threadDumpAll" striped>
-          <b-progress-bar
-            :value="threadStats.threadDumpBlocked"
-            :label="formatNumber1((threadStats.threadDumpBlocked * 100) / threadStats.threadDumpAll) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="threadStats.threadDumpAll ? Math.min(100, (threadStats.threadDumpBlocked) * 100 / (threadStats.threadDumpAll)) : 0"
+  :format="() => formatNumber1((threadStats.threadDumpBlocked * 100) / threadStats.threadDumpAll) + '%'"
+/>
 
         <span
           >Total: {{ threadStats.threadDumpAll }}
-          <a class="hand" v-b-modal.metricsModal data-toggle="modal" @click="openModal()" data-target="#threadDump">
+          <a class="hand" data-toggle="modal" @click="openModal()" data-target="#threadDump">
             <font-awesome-icon icon="eye"></font-awesome-icon>
           </a>
         </span>
@@ -85,24 +90,24 @@
           <div class="col-md-9">Process CPU usage</div>
           <div class="col-md-3 text-right">{{ formatNumber2(100 * metrics.processMetrics['process.cpu.usage']) }} %</div>
         </div>
-        <b-progress variant="success" :max="100" striped>
-          <b-progress-bar
-            :value="100 * metrics.processMetrics['process.cpu.usage']"
-            :label="formatNumber1(100 * metrics.processMetrics['process.cpu.usage']) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="100 ? Math.min(100, (100 * metrics.processMetrics['process.cpu.usage']) * 100 / (100)) : 0"
+  :format="() => formatNumber1(100 * metrics.processMetrics['process.cpu.usage']) + '%'"
+/>
         <div class="row" v-if="!updatingMetrics">
           <div class="col-md-9">System CPU usage</div>
           <div class="col-md-3 text-right">{{ formatNumber2(100 * metrics.processMetrics['system.cpu.usage']) }} %</div>
         </div>
-        <b-progress variant="success" :max="100" striped>
-          <b-progress-bar
-            :value="100 * metrics.processMetrics['system.cpu.usage']"
-            :label="formatNumber1(100 * metrics.processMetrics['system.cpu.usage']) + '%'"
-          >
-          </b-progress-bar>
-        </b-progress>
+        <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="100 ? Math.min(100, (100 * metrics.processMetrics['system.cpu.usage']) * 100 / (100)) : 0"
+  :format="() => formatNumber1(100 * metrics.processMetrics['system.cpu.usage']) + '%'"
+/>
         <div class="row" v-if="!updatingMetrics">
           <div class="col-md-9">System CPU count</div>
           <div class="col-md-3 text-right">{{ metrics.processMetrics['system.cpu.count'] }}</div>
@@ -130,17 +135,17 @@
             GC Live Data Size/GC Max Data Size ({{ formatNumber1(metrics.garbageCollector['jvm.gc.live.data.size'] / 1048576) }}M /
             {{ formatNumber1(metrics.garbageCollector['jvm.gc.max.data.size'] / 1048576) }}M)
           </span>
-          <b-progress variant="success" :max="metrics.garbageCollector['jvm.gc.max.data.size']" striped>
-            <b-progress-bar
-              :value="metrics.garbageCollector['jvm.gc.live.data.size']"
-              :label="
+          <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="metrics.garbageCollector['jvm.gc.max.data.size'] ? Math.min(100, (metrics.garbageCollector['jvm.gc.live.data.size']) * 100 / (metrics.garbageCollector['jvm.gc.max.data.size'])) : 0"
+  :format="() => 
                 formatNumber2(
                   (100 * metrics.garbageCollector['jvm.gc.live.data.size']) / metrics.garbageCollector['jvm.gc.max.data.size'],
                 ) + '%'
               "
-            >
-            </b-progress-bar>
-          </b-progress>
+/>
         </div>
       </div>
       <div class="col-md-4">
@@ -149,17 +154,17 @@
             GC Memory Promoted/GC Memory Allocated ({{ formatNumber1(metrics.garbageCollector['jvm.gc.memory.promoted'] / 1048576) }}M /
             {{ formatNumber1(metrics.garbageCollector['jvm.gc.memory.allocated'] / 1048576) }}M)
           </span>
-          <b-progress variant="success" :max="metrics.garbageCollector['jvm.gc.memory.allocated']" striped>
-            <b-progress-bar
-              :value="metrics.garbageCollector['jvm.gc.memory.promoted']"
-              :label="
+          <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="metrics.garbageCollector['jvm.gc.memory.allocated'] ? Math.min(100, (metrics.garbageCollector['jvm.gc.memory.promoted']) * 100 / (metrics.garbageCollector['jvm.gc.memory.allocated'])) : 0"
+  :format="() => 
                 formatNumber2(
                   (100 * metrics.garbageCollector['jvm.gc.memory.promoted']) / metrics.garbageCollector['jvm.gc.memory.allocated'],
                 ) + '%'
               "
-            >
-            </b-progress-bar>
-          </b-progress>
+/>
         </div>
       </div>
       <div class="col-md-4">
@@ -222,9 +227,13 @@
         <tr v-for="(entry, key) of metrics['http.server.requests']['percode']" :key="key">
           <td>{{ key }}</td>
           <td>
-            <b-progress variant="success" animated :max="metrics['http.server.requests']['all'].count" striped>
-              <b-progress-bar :value="entry.count" :label="formatNumber1(entry.count)"></b-progress-bar>
-            </b-progress>
+            <el-progress
+  type="line"
+  status="success"
+  :stroke-width="14"
+  :percentage="metrics['http.server.requests']['all'].count ? Math.min(100, (entry.count) * 100 / (metrics['http.server.requests']['all'].count)) : 0"
+  :format="() => formatNumber1(entry.count)"
+/>
           </td>
           <td class="text-right">
             {{ formatNumber2(filterNaN(entry.mean)) }}
@@ -351,12 +360,12 @@
       </table>
     </div>
 
-    <b-modal ref="metricsModal" size="lg">
+    <app-modal ref="metricsModal" size="lg">
       <template #modal-title>
         <h4 class="modal-title" id="showMetricsLabel">线程转储</h4>
       </template>
       <metrics-modal :thread-dump="threadData"></metrics-modal>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

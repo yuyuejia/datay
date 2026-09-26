@@ -1,34 +1,29 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="数据源">
       <DataSourceSelector
         type="source"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
-    <div class="form-group">
-      <label for="schema">Schema</label>
-      <input type="text" class="form-control" id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" required />
-    </div>
-    <div class="form-group">
-      <label for="table">指定表（可选）</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="多个表用逗号分隔，留空则处理Schema下所有表" />
+    </el-form-item>
+    <el-form-item label="Schema">
+      <el-input id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" required />
+    </el-form-item>
+    <el-form-item label="指定表（可选）">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="多个表用逗号分隔，留空则处理Schema下所有表" />
       <small class="form-text text-muted"> 指定需要处理的表，多个表用英文逗号分隔 </small>
-    </div>
-    <div class="form-group">
-      <label for="enablePartition">启用分区</label>
+    </el-form-item>
+    <el-form-item label="启用分区">
       <el-switch v-model="formData.enablePartition" />
       <small class="form-text text-muted"> 根据主键字段对大数据量表进行分区查询 </small>
-    </div>
-    <div class="form-group" v-if="formData.enablePartition">
-      <label for="partitionCount">分区数量</label>
-      <input type="number" class="form-control" id="partitionCount" name="partitionCount" v-model.number="formData.partitionCount" :min="1" :max="256" />
+    </el-form-item>
+    <el-form-item v-if="formData.enablePartition" label="分区数量">
+      <el-input-number :controls="false"  id="partitionCount" name="partitionCount" v-model="formData.partitionCount" ::min="1" ::max="256" />
       <small class="form-text text-muted"> 大数据量表的分区查询数量，默认4 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

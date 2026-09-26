@@ -41,18 +41,18 @@
             <span>{{ jobDepend.tenantId }}</span>
           </dd>
         </dl>
-        <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">
+        <el-button type="info" native-type="submit" @click.prevent="previousState()" data-cy="entityDetailsBackButton">
           <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>返回</span>
-        </button>
+        </el-button>
         <router-link
           v-if="jobDepend.id"
           :to="{ name: 'JobDependEdit', params: { jobDependId: jobDepend.id } }"
           custom
           v-slot="{ navigate }"
         >
-          <button @click="navigate" class="btn btn-primary">
+          <el-button type="primary" @click="navigate">
             <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span>编辑</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </div>

@@ -1,18 +1,18 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <!-- 手写模式 -->
     <template v-if="editorMode === 'manual'">
     <!-- Java脚本代码输入区域 -->
-    <div class="form-group">
-      <label for="scriptCode">Java脚本代码</label>
-      <textarea
-        class="form-control script-code-input"
+    <el-form-item label="Java脚本代码">
+      <el-input
+        type="textarea"
+        class="script-code-input"
         id="scriptCode"
         name="scriptCode"
         v-model="formData.scriptCode"
         :rows="15"
         :maxlength="10000"
-        placeholder='请输入Java脚本代码，例如：
+        :placeholder='`请输入Java脚本代码，例如：
 import com.data.job.FlowFile;
 import com.data.job.component.javascript.ScriptContext.LogFunction;
 import com.alibaba.fastjson2.JSONArray;
@@ -38,10 +38,10 @@ public class UserScript {
         }
         return flowFile;
     }
-}'
-      ></textarea>
+}`'
+      />
       <small class="form-text text-muted"> 支持Java语法，可以包含自定义的数据处理逻辑 </small>
-    </div>
+    </el-form-item>
 
     <!-- 操作按钮 -->
     <div class="form-actions">
@@ -78,13 +78,7 @@ public class UserScript {
           <span v-else-if="upstreamLoaded" class="form-text text-muted">暂无上游调试数据，本次生成不携带</span>
         </div>
 
-        <textarea
-          class="form-control"
-          v-model="requirement"
-          :rows="3"
-          placeholder="例如：给 JSON 数组的每条记录增加 processed 标记和处理时间戳，时间戳用当前毫秒值"
-          @keydown.enter.exact.prevent="generateCode"
-        ></textarea>
+        <el-input type="textarea" v-model="requirement" :rows="3" placeholder="例如：给 JSON 数组的每条记录增加 processed 标记和处理时间戳，时间戳用当前毫秒值" @keydown.enter.exact.prevent="generateCode" />
 
         <div class="ai-assistant-actions">
           <el-button type="primary" size="small" :loading="generating" @click="generateCode">生成代码</el-button>
@@ -104,7 +98,7 @@ public class UserScript {
         </div>
       </template>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>

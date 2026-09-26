@@ -1,110 +1,77 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label>上游表清单</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="上游表清单">
       <div class="table-toolbar">
         <el-button type="primary" size="small" :loading="loadingTables" @click="refreshTables(true)">调试上游获取表</el-button>
         <span v-if="upstreamTables.length" class="form-text text-muted">已获取 {{ upstreamTables.length }} 张表</span>
         <span v-else class="form-text text-muted">{{ tableError || '点击按钮调试上游组件，获取上游输出的表与字段' }}</span>
       </div>
       <small v-if="upstreamTables.length && tableError" class="form-text text-muted">{{ tableError }}</small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="outputTable">结果集表名</label>
-      <input
-        type="text"
-        class="form-control"
-        id="outputTable"
-        name="outputTable"
-        v-model="formData.outputTable"
-        placeholder="join_result"
-      />
+    <el-form-item label="结果集表名">
+      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="join_result" />
       <small class="form-text text-muted"> Join 结果写入 DuckDB main schema 的表名，默认为 join_result </small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="fromTable">主表</label>
-      <select class="form-control" id="fromTable" name="fromTable" v-model="formData.fromTable">
-        <option value="">请选择主表</option>
-        <option v-for="table in tableOptions(formData.fromTable)" :key="table" :value="table">{{ table }}</option>
-      </select>
-    </div>
+    <el-form-item label="主表">
+      <el-select id="fromTable" name="fromTable" v-model="formData.fromTable" placeholder="请选择主表">
+            <el-option v-for="table in tableOptions(formData.fromTable)" :key="table" :value="table" :label="table" />
+          </el-select>
+    </el-form-item>
 
-    <div class="form-group">
-      <label>关联表配置</label>
+    <el-form-item label="关联表配置">
       <div class="mapping-container">
         <div v-for="(join, index) in formData.joins" :key="index" class="mapping-item">
           <div class="mapping-item-header">
             <span>关联 {{ index + 1 }}</span>
-            <button type="button" class="btn-remove" @click="removeJoin(index)">删除</button>
+            <el-button type="danger" link size="small" @click="removeJoin(index)">删除</el-button>
           </div>
           <div class="mapping-row">
-            <select class="form-control" v-model="join.type">
-              <option value="INNER">INNER</option>
-              <option value="LEFT">LEFT</option>
-              <option value="RIGHT">RIGHT</option>
-              <option value="FULL">FULL</option>
-            </select>
-            <select class="form-control" v-model="join.table">
-              <option value="">请选择关联表</option>
-              <option v-for="table in tableOptions(join.table)" :key="table" :value="table">{{ table }}</option>
-            </select>
+            <el-select v-model="join.type">
+            <el-option value="INNER" label="INNER" />
+            <el-option value="LEFT" label="LEFT" />
+            <el-option value="RIGHT" label="RIGHT" />
+            <el-option value="FULL" label="FULL" />
+          </el-select>
+            <el-select v-model="join.table" placeholder="请选择关联表">
+            <el-option v-for="table in tableOptions(join.table)" :key="table" :value="table" :label="table" />
+          </el-select>
           </div>
 
           <div class="condition-block">
             <div class="condition-title">关联字段</div>
             <div v-if="join.on && !join.leftField" class="mapping-row">
-              <input type="text" class="form-control" v-model="join.on" placeholder="手写关联条件，如 orders.user_id = users.id" />
+              <el-input v-model="join.on" placeholder="手写关联条件，如 orders.user_id = users.id" />
             </div>
             <div v-else class="mapping-row">
-              <select class="form-control" v-model="join.leftTable">
-                <option value="">左表</option>
-                <option v-for="table in leftTableOptions(index)" :key="table" :value="table">{{ table }}</option>
-              </select>
-              <select class="form-control" v-model="join.leftField">
-                <option value="">左字段</option>
-                <option
-                  v-for="column in columnOptions(join.leftTable || formData.fromTable, join.leftField)"
-                  :key="column.name"
-                  :value="column.name"
-                >
-                  {{ columnLabel(column) }}
-                </option>
-              </select>
+              <el-select v-model="join.leftTable" placeholder="左表">
+            <el-option v-for="table in leftTableOptions(index)" :key="table" :value="table" :label="table" />
+          </el-select>
+              <el-select v-model="join.leftField" placeholder="左字段">
+            <el-option v-for="column in columnOptions(join.leftTable || formData.fromTable, join.leftField)" :key="column.name" :value="column.name" :label="columnLabel(column)" />
+          </el-select>
               <span class="mapping-arrow">=</span>
-              <select class="form-control" v-model="join.rightField">
-                <option value="">右字段</option>
-                <option v-for="column in columnOptions(join.table, join.rightField)" :key="column.name" :value="column.name">
-                  {{ columnLabel(column) }}
-                </option>
-              </select>
+              <el-select v-model="join.rightField" placeholder="右字段">
+            <el-option v-for="column in columnOptions(join.table, join.rightField)" :key="column.name" :value="column.name" :label="columnLabel(column)" />
+          </el-select>
             </div>
           </div>
         </div>
         <el-button type="primary" size="small" @click="addJoin">添加关联表</el-button>
       </div>
       <small class="form-text text-muted"> 表与字段均来自上游调试结果的 tableMetadata，每个关联仅支持单字段关联 </small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="selectColumns">输出字段</label>
-      <textarea
-        class="form-control"
-        id="selectColumns"
-        name="selectColumns"
-        v-model="formData.selectColumns"
-        :rows="3"
-        placeholder="留空表示 SELECT *，例如：orders.id AS order_id, users.name"
-      ></textarea>
+    <el-form-item label="输出字段">
+      <el-input type="textarea" id="selectColumns" name="selectColumns" v-model="formData.selectColumns" :rows="3" placeholder="留空表示 SELECT *，例如：orders.id AS order_id, users.name" />
       <small class="form-text text-muted"> 支持字段别名，使用表名限定，留空表示输出所有字段 </small>
-    </div>
+    </el-form-item>
 
-    <div v-if="previewSql" class="form-group">
-      <label>生成的 SQL 预览</label>
+    <el-form-item v-if="previewSql" label="生成的 SQL 预览">
       <pre class="sql-preview">{{ previewSql }}</pre>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>
@@ -348,116 +315,101 @@ defineExpose({ saveConfig });
 </script>
 
 <style scoped>
-.form-group {
-  margin-bottom: 20px;
-}
-.form-control {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 14px;
-}
-.form-control:focus {
-  border-color: #409eff;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-}
-.form-text {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 4px;
-}
 .table-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
-.table-toolbar .form-text {
-  margin-top: 0;
-}
-.form-actions {
-  margin-top: 30px;
-  text-align: right;
-}
+
 .mapping-container {
+  width: 100%;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
-  background-color: #fafafa;
+  background-color: #fafcff;
 }
+
 .mapping-item {
-  border-bottom: 1px dashed #dcdfe6;
-  padding-bottom: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 10px 12px;
   margin-bottom: 12px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
-.mapping-item:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-  margin-bottom: 8px;
-}
+
 .mapping-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  color: #606266;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
+  color: #303133;
   font-size: 13px;
+  font-weight: 600;
 }
+
 .mapping-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
+
 .mapping-row:last-child {
   margin-bottom: 0;
 }
-.mapping-row .form-control {
-  flex: 1;
+
+.mapping-row > :deep(.el-select),
+.mapping-row > :deep(.el-input),
+.mapping-row > :deep(.el-textarea),
+.mapping-row > :deep(.el-input-number) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
 }
+
 .condition-block {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #ebeef5;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: #f7f9fc;
 }
+
 .condition-title {
   font-size: 12px;
   color: #909399;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
+
 .mapping-arrow {
+  flex: none;
   color: #909399;
   font-weight: bold;
 }
-.btn-remove {
-  padding: 4px 10px;
-  border: 1px solid #f56c6c;
-  background: #fff;
-  color: #f56c6c;
-  border-radius: 4px;
-  cursor: pointer;
+
+.form-text {
+  color: #909399;
   font-size: 12px;
-  white-space: nowrap;
+  margin-top: 4px;
 }
-.btn-remove:hover {
-  background: #f56c6c;
-  color: #fff;
-}
-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
+
 .sql-preview {
-  background-color: #f5f5f5;
+  width: 100%;
+  background-color: #f5f7fa;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 10px;
   margin: 0;
   font-size: 12px;
   font-family: 'Courier New', monospace;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+textarea {
+  resize: vertical;
 }
 </style>

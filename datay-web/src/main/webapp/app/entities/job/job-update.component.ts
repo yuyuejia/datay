@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { type IJob, Job } from '@/shared/model/job.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JobUpdate',
   setup() {
     const jobService = inject('jobService', () => new JobService());

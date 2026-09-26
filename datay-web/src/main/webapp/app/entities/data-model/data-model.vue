@@ -283,7 +283,7 @@
       </div>
     </div>
 
-    <b-modal
+    <app-modal
       v-model="directoryDialogVisible"
       :title="directoryDialogTitle"
       size="md"
@@ -313,41 +313,33 @@
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="directoryDialogVisible = false"
-          >
+          <el-button @click="directoryDialogVisible = false">
             取消
-          </button>
-          <button type="button" class="btn btn-primary" @click="saveDirectory">
+          </el-button>
+          <el-button type="primary" @click="saveDirectory">
             确定
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="deleteDialogVisible" title="确认删除" size="md">
+    <app-modal v-model="deleteDialogVisible" title="确认删除" size="md">
       <div class="modal-body">
         <p>{{ deleteMessage }}</p>
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="deleteDialogVisible = false"
-          >
+          <el-button @click="deleteDialogVisible = false">
             取消
-          </button>
-          <button type="button" class="btn btn-danger" @click="confirmDelete">
+          </el-button>
+          <el-button type="danger" @click="confirmDelete">
             确认删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal
+    <app-modal
       v-model="materializeDialogVisible"
       title="模型物化"
       size="lg"
@@ -388,7 +380,7 @@
                     {{ schema }}
                   </option>
                 </select>
-                <b-form-input
+                <el-input
                   v-else
                   v-model="materializeForm.schemaName"
                   placeholder="默认Schema"
@@ -398,7 +390,7 @@
             </el-col>
           </el-row>
           <el-form-item label="表名" required>
-            <b-form-input
+            <el-input
               v-model="materializeForm.tableName"
               placeholder="请输入表名"
               style="width: 300px"
@@ -422,7 +414,7 @@
             </el-col>
             <el-col :span="8">
               <el-form-item label="起始日期" label-width="80px">
-                <b-form-input
+                <el-input
                   type="date"
                   v-model="materializeDataStart"
                   :disabled="!materializeGenerateData"
@@ -431,7 +423,7 @@
             </el-col>
             <el-col :span="8">
               <el-form-item label="结束日期" label-width="80px">
-                <b-form-input
+                <el-input
                   type="date"
                   v-model="materializeDataEnd"
                   :disabled="!materializeGenerateData"
@@ -488,7 +480,7 @@
             </el-table-column>
             <el-table-column label="长度" width="100">
               <template #default="{ row }">
-                <b-form-input
+                <el-input
                   v-if="needsMaterializeLength(row.logicalType)"
                   v-model="row.fieldLength"
                   type="number"
@@ -502,7 +494,7 @@
             </el-table-column>
             <el-table-column label="精度" width="100">
               <template #default="{ row }">
-                <b-form-input
+                <el-input
                   v-if="needsMaterializePrecision(row.logicalType)"
                   v-model="row.fieldPrecision"
                   type="number"
@@ -516,7 +508,7 @@
             </el-table-column>
             <el-table-column label="小数位" width="100">
               <template #default="{ row }">
-                <b-form-input
+                <el-input
                   v-if="needsMaterializeScale(row.logicalType)"
                   v-model="row.fieldScale"
                   type="number"
@@ -554,25 +546,16 @@
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="materializeDialogVisible = false"
-          >
+          <el-button @click="materializeDialogVisible = false">
             取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="materializeLoading || !canMaterialize"
-            @click="confirmMaterialize"
-          >
+          </el-button>
+          <el-button type="primary" :disabled="materializeLoading || !canMaterialize" @click="confirmMaterialize">
             <font-awesome-icon icon="database" />
             执行物化
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

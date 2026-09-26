@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { DataSyncTableConfig, type IDataSyncTableConfig } from '@/shared/model/data-sync-table-config.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSyncTableConfigUpdate',
   setup() {
     const dataSyncTableConfigService = inject('dataSyncTableConfigService', () => new DataSyncTableConfigService());

@@ -1,104 +1,42 @@
 <template>
   <div class="row justify-content-center">
     <div class="col-8">
-      <form name="editForm" novalidate @submit.prevent="save()">
+      <el-form name="editForm" label-width="160px" @submit.prevent="save()">
         <h2 id="datafusionApp.jobDepend.home.createOrEditLabel" data-cy="JobDependCreateUpdateHeading">创建或编辑 Job Depend</h2>
         <div>
-          <div class="form-group" v-if="jobDepend.id">
-            <label for="id">ID</label>
-            <input type="text" class="form-control" id="id" name="id" v-model="jobDepend.id" readonly />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-parentJobCode">Parent Job Code</label>
-            <input
-              type="text"
-              class="form-control"
-              name="parentJobCode"
-              id="job-depend-parentJobCode"
-              data-cy="parentJobCode"
-              :class="{ valid: !v$.parentJobCode.$invalid, invalid: v$.parentJobCode.$invalid }"
-              v-model="v$.parentJobCode.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-childJobCode">Child Job Code</label>
-            <input
-              type="text"
-              class="form-control"
-              name="childJobCode"
-              id="job-depend-childJobCode"
-              data-cy="childJobCode"
-              :class="{ valid: !v$.childJobCode.$invalid, invalid: v$.childJobCode.$invalid }"
-              v-model="v$.childJobCode.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-jobCode">Job Code</label>
-            <input
-              type="text"
-              class="form-control"
-              name="jobCode"
-              id="job-depend-jobCode"
-              data-cy="jobCode"
-              :class="{ valid: !v$.jobCode.$invalid, invalid: v$.jobCode.$invalid }"
-              v-model="v$.jobCode.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-lastInterval">Last Interval</label>
-            <input
-              type="number"
-              class="form-control"
-              name="lastInterval"
-              id="job-depend-lastInterval"
-              data-cy="lastInterval"
-              :class="{ valid: !v$.lastInterval.$invalid, invalid: v$.lastInterval.$invalid }"
-              v-model.number="v$.lastInterval.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-createTime">Create Time</label>
+          <el-form-item v-if="jobDepend.id" label="ID">
+            <el-input id="id" name="id" v-model="jobDepend.id" readonly />
+          </el-form-item>
+          <el-form-item label="Parent Job Code">
+            <el-input name="parentJobCode" id="job-depend-parentJobCode" data-cy="parentJobCode" v-model="v$.parentJobCode.$model" />
+          </el-form-item>
+          <el-form-item label="Child Job Code">
+            <el-input name="childJobCode" id="job-depend-childJobCode" data-cy="childJobCode" v-model="v$.childJobCode.$model" />
+          </el-form-item>
+          <el-form-item label="Job Code">
+            <el-input name="jobCode" id="job-depend-jobCode" data-cy="jobCode" v-model="v$.jobCode.$model" />
+          </el-form-item>
+          <el-form-item label="Last Interval">
+            <el-input-number :controls="false"  name="lastInterval" id="job-depend-lastInterval" data-cy="lastInterval" v-model="v$.lastInterval.$model" />
+          </el-form-item>
+          <el-form-item label="Create Time">
             <div class="d-flex">
-              <input
-                id="job-depend-createTime"
-                data-cy="createTime"
-                type="datetime-local"
-                class="form-control"
-                name="createTime"
-                :class="{ valid: !v$.createTime.$invalid, invalid: v$.createTime.$invalid }"
-                :value="convertDateTimeFromServer(v$.createTime.$model)"
-                @change="updateZonedDateTimeField('createTime', $event)"
-              />
+              <el-date-picker type="datetime" value-format="YYYY-MM-DDTHH:mm" id="job-depend-createTime" data-cy="createTime" name="createTime" :model-value="convertDateTimeFromServer(v$.createTime.$model)" @update:model-value="value => updateZonedDateTimeField('createTime', value)" />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-depend-tenantId">Tenant Id</label>
-            <input
-              type="text"
-              class="form-control"
-              name="tenantId"
-              id="job-depend-tenantId"
-              data-cy="tenantId"
-              :class="{ valid: !v$.tenantId.$invalid, invalid: v$.tenantId.$invalid }"
-              v-model="v$.tenantId.$model"
-            />
-          </div>
+          </el-form-item>
+          <el-form-item label="Tenant Id">
+            <el-input name="tenantId" id="job-depend-tenantId" data-cy="tenantId" v-model="v$.tenantId.$model" />
+          </el-form-item>
         </div>
         <div>
-          <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
+          <el-button id="cancel-save" data-cy="entityCreateCancelButton" @click="previousState()">
             <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
-          </button>
-          <button
-            type="submit"
-            id="save-entity"
-            data-cy="entityCreateSaveButton"
-            :disabled="v$.$invalid || isSaving"
-            class="btn btn-primary"
-          >
+          </el-button>
+          <el-button type="primary" native-type="submit" id="save-entity" data-cy="entityCreateSaveButton" :disabled="v$.$invalid || isSaving">
             <font-awesome-icon icon="save"></font-awesome-icon>&nbsp;<span>保存</span>
-          </button>
+          </el-button>
         </div>
-      </form>
+      </el-form>
     </div>
   </div>
 </template>

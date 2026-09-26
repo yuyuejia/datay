@@ -4,7 +4,6 @@ import HealthService from './health.service';
 import JhiHealthModal from './health-modal.vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiHealth',
   components: {
     'health-modal': JhiHealthModal,

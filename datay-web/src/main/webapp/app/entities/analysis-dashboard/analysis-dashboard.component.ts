@@ -19,7 +19,6 @@ import { useDateFormat } from "@/shared/composables";
  * 分析看板列表：支持搜索、AI 创建、新页签打开、重命名与删除。
  */
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "AnalysisDashboard",
   setup() {
     const router = useRouter();

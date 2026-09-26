@@ -28,7 +28,6 @@ interface AiChatMessage {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "DataQueryAi",
   props: {
     modelValue: { type: Boolean, default: undefined },

@@ -134,7 +134,7 @@ onMounted(async () => {
 
 .dashboard-viewer-title {
   color: #303133;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 

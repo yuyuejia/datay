@@ -1,38 +1,30 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="appId">应用 App ID</label>
-      <input type="text" class="form-control" id="appId" name="appId" v-model="formData.appId" placeholder="如 cli_xxxxxxxx" required />
-    </div>
-    <div class="form-group">
-      <label for="appSecret">应用 App Secret</label>
-      <input type="password" class="form-control" id="appSecret" name="appSecret" v-model="formData.appSecret" placeholder="应用密钥" required />
-    </div>
-    <div class="form-group">
-      <label for="appToken">多维表格标识 (appToken)</label>
-      <input type="text" class="form-control" id="appToken" name="appToken" v-model="formData.appToken" placeholder="多维表格 URL 中 /base/ 后面的部分" required />
-    </div>
-    <div class="form-group">
-      <label for="tableId">数据表标识 (tableId)</label>
-      <input type="text" class="form-control" id="tableId" name="tableId" v-model="formData.tableId" placeholder="URL 中 table= 参数的值" required />
-    </div>
-    <div class="form-group">
-      <label for="viewId">视图标识 (viewId，可选)</label>
-      <input type="text" class="form-control" id="viewId" name="viewId" v-model="formData.viewId" placeholder="URL 中 view= 参数的值" />
-    </div>
-    <div class="form-group">
-      <label for="pageSize">单页拉取条数</label>
-      <input type="number" class="form-control" id="pageSize" name="pageSize" v-model.number="formData.pageSize" :min="1" :max="500" />
-    </div>
-    <div class="form-group">
-      <label for="incrColumn">同步模式</label>
-      <select class="form-control" id="incrColumn" name="incrColumn" v-model="formData.incrColumn">
-        <option value="">全量同步</option>
-        <option value="last_modified_time">增量同步（按最后更新时间）</option>
-        <option value="created_time">增量同步（按创建时间）</option>
-      </select>
-    </div>
-  </form>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="应用 App ID">
+      <el-input id="appId" name="appId" v-model="formData.appId" placeholder="如 cli_xxxxxxxx" required />
+    </el-form-item>
+    <el-form-item label="应用 App Secret">
+      <el-input type="password" id="appSecret" name="appSecret" v-model="formData.appSecret" placeholder="应用密钥" required />
+    </el-form-item>
+    <el-form-item label="多维表格标识 (appToken)">
+      <el-input id="appToken" name="appToken" v-model="formData.appToken" placeholder="多维表格 URL 中 /base/ 后面的部分" required />
+    </el-form-item>
+    <el-form-item label="数据表标识 (tableId)">
+      <el-input id="tableId" name="tableId" v-model="formData.tableId" placeholder="URL 中 table= 参数的值" required />
+    </el-form-item>
+    <el-form-item label="视图标识 (viewId，可选)">
+      <el-input id="viewId" name="viewId" v-model="formData.viewId" placeholder="URL 中 view= 参数的值" />
+    </el-form-item>
+    <el-form-item label="单页拉取条数">
+      <el-input-number :controls="false"  id="pageSize" name="pageSize" v-model="formData.pageSize" ::min="1" ::max="500" />
+    </el-form-item>
+    <el-form-item label="同步模式">
+      <el-select id="incrColumn" name="incrColumn" v-model="formData.incrColumn" placeholder="全量同步">
+            <el-option value="last_modified_time" label="增量同步（按最后更新时间）" />
+            <el-option value="created_time" label="增量同步（按创建时间）" />
+          </el-select>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

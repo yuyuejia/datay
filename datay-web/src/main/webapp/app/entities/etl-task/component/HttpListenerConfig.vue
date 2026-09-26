@@ -1,38 +1,32 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="port">监听端口</label>
-      <input type="number" class="form-control" id="port" name="port" v-model.number="formData.port" :min="1" :max="65535" placeholder="请输入端口号" required />
-    </div>
-    <div class="form-group">
-      <label for="host">监听地址</label>
-      <input type="text" class="form-control" id="host" name="host" v-model="formData.host" placeholder="0.0.0.0" />
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="监听端口">
+      <el-input-number :controls="false"  id="port" name="port" v-model="formData.port" ::min="1" ::max="65535" placeholder="请输入端口号" required />
+    </el-form-item>
+    <el-form-item label="监听地址">
+      <el-input id="host" name="host" v-model="formData.host" placeholder="0.0.0.0" />
       <small class="form-text text-muted"> 默认0.0.0.0表示监听所有网络接口 </small>
-    </div>
-    <div class="form-group">
-      <label for="path">请求路径</label>
-      <input type="text" class="form-control" id="path" name="path" v-model="formData.path" placeholder="/" />
+    </el-form-item>
+    <el-form-item label="请求路径">
+      <el-input id="path" name="path" v-model="formData.path" placeholder="/" />
       <small class="form-text text-muted"> 默认路径 / </small>
-    </div>
-    <div class="form-group">
-      <label for="enableHttps">启用HTTPS</label>
+    </el-form-item>
+    <el-form-item label="启用HTTPS">
       <el-switch v-model="formData.enableHttps" />
-    </div>
-    <div class="form-group">
-      <label for="maxBodySize">最大请求体大小 (字节)</label>
-      <input type="number" class="form-control" id="maxBodySize" name="maxBodySize" v-model.number="formData.maxBodySize" :min="1024" step="1024" />
+    </el-form-item>
+    <el-form-item label="最大请求体大小 (字节)">
+      <el-input-number :controls="false"  id="maxBodySize" name="maxBodySize" v-model="formData.maxBodySize" ::min="1024" :step="1024" />
       <small class="form-text text-muted"> 默认10MB (10485760字节) </small>
-    </div>
-    <div class="form-group">
-      <label for="dataFormat">数据格式</label>
-      <select class="form-control" v-model="formData.dataFormat">
-        <option value="AUTO">自动检测</option>
-        <option value="JSON">JSON格式</option>
-        <option value="TEXT">文本格式</option>
-        <option value="XML">XML格式</option>
-      </select>
-    </div>
-  </form>
+    </el-form-item>
+    <el-form-item label="数据格式">
+      <el-select v-model="formData.dataFormat">
+            <el-option value="AUTO" label="自动检测" />
+            <el-option value="JSON" label="JSON格式" />
+            <el-option value="TEXT" label="文本格式" />
+            <el-option value="XML" label="XML格式" />
+          </el-select>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

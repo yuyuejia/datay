@@ -36,7 +36,6 @@ const STATUS_LABELS: Record<string, string> = {
 const RUNNING_STATUSES = ['RUNNING', 'APPENDING'];
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   setup() {
     const { showLogin } = useLoginModal();
     const authenticated = inject<ComputedRef<boolean>>('authenticated');

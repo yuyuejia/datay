@@ -3,19 +3,14 @@
     <h2 id="page-heading" data-cy="JobInstanceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="job-instance-heading">任务实例列表</span>
       <div class="d-flex align-items-center">
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
+        <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
-        </button>
+        </el-button>
         <router-link :to="{ name: 'JobInstanceCreate' }" custom v-slot="{ navigate }">
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-job-instance"
-          >
+          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-job-instance">
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建任务实例</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
@@ -59,35 +54,24 @@
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'JobInstanceView', params: { jobInstanceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
+                <el-button type="info" size="small" @click="navigate" class="details" data-cy="entityDetailsButton">
                   <span class="d-none d-md-inline">查看</span>
                 </el-button>
               </router-link>
               <router-link :to="{ name: 'JobInstanceEdit', params: { jobInstanceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
                 </el-button>
               </router-link>
               <!-- 新增：查看日志按钮 -->
-              <el-button @click="prepareViewLog(scope.row)" class="btn btn-warning btn-sm log" data-cy="entityLogButton">
+              <el-button type="warning" size="small" @click="prepareViewLog(scope.row)" class="log" data-cy="entityLogButton">
                 <span class="d-none d-md-inline">日志</span>
               </el-button>
               <!-- 新增：终止任务按钮 -->
-              <el-button
-                v-if="scope.row.status === 'RUNNING' || scope.row.status === 'STARTING'"
-                @click="prepareStopJobInstance(scope.row)"
-                class="btn btn-danger btn-sm stop"
-                data-cy="entityStopButton"
-              >
+              <el-button type="danger" size="small" v-if="scope.row.status === 'RUNNING' || scope.row.status === 'STARTING'" @click="prepareStopJobInstance(scope.row)" class="stop" data-cy="entityStopButton">
                 <span class="d-none d-md-inline">终止</span>
               </el-button>
-              <el-button
-                @click="prepareRemove(scope.row)"
-                variant="danger"
-                class="btn btn-danger btn-sm"
-                data-cy="entityDeleteButton"
-                v-b-modal.removeEntity
-              >
+              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -95,7 +79,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span id="datafusionApp.jobInstance.delete.question" data-cy="jobInstanceDeleteDialogHeading">确认删除</span>
       </template>
@@ -104,22 +88,16 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            id="jhi-confirm-delete-jobInstance"
-            data-cy="entityConfirmDeleteButton"
-            @click="removeJobInstance()"
-          >
+          <el-button @click="closeDialog()">取消</el-button>
+          <el-button type="primary" id="jhi-confirm-delete-jobInstance" data-cy="entityConfirmDeleteButton" @click="removeJobInstance()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
     <!-- 新增：终止任务确认模态框 -->
-    <b-modal ref="stopEntity" id="stopEntity">
+    <app-modal ref="stopEntity" id="stopEntity">
       <template #modal-title>
         <span id="datafusionApp.jobInstance.stop.question" data-cy="jobInstanceStopDialogHeading">确认终止任务</span>
       </template>
@@ -136,22 +114,16 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeStopDialog()">取消</button>
-          <button
-            type="button"
-            class="btn btn-danger"
-            id="jhi-confirm-stop-jobInstance"
-            data-cy="entityConfirmStopButton"
-            @click="stopJobInstance()"
-          >
+          <el-button @click="closeStopDialog()">取消</el-button>
+          <el-button type="danger" id="jhi-confirm-stop-jobInstance" data-cy="entityConfirmStopButton" @click="stopJobInstance()">
             确认终止
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
     <!-- 新增：查看日志模态框 -->
-    <b-modal ref="logEntity" id="logEntity" size="xl" scrollable>
+    <app-modal ref="logEntity" id="logEntity" size="xl" scrollable>
       <template #modal-title>
         <span id="datafusionApp.jobInstance.log.title" data-cy="jobInstanceLogDialogHeading">
           任务执行日志 - {{ currentLogInstance?.jobName }} ({{ currentLogInstance?.instanceCode }})
@@ -178,28 +150,34 @@
             >{{ logContent || '暂无日志内容' }}</pre
           >
           <div v-if="hasMoreLog" class="text-center mt-2">
-            <button class="btn btn-sm btn-outline-primary" @click="loadMoreLog" :disabled="isLogLoading">
+            <el-button type="primary" plain size="small" @click="loadMoreLog" :disabled="isLogLoading">
               <font-awesome-icon icon="arrow-down" :spin="isLogLoading"></font-awesome-icon>
               加载更多日志
-            </button>
+            </el-button>
           </div>
         </div>
       </div>
       <template #modal-footer>
         <div>
-          <button class="btn btn-primary mr-2" @click="loadMoreLog" title="刷新">刷新</button>
-          <button class="btn btn-primary mr-2" @click="downloadLog" title="下载日志">下载日志</button>
-          <button type="button" class="btn btn-secondary" @click="closeLogDialog()">关闭</button>
+          <el-button type="primary" @click="loadMoreLog" title="刷新">刷新</el-button>
+          <el-button type="primary" @click="downloadLog" title="下载日志">下载日志</el-button>
+          <el-button @click="closeLogDialog()">关闭</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
     <div v-show="jobInstances && jobInstances.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>

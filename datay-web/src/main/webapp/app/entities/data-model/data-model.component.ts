@@ -63,7 +63,6 @@ const FIELD_TYPES_WITH_LENGTH_ONLY = ["VARCHAR"];
 const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "DataModel",
   setup() {
     const dateFormat = useDateFormat();

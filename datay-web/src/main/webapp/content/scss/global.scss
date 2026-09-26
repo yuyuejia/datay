@@ -322,4 +322,63 @@ ui bootstrap tweaks
   padding-left: 0 !important;
 }
 
+/* ==========================================================================
+   List page consistency
+   ========================================================================== */
+#page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #303133;
+  margin: 0 0 1rem;
+}
+
+#page-heading > span:first-child,
+#page-heading .page-title {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+#page-heading .el-button {
+  font-weight: 400;
+}
+
+/* Bootstrap's `label { margin-bottom: .5rem }` breaks vertical centering of
+   Element Plus form labels; reset it so labels align with their controls. */
+.el-form-item__label {
+  margin-bottom: 0;
+}
+
+.el-table .btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.el-table .btn-group .el-button + .el-button {
+  margin-left: 0;
+}
+
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.list-pagination .jhi-item-count {
+  color: #606266;
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.list-pagination .el-pagination {
+  padding: 0;
+}
+
 /* jhipster-needle-scss-add-main JHipster will add new css style */

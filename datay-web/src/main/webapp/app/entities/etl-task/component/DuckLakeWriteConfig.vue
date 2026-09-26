@@ -1,7 +1,6 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">DuckLake数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="DuckLake数据源">
       <DataSourceSelector
         type="target"
         :datasourceId="formData.sourceId"
@@ -9,28 +8,25 @@
         @selected="handleDataSourceSelected"
       />
       <small class="form-text text-muted"> 选择配置了S3信息的DuckLake数据源 </small>
-    </div>
-    <div class="form-group">
-      <label for="table">目标表名</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入DuckLake表名" required />
-    </div>
-    <div class="form-group">
-      <label for="schema">Schema</label>
-      <input type="text" class="form-control" id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
-    </div>
-    <div class="form-group">
-      <label for="model">写入模式</label>
-      <select class="form-control" v-model="formData.model">
-        <option value="auto">自动推断</option>
-        <option value="INSERT">追加写入</option>
-        <option value="OVERWRITE">覆盖写入</option>
-        <option value="UPDATE">更新写入</option>
-        <option value="DELETE">删除</option>
-        <option value="QUERY">查询/DDL</option>
-      </select>
+    </el-form-item>
+    <el-form-item label="目标表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入DuckLake表名" required />
+    </el-form-item>
+    <el-form-item label="Schema">
+      <el-input id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
+    </el-form-item>
+    <el-form-item label="写入模式">
+      <el-select v-model="formData.model">
+            <el-option value="auto" label="自动推断" />
+            <el-option value="INSERT" label="追加写入" />
+            <el-option value="OVERWRITE" label="覆盖写入" />
+            <el-option value="UPDATE" label="更新写入" />
+            <el-option value="DELETE" label="删除" />
+            <el-option value="QUERY" label="查询/DDL" />
+          </el-select>
       <small class="form-text text-muted"> auto模式将根据上游事件类型自动判断 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

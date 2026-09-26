@@ -48,7 +48,7 @@ const dateKeywords = [
     <button type="button" class="dp-trigger" title="动态参数说明" @click="visible = true">
       <font-awesome-icon icon="circle-question" />
     </button>
-    <b-modal v-model="visible" id="dynamicParamHelpModal" title="动态参数说明" size="lg" scrollable ok-only ok-title="关闭">
+    <app-modal v-model="visible" id="dynamicParamHelpModal" title="动态参数说明" size="lg" scrollable ok-only ok-title="关闭">
       <div class="dp-body">
         <p class="dp-intro">
           组件的文本类配置项支持动态参数，运行时会被自动替换为实际值。使用 <code class="dp-code">#{...}</code> 引用内置参数，
@@ -144,7 +144,7 @@ const dateKeywords = [
           可用的属性名称取决于上游组件。可在节点配置弹窗的「调试」页中查看上一次运行的「关键属性」，据此引用对应名称。
         </p>
       </div>
-    </b-modal>
+    </app-modal>
   </span>
 </template>
 

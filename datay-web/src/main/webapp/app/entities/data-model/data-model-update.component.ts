@@ -30,7 +30,6 @@ interface FlatDirectoryOption {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "DataModelUpdate",
   setup() {
     const dataModelService = inject(

@@ -2,7 +2,6 @@ import { computed, defineComponent } from 'vue';
 import { useStore } from '@/store';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'Ribbon',
   setup() {
     const store = useStore();

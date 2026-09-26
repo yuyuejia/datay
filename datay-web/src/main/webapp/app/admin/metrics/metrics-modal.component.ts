@@ -3,7 +3,6 @@ import { type PropType, type Ref, computed, defineComponent, ref } from 'vue';
 import { filterBy } from '@/shared/computables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiMetricsModal',
   props: {
     threadDump: {

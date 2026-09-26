@@ -1,38 +1,19 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <!-- SQL输入区域 -->
-    <div class="form-group">
-      <label for="sql">SQL语句</label>
-      <textarea
-        class="form-control"
-        id="sql"
-        name="sql"
-        v-model="formData.sql"
-        :rows="8"
-        :maxlength="5000"
-        placeholder="请输入SQL查询语句，例如：SELECT * FROM table_name WHERE condition"
-      ></textarea>
+    <el-form-item label="SQL语句">
+      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入SQL查询语句，例如：SELECT * FROM table_name WHERE condition" />
       <small class="form-text text-muted"> 支持标准SQL语法，可以包含SELECT、JOIN、WHERE等操作 </small>
-    </div>
+    </el-form-item>
 
     <!-- 参数配置区域 -->
-    <div class="form-group">
-      <label for="fetchSize">批量处理大小</label>
-      <input
-        type="number"
-        class="form-control"
-        id="fetchSize"
-        name="fetchSize"
-        v-model.number="formData.fetchSize"
-        min="1000"
-        max="50000"
-        step="1000"
-      />
+    <el-form-item label="批量处理大小">
+      <el-input-number :controls="false"  id="fetchSize" name="fetchSize" v-model="formData.fetchSize" :min="1000" :max="50000" :step="1000" />
       <small class="form-text text-muted"> 每次从数据库读取的记录数，建议值：5000 </small>
-    </div>
+    </el-form-item>
 
     <!-- 操作按钮 -->
-  </form>
+  </el-form>
 </template>
 
 <script setup>

@@ -13,9 +13,9 @@
         <router-link to="/" class="btn btn-primary">
           <font-awesome-icon icon="home" class="mr-1" />返回首页
         </router-link>
-        <button type="button" class="btn btn-outline-secondary" @click="goBack">
+        <el-button plain @click="goBack">
           <font-awesome-icon icon="arrow-left" class="mr-1" />返回上一页
-        </button>
+        </el-button>
       </div>
     </div>
   </div>

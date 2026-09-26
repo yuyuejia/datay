@@ -7,7 +7,6 @@ import { type IETLNode } from '@/shared/model/etl-node.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLNodeDetails',
   setup() {
     const dateFormat = useDateFormat();

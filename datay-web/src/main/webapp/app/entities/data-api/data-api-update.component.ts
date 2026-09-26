@@ -45,7 +45,6 @@ const parseJsonObject = (text: string): Record<string, string> => {
 };
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataApiUpdate',
   setup() {
     const dataApiService = inject('dataApiService', () => new DataApiService());
@@ -207,9 +206,8 @@ export default defineComponent({
       }
     };
 
-    const onDataSourceChange = (event: Event) => {
-      const target = event.target as HTMLSelectElement;
-      dataApi.value.dataSourceId = target.value ? Number(target.value) : null;
+    const onDataSourceChange = (value: any) => {
+      dataApi.value.dataSourceId = value ? Number(value) : null;
       dataApi.value.schemaName = null;
       dataApi.value.tableName = null;
       schemas.value = [];
@@ -218,18 +216,16 @@ export default defineComponent({
       fetchSchemas();
     };
 
-    const onSchemaChange = (event: Event) => {
-      const target = event.target as HTMLSelectElement;
-      dataApi.value.schemaName = target.value || null;
+    const onSchemaChange = (value: any) => {
+      dataApi.value.schemaName = value || null;
       dataApi.value.tableName = null;
       tables.value = [];
       columns.value = [];
       fetchTables();
     };
 
-    const onTableChange = (event: Event) => {
-      const target = event.target as HTMLSelectElement;
-      dataApi.value.tableName = target.value || null;
+    const onTableChange = (value: any) => {
+      dataApi.value.tableName = value || null;
       columns.value = [];
       fetchColumns();
     };

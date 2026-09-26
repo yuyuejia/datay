@@ -7,7 +7,6 @@ import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLTask',
   setup() {
     const dateFormat = useDateFormat();
@@ -243,7 +242,7 @@ export default defineComponent({
       }
     };
 
-    watch([propOrder, reverse], async () => {
+    watch([propOrder, reverse, itemsPerPage], async () => {
       if (page.value === 1) {
         await retrieveETLTasks();
       } else {

@@ -7,7 +7,6 @@ import { type IServiceConfig } from '@/shared/model/service-config.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ServiceConfigDetails',
   setup() {
     const dateFormat = useDateFormat();

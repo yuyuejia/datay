@@ -18,7 +18,6 @@ interface ExtraParamRow {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSourceUpdate',
   setup() {
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());

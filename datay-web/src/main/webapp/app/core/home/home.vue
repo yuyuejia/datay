@@ -28,10 +28,10 @@
               这里是您的数据资产与任务运行情况
             </p>
           </div>
-          <button class="btn-outline refresh-btn" :disabled="loading" @click="loadData">
+          <el-button class="refresh-btn" :disabled="loading" @click="loadData">
             <font-awesome-icon icon="sync" :spin="loading" />
             <span>刷新</span>
-          </button>
+          </el-button>
         </div>
       </section>
 

@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { ETLNode, type IETLNode } from '@/shared/model/etl-node.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLNodeUpdate',
   setup() {
     const eTLNodeService = inject('eTLNodeService', () => new ETLNodeService());

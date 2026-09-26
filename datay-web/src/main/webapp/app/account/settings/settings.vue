@@ -79,7 +79,7 @@
               <small class="form-text text-danger" v-if="!v$.settingsAccount.email.maxLength">您的电子邮件长度不能超过50个字符</small>
             </div>
           </div>
-          <button type="submit" :disabled="v$.settingsAccount.$invalid" class="btn btn-primary" data-cy="submit">保存</button>
+          <el-button type="primary" native-type="submit" :disabled="v$.settingsAccount.$invalid" data-cy="submit">保存</el-button>
         </form>
 
         <h2 class="mt-4" id="mcp-token-title">访问令牌</h2>
@@ -93,15 +93,15 @@
           <strong>请立即复制并妥善保存您的令牌，关闭页面后将无法再次查看：</strong>
           <div class="input-group mt-2">
             <input type="text" class="form-control" :value="generatedToken" readonly data-cy="mcp-token-value" />
-            <button type="button" class="btn btn-outline-secondary" @click="copyToken()" data-cy="mcp-token-copy">
+            <el-button plain @click="copyToken()" data-cy="mcp-token-copy">
               {{ tokenCopied ? '已复制' : '复制' }}
-            </button>
+            </el-button>
           </div>
         </div>
 
-        <button type="button" class="btn btn-primary" @click="generateMcpToken()" data-cy="mcp-token-generate">
+        <el-button type="primary" @click="generateMcpToken()" data-cy="mcp-token-generate">
           {{ hasMcpToken ? '重新生成令牌' : '生成令牌' }}
-        </button>
+        </el-button>
       </div>
     </div>
   </div>

@@ -41,7 +41,6 @@ const createCondition = (logic = "AND") => ({
 });
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "MetricUpdate",
   setup() {
     const metricService = inject("metricService", () => new MetricService());

@@ -1,82 +1,49 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 数据源选择 -->
-      <div class="form-group">
-        <label for="sourceId">数据源</label>
-        <DataSourceSelector
+      <el-form-item label="数据源">
+      <DataSourceSelector
           type="source"
           :datasourceId="formData.sourceId"
           :schema="formData.schema"
           @selected="handleDataSourceSelected"
         />
-      </div>
+    </el-form-item>
 
       <!-- 数据库过滤模式 -->
-      <div class="form-group">
-        <label for="databaseNamePattern">数据库过滤模式</label>
-        <input
-          type="text"
-          class="form-control"
-          id="databaseNamePattern"
-          name="databaseNamePattern"
-          v-model="formData.databaseNamePattern"
-          placeholder="例如：test_db.* 或 ^prod_.*"
-        />
+      <el-form-item label="数据库过滤模式">
+      <el-input id="databaseNamePattern" name="databaseNamePattern" v-model="formData.databaseNamePattern" placeholder="例如：test_db.* 或 ^prod_.*" />
         <small class="form-text text-muted">
           使用正则表达式过滤数据库，为空表示采集所有数据库。例如：test_db.* 表示采集test_db开头的所有数据库
         </small>
-      </div>
+    </el-form-item>
 
       <!-- 表过滤模式 -->
-      <div class="form-group">
-        <label for="tableNamePattern">表过滤模式</label>
-        <input
-          type="text"
-          class="form-control"
-          id="tableNamePattern"
-          name="tableNamePattern"
-          v-model="formData.tableNamePattern"
-          placeholder="例如：user_.* 或 ^order.*"
-        />
+      <el-form-item label="表过滤模式">
+      <el-input id="tableNamePattern" name="tableNamePattern" v-model="formData.tableNamePattern" placeholder="例如：user_.* 或 ^order.*" />
         <small class="form-text text-muted"> 使用正则表达式过滤表，为空表示采集所有表。例如：user_.* 表示采集user_开头的所有表 </small>
-      </div>
+    </el-form-item>
 
       <!-- Binlog文件位置 -->
-      <div class="form-group">
-        <label for="binlogFile">Binlog文件</label>
-        <input
-          type="text"
-          class="form-control"
-          id="binlogFile"
-          name="binlogFile"
-          v-model="formData.binlogFile"
-          placeholder="例如：mysql-bin.000001"
-        />
+      <el-form-item label="Binlog文件">
+      <el-input id="binlogFile" name="binlogFile" v-model="formData.binlogFile" placeholder="例如：mysql-bin.000001" />
         <small class="form-text text-muted"> 指定从哪个Binlog文件开始采集，为空表示从当前位置开始 </small>
-      </div>
+    </el-form-item>
 
       <!-- Binlog位置 -->
-      <div class="form-group">
-        <label for="binlogPosition">Binlog位置</label>
-        <input
-          type="number"
-          class="form-control"
-          id="binlogPosition"
-          name="binlogPosition"
-          v-model="formData.binlogPosition"
-          placeholder="例如：107"
-          min="0"
-        />
+      <el-form-item label="Binlog位置">
+      <el-input-number :controls="false"  id="binlogPosition" name="binlogPosition" v-model="formData.binlogPosition" placeholder="例如：107" :min="0" />
         <small class="form-text text-muted"> 指定从Binlog文件的哪个位置开始采集，需要与Binlog文件一起使用 </small>
-      </div>
+    </el-form-item>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
+import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
 
 const props = defineProps({

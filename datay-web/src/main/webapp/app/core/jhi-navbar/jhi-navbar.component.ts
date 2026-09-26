@@ -17,7 +17,6 @@ import { useStore } from "@/store";
 import TenantSwitchService from "@/account/tenant-switch.service";
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "JhiNavbar",
   components: {
     "entities-menu": EntitiesMenu,
@@ -114,6 +113,12 @@ export default defineComponent({
       });
     };
 
+    const goToMenu = (path: string) => {
+      if (typeof path === 'string' && path) {
+        router.push(path);
+      }
+    };
+
     const isRememberMe = () =>
       !!localStorage.getItem("jhi-authenticationToken");
 
@@ -159,6 +164,7 @@ export default defineComponent({
     return {
       logout,
       subIsActive,
+      goToMenu,
       accountService,
       showLogin,
       version,

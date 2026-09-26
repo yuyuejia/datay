@@ -7,7 +7,6 @@ import { type IDataSync } from '@/shared/model/data-sync.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSyncDetails',
   setup() {
     const dateFormat = useDateFormat();

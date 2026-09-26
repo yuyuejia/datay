@@ -34,11 +34,7 @@ describe('Component Tests', () => {
       serviceConfigServiceStub = sinon.createStubInstance<ServiceConfigService>(ServiceConfigService);
       serviceConfigServiceStub.retrieve.onFirstCall().resolves(Promise.resolve([]));
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {

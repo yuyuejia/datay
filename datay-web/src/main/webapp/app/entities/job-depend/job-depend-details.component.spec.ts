@@ -34,11 +34,7 @@ describe('Component Tests', () => {
       route = {};
       jobDependServiceStub = sinon.createStubInstance<JobDependService>(JobDependService);
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {

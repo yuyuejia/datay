@@ -1,21 +1,20 @@
 <template>
   <div class="cron-selector" :class="{ compact: props.compact }">
-    <div class="input-group">
-      <input
-        type="text"
-        class="form-control"
-        :class="{ 'is-invalid': cronExpression && !isValidExpression(cronExpression) }"
-        v-model="cronExpression"
-        placeholder="请输入 Cron 表达式，例如：0 0 12 * * ?"
-        @input="handleInput"
-      />
-      <button type="button" class="btn btn-outline-secondary cron-config-btn" @click="openModal">
-        <font-awesome-icon icon="clock" class="me-1" />
-        设置
-      </button>
-    </div>
-
-    <b-modal v-model="showModal" id="cronExpressionModal" title="设置 Cron 表达式" size="lg">
+    <el-input
+      v-model="cronExpression"
+      :size="props.compact ? 'small' : 'default'"
+      :class="{ 'is-invalid': cronExpression && !isValidExpression(cronExpression) }"
+      placeholder="请输入 Cron 表达式，例如：0 0 12 * * ?"
+      @input="handleInput"
+    >
+      <template #append>
+        <el-button :size="props.compact ? 'small' : 'default'" @click="openModal">
+          <font-awesome-icon icon="clock" class="me-1" />
+          设置
+        </el-button>
+      </template>
+    </el-input>
+    <app-modal v-model="showModal" id="cronExpressionModal" title="设置 Cron 表达式" size="lg">
       <div class="modal-body cron-modal-body">
         <div class="cron-tabs">
           <div class="cron-tab-header">
@@ -51,13 +50,7 @@
             <div class="custom-builder">
               <div class="custom-raw">
                 <label class="custom-raw-label">表达式</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  v-model="tempCronExpression"
-                  placeholder="秒 分 时 日 月 周"
-                  @input="parseExpression"
-                />
+                <el-input v-model="tempCronExpression" placeholder="秒 分 时 日 月 周" @input="parseExpression" />
               </div>
               <div class="field-tabs">
                 <div class="field-tab-nav">
@@ -74,85 +67,55 @@
                 </div>
                 <div class="field-tab-body">
                   <div v-for="field in fields" v-show="activeField === field.key" :key="field.key" class="field-control">
-                    <div class="field-type-group">
-                      <button
-                        type="button"
-                        class="type-btn"
-                        :class="{ active: parts[field.key].type === 'every' }"
-                        @click="setPartType(field.key, 'every')"
-                      >
-                        {{ field.everyLabel }}
-                      </button>
-                      <button
-                        type="button"
-                        class="type-btn"
-                        :class="{ active: parts[field.key].type === 'range' }"
-                        @click="setPartType(field.key, 'range')"
-                      >
-                        区间
-                      </button>
-                      <button
-                        type="button"
-                        class="type-btn"
-                        :class="{ active: parts[field.key].type === 'step' }"
-                        @click="setPartType(field.key, 'step')"
-                      >
-                        间隔
-                      </button>
-                      <button
-                        type="button"
-                        class="type-btn"
-                        :class="{ active: parts[field.key].type === 'specific' }"
-                        @click="setPartType(field.key, 'specific')"
-                      >
-                        指定
-                      </button>
-                      <button
-                        type="button"
-                        class="type-btn"
-                        :class="{ active: parts[field.key].type === 'custom' }"
-                        @click="setPartType(field.key, 'custom')"
-                      >
-                        自定义
-                      </button>
-                    </div>
+                    <el-radio-group
+                      :model-value="parts[field.key].type"
+                      class="field-type-group"
+                      size="small"
+                      @change="val => setPartType(field.key, val)"
+                    >
+                      <el-radio-button value="every">{{ field.everyLabel }}</el-radio-button>
+                      <el-radio-button value="range">区间</el-radio-button>
+                      <el-radio-button value="step">间隔</el-radio-button>
+                      <el-radio-button value="specific">指定</el-radio-button>
+                      <el-radio-button value="custom">自定义</el-radio-button>
+                    </el-radio-group>
 
                     <div v-if="parts[field.key].type === 'range'" class="field-detail">
                       <span class="detail-text">从</span>
-                      <select v-model.number="parts[field.key].from" class="form-select form-select-sm detail-select">
-                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                      </select>
+                      <el-select v-model="parts[field.key].from" class="detail-select" size="small">
+                        <el-option v-for="opt in field.options" :key="opt.value" :value="opt.value" :label="opt.label" />
+                      </el-select>
                       <span class="detail-text">到</span>
-                      <select v-model.number="parts[field.key].to" class="form-select form-select-sm detail-select">
-                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                      </select>
+                      <el-select v-model="parts[field.key].to" class="detail-select" size="small">
+                        <el-option v-for="opt in field.options" :key="opt.value" :value="opt.value" :label="opt.label" />
+                      </el-select>
                     </div>
 
                     <div v-else-if="parts[field.key].type === 'step'" class="field-detail">
                       <span class="detail-text">从</span>
-                      <select v-model.number="parts[field.key].stepFrom" class="form-select form-select-sm detail-select">
-                        <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                      </select>
+                      <el-select v-model="parts[field.key].stepFrom" class="detail-select" size="small">
+                        <el-option v-for="opt in field.options" :key="opt.value" :value="opt.value" :label="opt.label" />
+                      </el-select>
                       <span class="detail-text">开始，每</span>
-                      <input
-                        type="number"
-                        class="form-control form-control-sm detail-number"
-                        v-model.number="parts[field.key].step"
-                        min="1"
+                      <el-input-number
+                        v-model="parts[field.key].step"
+                        :min="1"
                         :max="field.max"
+                        :controls="false"
+                        size="small"
+                        class="detail-number"
                       />
                       <span class="detail-text">{{ field.unit }}执行一次</span>
                     </div>
 
-                    <div v-else-if="parts[field.key].type === 'specific'" class="field-detail specific-detail">
-                      <label v-for="opt in field.options" :key="opt.value" class="specific-item">
-                        <input type="checkbox" :value="opt.value" v-model="parts[field.key].specific" />
-                        <span>{{ opt.label }}</span>
-                      </label>
+                    <div v-else-if="parts[field.key].type === 'specific'" class="field-detail">
+                      <el-checkbox-group v-model="parts[field.key].specific" class="specific-detail">
+                        <el-checkbox v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</el-checkbox>
+                      </el-checkbox-group>
                     </div>
 
                     <div v-else-if="parts[field.key].type === 'custom'" class="field-detail">
-                      <input type="text" class="form-control form-control-sm" v-model="parts[field.key].raw" placeholder="如：L 或 1,15,20" />
+                      <el-input v-model="parts[field.key].raw" size="small" placeholder="如：L 或 1,15,20" />
                     </div>
 
                     <div v-else class="field-detail">
@@ -179,10 +142,10 @@
       </div>
 
       <template #modal-footer>
-        <button type="button" class="btn btn-secondary" @click="cancelSelection">取消</button>
-        <button type="button" class="btn btn-primary" @click="confirmSelection" :disabled="!isValidCron">确认</button>
+        <el-button @click="cancelSelection">取消</el-button>
+        <el-button type="primary" @click="confirmSelection" :disabled="!isValidCron">确认</el-button>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
@@ -745,37 +708,8 @@ const cancelSelection = () => {
   width: 100%;
 }
 
-.cron-config-btn {
+.cron-selector :deep(.el-input-group__append) .el-button {
   white-space: nowrap;
-}
-
-.cron-selector.compact .form-control {
-  height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  line-height: 28px;
-  color: var(--el-text-color-regular, #606266);
-  background-color: var(--el-bg-color, #fff);
-  border-color: var(--el-border-color, #dcdfe6);
-  box-sizing: border-box;
-}
-
-.cron-selector.compact .form-control:focus {
-  border-color: var(--el-color-primary, #409eff);
-  box-shadow: none;
-}
-
-.cron-selector.compact .cron-config-btn {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 13px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--el-text-color-regular, #606266);
-  background-color: var(--el-bg-color, #fff);
-  border-color: var(--el-border-color, #dcdfe6);
 }
 
 .cron-modal-body {

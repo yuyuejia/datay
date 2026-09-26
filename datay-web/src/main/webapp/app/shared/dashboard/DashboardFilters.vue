@@ -13,18 +13,26 @@
         v-if="filter.type === 'dateRange'"
         class="dashboard-filter-date-range"
       >
-        <input
+        <el-date-picker
           type="date"
-          class="form-control form-control-sm dashboard-filter-date"
-          :value="dateValue(filter, 'start')"
-          @change="(e) => onDateChange(filter, 'start', e.target.value)"
+          class="dashboard-filter-date"
+          style="width: 150px"
+          :model-value="dateValue(filter, 'start')"
+          value-format="YYYY-MM-DD"
+          placeholder="开始日期"
+          clearable
+          @update:model-value="(value) => onDateChange(filter, 'start', value)"
         />
         <span class="dashboard-filter-range-sep">~</span>
-        <input
+        <el-date-picker
           type="date"
-          class="form-control form-control-sm dashboard-filter-date"
-          :value="dateValue(filter, 'end')"
-          @change="(e) => onDateChange(filter, 'end', e.target.value)"
+          class="dashboard-filter-date"
+          style="width: 150px"
+          :model-value="dateValue(filter, 'end')"
+          value-format="YYYY-MM-DD"
+          placeholder="结束日期"
+          clearable
+          @update:model-value="(value) => onDateChange(filter, 'end', value)"
         />
       </div>
 
@@ -134,7 +142,7 @@ const dateValue = (filter: DashboardFilter, key: "start" | "end"): string => {
 const onDateChange = (
   filter: DashboardFilter,
   key: "start" | "end",
-  value: string,
+  value: string | null,
 ) => {
   const current = local.value[filter.id];
   const next =
@@ -233,7 +241,6 @@ onMounted(() => {
   align-items: center;
   gap: 12px 20px;
   padding: 12px 16px;
-  margin-bottom: 16px;
   background: #fff;
   border-radius: 6px;
   box-shadow: 0 1px 4px rgb(0 0 0 / 8%);

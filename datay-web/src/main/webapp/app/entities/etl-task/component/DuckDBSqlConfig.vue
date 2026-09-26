@@ -1,50 +1,23 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- DuckDB SQL输入区域 -->
-      <div class="form-group">
-        <label for="sql">DuckDB SQL语句</label>
-        <textarea
-          class="form-control"
-          id="sql"
-          name="sql"
-          v-model="formData.sql"
-          :rows="8"
-          :maxlength="5000"
-          placeholder="请输入DuckDB SQL查询语句，例如：SELECT * FROM read_parquet('file.parquet') WHERE condition"
-        ></textarea>
+      <el-form-item label="DuckDB SQL语句">
+      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入DuckDB SQL查询语句，例如：SELECT * FROM read_parquet('file.parquet') WHERE condition" />
         <small class="form-text text-muted"> 支持DuckDB特有的SQL语法，可以包含read_parquet、read_csv等DuckDB特有函数 </small>
-      </div>
+    </el-form-item>
 
       <!-- 批量处理配置 -->
-      <div class="form-group">
-        <label for="fetchSize">批量处理大小</label>
-        <input
-          type="number"
-          class="form-control"
-          id="fetchSize"
-          name="fetchSize"
-          v-model.number="formData.fetchSize"
-          min="1000"
-          max="50000"
-          step="1000"
-        />
+      <el-form-item label="批量处理大小">
+      <el-input-number :controls="false"  id="fetchSize" name="fetchSize" v-model="formData.fetchSize" :min="1000" :max="50000" :step="1000" />
         <small class="form-text text-muted"> 每次从DuckDB读取的记录数，默认值：5000 </small>
-      </div>
+    </el-form-item>
 
       <!-- 输出表名配置 -->
-      <div class="form-group">
-        <label for="outputTable">输出表名</label>
-        <input
-          type="text"
-          class="form-control"
-          id="outputTable"
-          name="outputTable"
-          v-model="formData.outputTable"
-          placeholder="duckdb_query_result"
-        />
+      <el-form-item label="输出表名">
+      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="duckdb_query_result" />
         <small class="form-text text-muted"> 查询结果的输出表名，默认为：duckdb_query_result </small>
-      </div>
+    </el-form-item>
     </div>
 
     <!-- 操作按钮 -->
@@ -52,7 +25,7 @@
       <el-button type="info" @click="validateDuckDBSql">验证SQL</el-button>
       <el-button type="success" @click="showDuckDBHelp">DuckDB帮助</el-button>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>

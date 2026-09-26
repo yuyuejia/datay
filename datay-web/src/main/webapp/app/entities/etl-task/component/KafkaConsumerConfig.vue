@@ -1,54 +1,44 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="bootstrapServers">Bootstrap Servers</label>
-      <input type="text" class="form-control" id="bootstrapServers" name="bootstrapServers" v-model="formData.bootstrapServers" placeholder="localhost:9092" required />
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="Bootstrap Servers">
+      <el-input id="bootstrapServers" name="bootstrapServers" v-model="formData.bootstrapServers" placeholder="localhost:9092" required />
       <small class="form-text text-muted"> Kafka broker地址，多个用逗号分隔 </small>
-    </div>
-    <div class="form-group">
-      <label for="topic">Topic</label>
-      <input type="text" class="form-control" id="topic" name="topic" v-model="formData.topic" placeholder="请输入Kafka Topic名称" required />
-    </div>
-    <div class="form-group">
-      <label for="groupId">消费组ID</label>
-      <input type="text" class="form-control" id="groupId" name="groupId" v-model="formData.groupId" placeholder="datay-consumer" />
-    </div>
-    <div class="form-group">
-      <label for="autoOffsetReset">Offset重置策略</label>
-      <select class="form-control" v-model="formData.autoOffsetReset">
-        <option value="earliest">earliest - 从最早开始消费</option>
-        <option value="latest">latest - 从最新开始消费</option>
-        <option value="none">none - 必须已有消费记录</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="enableAutoCommit">启用自动提交</label>
+    </el-form-item>
+    <el-form-item label="Topic">
+      <el-input id="topic" name="topic" v-model="formData.topic" placeholder="请输入Kafka Topic名称" required />
+    </el-form-item>
+    <el-form-item label="消费组ID">
+      <el-input id="groupId" name="groupId" v-model="formData.groupId" placeholder="datay-consumer" />
+    </el-form-item>
+    <el-form-item label="Offset重置策略">
+      <el-select v-model="formData.autoOffsetReset">
+            <el-option value="earliest" label="earliest - 从最早开始消费" />
+            <el-option value="latest" label="latest - 从最新开始消费" />
+            <el-option value="none" label="none - 必须已有消费记录" />
+          </el-select>
+    </el-form-item>
+    <el-form-item label="启用自动提交">
       <el-switch v-model="formData.enableAutoCommit" />
-    </div>
-    <div class="form-group">
-      <label for="batchSize">批量大小</label>
-      <input type="number" class="form-control" id="batchSize" name="batchSize" v-model.number="formData.batchSize" :min="1" :max="10000" />
+    </el-form-item>
+    <el-form-item label="批量大小">
+      <el-input-number :controls="false"  id="batchSize" name="batchSize" v-model="formData.batchSize" ::min="1" ::max="10000" />
       <small class="form-text text-muted"> 每次消费的最大消息数 </small>
-    </div>
-    <div class="form-group">
-      <label for="consumerTimeoutMs">消费超时 (ms)</label>
-      <input type="number" class="form-control" id="consumerTimeoutMs" name="consumerTimeoutMs" v-model.number="formData.consumerTimeoutMs" :min="1000" />
-    </div>
-    <div class="form-group">
-      <label for="connectionTimeoutMs">连接超时 (ms)</label>
-      <input type="number" class="form-control" id="connectionTimeoutMs" name="connectionTimeoutMs" v-model.number="formData.connectionTimeoutMs" :min="1000" />
-    </div>
-    <div class="form-group">
-      <label for="partition">指定分区</label>
-      <input type="number" class="form-control" id="partition" name="partition" v-model.number="formData.partition" :min="-1" placeholder="-1表示不指定" />
+    </el-form-item>
+    <el-form-item label="消费超时 (ms)">
+      <el-input-number :controls="false"  id="consumerTimeoutMs" name="consumerTimeoutMs" v-model="formData.consumerTimeoutMs" ::min="1000" />
+    </el-form-item>
+    <el-form-item label="连接超时 (ms)">
+      <el-input-number :controls="false"  id="connectionTimeoutMs" name="connectionTimeoutMs" v-model="formData.connectionTimeoutMs" ::min="1000" />
+    </el-form-item>
+    <el-form-item label="指定分区">
+      <el-input-number :controls="false"  id="partition" name="partition" v-model="formData.partition" ::min="-1" placeholder="-1表示不指定" />
       <small class="form-text text-muted"> -1表示不指定分区，消费所有分区 </small>
-    </div>
-    <div class="form-group">
-      <label for="startOffset">起始Offset</label>
-      <input type="number" class="form-control" id="startOffset" name="startOffset" v-model.number="formData.startOffset" placeholder="留空不指定" />
+    </el-form-item>
+    <el-form-item label="起始Offset">
+      <el-input-number :controls="false"  id="startOffset" name="startOffset" v-model="formData.startOffset" placeholder="留空不指定" />
       <small class="form-text text-muted"> 指定消费的起始Offset，留空则使用autoOffsetReset策略 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

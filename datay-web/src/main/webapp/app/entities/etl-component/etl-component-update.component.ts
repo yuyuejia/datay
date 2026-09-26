@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { ETLComponent, type IETLComponent } from '@/shared/model/etl-component.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLComponentUpdate',
   setup() {
     const eTLComponentService = inject('eTLComponentService', () => new ETLComponentService());

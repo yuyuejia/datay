@@ -1,20 +1,18 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="数据源">
       <DataSourceSelector
         type="source"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
-    <div class="form-group">
-      <label for="sql">SQL语句</label>
-      <textarea class="form-control" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入要执行的SQL语句"></textarea>
+    </el-form-item>
+    <el-form-item label="SQL语句">
+      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入要执行的SQL语句" />
       <small class="form-text text-muted"> 支持DDL、DML等各种SQL操作，如CREATE TABLE, INSERT, UPDATE等 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

@@ -3,20 +3,14 @@
     <h2 id="page-heading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="file-management-heading">文件管理</span>
       <div class="d-flex align-items-center">
-        <button
-          @click="showMkdirModal = true"
-          class="btn btn-outline-secondary mr-2"
-        >
+        <el-button plain @click="showMkdirModal = true" class="mr-2">
           <font-awesome-icon icon="folder-plus"></font-awesome-icon>
           <span>新建目录</span>
-        </button>
-        <button
-          @click="showUploadModal = true"
-          class="btn btn-primary"
-        >
+        </el-button>
+        <el-button type="primary" @click="showUploadModal = true">
           <font-awesome-icon icon="upload"></font-awesome-icon>
           <span>上传文件</span>
-        </button>
+        </el-button>
       </div>
     </h2>
 
@@ -109,78 +103,63 @@
       </el-table>
     </div>
 
-    <b-modal v-model="showUploadModal" title="上传文件" size="md">
+    <app-modal v-model="showUploadModal" title="上传文件" size="md">
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label">当前路径</label>
-          <input type="text" class="form-control" :value="currentPath || '(根目录)'" disabled />
+          <el-input :value="currentPath || '(根目录)'" disabled/>
         </div>
         <div class="mb-3">
           <label class="form-label">选择文件</label>
-          <b-form-file
-            v-model="selectedFile"
-            :state="selectedFile ? true : null"
-            placeholder="点击选择文件..."
-            drop-placeholder="释放以上传"
-            browse-button-label="浏览"
-          ></b-form-file>
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            :on-change="onFileChange"
+            :on-remove="onFileRemove"
+          >
+            <el-button>浏览</el-button>
+          </el-upload>
         </div>
       </div>
       <template #modal-footer>
-        <button type="button" class="btn btn-secondary" @click="showUploadModal = false">取消</button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          :disabled="!selectedFile"
-          @click="handleUpload"
-        >
+        <el-button @click="showUploadModal = false">取消</el-button>
+        <el-button type="primary" :disabled="!selectedFile" @click="handleUpload">
           确认上传
-        </button>
+        </el-button>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="showMkdirModal" title="新建目录" size="sm">
+    <app-modal v-model="showMkdirModal" title="新建目录" size="sm">
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label">当前路径</label>
-          <input type="text" class="form-control" :value="currentPath || '(根目录)'" disabled />
+          <el-input :value="currentPath || '(根目录)'" disabled/>
         </div>
         <div class="mb-3">
           <label class="form-label">目录名称</label>
-          <input
-            type="text"
-            class="form-control"
-            v-model="newDirName"
-            placeholder="请输入目录名称"
-            @keyup.enter="handleMkdir"
-          />
+          <el-input v-model="newDirName" placeholder="请输入目录名称" @keyup.enter="handleMkdir" clearable/>
         </div>
       </div>
       <template #modal-footer>
-        <button type="button" class="btn btn-secondary" @click="showMkdirModal = false">取消</button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          :disabled="!newDirName.trim()"
-          @click="handleMkdir"
-        >
+        <el-button @click="showMkdirModal = false">取消</el-button>
+        <el-button type="primary" :disabled="!newDirName.trim()" @click="handleMkdir">
           确认创建
-        </button>
+        </el-button>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="showDeleteDialog" title="确认删除" size="md">
+    <app-modal v-model="showDeleteDialog" title="确认删除" size="md">
       <div class="modal-body">
         <p>确定要删除 {{ pendingDeleteFile?.isDirectory ? '目录' : '文件' }} <strong>"{{ pendingDeleteFile?.name }}"</strong> 吗？</p>
         <p v-if="pendingDeleteFile?.isDirectory" class="text-muted mb-0">目录内所有内容将被一并删除</p>
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary mr-2" @click="showDeleteDialog = false">取消</button>
-          <button type="button" class="btn btn-primary" @click="confirmDelete">删除</button>
+          <el-button @click="showDeleteDialog = false">取消</el-button>
+          <el-button type="primary" @click="confirmDelete">删除</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

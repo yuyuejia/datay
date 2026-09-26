@@ -16,7 +16,7 @@
       <div class="header-center">
         <div class="form-item">
           <label class="field-label">任务名称</label>
-          <input type="text" class="form-control" v-model="sqlJob.jobName" placeholder="请输入任务名称" />
+          <el-input v-model="sqlJob.jobName" placeholder="请输入任务名称" />
         </div>
         <div class="form-item">
           <label class="field-label">调度设置</label>
@@ -267,24 +267,6 @@
   color: var(--el-text-color-regular, #606266);
   white-space: nowrap;
   margin: 0;
-}
-
-.form-control {
-  width: 200px;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--el-text-color-regular, #606266);
-  background-color: var(--el-bg-color, #fff);
-  border: 1px solid var(--el-border-color, #dcdfe6);
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-.form-control:focus {
-  border-color: var(--el-color-primary, #409eff);
 }
 
 .cron-field {

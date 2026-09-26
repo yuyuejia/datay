@@ -190,7 +190,7 @@ Vite aliases (defined in `vite.config.mts`):
 
 1. **JHipster markers**: Files contain `jhipster-needle-*` comments - these are injection points for generator. Don't remove them.
 
-2. **Vue compat mode**: The app uses Vue 3 compat mode (MODE 2) for migration from Vue 2. Configure compat in `main.ts`.
+2. **Vue version**: The app runs on a single Vue 3 runtime. Do not reintroduce Vue 2 / `@vue/compat` or `bootstrap-vue` (v2). Use Element Plus for all UI components. The shared dialog wrapper `app-modal` (Element Plus `el-dialog`) replaces the former `b-modal` API (`ref.show()/hide()`, `#modal-title`, `#modal-footer`).
 
 3. **Spring profiles**: Default is `dev`. Active profile set in `pom.xml` as `spring.profiles.active=dev`.
 

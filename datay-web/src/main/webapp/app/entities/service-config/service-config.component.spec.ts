@@ -1,4 +1,3 @@
-import { vitest } from 'vitest';
 import { type MountingOptions, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
@@ -27,17 +26,13 @@ describe('Component Tests', () => {
       serviceConfigServiceStub = sinon.createStubInstance<ServiceConfigService>(ServiceConfigService);
       serviceConfigServiceStub.retrieve.resolves({ headers: {} });
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {
           jhiItemCount: true,
           bPagination: true,
-          bModal: bModalStub as any,
+          AppModal: bModalStub as any,
           'font-awesome-icon': true,
           'b-badge': true,
           'jhi-sort-indicator': true,
@@ -46,9 +41,6 @@ describe('Component Tests', () => {
           'el-table': true,
           'el-table-column': true,
           'el-button': true,
-        },
-        directives: {
-          'b-modal': {},
         },
         provide: {
           alertService,

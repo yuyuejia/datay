@@ -1,45 +1,40 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">目标数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="目标数据源">
       <DataSourceSelector
         type="target"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
-    <div class="form-group">
-      <label for="table">目标表名</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入目标表名" required />
-    </div>
-    <div class="form-group">
-      <label for="schema">Schema</label>
-      <input type="text" class="form-control" id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
-    </div>
-    <div class="form-group">
-      <label for="model">写入模式</label>
-      <select class="form-control" v-model="formData.model">
-        <option value="append">追加写入 (append)</option>
-        <option value="overwrite">覆盖写入 (overwrite)</option>
-        <option value="update">更新写入 (update)</option>
-      </select>
+    </el-form-item>
+    <el-form-item label="目标表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入目标表名" required />
+    </el-form-item>
+    <el-form-item label="Schema">
+      <el-input id="schema" name="schema" v-model="formData.schema" placeholder="请输入Schema名称" />
+    </el-form-item>
+    <el-form-item label="写入模式">
+      <el-select v-model="formData.model">
+            <el-option value="append" label="追加写入 (append)" />
+            <el-option value="overwrite" label="覆盖写入 (overwrite)" />
+            <el-option value="update" label="更新写入 (update)" />
+          </el-select>
       <small class="form-text text-muted"> append: 追加数据; overwrite: 清空后写入; update: 根据主键更新 </small>
-    </div>
-    <div class="form-group">
-      <label>字段映射</label>
+    </el-form-item>
+    <el-form-item label="字段映射">
       <div class="mapping-container">
         <div v-for="(mapping, index) in formData.header_map" :key="index" class="mapping-row">
-          <input type="text" class="form-control" v-model="mapping.source" placeholder="源字段" />
+          <el-input v-model="mapping.source" placeholder="源字段" />
           <span class="mapping-arrow">→</span>
-          <input type="text" class="form-control" v-model="mapping.target" placeholder="目标字段" />
-          <button type="button" class="btn-remove" @click="removeMapping(index)">删除</button>
+          <el-input v-model="mapping.target" placeholder="目标字段" />
+          <el-button type="danger" link size="small" @click="removeMapping(index)">删除</el-button>
         </div>
         <el-button type="primary" size="small" @click="addMapping">添加映射</el-button>
       </div>
       <small class="form-text text-muted"> 配置源字段到目标字段的映射关系，留空则按字段名自动映射 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

@@ -6,7 +6,6 @@ import MetricsService from './metrics.service';
 import { useDateFormat } from '@/shared/composables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiMetrics',
   components: {
     'metrics-modal': JhiMetricsModal,

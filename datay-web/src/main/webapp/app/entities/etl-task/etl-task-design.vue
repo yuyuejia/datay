@@ -804,11 +804,11 @@ const cancelTask = () => {
       <div class="header-form">
         <div class="form-item">
           <label class="field-label">任务名称</label>
-          <input type="text" class="form-control" v-model="eTLTask.taskName" placeholder="请输入任务名称" />
+          <el-input v-model="eTLTask.taskName" size="small" placeholder="请输入任务名称" class="header-input" />
         </div>
         <div class="form-item">
           <label class="field-label">任务描述</label>
-          <input type="text" class="form-control" v-model="eTLTask.taskDesc" placeholder="请输入任务描述" />
+          <el-input v-model="eTLTask.taskDesc" size="small" placeholder="请输入任务描述" class="header-input" />
         </div>
         <div class="form-item">
           <label class="field-label">调度设置</label>
@@ -842,7 +842,7 @@ const cancelTask = () => {
                 v-for="component in groupData.components"
                 :key="component.code"
                 class="draggable-component"
-                draggable
+                :draggable="true"
                 :title="component.desc"
                 @dragstart="onDragStart($event, component)"
               >
@@ -869,7 +869,7 @@ const cancelTask = () => {
         </VueFlow>
       </div>
     </div>
-    <b-modal ref="configEntity" id="configEntity" class="config-modal" size="lg">
+    <app-modal ref="configEntity" id="configEntity" class="config-modal" size="lg">
       <template #modal-title>
         <div class="config-modal-title">
           <span class="config-modal-title-label">节点名称: </span>
@@ -978,7 +978,7 @@ const cancelTask = () => {
         <el-button type="primary" @click="handleConfigSave">保存</el-button>
         <el-button @click="closeConfigModal">取消</el-button>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
@@ -1058,23 +1058,8 @@ const cancelTask = () => {
   margin: 0;
 }
 
-.form-control {
+.header-input {
   width: 200px;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  line-height: 28px;
-  color: var(--el-text-color-regular, #606266);
-  background-color: var(--el-bg-color, #fff);
-  border: 1px solid var(--el-border-color, #dcdfe6);
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-.form-control:focus {
-  border-color: var(--el-color-primary, #409eff);
 }
 
 .cron-field {

@@ -10,8 +10,8 @@
           <dt><span>登录</span></dt>
           <dd>
             <span>{{ user.login }}</span>
-            <b-badge variant="success" v-if="user.activated">已激活</b-badge>
-            <b-badge variant="danger" v-if="!user.activated">失效</b-badge>
+            <el-tag type="success" v-if="user.activated">已激活</el-tag>
+            <el-tag type="danger" v-if="!user.activated">失效</el-tag>
           </dd>
           <dt><span>名字</span></dt>
           <dd>{{ user.firstName }}</dd>
@@ -39,15 +39,15 @@
           <dd>
             <ul class="list-unstyled">
               <li v-for="authority of user.authorities" :key="authority">
-                <b-badge variant="info">{{ authority }}</b-badge>
+                <el-tag type="info">{{ authority }}</el-tag>
               </li>
             </ul>
           </dd>
         </dl>
         <router-link custom v-slot="{ navigate }" :to="{ name: 'JhiUser' }">
-          <button @click="navigate" class="btn btn-info">
+          <el-button type="info" @click="navigate">
             <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>返回</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { maxLength, minLength, required, sameAs } from '@vuelidate/validators';
 import { useLoginModal } from '@/account/login-modal';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ResetPasswordFinish',
   validations() {
     return {

@@ -14,7 +14,6 @@ import { format } from 'sql-formatter';
 import DataQueryAi from './data-query-ai.vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataQuery',
   components: { DataQueryAi },
   setup() {

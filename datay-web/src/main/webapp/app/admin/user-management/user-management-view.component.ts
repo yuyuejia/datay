@@ -6,7 +6,6 @@ import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiUserManagementView',
   setup() {
     const route = useRoute();

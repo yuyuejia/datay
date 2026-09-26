@@ -75,7 +75,7 @@
             </div>
           </div>
 
-          <button type="submit" :disabled="v$.resetPassword.$invalid" class="btn btn-primary" data-cy="submit">保存</button>
+          <el-button type="primary" native-type="submit" :disabled="v$.resetPassword.$invalid" data-cy="submit">保存</el-button>
         </form>
       </div>
     </div>

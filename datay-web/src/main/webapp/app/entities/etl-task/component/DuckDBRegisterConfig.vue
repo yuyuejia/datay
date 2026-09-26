@@ -1,32 +1,22 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 数据源选择 -->
-      <div class="form-group">
-        <label for="sourceId">数据源</label>
-        <DataSourceSelector
+      <el-form-item label="数据源">
+      <DataSourceSelector
           type="source"
           :datasourceId="formData.sourceId"
           :schema="formData.schema"
           @selected="handleDataSourceSelected"
         />
         <small class="form-text text-muted"> 选择要注册到DuckDB的外部数据源 </small>
-      </div>
+    </el-form-item>
 
       <!-- 数据源别名 -->
-      <div class="form-group">
-        <label for="alias">数据源别名</label>
-        <input
-          type="text"
-          class="form-control"
-          id="alias"
-          name="alias"
-          v-model="formData.alias"
-          placeholder="请输入数据源在DuckDB中的别名"
-          required
-        />
+      <el-form-item label="数据源别名">
+      <el-input id="alias" name="alias" v-model="formData.alias" placeholder="请输入数据源在DuckDB中的别名" required />
         <small class="form-text text-muted"> 数据源在DuckDB中的别名，用于后续SQL查询中引用 </small>
-      </div>
+    </el-form-item>
     </div>
 
     <!-- 操作按钮 -->
@@ -34,7 +24,7 @@
       <!-- <el-button type="info" @click="validateConfig">验证配置</el-button> -->
       <el-button type="success" @click="showHelp">使用帮助</el-button>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>

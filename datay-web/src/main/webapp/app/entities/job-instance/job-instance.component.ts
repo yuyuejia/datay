@@ -6,7 +6,6 @@ import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JobInstance',
   setup() {
     const dateFormat = useDateFormat();
@@ -296,7 +295,7 @@ export default defineComponent({
     };
 
     // Whenever order changes, reset the pagination
-    watch([propOrder, reverse], async () => {
+    watch([propOrder, reverse, itemsPerPage], async () => {
       if (page.value === 1) {
         // first page, retrieve new data
         await retrieveJobInstances();

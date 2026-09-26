@@ -1,5 +1,5 @@
 <template>
-  <b-modal v-model="showModal" :title="modalTitle" size="lg" :close-on-backdrop="false" @hidden="handleHidden">
+  <app-modal v-model="showModal" :title="modalTitle" size="lg" :close-on-backdrop="false" @hidden="handleHidden">
     <div class="modal-body">
       <div v-if="mode === 'create' && currentStep === 1">
         <div class="db-type-grid">
@@ -21,43 +21,21 @@
       </div>
 
       <div v-else>
-        <form name="editForm" novalidate @submit.prevent="save()">
+        <el-form name="editForm" label-width="110px" @submit.prevent="save()">
           <div>
-            <div class="form-group" v-if="dataSource.id">
-              <label for="id">ID</label>
-              <input type="text" class="form-control" id="id" name="id" v-model="dataSource.id" readonly />
-            </div>
-            <div class="form-group">
-              <label class="form-control-label" for="data-source-name">名称</label>
-              <input
-                type="text"
-                class="form-control"
-                name="name"
-                id="data-source-name"
-                data-cy="name"
-                v-model="dataSource.name"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-control-label" for="data-source-type">类型</label>
-              <select
-                class="form-control"
-                name="type"
-                id="data-source-type"
-                data-cy="type"
-                v-model="dataSource.type"
-                @change="onTypeChange"
-                :disabled="mode === 'create'"
-              >
-                <option value="">请选择数据库类型</option>
-                <option v-for="dbType in dbTypes" :key="dbType.name" :value="dbType.name">
-                  {{ dbType.displayName }}
-                </option>
-              </select>
-            </div>
-            <div class="form-group" v-if="selectedDbType && selectedDbType.connectionModes && selectedDbType.connectionModes.length > 0">
-              <label class="form-control-label">连接方式</label>
-              <div class="d-flex gap-3">
+            <el-form-item v-if="dataSource.id" label="ID">
+            <el-input id="id" name="id" v-model="dataSource.id" readonly />
+          </el-form-item>
+            <el-form-item label="名称">
+            <el-input name="name" id="data-source-name" data-cy="name" v-model="dataSource.name" />
+          </el-form-item>
+            <el-form-item label="类型">
+            <el-select name="type" id="data-source-type" data-cy="type" v-model="dataSource.type" @change="onTypeChange" :disabled="mode === 'create'" placeholder="请选择数据库类型">
+            <el-option v-for="dbType in dbTypes" :key="dbType.name" :value="dbType.name" :label="dbType.displayName" />
+          </el-select>
+          </el-form-item>
+            <el-form-item v-if="selectedDbType && selectedDbType.connectionModes && selectedDbType.connectionModes.length > 0" label="连接方式">
+            <div class="d-flex gap-3">
                 <div
                   v-for="mode in selectedDbType.connectionModes"
                   :key="mode.value"
@@ -69,99 +47,37 @@
                   <small v-if="mode.description" class="text-muted d-block">{{ mode.description }}</small>
                 </div>
               </div>
-            </div>
-            <div class="form-group" v-if="isDuckDb && duckdbMode === 'file'">
-              <label class="form-control-label" for="data-source-duckdb-file">数据库文件路径</label>
-              <input
-                type="text"
-                class="form-control"
-                name="duckdbFile"
-                id="data-source-duckdb-file"
-                data-cy="duckdbFile"
-                placeholder="留空表示内存数据库，例如 /data/analytics.duckdb"
-                v-model="duckdbFile"
-                @input="updateUrl"
-              />
+          </el-form-item>
+            <el-form-item v-if="isDuckDb && duckdbMode === 'file'" label="数据库文件路径">
+            <el-input name="duckdbFile" id="data-source-duckdb-file" data-cy="duckdbFile" placeholder="留空表示内存数据库，例如 /data/analytics.duckdb" v-model="duckdbFile" @input="updateUrl" />
               <small class="text-muted">无需填写主机、端口、用户名和密码</small>
-            </div>
+          </el-form-item>
             <div class="form-row" v-if="!isDuckDb || duckdbMode === 'quack'">
-              <div class="form-group col-md-8">
-                <label class="form-control-label" for="data-source-hostname">{{ isDuckDb ? 'Quack 服务地址' : 'IP/主机' }}</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  name="hostname"
-                  id="data-source-hostname"
-                  data-cy="hostname"
-                  v-model="dataSource.hostname"
-                  @input="updateUrl"
-                />
-              </div>
-              <div class="form-group col-md-4">
-                <label class="form-control-label" for="data-source-port">端口</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  name="port"
-                  id="data-source-port"
-                  data-cy="port"
-                  v-model="dataSource.port"
-                  @input="updateUrl"
-                />
-              </div>
+              <el-form-item class="col-md-8" :label="isDuckDb ? 'Quack 服务地址' : 'IP/主机'">
+            <el-input name="hostname" id="data-source-hostname" data-cy="hostname" v-model="dataSource.hostname" @input="updateUrl" />
+          </el-form-item>
+              <el-form-item class="col-md-4" label="端口">
+            <el-input name="port" id="data-source-port" data-cy="port" v-model="dataSource.port" @input="updateUrl" />
+          </el-form-item>
             </div>
-            <div class="form-group" v-if="!isDuckDb">
-              <label class="form-control-label" for="data-source-schemaName">数据库名</label>
-              <input
-                type="text"
-                class="form-control"
-                name="schemaName"
-                id="data-source-schemaName"
-                data-cy="schemaName"
-                v-model="dataSource.schemaName"
-                @input="updateUrl"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-control-label" for="data-source-url">URL</label>
-              <input
-                type="text"
-                class="form-control"
-                name="url"
-                id="data-source-url"
-                data-cy="url"
-                v-model="dataSource.url"
-                :readonly="isDuckDb"
-              />
-            </div>
-            <div class="form-group" v-if="!isDuckDb">
-              <label class="form-control-label" for="data-source-username">用户名</label>
-              <input
-                type="text"
-                class="form-control"
-                name="username"
-                id="data-source-username"
-                data-cy="username"
-                v-model="dataSource.username"
-              />
-            </div>
-            <div class="form-group" v-if="!isDuckDb">
-              <label class="form-control-label" for="data-source-password">密码</label>
-              <input
-                type="password"
-                class="form-control"
-                name="password"
-                id="data-source-password"
-                data-cy="password"
-                v-model="dataSource.password"
-              />
-            </div>
-            <div class="form-group" v-if="effectiveExtraParamsTemplate.length > 0 || extraParamRows.length > 0">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-control-label mb-0">扩展参数</label>
-                <button type="button" class="btn btn-sm btn-outline-primary" @click="addExtraParam">
+            <el-form-item v-if="!isDuckDb" label="数据库名">
+            <el-input name="schemaName" id="data-source-schemaName" data-cy="schemaName" v-model="dataSource.schemaName" @input="updateUrl" />
+          </el-form-item>
+            <el-form-item label="URL">
+            <el-input name="url" id="data-source-url" data-cy="url" v-model="dataSource.url" :readonly="isDuckDb" />
+          </el-form-item>
+            <el-form-item v-if="!isDuckDb" label="用户名">
+            <el-input name="username" id="data-source-username" data-cy="username" v-model="dataSource.username" />
+          </el-form-item>
+            <el-form-item v-if="!isDuckDb" label="密码">
+            <el-input type="password" name="password" id="data-source-password" data-cy="password" v-model="dataSource.password" />
+          </el-form-item>
+            <el-form-item v-if="effectiveExtraParamsTemplate.length > 0 || extraParamRows.length > 0" label="扩展参数">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                
+                <el-button type="primary" plain size="small" @click="addExtraParam">
                   <font-awesome-icon icon="plus"></font-awesome-icon>&nbsp;添加参数
-                </button>
+                </el-button>
               </div>
               <div v-if="extraParamRows.length === 0" class="text-muted small">暂无扩展参数</div>
               <div
@@ -171,87 +87,43 @@
               >
                 <div class="flex-grow-1">
                   <div class="d-flex gap-2 mb-1">
-                    <input
-                      type="text"
-                      class="form-control form-control-sm"
-                      v-model="row.key"
-                      placeholder="参数名"
-                      :readonly="!!effectiveExtraParamsTemplate.find(t => t.key === row.key)"
-                    />
-                    <input
-                      type="text"
-                      class="form-control form-control-sm"
-                      v-model="row.value"
-                      :placeholder="row.label || '参数值'"
-                    />
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      @click="removeExtraParam(index)"
-                      :disabled="!!row.required"
-                      title="删除参数"
-                    >
+                    <el-input v-model="row.key" placeholder="参数名" :readonly="!!effectiveExtraParamsTemplate.find(t => t.key === row.key)" />
+                    <el-input v-model="row.value" :placeholder="row.label || '参数值'" />
+                    <el-button type="danger" plain size="small" @click="removeExtraParam(index)" :disabled="!!row.required" title="删除参数">
                       <font-awesome-icon icon="trash"></font-awesome-icon>
-                    </button>
+                    </el-button>
                   </div>
                   <small v-if="row.description" class="text-muted">{{ row.description }}</small>
                   <small v-if="row.required" class="text-danger ml-1">* 必填</small>
                 </div>
               </div>
-            </div>
+          </el-form-item>
           </div>
-        </form>
+        </el-form>
       </div>
     </div>
     <template #modal-footer>
       <div>
-        <button
-          v-if="mode === 'create' && currentStep === 2"
-          type="button"
-          class="btn btn-secondary mr-2"
-          @click="goToStep(1)"
-        >
+        <el-button v-if="mode === 'create' && currentStep === 2" @click="goToStep(1)">
           <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>上一步</span>
-        </button>
-        <button type="button" class="btn btn-secondary mr-2" @click="closeModal()">
+        </el-button>
+        <el-button @click="closeModal()">
           <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
-        </button>
-        <button
-          v-if="mode === 'create' && currentStep === 1"
-          type="button"
-          class="btn btn-primary mr-2"
-          :disabled="!selectedTypeName"
-          @click="goToStep(2)"
-        >
+        </el-button>
+        <el-button type="primary" v-if="mode === 'create' && currentStep === 1" :disabled="!selectedTypeName" @click="goToStep(2)">
           <span>下一步</span>&nbsp;<font-awesome-icon icon="arrow-right"></font-awesome-icon>
-        </button>
-        <button
-          v-else
-          type="button"
-          id="save-entity"
-          data-cy="entityCreateSaveButton"
-          :disabled="isSaving"
-          class="btn btn-primary mr-2"
-          @click="save()"
-        >
+        </el-button>
+        <el-button type="primary" v-else id="save-entity" data-cy="entityCreateSaveButton" :disabled="isSaving" @click="save()">
           <font-awesome-icon icon="save"></font-awesome-icon>&nbsp;<span>保存</span>
-        </button>
-        <button
-          v-if="mode === 'edit' || (mode === 'create' && currentStep === 2)"
-          type="button"
-          id="test-connection"
-          data-cy="testConnectionButton"
-          class="btn btn-info"
-          @click="testConnection"
-          :disabled="testConnectionDisabled"
-        >
+        </el-button>
+        <el-button type="info" v-if="mode === 'edit' || (mode === 'create' && currentStep === 2)" id="test-connection" data-cy="testConnectionButton" @click="testConnection" :disabled="testConnectionDisabled">
           <font-awesome-icon icon="plug"></font-awesome-icon>&nbsp;
           <span v-if="isTestingConnection">测试中...</span>
           <span v-else>测试连接</span>
-        </button>
+        </el-button>
       </div>
     </template>
-  </b-modal>
+  </app-modal>
 </template>
 
 <script lang="ts" src="./data-source-modal.component.ts"></script>

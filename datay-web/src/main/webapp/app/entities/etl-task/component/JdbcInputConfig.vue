@@ -1,41 +1,29 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="sourceId">数据源</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="数据源">
       <DataSourceSelector
         type="source"
         :datasourceId="formData.sourceId"
         :schema="formData.schema"
         @selected="handleDataSourceSelected"
       />
-    </div>
-    <div class="form-group">
-      <label for="table">源表名</label>
-      <input type="text" class="form-control" id="table" name="table" v-model="formData.table" placeholder="请输入源表名，多表用逗号分隔" required />
+    </el-form-item>
+    <el-form-item label="源表名">
+      <el-input id="table" name="table" v-model="formData.table" placeholder="请输入源表名，多表用逗号分隔" required />
       <small class="form-text text-muted"> 支持多表同步，多个表用英文逗号分隔 </small>
-    </div>
-    <div class="form-group">
-      <label for="outputTable">输出表名</label>
-      <input
-        type="text"
-        class="form-control"
-        id="outputTable"
-        name="outputTable"
-        v-model="formData.outputTable"
-        placeholder="可选，默认为源表名"
-      />
+    </el-form-item>
+    <el-form-item label="输出表名">
+      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="可选，默认为源表名" />
       <small class="form-text text-muted"> 写入 DuckDB 的表名，下游组件通过该表名引用数据；未填写时使用源表名 </small>
-    </div>
-    <div class="form-group">
-      <label for="incrColumn">增量字段</label>
-      <input type="text" class="form-control" id="incrColumn" name="incrColumn" v-model="formData.incrColumn" placeholder="请输入增量同步字段名" />
+    </el-form-item>
+    <el-form-item label="增量字段">
+      <el-input id="incrColumn" name="incrColumn" v-model="formData.incrColumn" placeholder="请输入增量同步字段名" />
       <small class="form-text text-muted"> 用于增量同步的字段，多表用逗号分隔对应 </small>
-    </div>
-    <div class="form-group">
-      <label for="where">过滤条件</label>
-      <textarea class="form-control" id="where" name="where" v-model="formData.where" :rows="3" placeholder="请输入WHERE条件，如 status=1"></textarea>
-    </div>
-  </form>
+    </el-form-item>
+    <el-form-item label="过滤条件">
+      <el-input type="textarea" id="where" name="where" v-model="formData.where" :rows="3" placeholder="请输入WHERE条件，如 status=1" />
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

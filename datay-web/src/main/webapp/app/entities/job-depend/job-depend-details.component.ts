@@ -7,7 +7,6 @@ import { type IJobDepend } from '@/shared/model/job-depend.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JobDependDetails',
   setup() {
     const dateFormat = useDateFormat();

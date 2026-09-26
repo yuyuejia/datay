@@ -11,7 +11,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { DataSync, type IDataSync } from '@/shared/model/data-sync.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSyncUpdate',
   components: {
     DataSourceSelector,

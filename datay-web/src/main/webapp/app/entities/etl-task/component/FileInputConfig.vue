@@ -1,63 +1,47 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label>文件 <span class="required">*</span></label>
-      <div class="file-picker">
-        <input
-          type="text"
-          class="form-control file-path-input"
-          :value="displayFilePath"
-          placeholder="点击选择文件管理中的 csv / excel / parquet 文件"
-          readonly
-          @click="openFilePicker"
-        />
-        <el-button type="primary" plain @click="openFilePicker">选择</el-button>
-        <el-button v-if="formData.filePath" @click="clearFile">清除</el-button>
-      </div>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="文件" required>
+      <el-input
+        class="file-path-input"
+        :model-value="displayFilePath"
+        placeholder="点击选择文件管理中的 csv / excel / parquet 文件"
+        readonly
+        @click="openFilePicker"
+      >
+        <template v-if="formData.filePath" #suffix>
+          <font-awesome-icon icon="times" class="file-clear" @click.stop="clearFile" />
+        </template>
+        <template #append>
+          <el-button @click="openFilePicker">选择</el-button>
+        </template>
+      </el-input>
       <small class="form-text text-muted">仅支持 csv、xlsx、xls、parquet 格式</small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label>文件格式</label>
-      <select class="form-control" v-model="formData.format" @change="onFormatChange">
-        <option value="">自动（按扩展名推断）</option>
-        <option value="csv">CSV</option>
-        <option value="excel">Excel (.xlsx / .xls)</option>
-        <option value="parquet">Parquet</option>
-      </select>
+    <el-form-item label="文件格式">
+      <el-select v-model="formData.format" @change="onFormatChange" placeholder="自动（按扩展名推断）">
+            <el-option value="csv" label="CSV" />
+            <el-option value="excel" label="Excel (.xlsx / .xls)" />
+            <el-option value="parquet" label="Parquet" />
+          </el-select>
       <small class="form-text text-muted">未选择时将按文件扩展名自动匹配</small>
-    </div>
+    </el-form-item>
 
     <template v-if="effectiveFormat === 'csv'">
-      <div class="form-group">
-        <label>分隔符</label>
-        <input
-          type="text"
-          class="form-control"
-          v-model="formData.csvDelimiter"
-          placeholder="默认逗号 ,"
-        />
-      </div>
-      <div class="form-group">
-        <label class="checkbox-inline">
-          <input type="checkbox" v-model="formData.csvHasHeader" />
-          <span>包含表头（第一行作为列名）</span>
-        </label>
-      </div>
+      <el-form-item label="分隔符">
+      <el-input v-model="formData.csvDelimiter" placeholder="默认逗号 ," />
+    </el-form-item>
+      <el-form-item>
+        <el-checkbox v-model="formData.csvHasHeader">包含表头（第一行作为列名）</el-checkbox>
+      </el-form-item>
     </template>
 
-    <div v-if="effectiveFormat === 'excel'" class="form-group">
-      <label>Sheet 名称</label>
-      <input
-        type="text"
-        class="form-control"
-        v-model="formData.excelSheet"
-        placeholder="留空读取第一个 sheet"
-      />
+    <el-form-item v-if="effectiveFormat === 'excel'" label="Sheet 名称">
+      <el-input v-model="formData.excelSheet" placeholder="留空读取第一个 sheet" />
       <small class="form-text text-muted">不填则默认读取 Excel 第一个 sheet</small>
-    </div>
+    </el-form-item>
 
-    <b-modal v-model="showPicker" title="选择文件" size="lg">
+    <app-modal v-model="showPicker" title="选择文件" size="lg">
       <div class="picker-breadcrumb">
         <span
           class="crumb-item"
@@ -136,8 +120,8 @@
           @click="confirmPickFile"
         >确认选择</el-button>
       </template>
-    </b-modal>
-  </form>
+    </app-modal>
+  </el-form>
 </template>
 
 <script setup>
@@ -354,17 +338,16 @@ defineExpose({ saveConfig });
   margin-top: 4px;
   display: block;
 }
-.file-picker {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
 .file-path-input {
-  flex: 1;
+  width: 100%;
   cursor: pointer;
 }
-.file-path-input:hover {
-  border-color: var(--el-color-primary, #409eff);
+.file-clear {
+  cursor: pointer;
+  color: var(--el-text-color-placeholder, #a8abb2);
+}
+.file-clear:hover {
+  color: var(--el-text-color-secondary, #909399);
 }
 .picker-breadcrumb {
   display: flex;

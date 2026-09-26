@@ -489,7 +489,7 @@ const saveDagJob = async () => {
                 :key="job.id"
                 class="draggable-component"
                 :title="`${job.jobName} (#${job.id}) · ${job.cron || '无调度'}`"
-                draggable
+                :draggable="true"
                 @dragstart="onDragStart($event, job)"
               >
                 {{ job.jobName }}
@@ -521,7 +521,7 @@ const saveDagJob = async () => {
       </div>
     </div>
 
-    <b-modal ref="detailEntity" id="detailEntity" size="lg" scrollable>
+    <app-modal ref="detailEntity" id="detailEntity" size="lg" scrollable>
       <template #modal-title>
         <span>任务详情 - {{ detailJob?.jobName }}</span>
       </template>
@@ -554,11 +554,11 @@ const saveDagJob = async () => {
         </template>
       </div>
       <template #modal-footer>
-        <button type="button" class="btn btn-secondary" @click="closeDetail">
+        <el-button @click="closeDetail">
           关闭
-        </button>
+        </el-button>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

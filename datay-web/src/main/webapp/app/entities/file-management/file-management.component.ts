@@ -2,7 +2,6 @@ import { ref, defineComponent, computed, onMounted, inject } from 'vue';
 import FileManagementService, { type FileInfo } from './file-management.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'FileManagement',
   setup() {
     const alertService = inject<any>('alertService');
@@ -52,6 +51,14 @@ export default defineComponent({
       parts.pop();
       currentPath.value = parts.join('/');
       loadFiles();
+    };
+
+    const onFileChange = (uploadFile: any) => {
+      selectedFile.value = uploadFile?.raw ?? null;
+    };
+
+    const onFileRemove = () => {
+      selectedFile.value = null;
     };
 
     const handleUpload = async () => {
@@ -164,6 +171,8 @@ export default defineComponent({
       navigateTo,
       goUp,
       handleUpload,
+      onFileChange,
+      onFileRemove,
       handleMkdir,
       handleDelete,
       confirmDelete,

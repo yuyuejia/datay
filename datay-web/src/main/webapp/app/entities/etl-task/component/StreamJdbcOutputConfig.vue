@@ -1,21 +1,19 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 数据源选择 -->
-      <div class="form-group">
-        <label for="sourceId">数据源</label>
-        <DataSourceSelector
+      <el-form-item label="数据源">
+      <DataSourceSelector
           type="target"
           :datasourceId="formData.sourceId"
           :schema="formData.schema"
           @selected="handleDataSourceSelected"
         />
-      </div>
+    </el-form-item>
 
       <!-- 表名选择 -->
-      <div class="form-group">
-        <label for="table">表名</label>
-        <DataSourceTableSelector
+      <el-form-item label="表名">
+      <DataSourceTableSelector
           :dataSourceId="formData.sourceId"
           :schema="formData.schema"
           :selectedTable="formData.table"
@@ -23,32 +21,27 @@
           @selected="handleTableSelected"
           @input="handleTableInput"
         />
-      </div>
+    </el-form-item>
 
       <!-- 写入策略 -->
-      <div class="form-group">
-        <label for="model">写入策略</label>
-        <select class="form-control" v-model="formData.model">
-          <option v-for="item in writeModeOptions" :key="item.value" :value="item.value">
-            {{ item.name }}
-          </option>
-        </select>
-      </div>
+      <el-form-item label="写入策略">
+      <el-select v-model="formData.model">
+            <el-option v-for="item in writeModeOptions" :key="item.value" :value="item.value" :label="item.name" />
+          </el-select>
+    </el-form-item>
 
       <!-- 更新字段 -->
-      <div class="form-group">
-        <label for="updateColumn">更新字段</label>
-        <textarea class="form-control" id="updateColumn" name="updateColumn" v-model="formData.updateColumn"></textarea>
-      </div>
+      <el-form-item label="更新字段">
+      <el-input type="textarea" id="updateColumn" name="updateColumn" v-model="formData.updateColumn" />
+    </el-form-item>
 
       <!-- 批处理数 -->
-      <div class="form-group">
-        <label for="maxRows">批处理数</label>
-        <input class="form-control" v-model="formData.maxRows" type="number" controls-position="right" />
-      </div>
+      <el-form-item label="批处理数">
+      <el-input-number :controls="false" v-model="formData.maxRows" controls-position="right" />
+    </el-form-item>
     </div>
 
-  </form>
+  </el-form>
 </template>
 
 <script setup>

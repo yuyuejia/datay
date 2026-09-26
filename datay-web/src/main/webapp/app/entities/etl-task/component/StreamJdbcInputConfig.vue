@@ -1,48 +1,36 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 引入 DataSourceSelector 组件 -->
-      <div class="form-group">
-        <label for="sourceId">数据源</label>
-        <DataSourceSelector
+      <el-form-item label="数据源">
+      <DataSourceSelector
           type="source"
           :datasourceId="formData.sourceId"
           :schema="formData.schema"
           @selected="handleDataSourceSelected"
         />
-      </div>
-      <div class="form-group">
-        <div class="table-label-row">
-          <label for="table">表名</label>
-          <!-- 使用 DataSourceTableSelector 组件（多选） -->
-          <DataSourceTableSelector
-            :key="tableSelectorKey"
-            :dataSourceId="formData.sourceId"
-            :schema="formData.schema"
-            :selectedTable="null"
-            :selectedTables="formData.tables"
-            :multiple="true"
-            @selected="handleTablesSelected"
-          />
-        </div>
-        <div v-if="formData.tables.length > 0" class="selected-tables">
-          <el-tag v-for="item in formData.tables" :key="item.table" class="table-tag">
-            {{ item.table }}
-            <span class="table-tag-close" @click.stop="removeTable(item.table)">×</span>
-          </el-tag>
-        </div>
+    </el-form-item>
+      <el-form-item label="表名">
+        <!-- 使用 DataSourceTableSelector 组件（多选） -->
+        <DataSourceTableSelector
+          :key="tableSelectorKey"
+          :dataSourceId="formData.sourceId"
+          :schema="formData.schema"
+          :selectedTable="null"
+          :selectedTables="formData.tables"
+          :multiple="true"
+          @selected="handleTablesSelected"
+        />
         <small class="form-text text-muted"> 不选择任何表时，表示同步该 schema 下的所有表 </small>
-      </div>
-      <div class="form-group">
-        <label for="syncMode">同步模式</label>
-        <select class="form-control" id="syncMode" name="syncMode" v-model="formData.syncMode">
-          <option value="full">全量同步</option>
-          <option value="incremental">增量同步</option>
-        </select>
-      </div>
-      <div v-if="formData.syncMode === 'incremental'" class="form-group">
-        <label for="incrColumn">增量字段</label>
-        <div v-if="formData.tables.length === 0" class="empty-tip">增量同步需至少选择一张表，并为其选择增量字段</div>
+    </el-form-item>
+      <el-form-item label="同步模式">
+      <el-select id="syncMode" name="syncMode" v-model="formData.syncMode">
+            <el-option value="full" label="全量同步" />
+            <el-option value="incremental" label="增量同步" />
+          </el-select>
+    </el-form-item>
+      <el-form-item v-if="formData.syncMode === 'incremental'" label="增量字段">
+      <div v-if="formData.tables.length === 0" class="empty-tip">增量同步需至少选择一张表，并为其选择增量字段</div>
         <div v-else class="incr-column-list">
           <div v-for="item in formData.tables" :key="item.table" class="incr-column-item">
             <label class="incr-column-label">{{ item.table }}</label>
@@ -57,13 +45,12 @@
             />
           </div>
         </div>
-      </div>
-      <div class="form-group">
-        <label for="where">where</label>
-        <input type="text" class="form-control" id="where" name="where" v-model="formData.where" />
-      </div>
+    </el-form-item>
+      <el-form-item label="where">
+      <el-input id="where" name="where" v-model="formData.where" />
+    </el-form-item>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>
@@ -148,12 +135,6 @@ const handleTablesSelected = (selection) => {
   });
 };
 
-// 移除已选表
-const removeTable = (tableName) => {
-  formData.tables = formData.tables.filter((item) => item.table !== tableName);
-  delete formData.incrColumns[tableName];
-};
-
 // 处理增量字段选择事件
 const handleIncrColumnSelected = (tableName, selectedField) => {
   formData.incrColumns[tableName] = selectedField?.name || '';
@@ -205,30 +186,6 @@ defineExpose({ saveConfig });
 
 .form-group {
   margin-bottom: 20px;
-}
-
-.table-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.selected-tables {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.table-tag-close {
-  margin-left: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  color: #909399;
-}
-
-.table-tag-close:hover {
-  color: #606266;
 }
 
 .empty-tip {

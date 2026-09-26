@@ -8,7 +8,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import DataSourceModal from './data-source-modal.vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSource',
   components: { DataSourceModal },
   setup() {
@@ -173,7 +172,7 @@ export default defineComponent({
       }
     };
 
-    watch([propOrder, reverse], async () => {
+    watch([propOrder, reverse, itemsPerPage], async () => {
       if (page.value === 1) {
         await retrieveDataSources();
       } else {

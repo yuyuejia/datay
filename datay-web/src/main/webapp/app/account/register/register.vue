@@ -106,7 +106,7 @@
             </div>
           </div>
 
-          <button type="submit" :disabled="v$.$invalid" class="btn btn-primary" data-cy="submit">注册</button>
+          <el-button type="primary" native-type="submit" :disabled="v$.$invalid" data-cy="submit">注册</el-button>
         </form>
         <p></p>
         <div class="alert alert-warning">

@@ -7,7 +7,6 @@ import { type IJob } from '@/shared/model/job.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JobDetails',
   setup() {
     const dateFormat = useDateFormat();

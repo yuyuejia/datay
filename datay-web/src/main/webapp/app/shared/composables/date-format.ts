@@ -18,16 +18,18 @@ export const useDateFormat = ({ entityRef }: { entityRef?: Ref<Record<string, an
   const entityUtils = entityRef
     ? {
         ...dateFormatUtils,
-        updateInstantField: (field: string, event: any) => {
-          if (event.target?.value) {
-            entityRef.value[field] = dayjs(event.target.value, DATE_TIME_LONG_FORMAT);
+        updateInstantField: (field: string, eventOrValue: any) => {
+          const value = eventOrValue && eventOrValue.target ? eventOrValue.target.value : eventOrValue;
+          if (value) {
+            entityRef.value[field] = dayjs(value, DATE_TIME_LONG_FORMAT);
           } else {
             entityRef.value[field] = null;
           }
         },
-        updateZonedDateTimeField: (field: string, event: any) => {
-          if (event.target?.value) {
-            entityRef.value[field] = dayjs(event.target.value, DATE_TIME_LONG_FORMAT);
+        updateZonedDateTimeField: (field: string, eventOrValue: any) => {
+          const value = eventOrValue && eventOrValue.target ? eventOrValue.target.value : eventOrValue;
+          if (value) {
+            entityRef.value[field] = dayjs(value, DATE_TIME_LONG_FORMAT);
           } else {
             entityRef.value[field] = null;
           }

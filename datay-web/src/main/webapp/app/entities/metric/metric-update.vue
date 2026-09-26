@@ -15,12 +15,12 @@
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="指标名称" required>
-            <b-form-input v-model="metric.name" placeholder="例如：销售额" />
+            <el-input v-model="metric.name" placeholder="例如：销售额" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="指标编码" required>
-            <b-form-input
+            <el-input
               v-model="metric.code"
               placeholder="唯一标识，如 sales_amount"
             />
@@ -30,96 +30,51 @@
       <el-row :gutter="20">
         <el-col :span="8">
           <el-form-item label="指标类型" required>
-            <select
-              class="form-control"
-              v-model="metric.metricType"
-              style="width: 100%"
-            >
-              <option
-                v-for="opt in metricTypeOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </option>
-            </select>
+            <el-select v-model="metric.metricType" style="width: 100%">
+            <el-option v-for="opt in metricTypeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="状态" required>
-            <select
-              class="form-control"
-              v-model="metric.status"
-              style="width: 100%"
-            >
-              <option
-                v-for="opt in statusOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </option>
-            </select>
+            <el-select v-model="metric.status" style="width: 100%">
+            <el-option v-for="opt in statusOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="所属目录">
-            <select
-              class="form-control"
-              v-model="metric.directoryId"
-              style="width: 100%"
-            >
-              <option :value="null">全部指标</option>
-              <option
-                v-for="dir in flatDirectoryOptions"
-                :key="dir.id"
-                :value="dir.id"
-              >
-                {{ "\u00A0\u00A0".repeat(dir.level) + dir.name }}
-              </option>
-            </select>
+            <el-select v-model="metric.directoryId" style="width: 100%">
+            <el-option :value="null" label="全部指标" />
+            <el-option v-for="dir in flatDirectoryOptions" :key="dir.id" :value="dir.id" :label="'\u00A0\u00A0'.repeat(dir.level) + dir.name" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
       <el-form-item label="描述">
-        <textarea
-          class="form-control"
-          v-model="metric.description"
-          :rows="2"
-          placeholder="业务含义说明（选填）"
-        ></textarea>
+        <el-input type="textarea" v-model="metric.description" :rows="2" placeholder="业务含义说明（选填）" />
       </el-form-item>
 
       <el-row :gutter="20">
         <el-col :span="8">
           <el-form-item label="单位">
-            <b-form-input v-model="metric.unit" placeholder="如：元 / 件" />
+            <el-input v-model="metric.unit" placeholder="如：元 / 件" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="数据类型" required>
-            <select
-              class="form-control"
-              v-model="metric.dataType"
-              style="width: 100%"
-            >
-              <option :value="null" disabled>请选择数据类型</option>
-              <option v-for="dt in dataTypes" :key="dt.value" :value="dt.value">
-                {{ dt.label }}
-              </option>
-            </select>
+            <el-select v-model="metric.dataType" style="width: 100%">
+            <el-option :value="null" disabled label="请选择数据类型" />
+            <el-option v-for="dt in dataTypes" :key="dt.value" :value="dt.value" :label="dt.label" />
+          </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
           <el-form-item label="是否可累加">
-            <select
-              class="form-control"
-              v-model="metric.isAdditive"
-              style="width: 100%"
-            >
-              <option :value="true">可累加</option>
-              <option :value="false">不可累加</option>
-            </select>
+            <el-select v-model="metric.isAdditive" style="width: 100%">
+            <el-option :value="true" label="可累加" />
+            <el-option :value="false" label="不可累加" />
+          </el-select>
           </el-form-item>
         </el-col>
       </el-row>
@@ -128,49 +83,19 @@
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="事实表" required>
-              <select
-                class="form-control"
-                v-model="metric.factModelId"
-                style="width: 100%"
-                @change="onFactModelChange"
-              >
-                <option :value="null" disabled>请选择事实表（DWD）</option>
-                <option
-                  v-for="model in factModels"
-                  :key="model.id"
-                  :value="model.id"
-                >
-                  {{ model.name }}
-                </option>
-              </select>
+              <el-select v-model="metric.factModelId" style="width: 100%" @change="onFactModelChange">
+            <el-option :value="null" disabled label="请选择事实表（DWD）" />
+            <el-option v-for="model in factModels" :key="model.id" :value="model.id" :label="model.name" />
+          </el-select>
             </el-form-item>
           </el-col>
         </el-row>
         <el-form-item label="计算公式" required>
-          <textarea
-            class="form-control code-area"
-            v-model="formula"
-            :rows="3"
-            placeholder="SQL 聚合表达式，例如：SUM(amount * quantity)"
-          ></textarea>
+          <el-input type="textarea" class="code-area" v-model="formula" :rows="3" placeholder="SQL 聚合表达式，例如：SUM(amount * quantity)" />
           <div class="ref-insert">
-            <select
-              class="form-control"
-              v-model="selectedFieldCode"
-              :disabled="!metric.factModelId"
-              style="width: 280px"
-            >
-              <option value="" disabled>
-                {{ loadingFields ? "加载中..." : "选择要插入的事实表字段" }}
-              </option>
-              <option
-                v-for="field in factFields"
-                :key="field.fieldName"
-                :value="field.fieldName"
-              >
-                {{ field.fieldName }} ({{ field.fieldType }})
-              </option>
-            </select>
+            <el-select v-model="selectedFieldCode" :disabled="!metric.factModelId" style="width: 280px" :placeholder="loadingFields ? &quot;加载中...&quot; : &quot;选择要插入的事实表字段&quot;">
+            <el-option v-for="field in factFields" :key="field.fieldName" :value="field.fieldName" :label="`${field.fieldName} (${field.fieldType})`" />
+          </el-select>
             <el-button
               type="primary"
               size="small"
@@ -207,120 +132,53 @@
             class="filter-row"
           >
             <span v-if="index > 0" class="filter-logic">
-              <select v-model="condition.logic">
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
-              </select>
+              <el-select v-model="condition.logic">
+            <el-option value="AND" label="AND" />
+            <el-option value="OR" label="OR" />
+          </el-select>
             </span>
             <span v-else class="filter-logic placeholder">条件</span>
 
-            <select
-              class="filter-control"
-              v-model="condition.type"
-              @change="onFilterTypeChange(condition)"
-            >
-              <option
-                v-for="opt in filterTypeOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </option>
-            </select>
+            <el-select class="filter-control" v-model="condition.type" @change="onFilterTypeChange(condition)">
+            <el-option v-for="opt in filterTypeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+          </el-select>
 
             <template v-if="condition.type === FILTER_TYPE_FACT_FIELD">
-              <select class="filter-control" v-model="condition.factFieldName">
-                <option :value="null" disabled>选择字段</option>
-                <option
-                  v-for="field in factFields"
-                  :key="field.fieldName"
-                  :value="field.fieldName"
-                >
-                  {{ field.fieldName }}
-                </option>
-              </select>
+              <el-select class="filter-control" v-model="condition.factFieldName">
+            <el-option :value="null" disabled label="选择字段" />
+            <el-option v-for="field in factFields" :key="field.fieldName" :value="field.fieldName" :label="field.fieldName" />
+          </el-select>
             </template>
             <template v-else-if="condition.type === FILTER_TYPE_DIMENSION">
-              <select
-                class="filter-control"
-                v-model="condition.factFieldName"
-                @change="onFilterFactFieldChange(condition)"
-              >
-                <option :value="null" disabled>关联维度字段</option>
-                <option
-                  v-for="field in dimensionFactFields"
-                  :key="field.fieldName"
-                  :value="field.fieldName"
-                >
-                  {{ field.fieldName }}
-                </option>
-              </select>
-              <select
-                class="filter-control"
-                v-model="condition.dimensionFieldName"
-                :disabled="!condition.factFieldName"
-              >
-                <option :value="null" disabled>维度字段</option>
-                <option
-                  v-for="field in condition._dimensionFields || []"
-                  :key="field.fieldName"
-                  :value="field.fieldName"
-                >
-                  {{ field.fieldName }}
-                </option>
-              </select>
+              <el-select class="filter-control" v-model="condition.factFieldName" @change="onFilterFactFieldChange(condition)">
+            <el-option :value="null" disabled label="关联维度字段" />
+            <el-option v-for="field in dimensionFactFields" :key="field.fieldName" :value="field.fieldName" :label="field.fieldName" />
+          </el-select>
+              <el-select class="filter-control" v-model="condition.dimensionFieldName" :disabled="!condition.factFieldName">
+            <el-option :value="null" disabled label="维度字段" />
+            <el-option v-for="field in condition._dimensionFields || []" :key="field.fieldName" :value="field.fieldName" :label="field.fieldName" />
+          </el-select>
             </template>
             <template v-else>
-              <select class="filter-control" v-model="condition.factFieldName">
-                <option :value="null" disabled>选择日期字段</option>
-                <option
-                  v-for="field in dateFactFields"
-                  :key="field.fieldName"
-                  :value="field.fieldName"
-                >
-                  {{ field.fieldName }}
-                </option>
-              </select>
+              <el-select class="filter-control" v-model="condition.factFieldName">
+            <el-option :value="null" disabled label="选择日期字段" />
+            <el-option v-for="field in dateFactFields" :key="field.fieldName" :value="field.fieldName" :label="field.fieldName" />
+          </el-select>
             </template>
 
-            <select
-              class="filter-control operator"
-              v-model="condition.operator"
-            >
-              <option
-                v-for="op in filterOperators"
-                :key="op.value"
-                :value="op.value"
-              >
-                {{ op.label }}
-              </option>
-            </select>
+            <el-select class="filter-control operator" v-model="condition.operator">
+            <el-option v-for="op in filterOperators" :key="op.value" :value="op.value" :label="op.label" />
+          </el-select>
 
             <template v-if="isUnaryOperator(condition.operator)">
               <span class="filter-value-placeholder">-</span>
             </template>
             <template v-else-if="isRangeOperator(condition.operator)">
-              <input
-                class="filter-control value"
-                v-model="condition.value"
-                placeholder="开始值"
-              />
-              <input
-                class="filter-control value"
-                v-model="condition.valueEnd"
-                placeholder="结束值"
-              />
+              <el-input class="filter-control value" v-model="condition.value" placeholder="开始值" />
+              <el-input class="filter-control value" v-model="condition.valueEnd" placeholder="结束值" />
             </template>
             <template v-else>
-              <input
-                class="filter-control value"
-                v-model="condition.value"
-                :placeholder="
-                  condition.operator === 'IN' || condition.operator === 'NOT_IN'
-                    ? '多个值用英文逗号分隔'
-                    : '值'
-                "
-              />
+              <el-input class="filter-control value" v-model="condition.value" :placeholder=" condition.operator === 'IN' || condition.operator === 'NOT_IN' ? '多个值用英文逗号分隔' : '值' " />
             </template>
 
             <el-button
@@ -340,29 +198,13 @@
         class="type-block"
       >
         <el-form-item label="计算公式" required>
-          <textarea
-            class="form-control code-area"
-            v-model="formula"
-            :rows="3"
-            placeholder="例如：${sales_amount} / ${sales_quantity}"
-          ></textarea>
+          <el-input type="textarea" class="code-area" v-model="formula" :rows="3" placeholder="例如：${sales_amount} / ${sales_quantity}" />
         </el-form-item>
         <el-form-item label="插入指标">
           <div class="ref-insert">
-            <select
-              class="form-control"
-              v-model="selectedRefCode"
-              style="width: 280px"
-            >
-              <option value="" disabled>选择要引用的指标</option>
-              <option
-                v-for="item in insertableMetrics"
-                :key="item.id"
-                :value="item.code"
-              >
-                {{ item.name }} ({{ item.code }})
-              </option>
-            </select>
+            <el-select v-model="selectedRefCode" style="width: 280px" placeholder="选择要引用的指标">
+            <el-option v-for="item in insertableMetrics" :key="item.id" :value="item.code" :label="`${item.name} (${item.code})`" />
+          </el-select>
             <el-button
               type="primary"
               size="small"
@@ -394,22 +236,18 @@
       </div>
     </el-form>
 
-    <b-modal v-model="sqlDialogVisible" title="计算 SQL 预览" size="lg">
+    <app-modal v-model="sqlDialogVisible" title="计算 SQL 预览" size="lg">
       <div class="modal-body">
         <pre class="sql-code">{{ sqlContent }}</pre>
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="sqlDialogVisible = false"
-          >
+          <el-button @click="sqlDialogVisible = false">
             关闭
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
@@ -448,8 +286,8 @@
   margin: 4px 0 16px;
   padding: 12px 16px;
   border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background: #fff;
+  border-radius: 6px;
+  background: #fafcff;
 }
 
 .filter-header {
@@ -457,12 +295,15 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .filter-header h5 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
+  color: #303133;
 }
 
 .filter-empty {
@@ -480,38 +321,41 @@
 }
 
 .filter-logic {
-  width: 60px;
-  flex-shrink: 0;
+  width: 80px;
+  flex: none;
 }
 
-.filter-logic select {
+.filter-logic .el-select {
   width: 100%;
 }
 
 .filter-logic.placeholder {
   color: #909399;
   font-size: 13px;
+  text-align: center;
 }
 
 .filter-control {
-  height: 32px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  padding: 0 8px;
-  font-size: 13px;
-  min-width: 140px;
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 .filter-control.operator {
-  min-width: 130px;
+  flex: 0 0 108px;
 }
 
 .filter-control.value {
-  min-width: 160px;
+  flex: 1 1 140px;
+}
+
+.filter-row > .el-button {
+  flex: none;
 }
 
 .filter-value-placeholder {
   color: #c0c4cc;
+  flex: none;
+  padding: 0 4px;
 }
 
 .code-area {

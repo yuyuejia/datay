@@ -16,7 +16,6 @@ interface ExtraParamRow {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSourceModal',
   props: {
     show: {

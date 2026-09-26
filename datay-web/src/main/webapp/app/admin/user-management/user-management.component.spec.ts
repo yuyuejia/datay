@@ -1,4 +1,3 @@
-import { vitest } from 'vitest';
 import { ref } from 'vue';
 import { shallowMount } from '@vue/test-utils';
 import axios from 'axios';
@@ -24,11 +23,7 @@ describe('UserManagement Component', () => {
     axiosStub.get.reset();
     axiosStub.get.resolves({ headers: {} });
 
-    alertService = new AlertService({
-      bvToast: {
-        toast: vitest.fn(),
-      } as any,
-    });
+    alertService = new AlertService();
 
     const wrapper = shallowMount(UserManagement, {
       global: {

@@ -1,4 +1,3 @@
-import { vitest } from 'vitest';
 import { type MountingOptions, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
@@ -27,25 +26,18 @@ describe('Component Tests', () => {
       jobServiceStub = sinon.createStubInstance<JobService>(JobService);
       jobServiceStub.retrieve.resolves({ headers: {} });
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {
           jhiItemCount: true,
           bPagination: true,
-          bModal: bModalStub as any,
+          AppModal: bModalStub as any,
           'font-awesome-icon': true,
           'b-badge': true,
           'jhi-sort-indicator': true,
           'b-button': true,
           'router-link': true,
-        },
-        directives: {
-          'b-modal': {},
         },
         provide: {
           alertService,

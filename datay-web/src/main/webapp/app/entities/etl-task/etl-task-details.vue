@@ -5,12 +5,12 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="jh-entity-heading mb-0" data-cy="eTLTaskDetailsHeading"><span>ETL Task</span> {{ eTLTask.taskName }}</h2>
           <div>
-            <button type="submit" @click.prevent="previousState()" class="btn btn-info btn-sm" data-cy="entityDetailsBackButton">
+            <el-button type="info" size="small" native-type="submit" @click.prevent="previousState()" data-cy="entityDetailsBackButton">
               <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span>返回</span>
-            </button>
-            <button class="btn btn-info btn-sm" @click="handleSyncList" :disabled="isFetchingInstances">
+            </el-button>
+            <el-button type="info" size="small" @click="handleSyncList" :disabled="isFetchingInstances">
               <font-awesome-icon icon="sync" :spin="isFetchingInstances"></font-awesome-icon>&nbsp;<span>刷新</span>
-            </button>
+            </el-button>
           </div>
         </div>
       </div>
@@ -58,18 +58,24 @@
             </el-table-column>
           </el-table>
 
-          <div class="row justify-content-center mt-3">
+          <div class="list-pagination">
             <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
-          </div>
-          <div class="row justify-content-center">
-            <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+            <el-pagination
+              background
+              layout="sizes, prev, pager, next, jumper"
+              :total="totalItems"
+              :page-sizes="[10, 20, 50, 100]"
+              :pager-count="7"
+              v-model:current-page="page"
+              v-model:page-size="itemsPerPage"
+            />
           </div>
         </div>
       </div>
     </div>
 
     <!-- Log Modal -->
-    <b-modal ref="logEntity" id="logEntity" size="xl" scrollable>
+    <app-modal ref="logEntity" id="logEntity" size="xl" scrollable>
       <template #modal-title>
         <span> 任务执行日志 - {{ currentLogInstance?.jobName }} ({{ currentLogInstance?.instanceCode }}) </span>
       </template>
@@ -96,21 +102,21 @@
             >{{ logContent || '暂无日志内容' }}</pre
           >
           <div v-if="hasMoreLog" class="text-center mt-2">
-            <button class="btn btn-sm btn-outline-primary" @click="loadMoreLog" :disabled="isLogLoading">
+            <el-button type="primary" plain size="small" @click="loadMoreLog" :disabled="isLogLoading">
               <font-awesome-icon icon="arrow-down" :spin="isLogLoading"></font-awesome-icon>
               加载更多日志
-            </button>
+            </el-button>
           </div>
         </div>
       </div>
       <template #modal-footer>
         <div>
-          <button class="btn btn-primary mr-2" @click="loadMoreLog" title="刷新">刷新</button>
-          <button class="btn btn-primary mr-2" @click="downloadLog" title="下载日志">下载日志</button>
-          <button type="button" class="btn btn-secondary" @click="closeLogDialog">关闭</button>
+          <el-button type="primary" @click="loadMoreLog" title="刷新">刷新</el-button>
+          <el-button type="primary" @click="downloadLog" title="下载日志">下载日志</el-button>
+          <el-button @click="closeLogDialog">关闭</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

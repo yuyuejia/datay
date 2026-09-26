@@ -1,159 +1,174 @@
 <template>
-  <b-navbar data-cy="navbar" toggleable="md" type="dark" class="jh-navbar">
-    <b-navbar-brand class="logo" b-link to="/">
+  <nav data-cy="navbar" class="navbar navbar-expand-md navbar-dark jh-navbar">
+    <router-link class="navbar-brand logo" to="/">
       <span class="logo-img"></span>
       <span class="navbar-title">Data<span class="logo-y">Y</span></span>
-    </b-navbar-brand>
-    <b-navbar-toggle
-      right
-      class="jh-navbar-toggler d-lg-none"
-      href="javascript:void(0);"
+    </router-link>
+    <button
+      class="navbar-toggler jh-navbar-toggler d-lg-none"
+      type="button"
       data-toggle="collapse"
-      target="header-tabs"
+      data-target="#header-tabs"
+      aria-controls="header-tabs"
       aria-expanded="false"
       aria-label="Toggle navigation"
     >
       <font-awesome-icon icon="bars" />
-    </b-navbar-toggle>
+    </button>
 
-    <b-collapse is-nav id="header-tabs">
-      <b-navbar-nav>
-        <b-nav-item-dropdown
-          v-if="authenticated"
-          id="tenant-menu"
-          active-class="active"
-          class="pointer"
-          data-cy="tenantMenu"
-        >
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+    <div class="collapse navbar-collapse" id="header-tabs">
+      <ul class="navbar-nav">
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" data-cy="tenantMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <font-awesome-icon icon="building" class="mr-1" />
               <span class="no-bold">{{ currentTenantDisplay }}</span>
-            </span>
-          </template>
-          <b-dropdown-item
-            v-for="t in availableTenants"
-            :key="t.id"
-            @click="switchTenant(t)"
-            :class="{ active: currentTenantId === t.id }"
-          >
-            <font-awesome-icon v-if="currentTenantId === t.id" icon="check" class="mr-1 text-success" />
-            <span v-else class="mr-1"></span>
-            <span>{{ t.name }} <small class="text-muted">({{ t.code }})</small></span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-      </b-navbar-nav>
-      <b-navbar-nav class="ml-auto">
-        <b-nav-item to="/" exact>
-          <span>首页</span>
-        </b-nav-item>
-        <b-nav-item-dropdown v-if="authenticated" id="datasource-menu" active-class="active" class="pointer">
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="t in availableTenants"
+                  :key="t.id"
+                  @click="switchTenant(t)"
+                  :class="{ active: currentTenantId === t.id }"
+                >
+                  <font-awesome-icon v-if="currentTenantId === t.id" icon="check" class="mr-1 text-success" />
+                  <span v-else class="mr-1"></span>
+                  <span>{{ t.name }} <small class="text-muted">({{ t.code }})</small></span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+      </ul>
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+          <router-link class="nav-link" to="/">
+            <span>首页</span>
+          </router-link>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="datasource-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">数据源</span>
-            </span>
-          </template>
-          <b-dropdown-item to="/data-source" exact>
-            <span>数据源管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/file-management" exact>
-            <span>文件管理</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-        <b-nav-item v-if="authenticated" to="/etl-task" exact>
-          <span>数据集成</span>
-        </b-nav-item>
-        <b-nav-item-dropdown v-if="authenticated" id="model-menu" active-class="active" class="pointer">
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/data-source">
+                  <span>数据源管理</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/file-management">
+                  <span>文件管理</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li v-if="authenticated" class="nav-item">
+          <router-link class="nav-link" to="/etl-task">
+            <span>数据集成</span>
+          </router-link>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="model-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">数据模型</span>
-            </span>
-          </template>
-          <b-dropdown-item to="/data-model" exact>
-            <span>维度建模</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/metric" exact>
-            <span>指标管理</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-        <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/data-model">
+                  <span>维度建模</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/metric">
+                  <span>指标管理</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="entity-menu" data-cy="entity" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">数据开发</span>
-            </span>
-          </template>
-          <entities-menu></entities-menu>
-          <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
-        </b-nav-item-dropdown>
-        <b-nav-item-dropdown v-if="authenticated" id="application-menu" active-class="active" class="pointer">
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <entities-menu></entities-menu>
+                <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="application-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">数据应用</span>
-            </span>
-          </template>
-          <b-dropdown-item to="/metric-ai" exact>
-            <span>智能问数</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/data-api" exact>
-            <span>API 服务</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/analysis-dashboard" exact>
-            <span>分析看板</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-        <b-nav-item-dropdown
-          right
-          id="account-menu"
-          :class="{ 'router-link-active': subIsActive('/account') }"
-          active-class="active"
-          class="pointer"
-          data-cy="accountMenu"
-        >
-          <template #button-content>
-            <span class="navbar-dropdown-menu">
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/metric-ai">
+                  <span>智能问数</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/data-api">
+                  <span>API 服务</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/analysis-dashboard">
+                  <span>分析看板</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="account-menu" data-cy="accountMenu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">{{ accountLabel }}</span>
-            </span>
-          </template>
-          <b-dropdown-item data-cy="settings" to="/account/settings" v-if="authenticated" active-class="active">
-            <font-awesome-icon icon="wrench" />
-            <span>设置</span>
-          </b-dropdown-item>
-          <b-dropdown-item data-cy="passwordItem" to="/account/password" v-if="authenticated" active-class="active">
-            <font-awesome-icon icon="lock" />
-            <span>密码</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/user-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
-            <span>用户管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/tenant-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
-            <span>租户管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/role-management" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
-            <span>角色管理</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/admin/role-data-scope" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
-            <span>数据权限</span>
-          </b-dropdown-item>
-          <b-dropdown-item to="/service-config" v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" active-class="active">
-            <font-awesome-icon icon="cog" />
-            <span>服务配置</span>
-          </b-dropdown-item>
-          <b-dropdown-item data-cy="logout" v-if="authenticated" @click="logout()" id="logout" active-class="active">
-            <font-awesome-icon icon="sign-out-alt" />
-            <span>退出</span>
-          </b-dropdown-item>
-          <b-dropdown-item data-cy="login" v-if="!authenticated" @click="showLogin()" id="login" active-class="active">
-            <font-awesome-icon icon="sign-in-alt" />
-            <span>登录</span>
-          </b-dropdown-item>
-          <b-dropdown-item data-cy="register" to="/register" id="register" v-if="!authenticated" active-class="active">
-            <font-awesome-icon icon="user-plus" />
-            <span>注册</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-      </b-navbar-nav>
-    </b-collapse>
-  </b-navbar>
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="authenticated" data-cy="settings" command="/account/settings">
+                  <font-awesome-icon icon="wrench" />
+                  <span>设置</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="authenticated" data-cy="passwordItem" command="/account/password">
+                  <font-awesome-icon icon="lock" />
+                  <span>密码</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/user-management">
+                  <span>用户管理</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/tenant-management">
+                  <span>租户管理</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/role-management">
+                  <span>角色管理</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/role-data-scope">
+                  <span>数据权限</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/service-config">
+                  <font-awesome-icon icon="cog" />
+                  <span>服务配置</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="authenticated" data-cy="logout" id="logout" @click="logout()">
+                  <font-awesome-icon icon="sign-out-alt" />
+                  <span>退出</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="!authenticated" data-cy="login" id="login" @click="showLogin()">
+                  <font-awesome-icon icon="sign-in-alt" />
+                  <span>登录</span>
+                </el-dropdown-item>
+                <el-dropdown-item v-if="!authenticated" command="/register" id="register">
+                  <font-awesome-icon icon="user-plus" />
+                  <span>注册</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+      </ul>
+    </div>
+  </nav>
 </template>
 
 <script lang="ts" src="./jhi-navbar.component.ts"></script>
@@ -180,12 +195,6 @@
   border-radius: 50%;
 }
 
-.jh-navbar .dropdown-item.active,
-.jh-navbar .dropdown-item.active:focus,
-.jh-navbar .dropdown-item.active:hover {
-  background-color: #353d47;
-}
-
 .jh-navbar .dropdown-toggle::after {
   margin-left: 0.15em;
 }
@@ -201,6 +210,26 @@
 .jh-navbar a.nav-link,
 .jh-navbar .no-bold {
   font-weight: 400;
+}
+
+.jh-navbar a.nav-link {
+  color: rgba(255, 255, 255, 0.65);
+  display: block;
+}
+
+/* Element Plus dropdown wrapper resets font-size/line-height to 14px/1.
+   Normalize it so dropdown toggles match plain nav links. */
+.jh-navbar :deep(.el-dropdown) {
+  display: block;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  vertical-align: baseline;
+}
+
+.jh-navbar a.nav-link:hover,
+.jh-navbar a.nav-link:focus {
+  color: #fff;
 }
 
 .jh-navbar .jh-navbar-toggler {

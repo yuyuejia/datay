@@ -1,119 +1,97 @@
 <template>
   <div>
-    <h2>
-      <span id="user-management-page-heading" data-cy="userManagementPageHeading">用户</span>
+    <h2 id="page-heading" data-cy="userManagementPageHeading">
+      <span id="user-management-page-heading">用户</span>
 
-      <div class="d-flex justify-content-end">
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isLoading">
-          <font-awesome-icon icon="sync" :spin="isLoading"></font-awesome-icon> <span>Refresh list</span>
-        </button>
+      <div class="d-flex align-items-center">
+        <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isLoading">
+          <font-awesome-icon icon="sync" :spin="isLoading"></font-awesome-icon> <span>刷新列表</span>
+        </el-button>
         <router-link custom v-slot="{ navigate }" :to="{ name: 'JhiUserCreate' }">
-          <button @click="navigate" class="btn btn-primary jh-create-entity">
+          <el-button type="primary" @click="navigate" class="jh-create-entity">
             <font-awesome-icon icon="plus"></font-awesome-icon> <span>创建新用户</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
-    <div class="table-responsive" v-if="users">
-      <table class="table table-striped" aria-describedby="Users">
-        <thead>
-          <tr>
-            <th scope="col" @click="changeOrder('id')">
-              <span>ID</span> <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'id'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" @click="changeOrder('login')">
-              <span>登录</span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'login'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" @click="changeOrder('email')">
-              <span>邮箱</span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'email'"></jhi-sort-indicator>
-            </th>
-            <th scope="col"></th>
-            <th scope="col"><span>角色</span></th>
-            <th scope="col" @click="changeOrder('createdDate')">
-              <span>创建时间</span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'createdDate'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" @click="changeOrder('lastModifiedBy')">
-              <span>最近修改人</span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'lastModifiedBy'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" id="modified-date-sort" @click="changeOrder('lastModifiedDate')">
-              <span>最近修改时间</span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'lastModifiedDate'"></jhi-sort-indicator>
-            </th>
-            <th scope="col"></th>
-          </tr>
-        </thead>
-        <tbody v-if="users">
-          <tr v-for="user in users" :key="user.id" :id="user.login">
-            <td>
-              <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }">{{ user.id }}</router-link>
-            </td>
-            <td>{{ user.login }}</td>
-            <td class="jhi-user-email">{{ user.email }}</td>
-            <td>
-              <button class="btn btn-danger btn-sm deactivated" @click="setActive(user, true)" v-if="!user.activated">失效</button>
-              <button
-                class="btn btn-success btn-sm"
-                @click="setActive(user, false)"
-                v-if="user.activated"
-                :disabled="username === user.login"
-              >
-                已激活
-              </button>
-            </td>
-
-            <td>
-              <div v-for="authority of user.authorities" :key="authority">
-                <span class="badge badge-info">{{ authority }}</span>
-              </div>
-            </td>
-            <td>{{ formatDate(user.createdDate) }}</td>
-            <td>{{ user.lastModifiedBy }}</td>
-            <td>{{ formatDate(user.lastModifiedDate) }}</td>
-            <td class="text-right">
-              <div class="btn-group">
-                <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-info btn-sm details">
-                    <font-awesome-icon icon="eye"></font-awesome-icon>
-                    <span class="d-none d-md-inline">查看</span>
-                  </button>
-                </router-link>
-                <router-link :to="{ name: 'JhiUserEdit', params: { userId: user.login } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-primary btn-sm edit">
-                    <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
-                    <span class="d-none d-md-inline">编辑</span>
-                  </button>
-                </router-link>
-                <b-button @click="prepareRemove(user)" variant="danger" class="btn btn-sm delete" :disabled="username === user.login">
-                  <font-awesome-icon icon="times"></font-awesome-icon>
-                  <span class="d-none d-md-inline">删除</span>
-                </b-button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <b-modal ref="removeUser" id="removeUser" title="确认删除" @ok="deleteUser()">
+    <div v-if="users">
+      <el-table :data="users" style="width: 100%" @sort-change="handleSortChange">
+        <el-table-column prop="id" label="ID" sortable="custom" width="90">
+          <template #default="{ row }">
+            <router-link :to="{ name: 'JhiUserView', params: { userId: row.login } }">{{ row.id }}</router-link>
+          </template>
+        </el-table-column>
+        <el-table-column prop="login" label="登录" sortable="custom" min-width="130" />
+        <el-table-column prop="email" label="邮箱" sortable="custom" min-width="200" />
+        <el-table-column label="激活状态" width="130">
+          <template #default="{ row }">
+            <el-button v-if="!row.activated" type="danger" size="small" @click="setActive(row, true)">失效</el-button>
+            <el-button v-else type="success" size="small" :disabled="username === row.login" @click="setActive(row, false)">
+              已激活
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="180">
+          <template #default="{ row }">
+            <el-tag v-for="authority in row.authorities" :key="authority" size="small" class="mr-1">{{ authority }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdDate" label="创建时间" sortable="custom" width="170">
+          <template #default="{ row }">{{ formatDate(row.createdDate) }}</template>
+        </el-table-column>
+        <el-table-column prop="lastModifiedBy" label="最近修改人" sortable="custom" min-width="140" />
+        <el-table-column prop="lastModifiedDate" label="最近修改时间" sortable="custom" width="170">
+          <template #default="{ row }">{{ formatDate(row.lastModifiedDate) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" min-width="230">
+          <template #default="{ row }">
+            <div class="btn-group">
+              <router-link :to="{ name: 'JhiUserView', params: { userId: row.login } }" custom v-slot="{ navigate }">
+                <el-button type="info" size="small" @click="navigate" class="details">
+                  <font-awesome-icon icon="eye"></font-awesome-icon>
+                  <span class="d-none d-md-inline">查看</span>
+                </el-button>
+              </router-link>
+              <router-link :to="{ name: 'JhiUserEdit', params: { userId: row.login } }" custom v-slot="{ navigate }">
+                <el-button type="primary" size="small" @click="navigate" class="edit">
+                  <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
+                  <span class="d-none d-md-inline">编辑</span>
+                </el-button>
+              </router-link>
+              <el-button size="small" @click="prepareRemove(row)" type="danger" class="delete" :disabled="username === row.login">
+                <font-awesome-icon icon="times"></font-awesome-icon>
+                <span class="d-none d-md-inline">删除</span>
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <app-modal ref="removeUser" id="removeUser" title="确认删除" @ok="deleteUser()">
         <div class="modal-body">
           <p id="jhi-delete-user-heading">你确定要删除用户 {{ removeId }} ?</p>
         </div>
         <template #modal-footer>
           <div>
-            <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-            <button type="button" class="btn btn-primary" id="confirm-delete-user" @click="deleteUser()">删除</button>
+            <el-button @click="closeDialog()">取消</el-button>
+            <el-button type="primary" id="confirm-delete-user" @click="deleteUser()">删除</el-button>
           </div>
         </template>
-      </b-modal>
+      </app-modal>
     </div>
     <div v-show="users && users.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage" :change="loadPage(page)"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+          @current-change="loadPage"
+          @size-change="handleSizeChange"
+        />
       </div>
     </div>
   </div>

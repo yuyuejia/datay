@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import DataSourceModal from './data-source-modal.vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DataSourceDetails',
   components: { DataSourceModal },
   setup() {

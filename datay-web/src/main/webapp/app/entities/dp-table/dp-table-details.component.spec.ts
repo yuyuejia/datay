@@ -34,11 +34,7 @@ describe('Component Tests', () => {
       route = {};
       dpTableServiceStub = sinon.createStubInstance<DpTableService>(DpTableService);
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {

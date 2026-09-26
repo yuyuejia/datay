@@ -46,7 +46,6 @@ interface ChatMessage {
  * AI 看板设计页：左侧对话生成看板定义，右侧实时预览（含筛选器），确认后保存。
  */
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "AnalysisDashboardDesign",
   components: { DashboardCanvas, DashboardFilters },
   setup() {

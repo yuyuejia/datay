@@ -34,11 +34,7 @@ describe('Component Tests', () => {
       eTLTaskServiceStub = sinon.createStubInstance<ETLTaskService>(ETLTaskService);
       eTLTaskServiceStub.retrieve.onFirstCall().resolves(Promise.resolve([]));
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {

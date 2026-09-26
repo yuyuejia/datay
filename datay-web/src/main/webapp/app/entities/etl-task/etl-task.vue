@@ -3,26 +3,15 @@
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="etl-task-heading">ETL 任务列表</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 280px"
-          v-model="search"
-          placeholder="按任务名称 / 描述搜索"
-        />
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按任务名称 / 描述搜索" clearable/>
+        <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
-        </button>
+        </el-button>
         <router-link :to="{ name: 'ETLTaskDesignNew' }" custom v-slot="{ navigate }">
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-etl-task"
-          >
+          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-etl-task">
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建 ETL 任务</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
@@ -63,43 +52,23 @@
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
                 </el-button>
               </router-link>
-              <el-button
-                @click="runETLTask(scope.row.id)"
-                class="btn btn-success btn-sm run"
-                data-cy="entityRunButton"
-              >
+              <el-button type="success" size="small" @click="runETLTask(scope.row.id)" class="run" data-cy="entityRunButton">
                 <span class="d-none d-md-inline">立即执行</span>
               </el-button>
-              <el-button
-                v-if="scope.row.status === 'OFFLINE'"
-                @click="onlineETLTask(scope.row.id)"
-                class="btn btn-warning btn-sm online"
-                data-cy="entityOnlineButton"
-              >
+              <el-button type="warning" size="small" v-if="scope.row.status === 'OFFLINE'" @click="onlineETLTask(scope.row.id)" class="online" data-cy="entityOnlineButton">
                 <span class="d-none d-md-inline">上线</span>
               </el-button>
-              <el-button
-                v-if="scope.row.status != 'OFFLINE'"
-                @click="offlineETLTask(scope.row.id)"
-                class="btn btn-secondary btn-sm offline"
-                data-cy="entityOfflineButton"
-              >
+              <el-button size="small" v-if="scope.row.status != 'OFFLINE'" @click="offlineETLTask(scope.row.id)" class="offline" data-cy="entityOfflineButton">
                 <span class="d-none d-md-inline">下线</span>
               </el-button>
-              <el-button @click="prepareViewInstances(scope.row)" class="btn btn-info btn-sm" data-cy="entityLogButton">
+              <el-button type="info" size="small" @click="prepareViewInstances(scope.row)" data-cy="entityLogButton">
                 <span class="d-none d-md-inline">日志</span>
               </el-button>
-              <el-button
-                @click="prepareRemove(scope.row)"
-                variant="danger"
-                class="btn btn-danger btn-sm"
-                data-cy="entityDeleteButton"
-                v-b-modal.removeEntity
-              >
+              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -107,7 +76,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span data-cy="eTLTaskDeleteDialogHeading">确认删除</span>
       </template>
@@ -116,12 +85,12 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-          <button type="button" class="btn btn-primary" data-cy="entityConfirmDeleteButton" @click="removeETLTask()">删除</button>
+          <el-button @click="closeDialog()">取消</el-button>
+          <el-button type="primary" data-cy="entityConfirmDeleteButton" @click="removeETLTask()">删除</el-button>
         </div>
       </template>
-    </b-modal>
-    <b-modal ref="instancesModal" id="instancesModal" size="xl" scrollable>
+    </app-modal>
+    <app-modal ref="instancesModal" id="instancesModal" size="xl" scrollable>
       <template #modal-title>
         <span>任务执行实例 - {{ currentTask?.taskName }}</span>
       </template>
@@ -168,11 +137,11 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeInstancesModal()">关闭</button>
+          <el-button @click="closeInstancesModal()">关闭</el-button>
         </div>
       </template>
-    </b-modal>
-    <b-modal ref="logModal" id="logModal" size="xl" scrollable>
+    </app-modal>
+    <app-modal ref="logModal" id="logModal" size="xl" scrollable>
       <template #modal-title>
         <span>任务日志 - {{ currentLogInstance?.instanceCode }}</span>
       </template>
@@ -199,17 +168,23 @@
       </div>
       <template #modal-footer>
         <div>
-          <button class="btn btn-primary mr-2" @click="refreshLog" :disabled="isLogLoading">刷新</button>
-          <button type="button" class="btn btn-secondary" @click="closeLogModal()">关闭</button>
+          <el-button type="primary" @click="refreshLog" :disabled="isLogLoading">刷新</el-button>
+          <el-button @click="closeLogModal()">关闭</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
     <div v-show="eTLTasks && eTLTasks.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>

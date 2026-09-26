@@ -34,11 +34,7 @@ describe('Component Tests', () => {
       route = {};
       dataSourceServiceStub = sinon.createStubInstance<DataSourceService>(DataSourceService);
 
-      alertService = new AlertService({
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
-      });
+      alertService = new AlertService();
 
       mountOptions = {
         stubs: {

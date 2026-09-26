@@ -36,7 +36,7 @@
               <small class="form-text text-danger" v-if="!v$.resetAccount.email.maxLength">您的电子邮件长度不能超过50个字符</small>
             </div>
           </div>
-          <button type="submit" :disabled="v$.resetAccount.$invalid" class="btn btn-primary" data-cy="submit">重置密码</button>
+          <el-button type="primary" native-type="submit" :disabled="v$.resetAccount.$invalid" data-cy="submit">重置密码</el-button>
         </form>
       </div>
     </div>

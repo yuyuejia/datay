@@ -2,7 +2,6 @@ import { defineComponent, inject } from 'vue';
 import HealthService from './health.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiHealthModal',
   props: {
     currentHealth: {},

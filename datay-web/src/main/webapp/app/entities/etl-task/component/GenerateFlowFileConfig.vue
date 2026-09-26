@@ -1,79 +1,41 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 数据格式选择 -->
-      <div class="form-group">
-        <label for="dataFormat">数据格式</label>
-        <select class="form-control" v-model="formData.dataFormat" @change="handleDataFormatChange">
-          <option v-for="item in formatOptions" :key="item.value" :value="item.value">
-            {{ item.name }}
-          </option>
-        </select>
-      </div>
+      <el-form-item label="数据格式">
+      <el-select v-model="formData.dataFormat" @change="handleDataFormatChange">
+            <el-option v-for="item in formatOptions" :key="item.value" :value="item.value" :label="item.name" />
+          </el-select>
+    </el-form-item>
 
       <!-- 输入数据 -->
-      <div class="form-group">
-        <label for="inputData">输入数据</label>
-        <textarea
-          class="form-control"
-          id="inputData"
-          name="inputData"
-          v-model="formData.inputData"
-          :rows="8"
-          :maxlength="5000"
-          placeholder="请输入要生成的数据内容"
-        ></textarea>
-      </div>
+      <el-form-item label="输入数据">
+      <el-input type="textarea" id="inputData" name="inputData" v-model="formData.inputData" :rows="8" :maxlength="5000" placeholder="请输入要生成的数据内容" />
+    </el-form-item>
 
       <!-- CSV格式相关配置 -->
-      <div v-if="formData.dataFormat === 'CSV'" class="form-group">
-        <label for="delimiter">分隔符</label>
-        <input
-          type="text"
-          class="form-control"
-          id="delimiter"
-          name="delimiter"
-          v-model="formData.delimiter"
-          placeholder="请输入分隔符，默认为逗号"
-        />
-      </div>
+      <el-form-item v-if="formData.dataFormat === 'CSV'" label="分隔符">
+      <el-input id="delimiter" name="delimiter" v-model="formData.delimiter" placeholder="请输入分隔符，默认为逗号" />
+    </el-form-item>
 
-      <div v-if="formData.dataFormat === 'CSV'" class="form-group">
-        <el-checkbox v-model="formData.hasHeader">包含表头 <span class="help-text">第一行作为表头处理</span></el-checkbox>
-      </div>
+      <el-form-item v-if="formData.dataFormat === 'CSV'">
+      <el-checkbox v-model="formData.hasHeader">包含表头 <span class="help-text">第一行作为表头处理</span></el-checkbox>
+    </el-form-item>
 
       <!-- JSON对象格式相关配置 -->
-      <div v-if="formData.dataFormat === 'JSON_OBJECT'" class="form-group">
-        <label for="fieldMapping">字段映射</label>
-        <textarea
-          class="form-control"
-          id="fieldMapping"
-          name="fieldMapping"
-          v-model="formData.fieldMapping"
-          :rows="4"
-          :maxlength="5000"
-          placeholder="请输入字段映射，用逗号分隔，如：name,age,city"
-        ></textarea>
+      <el-form-item v-if="formData.dataFormat === 'JSON_OBJECT'" label="字段映射">
+      <el-input type="textarea" id="fieldMapping" name="fieldMapping" v-model="formData.fieldMapping" :rows="4" :maxlength="5000" placeholder="请输入字段映射，用逗号分隔，如：name,age,city" />
         <span class="help-text">用于JSON对象格式的字段映射，与数据中的字段对应</span>
-      </div>
+    </el-form-item>
 
       <!-- 循环输出配置 -->
-      <div class="form-group">
-        <label for="loopCount">循环输出次数</label>
-        <input
-          type="number"
-          class="form-control"
-          id="loopCount"
-          name="loopCount"
-          v-model="formData.loopCount"
-          placeholder="请输入循环输出次数，默认为1"
-        />
+      <el-form-item label="循环输出次数">
+      <el-input-number :controls="false"  id="loopCount" name="loopCount" v-model="formData.loopCount" placeholder="请输入循环输出次数，默认为1" />
         <span class="help-text">设置为1表示单次输出，大于1表示循环输出</span>
-      </div>
+    </el-form-item>
 
-      <!-- <div v-if="formData.loopCount > 1" class="form-group">
-        <label for="waitTime">每次输出等待时间 (毫秒)</label>
-        <el-input-number
+      <!-- <el-form-item v-if="formData.loopCount > 1" label="每次输出等待时间 (毫秒)">
+      <el-input-number
           v-model="formData.waitTime"
           :min="100"
           :max="60000"
@@ -81,14 +43,15 @@
           style="width: 100%"
         />
         <span class="help-text">每次输出后的等待时间，用于控制输出频率</span>
-      </div> -->
+    </el-form-item> -->
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 import { defineProps, defineEmits } from 'vue';
+import { ElMessage } from 'element-plus';
 
 const props = defineProps({
   node: Object,

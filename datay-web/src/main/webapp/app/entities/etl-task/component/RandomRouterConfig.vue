@@ -1,12 +1,11 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label>随机路由说明</label>
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="随机路由说明">
       <div class="form-control-static">
         该组件将FlowFile随机路由到下游连接中的一个，无需额外配置。
       </div>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

@@ -29,12 +29,15 @@
           </div>
         </div>
         <div class="tree-search">
-          <input
-            type="text"
-            class="form-control"
+          <el-input
             v-model="treeSearch"
             placeholder="搜索指标名称或编码"
-          />
+            clearable
+          >
+            <template #prefix>
+              <font-awesome-icon icon="search" />
+            </template>
+          </el-input>
         </div>
         <div class="tree-body" v-loading="loading">
           <el-tree
@@ -177,21 +180,20 @@
                 :key="'metric' + index"
                 class="query-row"
               >
-                <select
-                  class="query-control"
+                <el-select
                   v-model="row.metricCode"
-                  style="min-width: 320px"
+                  class="query-control metric-select"
+                  placeholder="请选择指标"
+                  filterable
                   @change="onQueryMetricChange"
                 >
-                  <option :value="null" disabled>请选择指标</option>
-                  <option
+                  <el-option
                     v-for="m in allMetricOptions"
                     :key="m.code"
                     :value="m.code"
-                  >
-                    {{ m.name }} ({{ m.code }})
-                  </option>
-                </select>
+                    :label="`${m.name} (${m.code})`"
+                  />
+                </el-select>
                 <el-button
                   v-if="queryMetricRows.length > 1"
                   link
@@ -237,63 +239,51 @@
                 :key="'dim' + index"
                 class="query-row"
               >
-                <select
+                <el-select
                   class="query-control"
                   v-model="dim.dimensionModelCode"
+                  placeholder="选择维度"
                   @change="onDimensionModelChange(dim)"
                 >
-                  <option :value="null" disabled>选择维度</option>
-                  <option
+                  <el-option
                     v-for="dimension in queryDimensionOptions"
                     :key="dimension.dimensionModelCode"
                     :value="dimension.dimensionModelCode"
-                  >
-                    {{
+                    :label="
                       dimension.dimensionModelName ||
                       dimension.dimensionModelCode
-                    }}
-                  </option>
-                </select>
-                <select
+                    "
+                  />
+                </el-select>
+                <el-select
                   v-if="dim.dimensionModelCode && isHierarchyDimension(dim)"
                   class="query-control"
                   v-model="dim.levelIndex"
+                  placeholder="选择层级"
                 >
-                  <option :value="null" disabled>选择层级</option>
-                  <option
+                  <el-option
                     v-for="lv in dimensionLevels(dim)"
                     :key="lv.levelIndex"
                     :value="lv.levelIndex"
-                  >
-                    {{ levelLabel(dim, lv.levelIndex) }}
-                  </option>
-                </select>
-                <b-dropdown
+                    :label="levelLabel(dim, lv.levelIndex)"
+                  />
+                </el-select>
+                <el-select
                   v-else-if="dim.dimensionModelCode"
-                  :text="dimensionSelectionText(dim)"
-                  variant="outline-secondary"
-                  size="sm"
-                  class="dim-multiselect"
-                  auto-close="outside"
+                  v-model="dim.dimensionFieldNames"
+                  class="query-control"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  placeholder="默认按主键汇总"
                 >
-                  <b-dropdown-item
+                  <el-option
                     v-for="field in dim._dimensionFields || []"
                     :key="field.fieldName"
-                    @click="toggleDimensionField(dim, field.fieldName)"
-                  >
-                    <font-awesome-icon
-                      v-if="
-                        (dim.dimensionFieldNames || []).includes(
-                          field.fieldName,
-                        )
-                      "
-                      icon="check"
-                      class="dim-check"
-                    />
-                    <span v-else class="dim-check-placeholder"></span>
-                    <span>{{ field.fieldName }}</span>
-                  </b-dropdown-item>
-                </b-dropdown>
+                    :value="field.fieldName"
+                    :label="field.fieldName"
+                  />
+                </el-select>
                 <el-button
                   link
                   type="danger"
@@ -324,73 +314,73 @@
                 :key="'cond' + index"
                 class="query-row"
               >
-                <span v-if="index > 0" class="query-logic">
-                  <select v-model="condition.logic">
-                    <option value="AND">AND</option>
-                    <option value="OR">OR</option>
-                  </select>
-                </span>
+                <el-select
+                  v-if="index > 0"
+                  v-model="condition.logic"
+                  class="query-logic"
+                  size="small"
+                >
+                  <el-option value="AND" label="AND" />
+                  <el-option value="OR" label="OR" />
+                </el-select>
                 <span v-else class="query-logic placeholder">条件</span>
-                <select
+                <el-select
                   class="query-control"
                   v-model="condition.dimensionModelCode"
+                  placeholder="选择维度"
                   @change="onQueryConditionModelChange(condition)"
                 >
-                  <option :value="null" disabled>选择维度</option>
-                  <option
+                  <el-option
                     v-for="dimension in queryDimensionOptions"
                     :key="dimension.dimensionModelCode"
                     :value="dimension.dimensionModelCode"
-                  >
-                    {{
+                    :label="
                       dimension.dimensionModelName ||
                       dimension.dimensionModelCode
-                    }}
-                  </option>
-                </select>
-                <select
+                    "
+                  />
+                </el-select>
+                <el-select
                   v-if="condition.dimensionModelCode"
                   class="query-control"
                   v-model="condition.dimensionFieldName"
+                  placeholder="选择维度字段"
                 >
-                  <option :value="null" disabled>选择维度字段</option>
-                  <option
+                  <el-option
                     v-for="field in condition._dimensionFields || []"
                     :key="field.fieldName"
                     :value="field.fieldName"
-                  >
-                    {{ field.fieldName }}
-                  </option>
-                </select>
-                <select
+                    :label="field.fieldName"
+                  />
+                </el-select>
+                <el-select
                   class="query-control operator"
                   v-model="condition.operator"
                 >
-                  <option
+                  <el-option
                     v-for="op in filterOperators"
                     :key="op.value"
                     :value="op.value"
-                  >
-                    {{ op.label }}
-                  </option>
-                </select>
+                    :label="op.label"
+                  />
+                </el-select>
                 <template v-if="isUnaryOperator(condition.operator)">
                   <span class="query-placeholder">-</span>
                 </template>
                 <template v-else-if="isRangeOperator(condition.operator)">
-                  <input
+                  <el-input
                     class="query-control value"
                     v-model="condition.value"
                     placeholder="开始值"
                   />
-                  <input
+                  <el-input
                     class="query-control value"
                     v-model="condition.valueEnd"
                     placeholder="结束值"
                   />
                 </template>
                 <template v-else>
-                  <input
+                  <el-input
                     class="query-control value"
                     v-model="condition.value"
                     placeholder="值"
@@ -412,17 +402,19 @@
                 <h5>时间统计范围</h5>
               </div>
               <div class="query-row">
-                <input
-                  type="datetime-local"
-                  step="1"
-                  class="form-control query-date-picker"
+                <el-date-picker
+                  class="query-date-picker"
+                  type="datetime"
+                  value-format="YYYY-MM-DDTHH:mm:ss"
+                  placeholder="开始时间"
                   v-model="queryTimeRange.start"
                 />
                 <span class="query-placeholder">~</span>
-                <input
-                  type="datetime-local"
-                  step="1"
-                  class="form-control query-date-picker"
+                <el-date-picker
+                  class="query-date-picker"
+                  type="datetime"
+                  value-format="YYYY-MM-DDTHH:mm:ss"
+                  placeholder="结束时间"
                   v-model="queryTimeRange.end"
                 />
                 <el-button
@@ -683,87 +675,62 @@
       </div>
     </div>
 
-    <b-modal
+    <app-modal
       v-model="directoryDialogVisible"
       :title="directoryDialogTitle"
       size="md"
     >
       <div class="modal-body">
-        <form name="directoryForm" novalidate @submit.prevent="saveDirectory">
-          <div class="form-group">
-            <label class="form-control-label">目录名称</label>
-            <input
-              type="text"
-              class="form-control"
-              v-model="directoryForm.name"
-              placeholder="请输入目录名称"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label">排序</label>
-            <input
-              type="number"
-              class="form-control"
-              v-model.number="directoryForm.sortOrder"
-              min="0"
-              max="9999"
-            />
-          </div>
-        </form>
+        <el-form name="directoryForm" label-position="top" @submit.prevent="saveDirectory">
+          <el-form-item label="目录名称">
+            <el-input v-model="directoryForm.name" placeholder="请输入目录名称" />
+          </el-form-item>
+          <el-form-item label="排序">
+            <el-input-number v-model="directoryForm.sortOrder" :min="0" :max="9999" :controls="false" />
+          </el-form-item>
+        </el-form>
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="directoryDialogVisible = false"
-          >
+          <el-button @click="directoryDialogVisible = false">
             取消
-          </button>
-          <button type="button" class="btn btn-primary" @click="saveDirectory">
+          </el-button>
+          <el-button type="primary" @click="saveDirectory">
             确定
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="deleteDialogVisible" title="确认删除" size="md">
+    <app-modal v-model="deleteDialogVisible" title="确认删除" size="md">
       <div class="modal-body">
         <p>{{ deleteMessage }}</p>
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="deleteDialogVisible = false"
-          >
+          <el-button @click="deleteDialogVisible = false">
             取消
-          </button>
-          <button type="button" class="btn btn-danger" @click="confirmDelete">
+          </el-button>
+          <el-button type="danger" @click="confirmDelete">
             确认删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="sqlDialogVisible" title="计算 SQL 预览" size="lg">
+    <app-modal v-model="sqlDialogVisible" title="计算 SQL 预览" size="lg">
       <div class="modal-body">
         <div v-if="sqlLoading" class="sql-loading">正在生成 SQL...</div>
         <pre v-else class="sql-code">{{ sqlContent }}</pre>
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="sqlDialogVisible = false"
-          >
+          <el-button @click="sqlDialogVisible = false">
             关闭
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
@@ -1004,21 +971,25 @@
 
 .query-section {
   border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px 16px;
+  background: #fafcff;
 }
 
 .query-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .query-section-header h5 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
+  color: #303133;
 }
 
 .query-fact-tables {
@@ -1068,66 +1039,49 @@
 }
 
 .query-logic {
-  width: 60px;
-  flex-shrink: 0;
-}
-
-.query-logic select {
-  width: 100%;
+  width: 80px;
+  flex: none;
 }
 
 .query-logic.placeholder {
   color: #909399;
   font-size: 13px;
+  text-align: center;
 }
 
 .query-control {
-  height: 32px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  padding: 0 8px;
-  font-size: 13px;
+  flex: 1 1 180px;
   min-width: 150px;
 }
 
-.query-control.operator {
-  min-width: 130px;
+.query-control.metric-select {
+  flex: 1 1 320px;
+  min-width: 240px;
 }
 
-.query-date-picker {
-  width: 220px;
+.query-control.operator {
+  flex: 0 0 120px;
+  min-width: 0;
 }
 
 .query-control.value {
-  min-width: 160px;
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
-.dim-multiselect {
-  min-width: 220px;
+.query-row > .el-button {
+  flex: none;
 }
 
-.dim-multiselect :deep(.btn) {
-  min-width: 220px;
-  max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.dim-check {
-  color: #409eff;
-  margin-right: 6px;
-}
-
-.dim-check-placeholder {
-  display: inline-block;
-  width: 14px;
-  margin-right: 6px;
+.query-date-picker {
+  flex: 0 0 220px;
+  width: 220px;
 }
 
 .query-placeholder {
   color: #c0c4cc;
+  flex: none;
+  padding: 0 4px;
 }
 
 .query-actions {
@@ -1137,7 +1091,7 @@
 
 .query-result {
   border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
 }
 

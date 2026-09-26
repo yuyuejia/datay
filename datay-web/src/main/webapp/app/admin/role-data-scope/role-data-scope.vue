@@ -1,214 +1,105 @@
 <template>
   <div class="role-data-scope-container">
-    <div class="page-header">
-      <h4 class="page-title">数据权限（角色维度成员范围）</h4>
-      <div class="page-header-actions">
-        <button
-          type="button"
-          class="btn btn-primary"
-          :disabled="!selectedRole"
-          @click="openCreate"
-        >
+    <h2 id="page-heading">
+      <span>数据权限（角色维度成员范围）</span>
+      <div class="d-flex align-items-center">
+        <el-button type="primary" :disabled="!selectedRole" @click="openCreate">
           <font-awesome-icon icon="plus" /> 新增范围
-        </button>
+        </el-button>
       </div>
-    </div>
+    </h2>
 
     <div class="toolbar">
-      <label class="toolbar-label">角色</label>
-      <select
-        v-model="selectedRole"
-        class="form-control role-select"
-        @change="loadScopes"
-      >
-        <option value="" disabled>请选择角色</option>
-        <option
-          v-for="authority in authorities"
-          :key="authority.name"
-          :value="authority.name"
-        >
-          {{ authority.name }}
-        </option>
-      </select>
-      <button type="button" class="btn btn-secondary" @click="loadScopes">
-        刷新
-      </button>
+      <span class="toolbar-label">角色</span>
+      <el-select v-model="selectedRole" placeholder="请选择角色" class="role-select" @change="loadScopes">
+        <el-option v-for="authority in authorities" :key="authority.name" :value="authority.name" :label="authority.name" />
+      </el-select>
+      <el-button type="info" @click="loadScopes">刷新</el-button>
     </div>
 
-    <div v-if="selectedRole === adminRole" class="alert alert-warning">
-      ROLE_ADMIN 默认不受数据范围限制，配置的规则不会对管理员生效。
-    </div>
+    <el-alert
+      v-if="selectedRole === adminRole"
+      class="mb-3"
+      type="warning"
+      :closable="false"
+      show-icon
+      title="ROLE_ADMIN 默认不受数据范围限制，配置的规则不会对管理员生效。"
+    />
 
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th scope="col">维度</th>
-          <th scope="col">成员范围</th>
-          <th scope="col" class="text-center">启用</th>
-          <th scope="col">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in scopes" :key="row.id">
-          <td>{{ dimensionName(row.dimensionModelId) }}</td>
-          <td>{{ summarize(row) }}</td>
-          <td class="text-center">
-            <input
-              type="checkbox"
-              :checked="row.enabled"
-              @change="toggleEnabled(row)"
-            />
-          </td>
-          <td>
-            <button
-              type="button"
-              class="btn btn-sm btn-primary mr-2"
-              @click="openEdit(row)"
-            >
-              编辑
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-danger"
-              @click="removeScope(row)"
-            >
-              删除
-            </button>
-          </td>
-        </tr>
-        <tr v-if="scopes.length === 0">
-          <td colspan="4" class="text-center text-muted">
-            {{ selectedRole ? "暂无数据范围，该角色不受限制" : "请先选择角色" }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <el-table :data="scopes" v-loading="loading" style="width: 100%">
+      <el-table-column label="维度" min-width="180">
+        <template #default="{ row }">{{ dimensionName(row.dimensionModelId) }}</template>
+      </el-table-column>
+      <el-table-column label="成员范围" min-width="260">
+        <template #default="{ row }">{{ summarize(row) }}</template>
+      </el-table-column>
+      <el-table-column label="启用" width="100" align="center">
+        <template #default="{ row }">
+          <el-switch :model-value="row.enabled" @change="toggleEnabled(row)" />
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="180">
+        <template #default="{ row }">
+          <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button type="danger" size="small" @click="removeScope(row)">删除</el-button>
+        </template>
+      </el-table-column>
+      <template #empty>
+        <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据范围，该角色不受限制' : '请先选择角色' }}</div>
+      </template>
+    </el-table>
 
-    <div v-if="dialogVisible" class="dialog-overlay">
-      <div class="dialog-box">
-        <div class="dialog-header">
-          {{ form.id ? "编辑数据范围" : "新增数据范围" }}
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label>角色</label>
-            <div class="form-value">{{ form.roleName }}</div>
-          </div>
+    <app-modal v-model="dialogVisible" :title="form.id ? '编辑数据范围' : '新增数据范围'" size="lg">
+      <el-form label-position="top">
+        <el-form-item label="角色">
+          <el-input :model-value="form.roleName || ''" disabled />
+        </el-form-item>
 
-          <div class="form-group">
-            <label>维度</label>
-            <select
-              v-model="form.dimensionModelId"
-              class="form-control"
-              @change="onDimensionChange"
-            >
-              <option value="" disabled>请选择维度模型</option>
-              <option
-                v-for="dimension in dimensions"
-                :key="dimension.id"
-                :value="dimension.id"
-              >
-                {{ dimension.name || dimension.code }}
-              </option>
-            </select>
-          </div>
+        <el-form-item label="维度">
+          <el-select v-model="form.dimensionModelId" placeholder="请选择维度模型" style="width: 100%" @change="onDimensionChange">
+            <el-option v-for="dimension in dimensions" :key="dimension.id" :value="dimension.id" :label="dimension.name || dimension.code" />
+          </el-select>
+        </el-form-item>
 
-          <div class="form-group">
-            <label>成员条件</label>
-            <div
-              v-for="(condition, index) in conditions"
-              :key="index"
-              class="condition-row"
-            >
-              <select
-                v-model="condition.dimensionFieldName"
-                class="form-control condition-field"
-              >
-                <option value="" disabled>字段</option>
-                <option
-                  v-for="field in fields"
-                  :key="field.fieldName"
-                  :value="field.fieldName"
-                >
-                  {{ field.fieldName }}
-                </option>
-              </select>
-              <select
-                v-model="condition.operator"
-                class="form-control condition-operator"
-              >
-                <option
-                  v-for="operator in operators"
-                  :key="operator.value"
-                  :value="operator.value"
-                >
-                  {{ operator.label }}
-                </option>
-              </select>
-              <div class="value-cell">
-                <DimensionValueSelect
-                  :dimension-model-id="form.dimensionModelId"
-                  :field-name="condition.dimensionFieldName"
-                  :model-value="conditionValue(condition)"
-                  :multiple="isMulti(condition.operator)"
-                  :disabled="isUnary(condition.operator)"
-                  :placeholder="valuePlaceholder(condition.operator)"
-                  @update:model-value="
-                    (val) => setConditionValue(condition, val)
-                  "
-                />
-              </div>
-              <div v-if="condition.operator === 'BETWEEN'" class="value-cell">
-                <DimensionValueSelect
-                  :dimension-model-id="form.dimensionModelId"
-                  :field-name="condition.dimensionFieldName"
-                  :model-value="condition.valueEnd ?? ''"
-                  placeholder="结束值"
-                  @update:model-value="
-                    (val) => setConditionValueEnd(condition, val)
-                  "
-                />
-              </div>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger"
-                :disabled="conditions.length <= 1"
-                @click="removeCondition(index)"
-              >
-                删除
-              </button>
+        <el-form-item label="成员条件">
+          <div v-for="(condition, index) in conditions" :key="index" class="condition-row">
+            <el-select v-model="condition.dimensionFieldName" placeholder="字段" class="condition-field">
+              <el-option v-for="field in fields" :key="field.fieldName" :value="field.fieldName" :label="field.fieldName" />
+            </el-select>
+            <el-select v-model="condition.operator" class="condition-operator">
+              <el-option v-for="operator in operators" :key="operator.value" :value="operator.value" :label="operator.label" />
+            </el-select>
+            <div class="value-cell">
+              <DimensionValueSelect
+                :dimension-model-id="form.dimensionModelId"
+                :field-name="condition.dimensionFieldName"
+                :model-value="conditionValue(condition)"
+                :multiple="isMulti(condition.operator)"
+                :disabled="isUnary(condition.operator)"
+                :placeholder="valuePlaceholder(condition.operator)"
+                @update:model-value="(val) => setConditionValue(condition, val)"
+              />
             </div>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-primary"
-              @click="addCondition"
-            >
-              + 添加 OR 条件
-            </button>
-            <div class="condition-hint">
-              同一维度内多个条件为 OR 关系；不同维度之间为 AND 关系。
+            <div v-if="condition.operator === 'BETWEEN'" class="value-cell">
+              <DimensionValueSelect
+                :dimension-model-id="form.dimensionModelId"
+                :field-name="condition.dimensionFieldName"
+                :model-value="condition.valueEnd ?? ''"
+                placeholder="结束值"
+                @update:model-value="(val) => setConditionValueEnd(condition, val)"
+              />
             </div>
+            <el-button type="danger" plain size="small" :disabled="conditions.length <= 1" @click="removeCondition(index)">删除</el-button>
           </div>
-        </div>
-        <div class="dialog-footer">
-          <button
-            type="button"
-            class="btn btn-secondary mr-2"
-            @click="dialogVisible = false"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="saving"
-            @click="submit"
-          >
-            保存
-          </button>
-        </div>
-      </div>
-    </div>
+          <el-button type="primary" plain size="small" @click="addCondition">+ 添加 OR 条件</el-button>
+          <div class="condition-hint">同一维度内多个条件为 OR 关系；不同维度之间为 AND 关系。</div>
+        </el-form-item>
+      </el-form>
+      <template #modal-footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="saving" @click="submit">保存</el-button>
+      </template>
+    </app-modal>
   </div>
 </template>
 
@@ -218,11 +109,7 @@ import { onMounted, ref } from "vue";
 import RoleDataScopeService from "./role-data-scope.service";
 import DimensionValueSelect from "@/components/DimensionValueSelect.vue";
 import { useAlertService } from "@/shared/alert/alert.service";
-import {
-  type IRoleDataScope,
-  type IRoleScopeCondition,
-  type IRoleScopeFilterConfig,
-} from "@/shared/model/role-data-scope.model";
+import { type IRoleDataScope, type IRoleScopeCondition, type IRoleScopeFilterConfig } from "@/shared/model/role-data-scope.model";
 
 const adminRole = "ROLE_ADMIN";
 
@@ -254,16 +141,14 @@ const saving = ref(false);
 const dialogVisible = ref(false);
 const form = ref<IRoleDataScope>({});
 const conditions = ref<IRoleScopeCondition[]>([]);
-const errorMessage = (error: any, fallback: string) =>
-  error?.response?.data?.message || error?.response?.data?.detail || fallback;
+const errorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.response?.data?.detail || fallback;
 
 const dimensionName = (id?: number) => {
   const dimension = dimensions.value.find((item) => item.id === id);
   return dimension ? dimension.name || dimension.code : id ? `#${id}` : "";
 };
 
-const isUnary = (operator?: string) =>
-  operators.find((item) => item.value === operator)?.unary === true;
+const isUnary = (operator?: string) => operators.find((item) => item.value === operator)?.unary === true;
 
 const valuePlaceholder = (operator?: string) => {
   if (isUnary(operator)) {
@@ -282,9 +167,7 @@ const summarize = (row: IRoleDataScope) => {
   }
   return config.conditions
     .map((condition) => {
-      const label =
-        operators.find((item) => item.value === condition.operator)?.label ??
-        condition.operator;
+      const label = operators.find((item) => item.value === condition.operator)?.label ?? condition.operator;
       if (isUnary(condition.operator)) {
         return `${condition.dimensionFieldName} ${label}`;
       }
@@ -347,8 +230,7 @@ const loadFields = async (dimensionModelId?: number) => {
   }
 };
 
-const isMulti = (operator?: string) =>
-  operator === "IN" || operator === "NOT_IN";
+const isMulti = (operator?: string) => operator === "IN" || operator === "NOT_IN";
 
 const parseList = (value?: string) =>
   value
@@ -359,32 +241,18 @@ const parseList = (value?: string) =>
     : [];
 
 const conditionValue = (condition: IRoleScopeCondition) =>
-  isMulti(condition.operator)
-    ? parseList(condition.value)
-    : (condition.value ?? "");
+  isMulti(condition.operator) ? parseList(condition.value) : (condition.value ?? "");
 
-const setConditionValue = (
-  condition: IRoleScopeCondition,
-  value: string | string[],
-) => {
+const setConditionValue = (condition: IRoleScopeCondition, value: string | string[]) => {
   if (isMulti(condition.operator)) {
-    condition.value = Array.isArray(value)
-      ? value.join(",")
-      : String(value ?? "");
+    condition.value = Array.isArray(value) ? value.join(",") : String(value ?? "");
   } else {
-    condition.value = Array.isArray(value)
-      ? (value[0] ?? "")
-      : String(value ?? "");
+    condition.value = Array.isArray(value) ? (value[0] ?? "") : String(value ?? "");
   }
 };
 
-const setConditionValueEnd = (
-  condition: IRoleScopeCondition,
-  value: string | string[],
-) => {
-  condition.valueEnd = Array.isArray(value)
-    ? (value[0] ?? "")
-    : String(value ?? "");
+const setConditionValueEnd = (condition: IRoleScopeCondition, value: string | string[]) => {
+  condition.valueEnd = Array.isArray(value) ? (value[0] ?? "") : String(value ?? "");
 };
 
 const newCondition = (): IRoleScopeCondition => ({
@@ -409,9 +277,7 @@ const openEdit = (row: IRoleDataScope) => {
   form.value = { ...row };
   const config = parseConfig(row.filterConfig);
   conditions.value =
-    config.conditions && config.conditions.length > 0
-      ? config.conditions.map((condition) => ({ ...condition }))
-      : [newCondition()];
+    config.conditions && config.conditions.length > 0 ? config.conditions.map((condition) => ({ ...condition })) : [newCondition()];
   fields.value = [];
   dialogVisible.value = true;
   loadFields(row.dimensionModelId);
@@ -435,9 +301,7 @@ const submit = async () => {
     alertService.showWarning("请选择维度模型");
     return;
   }
-  const validConditions = conditions.value.filter(
-    (condition) => condition.dimensionFieldName && condition.operator,
-  );
+  const validConditions = conditions.value.filter((condition) => condition.dimensionFieldName && condition.operator);
   if (validConditions.length === 0) {
     alertService.showWarning("请至少配置一条有效的成员条件");
     return;
@@ -505,18 +369,7 @@ onMounted(async () => {
 
 <style scoped>
 .role-data-scope-container {
-  padding: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.page-title {
-  margin: 0;
+  padding: 8px 0;
 }
 
 .toolbar {
@@ -529,61 +382,11 @@ onMounted(async () => {
 .toolbar-label {
   margin: 0;
   white-space: nowrap;
+  color: #606266;
 }
 
 .role-select {
   width: 280px;
-}
-
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 60px 16px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.dialog-box {
-  width: 100%;
-  max-width: 680px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.dialog-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
-  font-weight: 600;
-}
-
-.dialog-body {
-  max-height: 60vh;
-  overflow-y: auto;
-  padding: 16px;
-}
-
-.dialog-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #e9ecef;
-  text-align: right;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-group > label {
-  display: block;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.form-value {
-  padding-top: 6px;
 }
 
 .condition-row {
@@ -591,19 +394,20 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  width: 100%;
 }
 
 .condition-field {
-  width: 150px;
+  width: 160px;
 }
 
 .condition-operator {
-  width: 120px;
+  width: 130px;
 }
 
 .value-cell {
-  width: 160px;
-  flex: none;
+  flex: 1;
+  min-width: 160px;
 }
 
 .condition-hint {

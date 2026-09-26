@@ -1,8 +1,7 @@
-// The Vue build version to load with the `import` command
-// (runtime-only or standalone) has been set in webpack.common with an alias.
-import Vue, { computed, createApp, provide } from 'vue';
+import { computed, createApp, h, provide } from 'vue';
 import { createPinia, storeToRefs } from 'pinia';
 import ElementPlus from 'element-plus';
+import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import 'element-plus/dist/index.css';
 
 import App from './app.vue';
@@ -11,7 +10,7 @@ import { useStore } from '@/store';
 import { setupAxiosInterceptors } from '@/shared/config/axios-interceptor';
 
 import { initFortAwesome } from '@/shared/config/config';
-import { initBootstrapVue } from '@/shared/config/config-bootstrap-vue';
+import AppModal from '@/shared/ui/AppModal.vue';
 import JhiItemCountComponent from '@/shared/jhi-item-count.vue';
 import JhiSortIndicatorComponent from '@/shared/sort/jhi-sort-indicator.vue';
 import { useLoginModal } from '@/account/login-modal';
@@ -24,41 +23,7 @@ const pinia = createPinia();
 
 // jhipster-needle-add-entity-service-to-main-import - JHipster will import entities services here
 
-initBootstrapVue(Vue);
-
-Vue.configureCompat({
-  MODE: 2,
-  ATTR_FALSE_VALUE: 'suppress-warning',
-  COMPONENT_FUNCTIONAL: 'suppress-warning',
-  COMPONENT_V_MODEL: 'suppress-warning',
-  CONFIG_OPTION_MERGE_STRATS: 'suppress-warning',
-  CONFIG_WHITESPACE: 'suppress-warning',
-  CUSTOM_DIR: 'suppress-warning',
-  GLOBAL_EXTEND: 'suppress-warning',
-  GLOBAL_MOUNT: 'suppress-warning',
-  GLOBAL_PRIVATE_UTIL: 'suppress-warning',
-  GLOBAL_PROTOTYPE: 'suppress-warning',
-  GLOBAL_SET: 'suppress-warning',
-  INSTANCE_ATTRS_CLASS_STYLE: 'suppress-warning',
-  INSTANCE_CHILDREN: 'suppress-warning',
-  INSTANCE_DELETE: 'suppress-warning',
-  INSTANCE_DESTROY: 'suppress-warning',
-  INSTANCE_EVENT_EMITTER: 'suppress-warning',
-  INSTANCE_EVENT_HOOKS: 'suppress-warning',
-  INSTANCE_LISTENERS: 'suppress-warning',
-  INSTANCE_SCOPED_SLOTS: 'suppress-warning',
-  INSTANCE_SET: 'suppress-warning',
-  OPTIONS_BEFORE_DESTROY: 'suppress-warning',
-  OPTIONS_DATA_MERGE: 'suppress-warning',
-  OPTIONS_DESTROYED: 'suppress-warning',
-  RENDER_FUNCTION: 'suppress-warning',
-  WATCH_ARRAY: 'suppress-warning',
-  PRIVATE_APIS: 'suppress-warning',
-});
-
 const app = createApp({
-  compatConfig: { MODE: 3 },
-  components: { App },
   setup() {
     const { showLogin } = useLoginModal();
     const store = useStore();
@@ -126,7 +91,7 @@ const app = createApp({
     provide('accountService', accountService);
     // jhipster-needle-add-entity-service-to-main - JHipster will import entities services here
   },
-  template: '<App/>',
+  render: () => h(App),
 });
 
 initFortAwesome(app);
@@ -134,7 +99,8 @@ initFortAwesome(app);
 app
   .component('jhi-item-count', JhiItemCountComponent)
   .component('jhi-sort-indicator', JhiSortIndicatorComponent)
+  .component('AppModal', AppModal)
   .use(router)
   .use(pinia)
-  .use(ElementPlus)
+  .use(ElementPlus, { locale: zhCn })
   .mount('#app');

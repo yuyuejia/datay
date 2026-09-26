@@ -99,14 +99,9 @@
           <span class="dashboard-design-hint"
             >Enter 发送 / Shift+Enter 换行</span
           >
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            :disabled="generating"
-            @click="send"
-          >
+          <el-button type="primary" size="small" :disabled="generating" @click="send">
             {{ generating ? "生成中…" : "生成看板" }}
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -150,7 +145,7 @@
       <el-empty v-else description="在左侧描述需求，AI 将在这里生成看板预览" />
     </div>
 
-    <b-modal
+    <app-modal
       ref="saveModal"
       title="保存看板"
       size="md"
@@ -180,9 +175,9 @@
           ></textarea>
         </div>
       </div>
-    </b-modal>
+    </app-modal>
 
-    <b-modal
+    <app-modal
       v-model="specJsonVisible"
       title="看板定义 JSON"
       size="lg"
@@ -206,7 +201,7 @@
         class="dashboard-design-json"
         spellcheck="false"
       ></textarea>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

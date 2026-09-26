@@ -7,35 +7,20 @@
     >
       <span id="sql-job-heading">SQL 任务</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 280px"
-          v-model="search"
-          placeholder="按名称搜索"
-        />
-        <button
-          class="btn btn-info mr-2"
-          @click="handleSyncList"
-          :disabled="isFetching"
-        >
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称搜索" clearable/>
+        <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span>刷新</span>
-        </button>
+        </el-button>
         <router-link
           :to="{ name: 'SqlJobCreate' }"
           custom
           v-slot="{ navigate }"
         >
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-sql-job"
-          >
+          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-sql-job">
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>新建 SQL 任务</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
@@ -156,7 +141,6 @@
                 size="small"
                 @click="prepareRemove(scope.row)"
                 data-cy="entityDeleteButton"
-                v-b-modal.removeEntity
               >
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
@@ -165,7 +149,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span data-cy="sqlJobDeleteDialogHeading">确认删除</span>
       </template>
@@ -174,39 +158,27 @@
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="closeDialog()"
-          >
+          <el-button @click="closeDialog()">
             取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            data-cy="entityConfirmDeleteButton"
-            @click="removeSqlJob()"
-          >
+          </el-button>
+          <el-button type="primary" data-cy="entityConfirmDeleteButton" @click="removeSqlJob()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
     <div v-show="sqlJobs && sqlJobs.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count
-          :page="page"
-          :total="queryCount"
-          :items-per-page="itemsPerPage"
-        ></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination
-          size="md"
-          :total-rows="totalItems"
-          v-model="page"
-          :per-page="itemsPerPage"
-        ></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>

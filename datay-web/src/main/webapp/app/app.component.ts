@@ -9,7 +9,6 @@ import { useStore } from "@/store";
 import "@/shared/config/dayjs";
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "App",
   components: {
     ribbon: Ribbon,

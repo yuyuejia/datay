@@ -1,113 +1,63 @@
 <template>
   <div class="role-management-container">
-    <div class="page-header">
-      <h4 class="page-title">角色管理</h4>
-      <div class="page-header-actions">
-        <button type="button" class="btn btn-secondary mr-2" @click="load">
-          刷新
-        </button>
-        <button type="button" class="btn btn-primary" @click="openCreate">
+    <h2 id="page-heading">
+      <span>角色管理</span>
+      <div class="d-flex align-items-center">
+        <el-button type="info" class="mr-2" @click="load">刷新</el-button>
+        <el-button type="primary" @click="openCreate">
           <font-awesome-icon icon="plus" /> 新增角色
-        </button>
+        </el-button>
       </div>
-    </div>
+    </h2>
 
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th scope="col">角色名</th>
-          <th scope="col">描述</th>
-          <th scope="col">类型</th>
-          <th scope="col" class="text-right">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="role in roles" :key="role.name">
-          <td>
-            <code>{{ role.name }}</code>
-          </td>
-          <td>{{ role.description || "-" }}</td>
-          <td>
-            <span
-              class="badge"
-              :class="isBuiltIn(role.name) ? 'badge-secondary' : 'badge-info'"
-            >
-              {{ isBuiltIn(role.name) ? "内置" : "自定义" }}
-            </span>
-          </td>
-          <td class="text-right">
-            <button
-              type="button"
-              class="btn btn-sm btn-primary mr-2"
-              @click="openEdit(role)"
-            >
-              编辑
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-danger"
-              :disabled="isBuiltIn(role.name)"
-              :title="isBuiltIn(role.name) ? '内置角色不可删除' : ''"
-              @click="removeRole(role)"
-            >
-              删除
-            </button>
-          </td>
-        </tr>
-        <tr v-if="roles.length === 0">
-          <td colspan="4" class="text-center text-muted">暂无角色</td>
-        </tr>
-      </tbody>
-    </table>
+    <el-table :data="roles" style="width: 100%">
+      <el-table-column label="角色名" min-width="200">
+        <template #default="{ row }">
+          <code>{{ row.name }}</code>
+        </template>
+      </el-table-column>
+      <el-table-column label="描述" min-width="220">
+        <template #default="{ row }">{{ row.description || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="类型" width="110">
+        <template #default="{ row }">
+          <el-tag :type="isBuiltIn(row.name) ? 'info' : 'primary'" size="small">{{ isBuiltIn(row.name) ? '内置' : '自定义' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="180">
+        <template #default="{ row }">
+          <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button
+            type="danger"
+            size="small"
+            :disabled="isBuiltIn(row.name)"
+            :title="isBuiltIn(row.name) ? '内置角色不可删除' : ''"
+            @click="removeRole(row)"
+          >
+            删除
+          </el-button>
+        </template>
+      </el-table-column>
+      <template #empty>
+        <div class="text-center text-muted py-4">暂无角色</div>
+      </template>
+    </el-table>
 
-    <div v-if="dialogVisible" class="dialog-overlay">
-      <div class="dialog-box">
-        <div class="dialog-header">
-          {{ editing ? "编辑角色" : "新增角色" }}
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label>角色名</label>
-            <input
-              v-model="form.name"
-              type="text"
-              class="form-control"
-              :disabled="editing"
-              placeholder="如：REGION_EAST"
-            />
-            <div v-if="!editing" class="field-hint">
-              将自动补全为 <code>ROLE_</code> 前缀并转为大写
-            </div>
-          </div>
-          <div class="form-group">
-            <label>描述</label>
-            <input
-              v-model="form.description"
-              type="text"
-              class="form-control"
-              placeholder="角色用途说明"
-            />
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button
-            type="button"
-            class="btn btn-secondary mr-2"
-            @click="dialogVisible = false"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="saving"
-            @click="submit"
-          >
-            {{ saving ? "保存中..." : "保存" }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <app-modal v-model="dialogVisible" :title="editing ? '编辑角色' : '新增角色'" size="md">
+      <el-form label-position="top">
+        <el-form-item label="角色名">
+          <el-input v-model="form.name" :disabled="editing" placeholder="如：REGION_EAST" />
+          <div v-if="!editing" class="field-hint">将自动补全为 <code>ROLE_</code> 前缀并转为大写</div>
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="form.description" placeholder="角色用途说明" />
+        </el-form-item>
+      </el-form>
+      <template #modal-footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="saving" @click="submit">{{ saving ? '保存中...' : '保存' }}</el-button>
+      </template>
+    </app-modal>
   </div>
 </template>
 
@@ -129,8 +79,7 @@ const editing = ref(false);
 const saving = ref(false);
 const form = ref<IAuthority>({});
 
-const isBuiltIn = (name?: string) =>
-  name !== undefined && BUILT_IN_ROLES.includes(name);
+const isBuiltIn = (name?: string) => name !== undefined && BUILT_IN_ROLES.includes(name);
 
 const errorMessage = (error: any, fallback: string) => {
   const data = error?.response?.data;
@@ -229,68 +178,12 @@ onMounted(load);
 
 <style scoped>
 .role-management-container {
-  padding: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.page-title {
-  margin: 0;
+  padding: 8px 0;
 }
 
 .field-hint {
   margin-top: 4px;
   color: #909399;
   font-size: 12px;
-}
-
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 60px 16px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.dialog-box {
-  width: 100%;
-  max-width: 520px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.dialog-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
-  font-weight: 600;
-}
-
-.dialog-body {
-  padding: 16px;
-}
-
-.dialog-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #e9ecef;
-  text-align: right;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-group > label {
-  display: block;
-  margin-bottom: 4px;
-  font-weight: 500;
 }
 </style>

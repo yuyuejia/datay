@@ -1,34 +1,32 @@
 <template>
   <div class="input-group">
-    <!-- 输入框，显示选中信息，点击可打开模态框 -->
-    <input type="text" class="form-control" v-model="showName" readonly @click="showModal = true" />
-    <!-- 按钮，点击可打开模态框 -->
-    <button type="button" class="btn btn-outline-secondary" @click="showModal = true">选择</button>
-    <b-modal v-model="showModal" id="dataSourceModal" :title="modalTitle">
+    <!-- 输入框（带“选择”按钮），点击可打开模态框 -->
+    <el-input v-model="showName" readonly placeholder="请选择数据源" @click="showModal = true">
+      <template #append>
+        <el-button @click="showModal = true">选择</el-button>
+      </template>
+    </el-input>
+    <app-modal v-model="showModal" id="dataSourceModal" :title="modalTitle">
       <div class="modal-body">
-        <form name="editForm" novalidate>
+        <el-form name="editForm" label-width="90px">
           <!-- 数据源类型选择（仅在未传入 dataSourceType 时显示） -->
-          <div v-if="!props.dataSourceType" class="form-group">
-            <label for="dataSourceType" class="form-control-label">数据源类型</label>
-            <select class="form-control" v-model="selectedDataSourceType" @change="filterDataSources">
-              <option value="">所有类型</option>
-              <option v-for="type in dataSourceTypes" :key="type" :value="type">{{ type }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="model" class="form-control-label">数据源</label>
-            <select class="form-control" v-model="selectedDataSource" @change="fetchSchemas">
-              <option v-for="source in filteredDataSources" :key="source.id" :value="source.id">{{ source.name }}</option>
-            </select>
-          </div>
+          <el-form-item v-if="!props.dataSourceType" label="数据源类型">
+            <el-select v-model="selectedDataSourceType" placeholder="所有类型" style="width: 100%" @change="filterDataSources">
+              <el-option v-for="type in dataSourceTypes" :key="type" :value="type" :label="type" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="数据源">
+            <el-select v-model="selectedDataSource" placeholder="请选择数据源" style="width: 100%" @change="fetchSchemas">
+              <el-option v-for="source in filteredDataSources" :key="source.id" :value="source.id" :label="source.name" />
+            </el-select>
+          </el-form-item>
           <!-- Schema 选择 -->
-          <div class="form-group">
-            <label for="schema" class="form-control-label">Schema</label>
-            <select class="form-control" v-model="selectedSchema" :disabled="!selectedDataSource">
-              <option v-for="schema in schemas" :key="schema" :value="schema">{{ schema }}</option>
-            </select>
-          </div>
-        </form>
+          <el-form-item label="Schema">
+            <el-select v-model="selectedSchema" placeholder="请选择 Schema" style="width: 100%" :disabled="!selectedDataSource">
+              <el-option v-for="schema in schemas" :key="schema" :value="schema" :label="schema" />
+            </el-select>
+          </el-form-item>
+        </el-form>
       </div>
       <template #modal-footer>
         <div>
@@ -36,7 +34,7 @@
           <el-button type="primary" @click="confirmSelection">确认</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
@@ -144,12 +142,6 @@ const updateShowName = () => {
   if (selectDB) {
     showName.value = selectDB.name + ' - ' + selectedSchema.value;
   }
-};
-
-// 根据数据源 ID 获取数据源名称
-const getDataSourceName = (id: number) => {
-  const source = dataSources.value.find(item => item.id === id);
-  return source ? source.name : '';
 };
 </script>
 

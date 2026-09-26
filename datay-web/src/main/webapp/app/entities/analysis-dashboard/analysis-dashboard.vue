@@ -7,13 +7,7 @@
     >
       <span id="analysis-dashboard-heading">分析看板</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 260px"
-          v-model="search"
-          placeholder="按名称 / 编码 / 描述搜索"
-        />
+        <el-input class="mr-2" style="width: 260px" v-model="search" placeholder="按名称 / 编码 / 描述搜索" clearable/>
         <el-button type="primary" @click="design()">
           <font-awesome-icon
             icon="wand-magic-sparkles"
@@ -62,25 +56,16 @@
         <el-table-column label="操作" fixed="right" width="340">
           <template #default="scope">
             <div class="btn-group">
-              <el-button
-                class="btn btn-primary btn-sm"
-                @click="openInNewTab(scope.row)"
-              >
+              <el-button type="primary" size="small" @click="openInNewTab(scope.row)">
                 <span class="d-none d-md-inline">新页签打开</span>
               </el-button>
-              <el-button class="btn btn-info btn-sm" @click="design(scope.row)">
+              <el-button type="info" size="small" @click="design(scope.row)">
                 <span class="d-none d-md-inline">重新设计</span>
               </el-button>
-              <el-button
-                class="btn btn-warning btn-sm"
-                @click="rename(scope.row)"
-              >
+              <el-button type="warning" size="small" @click="rename(scope.row)">
                 <span class="d-none d-md-inline">重命名</span>
               </el-button>
-              <el-button
-                class="btn btn-danger btn-sm"
-                @click="prepareRemove(scope.row)"
-              >
+              <el-button type="danger" size="small" @click="prepareRemove(scope.row)">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -89,7 +74,7 @@
       </el-table>
     </div>
 
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span>确认删除</span>
       </template>
@@ -98,23 +83,15 @@
       </div>
       <template #modal-footer>
         <div>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="closeDialog()"
-          >
+          <el-button @click="closeDialog()">
             取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            @click="removeDashboard()"
-          >
+          </el-button>
+          <el-button type="primary" @click="removeDashboard()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

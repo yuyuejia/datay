@@ -4,7 +4,6 @@ import LogsService from './logs.service';
 import { orderAndFilterBy } from '@/shared/computables';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiLogs',
   setup() {
     const logsService = inject('logsService', () => new LogsService(), true);

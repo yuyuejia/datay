@@ -12,7 +12,6 @@ import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
 import etlComponentComponent from '../etl-component/etl-component.component';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ETLTaskUpdate',
   components: {
     CronExpressionSelector,

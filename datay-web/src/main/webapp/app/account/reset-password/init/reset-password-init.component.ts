@@ -19,7 +19,6 @@ interface ResetAccount {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ResetPasswordInit',
   validations,
   setup() {

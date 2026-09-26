@@ -1,10 +1,9 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 日志级别选择 -->
-      <!-- <div class="form-group">
-        <label for="logLevel">日志级别</label>
-        <el-select
+      <!-- <el-form-item label="日志级别">
+      <el-select
           v-model="formData.logLevel"
           placeholder="请选择日志级别"
           style="width: 100%"
@@ -15,12 +14,11 @@
           <el-option label="ERROR" value="ERROR" />
         </el-select>
         <span class="help-text">设置日志记录的详细程度</span>
-      </div> -->
+    </el-form-item> -->
 
       <!-- 记录选项 -->
-      <!-- <div class="form-group">
-        <label>记录选项</label>
-        <div class="checkbox-group">
+      <!-- <el-form-item label="记录选项">
+      <div class="checkbox-group">
           <el-checkbox v-model="formData.logDataContent">记录数据内容</el-checkbox>
           <span class="help-text">是否记录FlowFile的数据内容</span>
         </div>
@@ -39,21 +37,21 @@
           <el-checkbox v-model="formData.logTimestamp">记录时间戳</el-checkbox>
           <span class="help-text">是否记录时间戳信息</span>
         </div>
-      </div> -->
+    </el-form-item> -->
 
       <!-- 最大数据记录长度 -->
-      <div class="form-group">
-        <label for="maxDataLength">最大数据记录长度</label>
-        <input type="number" class="form-control" id="maxDataLength" name="maxDataLength" v-model="formData.maxDataLength" />
+      <el-form-item label="最大数据记录长度">
+      <el-input-number :controls="false"  id="maxDataLength" name="maxDataLength" v-model="formData.maxDataLength" />
         <span class="help-text">设置记录数据内容的最大长度，避免日志过大</span>
-      </div>
+    </el-form-item>
     </div>
-  </form>
+  </el-form>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
+import { ElMessage } from 'element-plus';
 
 const props = defineProps({
   node: Object,

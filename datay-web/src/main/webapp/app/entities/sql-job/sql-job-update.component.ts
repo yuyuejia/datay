@@ -34,7 +34,6 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { format } from "sql-formatter";
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "SqlJobUpdate",
   components: {
     CronExpressionSelector,

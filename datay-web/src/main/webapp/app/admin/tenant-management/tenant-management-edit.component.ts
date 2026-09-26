@@ -20,7 +20,6 @@ const validations: any = {
 };
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'JhiTenantManagementEdit',
   validations,
   setup() {

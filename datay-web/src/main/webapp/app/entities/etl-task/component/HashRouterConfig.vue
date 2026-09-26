@@ -1,18 +1,10 @@
 <template>
-  <form name="editForm" novalidate>
-    <div class="form-group">
-      <label for="hashKey">哈希属性名</label>
-      <input
-        type="text"
-        class="form-control"
-        id="hashKey"
-        name="hashKey"
-        v-model="formData.hashKey"
-        placeholder="请输入用于路由的FlowFile属性名"
-      />
+  <el-form name="editForm" label-position="top">
+    <el-form-item label="哈希属性名">
+      <el-input id="hashKey" name="hashKey" v-model="formData.hashKey" placeholder="请输入用于路由的FlowFile属性名" />
       <small class="form-text text-muted"> 根据该属性值进行哈希路由，将数据分发到不同下游 </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

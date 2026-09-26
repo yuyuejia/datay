@@ -1,24 +1,24 @@
 <template>
   <div class="input-group">
     <!-- 输入框，显示选中的模型，点击可打开模态框 -->
-    <input type="text" class="form-control" v-model="showName" readonly @click="showModal = true" />
-    <button type="button" class="btn btn-outline-secondary" @click="showModal = true">选择</button>
-    <b-modal v-model="showModal" id="dataModelModal" title="选择数据模型">
+    <el-input v-model="showName" readonly placeholder="请选择数据模型" @click="showModal = true" />
+    <el-button plain @click="showModal = true">选择</el-button>
+    <app-modal v-model="showModal" id="dataModelModal" title="选择数据模型">
       <div class="modal-body">
-        <form name="editForm" novalidate>
-          <div class="form-group">
-            <label for="modelSearch" class="form-control-label">搜索</label>
-            <input id="modelSearch" v-model="searchQuery" type="text" class="form-control" placeholder="按模型名称 / 编码搜索" />
-          </div>
-          <div class="form-group">
-            <label for="modelSelect" class="form-control-label">数据模型</label>
-            <select id="modelSelect" v-model="selectedModelId" class="form-control">
-              <option :value="null">请选择数据模型</option>
-              <option v-for="model in filteredModels" :key="model.id" :value="model.id">
-                {{ model.name }}{{ model.code ? '（' + model.code + '）' : '' }}
-              </option>
-            </select>
-          </div>
+        <el-form name="editForm" label-width="80px">
+          <el-form-item label="搜索">
+            <el-input v-model="searchQuery" placeholder="按模型名称 / 编码搜索" clearable />
+          </el-form-item>
+          <el-form-item label="数据模型">
+            <el-select v-model="selectedModelId" placeholder="请选择数据模型" style="width: 100%">
+              <el-option
+                v-for="model in filteredModels"
+                :key="model.id"
+                :value="model.id"
+                :label="model.name + (model.code ? '（' + model.code + '）' : '')"
+              />
+            </el-select>
+          </el-form-item>
           <div v-if="selectedModel" class="model-preview">
             <div class="model-preview-item">
               <span class="model-preview-label">目标数据源</span>
@@ -33,7 +33,7 @@
               <span class="model-preview-value">{{ selectedModel.tableName || '未绑定' }}</span>
             </div>
           </div>
-        </form>
+        </el-form>
       </div>
       <template #modal-footer>
         <div>
@@ -41,7 +41,7 @@
           <el-button type="primary" @click="confirmSelection">确认</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

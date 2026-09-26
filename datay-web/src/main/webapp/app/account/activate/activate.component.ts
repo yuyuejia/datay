@@ -4,7 +4,6 @@ import ActivateService from './activate.service';
 import { useLoginModal } from '@/account/login-modal';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   setup() {
     const activateService = inject('activateService', () => new ActivateService(), true);
     const { showLogin } = useLoginModal();

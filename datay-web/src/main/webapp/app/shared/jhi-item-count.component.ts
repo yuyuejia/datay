@@ -1,7 +1,6 @@
 import { computed, defineComponent } from 'vue';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   props: {
     page: Number,
     total: Number,

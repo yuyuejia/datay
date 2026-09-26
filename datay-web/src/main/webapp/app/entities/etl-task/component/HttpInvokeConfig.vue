@@ -1,68 +1,54 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div class="curl-import">
       <el-button size="small" @click="showCurlImport = !showCurlImport">
         {{ showCurlImport ? '收起 cURL 导入' : '从 cURL 导入' }}
       </el-button>
       <span class="curl-import-tip">粘贴 cURL 命令，自动填充请求地址、方法、请求头和请求体</span>
       <div v-if="showCurlImport" class="curl-import-panel">
-        <textarea
-          class="form-control"
-          v-model="curlText"
-          :rows="4"
-          placeholder="例如: curl -X POST 'https://api.example.com/users' -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;tom&quot;}'"
-        ></textarea>
+        <el-input type="textarea" v-model="curlText" :rows="4" placeholder="例如: curl -X POST 'https://api.example.com/users' -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;tom&quot;}'" />
         <div class="curl-import-actions">
           <el-button type="primary" size="small" @click="applyCurl">解析并填充</el-button>
           <el-button size="small" @click="clearCurlImport">取消</el-button>
         </div>
       </div>
     </div>
-    <div class="form-group">
-      <label for="url">请求URL</label>
-      <input type="text" class="form-control" id="url" name="url" v-model="formData.url" placeholder="请输入HTTP请求URL" required />
-    </div>
-    <div class="form-group">
-      <label for="method">请求方法</label>
-      <select class="form-control" v-model="formData.method">
-        <option value="GET">GET</option>
-        <option value="POST">POST</option>
-        <option value="PUT">PUT</option>
-        <option value="PATCH">PATCH</option>
-        <option value="DELETE">DELETE</option>
-        <option value="HEAD">HEAD</option>
-      </select>
-    </div>
-    <div class="form-group" v-if="hasBody">
-      <label for="body">请求体</label>
-      <textarea class="form-control" id="body" name="body" v-model="formData.body" :rows="4" placeholder='请输入JSON格式的请求体'></textarea>
-    </div>
-    <div class="form-group">
-      <label for="headers">请求头</label>
-      <textarea class="form-control" id="headers" name="headers" v-model="formData.headersText" :rows="3" placeholder='JSON格式，如: {"Authorization": "Bearer token"}'></textarea>
-    </div>
-    <div class="form-group">
-      <label for="jsonPath">JSON路径提取</label>
-      <input type="text" class="form-control" id="jsonPath" name="jsonPath" v-model="formData.jsonPath" placeholder="从JSON响应中提取字段路径，如 $.data.items" />
+    <el-form-item label="请求URL">
+      <el-input id="url" name="url" v-model="formData.url" placeholder="请输入HTTP请求URL" required />
+    </el-form-item>
+    <el-form-item label="请求方法">
+      <el-select v-model="formData.method">
+            <el-option value="GET" label="GET" />
+            <el-option value="POST" label="POST" />
+            <el-option value="PUT" label="PUT" />
+            <el-option value="PATCH" label="PATCH" />
+            <el-option value="DELETE" label="DELETE" />
+            <el-option value="HEAD" label="HEAD" />
+          </el-select>
+    </el-form-item>
+    <el-form-item v-if="hasBody" label="请求体">
+      <el-input type="textarea" id="body" name="body" v-model="formData.body" :rows="4" placeholder='请输入JSON格式的请求体' />
+    </el-form-item>
+    <el-form-item label="请求头">
+      <el-input type="textarea" id="headers" name="headers" v-model="formData.headersText" :rows="3" placeholder='JSON格式，如: {"Authorization": "Bearer token"}' />
+    </el-form-item>
+    <el-form-item label="JSON路径提取">
+      <el-input id="jsonPath" name="jsonPath" v-model="formData.jsonPath" placeholder="从JSON响应中提取字段路径，如 $.data.items" />
       <small class="form-text text-muted"> 用于从JSON响应中提取特定字段 </small>
-    </div>
-    <div class="form-group">
-      <label for="timeout">超时时间 (ms)</label>
-      <input type="number" class="form-control" id="timeout" name="timeout" v-model.number="formData.timeout" :min="1000" />
-    </div>
-    <div class="form-group">
-      <label for="retryCount">重试次数</label>
-      <input type="number" class="form-control" id="retryCount" name="retryCount" v-model.number="formData.retryCount" :min="0" :max="10" />
-    </div>
-    <div class="form-group">
-      <label for="retryInterval">重试间隔 (ms)</label>
-      <input type="number" class="form-control" id="retryInterval" name="retryInterval" v-model.number="formData.retryInterval" :min="100" />
-    </div>
-    <div class="form-group">
-      <label for="sslVerify">启用SSL证书验证</label>
+    </el-form-item>
+    <el-form-item label="超时时间 (ms)">
+      <el-input-number :controls="false"  id="timeout" name="timeout" v-model="formData.timeout" ::min="1000" />
+    </el-form-item>
+    <el-form-item label="重试次数">
+      <el-input-number :controls="false"  id="retryCount" name="retryCount" v-model="formData.retryCount" ::min="0" ::max="10" />
+    </el-form-item>
+    <el-form-item label="重试间隔 (ms)">
+      <el-input-number :controls="false"  id="retryInterval" name="retryInterval" v-model="formData.retryInterval" ::min="100" />
+    </el-form-item>
+    <el-form-item label="启用SSL证书验证">
       <el-switch v-model="formData.sslVerify" />
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

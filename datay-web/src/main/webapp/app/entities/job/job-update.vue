@@ -1,155 +1,56 @@
 <template>
   <div class="row justify-content-center">
     <div class="col-8">
-      <form name="editForm" novalidate @submit.prevent="save()">
+      <el-form name="editForm" label-width="160px" @submit.prevent="save()">
         <h2 id="datafusionApp.job.home.createOrEditLabel" data-cy="JobCreateUpdateHeading">创建或编辑 Job</h2>
         <div>
-          <div class="form-group" v-if="job.id">
-            <label for="id">ID</label>
-            <input type="text" class="form-control" id="id" name="id" v-model="job.id" readonly />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-jobName">Job Name</label>
-            <input
-              type="text"
-              class="form-control"
-              name="jobName"
-              id="job-jobName"
-              data-cy="jobName"
-              :class="{ valid: !v$.jobName.$invalid, invalid: v$.jobName.$invalid }"
-              v-model="v$.jobName.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-jobGroup">Job Group</label>
-            <input
-              type="text"
-              class="form-control"
-              name="jobGroup"
-              id="job-jobGroup"
-              data-cy="jobGroup"
-              :class="{ valid: !v$.jobGroup.$invalid, invalid: v$.jobGroup.$invalid }"
-              v-model="v$.jobGroup.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-type">Type</label>
-            <input
-              type="text"
-              class="form-control"
-              name="type"
-              id="job-type"
-              data-cy="type"
-              :class="{ valid: !v$.type.$invalid, invalid: v$.type.$invalid }"
-              v-model="v$.type.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-cron">Cron</label>
-            <input
-              type="text"
-              class="form-control"
-              name="cron"
-              id="job-cron"
-              data-cy="cron"
-              :class="{ valid: !v$.cron.$invalid, invalid: v$.cron.$invalid }"
-              v-model="v$.cron.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-jobContext">Job Context</label>
-            <input
-              type="text"
-              class="form-control"
-              name="jobContext"
-              id="job-jobContext"
-              data-cy="jobContext"
-              :class="{ valid: !v$.jobContext.$invalid, invalid: v$.jobContext.$invalid }"
-              v-model="v$.jobContext.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-status">Status</label>
-            <input
-              type="text"
-              class="form-control"
-              name="status"
-              id="job-status"
-              data-cy="status"
-              :class="{ valid: !v$.status.$invalid, invalid: v$.status.$invalid }"
-              v-model="v$.status.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-updateTime">Update Time</label>
+          <el-form-item v-if="job.id" label="ID">
+            <el-input id="id" name="id" v-model="job.id" readonly />
+          </el-form-item>
+          <el-form-item label="Job Name">
+            <el-input name="jobName" id="job-jobName" data-cy="jobName" v-model="v$.jobName.$model" />
+          </el-form-item>
+          <el-form-item label="Job Group">
+            <el-input name="jobGroup" id="job-jobGroup" data-cy="jobGroup" v-model="v$.jobGroup.$model" />
+          </el-form-item>
+          <el-form-item label="Type">
+            <el-input name="type" id="job-type" data-cy="type" v-model="v$.type.$model" />
+          </el-form-item>
+          <el-form-item label="Cron">
+            <el-input name="cron" id="job-cron" data-cy="cron" v-model="v$.cron.$model" />
+          </el-form-item>
+          <el-form-item label="Job Context">
+            <el-input name="jobContext" id="job-jobContext" data-cy="jobContext" v-model="v$.jobContext.$model" />
+          </el-form-item>
+          <el-form-item label="Status">
+            <el-input name="status" id="job-status" data-cy="status" v-model="v$.status.$model" />
+          </el-form-item>
+          <el-form-item label="Update Time">
             <div class="d-flex">
-              <input
-                id="job-updateTime"
-                data-cy="updateTime"
-                type="datetime-local"
-                class="form-control"
-                name="updateTime"
-                :class="{ valid: !v$.updateTime.$invalid, invalid: v$.updateTime.$invalid }"
-                :value="convertDateTimeFromServer(v$.updateTime.$model)"
-                @change="updateZonedDateTimeField('updateTime', $event)"
-              />
+              <el-date-picker type="datetime" value-format="YYYY-MM-DDTHH:mm" id="job-updateTime" data-cy="updateTime" name="updateTime" :model-value="convertDateTimeFromServer(v$.updateTime.$model)" @update:model-value="value => updateZonedDateTimeField('updateTime', value)" />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-createTime">Create Time</label>
+          </el-form-item>
+          <el-form-item label="Create Time">
             <div class="d-flex">
-              <input
-                id="job-createTime"
-                data-cy="createTime"
-                type="datetime-local"
-                class="form-control"
-                name="createTime"
-                :class="{ valid: !v$.createTime.$invalid, invalid: v$.createTime.$invalid }"
-                :value="convertDateTimeFromServer(v$.createTime.$model)"
-                @change="updateZonedDateTimeField('createTime', $event)"
-              />
+              <el-date-picker type="datetime" value-format="YYYY-MM-DDTHH:mm" id="job-createTime" data-cy="createTime" name="createTime" :model-value="convertDateTimeFromServer(v$.createTime.$model)" @update:model-value="value => updateZonedDateTimeField('createTime', value)" />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-project">Project</label>
-            <input
-              type="text"
-              class="form-control"
-              name="project"
-              id="job-project"
-              data-cy="project"
-              :class="{ valid: !v$.project.$invalid, invalid: v$.project.$invalid }"
-              v-model="v$.project.$model"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" for="job-tenantId">Tenant Id</label>
-            <input
-              type="text"
-              class="form-control"
-              name="tenantId"
-              id="job-tenantId"
-              data-cy="tenantId"
-              :class="{ valid: !v$.tenantId.$invalid, invalid: v$.tenantId.$invalid }"
-              v-model="v$.tenantId.$model"
-            />
-          </div>
+          </el-form-item>
+          <el-form-item label="Project">
+            <el-input name="project" id="job-project" data-cy="project" v-model="v$.project.$model" />
+          </el-form-item>
+          <el-form-item label="Tenant Id">
+            <el-input name="tenantId" id="job-tenantId" data-cy="tenantId" v-model="v$.tenantId.$model" />
+          </el-form-item>
         </div>
         <div>
-          <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
+          <el-button id="cancel-save" data-cy="entityCreateCancelButton" @click="previousState()">
             <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span>取消</span>
-          </button>
-          <button
-            type="submit"
-            id="save-entity"
-            data-cy="entityCreateSaveButton"
-            :disabled="v$.$invalid || isSaving"
-            class="btn btn-primary"
-          >
+          </el-button>
+          <el-button type="primary" native-type="submit" id="save-entity" data-cy="entityCreateSaveButton" :disabled="v$.$invalid || isSaving">
             <font-awesome-icon icon="save"></font-awesome-icon>&nbsp;<span>保存</span>
-          </button>
+          </el-button>
         </div>
-      </form>
+      </el-form>
     </div>
   </div>
 </template>

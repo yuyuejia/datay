@@ -7,7 +7,6 @@ import { type IDpTable } from '@/shared/model/dp-table.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'DpTableDetails',
   setup() {
     const dateFormat = useDateFormat();

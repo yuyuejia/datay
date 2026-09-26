@@ -26,7 +26,6 @@ import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { oneDark } from "@codemirror/theme-one-dark";
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "ShellJobUpdate",
   components: {
     CronExpressionSelector,

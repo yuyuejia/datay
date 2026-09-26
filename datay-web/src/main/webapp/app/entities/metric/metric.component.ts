@@ -55,7 +55,6 @@ interface TreeNode {
 }
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: "Metric",
   setup() {
     const dateFormat = useDateFormat();

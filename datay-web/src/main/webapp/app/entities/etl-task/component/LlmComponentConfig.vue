@@ -1,5 +1,5 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <el-alert
       title="接口地址、API Key、模型等参数由系统统一配置，任务中无需填写。"
       type="info"
@@ -8,41 +8,21 @@
       class="config-tip"
     />
 
-    <div class="form-group">
-      <label for="systemPrompt">
-        系统提示词
-        <DynamicParameterHelp />
-      </label>
-      <textarea
-        class="form-control"
-        id="systemPrompt"
-        name="systemPrompt"
-        v-model="formData.systemPrompt"
-        :rows="4"
-        placeholder="例如：你是一个文本分析助手，请按指定 JSON 格式返回结果。"
-      ></textarea>
+    <el-form-item>
+      <template #label>系统提示词 <DynamicParameterHelp /></template>
+      <el-input type="textarea" id="systemPrompt" name="systemPrompt" v-model="formData.systemPrompt" :rows="4" placeholder="例如：你是一个文本分析助手，请按指定 JSON 格式返回结果。" />
       <small class="form-text text-muted">支持动态参数：<code>${字段名}</code> 取当前行字段，<code>${attr:属性名}</code> 取上游属性，<code>#{...}</code> 引用内置参数</small>
-    </div>
+    </el-form-item>
 
-    <div class="form-group">
-      <label for="userPrompt">
-        用户输入
-        <DynamicParameterHelp />
-      </label>
-      <textarea
-        class="form-control"
-        id="userPrompt"
-        name="userPrompt"
-        v-model="formData.userPrompt"
-        :rows="6"
-        placeholder="例如：请分析下面这段用户评论的情感倾向：${content}"
-      ></textarea>
+    <el-form-item>
+      <template #label>用户输入 <DynamicParameterHelp /></template>
+      <el-input type="textarea" id="userPrompt" name="userPrompt" v-model="formData.userPrompt" :rows="6" placeholder="例如：请分析下面这段用户评论的情感倾向：${content}" />
       <small class="form-text text-muted">
         组件按行处理，用户输入中的 <code>${字段名}</code> 会按当前行数据赋值；输出为 JSON 时属性扩充到该行，否则写入
         <code>llm_result</code> 字段
       </small>
-    </div>
-  </form>
+    </el-form-item>
+  </el-form>
 </template>
 
 <script setup>

@@ -1,22 +1,28 @@
 <template>
   <div>
-    <!-- 当单选模式时，显示选中的字段名和选择按钮 -->
-    <div v-if="!props.multiple" class="input-group">
-      <input type="text" :value="selectedField" class="form-control" @input="confirmInput($event.target.value)" />
-      <button type="button" class="btn btn-outline-secondary" @click="showModal = true">选择</button>
-    </div>
-    <!-- 多选模式时，显示已选字段和选择按钮 -->
-    <div v-else>
-      <div class="selected-fields mb-2">
-        <span v-for="field in selectedFieldObjects" :key="field.name" class="badge bg-primary me-1">
-          {{ field.name }}
-          <button type="button" class="btn-close btn-close-white ms-1" @click="removeField(field)"></button>
-        </span>
-      </div>
-      <button type="button" class="btn btn-primary" @click="showModal = true">选择字段</button>
+    <!-- 单选模式：带“选择”按钮的输入框 -->
+    <el-input v-if="!props.multiple" :model-value="selectedField" placeholder="请选择字段" @input="confirmInput">
+      <template #append>
+        <el-button @click="showModal = true">选择</el-button>
+      </template>
+    </el-input>
+    <!-- 多选模式：输入框内展示可删除的已选字段 + 右侧“选择字段”按钮 -->
+    <div v-else class="field-multi-input" @click="showModal = true">
+      <el-tag
+        v-for="field in selectedFieldObjects"
+        :key="field.name"
+        closable
+        size="small"
+        :disable-transitions="true"
+        @close.stop="removeField(field)"
+      >
+        {{ field.name }}
+      </el-tag>
+      <span v-if="!selectedFieldObjects.length" class="field-multi-placeholder">请选择字段</span>
+      <el-button class="field-multi-input-btn" @click.stop="showModal = true">选择字段</el-button>
     </div>
 
-    <b-modal v-model="showModal" id="fieldSelectorModal" title="选择表字段">
+    <app-modal v-model="showModal" id="fieldSelectorModal" title="选择表字段">
       <div class="modal-body">
         <div v-if="loading" class="text-center">
           <div class="spinner-border" role="status">
@@ -26,23 +32,28 @@
         <div v-else-if="fields.length === 0" class="text-center text-muted">暂无字段数据</div>
         <div v-else>
           <div class="mb-3">
-            <input type="text" class="form-control" placeholder="搜索字段..." v-model="searchKeyword" @input="filterFields" />
+            <el-input v-model="searchKeyword" placeholder="搜索字段..." clearable @input="filterFields" />
           </div>
           <div class="field-list" style="max-height: 300px; overflow-y: auto">
             <div v-for="field in filteredFields" :key="field.name" class="field-item mb-2">
-              <div class="form-check">
-                <input
-                  :type="props.multiple ? 'checkbox' : 'radio'"
-                  class="form-check-input"
-                  :id="'field_' + field.name"
-                  v-model="selectedFieldObjects"
-                  :value="field"
-                  :name="!props.multiple ? 'fieldSelection' : undefined"
+              <div class="form-check d-flex align-items-start">
+                <el-checkbox
+                  v-if="props.multiple"
+                  :model-value="isFieldSelected(field)"
+                  class="me-2"
+                  @change="val => toggleField(field, val)"
                 />
-                <label class="form-check-label d-flex justify-content-between w-100" :for="'field_' + field.name">
+                <el-radio
+                  v-else
+                  :model-value="isFieldSelected(field) ? field.name : null"
+                  :value="field.name"
+                  class="me-2"
+                  @change="() => selectSingleField(field)"
+                ><span /></el-radio>
+                <div class="d-flex justify-content-between w-100">
                   <span class="field-name">{{ field.name }}</span>
                   <span class="field-type text-muted">{{ field.type }}</span>
-                </label>
+                </div>
               </div>
               <div v-if="field.comment" class="field-comment text-muted small ms-3">
                 {{ field.comment }}
@@ -53,16 +64,16 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="showModal = false">取消</button>
-          <button type="button" class="btn btn-primary" @click="confirmSelection">确定</button>
+          <el-button @click="showModal = false">取消</el-button>
+          <el-button type="primary" @click="confirmSelection">确定</el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import DataSourceService from '@/entities/data-source/data-source.service';
 
 const props = defineProps<{
@@ -95,11 +106,11 @@ const fetchFields = async () => {
 
       // 当字段数据加载完成后，设置已选中的字段
       if (props.multiple) {
-        selectedFieldObjects.value = props.selectedFields?.filter(selected => fields.value.some(field => field.name === selected.name));
+        selectedFieldObjects.value = props.selectedFields?.filter(selected => fields.value.some(field => field.name === selected.name)) || [];
       } else if (props.selectedField) {
         const field = fields.value.find(f => f.name === props.selectedField);
         if (field) {
-          selectedFieldObjects.value = [field];
+          selectedFieldObjects.value = field;
         }
       }
     } else {
@@ -140,6 +151,31 @@ watch([() => props.dataSourceId, () => props.schema, () => props.table], () => {
   fetchFields();
 });
 
+const isFieldSelected = (field: any) => {
+  if (props.multiple) {
+    return Array.isArray(selectedFieldObjects.value) && selectedFieldObjects.value.some(f => f.name === field.name);
+  }
+  return selectedFieldObjects.value?.name === field.name;
+};
+
+const toggleField = (field: any, checked: boolean) => {
+  if (!props.multiple) {
+    return;
+  }
+  const current: any[] = Array.isArray(selectedFieldObjects.value) ? selectedFieldObjects.value : [];
+  if (checked) {
+    if (!current.some(f => f.name === field.name)) {
+      selectedFieldObjects.value = [...current, field];
+    }
+  } else {
+    selectedFieldObjects.value = current.filter(f => f.name !== field.name);
+  }
+};
+
+const selectSingleField = (field: any) => {
+  selectedFieldObjects.value = field;
+};
+
 const confirmSelection = () => {
   const selection = selectedFieldObjects.value;
 
@@ -165,6 +201,50 @@ const removeField = (field: any) => {
 </script>
 
 <style scoped>
+.field-multi-input {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 4px;
+  background: var(--el-fill-color-blank, #fff);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.field-multi-input:hover {
+  border-color: var(--el-border-color-hover, #c0c4cc);
+}
+
+.field-multi-placeholder {
+  color: var(--el-text-color-placeholder, #a8abb2);
+  font-size: 14px;
+  line-height: 24px;
+}
+
+.field-multi-input-btn {
+  margin: -3px -4px -3px auto;
+  align-self: stretch;
+  flex: none;
+  height: auto;
+  border: 0;
+  border-left: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 0 3px 3px 0;
+  background: var(--el-fill-color-light, #f5f7fa);
+  color: var(--el-text-color-regular, #606266);
+}
+
+.field-multi-input-btn:hover,
+.field-multi-input-btn:focus {
+  border-color: var(--el-border-color, #dcdfe6);
+  background: var(--el-fill-color, #f0f2f5);
+  color: var(--el-color-primary, #409eff);
+}
+
 .field-item {
   padding: 8px;
   border: 1px solid #e9ecef;
@@ -185,10 +265,5 @@ const removeField = (field: any) => {
 
 .field-comment {
   margin-top: 4px;
-}
-
-.selected-fields .badge {
-  font-size: 0.875rem;
-  padding: 4px 8px;
 }
 </style>

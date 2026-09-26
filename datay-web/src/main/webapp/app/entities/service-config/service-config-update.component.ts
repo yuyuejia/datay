@@ -9,7 +9,6 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { type IServiceConfig, ServiceConfig } from '@/shared/model/service-config.model';
 
 export default defineComponent({
-  compatConfig: { MODE: 3 },
   name: 'ServiceConfigUpdate',
   setup() {
     const serviceConfigService = inject('serviceConfigService', () => new ServiceConfigService());

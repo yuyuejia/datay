@@ -2,9 +2,9 @@
   <div>
     <h2>
       <span id="health-page-heading" data-cy="healthPageHeading">服务状态</span>
-      <button class="btn btn-primary float-right" @click="refresh()" :disabled="updatingHealth">
+      <el-button type="primary" class="float-right" @click="refresh()" :disabled="updatingHealth">
         <font-awesome-icon icon="sync"></font-awesome-icon> <span>刷新</span>
-      </button>
+      </el-button>
     </h2>
     <div class="table-responsive">
       <table id="healthCheck" class="table table-striped" aria-describedby="Health check">
@@ -34,7 +34,7 @@
         </tbody>
       </table>
     </div>
-    <b-modal ref="healthModal">
+    <app-modal ref="healthModal">
       <template #modal-title>
         <h4 v-if="currentHealth" class="modal-title" id="showHealthLabel">
           <span class="text-capitalize">{{ baseName(currentHealth.name) }}</span>
@@ -42,7 +42,7 @@
         </h4>
       </template>
       <health-modal :current-health="currentHealth"></health-modal>
-    </b-modal>
+    </app-modal>
   </div>
 </template>
 

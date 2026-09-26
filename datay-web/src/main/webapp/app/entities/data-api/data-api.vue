@@ -3,23 +3,12 @@
     <h2 id="page-heading" data-cy="DataApiHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="data-api-heading">数据服务列表</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 280px"
-          v-model="search"
-          placeholder="按名称 / 编码 / 表 / 描述搜索"
-        />
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 编码 / 表 / 描述搜索" clearable/>
         <router-link :to="{ name: 'DataApiCreate' }" custom v-slot="{ navigate }">
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-data-api"
-          >
+          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-api">
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>新建数据服务</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
@@ -60,19 +49,14 @@
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'DataApiEdit', params: { dataApiId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
                 </el-button>
               </router-link>
-              <el-button @click="openDoc(scope.row)" class="btn btn-info btn-sm" data-cy="entityDocButton">
+              <el-button type="info" size="small" @click="openDoc(scope.row)" data-cy="entityDocButton">
                 <span class="d-none d-md-inline">调用说明</span>
               </el-button>
-              <el-button
-                @click="prepareRemove(scope.row)"
-                variant="danger"
-                class="btn btn-danger btn-sm"
-                data-cy="entityDeleteButton"
-              >
+              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -80,7 +64,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span data-cy="dataApiDeleteDialogHeading">确认删除</span>
       </template>
@@ -89,15 +73,15 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-          <button type="button" class="btn btn-primary" data-cy="entityConfirmDeleteButton" @click="removeDataApi()">
+          <el-button @click="closeDialog()">取消</el-button>
+          <el-button type="primary" data-cy="entityConfirmDeleteButton" @click="removeDataApi()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
 
-    <b-modal v-model="docModalVisible" title="调用说明" size="lg" ok-only ok-title="关闭">
+    <app-modal v-model="docModalVisible" title="调用说明" size="lg" ok-only ok-title="关闭">
       <div class="modal-body" v-if="docApi">
         <h5>{{ docApi.name }}（{{ docApi.code }}）</h5>
         <p class="text-muted">{{ docApi.description }}</p>
@@ -143,14 +127,20 @@
         <h6 class="mt-3">curl 示例</h6>
         <pre class="bg-light border rounded p-3 mb-0" style="white-space: pre-wrap; word-break: break-all">{{ docCurl }}</pre>
       </div>
-    </b-modal>
+    </app-modal>
 
     <div v-show="dataApis && dataApis.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>

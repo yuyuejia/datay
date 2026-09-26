@@ -1,12 +1,11 @@
 <template>
-  <form name="editForm" novalidate>
+  <el-form name="editForm" label-position="top">
     <div>
       <!-- 数据模型选择 -->
-      <div class="form-group">
-        <label for="modelId">数据模型</label>
-        <DataModelSelector :modelId="formData.modelId" @selected="handleModelSelected" />
+      <el-form-item label="数据模型">
+      <DataModelSelector :modelId="formData.modelId" @selected="handleModelSelected" />
         <small class="form-text text-muted"> 选择数据模型后，任务定义将基于模型绑定的数据源与表信息生成 StreamJdbcOutput </small>
-      </div>
+    </el-form-item>
 
       <!-- 模型绑定的目标信息（只读展示） -->
       <div v-if="selectedModel" class="model-summary">
@@ -32,35 +31,25 @@
       </div>
 
       <!-- 写入策略 -->
-      <div class="form-group">
-        <label for="model">写入策略</label>
-        <select class="form-control" id="model" name="model" v-model="formData.model">
-          <option v-for="item in writeModeOptions" :key="item.value" :value="item.value">{{ item.name }}</option>
-        </select>
+      <el-form-item label="写入策略">
+      <el-select id="model" name="model" v-model="formData.model">
+            <el-option v-for="item in writeModeOptions" :key="item.value" :value="item.value" :label="item.name" />
+          </el-select>
         <small class="form-text text-muted">{{ currentWriteModeDescription }}</small>
-      </div>
+    </el-form-item>
 
       <!-- 更新字段 -->
-      <div v-if="formData.model === 'update'" class="form-group">
-        <label for="updateColumn">更新字段</label>
-        <input
-          type="text"
-          class="form-control"
-          id="updateColumn"
-          name="updateColumn"
-          v-model="formData.updateColumn"
-          placeholder="多个字段用逗号分隔"
-        />
-      </div>
+      <el-form-item v-if="formData.model === 'update'" label="更新字段">
+      <el-input id="updateColumn" name="updateColumn" v-model="formData.updateColumn" placeholder="多个字段用逗号分隔" />
+    </el-form-item>
 
       <!-- 批处理数 -->
-      <div class="form-group">
-        <label for="maxRows">批处理数</label>
-        <input class="form-control" id="maxRows" name="maxRows" type="number" min="1" v-model.number="formData.maxRows" />
-      </div>
+      <el-form-item label="批处理数">
+      <el-input-number :controls="false" id="maxRows" name="maxRows" :min="1" v-model="formData.maxRows" />
+    </el-form-item>
     </div>
 
-  </form>
+  </el-form>
 </template>
 
 <script setup>

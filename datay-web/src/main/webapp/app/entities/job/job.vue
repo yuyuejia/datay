@@ -3,18 +3,12 @@
     <h2 id="page-heading" data-cy="JobHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="job-heading">Job 列表</span>
       <div class="d-flex align-items-center">
-        <input
-          type="text"
-          class="form-control mr-2"
-          style="width: 280px"
-          v-model="search"
-          placeholder="按名称 / 类型 / 状态搜索"
-        />
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 类型 / 状态搜索" clearable/>
         <router-link :to="{ name: 'JobCreate' }" custom v-slot="{ navigate }">
-          <button @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="btn btn-primary jh-create-entity create-job">
+          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-job">
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建 Job</span>
-          </button>
+          </el-button>
         </router-link>
       </div>
     </h2>
@@ -57,20 +51,14 @@
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'JobView', params: { jobId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
+                <el-button type="info" size="small" @click="navigate" class="details" data-cy="entityDetailsButton">
                   <span class="d-none d-md-inline">查看</span>
                 </el-button>
               </router-link>
-              <el-button @click="handleExecuteOnce(scope.row)" class="btn btn-success btn-sm" data-cy="entityExecuteButton">
+              <el-button type="success" size="small" @click="handleExecuteOnce(scope.row)" data-cy="entityExecuteButton">
                 <span class="d-none d-md-inline">执行一次</span>
               </el-button>
-              <el-button
-                @click="prepareRemove(scope.row)"
-                variant="danger"
-                class="btn btn-danger btn-sm"
-                data-cy="entityDeleteButton"
-                v-b-modal.removeEntity
-              >
+              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
               </el-button>
             </div>
@@ -78,7 +66,7 @@
         </el-table-column>
       </el-table>
     </div>
-    <b-modal ref="removeEntity" id="removeEntity">
+    <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span id="datafusionApp.job.delete.question" data-cy="jobDeleteDialogHeading">确认删除</span>
       </template>
@@ -87,25 +75,25 @@
       </div>
       <template #modal-footer>
         <div>
-          <button type="button" class="btn btn-secondary" @click="closeDialog()">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            id="jhi-confirm-delete-job"
-            data-cy="entityConfirmDeleteButton"
-            @click="removeJob()"
-          >
+          <el-button @click="closeDialog()">取消</el-button>
+          <el-button type="primary" id="jhi-confirm-delete-job" data-cy="entityConfirmDeleteButton" @click="removeJob()">
             删除
-          </button>
+          </el-button>
         </div>
       </template>
-    </b-modal>
+    </app-modal>
     <div v-show="jobs && jobs.length > 0">
-      <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
-      </div>
-      <div class="row justify-content-center">
-        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      <div class="list-pagination">
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+        <el-pagination
+          background
+          layout="sizes, prev, pager, next, jumper"
+          :total="totalItems"
+          :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
+          v-model:current-page="page"
+          v-model:page-size="itemsPerPage"
+        />
       </div>
     </div>
   </div>
