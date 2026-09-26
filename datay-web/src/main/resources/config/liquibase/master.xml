@@ -48,6 +48,8 @@
     <include file="config/liquibase/changelog/20260925001000_seed_time_dimension.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260926000000_added_entity_RoleDataScope.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260927000000_add_authority_description.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260928000000_added_entity_AnalysisDashboard.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260928010000_data_model_display_field.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

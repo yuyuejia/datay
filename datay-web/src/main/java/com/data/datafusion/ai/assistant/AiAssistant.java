@@ -3,6 +3,7 @@ package com.data.datafusion.ai.assistant;
 import com.data.datafusion.ai.SqlExtractor;
 import com.data.datafusion.ai.tool.AiTool;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -75,6 +76,13 @@ public interface AiAssistant {
      */
     default String extractSql(String content) {
         return SqlExtractor.extract(content, allowWrites());
+    }
+
+    /**
+     * 从模型回复中抽取结构化产物（如看板 spec），不支持该产物的助手返回 null。
+     */
+    default Map<String, Object> extractSpec(String content) {
+        return null;
     }
 
     /**

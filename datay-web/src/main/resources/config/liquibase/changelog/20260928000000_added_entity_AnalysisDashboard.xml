@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20260928000000-1" author="datafusion">
+        <createTable tableName="dp_analysis_dashboard">
+            <column name="id" type="bigint" autoIncrement="true" startWith="2700">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="description" type="varchar(2000)">
+                <constraints nullable="true" />
+            </column>
+            <column name="data_source_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="spec" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="dp_analysis_dashboard" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="dp_analysis_dashboard" columnName="update_time" columnDataType="${datetimeType}"/>
+        <createIndex tableName="dp_analysis_dashboard" indexName="idx_analysis_dashboard_code">
+            <column name="code"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

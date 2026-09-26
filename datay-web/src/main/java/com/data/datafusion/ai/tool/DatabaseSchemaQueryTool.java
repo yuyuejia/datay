@@ -1,6 +1,7 @@
 package com.data.datafusion.ai.tool;
 
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
@@ -34,9 +35,11 @@ public class DatabaseSchemaQueryTool implements AiTool {
     private static final int MAX_LIST_SIZE = 200;
 
     private final DataSourceQueryService dataSourceQueryService;
+    private final DataSourceService dataSourceService;
 
-    public DatabaseSchemaQueryTool(DataSourceQueryService dataSourceQueryService) {
+    public DatabaseSchemaQueryTool(DataSourceQueryService dataSourceQueryService, DataSourceService dataSourceService) {
         this.dataSourceQueryService = dataSourceQueryService;
+        this.dataSourceService = dataSourceService;
     }
 
     @Override
@@ -84,6 +87,11 @@ public class DatabaseSchemaQueryTool implements AiTool {
         search.put("description", "表名模糊搜索关键字，可选，仅对 objectType=tables 生效");
         props.put("search", search);
 
+        Map<String, Object> dataSourceId = new LinkedHashMap<>();
+        dataSourceId.put("type", "integer");
+        dataSourceId.put("description", "目标数据源 id，可选；缺省使用当前会话数据源。可用 list_data_sources 获取");
+        props.put("dataSourceId", dataSourceId);
+
         schema.put("properties", props);
         schema.put("required", List.of("objectType"));
         return schema;
@@ -91,9 +99,9 @@ public class DatabaseSchemaQueryTool implements AiTool {
 
     @Override
     public Object execute(Map<String, Object> arguments, AiToolContext context) throws Exception {
-        DataSourceDTO dataSource = context.getDataSource();
+        DataSourceDTO dataSource = resolveDataSource(arguments, context);
         if (dataSource == null) {
-            return Map.of("error", "当前会话未绑定数据源，无法查询元数据");
+            return Map.of("error", "当前会话未绑定数据源，且未提供有效的 dataSourceId");
         }
 
         String objectType = asString(arguments.get("objectType"));
@@ -166,6 +174,19 @@ public class DatabaseSchemaQueryTool implements AiTool {
             return List.of();
         }
         return values.size() > MAX_LIST_SIZE ? new ArrayList<>(values.subList(0, MAX_LIST_SIZE)) : values;
+    }
+
+    private DataSourceDTO resolveDataSource(Map<String, Object> arguments, AiToolContext context) {
+        Object raw = arguments.get("dataSourceId");
+        if (raw != null && !String.valueOf(raw).isBlank()) {
+            try {
+                Long id = Long.parseLong(String.valueOf(raw).trim());
+                return dataSourceService.findOne(id).orElse(null);
+            } catch (NumberFormatException ignored) {
+                // 非法 id 时回退到会话数据源
+            }
+        }
+        return context.getDataSource();
     }
 
     private static String asString(Object value) {

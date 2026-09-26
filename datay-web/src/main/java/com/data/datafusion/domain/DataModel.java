@@ -73,6 +73,10 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "table_name")
     private String tableName;
 
+    /** 维度模型的默认显示字段：图表/筛选优先展示的字段，通常为业务名称字段。 */
+    @Column(name = "display_field_name")
+    private String displayFieldName;
+
     @Column(name = "create_time")
     private ZonedDateTime createTime;
 
@@ -311,6 +315,19 @@ public class DataModel implements Serializable, TenantAware {
 
     public void setTableName(String tableName) {
         this.tableName = tableName;
+    }
+
+    public String getDisplayFieldName() {
+        return this.displayFieldName;
+    }
+
+    public DataModel displayFieldName(String displayFieldName) {
+        this.setDisplayFieldName(displayFieldName);
+        return this;
+    }
+
+    public void setDisplayFieldName(String displayFieldName) {
+        this.displayFieldName = displayFieldName;
     }
 
     public ZonedDateTime getCreateTime() {

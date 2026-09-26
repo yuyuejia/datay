@@ -1,0 +1,15 @@
+/* 独立看板页基础样式：仅保留必要的页面背景与容器，公共组件样式走主应用共享资源 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f5f7fa;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: #303133;
+}
+
+#dashboard-app {
+  min-height: 100vh;
+}

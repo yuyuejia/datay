@@ -80,6 +80,20 @@ export default defineComponent({
       return result;
     });
 
+    // 维度默认显示字段候选：来自当前字段列表（去重）
+    const displayFieldOptions = computed(() => {
+      const seen = new Set<string>();
+      const result: Array<{ fieldName: string; fieldType: string }> = [];
+      for (const field of fields.value) {
+        const name = field.fieldName;
+        if (name && !seen.has(name)) {
+          seen.add(name);
+          result.push({ fieldName: name, fieldType: field.fieldType || "" });
+        }
+      }
+      return result;
+    });
+
     const directoryTreeData: Ref<TreeNode[]> = ref([]);
     const dimensionModels: Ref<IDataModel[]> = ref([]);
     const dimensionFieldsCache: Ref<Record<number, IModelField[]>> = ref({});
@@ -420,6 +434,7 @@ export default defineComponent({
         dataModel.value.timeLevels = null;
         dataModel.value.timeStart = null;
         dataModel.value.timeEnd = null;
+        dataModel.value.displayFieldName = null;
       }
       if (dataModel.value.modelType !== "DWD") {
         dataModel.value.timeFieldName = null;
@@ -926,6 +941,7 @@ export default defineComponent({
       registerAutoAdded,
       fields,
       timeFieldOptions,
+      displayFieldOptions,
       directoryTreeData,
       flatDirectoryOptions,
       dimensionModels,
@@ -1014,6 +1030,12 @@ export default defineComponent({
           !fieldNames.includes(this.dataModel.timeFieldName)
         ) {
           this.dataModel.timeFieldName = null;
+        }
+        if (
+          this.dataModel.displayFieldName &&
+          !fieldNames.includes(this.dataModel.displayFieldName)
+        ) {
+          this.dataModel.displayFieldName = null;
         }
 
         if (this.dataModel.dimensionKind === "TIME") {

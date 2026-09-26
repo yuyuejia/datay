@@ -119,8 +119,34 @@ public class MetricQueryService {
             .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + dataSourceId));
         String sql = buildSql(context);
         Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, sql));
+        result.put("columnLabels", buildColumnLabels(context));
         result.put("sql", sql);
         return result;
+    }
+
+    /**
+     * 构建列标签：维度展示字段使用字段描述（为空回退字段名），指标使用指标名称（为空回退编码）。
+     */
+    private Map<String, String> buildColumnLabels(QueryContext context) {
+        Map<String, String> labels = new LinkedHashMap<>();
+        for (DimSelection dimension : context.dimensions) {
+            if (dimension.displayFields == null) {
+                continue;
+            }
+            Map<String, String> descriptions = new LinkedHashMap<>();
+            for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimension.dimensionModelId)) {
+                descriptions.put(field.getFieldName(), field.getDescription());
+            }
+            for (String fieldName : dimension.displayFields) {
+                String description = descriptions.get(fieldName);
+                labels.put(fieldName, description != null && !description.isBlank() ? description : fieldName);
+            }
+        }
+        for (Metric metric : context.metrics) {
+            String name = metric.getName();
+            labels.put(metric.getCode(), name != null && !name.isBlank() ? name : metric.getCode());
+        }
+        return labels;
     }
 
     /**
@@ -160,6 +186,13 @@ public class MetricQueryService {
             boolean timeKind = dimensionModel != null && DIMENSION_KIND_TIME.equalsIgnoreCase(dimensionModel.getDimensionKind());
             item.put("levelCount", hierarchy ? resolveLevelCount(dimensionModel) : null);
             item.put("isTimeDimension", isTimeDimension(context, dimensionModelId) || timeKind);
+            // 维度的默认显示字段：供看板设计助手确定图表 x 轴字段
+            if (dimensionModel != null) {
+                if (dimensionModel.getDisplayFieldName() != null && !dimensionModel.getDisplayFieldName().isBlank()) {
+                    item.put("displayFieldName", dimensionModel.getDisplayFieldName());
+                }
+                item.put("recommendedDisplayField", resolveDisplayField(dimensionModel));
+            }
             if (hierarchy) {
                 int levelCount = resolveLevelCount(dimensionModel);
                 List<Map<String, Object>> levels = new ArrayList<>();
@@ -662,6 +695,52 @@ public class MetricQueryService {
             }
         }
         return keys;
+    }
+
+    /**
+     * 计算维度的推荐显示字段（仅用于元数据展示，不影响查询）：优先维度配置的默认显示字段，
+     * 层级维度取末级名称字段，其余优先业务名称字段（{@code *_name} / {@code name}）。
+     */
+    private String resolveDisplayField(DataModel dimensionModel) {
+        Long dimensionModelId = dimensionModel.getId();
+        List<ModelField> fields = modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId);
+        String configured = dimensionModel.getDisplayFieldName();
+        if (configured != null && !configured.isBlank() && fields.stream().anyMatch(field -> configured.equals(field.getFieldName()))) {
+            return configured;
+        }
+        if (isHierarchyLike(dimensionModel.getDimensionKind())) {
+            int levelCount = resolveLevelCount(dimensionModel);
+            if (levelCount > 0) {
+                return levelFieldName(dimensionModelId, levelCount, ROLE_LEVEL_NAME);
+            }
+        }
+        for (ModelField field : fields) {
+            if (!Boolean.TRUE.equals(field.getIsPrimaryKey()) && isNameField(field.getFieldName())) {
+                return field.getFieldName();
+            }
+        }
+        for (ModelField field : fields) {
+            if (!Boolean.TRUE.equals(field.getIsPrimaryKey()) && isTextType(field.getFieldType())) {
+                return field.getFieldName();
+            }
+        }
+        return null;
+    }
+
+    private static boolean isNameField(String fieldName) {
+        if (fieldName == null) {
+            return false;
+        }
+        String lower = fieldName.toLowerCase();
+        return lower.equals("name") || lower.endsWith("_name");
+    }
+
+    private static boolean isTextType(String fieldType) {
+        if (fieldType == null) {
+            return false;
+        }
+        String upper = fieldType.toUpperCase();
+        return upper.contains("CHAR") || upper.contains("TEXT") || upper.contains("STRING");
     }
 
     private String levelFieldName(Long dimensionModelId, int level, String role) {

@@ -39,6 +39,8 @@ public class MetricMetaTool implements AiTool {
             返回的 dimensions[].dimensionModelCode 用于构造维度与业务限定；timeFields[].fieldName 为事实表时间字段。
             层级维度（isHierarchy=true）会给出 levels[].levelIndex 与对应的 idField/nameField，按某层级汇总时传 levelIndex。
             时间维度（isTimeDimension=true）为日期维度，periodFields 列出可用于时间分组的周期字段（如 year/quarter/month/week_of_year/day 等）。
+            每个维度会返回其默认显示字段（recommendedDisplayField，可能含 displayFieldName）；维度分组与图表 x 轴应使用该字段，
+            普通维度通常为 *_name，层级维度为 levels[].nameField，不要使用 *_sk / *_id 代理键。
             当用户要求「按年/季度/月/周/天的趋势或分布」时，应使用该时间维度的周期字段作为分组维度，而不是把每个周期当作 timeRange 分别查询。
             """;
     }

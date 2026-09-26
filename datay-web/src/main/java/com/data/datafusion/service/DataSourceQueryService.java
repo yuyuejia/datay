@@ -5,6 +5,7 @@ import com.data.job.DatasourceInfo;
 import com.data.metadata.util.DBUtils;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -83,48 +84,7 @@ public class DataSourceQueryService {
                     Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(executeSql)
                 ) {
-                    ResultSetMetaData meta = rs.getMetaData();
-                    int columnCount = meta.getColumnCount();
-                    List<String> columns = new ArrayList<>();
-                    for (int i = 1; i <= columnCount; i++) {
-                        columns.add(meta.getColumnLabel(i));
-                    }
-
-                    List<Map<String, Object>> rows = new ArrayList<>();
-                    int rowCount = 0;
-                    while (rs.next() && rowCount < MAX_ROWS) {
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        for (int i = 1; i <= columnCount; i++) {
-                            String colName = meta.getColumnLabel(i);
-                            Object value = rs.getObject(i);
-                            if (value == null) {
-                                row.put(colName, null);
-                            } else if (value instanceof java.sql.Timestamp) {
-                                row.put(colName, value.toString());
-                            } else if (value instanceof java.sql.Date) {
-                                row.put(colName, value.toString());
-                            } else if (value instanceof java.sql.Time) {
-                                row.put(colName, value.toString());
-                            } else if (value instanceof BigDecimal) {
-                                row.put(colName, ((BigDecimal) value).doubleValue());
-                            } else if (value instanceof byte[]) {
-                                row.put(colName, "[BLOB]");
-                            } else if (value instanceof java.sql.Clob) {
-                                java.sql.Clob clob = (java.sql.Clob) value;
-                                row.put(colName, clob.getSubString(1, (int) clob.length()));
-                            } else if (value instanceof java.sql.Blob) {
-                                row.put(colName, "[BLOB]");
-                            } else {
-                                row.put(colName, value);
-                            }
-                        }
-                        rows.add(row);
-                        rowCount++;
-                    }
-
-                    result.put("columns", columns);
-                    result.put("rows", rows);
-                    result.put("affectedRows", rowCount);
+                    result.putAll(readSelectResult(rs));
                 }
             } else {
                 try (Statement stmt = connection.createStatement()) {
@@ -139,6 +99,81 @@ public class DataSourceQueryService {
             throw e;
         }
 
+        return result;
+    }
+
+    /**
+     * 以预编译参数执行只读查询，用于看板数据集等需要绑定筛选参数的安全查询。
+     *
+     * @param dataSource 目标数据源
+     * @param sql        含 {@code ?} 占位符的只读 SQL
+     * @param params     与占位符顺序一致的绑定参数
+     * @return 结果 map，包含 {@code columns} / {@code rows} / {@code affectedRows}
+     */
+    public Map<String, Object> executeReadOnlyQuery(DataSourceDTO dataSource, String sql, List<Object> params) throws SQLException {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new IllegalArgumentException("SQL语句不能为空");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        try (
+            Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));
+            PreparedStatement stmt = connection.prepareStatement(sql)
+        ) {
+            if (params != null) {
+                for (int i = 0; i < params.size(); i++) {
+                    stmt.setObject(i + 1, params.get(i));
+                }
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                result.putAll(readSelectResult(rs));
+            }
+        } catch (SQLException e) {
+            LOG.error("Parameterized SQL execution error", e);
+            throw e;
+        }
+        return result;
+    }
+
+    private Map<String, Object> readSelectResult(ResultSet rs) throws SQLException {
+        ResultSetMetaData meta = rs.getMetaData();
+        int columnCount = meta.getColumnCount();
+        List<String> columns = new ArrayList<>();
+        for (int i = 1; i <= columnCount; i++) {
+            columns.add(meta.getColumnLabel(i));
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int rowCount = 0;
+        while (rs.next() && rowCount < MAX_ROWS) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (int i = 1; i <= columnCount; i++) {
+                String colName = meta.getColumnLabel(i);
+                Object value = rs.getObject(i);
+                if (value == null) {
+                    row.put(colName, null);
+                } else if (value instanceof java.sql.Timestamp || value instanceof java.sql.Date || value instanceof java.sql.Time) {
+                    row.put(colName, value.toString());
+                } else if (value instanceof BigDecimal) {
+                    row.put(colName, ((BigDecimal) value).doubleValue());
+                } else if (value instanceof byte[]) {
+                    row.put(colName, "[BLOB]");
+                } else if (value instanceof java.sql.Clob) {
+                    java.sql.Clob clob = (java.sql.Clob) value;
+                    row.put(colName, clob.getSubString(1, (int) clob.length()));
+                } else if (value instanceof java.sql.Blob) {
+                    row.put(colName, "[BLOB]");
+                } else {
+                    row.put(colName, value);
+                }
+            }
+            rows.add(row);
+            rowCount++;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("columns", columns);
+        result.put("rows", rows);
+        result.put("affectedRows", rowCount);
         return result;
     }
 }

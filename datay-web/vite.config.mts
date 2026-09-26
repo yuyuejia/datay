@@ -40,6 +40,7 @@ let config = defineConfig({
     rollupOptions: {
       input: {
         app: fileURLToPath(new URL('./src/main/webapp/index.html', import.meta.url)),
+        dashboard: fileURLToPath(new URL('./src/main/webapp/dashboard.html', import.meta.url)),
       },
     },
   },

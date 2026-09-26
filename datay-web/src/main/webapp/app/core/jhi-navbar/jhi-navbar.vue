@@ -75,9 +75,6 @@
           <b-dropdown-item to="/metric" exact>
             <span>指标管理</span>
           </b-dropdown-item>
-          <b-dropdown-item to="/metric-ai" exact>
-            <span>智能问数</span>
-          </b-dropdown-item>
         </b-nav-item-dropdown>
         <b-nav-item-dropdown right id="entity-menu" v-if="authenticated" active-class="active" class="pointer" data-cy="entity">
           <template #button-content>
@@ -88,9 +85,22 @@
           <entities-menu></entities-menu>
           <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
         </b-nav-item-dropdown>
-        <b-nav-item v-if="authenticated" to="/data-api" exact>
-          <span>数据服务</span>
-        </b-nav-item>
+        <b-nav-item-dropdown v-if="authenticated" id="application-menu" active-class="active" class="pointer">
+          <template #button-content>
+            <span class="navbar-dropdown-menu">
+              <span class="no-bold">数据应用</span>
+            </span>
+          </template>
+          <b-dropdown-item to="/metric-ai" exact>
+            <span>智能问数</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/data-api" exact>
+            <span>API 服务</span>
+          </b-dropdown-item>
+          <b-dropdown-item to="/analysis-dashboard" exact>
+            <span>分析看板</span>
+          </b-dropdown-item>
+        </b-nav-item-dropdown>
         <b-nav-item-dropdown
           right
           id="account-menu"

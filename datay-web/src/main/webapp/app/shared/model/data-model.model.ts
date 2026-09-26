@@ -20,6 +20,8 @@ export interface IDataModel {
   dataSourceId?: number | null;
   schemaName?: string | null;
   tableName?: string | null;
+  /** 维度模型的默认显示字段（图表/筛选优先展示，通常为名称字段）。 */
+  displayFieldName?: string | null;
   createTime?: Date | null;
   updateTime?: Date | null;
 }
@@ -44,6 +46,7 @@ export class DataModel implements IDataModel {
     public dataSourceId?: number | null,
     public schemaName?: string | null,
     public tableName?: string | null,
+    public displayFieldName?: string | null,
     public createTime?: Date | null,
     public updateTime?: Date | null,
   ) {}

@@ -391,6 +391,38 @@ class MetricQueryServiceTest {
     }
 
     @Test
+    void shouldExposeDimensionDisplayFieldInMeta() {
+        DataModel dimStore = new DataModel();
+        dimStore.setId(3002L);
+        dimStore.setCode("dim_store");
+        dimStore.setName("门店维度");
+        dimStore.setDimensionKind("NORMAL");
+        dimStore.setDisplayFieldName("store_name");
+        when(dataModelRepository.findById(3002L)).thenReturn(Optional.of(dimStore));
+        when(dataModelRepository.findFirstByCode("dim_store")).thenReturn(Optional.of(dimStore));
+
+        ModelField storeSk = new ModelField();
+        storeSk.setFieldName("store_sk");
+        storeSk.setDimensionModelId(3002L);
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(storeSk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(
+            List.of(modelField("store_sk", true, null, null), modelField("store_name", false, null, null))
+        );
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_store");
+        dto.setDimensions(List.of(dimension));
+
+        Map<String, Object> meta = metricQueryService.queryMeta(dto);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
+        assertThat(dimensions.get(0)).containsEntry("displayFieldName", "store_name");
+        assertThat(dimensions.get(0)).containsEntry("recommendedDisplayField", "store_name");
+    }
+
+    @Test
     void shouldAggregateSingleFactBySelectedDimensionFields() {
         DataModel dimDate = new DataModel();
         dimDate.setId(3000L);

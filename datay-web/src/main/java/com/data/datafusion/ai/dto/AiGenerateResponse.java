@@ -14,6 +14,8 @@ public class AiGenerateResponse {
     private String sql;
     private String code;
     private String explanation;
+    /** 看板设计产物：完整看板 spec 对象，供设计页预览与保存。 */
+    private Map<String, Object> dashboardSpec;
     private int rounds;
     private boolean converged;
     private List<Map<String, Object>> toolCalls;
@@ -40,6 +42,7 @@ public class AiGenerateResponse {
         // code 与 sql 同为「模型抽取出的最终产物」，脚本类助手用它承载生成的 Java 代码
         response.code = result.getSql();
         response.explanation = result.getExplanation();
+        response.dashboardSpec = result.getDashboardSpec();
         response.rounds = result.getRounds();
         response.converged = result.isConverged();
         response.promptTokens = result.getPromptTokens();
@@ -79,6 +82,10 @@ public class AiGenerateResponse {
 
     public String getExplanation() {
         return explanation;
+    }
+
+    public Map<String, Object> getDashboardSpec() {
+        return dashboardSpec;
     }
 
     public int getRounds() {

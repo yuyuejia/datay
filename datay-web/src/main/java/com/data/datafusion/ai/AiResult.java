@@ -15,6 +15,8 @@ public class AiResult {
 
     private String sql;
     private String explanation;
+    /** 看板设计产物：由看板设计助手抽取的完整 spec 对象。 */
+    private Map<String, Object> dashboardSpec;
     private int rounds;
     private boolean converged;
     private List<ToolTrace> toolCalls = new ArrayList<>();
@@ -70,6 +72,14 @@ public class AiResult {
 
     public void setExplanation(String explanation) {
         this.explanation = explanation;
+    }
+
+    public Map<String, Object> getDashboardSpec() {
+        return dashboardSpec;
+    }
+
+    public void setDashboardSpec(Map<String, Object> dashboardSpec) {
+        this.dashboardSpec = dashboardSpec;
     }
 
     public int getRounds() {

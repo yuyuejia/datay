@@ -90,6 +90,30 @@
         </el-col>
       </el-row>
 
+      <el-row v-if="dataModel.modelType === 'DIMENSION'" :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="默认显示字段">
+            <select
+              class="form-control"
+              v-model="dataModel.displayFieldName"
+              style="width: 100%"
+            >
+              <option :value="null">自动（优先名称字段）</option>
+              <option
+                v-for="field in displayFieldOptions"
+                :key="field.fieldName"
+                :value="field.fieldName"
+              >
+                {{ field.fieldName }} ({{ field.fieldType }})
+              </option>
+            </select>
+            <div class="time-granularity-hint">
+              图表与筛选默认展示该字段，留空则自动选择名称字段
+            </div>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
       <el-row
         v-if="
           dataModel.modelType === 'DIMENSION' &&

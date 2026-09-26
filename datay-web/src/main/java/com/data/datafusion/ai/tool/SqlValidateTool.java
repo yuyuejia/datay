@@ -1,6 +1,7 @@
 package com.data.datafusion.ai.tool;
 
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.util.DBUtils;
 import java.sql.Connection;
@@ -28,9 +29,11 @@ public class SqlValidateTool implements AiTool {
     private static final Logger LOG = LoggerFactory.getLogger(SqlValidateTool.class);
 
     private final DataSourceQueryService dataSourceQueryService;
+    private final DataSourceService dataSourceService;
 
-    public SqlValidateTool(DataSourceQueryService dataSourceQueryService) {
+    public SqlValidateTool(DataSourceQueryService dataSourceQueryService, DataSourceService dataSourceService) {
         this.dataSourceQueryService = dataSourceQueryService;
+        this.dataSourceService = dataSourceService;
     }
 
     @Override
@@ -58,6 +61,10 @@ public class SqlValidateTool implements AiTool {
         sql.put("type", "string");
         sql.put("description", "待校验的 SQL 语句");
         props.put("sql", sql);
+        Map<String, Object> dataSourceId = new LinkedHashMap<>();
+        dataSourceId.put("type", "integer");
+        dataSourceId.put("description", "目标数据源 id，可选；缺省使用当前会话数据源。可用 list_data_sources 获取");
+        props.put("dataSourceId", dataSourceId);
         schema.put("properties", props);
         schema.put("required", List.of("sql"));
         return schema;
@@ -65,13 +72,13 @@ public class SqlValidateTool implements AiTool {
 
     @Override
     public Object execute(Map<String, Object> arguments, AiToolContext context) throws Exception {
-        DataSourceDTO dataSource = context.getDataSource();
+        DataSourceDTO dataSource = resolveDataSource(arguments, context);
         String sql = arguments.get("sql") == null ? null : String.valueOf(arguments.get("sql"));
 
         Map<String, Object> result = new LinkedHashMap<>();
         if (dataSource == null) {
             result.put("valid", false);
-            result.put("error", "当前会话未绑定数据源，无法校验 SQL");
+            result.put("error", "当前会话未绑定数据源，且未提供有效的 dataSourceId");
             return result;
         }
         if (sql == null || sql.isBlank()) {
@@ -124,6 +131,19 @@ public class SqlValidateTool implements AiTool {
             trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
         }
         return trimmed;
+    }
+
+    private DataSourceDTO resolveDataSource(Map<String, Object> arguments, AiToolContext context) {
+        Object raw = arguments.get("dataSourceId");
+        if (raw != null && !String.valueOf(raw).isBlank()) {
+            try {
+                Long id = Long.parseLong(String.valueOf(raw).trim());
+                return dataSourceService.findOne(id).orElse(null);
+            } catch (NumberFormatException ignored) {
+                // 非法 id 时回退到会话数据源
+            }
+        }
+        return context.getDataSource();
     }
 
     /**

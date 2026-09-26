@@ -25,6 +25,8 @@ public class DataModelDTO implements Serializable {
     private Long dataSourceId;
     private String schemaName;
     private String tableName;
+    /** 维度模型的默认显示字段（图表/筛选优先展示，通常为名称字段）。 */
+    private String displayFieldName;
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
@@ -170,6 +172,14 @@ public class DataModelDTO implements Serializable {
 
     public void setTableName(String tableName) {
         this.tableName = tableName;
+    }
+
+    public String getDisplayFieldName() {
+        return displayFieldName;
+    }
+
+    public void setDisplayFieldName(String displayFieldName) {
+        this.displayFieldName = displayFieldName;
     }
 
     public ZonedDateTime getCreateTime() {
