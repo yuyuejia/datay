@@ -36,6 +36,7 @@
           :data="tables"
           v-loading="loading"
           max-height="52vh"
+          size="small"
           border
           stripe
           :row-key="row => row.table"
@@ -308,6 +309,14 @@ const confirmInput = (value: string) => {
 
 .table-selector-table :deep(.el-table__row) {
   cursor: pointer;
+}
+
+.table-selector-table :deep(.el-table__cell) {
+  padding: 2px 0;
+}
+
+.table-selector-table :deep(.el-table__cell .cell) {
+  line-height: 22px;
 }
 
 .table-selector-hint {

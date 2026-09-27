@@ -22,48 +22,74 @@
       <el-button class="field-multi-input-btn" @click.stop="showModal = true">选择字段</el-button>
     </div>
 
-    <app-modal v-model="showModal" id="fieldSelectorModal" title="选择表字段">
-      <div class="modal-body">
-        <div v-if="loading" class="text-center">
+    <app-modal size="lg" v-model="showModal" id="fieldSelectorModal" title="选择表字段">
+      <div class="field-selector-body">
+        <div v-if="loading" class="field-selector-loading">
           <div class="spinner-border" role="status">
             <span class="visually-hidden">加载中...</span>
           </div>
+          <span>加载中...</span>
         </div>
-        <div v-else-if="fields.length === 0" class="text-center text-muted">暂无字段数据</div>
-        <div v-else>
-          <div class="mb-3">
-            <el-input v-model="searchKeyword" placeholder="搜索字段..." clearable @input="filterFields" />
+        <el-empty v-else-if="fields.length === 0" description="暂无字段数据" :image-size="80" />
+        <div v-else class="field-selector-content">
+          <div class="field-selector-toolbar">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索字段名 / 类型 / 描述"
+              clearable
+              class="field-selector-search"
+              @input="filterFields"
+            >
+              <template #prefix>
+                <font-awesome-icon icon="search" />
+              </template>
+            </el-input>
+            <span v-if="props.multiple" class="field-selector-selected">已选 {{ selectedFieldObjects.length }} 个字段</span>
           </div>
-          <div class="field-list" style="max-height: 300px; overflow-y: auto">
-            <div v-for="field in filteredFields" :key="field.name" class="field-item mb-2">
-              <div class="form-check d-flex align-items-start">
+          <el-table
+            :data="filteredFields"
+            max-height="52vh"
+            size="small"
+            border
+            stripe
+            :row-key="row => row.name"
+            :row-class-name="fieldRowClassName"
+            class="field-selector-table"
+            @row-click="onFieldRowClick"
+          >
+            <el-table-column width="56" align="center">
+              <template #header>选择</template>
+              <template #default="{ row }">
                 <el-checkbox
                   v-if="props.multiple"
-                  :model-value="isFieldSelected(field)"
-                  class="me-2"
-                  @change="val => toggleField(field, val)"
+                  :model-value="isFieldSelected(row)"
+                  @click.stop
+                  @change="val => toggleField(row, val)"
                 />
                 <el-radio
                   v-else
-                  :model-value="isFieldSelected(field) ? field.name : null"
-                  :value="field.name"
-                  class="me-2"
-                  @change="() => selectSingleField(field)"
+                  :model-value="isFieldSelected(row) ? row.name : null"
+                  :value="row.name"
+                  @click.stop
+                  @change="() => selectSingleField(row)"
                 ><span /></el-radio>
-                <div class="d-flex justify-content-between w-100">
-                  <span class="field-name">{{ field.name }}</span>
-                  <span class="field-type text-muted">{{ field.type }}</span>
-                </div>
-              </div>
-              <div v-if="field.comment" class="field-comment text-muted small ms-3">
-                {{ field.comment }}
-              </div>
-            </div>
-          </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="name" label="字段名" min-width="200" show-overflow-tooltip />
+            <el-table-column label="类型" width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span v-if="row.type" class="field-type">{{ row.type }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="描述" min-width="240" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.comment || '-' }}</template>
+            </el-table-column>
+            <template #empty>无匹配的字段</template>
+          </el-table>
         </div>
       </div>
       <template #modal-footer>
-        <div>
+        <div class="field-selector-footer">
           <el-button @click="showModal = false">取消</el-button>
           <el-button type="primary" @click="confirmSelection">确定</el-button>
         </div>
@@ -176,6 +202,16 @@ const selectSingleField = (field: any) => {
   selectedFieldObjects.value = field;
 };
 
+const onFieldRowClick = (field: any) => {
+  if (props.multiple) {
+    toggleField(field, !isFieldSelected(field));
+  } else {
+    selectSingleField(field);
+  }
+};
+
+const fieldRowClassName = ({ row }: { row: any }) => (isFieldSelected(row) ? 'is-selected' : '');
+
 const confirmSelection = () => {
   const selection = selectedFieldObjects.value;
 
@@ -245,25 +281,79 @@ const removeField = (field: any) => {
   color: var(--el-color-primary, #409eff);
 }
 
-.field-item {
-  padding: 8px;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
+.field-selector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.field-item:hover {
-  background-color: #f8f9fa;
+.field-selector-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 0;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 13px;
 }
 
-.field-name {
-  font-weight: 500;
+.field-selector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-selector-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-selector-search {
+  max-width: 460px;
+}
+
+.field-selector-selected {
+  color: var(--el-color-primary, #409eff);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.field-selector-table {
+  width: 100%;
+}
+
+.field-selector-table :deep(.el-table__row) {
+  cursor: pointer;
+}
+
+.field-selector-table :deep(.el-table__cell) {
+  padding: 2px 0;
+}
+
+.field-selector-table :deep(.el-table__cell .cell) {
+  line-height: 22px;
+}
+
+.field-selector-table :deep(.el-table__body tr.is-selected > td.el-table__cell) {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
 }
 
 .field-type {
-  font-size: 0.875rem;
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 3px;
+  background-color: var(--el-fill-color, #f0f2f5);
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 12px;
+  line-height: 18px;
 }
 
-.field-comment {
-  margin-top: 4px;
+.field-selector-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>
