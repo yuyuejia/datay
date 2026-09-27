@@ -410,7 +410,7 @@ public class StreamJdbcOutput extends FlowComponent {
         for (int i = 0; i < primaryKeys.size(); i++) {
             ColumnMeta column = primaryKeys.get(i);
             Object value = record.get(column.getName());
-            stmt.setObject(i + 1, value);
+            stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
         }
     }
 
@@ -426,7 +426,7 @@ public class StreamJdbcOutput extends FlowComponent {
             for (int i = 0; i < tableMeta.columns().size(); i++) {
                 ColumnMeta column = tableMeta.columns().get(i);
                 Object value = record.get(column.getName());
-                stmt.setObject(i + 1, value);
+                stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
             }
         }
     }
@@ -459,7 +459,7 @@ public class StreamJdbcOutput extends FlowComponent {
             
             // 从记录中获取源字段的值
             Object value = record.get(sourceColumnName);
-            stmt.setObject(i + 1, value);
+            stmt.setObject(i + 1, DBUtils.normalizeParameter(targetColumn.getType(), value));
         }
     }
 

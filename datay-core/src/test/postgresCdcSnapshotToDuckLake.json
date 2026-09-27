@@ -1,0 +1,39 @@
+{
+  "units": [
+    {
+      ".id": "PostgresCDCInput",
+      ".name": "PostgresCDCInput",
+      "sourceId": {
+        "url": "jdbc:postgresql://127.0.0.1:5432/testdb",
+        "driver": "org.postgresql.Driver",
+        "username": "admin",
+        "password": "123456",
+        "dbschema": "public"
+      },
+      "schema": "public",
+      "tableNamePattern": "cdc_demo",
+      "publicationName": "datay_pub_cdc_demo_snap_lake",
+      "slotName": "datay_slot_cdc_demo_snap_lake",
+      "snapshot": true
+    },
+    {
+      ".id": "DuckLakeWrite",
+      ".name": "DuckLakeWrite",
+      "sourceId": {
+        "url": "ducklake:./target/cdc-pg-snapshot.ducklake",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main",
+        "extraParams": {
+          "s3.data_path": "./target/cdc-pg-snapshot-ducklake-data"
+        }
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    { "sourceId": "PostgresCDCInput", "targetId": "DuckLakeWrite", "sourcePort": 0 }
+  ],
+  "version": "1.0.0"
+}

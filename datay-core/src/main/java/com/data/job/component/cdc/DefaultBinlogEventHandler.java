@@ -37,7 +37,7 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
     }
 
     @Override
-    public void handleEvent(BinlogEvent event) {
+    public synchronized void handleEvent(BinlogEvent event) {
         try {
             // 检查是否可以合并到当前缓冲区
             if (canMergeWithBuffer(event)) {
@@ -161,19 +161,26 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE, "true");
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, firstEvent.getTimestamp());
 
-        // 合并所有事件的afterData
+        // 合并所有事件的数据：DELETE 取变更前镜像，INSERT/UPDATE 取变更后镜像
         JSONArray mergedData = new JSONArray();
         for (BinlogEvent event : eventBuffer) {
+            mergedFlowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
+            mergedFlowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
+
+            if (firstEvent.getEventType() == BinlogEvent.EventType.DELETE) {
+                if (event.getBeforeData() != null) {
+                    mergedData.add(event.getBeforeData());
+                }
+                continue;
+            }
             if (event.getAfterData() != null) {
                 // 如果是UPDATE操作，还需要处理beforeData
-                if (firstEvent.getEventType() == BinlogEvent.EventType.UPDATE) {
-                    event.getBeforeData().put("__before", event.getBeforeData());
+                if (firstEvent.getEventType() == BinlogEvent.EventType.UPDATE && event.getBeforeData() != null) {
+                    event.getAfterData().put("__before", event.getBeforeData());
                 }
 
                 mergedData.add(event.getAfterData());
             }
-            mergedFlowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
-            mergedFlowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
         }
         mergedFlowFile.setJsonArray(mergedData);
         return mergedFlowFile;
@@ -205,7 +212,9 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
                 flowFile.setJsonArray(new JSONArray(event.getAfterData()));
                 break;
             case UPDATE:
-                event.getAfterData().put("__before", event.getBeforeData());
+                if (event.getBeforeData() != null) {
+                    event.getAfterData().put("__before", event.getBeforeData());
+                }
                 flowFile.setJsonArray(new JSONArray(event.getAfterData()));
                 break;
             case DELETE:
@@ -236,7 +245,7 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
     /**
      * 强制刷新缓冲区（用于程序退出或异常情况）
      */
-    public void flush() {
+    public synchronized void flush() {
         if (!eventBuffer.isEmpty()) {
             flushBuffer();
         }

@@ -1,0 +1,36 @@
+{
+  "units": [
+    {
+      ".id": "MySQLBinlogInput",
+      ".name": "MySQLBinlogInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "test"
+      },
+      "databaseNamePattern": "test",
+      "tableNamePattern": "cdc_types"
+    },
+    {
+      ".id": "DuckLakeWrite",
+      ".name": "DuckLakeWrite",
+      "sourceId": {
+        "url": "ducklake:./target/cdc-mysql-types.ducklake",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main",
+        "extraParams": {
+          "s3.data_path": "./target/cdc-mysql-types-ducklake-data"
+        }
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    { "sourceId": "MySQLBinlogInput", "targetId": "DuckLakeWrite", "sourcePort": 0 }
+  ],
+  "version": "1.0.0"
+}

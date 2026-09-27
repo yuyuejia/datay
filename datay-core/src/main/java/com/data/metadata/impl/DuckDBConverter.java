@@ -64,7 +64,7 @@ public class DuckDBConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), DuckDBType.BIGINT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT.name(), DuckDBType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), DuckDBType.FLOAT.name());
-        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckDBType.DOUBLE.name());
         commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), DuckDBType.DOUBLE.name());
         commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DuckDBType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DuckDBType.DECIMAL.name());

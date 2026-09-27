@@ -11,6 +11,8 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -39,6 +41,11 @@ public class MySQLBinlogInput extends FlowComponent {
     private Long binlogPosition; // 指定从哪个位置开始采集（可选）
     private String databaseNamePattern;
     private String tableNamePattern;
+
+    /** 是否首次读取历史全量数据（快照）后再启动增量同步。 */
+    private Boolean snapshot = false;
+    /** 快照分批大小。 */
+    private Integer snapshotFetchSize = 10000;
 
     private final BlockingQueue<BinlogEvent> queue = new ArrayBlockingQueue<>(1000);
 
@@ -128,7 +135,17 @@ public class MySQLBinlogInput extends FlowComponent {
             // 如果指定了起始位置，则从指定位置开始采集
             Object binlogFileStatus = getStatus("binlogFile");
             Object binlogPositionStatus = getStatus("binlogPosition");
-            if (binlogFileStatus != null && binlogPositionStatus != null) {
+            boolean hasCheckpoint = (binlogFileStatus != null && binlogPositionStatus != null) || (binlogFile != null && binlogPosition != null);
+
+            if (Boolean.TRUE.equals(snapshot) && !hasCheckpoint && getStatus("snapshotDone") == null) {
+                // 首次全量快照：先记录当前 binlog 位点，全量读取后从该位点启动增量
+                String[] position = queryCurrentBinlogPosition();
+                List<CdcSnapshotReader.TableRef> snapshotTables = resolveSnapshotTables();
+                logInfo("开始读取历史全量数据（snapshot），起始位点 " + position[0] + ":" + position[1] + "，表范围=" + snapshotTables);
+                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(snapshotTables);
+                logInfo("历史全量数据读取完成，启动 CDC 增量同步");
+                collector.startFromPosition(position[0], Long.parseLong(position[1]));
+            } else if (binlogFileStatus != null && binlogPositionStatus != null) {
                 logInfo("从状态启动Binlog采集:", binlogFileStatus.toString(), binlogPositionStatus.toString());
                 collector.startFromPosition(binlogFileStatus.toString(), Long.parseLong(binlogPositionStatus.toString()));
             } else if (binlogFile != null && binlogPosition != null) {
@@ -144,6 +161,109 @@ public class MySQLBinlogInput extends FlowComponent {
             logError("启动Binlog采集器失败: ", e.getMessage());
             throw new RuntimeException("启动Binlog采集器失败", e);
         }
+    }
+
+    /**
+     * 查询当前 binlog 位点（MySQL 8.4+ 使用 {@code SHOW BINARY LOG STATUS}，旧版本回退 {@code SHOW MASTER STATUS}）。
+     */
+    private String[] queryCurrentBinlogPosition() throws Exception {
+        try (Connection conn = DBUtils.getConnection(datasource)) {
+            try (java.sql.Statement st = conn.createStatement()) {
+                try (java.sql.ResultSet rs = st.executeQuery("SHOW BINARY LOG STATUS")) {
+                    rs.next();
+                    return new String[] { rs.getString("File"), rs.getString("Position") };
+                } catch (Exception e) {
+                    try (java.sql.ResultSet rs = st.executeQuery("SHOW MASTER STATUS")) {
+                        rs.next();
+                        return new String[] { rs.getString("File"), rs.getString("Position") };
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 解析快照读取使用的 schema。
+     */
+    private String resolveSnapshotSchema() {
+        if (databaseNamePattern != null && databaseNamePattern.matches("[A-Za-z0-9_]+")) {
+            return databaseNamePattern;
+        }
+        if (datasource.getDbschema() != null && !datasource.getDbschema().trim().isEmpty()) {
+            return datasource.getDbschema();
+        }
+        DatasourceInfo parsed = DBUtils.parseConnectionUrl(datasource);
+        return parsed.getDbschema();
+    }
+
+    /**
+     * 解析快照读取的表范围，与 CDC 增量同步范围保持一致：
+     * 库由 {@code databaseNamePattern} 控制（为空回退到数据源 schema），表由 {@code tableNamePattern} 控制。
+     */
+    private List<CdcSnapshotReader.TableRef> resolveSnapshotTables() throws Exception {
+        List<String> databases = resolveSnapshotDatabases();
+        Pattern tablePattern = (tableNamePattern != null && !tableNamePattern.trim().isEmpty())
+            ? Pattern.compile(tableNamePattern)
+            : null;
+
+        List<CdcSnapshotReader.TableRef> tables = new ArrayList<>();
+        try (Connection conn = DBUtils.getConnection(datasource)) {
+            for (String database : databases) {
+                for (TableMeta tableMeta : DBUtils.getTableList(conn, database)) {
+                    String table = tableMeta.getTable();
+                    if (table == null || table.trim().isEmpty()) {
+                        continue;
+                    }
+                    if (tablePattern != null && !tablePattern.matcher(table).matches()) {
+                        continue;
+                    }
+                    tables.add(new CdcSnapshotReader.TableRef(database, table));
+                }
+            }
+        }
+        if (tables.isEmpty()) {
+            throw new RuntimeException("未找到匹配的表，无法读取历史全量数据，请检查 databaseNamePattern / tableNamePattern");
+        }
+        return tables;
+    }
+
+    /**
+     * 解析快照覆盖的数据库：{@code databaseNamePattern} 为单个库名时直接使用；
+     * 为正则时枚举匹配的库；为空时回退到数据源 schema。
+     */
+    private List<String> resolveSnapshotDatabases() throws Exception {
+        if (databaseNamePattern != null && !databaseNamePattern.trim().isEmpty() && !databaseNamePattern.matches("[A-Za-z0-9_]+")) {
+            Pattern databasePattern = Pattern.compile(databaseNamePattern);
+            List<String> matched = new ArrayList<>();
+            try (
+                Connection conn = DBUtils.getConnection(datasource);
+                java.sql.Statement st = conn.createStatement();
+                java.sql.ResultSet rs = st.executeQuery("SHOW DATABASES")
+            ) {
+                while (rs.next()) {
+                    String database = rs.getString(1);
+                    if (isSystemDatabase(database)) {
+                        continue;
+                    }
+                    if (databasePattern.matcher(database).matches()) {
+                        matched.add(database);
+                    }
+                }
+            }
+            if (!matched.isEmpty()) {
+                return matched;
+            }
+        }
+        return Collections.singletonList(resolveSnapshotSchema());
+    }
+
+    private boolean isSystemDatabase(String database) {
+        return (
+            "information_schema".equalsIgnoreCase(database) ||
+            "performance_schema".equalsIgnoreCase(database) ||
+            "mysql".equalsIgnoreCase(database) ||
+            "sys".equalsIgnoreCase(database)
+        );
     }
 
     /**
@@ -181,5 +301,13 @@ public class MySQLBinlogInput extends FlowComponent {
 
     public void setTableNamePattern(String tableNamePattern) {
         this.tableNamePattern = tableNamePattern;
+    }
+
+    public void setSnapshot(Boolean snapshot) {
+        this.snapshot = snapshot;
+    }
+
+    public void setSnapshotFetchSize(Integer snapshotFetchSize) {
+        this.snapshotFetchSize = snapshotFetchSize;
     }
 }

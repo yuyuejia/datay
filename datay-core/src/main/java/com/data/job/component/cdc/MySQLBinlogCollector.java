@@ -7,6 +7,7 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.*;
+import com.github.shyiko.mysql.binlog.event.deserialization.EventDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,6 +110,11 @@ public class MySQLBinlogCollector {
     private void configureClient() {
         // 设置事件监听器
         client.registerEventListener(this::handleEvent);
+
+        // CHAR/BINARY 按字节数组反序列化，避免二进制列（VARBINARY/BINARY）被按字符编码解码而丢失数据
+        EventDeserializer eventDeserializer = new EventDeserializer();
+        eventDeserializer.setCompatibilityMode(EventDeserializer.CompatibilityMode.CHAR_AND_BINARY_AS_BYTE_ARRAY);
+        client.setEventDeserializer(eventDeserializer);
 
         // 设置连接异常处理器
         client.registerLifecycleListener(
@@ -323,11 +329,42 @@ public class MySQLBinlogCollector {
         if (!isQueryDDL(data.getSql().toLowerCase())) {
             return;
         }
+        // 按数据库/表过滤，避免同步其它库的 DDL 到目标端
+        if (
+            databaseNamePattern != null &&
+            data.getDatabase() != null &&
+            !databaseNamePattern.matcher(data.getDatabase()).matches()
+        ) {
+            return;
+        }
+        if (tableNamePattern != null) {
+            String table = extractDdlTableName(data.getSql());
+            if (table == null || !tableNamePattern.matcher(table).matches()) {
+                return;
+            }
+        }
         BinlogEvent binlogEvent = new BinlogEvent(BinlogEvent.EventType.QUERY, data.getDatabase(), null);
         binlogEvent.setBinlogFileName(getLastBinlogFile());
         binlogEvent.setBinlogPosition(getLastBinlogPosition());
         binlogEvent.setQuery(data.getSql());
         eventHandler.handleEvent(binlogEvent);
+    }
+
+    /**
+     * 从 DDL 语句中尽力解析目标表名，用于表过滤。
+     */
+    private String extractDdlTableName(String sql) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+            .compile("(?i)\\b(?:alter|create|truncate|drop)\\s+table\\s+(?:if\\s+(?:not\\s+)?exists\\s+)?[`\"']?([\\w$]+)[`\"']?")
+            .matcher(sql);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        matcher = java.util.regex.Pattern.compile("(?i)\\brename\\s+table\\s+[`\"']?([\\w$]+)[`\"']?").matcher(sql);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private boolean isQueryDDL(String sql) {
@@ -346,9 +383,9 @@ public class MySQLBinlogCollector {
      * 处理XID事件（事务提交）
      */
     private void handleXidEvent(XidEventData data) {
-        // 注释：XID事件表示事务提交
-        // 在实际应用中，可以根据需要处理事务边界
+        // XID 事件表示事务提交：刷新事件缓冲，避免合并缓冲导致数据延迟下发
         log.debug("处理commit (XID)事件，事务ID: {}", data.getXid());
+        eventHandler.flush();
 
 //        BinlogEvent binlogEvent = new BinlogEvent(BinlogEvent.EventType.XID, null, null);
 //        binlogEvent.setBinlogFileName(getLastBinlogFile());

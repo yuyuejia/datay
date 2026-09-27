@@ -28,6 +28,10 @@ MySQLBinlogInput 是一个基于MySQL二进制日志（Binlog）的数据输入�
 | `binlogPosition` | Long | ❌ | 指定从Binlog文件的哪个位置开始采集 | `12345` |
 | `databaseNamePattern` | String | ❌ | 数据库名过滤正则表达式 | `"test_.*"` |
 | `tableNamePattern` | String | ❌ | 表名过滤正则表达式 | `"user.*"` |
+| `snapshot` | Boolean | ❌ | 首次运行（无断点）时先读取历史全量数据，再启动增量同步，默认 `false` | `true` |
+| `snapshotFetchSize` | Integer | ❌ | 快照分批大小，默认 `10000` | `5000` |
+
+> 开启 `snapshot` 后，快照读取范围与增量同步范围一致：库由 `databaseNamePattern` 控制（为空回退数据源 schema），表由 `tableNamePattern` 控制；范围外的表不会被读取。
 
 ## 数据源配置 (DatasourceInfo)
 

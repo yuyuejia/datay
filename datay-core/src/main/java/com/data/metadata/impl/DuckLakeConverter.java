@@ -29,6 +29,7 @@ public class DuckLakeConverter implements TypeConverter {
         TIME,
         TIMESTAMP,
         JSON,
+        BOOLEAN,
     }
 
     public static HashMap<String, String> commonDataType2ColumnType = new HashMap<>();
@@ -60,7 +61,7 @@ public class DuckLakeConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), DuckLakeType.BIGINT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT.name(), DuckLakeType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), DuckLakeType.FLOAT.name());
-        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckLakeType.FLOAT.name());
+        commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckLakeType.DOUBLE.name());
         commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), DuckLakeType.DOUBLE.name());
         commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DuckLakeType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DuckLakeType.DECIMAL.name());
@@ -87,7 +88,8 @@ public class DuckLakeConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), DuckLakeType.TIMESTAMP.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_TIME_ZONE.getName(), DuckLakeType.TIMESTAMP.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), DuckLakeType.TIMESTAMP.name());
-        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DuckLakeType.TINYINT.name());
+        commonDataType2ColumnType.put(AllDataType.BOOLEAN.name(), DuckLakeType.BOOLEAN.name());
+        commonDataType2ColumnType.put(AllDataType.BOOL.name(), DuckLakeType.BOOLEAN.name());
         commonDataType2ColumnType.put(AllDataType.XML.name(), DuckLakeType.VARCHAR.name());
         commonDataType2ColumnType.put(AllDataType.JSON.name(), DuckLakeType.JSON.name());
         commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DuckLakeType.VARCHAR.name());
@@ -106,8 +108,11 @@ public class DuckLakeConverter implements TypeConverter {
             if (upperType.startsWith("INTERVAL")) {
                 type = DuckLakeType.VARCHAR.name();
                 columnMeta.setLength(100);
+            } else if (upperType.startsWith("INT")) {
+                // PostgreSQL int2/int4/int8 等整型名称统一回退为 BIGINT
+                type = DuckLakeType.BIGINT.name();
             } else {
-                System.out.println("duckdb not found type:" + upperType);
+                System.out.println("ducklake not found type:" + upperType);
                 type = DuckLakeType.VARCHAR.name();
             }
         }

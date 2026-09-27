@@ -25,6 +25,7 @@ import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -368,18 +369,121 @@ public class DBUtils {
             } else if ("BLOB".equals(type) || "BINARY".equals(type) || "VARBINARY".equals(type)) {
                 appender.append(toByteArray(value));
             } else if ("DATE".equals(type)) {
-                appender.append(LocalDate.parse(value.toString()));
+                appender.append(toLocalDate(value));
             } else if ("TIME".equals(type)) {
-                appender.append(LocalTime.parse(value.toString()));
+                appender.append(toLocalTime(value));
             } else if ("DATETIME".equals(type) || "TIMESTAMP".equals(type) || type.endsWith("TIMESTAMP")) {
-                LocalDateTime dateTime = DBUtils.parseDateTime(value.toString());
-                appender.append(dateTime);
+                appender.append(toLocalDateTime(value));
             } else {
-                appender.append(value.toString());
+                appender.append(toStringValue(value));
             }
         } catch (Exception e) {
-            appender.append(value.toString());
+            appender.append(toStringValue(value));
         }
+    }
+
+    /**
+     * 转换为字符串：MySQL Binlog 对 TEXT 等字符串类型可能返回 {@code byte[]}，按 UTF-8 解码。
+     */
+    private static String toStringValue(Object value) {
+        if (value instanceof byte[]) {
+            return new String((byte[]) value, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return value.toString();
+    }
+
+    private static boolean isTextType(String fieldType) {
+        String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
+        return (
+            type.equals("VARCHAR") ||
+            type.equals("CHAR") ||
+            type.equals("TEXT") ||
+            type.endsWith("TEXT") ||
+            type.equals("STRING") ||
+            type.equals("CLOB") ||
+            type.equals("JSON") ||
+            type.equals("UUID")
+        );
+    }
+
+    /**
+     * 转换为 LocalDateTime。兼容 MySQL Binlog 采集返回的 {@link java.util.Date}
+     * （其内部按 UTC 记录源库无时区的日期时间，需按 UTC 还原墙上时间）。
+     */
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value instanceof LocalDateTime) {
+            return (LocalDateTime) value;
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime();
+        }
+        if (value instanceof java.util.Date) {
+            return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(((java.util.Date) value).getTime()), ZoneOffset.UTC);
+        }
+        return parseDateTime(value.toString());
+    }
+
+    private static LocalDate toLocalDate(Object value) {
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof java.util.Date) {
+            return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(((java.util.Date) value).getTime()), ZoneOffset.UTC).toLocalDate();
+        }
+        return LocalDate.parse(value.toString());
+    }
+
+    private static LocalTime toLocalTime(Object value) {
+        if (value instanceof LocalTime) {
+            return (LocalTime) value;
+        }
+        if (value instanceof java.sql.Time) {
+            // MySQL Binlog 的 TIME 以 UTC 记录墙上时间，需按 UTC 还原，避免时区偏移。
+            // 注意：java.sql.Time.toInstant() 会抛 UnsupportedOperationException，故用 epoch 毫秒。
+            return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(((java.util.Date) value).getTime()), ZoneOffset.UTC).toLocalTime();
+        }
+        if (value instanceof java.util.Date) {
+            return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(((java.util.Date) value).getTime()), ZoneOffset.UTC).toLocalTime();
+        }
+        return LocalTime.parse(value.toString());
+    }
+
+    /**
+     * 把来自 CDC 等场景的原始值规范化为 JDBC 可写入的目标类型。
+     * <p>主要处理 MySQL Binlog 采集返回的 {@link java.util.Date}（按 UTC 记录无时区时间），
+     * 依据目标字段类型转换为 DATE/TIME/TIMESTAMP 对应的 Java 时间类型。
+     */
+    public static Object normalizeParameter(String fieldType, Object value) {
+        if (value == null) {
+            return null;
+        }
+        String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
+        if ("BIT".equals(type)) {
+            return toBitValue(value);
+        }
+        if (value instanceof byte[]) {
+            // MySQL Binlog 对 TEXT 等字符串类型返回 byte[]，文本目标列按 UTF-8 解码
+            if (isTextType(fieldType)) {
+                return new String((byte[]) value, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            return value;
+        }
+        if (!(value instanceof java.util.Date)) {
+            return value;
+        }
+        if ("DATE".equals(type)) {
+            return toLocalDate(value);
+        }
+        if ("TIME".equals(type)) {
+            return toLocalTime(value);
+        }
+        if ("DATETIME".equals(type) || "TIMESTAMP".equals(type) || type.endsWith("TIMESTAMP")) {
+            return toLocalDateTime(value);
+        }
+        return value;
     }
 
     private static long toLong(Object value) {
@@ -462,8 +566,20 @@ public class DBUtils {
         if (value instanceof Number) {
             return ((Number) value).doubleValue() != 0;
         }
+        if (value instanceof java.util.BitSet) {
+            java.util.BitSet bits = (java.util.BitSet) value;
+            return bits.length() > 0 && bits.get(0);
+        }
         String s = value.toString().trim().toLowerCase();
         return "true".equals(s) || "1".equals(s) || "yes".equals(s);
+    }
+
+    private static byte toBitValue(Object value) {
+        if (value instanceof java.util.BitSet) {
+            java.util.BitSet bits = (java.util.BitSet) value;
+            return (byte) (bits.length() > 0 && bits.get(0) ? 1 : 0);
+        }
+        return (byte) (toBoolean(value) ? 1 : 0);
     }
 
     private static byte[] toByteArray(Object value) {

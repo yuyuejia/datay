@@ -134,6 +134,11 @@ public class DuckLakeWrite extends FlowComponent {
             }
 
             String attachSql = String.format("ATTACH '%s' AS %s (data_path '%s');", datasource.getUrl(), CATALOG, store);
+            // 同名 catalog 可能已被同一 DuckDB 实例挂载（如复用引擎库），先卸载再挂载，保证指向正确目标
+            try (Statement detachStmt = conn.createStatement()) {
+                detachStmt.execute("DETACH " + CATALOG + ";");
+            } catch (Exception ignored) {
+            }
             conn.createStatement().execute(attachSql);
             isAttach = true;
         }
@@ -264,12 +269,15 @@ public class DuckLakeWrite extends FlowComponent {
         if (records.isEmpty()) {
             return;
         }
-    
+
         // 对于INSERT操作，使用多值INSERT语句
         if ("INSERT".equals(eventType) || "APPEND".equals(eventType) || "OVERWRITE".equals(eventType)) {
             executeBatchInsertWithValues(targetConn, targetTable, records);
+        } else if ("UPDATE".equals(eventType)) {
+            // DuckLake 不支持主键/唯一约束，UPDATE 依赖 binlog 变更前镜像按条件更新
+            executeUpdateWithBeforeImage(targetConn, targetTable, records);
         } else {
-            // 对于其他操作类型，使用原来的批量执行方式
+            // 对于其他操作类型（如 DELETE），使用批量执行方式
             String writeSQL = DatabaseConverter.generateWriteSQL(DBType.DUCKLAKE.name(), targetTable, eventType);
             try (PreparedStatement targetStmt = targetConn.prepareStatement(writeSQL);) {
                 for (Object o : records) {
@@ -277,11 +285,86 @@ public class DuckLakeWrite extends FlowComponent {
                     setStatementParameters(targetStmt, targetTable, record, eventType);
                     targetStmt.addBatch();
                 }
-    
+
                 targetStmt.executeBatch();
                 this.logInfo("已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable() + "，写入模式：" + eventType);
             }
         }
+    }
+
+    /**
+     * CDC UPDATE：DuckLake 无主键/唯一约束，无法使用 INSERT OR REPLACE。
+     * <p>优先使用变更前镜像（{@code __before}）作为 WHERE 条件执行 UPDATE；
+     * 若缺失前镜像则退化为 INSERT。
+     */
+    private void executeUpdateWithBeforeImage(Connection targetConn, TableMeta targetTable, JSONArray records) throws SQLException {
+        JSONArray updates = new JSONArray();
+        JSONArray inserts = new JSONArray();
+        for (Object o : records) {
+            JSONObject record = (JSONObject) o;
+            JSONObject before = record.getJSONObject("__before");
+            if (before == null || before.isEmpty()) {
+                inserts.add(record);
+            } else {
+                updates.add(record);
+            }
+        }
+
+        if (!inserts.isEmpty()) {
+            executeBatchInsertWithValues(targetConn, targetTable, inserts);
+        }
+        if (updates.isEmpty()) {
+            return;
+        }
+
+        JSONObject firstBefore = updates.getJSONObject(0).getJSONObject("__before");
+
+        List<ColumnMeta> setColumns = new ArrayList<>(targetTable.columns());
+        List<ColumnMeta> whereColumns = new ArrayList<>();
+        for (ColumnMeta column : targetTable.columns()) {
+            if (firstBefore.containsKey(column.getName())) {
+                whereColumns.add(column);
+            }
+        }
+        // 无前镜像可用列时退化为 INSERT
+        if (whereColumns.isEmpty()) {
+            executeBatchInsertWithValues(targetConn, targetTable, updates);
+            return;
+        }
+
+        StringBuilder sql = new StringBuilder("UPDATE ")
+            .append(targetTable.getCatalog()).append(".").append(targetTable.getSchema()).append(".").append(targetTable.getTable())
+            .append(" SET ");
+        for (int i = 0; i < setColumns.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append(setColumns.get(i).getName()).append(" = ?");
+        }
+        sql.append(" WHERE ");
+        for (int i = 0; i < whereColumns.size(); i++) {
+            if (i > 0) {
+                sql.append(" AND ");
+            }
+            sql.append(whereColumns.get(i).getName()).append(" = ?");
+        }
+
+        try (PreparedStatement stmt = targetConn.prepareStatement(sql.toString())) {
+            for (Object o : updates) {
+                JSONObject record = (JSONObject) o;
+                JSONObject before = record.getJSONObject("__before");
+                int index = 1;
+                for (ColumnMeta column : setColumns) {
+                    stmt.setObject(index++, DBUtils.normalizeParameter(column.getType(), record.get(column.getName())));
+                }
+                for (ColumnMeta column : whereColumns) {
+                    stmt.setObject(index++, DBUtils.normalizeParameter(column.getType(), before.get(column.getName())));
+                }
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+        }
+        this.logInfo("已成功写入 " + updates.size() + " 条记录到表 " + targetTable.getTable() + "，写入模式：UPDATE");
     }
     
     /**
@@ -326,7 +409,7 @@ public class DuckLakeWrite extends FlowComponent {
             JSONObject record = records.getJSONObject(i);
             for (ColumnMeta column : targetTable.columns()) {
                 Object value = record.get(column.getName());
-                allParameters.add(value);
+                allParameters.add(DBUtils.normalizeParameter(column.getType(), value));
             }
         }
         
@@ -401,7 +484,7 @@ public class DuckLakeWrite extends FlowComponent {
         for (int i = 0; i < primaryKeys.size(); i++) {
             ColumnMeta column = primaryKeys.get(i);
             Object value = record.get(column.getName());
-            stmt.setObject(i + 1, value);
+            stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
         }
     }
 
@@ -412,7 +495,7 @@ public class DuckLakeWrite extends FlowComponent {
         for (int i = 0; i < tableMeta.columns().size(); i++) {
             ColumnMeta column = tableMeta.columns().get(i);
             Object value = record.get(column.getName());
-            stmt.setObject(i + 1, value);
+            stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
         }
     }
 

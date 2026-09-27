@@ -103,6 +103,10 @@ public class Example {
 - [Mysql同步到Mysql](docs/example/mysql-to-mysql.md)
 - [Http同步到Mysql](docs/example/http-to-mysql.md)
 - [Mysql CDC实时同步到Mysql](docs/example/mysqlCDC-mysql.md)
+- [MySQL CDC实时同步到DuckDB](docs/example/mysqlCDC-duckdb.md)
+- [MySQL CDC实时同步到DuckLake](docs/example/mysqlCDC-ducklake.md)
+- [PostgreSQL CDC实时同步到DuckDB](docs/example/postgresCDC-duckdb.md)
+- [PostgreSQL CDC实时同步到DuckLake](docs/example/postgresCDC-ducklake.md)
 - [Mysql同步到Apache Doris](docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](docs/example/mysql-ducklake.md)
 - [使用DuckDB SQL进行数据处理](docs/example/mysql-sqlunit-mysql.md)
@@ -112,7 +116,7 @@ public class Example {
 - **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
-- **CDC**: MySQL Binlog
+- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）
 
 ## 核心组件
 
@@ -120,6 +124,7 @@ public class Example {
 - [StreamJdbcInput](docs/component/StreamJdbcInput.md) : JDBC数据源输入
 - [JdbcInput](docs/component/JdbcInput.md) : JDBC数据源输入
 - [MySQLBinlogInput](docs/component/MySQLBinlogInput.md) : 读取MySQL Binlog日志,支持增量数据同步
+- [PostgresCDCInput](docs/component/PostgresCDCInput.md) : 基于PostgreSQL逻辑复制(WAL/pgoutput)实时捕获数据变更
 
 ### 处理组件
 - [DuckDBSql](docs/component/DuckDBSql.md) : DuckDB SQL处理

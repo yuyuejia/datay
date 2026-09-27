@@ -1,0 +1,34 @@
+{
+  "units": [
+    {
+      ".id": "MySQLBinlogInput",
+      ".name": "MySQLBinlogInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "test"
+      },
+      "databaseNamePattern": "test",
+      "tableNamePattern": "cdc_demo",
+      "snapshot": true
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/cdc-mysql-snapshot.duckdb",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    { "sourceId": "MySQLBinlogInput", "targetId": "StreamJdbcOutput", "sourcePort": 0 }
+  ],
+  "version": "1.0.0"
+}

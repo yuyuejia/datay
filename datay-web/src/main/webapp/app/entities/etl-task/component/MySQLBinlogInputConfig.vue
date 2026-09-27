@@ -1,10 +1,10 @@
 <template>
   <el-form name="editForm" label-position="top">
     <div>
-      <!-- 数据源选择 -->
+      <!-- 数据源选择（仅限 MySQL） -->
       <el-form-item label="数据源">
       <DataSourceSelector
-          type="source"
+          data-source-type="MYSQL"
           :datasourceId="formData.sourceId"
           :schema="formData.schema"
           @selected="handleDataSourceSelected"
@@ -35,6 +35,17 @@
       <el-form-item label="Binlog位置">
       <el-input-number :controls="false"  id="binlogPosition" name="binlogPosition" v-model="formData.binlogPosition" placeholder="例如：107" :min="0" />
         <small class="form-text text-muted"> 指定从Binlog文件的哪个位置开始采集，需要与Binlog文件一起使用 </small>
+    </el-form-item>
+
+      <!-- 历史全量快照 -->
+      <el-form-item label="首次读取历史全量数据">
+      <el-switch id="snapshot" name="snapshot" v-model="formData.snapshot" />
+        <small class="form-text text-muted"> 启用后，首次运行（无断点）会先全量读取匹配表的数据，再启动增量同步；任务重启有断点时不重复全量 </small>
+    </el-form-item>
+
+      <el-form-item v-if="formData.snapshot" label="快照分批大小">
+      <el-input-number :controls="false" id="snapshotFetchSize" name="snapshotFetchSize" v-model="formData.snapshotFetchSize" :min="1" />
+        <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
     </el-form-item>
     </div>
   </el-form>
@@ -118,6 +129,8 @@ const formData = reactive({
   tableNamePattern: props.node?.data?.config?.tableNamePattern || '',
   binlogFile: props.node?.data?.config?.binlogFile || '',
   binlogPosition: props.node?.data?.config?.binlogPosition || null,
+  snapshot: props.node?.data?.config?.snapshot || false,
+  snapshotFetchSize: props.node?.data?.config?.snapshotFetchSize || 10000,
 });
 
 // 处理数据源选择事件

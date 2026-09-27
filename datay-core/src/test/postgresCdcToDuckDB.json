@@ -1,0 +1,39 @@
+{
+  "units": [
+    {
+      ".id": "PostgresCDCInput",
+      ".name": "PostgresCDCInput",
+      "sourceId": {
+        "url": "jdbc:postgresql://127.0.0.1:5432/testdb",
+        "driver": "org.postgresql.Driver",
+        "username": "admin",
+        "password": "123456",
+        "dbschema": "public"
+      },
+      "schema": "public",
+      "tableNamePattern": "cdc_demo",
+      "publicationName": "datay_pub_cdc_demo",
+      "slotName": "datay_slot_cdc_demo"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/cdc-duckdb-test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "PostgresCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

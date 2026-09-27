@@ -17,4 +17,10 @@ public interface BinlogEventHandler {
      * @param exception 异常信息
      */
     void handleError(BinlogEvent event, Exception exception);
+
+    /**
+     * 强制刷新缓冲区（用于事务提交、程序退出或异常情况）。
+     * <p>默认无缓冲实现，具体处理器可覆盖。
+     */
+    default void flush() {}
 }
