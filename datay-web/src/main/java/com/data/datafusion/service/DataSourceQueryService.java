@@ -67,7 +67,8 @@ public class DataSourceQueryService {
         Map<String, Object> result = new LinkedHashMap<>();
         try (Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource))) {
             boolean isQuack = dataSource.getUrl() != null && dataSource.getUrl().startsWith("quack:");
-            String trimmedSql = sql.trim();
+            String normalizedSql = stripTrailingSemicolons(sql);
+            String trimmedSql = normalizedSql.trim();
             boolean isSelect =
                 trimmedSql.toUpperCase().startsWith("SELECT") ||
                 trimmedSql.toUpperCase().startsWith("WITH") ||
@@ -77,7 +78,7 @@ public class DataSourceQueryService {
                 trimmedSql.toUpperCase().startsWith("EXPLAIN");
 
             // Quack 1.5.3 对非 main schema 的目录/模式限定表引用有缺陷，统一改由 quack.query 在远端执行
-            String executeSql = isQuack ? DBUtils.wrapQuackQuery(sql) : sql;
+            String executeSql = isQuack ? DBUtils.wrapQuackQuery(normalizedSql) : normalizedSql;
 
             if (isSelect) {
                 try (
@@ -88,7 +89,7 @@ public class DataSourceQueryService {
                 }
             } else {
                 try (Statement stmt = connection.createStatement()) {
-                    int affectedRows = stmt.executeUpdate(sql);
+                    int affectedRows = stmt.executeUpdate(normalizedSql);
                     result.put("columns", Collections.emptyList());
                     result.put("rows", Collections.emptyList());
                     result.put("affectedRows", affectedRows);
@@ -117,7 +118,7 @@ public class DataSourceQueryService {
         Map<String, Object> result = new LinkedHashMap<>();
         try (
             Connection connection = DBUtils.getConnection(toDatasourceInfo(dataSource));
-            PreparedStatement stmt = connection.prepareStatement(sql)
+            PreparedStatement stmt = connection.prepareStatement(stripTrailingSemicolons(sql))
         ) {
             if (params != null) {
                 for (int i = 0; i < params.size(); i++) {
@@ -132,6 +133,21 @@ public class DataSourceQueryService {
             throw e;
         }
         return result;
+    }
+
+    /**
+     * 去除 SQL 末尾的分号。分号是 SQL*Plus / 客户端脚本的语句分隔符，不是 SQL 语法的一部分，
+     * Oracle 等 JDBC 驱动会因此报 ORA-00933: SQL 命令未正确结束。
+     */
+    private static String stripTrailingSemicolons(String sql) {
+        if (sql == null) {
+            return null;
+        }
+        String trimmed = sql.trim();
+        while (trimmed.endsWith(";")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+        }
+        return trimmed;
     }
 
     private Map<String, Object> readSelectResult(ResultSet rs) throws SQLException {

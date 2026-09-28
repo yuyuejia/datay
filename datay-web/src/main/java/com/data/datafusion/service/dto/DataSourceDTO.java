@@ -39,6 +39,10 @@ public class DataSourceDTO implements Serializable {
 
     private Map<String, String> extraParams;
 
+    private String database;
+
+    private String connectionMode;
+
     public Long getId() {
         return id;
     }
@@ -151,6 +155,22 @@ public class DataSourceDTO implements Serializable {
         this.extraParams = extraParams;
     }
 
+    public String getDatabase() {
+        return database;
+    }
+
+    public void setDatabase(String database) {
+        this.database = database;
+    }
+
+    public String getConnectionMode() {
+        return connectionMode;
+    }
+
+    public void setConnectionMode(String connectionMode) {
+        this.connectionMode = connectionMode;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -190,6 +210,8 @@ public class DataSourceDTO implements Serializable {
             ", createTime='" + getCreateTime() + "'" +
             ", tenantId='" + getTenantId() + "'" +
             ", extraParams='" + getExtraParams() + "'" +
+            ", database='" + getDatabase() + "'" +
+            ", connectionMode='" + getConnectionMode() + "'" +
             "}";
     }
 }

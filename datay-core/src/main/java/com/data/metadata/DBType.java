@@ -31,7 +31,7 @@ public enum DBType {
         "Oracle Database",
         Arrays.asList("11g", "12c", "18c", "19c", "21c", "23c"),
         "oracle.jdbc.driver.OracleDriver",
-        "jdbc:oracle:thin:@{host}:{port}:{database}",
+        "jdbc:oracle:thin:@//{host}:{port}/{database}",
         Map.of("11g", "ojdbc6.jar", "12c", "ojdbc7.jar", "18c", "ojdbc8.jar", "19c", "ojdbc8.jar", "21c", "ojdbc8.jar", "23c", "ojdbc8.jar")
     ),
 

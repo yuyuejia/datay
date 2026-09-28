@@ -22,6 +22,7 @@ export interface DbType {
   defaultPort: string;
   image?: string;
   icon?: string;
+  schemaEnabled?: boolean;
   extraParamsTemplate?: ExtraParamDef[];
   connectionModes?: ConnectionModeDef[];
   defaultConnectionMode?: string;
@@ -39,7 +40,7 @@ export const dbTypes: DbType[] = [
   {
     name: 'ORACLE',
     displayName: 'Oracle Database',
-    jdbcUrlTemplate: 'jdbc:oracle:thin:@{host}:{port}:{database}',
+    jdbcUrlTemplate: 'jdbc:oracle:thin:@//{host}:{port}/{database}',
     supportedVersions: ['11g', '12c', '18c', '19c', '21c', '23c'],
     defaultPort: '1521',
     image: '/content/images/oracle.svg',
@@ -51,6 +52,7 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['9.6', '10', '11', '12', '13', '14', '15', '16'],
     defaultPort: '5432',
     image: '/content/images/postgres.svg',
+    schemaEnabled: true,
   },
   {
     name: 'SQLSERVER',
@@ -59,6 +61,7 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['2008', '2012', '2014', '2016', '2017', '2019', '2022'],
     defaultPort: '1433',
     image: '/content/images/sqlserver.svg',
+    schemaEnabled: true,
   },
   {
     name: 'DUCKDB',
@@ -117,6 +120,7 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['5', '6', '7'],
     defaultPort: '5432',
     image: '/content/images/Greenplum.svg',
+    schemaEnabled: true,
   },
   {
     name: 'DORIS',

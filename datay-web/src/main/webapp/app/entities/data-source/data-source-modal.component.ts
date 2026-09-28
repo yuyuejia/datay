@@ -2,6 +2,13 @@ import { type Ref, computed, defineComponent, inject, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
 import { type DbType, type ExtraParamDef, dbTypes } from './db-types';
+import {
+  type OracleIdentifierType,
+  type UrlMode,
+  buildSimpleUrl,
+  isNetworkType,
+  parseSimpleUrl,
+} from './db-url.util';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -45,8 +52,16 @@ export default defineComponent({
     const extraParamRows: Ref<ExtraParamRow[]> = ref([]);
     const duckdbMode = ref('file');
     const duckdbFile = ref('');
+    const urlMode = ref<UrlMode>('simple');
+    const oracleIdentifierType = ref<OracleIdentifierType>('service');
 
     const isDuckDb = computed(() => dataSource.value.type === 'DUCKDB');
+
+    const showUrlModeToggle = computed(() => !!dataSource.value.type && isNetworkType(dataSource.value.type));
+
+    const isOracle = computed(() => dataSource.value.type === 'ORACLE');
+
+    const schemaEnabled = computed(() => !!selectedDbType.value?.schemaEnabled);
 
     watch(
       () => props.show,
@@ -134,12 +149,30 @@ export default defineComponent({
     const extractDuckdbFile = (url?: string | null) =>
       url && url.startsWith('jdbc:duckdb:') ? url.substring('jdbc:duckdb:'.length) : '';
 
+    const applyUrlModeFromUrl = () => {
+      const type = dataSource.value.type;
+      urlMode.value = dataSource.value.connectionMode === 'simple' ? 'simple' : 'custom';
+      if (urlMode.value === 'simple' && type && isNetworkType(type)) {
+        const fields = parseSimpleUrl(type, dataSource.value.url);
+        if (fields) {
+          dataSource.value.hostname = fields.hostname;
+          dataSource.value.port = fields.port;
+          dataSource.value.database = dataSource.value.database || fields.database;
+          if (fields.oracleIdentifierType) {
+            oracleIdentifierType.value = fields.oracleIdentifierType;
+          }
+        }
+      }
+    };
+
     const initModal = async () => {
       dataSource.value = new DataSource();
       currentStep.value = 1;
       extraParamRows.value = [];
       duckdbMode.value = 'file';
       duckdbFile.value = '';
+      urlMode.value = 'simple';
+      oracleIdentifierType.value = 'service';
       if (props.mode === 'edit' && props.dataSourceId) {
         try {
           const res = await dataSourceService().find(props.dataSourceId as number);
@@ -148,6 +181,7 @@ export default defineComponent({
           dataSource.value = res;
           duckdbMode.value = inferDuckdbMode(res.url);
           duckdbFile.value = extractDuckdbFile(res.url);
+          applyUrlModeFromUrl();
           currentStep.value = 2;
           syncExtraParamsFromTemplate();
         } catch (error) {
@@ -171,6 +205,8 @@ export default defineComponent({
     const selectDbType = (dbType: DbType) => {
       dataSource.value.type = dbType.name;
       duckdbMode.value = dbType.defaultConnectionMode || 'file';
+      urlMode.value = isNetworkType(dbType.name) ? 'simple' : 'custom';
+      oracleIdentifierType.value = 'service';
       if (dbType.defaultPort && !dataSource.value.port) {
         dataSource.value.port = dbType.defaultPort;
       }
@@ -198,6 +234,8 @@ export default defineComponent({
       const dbType = selectedDbType.value;
       if (dbType) {
         duckdbMode.value = dbType.defaultConnectionMode || 'file';
+        urlMode.value = isNetworkType(dbType.name) ? 'simple' : 'custom';
+        oracleIdentifierType.value = 'service';
         if (dbType.defaultPort && !dataSource.value.port) {
           dataSource.value.port = dbType.defaultPort;
         }
@@ -206,6 +244,18 @@ export default defineComponent({
         }
         updateUrl();
       }
+    };
+
+    const onUrlModeChange = (mode: UrlMode) => {
+      urlMode.value = mode;
+      if (mode === 'simple') {
+        updateUrl();
+      }
+    };
+
+    const onOracleIdentifierTypeChange = (value: OracleIdentifierType) => {
+      oracleIdentifierType.value = value;
+      updateUrl();
     };
 
     const updateUrl = () => {
@@ -226,29 +276,40 @@ export default defineComponent({
         return;
       }
 
-      let urlTemplate = dbType.jdbcUrlTemplate;
-      const hostname = dataSource.value.hostname || '{host}';
-      const port = dataSource.value.port || '{port}';
-      const schemaName = dataSource.value.schemaName || '{database}';
-
-      urlTemplate = urlTemplate.replace(/{host}/g, hostname);
-      urlTemplate = urlTemplate.replace(/{port}/g, port);
-      urlTemplate = urlTemplate.replace(/{database}/g, schemaName);
-
-      if (dbType.name === 'MYSQL' && dataSource.value.version) {
-        if (dataSource.value.version.startsWith('5.')) {
-          urlTemplate = urlTemplate.replace('serverTimezone=Asia/Shanghai', 'serverTimezone=UTC');
-          if (!urlTemplate.includes('useSSL=')) {
-            urlTemplate += '&useSSL=false';
-          }
-        } else {
-          if (!urlTemplate.includes('useSSL=')) {
-            urlTemplate += '&useSSL=true';
-          }
-        }
+      if (dbType.name === 'DUCKLAKE') {
+        dataSource.value.url = buildSimpleUrl(dbType.name, { hostname: '', port: '', database: '' }, dataSource.value.version);
+        return;
       }
 
-      dataSource.value.url = urlTemplate;
+      if (urlMode.value === 'custom') {
+        return;
+      }
+
+      dataSource.value.url = buildSimpleUrl(
+        dbType.name,
+        {
+          hostname: dataSource.value.hostname || '',
+          port: dataSource.value.port || '',
+          database: dataSource.value.database || '',
+          oracleIdentifierType: oracleIdentifierType.value,
+        },
+        dataSource.value.version,
+      );
+    };
+
+    const syncDerivedFields = () => {
+      dataSource.value.connectionMode = urlMode.value;
+      if (urlMode.value === 'custom') {
+        const parsed = parseSimpleUrl(dataSource.value.type, dataSource.value.url);
+        if (parsed?.database) {
+          dataSource.value.database = parsed.database;
+        }
+      }
+      if (!schemaEnabled.value) {
+        dataSource.value.schemaName = isOracle.value
+          ? (dataSource.value.username || '').toUpperCase()
+          : dataSource.value.database;
+      }
     };
 
     const goToStep = (step: number) => {
@@ -283,8 +344,22 @@ export default defineComponent({
         }
         return true;
       }
+      if (dataSource.value.type === 'DUCKLAKE') {
+        return true;
+      }
+      if (urlMode.value === 'custom') {
+        if (!dataSource.value.url || !dataSource.value.url.trim()) {
+          alertService.showError('请输入 JDBC URL');
+          return false;
+        }
+        return true;
+      }
       if (!dataSource.value.hostname || !dataSource.value.hostname.trim()) {
         alertService.showError('请输入IP/主机');
+        return false;
+      }
+      if (!dataSource.value.database || !dataSource.value.database.trim()) {
+        alertService.showError(isOracle.value ? '请输入服务名或 SID' : '请输入数据库名');
         return false;
       }
       return true;
@@ -293,12 +368,14 @@ export default defineComponent({
     const testConnectionDisabled = computed(() => {
       if (isTestingConnection.value || !dataSource.value.type || !dataSource.value.url) return true;
       if (isDuckDb.value) return false;
+      if (urlMode.value === 'simple' && !dataSource.value.hostname) return true;
       return !dataSource.value.username;
     });
 
     const save = async () => {
       if (!validateForm()) return;
       updateUrl();
+      syncDerivedFields();
       buildExtraParamsFromRows();
 
       isSaving.value = true;
@@ -321,6 +398,7 @@ export default defineComponent({
 
     const testConnection = async () => {
       updateUrl();
+      syncDerivedFields();
       buildExtraParamsFromRows();
       if (!dataSource.value.type || !dataSource.value.url) {
         alertService.showError('请先完成数据源配置');
@@ -360,12 +438,19 @@ export default defineComponent({
       duckdbMode,
       duckdbFile,
       isDuckDb,
+      urlMode,
+      oracleIdentifierType,
+      showUrlModeToggle,
+      isOracle,
+      schemaEnabled,
       effectiveExtraParamsTemplate,
       testConnectionDisabled,
       selectDbType,
       selectAndGo,
       onTypeChange,
       onConnectionModeChange,
+      onUrlModeChange,
+      onOracleIdentifierTypeChange,
       updateUrl,
       goToStep,
       closeModal,

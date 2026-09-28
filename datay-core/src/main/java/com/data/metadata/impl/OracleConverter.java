@@ -145,9 +145,6 @@ public class OracleConverter implements TypeConverter {
 
         ddl.append("\n)"); // 结束表定义
 
-        // 表空间等存储参数
-        ddl.append(" TABLESPACE USERS");
-
         return ddl.toString();
     }
 
@@ -287,8 +284,11 @@ public class OracleConverter implements TypeConverter {
         } else if (typeUpper.matches("CHAR|NCHAR|VARCHAR2|NVARCHAR2")) {
             int length = column.getLength() > 0 ? column.getLength() : getDefaultLength(typeUpper);
             sb.append(typeUpper).append("(").append(length).append(")");
+        } else if ("RAW".equals(typeUpper)) {
+            int length = column.getLength() > 0 ? column.getLength() : getDefaultLength(typeUpper);
+            sb.append("RAW(").append(length).append(")");
         } else {
-            sb.append(typeUpper);
+            sb.append(toSqlTypeName(typeUpper));
         }
         // 非空约束
         if (!column.isNullable()) {
@@ -311,8 +311,32 @@ public class OracleConverter implements TypeConverter {
             case "CHAR":
             case "NCHAR":
                 return 50;
+            case "RAW":
+                return 2000; // Oracle RAW 最大 2000 字节
             default:
                 return 0;
+        }
+    }
+
+    /**
+     * 将内部类型枚举名转换为合法的 Oracle 数据类型名。
+     */
+    private static String toSqlTypeName(String type) {
+        switch (type) {
+            case "DOUBLE":
+                return "BINARY_DOUBLE";
+            case "TIMESTAMP_WITH_TIME_ZONE":
+                return "TIMESTAMP WITH TIME ZONE";
+            case "TIMESTAMP_WITH_LOCAL_TZ":
+                return "TIMESTAMP WITH LOCAL TIME ZONE";
+            case "INTERVAL_YEAR_TO_MONTH":
+                return "INTERVAL YEAR TO MONTH";
+            case "INTERVAL_DAY_TO_SECOND":
+                return "INTERVAL DAY TO SECOND";
+            case "LONG_RAW":
+                return "LONG RAW";
+            default:
+                return type;
         }
     }
 

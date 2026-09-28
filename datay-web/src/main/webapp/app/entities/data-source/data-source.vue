@@ -21,16 +21,18 @@
     <div v-if="dataSources && dataSources.length > 0">
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="name" label="名称" sortable="custom" width="150"></el-table-column>
-        <el-table-column label="默认数仓" width="100">
+        <el-table-column prop="description" label="描述" sortable="custom" width="260" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" width="140">
           <template #default="scope">
-            <el-tag v-if="isDefaultWarehouse(scope.row)" type="success" size="small">默认</el-tag>
+            <span class="type-cell">
+              <img v-if="getTypeImage(scope.row.type)" :src="getTypeImage(scope.row.type)" class="type-icon" :alt="scope.row.type" />
+              <font-awesome-icon v-else icon="database" class="type-fa-icon" />
+              <span>{{ scope.row.type }}</span>
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
-        <el-table-column prop="url" label="地址" sortable="custom" width="350"></el-table-column>
+        <el-table-column prop="url" label="地址" sortable="custom" width="350" show-overflow-tooltip></el-table-column>
         <el-table-column prop="schemaName" label="数据库名" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="username" label="用户名" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
@@ -118,3 +120,30 @@
 </template>
 
 <script lang="ts" src="./data-source.component.ts"></script>
+
+<style scoped>
+.type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.type-cell > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.type-fa-icon {
+  color: #409eff;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+</style>

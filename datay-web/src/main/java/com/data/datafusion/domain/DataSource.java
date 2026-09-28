@@ -64,6 +64,12 @@ public class DataSource implements Serializable, TenantAware {
     @Column(name = "extra_params", columnDefinition = "TEXT")
     private Map<String, String> extraParams;
 
+    @Column(name = "database_name")
+    private String database;
+
+    @Column(name = "connection_mode")
+    private String connectionMode;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -248,6 +254,32 @@ public class DataSource implements Serializable, TenantAware {
         this.extraParams = extraParams;
     }
 
+    public String getDatabase() {
+        return this.database;
+    }
+
+    public DataSource database(String database) {
+        this.setDatabase(database);
+        return this;
+    }
+
+    public void setDatabase(String database) {
+        this.database = database;
+    }
+
+    public String getConnectionMode() {
+        return this.connectionMode;
+    }
+
+    public DataSource connectionMode(String connectionMode) {
+        this.setConnectionMode(connectionMode);
+        return this;
+    }
+
+    public void setConnectionMode(String connectionMode) {
+        this.connectionMode = connectionMode;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -285,6 +317,8 @@ public class DataSource implements Serializable, TenantAware {
             ", createTime='" + getCreateTime() + "'" +
             ", tenantId='" + getTenantId() + "'" +
             ", extraParams='" + getExtraParams() + "'" +
+            ", database='" + getDatabase() + "'" +
+            ", connectionMode='" + getConnectionMode() + "'" +
             "}";
     }
 }

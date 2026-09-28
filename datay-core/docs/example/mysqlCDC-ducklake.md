@@ -98,8 +98,14 @@ DuckDB 会自动 `INSTALL/LOAD ducklake` 扩展（需可联网或已缓存扩展
 ## 4. 执行 CDC 同步
 
 ```bash
+# 克隆仓库
+git clone https://cnb.cool/yuyuejia/datay
+
+# 构建项目
+cd datay
 mvn clean package -DskipTests
 
+# 执行任务
 java -jar datay-core/target/datay-core-1.0.0-SNAPSHOT-jar-with-dependencies.jar mysqlCdcToDuckLake.json
 ```
 

@@ -1,6 +1,7 @@
 import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
+import { dbTypes } from './db-types';
 import { type IDataSource } from '@/shared/model/data-source.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -51,6 +52,11 @@ export default defineComponent({
 
     const isDefaultWarehouse = (row: IDataSource): boolean => {
       return row.id != null && row.id === defaultDataSourceId.value;
+    };
+
+    const getTypeImage = (type?: string | null): string | undefined => {
+      if (!type) return undefined;
+      return dbTypes.find(t => t.name === type)?.image;
     };
 
     const defaultWarehouseModal = ref<any>(null);
@@ -208,6 +214,7 @@ export default defineComponent({
       dataSources,
       defaultDataSourceId,
       isDefaultWarehouse,
+      getTypeImage,
       defaultWarehouseModal,
       defaultWarehouseOptions,
       selectedDefaultId,
