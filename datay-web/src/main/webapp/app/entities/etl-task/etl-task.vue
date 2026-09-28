@@ -42,7 +42,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="480">
+        <el-table-column label="操作" fixed="right" min-width="410">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">

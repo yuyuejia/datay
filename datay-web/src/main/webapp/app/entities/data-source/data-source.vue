@@ -38,7 +38,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="260">
+        <el-table-column label="操作" fixed="right" width="260">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openEditModal(scope.row)" class="edit" data-cy="entityEditButton">
