@@ -78,10 +78,10 @@
             <el-input name="database" id="data-source-database" data-cy="database" v-model="dataSource.database" @input="updateUrl" />
           </el-form-item>
             </template>
-            <el-form-item v-if="!isDuckDb" label="用户名">
+            <el-form-item v-if="requiresCredentials" label="用户名">
             <el-input name="username" id="data-source-username" data-cy="username" v-model="dataSource.username" />
           </el-form-item>
-            <el-form-item v-if="!isDuckDb" label="密码">
+            <el-form-item v-if="requiresCredentials" label="密码">
             <el-input type="password" name="password" id="data-source-password" data-cy="password" v-model="dataSource.password" />
           </el-form-item>
             <el-form-item v-if="!isDuckDb && schemaEnabled" label="默认Schema">

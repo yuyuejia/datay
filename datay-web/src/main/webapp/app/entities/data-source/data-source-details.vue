@@ -46,18 +46,20 @@
           <dd>
             <span>{{ dataSource.schemaName }}</span>
           </dd>
-          <dt>
-            <span>Username</span>
-          </dt>
-          <dd>
-            <span>{{ dataSource.username }}</span>
-          </dd>
-          <dt>
-            <span>Password</span>
-          </dt>
-          <dd>
-            <span>{{ dataSource.password }}</span>
-          </dd>
+          <template v-if="requiresCredentials">
+            <dt>
+              <span>Username</span>
+            </dt>
+            <dd>
+              <span>{{ dataSource.username }}</span>
+            </dd>
+            <dt>
+              <span>Password</span>
+            </dt>
+            <dd>
+              <span>{{ dataSource.password }}</span>
+            </dd>
+          </template>
           <dt>
             <span>Update Time</span>
           </dt>

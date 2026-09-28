@@ -57,6 +57,9 @@ export default defineComponent({
 
     const isDuckDb = computed(() => dataSource.value.type === 'DUCKDB');
 
+    // DuckDB / DuckLake 通过本地文件或挂载方式访问，无需用户名密码
+    const requiresCredentials = computed(() => !['DUCKDB', 'DUCKLAKE'].includes(dataSource.value.type ?? ''));
+
     const showUrlModeToggle = computed(() => !!dataSource.value.type && isNetworkType(dataSource.value.type));
 
     const isOracle = computed(() => dataSource.value.type === 'ORACLE');
@@ -277,7 +280,10 @@ export default defineComponent({
       }
 
       if (dbType.name === 'DUCKLAKE') {
-        dataSource.value.url = buildSimpleUrl(dbType.name, { hostname: '', port: '', database: '' }, dataSource.value.version);
+        // DuckLake 元数据地址由用户填写，仅在为空时填入模板默认值，避免测试连接/保存时被覆盖
+        if (!dataSource.value.url || !dataSource.value.url.trim()) {
+          dataSource.value.url = buildSimpleUrl(dbType.name, { hostname: '', port: '', database: '' }, dataSource.value.version);
+        }
         return;
       }
 
@@ -367,7 +373,7 @@ export default defineComponent({
 
     const testConnectionDisabled = computed(() => {
       if (isTestingConnection.value || !dataSource.value.type || !dataSource.value.url) return true;
-      if (isDuckDb.value) return false;
+      if (!requiresCredentials.value) return false;
       if (urlMode.value === 'simple' && !dataSource.value.hostname) return true;
       return !dataSource.value.username;
     });
@@ -377,6 +383,10 @@ export default defineComponent({
       updateUrl();
       syncDerivedFields();
       buildExtraParamsFromRows();
+      if (!requiresCredentials.value) {
+        dataSource.value.username = null;
+        dataSource.value.password = null;
+      }
 
       isSaving.value = true;
       try {
@@ -404,7 +414,7 @@ export default defineComponent({
         alertService.showError('请先完成数据源配置');
         return;
       }
-      if (!isDuckDb.value && !dataSource.value.username) {
+      if (requiresCredentials.value && !dataSource.value.username) {
         alertService.showError('请先填写用户名');
         return;
       }
@@ -438,6 +448,7 @@ export default defineComponent({
       duckdbMode,
       duckdbFile,
       isDuckDb,
+      requiresCredentials,
       urlMode,
       oracleIdentifierType,
       showUrlModeToggle,

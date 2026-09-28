@@ -11,6 +11,7 @@ import cn.hutool.db.handler.RsHandler;
 import cn.hutool.db.sql.NamedSql;
 import cn.hutool.db.sql.SqlBuilder;
 import cn.hutool.db.sql.SqlExecutor;
+import cn.hutool.crypto.digest.DigestUtil;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
@@ -20,6 +21,7 @@ import com.zaxxer.hikari.pool.ProxyConnection;
 import org.duckdb.DuckDBAppender;
 
 import java.lang.reflect.Field;
+import java.io.File;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
@@ -28,6 +30,8 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -110,11 +114,17 @@ public class DBUtils {
      * 获取数据库连接（使用连接池）
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo) throws SQLException {
-        Connection conn = ConnectionPoolManager.getConnection(datasourceInfo);
         String url = datasourceInfo.getUrl();
         if (url != null && url.startsWith("ducklake:")) {
+            // 每个 DuckLake 数据源使用独立的本地 DuckDB 文件，避免多个 DuckLake 共用同一实例时 catalog 冲突。
+            // 本地 scratch 库无需用户名密码：DuckDB 会拒绝以不同 user 配置打开同一文件，
+            // 且 DuckLake 元数据库的账号密码是通过 ATTACH 字符串传递的。
+            Connection conn = ConnectionPoolManager.getConnection(resolveDuckLakeJdbcUrl(datasourceInfo), null, null);
             setupDuckLakeConnection(conn, datasourceInfo);
-        } else if (url != null && url.startsWith("quack:")) {
+            return conn;
+        }
+        Connection conn = ConnectionPoolManager.getConnection(datasourceInfo);
+        if (url != null && url.startsWith("quack:")) {
             setupQuackConnection(conn, datasourceInfo);
         }
         return conn;
@@ -123,49 +133,138 @@ public class DBUtils {
     public static final String DUCKLAKE_CATALOG = "ducklake";
     public static final String QUACK_CATALOG = "quack";
 
-    private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
-        java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
-        String ducklakeFilePath = datasourceInfo.getUrl();
-        if (ducklakeFilePath.startsWith("ducklake:")) {
-            ducklakeFilePath = ducklakeFilePath.substring("ducklake:".length());
+    // DuckLake 本地挂载文件目录（相对于工作目录）
+    private static final String DUCKLAKE_LOCAL_DIR = "log/ducklake";
+
+    // 每个 DuckLake 元数据路径对应一把锁，保证同一数据源的 ATTACH 串行执行
+    private static final ConcurrentHashMap<String, ReentrantLock> DUCKLAKE_LOCKS = new ConcurrentHashMap<>();
+
+    /**
+     * 计算 DuckLake 元数据位置（用于生成本地挂载文件与串行锁）。
+     *
+     * <p>DuckLake 元数据（文件或 postgres/mysql/sqlite 元数据库）在同一进程内只能被挂载一次，
+     * 因此本地挂载文件必须以元数据位置为唯一键，而不能包含 s3 等扩展参数，
+     * 否则同一元数据会生成多个 DuckDB 实例并相互冲突（Unique file handle conflict）。
+     */
+    public static String resolveDuckLakeMetadataLocation(DatasourceInfo datasourceInfo) {
+        String meta = datasourceInfo.getUrl();
+        if (meta == null) {
+            return "";
         }
+        if (meta.startsWith("ducklake:")) {
+            meta = meta.substring("ducklake:".length());
+        }
+        String lower = meta.toLowerCase(Locale.ROOT);
+        boolean remoteMetadata =
+            lower.startsWith("postgres:") ||
+            lower.startsWith("mysql:") ||
+            lower.startsWith("sqlite:") ||
+            lower.startsWith("duckdb:");
+        if (!remoteMetadata) {
+            File file = new File(meta);
+            if (!file.isAbsolute()) {
+                file = new File(System.getProperty("user.dir"), meta);
+            }
+            meta = file.toPath().normalize().toAbsolutePath().toString();
+        }
+        return meta;
+    }
 
-        Statement stmt;
+    /**
+     * 根据 DuckLake 元数据位置计算其本地 DuckDB 文件的 JDBC URL。
+     *
+     * <p>不同的 DuckLake 使用不同的本地 DuckDB 文件；同一个 DuckLake 元数据始终复用同一文件，
+     * 避免同一元数据被重复挂载时触发 DuckDB 的 "Unique file handle conflict"。
+     */
+    public static String resolveDuckLakeJdbcUrl(DatasourceInfo datasourceInfo) {
+        String hash = DigestUtil.sha256Hex(resolveDuckLakeMetadataLocation(datasourceInfo)).substring(0, 16);
 
-        stmt = conn.createStatement();
-        try { stmt.execute("INSTALL ducklake"); } catch (Exception ignored) {}
-        try { stmt.execute("LOAD ducklake"); } catch (Exception ignored) {}
-        try { stmt.close(); } catch (Exception ignored) {}
+        File dir = new File(System.getProperty("user.dir"), DUCKLAKE_LOCAL_DIR);
+        if (!dir.exists() && !dir.mkdirs() && !dir.exists()) {
+            throw new IllegalStateException("无法创建 DuckLake 本地挂载目录: " + dir.getAbsolutePath());
+        }
+        File dbFile = new File(dir, "ducklake_" + hash + ".duckdb");
+        return "jdbc:duckdb:" + dbFile.getAbsolutePath();
+    }
 
-        if (extraParams != null) {
-            String store = extraParams.get("s3.data_path");
-            if (store != null && store.startsWith("s3://")) {
-                String keyId = extraParams.get("s3.key_id");
-                String secret = extraParams.get("s3.secret");
-                String endpoint = extraParams.get("s3.endpoint");
-                String urlStyle = extraParams.get("s3.url_style");
-                String useSsl = extraParams.get("s3.use_ssl");
+    private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
+        Map<String, String> extraParams = datasourceInfo.getExtraParams();
+        String ducklakeFilePath = resolveDuckLakeMetadataLocation(datasourceInfo);
 
-                if (keyId != null && secret != null && endpoint != null && urlStyle != null && useSsl != null) {
-                    stmt = conn.createStatement();
-                    String s3Secret = String.format(
-                        "CREATE OR REPLACE SECRET (TYPE s3, KEY_ID '%s', SECRET '%s', ENDPOINT '%s', url_style '%s', USE_SSL '%s');",
-                        keyId, secret, endpoint, urlStyle, useSsl
-                    );
-                    stmt.execute(s3Secret);
-                    try { stmt.close(); } catch (Exception ignored) {}
+        // 同一 DuckLake 的连接可能来自同一连接池的多个连接，ATTACH 为库级操作，需串行处理
+        ReentrantLock lock = DUCKLAKE_LOCKS.computeIfAbsent(ducklakeFilePath, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            Statement stmt;
+
+            stmt = conn.createStatement();
+            try { stmt.execute("INSTALL ducklake"); } catch (Exception ignored) {}
+            try { stmt.execute("LOAD ducklake"); } catch (Exception ignored) {}
+            try { stmt.close(); } catch (Exception ignored) {}
+
+            if (extraParams != null) {
+                String store = extraParams.get("s3.data_path");
+                if (store != null && store.startsWith("s3://")) {
+                    String keyId = extraParams.get("s3.key_id");
+                    String secret = extraParams.get("s3.secret");
+                    String endpoint = extraParams.get("s3.endpoint");
+                    String urlStyle = extraParams.get("s3.url_style");
+                    String useSsl = extraParams.get("s3.use_ssl");
+
+                    if (keyId != null && secret != null && endpoint != null && urlStyle != null && useSsl != null) {
+                        stmt = conn.createStatement();
+                        String s3Secret = String.format(
+                            "CREATE OR REPLACE SECRET (TYPE s3, KEY_ID '%s', SECRET '%s', ENDPOINT '%s', url_style '%s', USE_SSL '%s');",
+                            keyId, secret, endpoint, urlStyle, useSsl
+                        );
+                        stmt.execute(s3Secret);
+                        try { stmt.close(); } catch (Exception ignored) {}
+                    }
                 }
             }
+
+            // DuckLake 必须以 "ducklake:" 形式挂载，否则会被当成普通 DuckDB 库，暴露 ducklake_* 元数据表
+            String attachedType = getAttachedDatabaseType(conn, DUCKLAKE_CATALOG);
+            if (!"ducklake".equalsIgnoreCase(attachedType)) {
+                // 兼容历史错误挂载：已作为普通 duckdb 库挂载时先卸载再重新按时挂载
+                if (attachedType != null) {
+                    stmt = conn.createStatement();
+                    try { stmt.execute("DETACH " + DUCKLAKE_CATALOG + ";"); } catch (Exception ignored) {}
+                    try { stmt.close(); } catch (Exception ignored) {}
+                }
+
+                StringBuilder attachSql = new StringBuilder(
+                    String.format("ATTACH 'ducklake:%s' AS %s", escapeSqlString(ducklakeFilePath), DUCKLAKE_CATALOG)
+                );
+                String store = extraParams != null ? extraParams.get("s3.data_path") : null;
+                if (store != null && !store.trim().isEmpty()) {
+                    attachSql.append(" (data_path '").append(escapeSqlString(store)).append("')");
+                }
+                attachSql.append(";");
+
+                stmt = conn.createStatement();
+                stmt.execute(attachSql.toString());
+                try { stmt.close(); } catch (Exception ignored) {}
+            }
+        } finally {
+            lock.unlock();
         }
+    }
 
-        stmt = conn.createStatement();
-        try { stmt.execute(String.format("DETACH %s;", DUCKLAKE_CATALOG)); } catch (Exception ignored) {}
-        try { stmt.close(); } catch (Exception ignored) {}
-
-        stmt = conn.createStatement();
-        String attachSql = String.format("ATTACH '%s' AS %s;", ducklakeFilePath, DUCKLAKE_CATALOG);
-        stmt.execute(attachSql);
-        try { stmt.close(); } catch (Exception ignored) {}
+    /**
+     * 获取当前 DuckDB 连接所属数据库中指定 catalog 的类型；未挂载时返回 {@code null}。
+     *
+     * <p>DuckLake catalog 的 type 为 {@code ducklake}，普通 DuckDB 库为 {@code duckdb}。
+     */
+    private static String getAttachedDatabaseType(Connection conn, String catalog) throws SQLException {
+        try (
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(
+                String.format("SELECT type FROM duckdb_databases() WHERE database_name = '%s'", catalog)
+            )
+        ) {
+            return rs.next() ? rs.getString(1) : null;
+        }
     }
 
     /**

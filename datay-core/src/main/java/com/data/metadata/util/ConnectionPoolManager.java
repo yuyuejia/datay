@@ -105,8 +105,15 @@ public class ConnectionPoolManager {
         }
 
         config.setJdbcUrl(resolvedUrl);
-        config.setUsername(user);
-        config.setPassword(password);
+        if (dbType == DBType.DUCKDB || dbType == DBType.DUCKLAKE) {
+            // DuckDB / Quack / DuckLake 本地连接不使用账号密码，
+            // 且 DuckDB 会拒绝以不同 user 配置打开同一数据库文件（Connection Error: ... different configuration）
+            config.setUsername(null);
+            config.setPassword(null);
+        } else {
+            config.setUsername(user);
+            config.setPassword(password);
+        }
         config.setPoolName("HikariPool-" + poolKey);
 
         config.setMaximumPoolSize(DEFAULT_MAX_POOL_SIZE);
@@ -126,8 +133,12 @@ public class ConnectionPoolManager {
     }
 
     private static String convertDuckLakeUrlToDuckDBUrl(String ducklakeUrl) {
-        if (ducklakeUrl.startsWith("ducklake:")) {
-            return "jdbc:duckdb:";
+        if (ducklakeUrl != null && ducklakeUrl.startsWith("ducklake:")) {
+            // DuckLake 正常由 DBUtils.resolveDuckLakeJdbcUrl 解析为独立本地文件；
+            // 这里复用同一解析逻辑，避免直接调用本类时回退到共享内存实例。
+            DatasourceInfo info = new DatasourceInfo();
+            info.setUrl(ducklakeUrl);
+            return DBUtils.resolveDuckLakeJdbcUrl(info);
         }
         return ducklakeUrl;
     }

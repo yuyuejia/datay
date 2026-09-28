@@ -1,4 +1,4 @@
-import { type Ref, defineComponent, inject, ref } from 'vue';
+import { type Ref, computed, defineComponent, inject, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import DataSourceService from './data-source.service';
@@ -21,6 +21,9 @@ export default defineComponent({
 
     const previousState = () => router.go(-1);
     const dataSource: Ref<IDataSource> = ref({});
+
+    // DuckDB / DuckLake 通过本地文件或挂载方式访问，无需用户名密码
+    const requiresCredentials = computed(() => !['DUCKDB', 'DUCKLAKE'].includes(dataSource.value.type ?? ''));
 
     const retrieveDataSource = async dataSourceId => {
       try {
@@ -52,6 +55,7 @@ export default defineComponent({
       alertService,
       dataSource,
       previousState,
+      requiresCredentials,
       modalShow,
       openEditModal,
       onModalSaved,
