@@ -23,13 +23,7 @@
       <el-table :data="eTLTasks" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="taskName" label="任务名称" sortable="custom" width="300"></el-table-column>
         <el-table-column prop="jobId" label="作业ID" sortable="custom" width="100"></el-table-column>
-        <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip>
-          <template #default="scope">
-            <el-tooltip :content="scope.row.taskDesc" placement="top" :disabled="!scope.row.taskDesc">
-              <span class="single-line-overflow">{{ scope.row.taskDesc }}</span>
-            </el-tooltip>
-          </template>
-        </el-table-column>
+        <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip></el-table-column>
         <el-table-column prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
         <el-table-column prop="status" label="状态" sortable="custom" width="100">
           <template #default="scope">
@@ -189,15 +183,5 @@
     </div>
   </div>
 </template>
-
-<style scoped>
-.single-line-overflow {
-  display: inline-block;
-  width: 96%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-</style>
 
 <script lang="ts" src="./etl-task.component.ts"></script>
