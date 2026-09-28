@@ -1,16 +1,25 @@
-import { type Ref, defineComponent, inject, ref, watch, onMounted, onUnmounted } from 'vue';
+import { type Ref, computed, defineComponent, inject, ref, watch, onMounted, onUnmounted } from 'vue';
+import { ElMessageBox } from 'element-plus';
 
 import ETLTaskService from './etl-task.service';
+import EtlTaskStateService from './etl-task-state.service';
 import { type IETLTask } from '@/shared/model/etl-task.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+
+interface IStateRow {
+  key: string;
+  value: string;
+  originalValue: string;
+}
 
 export default defineComponent({
   name: 'ETLTask',
   setup() {
     const dateFormat = useDateFormat();
     const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
+    const etlTaskStateService = inject('etlTaskStateService', () => new EtlTaskStateService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
@@ -231,6 +240,138 @@ export default defineComponent({
       }
     };
 
+    const stateModal = ref<any>(null);
+    const currentStateTask: Ref<IETLTask> = ref<IETLTask>({});
+    const stateJobCode = ref('');
+    const stateNodeNames: Ref<Record<string, string>> = ref({});
+    const stateRows: Ref<IStateRow[]> = ref([]);
+    const deletedStateKeys: Ref<string[]> = ref([]);
+    const isStateLoading = ref(false);
+    const isStateSaving = ref(false);
+
+    // 状态键形如 <节点id>.<状态项>，按第一段节点 id 分组展示
+    const stateGroups = computed(() => {
+      const map = new Map<string, IStateRow[]>();
+      stateRows.value.forEach(row => {
+        const index = row.key.indexOf('.');
+        const nodeId = index > 0 ? row.key.substring(0, index) : '其他';
+        const rows = map.get(nodeId);
+        if (rows) {
+          rows.push(row);
+        } else {
+          map.set(nodeId, [row]);
+        }
+      });
+      return Array.from(map.entries()).map(([nodeId, rows]) => ({ nodeId, rows }));
+    });
+
+    const shortKey = (row: IStateRow): string => {
+      const index = row.key.indexOf('.');
+      return index > 0 ? row.key.substring(index + 1) : row.key;
+    };
+
+    const nodeDisplayName = (nodeId: string): string => stateNodeNames.value[nodeId] || nodeId;
+
+    const valueToString = (value: any): string => {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      return typeof value === 'string' ? value : JSON.stringify(value);
+    };
+
+    const applyStateResponse = (res: any) => {
+      stateJobCode.value = res.jobCode || '';
+      stateNodeNames.value = res.nodeNames || {};
+      stateRows.value = Object.entries(res.state || {}).map(([key, value]) => {
+        const display = valueToString(value);
+        return { key, value: display, originalValue: display };
+      });
+      deletedStateKeys.value = [];
+    };
+
+    const reloadState = async () => {
+      if (!currentStateTask.value?.id) return;
+      isStateLoading.value = true;
+      try {
+        const res = await etlTaskStateService().getState(currentStateTask.value.id);
+        applyStateResponse(res);
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isStateLoading.value = false;
+      }
+    };
+
+    const openStateManager = async (task: IETLTask) => {
+      currentStateTask.value = task;
+      stateRows.value = [];
+      deletedStateKeys.value = [];
+      stateModal.value.show();
+      await reloadState();
+    };
+
+    const removeStateRow = (row: IStateRow) => {
+      const index = stateRows.value.indexOf(row);
+      if (index >= 0) {
+        stateRows.value.splice(index, 1);
+      }
+      deletedStateKeys.value.push(row.key);
+    };
+
+    const saveState = async () => {
+      if (!currentStateTask.value?.id) return;
+      const patch: Record<string, any> = {};
+      deletedStateKeys.value.forEach(key => {
+        patch[key] = null;
+      });
+      stateRows.value.forEach(row => {
+        if (row.value !== row.originalValue) {
+          patch[row.key] = row.value;
+        }
+      });
+      if (Object.keys(patch).length === 0) {
+        alertService.showInfo('没有需要保存的修改', { variant: 'info' });
+        return;
+      }
+      isStateSaving.value = true;
+      try {
+        const res = await etlTaskStateService().patchState(currentStateTask.value.id, patch);
+        applyStateResponse(res);
+        alertService.showInfo('状态已更新', { variant: 'success' });
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isStateSaving.value = false;
+      }
+    };
+
+    const clearState = async () => {
+      if (!currentStateTask.value?.id) return;
+      try {
+        await ElMessageBox.confirm('确定要清空该任务的全部状态吗？清空后任务下次启动将从头开始读取。', '清空状态', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
+      } catch {
+        return;
+      }
+      isStateSaving.value = true;
+      try {
+        const res = await etlTaskStateService().deleteState(currentStateTask.value.id);
+        applyStateResponse(res);
+        alertService.showInfo('任务状态已清空', { variant: 'success' });
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isStateSaving.value = false;
+      }
+    };
+
+    const closeStateModal = () => {
+      stateModal.value?.hide();
+    };
+
     const handleSortChange = (column: { prop: string; order: 'ascending' | 'descending' | null }) => {
       if (column.prop && column.order) {
         if (column.order === 'ascending') {
@@ -295,6 +436,21 @@ export default defineComponent({
       refreshLog,
       closeLogModal,
       formatDateTime,
+      stateModal,
+      currentStateTask,
+      stateJobCode,
+      stateRows,
+      stateGroups,
+      shortKey,
+      nodeDisplayName,
+      isStateLoading,
+      isStateSaving,
+      openStateManager,
+      reloadState,
+      removeStateRow,
+      saveState,
+      clearState,
+      closeStateModal,
     };
   },
 });

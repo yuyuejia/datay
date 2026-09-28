@@ -47,9 +47,19 @@ public class ETLFlowTask {
         context.setJobInstanceCode(getInstanceCode());
         context.setJobCode(getJobCode());
         initLogFile();
-        // 默认使用本地文件策略
-        StatusStorageStrategy statusStorageStrategy = StatusStorageStrategyFactory.getStrategy("local");
-        context.setStatusStorageStrategy(statusStorageStrategy);
+        // 使用当前生效的状态存储策略：单机默认 local，集群由上层注入 minio
+        context.setStatusStorageStrategy(StatusStorageStrategyFactory.getActiveStrategy());
+    }
+
+    /**
+     * 覆盖状态存储策略（供上层根据配置注入 minio/local）。
+     *
+     * @param statusStorageStrategy 状态存储策略
+     */
+    public void setStatusStorageStrategy(StatusStorageStrategy statusStorageStrategy) {
+        if (statusStorageStrategy != null) {
+            context.setStatusStorageStrategy(statusStorageStrategy);
+        }
     }
 
     public void runJob(String jobContext) throws Exception {

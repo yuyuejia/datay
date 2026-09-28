@@ -8,6 +8,8 @@
 # 使用：docker compose -f scheduler-cluster.yml up -d
 #       docker compose -f scheduler-cluster.yml up -d --scale worker=3   # worker 横向扩展
 # 注意：角色统一由环境变量 DEVELOPMENT_MODE 表达，不需要额外的 Spring profile
+# 注意：master/worker 分离部署时，需将状态存储（dp_service_config 的 status-storage 分组）
+#       配置为 minio，使 worker 写入的增量状态可被 master 读取与维护；单机部署使用 local 即可。
 # 注意：本文件为部署参考示例，镜像、资源与数据库连接请按实际环境调整
 name: datafusion-scheduler
 

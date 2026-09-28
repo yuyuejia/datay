@@ -7,6 +7,7 @@ import com.data.datafusion.job.AbstractTask;
 import com.data.datafusion.job.ITask;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.TaskFactory;
+import com.data.datafusion.security.TenantContext;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -168,6 +169,12 @@ public class StartJobEventHandler implements Runnable {
         public String call() throws Exception {
             String instanceCode = event.getJobInstance().getInstanceCode();
             TaskExecutionInfo taskInfo = runningTasks.get(instanceCode);
+            // 工作线程池没有请求上下文，需按任务所属租户设置租户上下文，
+            // 否则租户过滤器会以 dummy 租户拦截，导致读取不到该租户的状态存储等配置。
+            Long tenantId = parseTenantId(event.getJobInstance().getTenantId());
+            if (tenantId != null) {
+                TenantContext.setTenantId(tenantId);
+            }
 
             try {
                 // 检查任务是否已被停止
@@ -225,7 +232,24 @@ public class StartJobEventHandler implements Runnable {
 
                 log.error("任务执行异常: instanceCode={}", instanceCode, e);
                 throw e;
+            } finally {
+                TenantContext.clear();
             }
+        }
+    }
+
+    /**
+     * 解析任务所属租户 id，解析失败或为空时返回 null。
+     */
+    private static Long parseTenantId(String tenantId) {
+        if (tenantId == null || tenantId.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(tenantId.trim());
+        } catch (NumberFormatException e) {
+            log.warn("任务租户 id 非法，忽略租户上下文: {}", tenantId);
+            return null;
         }
     }
 

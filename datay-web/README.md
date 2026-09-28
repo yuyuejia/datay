@@ -186,6 +186,32 @@ docker compose -f src/main/docker/scheduler-cluster.yml up -d
 docker compose -f src/main/docker/scheduler-cluster.yml up -d --scale worker=3
 ```
 
+## ETL 任务状态管理
+
+ETL 中的有状态组件会把运行状态持久化，任务下次启动时读取恢复，避免重复同步：
+
+- `StreamJdbcInput` / `JdbcInput`：保存增量列水位（`<组件id>.lastIncrValue.<表>`）
+- `MySQLBinlogInput`：保存 binlog 文件与位点（`<组件id>.binlogFile`、`<组件id>.binlogPosition`）
+- `PostgresCDCInput`：保存 WAL LSN（`<组件id>.binlogPosition`）
+
+状态以 `jobCode`（即 `ETLTask.jobId`）为维度存储，支持在「ETL 任务列表 → 状态」中查询、修改、删除。
+
+### 存储后端
+
+状态存储配置位于 `dp_service_config` 的 `status-storage` 分组，可在状态管理弹窗的「状态存储配置」中设置：
+
+| 配置 | 说明 | 默认值 |
+| --- | --- | --- |
+| `type` | `local` 或 `minio` | `local` |
+| `local.base-path` | 本地状态目录（单机部署） | `./log` |
+| `minio.endpoint` / `minio.access-key` / `minio.secret-key` | MinIO 连接信息 | 空 |
+| `minio.bucket-name` | MinIO 桶名 | `datay-status` |
+
+- **单机部署（standalone）**：使用 `local`，状态写入本地 `./log/status_<jobCode>.json`。
+- **master/worker 分离部署**：必须使用 `minio`。worker 执行时把状态写入 MinIO，master 通过共享的 `dp_service_config` 解析到同一 MinIO，因此可在 master 端查询 / 修改 / 删除 worker 的状态；配置修改后 worker 在下次任务启动时自动生效。
+
+> 注意：分离部署时若仍使用 `local`，状态只落在各 worker 本地磁盘，master 无法读取，也无法跨节点恢复增量。
+
 ## AI SQL 助手
 
 数据查询页提供 AI 助手入口，用户用自然语言描述需求，助手自动生成可直接执行的 SQL。

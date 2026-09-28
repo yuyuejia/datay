@@ -42,7 +42,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="400">
+        <el-table-column label="操作" fixed="right" min-width="480">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
@@ -61,6 +61,9 @@
               </el-button>
               <el-button type="info" size="small" @click="prepareViewInstances(scope.row)" data-cy="entityLogButton">
                 <span class="d-none d-md-inline">日志</span>
+              </el-button>
+              <el-button type="primary" plain size="small" @click="openStateManager(scope.row)" data-cy="entityStateButton">
+                <span class="d-none d-md-inline">状态</span>
               </el-button>
               <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
                 <span class="d-none d-md-inline">删除</span>
@@ -164,6 +167,61 @@
         <div>
           <el-button type="primary" @click="refreshLog" :disabled="isLogLoading">刷新</el-button>
           <el-button @click="closeLogModal()">关闭</el-button>
+        </div>
+      </template>
+    </app-modal>
+    <app-modal ref="stateModal" id="stateModal" size="xl" scrollable>
+      <template #modal-title>
+        <span>任务状态管理 - {{ currentStateTask?.taskName }}</span>
+      </template>
+      <div class="modal-body">
+        <div v-if="isStateLoading" class="text-center py-3">
+          <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+          <span>正在加载状态...</span>
+        </div>
+        <template v-else>
+          <div v-if="stateGroups.length === 0" class="text-muted mb-2">当前任务暂无状态数据</div>
+          <div
+            v-for="group in stateGroups"
+            :key="group.nodeId"
+            class="mb-3"
+            style="border: 1px solid #ebeef5; border-radius: 4px; overflow: hidden"
+          >
+            <div style="padding: 8px 12px; background-color: #f5f7fa; font-weight: 600; word-break: break-all">
+              节点：{{ nodeDisplayName(group.nodeId) }}
+              <span
+                v-if="nodeDisplayName(group.nodeId) !== group.nodeId"
+                class="text-muted"
+                style="font-weight: normal; font-size: 12px"
+              >
+                ({{ group.nodeId }})
+              </span>
+            </div>
+            <el-table :data="group.rows" size="small" style="width: 100%">
+              <el-table-column label="状态项" min-width="240">
+                <template #default="scope">
+                  <span style="word-break: break-all">{{ shortKey(scope.row) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="值" min-width="240">
+                <template #default="scope">
+                  <el-input v-model="scope.row.value" size="small" placeholder="状态值"></el-input>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="90" align="center">
+                <template #default="scope">
+                  <el-button type="danger" size="small" plain @click="removeStateRow(scope.row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </template>
+      </div>
+      <template #modal-footer>
+        <div>
+          <el-button type="danger" plain @click="clearState" :disabled="isStateSaving">清空状态</el-button>
+          <el-button type="primary" @click="saveState" :disabled="isStateSaving">保存修改</el-button>
+          <el-button @click="closeStateModal()">关闭</el-button>
         </div>
       </template>
     </app-modal>
