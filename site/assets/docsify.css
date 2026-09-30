@@ -1,0 +1,47 @@
+:root {
+  --theme-color: #2f6bff;
+  --datay-brand: #2f6bff;
+}
+
+.sidebar {
+  width: 300px;
+}
+
+.sidebar-nav > ul > li > ul > li > a {
+  font-size: 13px;
+}
+
+.content {
+  left: 300px;
+}
+
+.markdown-section {
+  max-width: 900px;
+}
+
+.markdown-section img {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+.markdown-section h1,
+.markdown-section h2 {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+}
+
+.sidebar-nav li > p {
+  font-weight: 700;
+  text-transform: none;
+  margin: 18px 0 6px;
+}
+
+.app-name-link img {
+  border-radius: 6px;
+}
+
+@media screen and (max-width: 768px) {
+  .content {
+    left: 0;
+  }
+}

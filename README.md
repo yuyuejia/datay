@@ -1,4 +1,4 @@
-# DataY · 轻量数据平台，2C4G 搞定全场景
+# DataY · 轻量数据平台
 
 > 数据平台可以很小，功能不打折。一套 DataY 跑起来，数据集成、任务调度、高性能数仓、智能问数 —— 全有。
 
@@ -29,7 +29,8 @@ DataY 分两个子模块，Core 负责引擎，Web 负责平台产品：
 datay/
 ├── pom.xml          # Maven 父模块
 ├── datay-core/      # 轻量、高性能、流批一体的数据集成引擎
-└── datay-web/       # 可视化数据平台（任务设计 + 调度 + 数仓 + 问数）
+├── datay-web/       # 可视化数据平台（任务设计 + 调度 + 数仓 + 问数）
+└── site/            # 产品主页 + 帮助文档站（GitHub Pages）
 ```
 
 ## 四大能力，一个平台
@@ -60,7 +61,6 @@ datay/
 - 自然语言 → 指标 → 维度 → 时间过滤 → 取数，**一句话拿报表**
 - RAG 本地向量索引，指标口径不跑偏
 - 指标管理模块统一维护业务口径，问数有依据
-- 也支持 AI SQL 助手：自然语言 → 可执行 SQL
 
 
 ## 环境要求
@@ -281,6 +281,33 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）
+
+## 产品主页与帮助文档
+
+`site/` 目录是一套纯静态站点，包含 DataY 产品主页与统一帮助文档：
+
+- **主页** `site/index.html`：产品介绍，以及数据集成、数据建模、数据开发、任务调度、数据应用五大能力。
+- **帮助文档** `site/help/`：基于 [Docsify](https://docsify.js.org/) 渲染，已把 `datay-core/docs` 与 `datay-web/docs` 的文档集中到一处，支持全文搜索。分为五个章节：
+  - 产品介绍（`introduction/`）：DataY 整体介绍，涵盖轻量数据平台与 DataY Core 引擎。
+  - 快速开始（`quickstart/`）：环境要求、一键部署、预置资产、首次登录。
+  - 使用指南（`guide/`）：数据源、数据集成、任务开发、调度、建模、指标、问数等模块的使用介绍。
+  - 场景案例（`cases/`）：端到端实战、批量同步、CDC 实时同步、文件 / HTTP / 飞书接入。
+  - ETL 组件介绍（`components/`）：输入 / 处理 / 输出 / 其他组件的配置说明。
+- **文档源目录不变**：`datay-core/docs`、`datay-web/docs` 仍是各模块自己的文档，站点内为副本，便于分别维护。
+
+本地预览：
+
+```bash
+# 在仓库根目录执行（任选一种）
+python3 -m http.server 4000 --directory site
+# 或
+npx serve site
+```
+
+浏览器打开 [http://localhost:4000](http://localhost:4000) 即可。
+
+发布：推送到 `main` 分支后，GitHub Actions（`.github/workflows/pages.yml`）会自动把 `site/` 发布到 GitHub Pages。
+首次使用需在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
 
 ## 联系方式
 

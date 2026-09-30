@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DataY 帮助中心</title>
+    <meta name="description" content="DataY 轻量数据平台帮助文档：数据集成、数据建模、数据开发、任务调度与数据应用。" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
+    <link rel="stylesheet" href="../assets/docsify.css" />
+  </head>
+  <body>
+    <div id="app">正在加载文档…</div>
+
+    <script>
+      window.$docsify = {
+        repo: 'yuyuejia/datay',
+        homepage: 'README.md',
+        loadSidebar: true,
+        loadNavbar: true,
+        subMaxLevel: 3,
+        maxLevel: 4,
+        auto2top: true,
+        relativePath: false,
+        notFoundPage: true,
+        mergeNavbar: true,
+        search: {
+          placeholder: '搜索文档…',
+          noData: '没有找到相关文档',
+          depth: 3,
+          paths: 'auto',
+          namespace: 'datay-help',
+          maxAge: 3600000,
+        },
+        copyCode: {
+          buttonText: '复制',
+          errorText: '复制失败',
+          successText: '已复制',
+        },
+        plugins: [
+          function (hook) {
+            hook.doneEach(function () {
+              var el = document.querySelector('.sidebar-nav a.active');
+              if (el && el.scrollIntoView) {
+                el.scrollIntoView({ block: 'nearest' });
+              }
+            });
+          },
+        ],
+      };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/zoom-image.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2/dist/docsify-copy-code.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-java.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+  </body>
+</html>

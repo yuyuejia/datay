@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DataY · 轻量数据平台，2C4G 搞定全场景</title>
+    <meta
+      name="description"
+      content="DataY 是一套轻量数据平台：一个 JAR、内嵌 DuckDB，在 2 核 4G 上跑通数据集成、数据建模、数据开发、任务调度与数据应用。"
+    />
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header" id="top">
+      <div class="container header-inner">
+        <a class="brand" href="#top">
+          <img src="assets/logo.svg" alt="DataY" width="32" height="32" />
+          <span class="brand-name">DataY</span>
+        </a>
+        <nav class="nav" id="nav">
+          <a href="#integration">数据集成</a>
+          <a href="#modeling">数据建模</a>
+          <a href="#development">数据开发</a>
+          <a href="#scheduling">任务调度</a>
+          <a href="#application">数据应用</a>
+          <a class="nav-doc" href="help/">帮助文档</a>
+        </nav>
+        <div class="header-actions">
+          <a class="btn btn-ghost" href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
+          <a class="btn btn-primary" href="https://github.com/yuyuejia/datay" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <button class="nav-toggle" id="navToggle" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-inner">
+          <div class="hero-copy">
+            <span class="pill">轻量数据平台 · 2C4G 搞定全场景</span>
+            <h1>数据平台可以很小，<br />功能不打折。</h1>
+            <p class="lead">
+              一套 DataY 跑起来，<strong>数据集成、任务调度、高性能数仓、智能问数</strong> —— 全有。
+              一个 JAR，内嵌 DuckDB，拒绝 Hadoop / Spark / Flink / ClickHouse 组件地狱。
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary btn-lg" href="help/">阅读文档</a>
+              <a class="btn btn-outline btn-lg" href="#quickstart">快速开始</a>
+            </div>
+            <ul class="hero-badges">
+              <li>Java 17 · 零依赖启动</li>
+              <li>10+ 数据源</li>
+              <li>流批一体</li>
+              <li>智能问数</li>
+            </ul>
+          </div>
+          <div class="hero-media">
+            <img src="assets/img/dashboard.png" alt="DataY 首页资产概览" loading="lazy" />
+          </div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="container stats-grid">
+          <div class="stat"><b>2 核 4G</b><span>跑通全链路</span></div>
+          <div class="stat"><b>1 个 JAR</b><span>内嵌 DuckDB</span></div>
+          <div class="stat"><b>10+</b><span>数据源支持</span></div>
+          <div class="stat"><b>5 大能力</b><span>一体化平台</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="why">
+        <div class="container">
+          <div class="section-head">
+            <h2>为什么是 DataY？</h2>
+            <p>用最极致的硬件利用，交付最完整的数据能力。</p>
+          </div>
+          <div class="compare">
+            <div class="compare-col compare-old">
+              <h3>传统方案</h3>
+              <ul>
+                <li>Hadoop / Spark / Flink / ClickHouse / Doris 一整套</li>
+                <li>几十上百台机器起步</li>
+                <li>运维门槛高，需要专职大数据工程师</li>
+              </ul>
+            </div>
+            <div class="compare-col compare-new">
+              <h3>DataY</h3>
+              <ul>
+                <li>一个 JAR，内嵌 DuckDB，拒绝组件地狱</li>
+                <li>2 核 4G 即可跑通数据集成 → 数仓 → 问数</li>
+                <li>零依赖启动，10 分钟搭好开发环境</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-alt" id="capabilities">
+        <div class="container">
+          <div class="section-head">
+            <h2>五大能力，一个平台</h2>
+            <p>数据集成 · 数据建模 · 数据开发 · 任务调度 · 数据应用</p>
+          </div>
+
+          <article class="cap" id="integration">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="8" ry="3" />
+                <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+                <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+              </svg>
+            </div>
+            <div class="cap-body">
+              <h3>数据集成</h3>
+              <p class="cap-sub">Data Integration</p>
+              <ul>
+                <li>支持 MySQL / PostgreSQL / Oracle / Doris / ClickHouse / DuckDB 等十余种数据源</li>
+                <li>可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务</li>
+                <li>全量同步、增量同步、MySQL CDC / PostgreSQL CDC 实时同步</li>
+                <li>自动建表（DDL 转换），源表改字段自动同步到目标</li>
+              </ul>
+              <div class="cap-links">
+                <a href="help/#/guide/integration">数据集成指南</a>
+                <a href="help/#/components/README">ETL 组件</a>
+                <a href="help/#/cases/mysql-to-mysql">场景案例</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="cap" id="modeling">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                <rect x="8.5" y="14" width="7" height="7" rx="1.5" />
+                <path d="M10 6.5h4M6.5 10v2.5a1 1 0 0 0 1 1h1M17.5 10v2.5a1 1 0 0 1-1 1h-1" />
+              </svg>
+            </div>
+            <div class="cap-body">
+              <h3>数据建模</h3>
+              <p class="cap-sub">Data Modeling</p>
+              <ul>
+                <li>支持 Star Schema / Snowflake 维度建模，普通维度 / 层级维度 / 时间维度</li>
+                <li>事实表字段关联维度，自动携带业务语义</li>
+                <li>指标管理：原子指标 / 衍生指标，业务限定统一口径</li>
+                <li>内嵌列存 DuckDB，单机跑出分布式数仓性能</li>
+              </ul>
+              <div class="cap-links">
+                <a href="help/#/guide/modeling">维度建模</a>
+                <a href="help/#/guide/metric">指标管理</a>
+                <a href="help/#/introduction/README">Web 平台</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="cap" id="development">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6 3 12l5 6" />
+                <path d="M16 6l5 6-5 6" />
+                <path d="M13 4l-2 16" />
+              </svg>
+            </div>
+            <div class="cap-body">
+              <h3>数据开发</h3>
+              <p class="cap-sub">Data Development</p>
+              <ul>
+                <li>基于 Vue Flow 的拖拽式 ETL 画布，节点连线编排数据流，双击配置参数</li>
+                <li>丰富的组件库：输入 / 处理 / 输出 / 路由组件，覆盖 CDC、SQL 处理、Doris 加载</li>
+                <li>多类型任务：ETL、SQL、Shell、DAG 工作流、Demo</li>
+                <li>DAG 工作流编排，执行时自动拓扑排序，按序调度子任务</li>
+              </ul>
+              <div class="cap-links">
+                <a href="help/#/guide/development">任务设计与开发</a>
+                <a href="help/#/components/README">组件库</a>
+                <a href="help/#/cases/README">场景案例</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="cap" id="scheduling">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3.5 2" />
+              </svg>
+            </div>
+            <div class="cap-body">
+              <h3>任务调度</h3>
+              <p class="cap-sub">Job Scheduler</p>
+              <ul>
+                <li>Cron 定时调度，Quartz 引擎精准到秒，支持动态上下线</li>
+                <li>依赖调度：父子任务自动拓扑排序，父任务成功后触发子任务</li>
+                <li>手动触发、暂停 / 恢复、失败重试，实例全生命周期监控</li>
+                <li>调度 master 与执行 worker 可分离部署，Redis 队列分发与 Leader 选举</li>
+              </ul>
+              <div class="cap-links">
+                <a href="help/#/guide/scheduler">任务调度与实例</a>
+                <a href="help/#/guide/integration">ETL 状态管理</a>
+                <a href="help/#/guide/scheduler">部署模式</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="cap" id="application">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 20h18" />
+                <rect x="5" y="11" width="3.5" height="6" rx="1" />
+                <rect x="10.5" y="7" width="3.5" height="10" rx="1" />
+                <rect x="16" y="4" width="3.5" height="13" rx="1" />
+              </svg>
+            </div>
+            <div class="cap-body">
+              <h3>数据应用</h3>
+              <p class="cap-sub">Data Applications</p>
+              <ul>
+                <li>智能问数：自然语言 → 指标 → 维度 → 时间过滤 → 取数，一句话拿报表</li>
+                <li>RAG 本地向量索引，指标口径不跑偏，业务语义有依据</li>
+                <li>公共指标查询面板，选指标即可出结果</li>
+              </ul>
+              <div class="cap-links">
+                <a href="help/#/guide/askdata">智能问数</a>
+                <a href="help/#/guide/metric">指标查询面板</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="pipeline">
+        <div class="container">
+          <div class="section-head">
+            <h2>一条链路，覆盖数据全生命周期</h2>
+            <p>从数据接入到数据应用，平台内闭环。</p>
+          </div>
+          <div class="pipeline">
+            <div class="pipe-node"><b>数据集成</b><span>ETL / CDC</span></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node"><b>数据建模</b><span>维度 / 指标</span></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node"><b>数据开发</b><span>画布 / 任务</span></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node"><b>任务调度</b><span>Cron / DAG</span></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node"><b>数据应用</b><span>问数 / 报表</span></div>
+          </div>
+          <div class="showcase">
+            <figure>
+              <img src="assets/img/etl-canvas.png" alt="ETL 可视化画布" loading="lazy" />
+              <figcaption>可视化 ETL 画布</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/img/metric-panel.png" alt="公共指标查询面板" loading="lazy" />
+              <figcaption>公共指标查询面板</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/img/ai-query.png" alt="智能问数解析与结果" loading="lazy" />
+              <figcaption>智能问数</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-alt" id="quickstart">
+        <div class="container quickstart">
+          <div class="qs-copy">
+            <h2>快速开始</h2>
+            <p>克隆、构建、启动，10 分钟见到完整平台。启动时自动预置一整套电商示例，登录即用。</p>
+            <ul class="check">
+              <li>数据源：电商数仓（DuckDB）</li>
+              <li>维度表：日期 / 客户 / 门店 / 商品 / 品牌 / 品类 / 时间</li>
+              <li>事实表：销售订单、订单明细、会员</li>
+              <li>指标：销售额、销量、毛利、毛利率、客单价等 12 个</li>
+            </ul>
+            <div class="qs-actions">
+              <a class="btn btn-primary" href="help/#/cases/ecommerce">跟着实战指南做一遍</a>
+              <a class="btn btn-outline" href="help/#/introduction/core">嵌入 Core 引擎</a>
+            </div>
+          </div>
+          <div class="qs-code">
+            <pre><code># 1. 克隆仓库
+git clone https://cnb.cool/yuyuejia/datay
+
+# 2. 构建项目
+cd datay
+mvn clean package -DskipTests
+
+# 3. 启动（单机模式，调度 + 执行合一）
+java -jar datay-web/target/*.jar \
+  --DATAY_AI_API_KEY=sk-xxxxxxxxx
+
+# 4. 打开 http://localhost:8080
+#    默认账号 admin / admin</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div class="container cta-inner">
+          <div>
+            <h2>准备好用 2C4G 跑通数据全链路了吗？</h2>
+            <p>阅读文档，或直接进在线演示体验。</p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-light btn-lg" href="help/">进入帮助文档</a>
+            <a class="btn btn-outline-light btn-lg" href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <img src="assets/logo.svg" alt="DataY" width="28" height="28" />
+          <span>DataY · 轻量数据平台</span>
+        </div>
+        <div class="footer-links">
+          <a href="help/">帮助文档</a>
+          <a href="https://github.com/yuyuejia/datay" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/yuyuejia/datay/issues" target="_blank" rel="noopener">问题反馈</a>
+          <a href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var toggle = document.getElementById('navToggle');
+        var nav = document.getElementById('nav');
+        if (toggle && nav) {
+          toggle.addEventListener('click', function () {
+            nav.classList.toggle('open');
+          });
+          nav.addEventListener('click', function (e) {
+            if (e.target.tagName === 'A') {
+              nav.classList.remove('open');
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

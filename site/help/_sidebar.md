@@ -1,0 +1,47 @@
+- **产品介绍**
+  - [产品总览](introduction/README.md)
+  - [数据集成引擎（DataY Core）](introduction/core.md)
+
+- **快速开始**
+  - [部署与启动](quickstart/README.md)
+
+- **使用指南**
+  - [指南总览](guide/README.md)
+  - [数据源管理](guide/datasource.md)
+  - [数据集成与同步](guide/integration.md)
+  - [任务设计与开发](guide/development.md)
+  - [任务调度与实例](guide/scheduler.md)
+  - [维度建模](guide/modeling.md)
+  - [指标管理](guide/metric.md)
+  - [智能问数](guide/askdata.md)
+
+- **场景案例**
+  - [案例总览](cases/README.md)
+  - [电商指标问数闭环](cases/ecommerce.md)
+  - [MySQL 同步到 MySQL](cases/mysql-to-mysql.md)
+  - [全库大数据量全量同步](cases/mysql-bigtable-mysql.md)
+  - [DuckDB SQL 数据处理](cases/mysql-sqlunit-mysql.md)
+  - [MySQL 同步到 Doris](cases/mysql-doris.md)
+  - [MySQL 同步到 DuckLake](cases/mysql-ducklake.md)
+  - [HTTP 同步到 MySQL](cases/http-to-mysql.md)
+  - [HTTP 分页循环同步](cases/http-loop-to-mysql.md)
+  - [飞书多维表格同步到 MySQL](cases/feishu-bitable-to-mysql.md)
+  - [MySQL 同步到飞书多维表格](cases/mysql-to-feishu-bitable.md)
+  - [MySQL CDC 到 MySQL](cases/mysqlCDC-mysql.md)
+  - [MySQL CDC 到 DuckDB](cases/mysqlCDC-duckdb.md)
+  - [MySQL CDC 到 DuckLake](cases/mysqlCDC-ducklake.md)
+  - [PostgreSQL CDC 到 DuckDB](cases/postgresCDC-duckdb.md)
+  - [PostgreSQL CDC 到 DuckLake](cases/postgresCDC-ducklake.md)
+
+- **ETL 组件介绍**
+  - [组件总览](components/README.md)
+  - [StreamJdbcInput 输入](components/StreamJdbcInput.md)
+  - [MySQLBinlogInput CDC](components/MySQLBinlogInput.md)
+  - [PostgresCDCInput CDC](components/PostgresCDCInput.md)
+  - [StreamJdbcOutput 输出](components/StreamJdbcOutput.md)
+  - [StreamSqlUnit 流式 SQL](components/StreamSqlUnit.md)
+  - [DataTransform 转换](components/DataTransform.md)
+  - [Join 关联](components/Join.md)
+  - [DorisStreamLoad 写入](components/DorisStreamLoad.md)
+  - [HttpListener 监听](components/HttpListener.md)
+  - [LlmComponent 大模型](components/LlmComponent.md)
