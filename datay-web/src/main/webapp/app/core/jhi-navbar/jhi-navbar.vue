@@ -146,7 +146,7 @@
                 <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/role-data-scope">
                   <span>数据权限</span>
                 </el-dropdown-item>
-                <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/service-config">
+                <el-dropdown-item v-if="hasAnyAuthority(['ROLE_ADMIN', 'ROLE_TENANT_ADMIN']) && authenticated" command="/service-config">
                   <font-awesome-icon icon="cog" />
                   <span>服务配置</span>
                 </el-dropdown-item>

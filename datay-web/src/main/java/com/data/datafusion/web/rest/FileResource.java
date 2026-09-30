@@ -10,6 +10,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -140,11 +141,13 @@ public class FileResource {
     }
 
     @GetMapping("/storage-config")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<FileStorageConfigService.FileStorageConfig> getStorageConfig() {
         return ResponseEntity.ok(fileStorageConfigService.getConfig());
     }
 
     @PostMapping("/storage-config")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateStorageConfig(
         @RequestBody FileStorageConfigService.FileStorageConfig config
     ) {
@@ -164,6 +167,7 @@ public class FileResource {
     }
 
     @GetMapping("/storage-config/test")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> testStorageConfig() {
         Map<String, Object> result = new HashMap<>();
         try {

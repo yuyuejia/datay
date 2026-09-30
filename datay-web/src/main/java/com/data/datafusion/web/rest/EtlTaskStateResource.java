@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -36,6 +37,7 @@ public class EtlTaskStateResource {
      * {@code GET /etl-task-state/config} : get status storage config.
      */
     @GetMapping("/config")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<StatusStorageConfigService.StatusStorageConfig> getConfig() {
         return ResponseEntity.ok(etlTaskStateService.getConfig());
     }
@@ -44,6 +46,7 @@ public class EtlTaskStateResource {
      * {@code POST /etl-task-state/config} : update status storage config and reload strategy.
      */
     @PostMapping("/config")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateConfig(
         @RequestBody StatusStorageConfigService.StatusStorageConfig config
     ) {
@@ -67,6 +70,7 @@ public class EtlTaskStateResource {
      * {@code GET /etl-task-state/config/test} : test the configured status storage backend.
      */
     @GetMapping("/config/test")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> testConfig() {
         Map<String, Object> result = new HashMap<>();
         try {

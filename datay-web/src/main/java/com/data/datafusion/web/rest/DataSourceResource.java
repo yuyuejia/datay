@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -219,6 +220,7 @@ public class DataSourceResource {
      * @return 设置结果。
      */
     @PutMapping("/{id}/default-warehouse")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> setDefaultWarehouse(@PathVariable("id") Long id) {
         LOG.debug("REST request to set default warehouse data source : {}", id);
         if (!dataSourceRepository.existsById(id)) {

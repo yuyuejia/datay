@@ -68,6 +68,8 @@ const DpTableUpdate = () => import("@/entities/dp-table/dp-table-update.vue");
 const DpTableDetails = () => import("@/entities/dp-table/dp-table-details.vue");
 
 const ServiceConfig = () =>
+  import("@/entities/service-config/service-config-settings.vue");
+const ServiceConfigAdvanced = () =>
   import("@/entities/service-config/service-config.vue");
 const ServiceConfigUpdate = () =>
   import("@/entities/service-config/service-config-update.vue");
@@ -413,25 +415,31 @@ export default {
       path: "service-config",
       name: "ServiceConfig",
       component: ServiceConfig,
-      meta: { authorities: [Authority.ADMIN] },
+      meta: { authorities: [Authority.ADMIN, Authority.TENANT_ADMIN] },
+    },
+    {
+      path: "service-config/advanced",
+      name: "ServiceConfigAdvanced",
+      component: ServiceConfigAdvanced,
+      meta: { authorities: [Authority.ADMIN, Authority.TENANT_ADMIN] },
     },
     {
       path: "service-config/new",
       name: "ServiceConfigCreate",
       component: ServiceConfigUpdate,
-      meta: { authorities: [Authority.ADMIN] },
+      meta: { authorities: [Authority.ADMIN, Authority.TENANT_ADMIN] },
     },
     {
       path: "service-config/:serviceConfigId/edit",
       name: "ServiceConfigEdit",
       component: ServiceConfigUpdate,
-      meta: { authorities: [Authority.ADMIN] },
+      meta: { authorities: [Authority.ADMIN, Authority.TENANT_ADMIN] },
     },
     {
       path: "service-config/:serviceConfigId/view",
       name: "ServiceConfigView",
       component: ServiceConfigDetails,
-      meta: { authorities: [Authority.ADMIN] },
+      meta: { authorities: [Authority.ADMIN, Authority.TENANT_ADMIN] },
     },
     {
       path: "data-model",

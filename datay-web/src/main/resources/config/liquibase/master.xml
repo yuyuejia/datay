@@ -51,6 +51,7 @@
     <include file="config/liquibase/changelog/20260928000000_added_entity_AnalysisDashboard.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260928010000_data_model_display_field.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260928020000_add_connection_mode_database_to_datasource.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260930000000_add_tenant_admin_authority.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

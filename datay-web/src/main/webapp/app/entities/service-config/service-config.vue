@@ -1,8 +1,14 @@
 <template>
   <div>
     <h2 id="page-heading" data-cy="ServiceConfigHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
-      <span id="service-config-heading">服务配置</span>
+      <span id="service-config-heading">服务配置 · 高级</span>
       <div class="d-flex align-items-center">
+        <router-link :to="{ name: 'ServiceConfig' }" custom v-slot="{ navigate }">
+          <el-button class="mr-2" @click="navigate" data-cy="backToSettingsButton">
+            <font-awesome-icon icon="arrow-left"></font-awesome-icon>
+            <span>返回设置</span>
+          </el-button>
+        </router-link>
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span>刷新列表</span>

@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = "ROLE_ADMIN")
 class ServiceConfigResourceIT {
 
     private static final String DEFAULT_DF_GROUP = "AAAAAAAAAA";

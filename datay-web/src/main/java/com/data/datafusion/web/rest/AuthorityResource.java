@@ -41,7 +41,7 @@ public class AuthorityResource {
     private static final int NAME_MAX_LENGTH = 50;
 
     /** 内置角色，禁止删除。 */
-    private static final Set<String> BUILT_IN_ROLES = Set.of("ROLE_ADMIN", "ROLE_USER");
+    private static final Set<String> BUILT_IN_ROLES = Set.of("ROLE_ADMIN", "ROLE_TENANT_ADMIN", "ROLE_USER");
 
     @Value("${jhipster.clientApp.name}")
     private String applicationName;

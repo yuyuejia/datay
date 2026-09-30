@@ -68,7 +68,7 @@ import RoleManagementService from "./role-management.service";
 import { useAlertService } from "@/shared/alert/alert.service";
 import { type IAuthority } from "@/shared/model/authority.model";
 
-const BUILT_IN_ROLES = ["ROLE_ADMIN", "ROLE_USER"];
+const BUILT_IN_ROLES = ["ROLE_ADMIN", "ROLE_TENANT_ADMIN", "ROLE_USER"];
 
 const service = new RoleManagementService();
 const alertService = useAlertService();
