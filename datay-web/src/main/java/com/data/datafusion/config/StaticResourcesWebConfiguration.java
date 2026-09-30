@@ -11,11 +11,20 @@ import tech.jhipster.config.JHipsterConstants;
 import tech.jhipster.config.JHipsterProperties;
 
 @Configuration
-@Profile({ JHipsterConstants.SPRING_PROFILE_PRODUCTION })
+@Profile({ JHipsterConstants.SPRING_PROFILE_PRODUCTION, JHipsterConstants.SPRING_PROFILE_DEVELOPMENT })
 public class StaticResourcesWebConfiguration implements WebMvcConfigurer {
 
     protected static final String[] RESOURCE_LOCATIONS = { "classpath:/static/", "classpath:/static/content/", "classpath:/static/i18n/" };
-    protected static final String[] RESOURCE_PATHS = { "/*.js", "/*.css", "/*.svg", "/*.png", "*.ico", "/content/**", "/i18n/*" };
+    protected static final String[] RESOURCE_PATHS = {
+        "/*.js",
+        "/*.css",
+        "/*.svg",
+        "/*.png",
+        "*.ico",
+        "/content/**",
+        "/i18n/*",
+        "/assets/**",
+    };
 
     private final JHipsterProperties jhipsterProperties;
 

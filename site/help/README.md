@@ -44,4 +44,4 @@
 
 有问题或建议，请通过项目 Issue 反馈，也欢迎加微信交流。
 
-<img src="images/datay.jpg" width="260" alt="DataY 微信" />
+<img src="images/weixin.png" width="260" height="260" alt="DataY 微信" />
