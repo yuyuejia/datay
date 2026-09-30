@@ -153,7 +153,7 @@
       ok-variant="primary"
       cancel-title="取消"
       :ok-disabled="saving"
-      @ok.prevent="save"
+      @ok="save"
     >
       <div class="dashboard-design-form">
         <div class="dashboard-design-form-item">
@@ -184,7 +184,7 @@
       ok-title="刷新预览"
       ok-variant="primary"
       cancel-title="关闭"
-      @ok.prevent="refreshFromSpecJson"
+      @ok="refreshFromSpecJson"
     >
       <el-alert
         v-if="specJsonError"
