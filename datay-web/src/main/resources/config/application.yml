@@ -253,6 +253,12 @@ datay:
       member-index-enabled: true
       # 单字段成员抽样上限
       member-sample-limit: 200
+  # 平台管理 Harness：通过 MCP 端点 /mcp/datay 暴露数据源、ETL 任务、数据模型等对象的增删改查与运行类操作
+  mcp:
+    harness:
+      # 是否允许调用具备副作用的写工具（创建/修改/删除/运行任务等）。
+      # 默认开启，因为该端点面向平台管理；生产环境如需只读，可设为 false 或注入 DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS=false。
+      allow-mutating-tools: ${DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS:true}
 
 # jhipster-needle-add-application-yaml-document
 ---

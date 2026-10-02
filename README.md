@@ -70,6 +70,15 @@ datay/
 - RAG 本地向量索引，指标口径不跑偏
 - 指标管理模块统一维护业务口径，问数有依据
 
+### 🧰 MCP Harness（让 Agent 直接操作平台对象）
+
+- 通过 MCP 端点 `/mcp/datay` 把**数据源、ETL 任务、数据模型**的增删改查与运行类动作暴露给 AI Agent
+- 同一端点提供**指标智能问数**能力（`metric_query_guide` / `list_metrics` / `describe_metrics` / `sample_dimension_values` / `query_metric_data` / `retrieve_metric_context`），与内置问数助手共用同一套实现与口径
+- 同一端点也提供**指标定义管理**（`metric_*`：增删改查、SQL 预览、指标目录维护），与页面保存走同一套校验
+- Claude Desktop / Cursor / DSH 等 MCP 客户端接上后，可自行完成「建数据源 → 建 ETL 任务并试跑 → 上线调度 → 建模并物化落表 → 一句话问指标」
+- 复用平台既有鉴权与租户隔离：Bearer 令牌 + `X-Tenant-Id`/`X-Tenant-Code`，写操作可用开关一键降级为只读（问数不受影响）
+- 文档见 [DataY MCP Harness](datay-web/docs/datay-mcp-harness.md)
+
 
 ## 环境要求
 
