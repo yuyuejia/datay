@@ -30,7 +30,7 @@ public class TenantFilterAspect {
 
     @Around(
         "execution(* com.data.datafusion.service..*.*(..)) || " +
-        "execution(* com.data.datafusion.repository..*.*(..))"
+        "target(org.springframework.data.repository.Repository)"
     )
     public Object enableTenantFilter(ProceedingJoinPoint joinPoint) throws Throwable {
         if (hasSkipTenantFilterAnnotation(joinPoint)) {
