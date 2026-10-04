@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MetricRepository extends JpaRepository<Metric, Long>, JpaSpecificationExecutor<Metric> {
     Optional<Metric> findByCode(String code);
+    Optional<Metric> findFirstByName(String name);
     Optional<Metric> findByCodeAndIdNot(String code, Long id);
     List<Metric> findByDirectoryId(Long directoryId);
     List<Metric> findByMetricType(String metricType);

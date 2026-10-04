@@ -99,6 +99,12 @@ const AnalysisDashboardList = () =>
 const AnalysisDashboardDesign = () =>
   import("@/entities/analysis-dashboard/analysis-dashboard-design.vue");
 
+const AppPackageList = () => import("@/entities/app-package/app-package.vue");
+const AppPackageExportPage = () =>
+  import("@/entities/app-package/app-package-export.vue");
+const AppPackageDetails = () =>
+  import("@/entities/app-package/app-package-details.vue");
+
 // jhipster-needle-add-entity-to-router-import - JHipster will import entities to the router here
 
 export default {
@@ -547,6 +553,24 @@ export default {
       path: "analysis-dashboard/design",
       name: "AnalysisDashboardDesign",
       component: AnalysisDashboardDesign,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "app-package",
+      name: "AppPackage",
+      component: AppPackageList,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "app-package/export",
+      name: "AppPackageExport",
+      component: AppPackageExportPage,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "app-package/:packageId/view",
+      name: "AppPackageView",
+      component: AppPackageDetails,
       meta: { authorities: [Authority.USER] },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here

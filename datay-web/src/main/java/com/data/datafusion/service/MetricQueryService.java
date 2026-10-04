@@ -14,6 +14,7 @@ import com.data.datafusion.service.metric.MetricFilterCondition;
 import com.data.datafusion.service.metric.MetricFilterConfig;
 import com.data.datafusion.service.metric.MetricFilterOperator;
 import com.data.datafusion.service.metric.ScopedDimension;
+import com.data.metadata.util.DBUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.SQLException;
@@ -23,8 +24,11 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -80,6 +84,35 @@ public class MetricQueryService {
     /** 事实表缺少受控维度时的策略：SKIP 跳过并告警，DENY 直接拒绝查询。 */
     @Value("${datay.security.data-scope.missing-dimension-policy:SKIP}")
     private String missingDimensionPolicy;
+
+    /** 支持聚合 FILTER 子句的聚合函数（用于把指标业务限定下推到聚合上）。 */
+    private static final Set<String> AGGREGATE_FUNCTIONS = Set.of(
+        "SUM",
+        "COUNT",
+        "AVG",
+        "MIN",
+        "MAX",
+        "STDDEV",
+        "STDDEV_POP",
+        "STDDEV_SAMP",
+        "VAR_POP",
+        "VAR_SAMP",
+        "VARIANCE",
+        "MEDIAN",
+        "PRODUCT",
+        "STRING_AGG",
+        "GROUP_CONCAT",
+        "LIST",
+        "ARRAY_AGG",
+        "ANY_VALUE",
+        "FIRST",
+        "LAST",
+        "BIT_AND",
+        "BIT_OR",
+        "BOOL_AND",
+        "BOOL_OR",
+        "APPROX_COUNT_DISTINCT"
+    );
 
     private final MetricRepository metricRepository;
     private final DataModelRepository dataModelRepository;
@@ -429,7 +462,11 @@ public class MetricQueryService {
             }
         }
         for (Metric metric : metrics) {
-            selects.add(metricExpression(metric.getCode(), context.byCode, new HashSet<>()) + " AS " + metric.getCode());
+            selects.add(
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                " AS " +
+                metric.getCode()
+            );
         }
 
         String where = buildWhere(context, factModel, dimensionJoin, dimensionAlias, joins);
@@ -518,7 +555,11 @@ public class MetricQueryService {
             }
         }
         for (Metric metric : metrics) {
-            selects.add(metricExpression(metric.getCode(), context.byCode, new HashSet<>()) + " AS " + metric.getCode());
+            selects.add(
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                " AS " +
+                metric.getCode()
+            );
         }
 
         String where = buildWhere(context, factModel, dimensionJoin, dimensionAlias, joins);
@@ -895,7 +936,14 @@ public class MetricQueryService {
         return common;
     }
 
-    private String metricExpression(String code, Map<String, Metric> byCode, Set<String> visiting) {
+    /**
+     * 展开指标表达式。
+     *
+     * <p>{@code filterPredicateProvider} 用于把「指标级业务限定」下推到原子指标的聚合上
+     * （见 {@link #applyAggregateFilter}）：原子指标在外层包一层 {@code FILTER (WHERE ...)}，
+     * 衍生指标由各个被引用的原子指标各自带上限定，从而保证「销售额」与「有效销售额」口径互不污染。
+     */
+    private String metricExpression(String code, Map<String, Metric> byCode, Set<String> visiting, Function<Metric, String> filterPredicateProvider) {
         Metric metric = byCode.get(code);
         if (metric == null) {
             throw new IllegalArgumentException("指标不存在：" + code);
@@ -906,13 +954,14 @@ public class MetricQueryService {
         String expression;
         if (Metric.TYPE_ATOMIC.equals(metric.getMetricType())) {
             String formula = metric.getFormula() == null || metric.getFormula().isBlank() ? "1" : metric.getFormula().trim();
-            expression = "(" + formula + ")";
+            String predicate = filterPredicateProvider == null ? null : filterPredicateProvider.apply(metric);
+            expression = predicate == null || predicate.isBlank() ? "(" + formula + ")" : applyAggregateFilter(formula, predicate);
         } else {
             String formula = metric.getFormula() == null ? "" : metric.getFormula();
             Matcher matcher = FORMULA_REF_PATTERN.matcher(formula);
             StringBuilder sb = new StringBuilder();
             while (matcher.find()) {
-                String refExpr = metricExpression(matcher.group(1), byCode, visiting);
+                String refExpr = metricExpression(matcher.group(1), byCode, visiting, filterPredicateProvider);
                 matcher.appendReplacement(sb, Matcher.quoteReplacement(refExpr));
             }
             matcher.appendTail(sb);
@@ -920,6 +969,171 @@ public class MetricQueryService {
         }
         visiting.remove(code);
         return expression;
+    }
+
+    /**
+     * 指标级业务限定的谓词提供器：把指标的 {@code filterConfig} 翻译成聚合 FILTER 子句里的谓词。
+     *
+     * <p>业务限定只在目标库支持聚合 {@code FILTER} 子句时下推，其它数据库保持原有行为并告警，
+     * 避免生成对方无法解析的 SQL。
+     */
+    private Function<Metric, String> filterPredicateProvider(
+        DataModel factModel,
+        Map<Long, String> dimensionJoin,
+        Map<Long, String> dimensionAlias,
+        StringBuilder joins
+    ) {
+        boolean supported = supportsAggregateFilter(factModel);
+        return metric -> {
+            if (metric.getFilterConfig() == null || metric.getFilterConfig().isBlank()) {
+                return null;
+            }
+            if (!supported) {
+                LOG.warn(
+                    "数据源不支持聚合 FILTER，指标业务限定未生效：metric={}, fact={}",
+                    metric.getCode(),
+                    physicalTableName(factModel)
+                );
+                return null;
+            }
+            return metricFilterPredicate(metric, factModel, dimensionJoin, dimensionAlias, joins);
+        };
+    }
+
+    /** 目标库是否支持 {@code 聚合函数 FILTER (WHERE ...)}。 */
+    private boolean supportsAggregateFilter(DataModel factModel) {
+        if (factModel.getDataSourceId() == null) {
+            return false;
+        }
+        return Optional
+            .ofNullable(dataSourceService.findOne(factModel.getDataSourceId()).orElse(null))
+            .map(DataSourceDTO::getUrl)
+            .filter(url -> url != null && !url.isBlank())
+            .map(url -> {
+                String type = DBUtils.getDBType(url);
+                return "DUCKDB".equalsIgnoreCase(type) || "DUCKLAKE".equalsIgnoreCase(type) || "POSTGRESQL".equalsIgnoreCase(type);
+            })
+            .orElse(false);
+    }
+
+    /**
+     * 把指标业务限定翻译成谓词：维度条件自动 LEFT JOIN 维度表并在维度字段上过滤，
+     * 其余条件（事实表字段 / 事实表时间字段）直接作用在事实表别名上。
+     */
+    private String metricFilterPredicate(
+        Metric metric,
+        DataModel factModel,
+        Map<Long, String> dimensionJoin,
+        Map<Long, String> dimensionAlias,
+        StringBuilder joins
+    ) {
+        MetricFilterConfig config = parseFilterConfig(metric.getFilterConfig());
+        if (config == null || config.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (MetricFilterCondition condition : config.getConditions()) {
+            String column;
+            boolean dimensionScoped =
+                MetricFilterCondition.TYPE_DIMENSION.equals(condition.getType()) ||
+                (MetricFilterCondition.TYPE_TIME.equals(condition.getType()) &&
+                    condition.getDimensionModelId() != null &&
+                    condition.getDimensionFieldName() != null &&
+                    !condition.getDimensionFieldName().isBlank());
+            if (dimensionScoped) {
+                Long dimensionModelId = condition.getDimensionModelId();
+                if (dimensionModelId == null) {
+                    throw new IllegalArgumentException("指标业务限定的维度条件缺少关联维度：" + metric.getCode());
+                }
+                String alias = ensureDimensionJoin(
+                    dimensionJoin == null ? null : dimensionJoin.get(dimensionModelId),
+                    dimensionModelId,
+                    dimensionAlias,
+                    joins
+                );
+                column = alias + "." + condition.getDimensionFieldName();
+            } else {
+                if (condition.getFactFieldName() == null || condition.getFactFieldName().isBlank()) {
+                    throw new IllegalArgumentException("指标业务限定缺少事实表字段：" + metric.getCode());
+                }
+                column = FACT_ALIAS + "." + condition.getFactFieldName();
+            }
+            String predicate = buildPredicate(condition, column);
+            if (predicate == null) {
+                continue;
+            }
+            String logic = parts.isEmpty() ? "" : " " + ("OR".equalsIgnoreCase(condition.getLogic()) ? "OR" : "AND") + " ";
+            parts.add(logic + "(" + predicate + ")");
+        }
+        if (parts.isEmpty()) {
+            return null;
+        }
+        LOG.debug("Metric {} business filter applied: {}", metric.getCode(), String.join("", parts));
+        return String.join("", parts);
+    }
+
+    /**
+     * 给公式里的每个聚合函数补上 {@code FILTER (WHERE predicate)}。
+     *
+     * <p>示例：{@code SUM(order_amount) - SUM(cost_amount)} + {@code order_status = 'PAID'}
+     * → {@code (SUM(order_amount) FILTER (WHERE order_status = 'PAID') - SUM(cost_amount) FILTER (WHERE order_status = 'PAID'))}。
+     */
+    private String applyAggregateFilter(String formula, String predicate) {
+        StringBuilder result = new StringBuilder();
+        int index = 0;
+        int length = formula.length();
+        boolean applied = false;
+        while (index < length) {
+            char current = formula.charAt(index);
+            if (Character.isLetter(current) || current == '_') {
+                int start = index;
+                while (index < length && (Character.isLetterOrDigit(formula.charAt(index)) || formula.charAt(index) == '_')) {
+                    index++;
+                }
+                String word = formula.substring(start, index);
+                int open = skipWhitespace(formula, index);
+                if (open < length && formula.charAt(open) == '(' && AGGREGATE_FUNCTIONS.contains(word.toUpperCase(Locale.ROOT))) {
+                    int close = matchParenthesis(formula, open);
+                    if (close > open) {
+                        result.append(formula, start, close + 1).append(" FILTER (WHERE ").append(predicate).append(')');
+                        applied = true;
+                        index = close + 1;
+                        continue;
+                    }
+                }
+                result.append(word);
+                continue;
+            }
+            result.append(current);
+            index++;
+        }
+        String body = result.toString();
+        return applied ? "(" + body + ")" : "(" + formula + ")";
+    }
+
+    private static int skipWhitespace(String text, int index) {
+        int i = index;
+        while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+            i++;
+        }
+        return i;
+    }
+
+    /** 返回与 {@code openIndex} 处左括号配对的右括号下标，找不到返回 -1。 */
+    private static int matchParenthesis(String text, int openIndex) {
+        int depth = 0;
+        for (int i = openIndex; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '(') {
+                depth++;
+            } else if (c == ')') {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     private String ensureDimensionJoin(String factFieldName, Long dimensionModelId, Map<Long, String> dimensionAlias, StringBuilder joins) {

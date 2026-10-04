@@ -264,11 +264,11 @@ public class DataSyncService {
         job.setCreateTime(ZonedDateTime.now());
         job.setJobContext(generateETLJobJson(dataSyncDTO));
         // 设置租户ID，防止更新时merge操作覆盖tenant_id为空
-        if (dataSyncDTO.getTenantId()!= null){
-            job.setTenantId(String.valueOf(dataSyncDTO.getTenantId()));
-        }else if(SecurityUtils.getCurrentTenantId().isPresent()){
-            job.setTenantId(String.valueOf(SecurityUtils.getCurrentTenantId()));
-        }return jobService.save(job);
+        String tenantId = dataSyncDTO.getTenantId();
+        job.setTenantId(
+            tenantId != null && !tenantId.isBlank() ? tenantId : SecurityUtils.getCurrentTenantIdString().orElse(null)
+        );
+        return jobService.save(job);
     }
 
     public String generateETLJobJson(DataSyncDTO dataSyncDTO) {

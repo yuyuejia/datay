@@ -32,26 +32,21 @@
     <include file="config/liquibase/changelog/20220421113212_added_entity_DpTable.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20250327124509_added_entity_ServiceConfig.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20240904000001_added_entity_DataModel.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20250906000000_seed_dimension_model.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20250907000000_added_entity_Tenant.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260908154249_add_extra_params_to_datasource.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260909000000_added_entity_DataApi.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260909010000_seed_data_api.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260918000000_add_api_config_to_data_api.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260921000000_seed_data_transform_component.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260923000000_added_entity_Metric.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260923001000_seed_ecommerce.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260924000000_hierarchy_dimension.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260924001000_seed_ecommerce_hierarchy_crossfact.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260924003000_fact_time_field.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260925000000_time_dimension.xml" relativeToChangelogFile="false"/>
-    <include file="config/liquibase/changelog/20260925001000_seed_time_dimension.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260926000000_added_entity_RoleDataScope.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260927000000_add_authority_description.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260928000000_added_entity_AnalysisDashboard.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260928010000_data_model_display_field.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260928020000_add_connection_mode_database_to_datasource.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260930000000_add_tenant_admin_authority.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261001000000_added_entity_AppPackage.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261004000000_fix_optional_tenant_id.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

@@ -96,6 +96,16 @@ public final class SecurityUtils {
     }
 
     /**
+     * 当前租户 ID 的字符串形式，用于写入实体的 {@code tenant_id} 字段。
+     *
+     * <p>注意：不要写 {@code String.valueOf(SecurityUtils.getCurrentTenantId())}，
+     * 那样得到的是 {@code "Optional[0]"} 这种被污染的租户 ID，实体会被租户过滤器隐藏。
+     */
+    public static Optional<String> getCurrentTenantIdString() {
+        return getCurrentTenantId().map(String::valueOf);
+    }
+
+    /**
      * Get the tenant code from current authentication.
      *
      * @return the current tenant code.

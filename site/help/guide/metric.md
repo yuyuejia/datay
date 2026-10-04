@@ -8,7 +8,7 @@
 
 1. 新建指标，类型选 **原子指标**。
 2. 填名称、编码、单位（如 `销售额 sales_amount`，单位「元」）。
-3. 选绑定的事实表（如 `fact_sales_order_item`）。
+3. 选绑定的事实表（必须是 `DWD` 类型的模型，如电商资产包里的 `fact_sales_order`）。
 4. 写计算公式：`SUM(amount)`、`COUNT(DISTINCT order_id)` 等。
 5. 可选配置「业务限定」（如只算已支付订单）。
 6. 点「预览 SQL」核对口径后保存。

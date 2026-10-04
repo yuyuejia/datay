@@ -115,6 +115,9 @@
                 <el-dropdown-item command="/analysis-dashboard">
                   <span>分析看板</span>
                 </el-dropdown-item>
+                <el-dropdown-item command="/app-package">
+                  <span>应用市场</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>

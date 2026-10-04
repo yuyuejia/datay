@@ -35,6 +35,24 @@
         </div>
       </section>
 
+      <!-- 空租户引导：平台不预置业务数据，数据应用来自应用市场 -->
+      <section class="market-cta" v-if="showMarketCta">
+        <div class="market-cta-body">
+          <font-awesome-icon icon="box-open" class="market-cta-icon" />
+          <div>
+            <h3 class="market-cta-title">当前租户还没有数据应用</h3>
+            <p class="market-cta-desc">
+              平台不预置业务数据。到「数据服务应用市场」选择一个业务场景（如「电商销售分析应用」「DataY
+              快速入门应用」），一键初始化即可得到完整的数据源、数据模型、指标、ETL 任务与任务编排。
+            </p>
+          </div>
+        </div>
+        <el-button type="primary" @click="goTo('/app-package')">
+          <font-awesome-icon icon="box-open" />
+          <span>去应用市场初始化</span>
+        </el-button>
+      </section>
+
       <!-- Overview stats -->
       <section class="stats-section">
         <div class="stats-grid">
@@ -319,6 +337,47 @@
 /* ========== Welcome ========== */
 .welcome-section {
   padding: 24px 24px 4px;
+}
+
+/* ========== 空租户：引导去应用市场 ========== */
+.market-cta {
+  margin: 16px 24px 0;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f2f7ff 0%, #ffffff 100%);
+}
+
+.market-cta-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.market-cta-icon {
+  font-size: 22px;
+  color: #1677ff;
+  margin-top: 2px;
+}
+
+.market-cta-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+.market-cta-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4e5969;
+  max-width: 720px;
 }
 
 .welcome-content {

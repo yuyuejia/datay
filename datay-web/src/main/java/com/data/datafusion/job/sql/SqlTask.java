@@ -10,6 +10,7 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringReader;
 import java.sql.Connection;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,11 +76,40 @@ public class SqlTask extends AbstractTask {
             scriptRunner.runScript(reader);
             reader.close();
         } catch (Exception e) {
-            String errorMsg = "SQL task [" + getJobInstance().getJobName() + "] execution failed: " + e.getMessage();
+            String hint = missingObjectHint(e.getMessage());
+            String errorMsg = "SQL task [" + getJobInstance().getJobName() + "] execution failed: " + e.getMessage() + hint;
             this.log(errorMsg);
-            throw new Exception("SQL 任务执行失败: " + e.getMessage(), e);
+            throw new Exception("SQL 任务执行失败: " + e.getMessage() + hint, e);
         }
         this.log("SQL task [" + getJobInstance().getJobName() + "] executed successfully");
         return "0";
+    }
+
+    /**
+     * 对「表/视图不存在」这类错误补充可执行的排查提示。
+     *
+     * <p>典型场景：SQL 任务依赖的上游任务（ETL 写入的维度/事实表、前一个 SQL 任务产出的中间表）
+     * 还没有执行，直接单跑该任务就只能看到一个很难理解的数据库原始报错。
+     */
+    static String missingObjectHint(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String lower = message.toLowerCase(Locale.ROOT);
+        boolean missing =
+            lower.contains("does not exist") ||
+            lower.contains("doesn't exist") ||
+            lower.contains("unknown table") ||
+            lower.contains("no such table") ||
+            lower.contains("invalid object name") ||
+            lower.contains("table or view not found");
+        if (!missing) {
+            return "";
+        }
+        return (
+            "\n提示：SQL 中用到的表/视图不存在，通常是上游任务还没有执行。" +
+            "请先运行该任务所属的「编排任务」（任务编排 → 执行一次），" +
+            "或按编排中的依赖顺序先执行上游 ETL / SQL 任务，再重试本任务。"
+        );
     }
 }

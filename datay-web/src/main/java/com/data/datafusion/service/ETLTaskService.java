@@ -156,11 +156,10 @@ public class ETLTaskService {
         job.setCreateTime(eTLTaskDTO.getCreateTime());
         job.setUpdateTime(ZonedDateTime.now());
         // 设置租户ID，防止更新时merge操作覆盖tenant_id为空
-        if (eTLTaskDTO.getTenantId()!= null){
-            job.setTenantId(String.valueOf(eTLTaskDTO.getTenantId()));
-        }else if(SecurityUtils.getCurrentTenantId().isPresent()){
-            job.setTenantId(String.valueOf(SecurityUtils.getCurrentTenantId()));
-        }
+        String tenantId = eTLTaskDTO.getTenantId();
+        job.setTenantId(
+            tenantId != null && !tenantId.isBlank() ? tenantId : SecurityUtils.getCurrentTenantIdString().orElse(null)
+        );
         job = jobService.save(job);
         return job;
     }

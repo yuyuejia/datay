@@ -42,7 +42,7 @@
 3. 对每个外键字段，在「关联维度」列指向对应维度模型。
 4. 选一个时间字段作为「时间周期字段」。
 
-示例：`fact_sales_order_item.order_date_sk → dim_date`、`product_sk → dim_product`、`store_sk → dim_store`。
+示例（电商资产包里的实际配置）：`fact_sales_order.order_date_key → dim_date.date_key`、`product_key → dim_product.product_id`、`store_key → dim_store.store_id`。
 
 ![事实表字段关联维度配置](../images/事实表字段关联维度配置.png)
 

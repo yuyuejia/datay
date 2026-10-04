@@ -71,7 +71,7 @@ export default defineComponent({
       return Array.from(counts.entries())
         .sort((a, b) => b[1] - a[1])
         .map(([type, count], index) => {
-          const meta = dbTypes.find(item => item.name === type);
+          const meta = dbTypes.find((item) => item.name === type);
           return {
             type,
             label: meta?.displayName ?? type,
@@ -104,12 +104,12 @@ export default defineComponent({
 
         typeDistribution.value = buildTypeDistribution(dataSources);
 
-        runningInstances.value = instances.filter(instance => instance.status && RUNNING_STATUSES.includes(instance.status));
+        runningInstances.value = instances.filter((instance) => instance.status && RUNNING_STATUSES.includes(instance.status));
         stats.value.runningCount = runningInstances.value.length;
 
         const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
         failedInstances.value = instances.filter(
-          instance => instance.status === 'FAILED' && instance.createTime && new Date(instance.createTime).getTime() >= oneDayAgo,
+          (instance) => instance.status === 'FAILED' && instance.createTime && new Date(instance.createTime).getTime() >= oneDayAgo
         );
       } catch (e) {
         console.error('Failed to load dashboard data', e);
@@ -124,12 +124,15 @@ export default defineComponent({
 
     watch(
       () => authenticated?.value,
-      value => {
+      (value) => {
         if (value) {
           loadData();
         }
-      },
+      }
     );
+
+    /** 全新租户（既没有数据源也没有数据模型）时，引导去应用市场初始化数据应用。 */
+    const showMarketCta = computed(() => stats.value.dataSourceCount === 0 && stats.value.dataModelCount === 0);
 
     const guideSteps = computed(() => [
       {
@@ -166,7 +169,7 @@ export default defineComponent({
       router.push(route);
     };
 
-    const statusText = (status?: string | null) => (status ? STATUS_LABELS[status] ?? status : '-');
+    const statusText = (status?: string | null) => (status ? (STATUS_LABELS[status] ?? status) : '-');
 
     const statusClass = (status?: string | null) => (status ? `status-${status.toLowerCase()}` : '');
 
@@ -186,6 +189,7 @@ export default defineComponent({
       runningInstances,
       failedInstances,
       guideSteps,
+      showMarketCta,
       loadData,
       goTo,
       statusText,

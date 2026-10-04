@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      修复历史缺陷：ETL 任务 / 数据同步在保存调度 Job 时，误用
+      String.valueOf(SecurityUtils.getCurrentTenantId()) 写入 tenant_id，
+      落库值形如 "Optional[0]"，导致这些 Job 被租户过滤器隐藏（任务列表看不到、
+      编排设计器选不到候选节点）。这里把已污染的 tenant_id 还原成真实租户号。
+    -->
+    <changeSet id="20261004000000-1" author="datay">
+        <sql>
+            UPDATE dp_job
+            SET tenant_id = SUBSTR(tenant_id, 10, LENGTH(tenant_id) - 10)
+            WHERE tenant_id LIKE 'Optional[%]'
+        </sql>
+        <rollback>
+            <!-- 无法还原成污染值，回滚时不做处理 -->
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

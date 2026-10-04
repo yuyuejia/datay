@@ -11,15 +11,4 @@
             </column>
         </addColumn>
     </changeSet>
-
-    <changeSet id="20260924003000-2" author="datafusion">
-        <update tableName="data_model">
-            <column name="time_field" value="order_date_sk"/>
-            <where>id in (3100, 3101) and (time_field is null or time_field = '')</where>
-        </update>
-        <update tableName="data_model">
-            <column name="time_field" value="event_date_sk"/>
-            <where>id = 3102 and (time_field is null or time_field = '')</where>
-        </update>
-    </changeSet>
 </databaseChangeLog>

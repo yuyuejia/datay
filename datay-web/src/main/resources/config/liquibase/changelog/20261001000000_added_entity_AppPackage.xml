@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 数据应用资产包：系统预置（package_type=SYSTEM）与租户导出（package_type=TENANT）统一存放 -->
+    <changeSet id="20261001000000-1" author="datafusion">
+        <createTable tableName="dp_app_package">
+            <column name="id" type="bigint" autoIncrement="true" startWith="4000">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="description" type="varchar(2000)">
+                <constraints nullable="true" />
+            </column>
+            <column name="category" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="version" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+            <column name="package_type" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+            <column name="item_summary" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="content" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="content_size" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_user" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="dp_app_package" columnName="create_time" columnDataType="${datetimeType}"/>
+        <dropDefaultValue tableName="dp_app_package" columnName="update_time" columnDataType="${datetimeType}"/>
+        <createIndex tableName="dp_app_package" indexName="idx_app_package_code">
+            <column name="code"/>
+        </createIndex>
+        <createIndex tableName="dp_app_package" indexName="idx_app_package_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- 数据应用初始化记录：记录某租户基于某个资产包初始化的结果与 ID 映射 -->
+    <changeSet id="20261001000000-2" author="datafusion">
+        <createTable tableName="dp_app_package_instance">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="package_id" type="bigint">
+                <constraints nullable="true" />
+            </column>
+            <column name="package_code" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="package_name" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+            <column name="message" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="id_mapping" type="${clobType}">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_user" type="varchar(255)">
+                <constraints nullable="true" />
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <dropDefaultValue tableName="dp_app_package_instance" columnName="create_time" columnDataType="${datetimeType}"/>
+        <createIndex tableName="dp_app_package_instance" indexName="idx_app_package_instance_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

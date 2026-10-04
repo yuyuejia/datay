@@ -58,17 +58,21 @@ java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
 在线演示地址：[http://datay-demo.yuyuejia.com.cn/](http://datay-demo.yuyuejia.com.cn/)
 
-### 开箱即用：已预置好的电商资产
+### 一键初始化：电商销售分析应用
 
-平台启动时自动通过数据库迁移脚本预置了一整套电商示例，**登录就能看到**：
+平台**不再预置业务数据**。本案例的全部资产由一个数据应用资产包提供，
+到 **数据应用 → 应用市场** 找到「电商销售分析应用」点「初始化」即可：
 
-| 类型 | 预置内容 |
+| 类型 | 资产包内容 |
 | --- | --- |
-| 数据源 | `电商数仓(DuckDB)` |
-| 维度表 | `dim_date`、`dim_customer`、`dim_store`、`dim_product`、`dim_brand`、`dim_category`（3 级层级）、`dim_time`（年/季/月/日） |
-| 事实表 | `fact_sales_order`、`fact_sales_order_item`、`fact_customer_member` |
-| 指标 | 销售额、销量、成本、毛利、毛利率、客单价等 12 个 |
-| 同步任务 | `EC_DIM_*` / `EC_FACT_*` 系列，文件 → 模型 |
+| 数据源 | `电商业务库(DuckDB)`（模拟业务源库）、`电商数仓(DuckDB)` |
+| 维度模型 | `dim_date`（时间维度：年/季/月/日）、`dim_region`（层级维度：大区/省/城市）、`dim_category`（层级维度：一/二/三级品类）、`dim_store`、`dim_product`、`dim_customer`（普通维度） |
+| 事实/汇总 | `fact_sales_order`（DWD）、`dws_sales_store_day`（DWS）、`ads_category_sales_rank`（ADS） |
+| 指标 | 销售额、销量、成本、毛利、订单数、客户数、有效销售额（带业务限定）+ 毛利率、客单价、件单价、单均毛利、客均消费 |
+| 任务 | 7 个 ETL（源库 → 模型写入，含 1 个自定义 SQL 抽取）、3 个 SQL 任务、1 个统一日更编排 |
+
+初始化完成后，到「任务编排」把「电商销售分析日更编排」**执行一次**，
+就会自动生成业务源库样例数据 → 同步各维度与事实表 → 生成 DWS/ADS 汇总表。
 
 ![首页资产概览](../images/首页资产概览.png)
 
@@ -143,7 +147,7 @@ java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 3. 对每个外键字段，在「关联维度」列指向对应维度模型
 4. 选一个时间字段作为「时间周期字段」
 
-示例：`fact_sales_order_item.order_date_sk → dim_date`、`product_sk → dim_product`、`store_sk → dim_store`
+示例（资产包里的实际配置）：`fact_sales_order.order_date_key → dim_date.date_key`、`product_key → dim_product.product_id`、`store_key → dim_store.store_id`
 
 ![事实表字段关联维度配置](../images/事实表字段关联维度配置.png)
 
@@ -159,7 +163,7 @@ java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
 1. 新建指标，类型选 **原子指标**
 2. 填名称、编码、单位（如 `销售额 sales_amount`，单位「元」）
-3. 选绑定的事实表（如 `fact_sales_order_item`）
+3. 选绑定的事实表（必须是 `DWD` 类型的模型，如资产包里的 `fact_sales_order`）
 4. 写计算公式：`SUM(amount)`、`COUNT(DISTINCT order_id)` 等
 5. 可选配置「业务限定」（只算已支付订单等）
 6. 点「预览 SQL」核对口径后保存

@@ -12,4 +12,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ETLTaskRepository extends JpaRepository<ETLTask, Long>, JpaSpecificationExecutor<ETLTask> {
     Optional<ETLTask> findByJobId(Long jobId);
+
+    Optional<ETLTask> findFirstByTaskCode(String taskCode);
+
+    Optional<ETLTask> findFirstByTaskName(String taskName);
 }
