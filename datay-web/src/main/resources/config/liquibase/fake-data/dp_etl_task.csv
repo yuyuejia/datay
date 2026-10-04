@@ -1,4 +1,0 @@
-id;task_name;task_code;job_id;task_desc;dir;type;cron;job_context;status;last_status;update_time;create_time;creater;project;tenant_id;dr
-1;etl;1;4;etl;etl;0;;{};OFFLINE;0;2022-04-23T16:07:54;2024-12-12T19:05:10;admin;0;0;0
-2;MySQL到DuckDB-StreamJdbcOutput;MYSQL2DUCKDB_SJ;5;MySQL源表etl_mysql_to_duckdb_demo通过StreamJdbcOutput(DuckDBAppender优化)写入DuckDB;demo;0;;{};OFFLINE;0;2026-09-08T10:00:00;2026-09-08T10:00:00;admin;0;0;0
-3;MySQL到DuckDB-DuckDBWrite;MYSQL2DUCKDB_DWB;6;MySQL源表etl_mysql_to_duckdb_demo通过DuckDBWrite原生组件写入DuckDB;demo;0;;{};OFFLINE;0;2026-09-08T10:00:00;2026-09-08T10:00:00;admin;0;0;0

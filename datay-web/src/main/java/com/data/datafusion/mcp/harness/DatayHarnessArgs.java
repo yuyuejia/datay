@@ -59,7 +59,9 @@ public final class DatayHarnessArgs {
 
     public static Integer intVal(Map<String, Object> args, String key, Integer defaultValue) {
         Long value = longVal(args, key);
-        return value == null ? defaultValue : value.intValue();
+        // 两个分支都保持引用类型：若写成 value.intValue()，三元表达式会被数值提升成 int，
+        // 从而对 defaultValue 强制拆箱，defaultValue 为 null 时抛 NPE。
+        return value == null ? defaultValue : Integer.valueOf(value.intValue());
     }
 
     /**

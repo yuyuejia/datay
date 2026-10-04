@@ -1,4 +1,0 @@
-id;task_id;name;code;source;target;config;status;tenant_id;dr
-1;1;连线1;1;aaaa;bbbb;{};0;0;0
-2;2;连线2;EDGE_02;MYSQL_IN_02;DUCK_OUT_02;{};0;0;0
-3;3;连线3;EDGE_03;MYSQL_IN_03;DUCK_OUT_03;{};0;0;0
