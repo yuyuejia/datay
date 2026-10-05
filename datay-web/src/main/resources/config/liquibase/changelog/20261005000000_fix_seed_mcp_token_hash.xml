@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      修复历史缺陷：内置种子用户（admin / user）的 mcp_token_hash 列里存的是明文 Token，
+      而 McpTokenService 用 passwordEncoder.matches(token, mcpTokenHash) 做 BCrypt 校验，
+      明文与 BCrypt 永远不可能匹配，于是这两个账号的 MCP Token 一律返回 401。
+
+      本 changeset 把已经初始化过的开发库修正为「对应明文的 BCrypt 哈希」，明文保持不变：
+        admin -> mcp_1_GLaSWtysxvncmkg7gVQP
+        user  -> mcp_2_GLaSWtysxvncmkg7gVQP
+
+      两点设计约束：
+      1) 只更新「当前值仍是那串已知明文」的行，避免覆盖开发者自己在「个人设置」里
+         重新生成过的 Token；
+      2) 限定在 dev / faker 上下文：这两个 Token 的明文随仓库公开，只在本地开发库激活，
+         prod 保持原样，避免把一个公开已知的 Token 变成可用的管理员凭据。
+    -->
+    <changeSet id="20261005000000-1" author="datay" context="dev, faker">
+        <sql>
+            UPDATE jhi_user
+            SET mcp_token_hash = '$2a$10$m9z4BrF9f3cLgKMvANJhxOq8T3sqQa7rwmtNQkei176iFi5oASD4u'
+            WHERE login = 'admin' AND mcp_token_hash = 'mcp_1_GLaSWtysxvncmkg7gVQP'
+        </sql>
+        <sql>
+            UPDATE jhi_user
+            SET mcp_token_hash = '$2a$10$EZboEezqGt2pmMU3wUMvYelx7P77VPTmytKqNoys7cU45oGgXHYKu'
+            WHERE login = 'user' AND mcp_token_hash = 'mcp_2_GLaSWtysxvncmkg7gVQP'
+        </sql>
+        <rollback>
+            <!-- 回滚会重新引入「明文 Token 无法通过校验」的缺陷，故不做处理 -->
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

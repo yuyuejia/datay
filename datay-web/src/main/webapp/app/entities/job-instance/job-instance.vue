@@ -53,16 +53,6 @@
         <el-table-column label="" fixed="right" min-width="250">
           <template #default="scope">
             <div class="btn-group">
-              <router-link :to="{ name: 'JobInstanceView', params: { jobInstanceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button type="info" size="small" @click="navigate" class="details" data-cy="entityDetailsButton">
-                  <span class="d-none d-md-inline">查看</span>
-                </el-button>
-              </router-link>
-              <router-link :to="{ name: 'JobInstanceEdit', params: { jobInstanceId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
-                  <span class="d-none d-md-inline">编辑</span>
-                </el-button>
-              </router-link>
               <!-- 新增：查看日志按钮 -->
               <el-button type="warning" size="small" @click="prepareViewLog(scope.row)" class="log" data-cy="entityLogButton">
                 <span class="d-none d-md-inline">日志</span>

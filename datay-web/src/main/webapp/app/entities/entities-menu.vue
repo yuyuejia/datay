@@ -8,9 +8,6 @@
   <el-dropdown-item command="/shell-job">
     <span>Shell 任务</span>
   </el-dropdown-item>
-  <el-dropdown-item command="/job">
-    <span>任务定义</span>
-  </el-dropdown-item>
   <el-dropdown-item command="/job-instance">
     <span>任务实例</span>
   </el-dropdown-item>
