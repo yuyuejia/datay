@@ -18,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,8 +117,24 @@ public class JobInstanceService {
      */
     @Transactional(readOnly = true)
     public Page<JobInstanceDTO> findAll(Pageable pageable) {
-        LOG.debug("Request to get all JobInstances");
-        return jobInstanceRepository.findAll(pageable).map(jobInstanceMapper::toDto);
+        LOG.debug("Request to get all JobInstances (exclude DAG sub tasks)");
+        return jobInstanceRepository.findByParentInstanceCodeIsNull(pageable).map(jobInstanceMapper::toDto);
+    }
+
+    /**
+     * 查询某个 DAG 编排实例下的子任务实例列表。
+     *
+     * @param parentInstanceCode DAG 顶层实例代码
+     * @return 子任务实例列表
+     */
+    @Transactional(readOnly = true)
+    public List<JobInstanceDTO> findSubInstances(String parentInstanceCode) {
+        LOG.debug("Request to get sub JobInstances by parentInstanceCode: {}", parentInstanceCode);
+        return jobInstanceRepository
+            .findByParentInstanceCodeOrderByIdAsc(parentInstanceCode)
+            .stream()
+            .map(jobInstanceMapper::toDto)
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -254,6 +271,7 @@ public class JobInstanceService {
         jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
+        jobInstance.setTenantId(job.getTenantId());
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {

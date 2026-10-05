@@ -37,4 +37,14 @@ public interface JobInstanceRepository extends JpaRepository<JobInstance, Long> 
     List<JobInstance> findByJobCodeAndStatus(String jobCode, String status);
 
     Page<JobInstance> findAllByJobCode(String jobCode, Pageable pageable);
+
+    /**
+     * 查询所有顶层任务实例（不含 DAG 编排生成的子任务实例）。
+     */
+    Page<JobInstance> findByParentInstanceCodeIsNull(Pageable pageable);
+
+    /**
+     * 按父实例代码查询 DAG 编排产生的子任务实例。
+     */
+    List<JobInstance> findByParentInstanceCodeOrderByIdAsc(String parentInstanceCode);
 }

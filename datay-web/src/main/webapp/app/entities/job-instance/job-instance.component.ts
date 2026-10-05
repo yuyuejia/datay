@@ -32,6 +32,16 @@ export default defineComponent({
     const hasMoreLog = ref(false);
     const logFileSize = ref(0);
 
+    // 新增：DAG 子任务日志相关状态
+    interface SubTaskLog {
+      instance: IJobInstance;
+      content: string;
+      loading: boolean;
+    }
+    const isDagLog = ref(false);
+    const subTaskLogs: Ref<SubTaskLog[]> = ref([]);
+    const activeSubTaskPanels = ref<string[]>([]);
+
     // 新增：终止任务相关状态
     const stopEntity = ref<any>(null);
     const currentStopInstance: Ref<IJobInstance> = ref<IJobInstance>({});
@@ -148,22 +158,67 @@ export default defineComponent({
       logOffset.value = 0;
       hasMoreLog.value = false;
       logFileSize.value = 0;
+      subTaskLogs.value = [];
+      activeSubTaskPanels.value = [];
+
+      // DAG 编排任务的日志按各子任务分别展示
+      isDagLog.value = (instance.type || '').toUpperCase() === 'DAG';
+
+      logEntity.value.show();
 
       try {
-        // 先获取日志文件信息
-        // const logInfo = await jobInstanceService().getLogInfo(instance.jobCode, instance.instanceCode);
-        // if (logInfo.success && logInfo.exists) {
-        //   logFileSize.value = logInfo.fileSize;
-        //   await loadLogContent();
-        // } else {
-        //   alertService.showInfo('日志文件不存在', { variant: 'warning' });
-        // }
-        await loadLogContent();
+        if (isDagLog.value) {
+          await loadSubTaskLogs(instance);
+          // 兼容历史数据：DAG 实例没有子任务记录时，回退为聚合日志展示
+          if (subTaskLogs.value.length === 0) {
+            isDagLog.value = false;
+            await loadLogContent();
+          }
+        } else {
+          await loadLogContent();
+        }
       } catch (error) {
         alertService.showHttpError(error.response);
       }
+    };
 
-      logEntity.value.show();
+    // 新增：加载 DAG 所有子任务实例并逐个加载日志
+    const loadSubTaskLogs = async (instance?: IJobInstance) => {
+      const target = instance || currentLogInstance.value;
+      if (!target?.instanceCode) return;
+
+      isLogLoading.value = true;
+      try {
+        const subs = await jobInstanceService().getSubInstances(target.instanceCode);
+        subTaskLogs.value = (subs || []).map(sub => ({ instance: sub, content: '', loading: true }));
+        // 默认不展开任何子任务，由用户按需点击查看（prepareViewLog 已重置展开项，刷新时保留当前展开状态）
+        await Promise.all(subTaskLogs.value.map(item => loadSubTaskLog(item)));
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isLogLoading.value = false;
+      }
+    };
+
+    // 新增：加载单个子任务日志
+    const loadSubTaskLog = async (item: { instance: IJobInstance; content: string; loading: boolean }) => {
+      try {
+        const logData = await jobInstanceService().getTaskLog(item.instance.jobCode, item.instance.instanceCode, 0);
+        item.content = logData?.success ? logData.content : logData?.message || '';
+      } catch (error) {
+        item.content = '日志加载失败';
+      } finally {
+        item.loading = false;
+      }
+    };
+
+    // 新增：刷新日志（DAG 重新加载所有子任务，普通任务继续增量加载）
+    const refreshLog = async () => {
+      if (isDagLog.value) {
+        await loadSubTaskLogs();
+      } else {
+        await loadLogContent();
+      }
     };
 
     // 新增：加载日志内容
@@ -208,6 +263,9 @@ export default defineComponent({
       logOffset.value = 0;
       hasMoreLog.value = false;
       logFileSize.value = 0;
+      isDagLog.value = false;
+      subTaskLogs.value = [];
+      activeSubTaskPanels.value = [];
     };
 
     // 新增：复制日志内容到剪贴板
@@ -224,13 +282,27 @@ export default defineComponent({
 
     // 新增：下载日志文件
     const downloadLog = () => {
-      if (!logContent.value) return;
+      let content: string;
+      let fileName: string;
+      if (isDagLog.value) {
+        content = subTaskLogs.value
+          .map(
+            sub =>
+              `===== ${sub.instance.jobName} (${sub.instance.instanceCode}) [${sub.instance.status}] =====\n${sub.content || ''}`,
+          )
+          .join('\n\n');
+        fileName = `dag-log-${currentLogInstance.value.instanceCode}.txt`;
+      } else {
+        content = logContent.value;
+        fileName = `job-log-${currentLogInstance.value.jobCode}-${currentLogInstance.value.instanceCode}.txt`;
+      }
+      if (!content) return;
 
-      const blob = new Blob([logContent.value], { type: 'text/plain' });
+      const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `job-log-${currentLogInstance.value.jobCode}-${currentLogInstance.value.instanceCode}.txt`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -338,9 +410,14 @@ export default defineComponent({
       logFileSize,
       prepareViewLog,
       loadMoreLog,
+      refreshLog,
       closeLogDialog,
       copyLogToClipboard,
       downloadLog,
+      // 新增：DAG 子任务日志相关状态
+      isDagLog,
+      subTaskLogs,
+      activeSubTaskPanels,
       handleSortChange,
       formatDateTime,
       getStatusType,

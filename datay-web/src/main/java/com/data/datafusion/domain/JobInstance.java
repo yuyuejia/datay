@@ -66,7 +66,7 @@ public class JobInstance implements Serializable, TenantAware {
     private Boolean isSubJob;
 
     @Column(name = "parent_instance_code")
-    private String ParentInstanceCode;
+    private String parentInstanceCode;
 
     public Long getId() {
         return this.id;
@@ -299,10 +299,10 @@ public class JobInstance implements Serializable, TenantAware {
     }
 
     public String getParentInstanceCode() {
-        return ParentInstanceCode;
+        return parentInstanceCode;
     }
 
     public void setParentInstanceCode(String parentInstanceCode) {
-        ParentInstanceCode = parentInstanceCode;
+        this.parentInstanceCode = parentInstanceCode;
     }
 }

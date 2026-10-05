@@ -80,6 +80,7 @@ public class JobService {
         jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
+        jobInstance.setTenantId(job.getTenantId());
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {

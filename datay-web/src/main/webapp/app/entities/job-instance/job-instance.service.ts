@@ -85,6 +85,20 @@ export default class JobInstanceService {
     });
   }
 
+  // 新增：获取 DAG 编排实例下的子任务实例列表
+  getSubInstances(instanceCode: string): Promise<IJobInstance[]> {
+    return new Promise<IJobInstance[]>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${instanceCode}/sub-instances`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   // 新增：获取任务实例日志
   getTaskLog(jobCode: string, jobInstanceCode: string, offset: number = 0, maxSize: number = 10485760): Promise<any> {
     return new Promise<any>((resolve, reject) => {

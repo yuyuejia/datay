@@ -22,7 +22,7 @@
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="jobInstances" style="width: 100%" @sort-change="handleSortChange">
         <!-- <el-table-column prop="instanceCode" label="Instance Code" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="jobName" label="任务名称" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="jobName" label="任务名称" sortable="custom" width="420" show-overflow-tooltip></el-table-column>
         <!-- <el-table-column prop="jobCode" label="Job Code" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
         <!-- <el-table-column prop="jobContext" label="Job Context" sortable="custom" width="150"></el-table-column> -->
@@ -43,11 +43,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="execNode" label="执行节点" sortable="custom" width="180"></el-table-column>
-        <el-table-column prop="createTime" label="创建时间" sortable="custom" width="200">
-          <template #default="scope">
-            {{ formatDateShort(scope.row.createTime) || '' }}
-          </template>
-        </el-table-column>
         <!-- <el-table-column prop="project" label="Project" sortable="custom" width="150"></el-table-column> -->
         <!-- <el-table-column prop="tenantId" label="Tenant Id" sortable="custom" width="150"></el-table-column> -->
         <el-table-column label="" fixed="right" min-width="250">
@@ -120,36 +115,79 @@
         </span>
       </template>
       <div class="modal-body">
-        <div v-if="isLogLoading" class="text-center">
-          <font-awesome-icon icon="spinner" spin></font-awesome-icon>
-          <span>正在加载日志...</span>
+        <!-- DAG 编排任务：按各子任务分别显示执行状态与日志 -->
+        <div v-if="isDagLog">
+          <div v-if="isLogLoading && subTaskLogs.length === 0" class="text-center">
+            <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+            <span>正在加载日志...</span>
+          </div>
+          <el-empty v-else-if="subTaskLogs.length === 0" description="未找到子任务实例"></el-empty>
+          <el-collapse v-else v-model="activeSubTaskPanels">
+            <el-collapse-item v-for="sub in subTaskLogs" :key="sub.instance.instanceCode" :name="sub.instance.instanceCode">
+              <template #title>
+                <div class="d-flex align-items-center flex-wrap" style="gap: 8px">
+                  <el-tag :type="getStatusType(sub.instance.status)" size="small">{{ sub.instance.status }}</el-tag>
+                  <strong>{{ sub.instance.jobName || '-' }}</strong>
+                  <span class="text-muted">{{ sub.instance.type }}</span>
+                  <span class="text-muted">开始：{{ formatDateTime(sub.instance.startTime) || '-' }}</span>
+                  <span class="text-muted">结束：{{ formatDateTime(sub.instance.endTime) || '-' }}</span>
+                </div>
+              </template>
+              <div v-if="sub.loading" class="text-center">
+                <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+                <span>正在加载日志...</span>
+              </div>
+              <pre
+                v-else
+                class="log-content"
+                style="
+                  max-height: 320px;
+                  overflow-y: auto;
+                  background-color: #f8f9fa;
+                  padding: 10px;
+                  border-radius: 4px;
+                  font-size: 12px;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                "
+                >{{ sub.content || '暂无日志内容' }}</pre
+              >
+            </el-collapse-item>
+          </el-collapse>
         </div>
+        <!-- 普通任务：单一日志文件 -->
         <div v-else>
-          <pre
-            class="log-content"
-            style="
-              max-height: 400px;
-              overflow-y: auto;
-              background-color: #f8f9fa;
-              padding: 10px;
-              border-radius: 4px;
-              font-size: 12px;
-              white-space: pre-wrap;
-              word-break: break-all;
-            "
-            >{{ logContent || '暂无日志内容' }}</pre
-          >
-          <div v-if="hasMoreLog" class="text-center mt-2">
-            <el-button type="primary" plain size="small" @click="loadMoreLog" :disabled="isLogLoading">
-              <font-awesome-icon icon="arrow-down" :spin="isLogLoading"></font-awesome-icon>
-              加载更多日志
-            </el-button>
+          <div v-if="isLogLoading" class="text-center">
+            <font-awesome-icon icon="spinner" spin></font-awesome-icon>
+            <span>正在加载日志...</span>
+          </div>
+          <div v-else>
+            <pre
+              class="log-content"
+              style="
+                max-height: 400px;
+                overflow-y: auto;
+                background-color: #f8f9fa;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                white-space: pre-wrap;
+                word-break: break-all;
+              "
+              >{{ logContent || '暂无日志内容' }}</pre
+            >
+            <div v-if="hasMoreLog" class="text-center mt-2">
+              <el-button type="primary" plain size="small" @click="loadMoreLog" :disabled="isLogLoading">
+                <font-awesome-icon icon="arrow-down" :spin="isLogLoading"></font-awesome-icon>
+                加载更多日志
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
       <template #modal-footer>
         <div>
-          <el-button type="primary" @click="loadMoreLog" title="刷新">刷新</el-button>
+          <el-button type="primary" @click="refreshLog" title="刷新">刷新</el-button>
           <el-button type="primary" @click="downloadLog" title="下载日志">下载日志</el-button>
           <el-button @click="closeLogDialog()">关闭</el-button>
         </div>

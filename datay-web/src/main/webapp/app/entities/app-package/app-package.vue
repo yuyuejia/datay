@@ -35,70 +35,50 @@
           <span>未找到数据应用资产包</span>
         </div>
 
-        <div v-if="packages && packages.length > 0">
-          <el-table :data="packages" style="width: 100%">
-            <el-table-column label="资产包" min-width="220">
-              <template #default="scope">
-                <div class="d-flex align-items-center">
-                  <strong>{{ scope.row.name }}</strong>
-                  <el-tag v-if="scope.row.packageType === 'SYSTEM'" class="ml-2" size="small" type="success">系统预制</el-tag>
-                </div>
-                <div class="text-muted small">{{ scope.row.code }}</div>
-                <div class="text-muted small" v-if="scope.row.description">{{ scope.row.description }}</div>
-              </template>
-            </el-table-column>
-            <el-table-column label="业务场景" width="120" align="center">
-              <template #default="scope">
-                <el-tag v-if="scope.row.category" size="small" type="info">{{ scope.row.category }}</el-tag>
-                <span v-else class="text-muted">-</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="资产构成" min-width="260">
-              <template #default="scope">
-                <span class="small">{{ summaryText(scope.row) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="版本" width="90" align="center">
-              <template #default="scope">{{ scope.row.version || '-' }}</template>
-            </el-table-column>
-            <el-table-column label="大小" width="90" align="center">
-              <template #default="scope">{{ sizeText(scope.row) }}</template>
-            </el-table-column>
-            <el-table-column label="来源" width="110" align="center">
-              <template #default="scope">
-                <span class="small">{{ sourceLabel(scope.row) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="创建时间" width="150">
-              <template #default="scope">{{ formatDateShort(scope.row.createTime) || '' }}</template>
-            </el-table-column>
-            <el-table-column label="操作" fixed="right" width="320">
-              <template #default="scope">
-                <div class="btn-group">
-                  <el-button type="primary" size="small" @click="openInit(scope.row)" data-cy="entityInitButton">
-                    <span>初始化</span>
+        <div v-if="packages && packages.length > 0" class="package-grid">
+          <div v-for="pkg in packages" :key="pkg.id" class="package-card" data-cy="appPackageCard">
+            <div class="package-card__header">
+              <div class="package-card__title">
+                <strong class="package-card__name">{{ pkg.name }}</strong>
+                <el-tag v-if="pkg.packageType === 'SYSTEM'" size="small" type="success">系统预制</el-tag>
+                <el-tag v-else size="small" type="warning">本租户导出</el-tag>
+              </div>
+              <div class="package-card__code">{{ pkg.code }}</div>
+            </div>
+
+            <div class="package-card__desc">{{ pkg.description || '暂无说明' }}</div>
+
+            <div class="package-card__tags">
+              <el-tag v-if="pkg.category" size="small" type="info">{{ pkg.category }}</el-tag>
+              <el-tag size="small" effect="plain">v{{ pkg.version || '-' }}</el-tag>
+              <el-tag size="small" effect="plain">{{ sizeText(pkg) }}</el-tag>
+            </div>
+
+            <div class="package-card__summary">
+              <span class="package-card__summary-label">资产构成</span>
+              <span class="package-card__summary-value">{{ summaryText(pkg) }}</span>
+            </div>
+
+            <div class="package-card__footer">
+              <span class="package-card__time">{{ formatDateShort(pkg.createTime) || '' }}</span>
+              <div class="package-card__actions">
+                <el-button type="primary" size="small" @click="openInit(pkg)" data-cy="entityInitButton">
+                  <span>初始化</span>
+                </el-button>
+                <router-link :to="{ name: 'AppPackageView', params: { packageId: pkg.id } }" custom v-slot="{ navigate }">
+                  <el-button type="info" size="small" @click="navigate" data-cy="entityDetailsButton">
+                    <span>详情</span>
                   </el-button>
-                  <router-link :to="{ name: 'AppPackageView', params: { packageId: scope.row.id } }" custom v-slot="{ navigate }">
-                    <el-button type="info" size="small" @click="navigate" data-cy="entityDetailsButton">
-                      <span>详情</span>
-                    </el-button>
-                  </router-link>
-                  <el-button size="small" @click="download(scope.row)">
-                    <span>下载</span>
-                  </el-button>
-                  <el-button
-                    v-if="scope.row.packageType !== 'SYSTEM'"
-                    size="small"
-                    type="danger"
-                    @click="prepareRemove(scope.row)"
-                    data-cy="entityDeleteButton"
-                  >
-                    <span>删除</span>
-                  </el-button>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+                </router-link>
+                <el-button size="small" @click="download(pkg)">
+                  <span>下载</span>
+                </el-button>
+                <el-button v-if="pkg.packageType !== 'SYSTEM'" size="small" type="danger" @click="prepareRemove(pkg)" data-cy="entityDeleteButton">
+                  <span>删除</span>
+                </el-button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-show="packages && packages.length > 0">
@@ -179,3 +159,110 @@
 </template>
 
 <script lang="ts" src="./app-package.component.ts"></script>
+
+<style scoped>
+.package-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.package-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.package-card:hover {
+  border-color: #c6d4ea;
+  box-shadow: 0 4px 14px rgba(31, 35, 41, 0.08);
+}
+
+.package-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.package-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.package-card__name {
+  font-size: 15px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.package-card__code {
+  color: #8a919f;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.package-card__desc {
+  color: #5b6472;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 39px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.package-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.package-card__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: #f7f8fa;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.package-card__summary-label {
+  color: #8a919f;
+}
+
+.package-card__summary-value {
+  color: #3a4150;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.package-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.package-card__time {
+  color: #8a919f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.package-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+</style>

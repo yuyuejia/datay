@@ -13,6 +13,7 @@ export interface IJobInstance {
   createTime?: Date | null;
   project?: string | null;
   tenantId?: string | null;
+  parentInstanceCode?: string | null;
 }
 
 export class JobInstance implements IJobInstance {
@@ -31,5 +32,6 @@ export class JobInstance implements IJobInstance {
     public createTime?: Date | null,
     public project?: string | null,
     public tenantId?: string | null,
+    public parentInstanceCode?: string | null,
   ) {}
 }

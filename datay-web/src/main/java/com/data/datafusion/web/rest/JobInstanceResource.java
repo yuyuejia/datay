@@ -148,6 +148,18 @@ public class JobInstanceResource {
     }
 
     /**
+     * {@code GET  /job-instances/:instanceCode/sub-instances} : get the sub jobInstances of a DAG parent instance.
+     *
+     * @param instanceCode the parent instance code.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of sub jobInstances in body.
+     */
+    @GetMapping("/{instanceCode}/sub-instances")
+    public ResponseEntity<List<JobInstanceDTO>> getSubJobInstances(@PathVariable("instanceCode") String instanceCode) {
+        LOG.debug("REST request to get sub JobInstances of parent : {}", instanceCode);
+        return ResponseEntity.ok().body(jobInstanceService.findSubInstances(instanceCode));
+    }
+
+    /**
      * {@code GET  /job-instances/:id} : get the "id" jobInstance.
      *
      * @param id the id of the jobInstanceDTO to retrieve.
