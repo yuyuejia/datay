@@ -34,7 +34,7 @@ const removeSelf = event => {
 
 <template>
   <div class="etl-task-node" :class="[`etl-node-category-${category}`, { selected }]" :title="`${data.label} · ${data.type}`">
-    <Handle type="target" :position="Position.Top" class="etl-handle" />
+    <Handle type="target" :position="Position.Left" class="etl-handle" />
     <div class="etl-node-header">
       <span class="etl-node-chip">{{ data.group || '其他' }}</span>
       <span class="etl-node-type" :title="data.type">{{ data.type }}</span>
@@ -44,7 +44,7 @@ const removeSelf = event => {
       <span class="etl-node-name-text">{{ data.label }}</span>
       <span class="etl-node-dot" :class="{ configured }" :title="configured ? '已配置' : '未配置'"></span>
     </div>
-    <Handle type="source" :position="Position.Bottom" class="etl-handle" />
+    <Handle type="source" :position="Position.Right" class="etl-handle" />
   </div>
 </template>
 

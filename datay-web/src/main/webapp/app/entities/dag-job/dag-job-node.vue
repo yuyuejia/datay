@@ -25,7 +25,7 @@ const removeSelf = (event) => {
     class="dag-job-node"
     :class="[`dag-node-type-${typeClass}`, { selected }]"
   >
-    <Handle type="target" :position="Position.Top" class="dag-handle" />
+    <Handle type="target" :position="Position.Left" class="dag-handle" />
     <div class="dag-node-header">
       <span class="dag-node-type">{{ data.jobType }}</span>
       <span class="dag-node-remove" title="删除节点" @click="removeSelf"
@@ -35,7 +35,7 @@ const removeSelf = (event) => {
     <div class="dag-node-name" :title="data.label">{{ data.label }}</div>
     <div class="dag-node-meta">
     </div>
-    <Handle type="source" :position="Position.Bottom" class="dag-handle" />
+    <Handle type="source" :position="Position.Right" class="dag-handle" />
   </div>
 </template>
 
