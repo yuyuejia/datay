@@ -1,10 +1,11 @@
-import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
+import { type Ref, computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
 import { dbTypes } from './db-types';
 import { type IDataSource } from '@/shared/model/data-source.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { Authority } from '@/shared/security/authority';
 
 import DataSourceModal from './data-source-modal.vue';
 
@@ -15,6 +16,12 @@ export default defineComponent({
     const dateFormat = useDateFormat();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
     const alertService = inject('alertService', () => useAlertService(), true);
+    const accountService = inject<any>('accountService', null);
+
+    const canManageDefaultWarehouse = computed<boolean>(() => {
+      const authorities: string[] = accountService?.userAuthorities ?? [];
+      return authorities.includes(Authority.ADMIN) || authorities.includes(Authority.TENANT_ADMIN);
+    });
 
     const itemsPerPage = ref(20);
     const queryCount: Ref<number> = ref(null);
@@ -25,6 +32,7 @@ export default defineComponent({
     const search = ref('');
 
     const dataSources: Ref<IDataSource[]> = ref([]);
+    const defaultDataSourceId: Ref<number | null> = ref(null);
 
     const isFetching = ref(false);
 
@@ -43,6 +51,49 @@ export default defineComponent({
     const getTypeImage = (type?: string | null): string | undefined => {
       if (!type) return undefined;
       return dbTypes.find(t => t.name === type)?.image;
+    };
+
+    const retrieveDefaultWarehouse = async () => {
+      try {
+        const res = await dataSourceService().getDefaultWarehouse();
+        defaultDataSourceId.value = res.data?.dataSourceId ?? null;
+      } catch (err) {
+        console.warn('加载默认数仓失败', err);
+      }
+    };
+
+    const defaultWarehouseModal = ref<any>(null);
+    const defaultWarehouseOptions: Ref<IDataSource[]> = ref([]);
+    const selectedDefaultId: Ref<number | null> = ref(null);
+
+    const openDefaultDialog = async () => {
+      selectedDefaultId.value = defaultDataSourceId.value;
+      try {
+        const res = await dataSourceService().retrieve({ page: 0, size: 1000, sort: ['id,asc'] });
+        defaultWarehouseOptions.value = res.data || [];
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+      defaultWarehouseModal.value?.show();
+    };
+
+    const closeDefaultDialog = () => {
+      defaultWarehouseModal.value?.hide();
+    };
+
+    const saveDefaultWarehouse = async () => {
+      if (selectedDefaultId.value == null) {
+        alertService.showWarning('请选择数据源');
+        return;
+      }
+      try {
+        await dataSourceService().setDefaultWarehouse(selectedDefaultId.value);
+        defaultDataSourceId.value = selectedDefaultId.value;
+        alertService.showSuccess('默认数仓设置成功');
+        closeDefaultDialog();
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
     };
 
     const retrieveDataSources = async () => {
@@ -87,7 +138,7 @@ export default defineComponent({
     });
 
     onMounted(async () => {
-      await retrieveDataSources();
+      await Promise.all([retrieveDataSources(), retrieveDefaultWarehouse()]);
     });
 
     const removeId: Ref<number> = ref(null);
@@ -106,6 +157,7 @@ export default defineComponent({
         alertService.showInfo(message, { variant: 'danger' });
         removeId.value = null;
         retrieveDataSources();
+        retrieveDefaultWarehouse();
         closeDialog();
       } catch (error) {
         alertService.showHttpError(error.response);
@@ -163,6 +215,15 @@ export default defineComponent({
 
     return {
       dataSources,
+      defaultDataSourceId,
+      canManageDefaultWarehouse,
+      defaultWarehouseModal,
+      defaultWarehouseOptions,
+      selectedDefaultId,
+      openDefaultDialog,
+      closeDefaultDialog,
+      saveDefaultWarehouse,
+      retrieveDefaultWarehouse,
       getTypeImage,
       isFetching,
       retrieveDataSources,

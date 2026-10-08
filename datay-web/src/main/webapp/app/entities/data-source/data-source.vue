@@ -4,6 +4,17 @@
       <span id="data-source-heading">数据源列表</span>
       <div class="d-flex align-items-center">
         <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / IP / 端口 / 地址搜索" clearable/>
+        <el-button
+          v-if="canManageDefaultWarehouse"
+          type="warning"
+          @click="openDefaultDialog"
+          id="jh-set-default-warehouse"
+          data-cy="setDefaultWarehouseButton"
+          class="mr-2"
+        >
+          <font-awesome-icon icon="database"></font-awesome-icon>
+          <span>设置默认数仓</span>
+        </el-button>
         <el-button type="primary" @click="openCreateModal" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-source">
           <font-awesome-icon icon="plus"></font-awesome-icon>
           <span>创建数据源</span>
@@ -65,6 +76,31 @@
           <el-button @click="closeDialog()">取消</el-button>
           <el-button type="primary" id="jhi-confirm-delete-dataSource" data-cy="entityConfirmDeleteButton" @click="removeDataSource()">
             删除
+          </el-button>
+        </div>
+      </template>
+    </app-modal>
+
+    <app-modal ref="defaultWarehouseModal" id="defaultWarehouseModal">
+      <template #modal-title>
+        <span id="datafusionApp.dataSource.defaultWarehouse.title">设置默认数仓</span>
+      </template>
+      <div class="modal-body">
+        <p>选择该租户的默认数仓，数据模型物化时将默认使用该数据源。</p>
+        <el-select v-model="selectedDefaultId" placeholder="请选择数据源" filterable clearable style="width: 420px">
+          <el-option v-for="ds in defaultWarehouseOptions" :key="ds.id" :label="`${ds.name} (${ds.type})`" :value="ds.id"></el-option>
+        </el-select>
+      </div>
+      <template #modal-footer>
+        <div>
+          <el-button @click="closeDefaultDialog()">取消</el-button>
+          <el-button
+            type="primary"
+            id="jhi-confirm-default-warehouse"
+            data-cy="confirmDefaultWarehouseButton"
+            @click="saveDefaultWarehouse()"
+          >
+            保存
           </el-button>
         </div>
       </template>
