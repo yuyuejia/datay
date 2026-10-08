@@ -14,6 +14,7 @@ public class TableMeta {
     private String table;
     private String comment;
     private List<ColumnMeta> columns;
+    private List<IndexMeta> indexes = new ArrayList<>();
 
     public TableMeta() {
         columns = new ArrayList<>();
@@ -76,6 +77,14 @@ public class TableMeta {
 
     public void setColumns(List<ColumnMeta> columns) {
         this.columns = columns;
+    }
+
+    public List<IndexMeta> getIndexes() {
+        return indexes;
+    }
+
+    public void setIndexes(List<IndexMeta> indexes) {
+        this.indexes = indexes;
     }
 
     public String toString() {

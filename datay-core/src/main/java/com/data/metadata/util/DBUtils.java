@@ -15,6 +15,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
+import com.data.metadata.IndexMeta;
 import com.data.metadata.TableMeta;
 import com.zaxxer.hikari.pool.HikariProxyConnection;
 import com.zaxxer.hikari.pool.ProxyConnection;
@@ -1121,6 +1122,101 @@ public class DBUtils {
             tableMeta.setSchema(catalog);
         }
         return tableMeta;
+    }
+
+    /**
+     * 获取表详细信息：字段、索引、表注释等。
+     */
+    public static TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
+        DatabaseMetaData metaData = conn.getMetaData();
+        String dbType = DBUtils.getDBType(metaData.getURL());
+        if (DBType.DUCKDB.toString().equals(dbType)) {
+            String catalog = resolveDuckCatalog(metaData);
+            if (QUACK_CATALOG.equals(catalog)) {
+                TableMeta tableMeta = getQuackTableMetaData(conn, schema, table);
+                tableMeta.setDbType(dbType);
+                return tableMeta;
+            }
+            TableMeta tableMeta = getTableMetaData(conn, catalog, schema, table);
+            tableMeta.setDbType(dbType);
+            tableMeta.setCatalog(catalog);
+            tableMeta.setComment(getTableComment(conn, catalog, schema, table));
+            tableMeta.setIndexes(getTableIndexes(conn, catalog, schema, table));
+            return tableMeta;
+        } else if (DBType.ORACLE.toString().equals(dbType) || DBType.POSTGRESQL.toString().equals(dbType)) {
+            TableMeta tableMeta = getTableMetaData(conn, null, schema, table);
+            tableMeta.setDbType(dbType);
+            tableMeta.setComment(getTableComment(conn, null, schema, table));
+            tableMeta.setIndexes(getTableIndexes(conn, null, schema, table));
+            return tableMeta;
+        } else {
+            TableMeta tableMeta = getTableMetaData(conn, schema, null, table);
+            tableMeta.setDbType(dbType);
+            tableMeta.setCatalog(schema);
+            tableMeta.setComment(getTableComment(conn, schema, null, table));
+            tableMeta.setIndexes(getTableIndexes(conn, schema, null, table));
+            return tableMeta;
+        }
+    }
+
+    /**
+     * 获取表注释。
+     */
+    public static String getTableComment(Connection conn, String catalog, String schema, String table) {
+        try (ResultSet rs = conn.getMetaData().getTables(catalog, schema, table, new String[] { "TABLE", "VIEW" })) {
+            while (rs.next()) {
+                String tableName = rs.getString("TABLE_NAME");
+                if (tableName != null && tableName.equalsIgnoreCase(table)) {
+                    return rs.getString("REMARKS");
+                }
+            }
+        } catch (SQLException e) {
+            // ignore remarks failure
+        }
+        return null;
+    }
+
+    /**
+     * 获取表索引信息。
+     */
+    public static List<IndexMeta> getTableIndexes(Connection conn, String catalog, String schema, String table) throws SQLException {
+        Map<String, IndexMeta> indexMap = new LinkedHashMap<>();
+        try (ResultSet rs = conn.getMetaData().getIndexInfo(catalog, schema, table, false, false)) {
+            while (rs.next()) {
+                String indexName = rs.getString("INDEX_NAME");
+                if (indexName == null) {
+                    continue;
+                }
+                String columnName = rs.getString("COLUMN_NAME");
+                boolean nonUnique = rs.getBoolean("NON_UNIQUE");
+                short indexType = rs.getShort("TYPE");
+                IndexMeta indexMeta = indexMap.get(indexName);
+                if (indexMeta == null) {
+                    indexMeta = new IndexMeta(indexName);
+                    indexMeta.setUnique(!nonUnique);
+                    indexMeta.setType(resolveIndexType(indexType));
+                    indexMap.put(indexName, indexMeta);
+                }
+                indexMeta.addColumn(columnName);
+            }
+        } catch (SQLException e) {
+            // 部分驱动不支持索引元数据，忽略并返回已有结果
+        }
+        return new ArrayList<>(indexMap.values());
+    }
+
+    private static String resolveIndexType(short indexType) {
+        switch (indexType) {
+            case DatabaseMetaData.tableIndexClustered:
+                return "clustered";
+            case DatabaseMetaData.tableIndexHashed:
+                return "hashed";
+            case DatabaseMetaData.tableIndexStatistic:
+                return "statistic";
+            case DatabaseMetaData.tableIndexOther:
+            default:
+                return "other";
+        }
     }
 
     // 根据 JDBC URL 判断数据库类型

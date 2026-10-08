@@ -154,6 +154,19 @@ export default class DataSourceService {
     });
   }
 
+  getTableDetail(dataSourceId: number, schema: string, table: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/meta`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   testConnection(entity: IDataSource): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

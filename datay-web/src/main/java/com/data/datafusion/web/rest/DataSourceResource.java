@@ -286,6 +286,33 @@ public class DataSourceResource {
         return ResponseEntity.ok().body(columns);
     }
 
+    //根据数据源id、schema和表名获取表详细信息（字段、索引、注释等）
+    @GetMapping("/{id}/schemas/{schema}/tables/{table}/meta")
+    public ResponseEntity<Map<String, Object>> getTableDetail(
+        @PathVariable("id") Long id,
+        @PathVariable("schema") String schema,
+        @PathVariable("table") String table
+    ) throws SQLException {
+        LOG.debug("REST request to get DataSource table detail : {} {}.{}", id, schema, table);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
+            TableMeta tableMeta = DBUtils.getTableDetail(connection, schema, table);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("table", tableMeta.getTable());
+            result.put("schema", tableMeta.getSchema());
+            result.put("catalog", tableMeta.getCatalog());
+            result.put("dbType", tableMeta.getDbType());
+            result.put("comment", tableMeta.getComment());
+            result.put("columns", tableMeta.columns());
+            result.put("indexes", tableMeta.getIndexes());
+            return ResponseEntity.ok().body(result);
+        }
+    }
+
     /**
      * 测试数据源连接（通过数据源配置）
      * @param dataSourceDTO 数据源配置

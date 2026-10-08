@@ -65,6 +65,7 @@ import { faCopy } from "@fortawesome/free-solid-svg-icons/faCopy";
 import { faBoxOpen } from "@fortawesome/free-solid-svg-icons/faBoxOpen";
 import { faFileImport } from "@fortawesome/free-solid-svg-icons/faFileImport";
 import { faDownload } from "@fortawesome/free-solid-svg-icons/faDownload";
+import { faEllipsisVertical } from "@fortawesome/free-solid-svg-icons/faEllipsisVertical";
 
 export function initFortAwesome(vue) {
   vue.component("FontAwesomeIcon", FontAwesomeIcon);
@@ -134,5 +135,6 @@ export function initFortAwesome(vue) {
     faBoxOpen,
     faFileImport,
     faDownload,
+    faEllipsisVertical,
   );
 }
