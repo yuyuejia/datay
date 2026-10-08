@@ -25,6 +25,12 @@
         <small class="form-text text-muted"> 使用正则表达式过滤表，为空表示采集所有表。例如：user_.* 表示采集user_开头的所有表 </small>
     </el-form-item>
 
+      <!-- 从库 server-id -->
+      <el-form-item label="server-id">
+      <el-input-number :controls="false" id="serverId" name="serverId" v-model="formData.serverId" :min="1" :max="4294967295" placeholder="默认 1000" />
+        <small class="form-text text-muted"> 伪装成从库的唯一标识，默认 1000。多个任务连接同一 MySQL 实例时需保证 server-id 唯一，避免冲突 </small>
+    </el-form-item>
+
       <!-- Binlog文件位置 -->
       <el-form-item label="Binlog文件">
       <el-input id="binlogFile" name="binlogFile" v-model="formData.binlogFile" placeholder="例如：mysql-bin.000001" />
@@ -98,6 +104,18 @@ const configItems = [
     parameterType: 'STRING',
   },
   {
+    key: 'serverId',
+    label: 'server-id',
+    defaultValue: 1000,
+    required: false,
+    description: '伪装成从库的唯一标识，默认 1000，需确保与其它从库不冲突',
+    show: true,
+    minValue: 1,
+    maxValue: 4294967295,
+    controlType: 'INPUTNUMBER',
+    parameterType: 'LONG',
+  },
+  {
     key: 'binlogFile',
     label: 'Binlog文件',
     defaultValue: '',
@@ -127,6 +145,7 @@ const formData = reactive({
   schema: props.node?.data?.config?.schema || '',
   databaseNamePattern: props.node?.data?.config?.databaseNamePattern || '',
   tableNamePattern: props.node?.data?.config?.tableNamePattern || '',
+  serverId: props.node?.data?.config?.serverId || 1000,
   binlogFile: props.node?.data?.config?.binlogFile || '',
   binlogPosition: props.node?.data?.config?.binlogPosition || null,
   snapshot: props.node?.data?.config?.snapshot || false,

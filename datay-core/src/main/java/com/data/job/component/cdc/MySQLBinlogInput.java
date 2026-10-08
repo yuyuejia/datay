@@ -41,6 +41,8 @@ public class MySQLBinlogInput extends FlowComponent {
     private Long binlogPosition; // 指定从哪个位置开始采集（可选）
     private String databaseNamePattern;
     private String tableNamePattern;
+    /** 伪装成从库的 server-id，默认 1000，多个任务连接同一实例时需保证唯一。 */
+    private Long serverId;
 
     /** 是否首次读取历史全量数据（快照）后再启动增量同步。 */
     private Boolean snapshot = false;
@@ -125,6 +127,9 @@ public class MySQLBinlogInput extends FlowComponent {
 
             // 创建Binlog采集器
             collector = new MySQLBinlogCollector(datasource, eventHandler);
+            if (serverId != null) {
+                collector.setServerId(serverId);
+            }
             if (databaseNamePattern != null && !databaseNamePattern.isEmpty()) {
                 collector.setDatabaseNamePattern(Pattern.compile(databaseNamePattern));
             }
@@ -301,6 +306,10 @@ public class MySQLBinlogInput extends FlowComponent {
 
     public void setTableNamePattern(String tableNamePattern) {
         this.tableNamePattern = tableNamePattern;
+    }
+
+    public void setServerId(Long serverId) {
+        this.serverId = serverId;
     }
 
     public void setSnapshot(Boolean snapshot) {

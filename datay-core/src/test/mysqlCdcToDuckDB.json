@@ -11,7 +11,8 @@
         "dbschema": "test"
       },
       "databaseNamePattern": "test",
-      "tableNamePattern": "cdc_demo"
+      "tableNamePattern": "cdc_demo",
+      "serverId": 2233
     },
     {
       ".id": "StreamJdbcOutput",

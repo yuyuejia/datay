@@ -204,6 +204,7 @@ MySQL Binlog采集组件，作为ETL流程的输入组件，实时采集MySQL的
 | `databaseNamePattern` | String | 否 | "" | 数据库名匹配模式（正则表达式） |
 | `binlogFile` | String | 否 | - | 指定从哪个Binlog文件开始采集 |
 | `binlogPosition` | Long | 否 | - | 指定从哪个位置开始采集 |
+| `serverId` | Long | 否 | 1000 | 伪装从库的 server-id，多个任务连接同一实例时需保证唯一 |
 
 #### 数据处理流程
 1. **连接建立**: 连接到MySQL服务器，配置Binlog客户端

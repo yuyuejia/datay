@@ -28,6 +28,12 @@ public class MySQLBinlogCollector {
 
     private static final Logger log = LoggerFactory.getLogger(MySQLBinlogCollector.class);
 
+    /** 默认的从库 server-id，可通过 {@link #setServerId(long)} 覆盖。 */
+    public static final long DEFAULT_SERVER_ID = 1000L;
+
+    /** MySQL server_id 为无符号 32 位整数。 */
+    private static final long MAX_SERVER_ID = 4294967295L;
+
     private final BinaryLogClient client;
     private final BinlogEventHandler eventHandler;
 
@@ -49,6 +55,9 @@ public class MySQLBinlogCollector {
     private String lastBinlogFile;
     private long lastBinlogPosition;
 
+    // 伪装成从库的唯一标识，默认 1000，可配置
+    private long serverId = DEFAULT_SERVER_ID;
+
     public MySQLBinlogCollector(String host, int port, String username, String password, BinlogEventHandler eventHandler) {
         this.host = host;
         this.port = port;
@@ -69,7 +78,6 @@ public class MySQLBinlogCollector {
         this.eventHandler = eventHandler;
 
         this.client = new BinaryLogClient(host, port, username, password);
-        this.client.setServerId(1000);
         configureClient();
     }
 
@@ -108,6 +116,9 @@ public class MySQLBinlogCollector {
      * 配置Binlog客户端
      */
     private void configureClient() {
+        // 设置从库 server-id
+        client.setServerId(serverId);
+
         // 设置事件监听器
         client.registerEventListener(this::handleEvent);
 
@@ -155,7 +166,7 @@ public class MySQLBinlogCollector {
         }
 
         try {
-            log.info("开始启动MySQL Binlog采集器，连接: {}:{}", host, port);
+            log.info("开始启动MySQL Binlog采集器，连接: {}:{}，server-id: {}", host, port, serverId);
             client.connect();
         } catch (IOException e) {
             log.error("启动Binlog采集器失败: {}", e.getMessage(), e);
@@ -487,5 +498,22 @@ public class MySQLBinlogCollector {
 
     public void setTableNamePattern(Pattern tableNamePattern) {
         this.tableNamePattern = tableNamePattern;
+    }
+
+    public long getServerId() {
+        return serverId;
+    }
+
+    /**
+     * 设置伪装成从库的 server-id。必须在 {@link #start()} 之前调用。
+     *
+     * @param serverId MySQL server_id，取值范围 1 ~ 4294967295
+     */
+    public void setServerId(long serverId) {
+        if (serverId <= 0 || serverId > MAX_SERVER_ID) {
+            throw new IllegalArgumentException("serverId 必须在 1 ~ " + MAX_SERVER_ID + " 之间，当前值: " + serverId);
+        }
+        this.serverId = serverId;
+        this.client.setServerId(serverId);
     }
 }

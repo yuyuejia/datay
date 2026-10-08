@@ -10,12 +10,18 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,6 +47,26 @@ public class MysqlCdcToDuckDBTest {
 
     private static final String TABLE = "cdc_demo";
 
+    /** 与 mysqlCdcToDuckDB.json 中配置的 serverId 保持一致。 */
+    private static final long SERVER_ID = 2233L;
+
+    private static final Logger CONNECTOR_LOG = Logger.getLogger("com.github.shyiko.mysql.binlog.BinaryLogClient");
+    private final List<String> connectorMessages = new CopyOnWriteArrayList<>();
+    private final Handler connectorHandler = new Handler() {
+        @Override
+        public void publish(LogRecord record) {
+            if (record.getMessage() != null) {
+                connectorMessages.add(record.getMessage());
+            }
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
+    };
+
     @Test
     public void testMysqlCdcToDuckDB() throws Exception {
         assumeTrue(supportsRowBinlog(), "本地 MySQL 未开启 binlog ROW 格式或缺少复制权限，跳过测试");
@@ -52,6 +78,8 @@ public class MysqlCdcToDuckDBTest {
         String job = new String(java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(System.getProperty("user.dir"), "src/test/mysqlCdcToDuckDB.json")));
 
+        CONNECTOR_LOG.setLevel(Level.ALL);
+        CONNECTOR_LOG.addHandler(connectorHandler);
         Future<?> jobFuture = executor.submit(() -> {
             try {
                 runner.runJob(job);
@@ -62,6 +90,11 @@ public class MysqlCdcToDuckDBTest {
 
         try {
             awaitTrue(this::binlogDumpActive, 30000, "等待 MySQL Binlog 采集器就绪超时");
+            awaitTrue(
+                () -> connectorMessages.stream().anyMatch(message -> message.contains("sid:" + SERVER_ID)),
+                30000,
+                "等待组件以配置的 server-id=" + SERVER_ID + " 连接 MySQL 超时"
+            );
 
             // INSERT
             executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (1, 'alice', 10.50, '2024-01-01 10:00:00')");
@@ -84,6 +117,7 @@ public class MysqlCdcToDuckDBTest {
             awaitTrue(() -> queryDuckCount() == 1, 30000, "等待 DELETE 同步到 DuckDB 超时");
             assertEquals("alice2", queryDuckString("select name from main." + TABLE + " where id = 1"));
         } finally {
+            CONNECTOR_LOG.removeHandler(connectorHandler);
             runner.cancel();
             try {
                 jobFuture.get(15, TimeUnit.SECONDS);
