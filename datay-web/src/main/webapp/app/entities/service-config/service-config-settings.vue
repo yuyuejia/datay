@@ -53,6 +53,16 @@
               :placeholder="field.placeholder"
               style="width: 420px"
             ></el-input>
+            <el-input-number
+              v-else-if="field.type === 'number'"
+              v-model="values[field.key]"
+              :min="field.min"
+              :max="field.max"
+              :step="field.step"
+              :precision="field.precision"
+              style="width: 220px"
+            ></el-input-number>
+            <el-switch v-else-if="field.type === 'switch'" v-model="values[field.key]"></el-switch>
             <el-input v-else v-model="values[field.key]" :placeholder="field.placeholder" style="width: 420px"></el-input>
             <div v-if="field.hint" class="field-hint">{{ field.hint }}</div>
           </el-form-item>

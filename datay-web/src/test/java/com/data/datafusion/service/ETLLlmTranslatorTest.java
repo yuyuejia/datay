@@ -7,7 +7,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import cn.hutool.json.JSONUtil;
-import com.data.datafusion.ai.llm.AiProperties;
+import com.data.datafusion.ai.llm.LlmConfig;
+import com.data.datafusion.ai.llm.LlmConfigService;
 import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
@@ -34,20 +35,24 @@ class ETLLlmTranslatorTest {
 
     private ETLEdgeMapper etlEdgeMapper;
 
-    private AiProperties aiProperties;
+    private LlmConfigService llmConfigService;
+
+    private LlmConfig llmConfig;
 
     @BeforeEach
     void setUp() {
         eTLNodeMapper = mock(ETLNodeMapper.class);
         etlEdgeMapper = mock(ETLEdgeMapper.class);
-        aiProperties = new AiProperties();
-        aiProperties.setBaseUrl("https://api.deepseek.com");
-        aiProperties.setApiKey("sk-system-key");
-        aiProperties.setModel("deepseek-chat");
-        aiProperties.setTemperature(0.3);
-        aiProperties.setTimeoutSeconds(60);
+        llmConfig = new LlmConfig();
+        llmConfig.setBaseUrl("https://api.deepseek.com");
+        llmConfig.setApiKey("sk-system-key");
+        llmConfig.setModel("deepseek-chat");
+        llmConfig.setTemperature(0.3);
+        llmConfig.setTimeoutSeconds(60);
+        llmConfigService = mock(LlmConfigService.class);
+        when(llmConfigService.getConfig()).thenReturn(llmConfig);
 
-        ETLNodeTranslatorRegistry registry = new ETLNodeTranslatorRegistry(List.of(new LlmNodeTranslator(aiProperties)));
+        ETLNodeTranslatorRegistry registry = new ETLNodeTranslatorRegistry(List.of(new LlmNodeTranslator(llmConfigService)));
         etlTaskService = new ETLTaskService(
             mock(ETLTaskRepository.class),
             mock(ETLNodeRepository.class),
@@ -109,7 +114,7 @@ class ETLLlmTranslatorTest {
 
     @Test
     void shouldFailWhenSystemAiNotConfigured() {
-        aiProperties.setApiKey("");
+        llmConfig.setApiKey("");
         when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(llmNode("{\"userPrompt\":\"hi\"}")));
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
 

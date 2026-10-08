@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   statusGet: vi.fn(),
   statusSave: vi.fn(),
   statusTest: vi.fn(),
+  llmGet: vi.fn(),
+  llmSave: vi.fn(),
+  llmTest: vi.fn(),
   dsGet: vi.fn(),
   dsSave: vi.fn(),
 }));
@@ -27,6 +30,14 @@ vi.mock('@/entities/etl-task/etl-task-state.service', () => ({
   },
 }));
 
+vi.mock('./llm-config.service', () => ({
+  default: class {
+    getConfig = mocks.llmGet;
+    updateConfig = mocks.llmSave;
+    testConfig = mocks.llmTest;
+  },
+}));
+
 vi.mock('@/entities/data-source/data-source.service', () => ({
   default: class {
     getDefaultWarehouse = mocks.dsGet;
@@ -42,7 +53,7 @@ describe('service-config groups', () => {
   });
 
   it('declares the expected groups in order', () => {
-    expect(SERVICE_CONFIG_GROUPS.map(group => group.key)).toEqual(['data-warehouse', 'file-storage', 'status-storage']);
+    expect(SERVICE_CONFIG_GROUPS.map(group => group.key)).toEqual(['data-warehouse', 'file-storage', 'status-storage', 'llm']);
   });
 
   it('delegates file storage load/save/test', async () => {
@@ -71,6 +82,20 @@ describe('service-config groups', () => {
 
     expect(mocks.statusSave).toHaveBeenCalledWith({ type: 'minio' });
     expect(mocks.statusTest).toHaveBeenCalled();
+  });
+
+  it('delegates llm load/save/test', async () => {
+    const group = SERVICE_CONFIG_GROUPS[3];
+    mocks.llmGet.mockResolvedValue({ enabled: true, model: 'deepseek-chat' });
+    mocks.llmSave.mockResolvedValue(undefined);
+    mocks.llmTest.mockResolvedValue({ success: true });
+
+    await expect(group.load()).resolves.toEqual({ enabled: true, model: 'deepseek-chat' });
+    await group.save({ enabled: true, model: 'deepseek-chat' });
+    await group.test?.();
+
+    expect(mocks.llmSave).toHaveBeenCalledWith({ enabled: true, model: 'deepseek-chat' });
+    expect(mocks.llmTest).toHaveBeenCalled();
   });
 
   it('loads and saves the default warehouse data source', async () => {

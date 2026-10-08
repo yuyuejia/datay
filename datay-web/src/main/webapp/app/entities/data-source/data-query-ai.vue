@@ -46,7 +46,7 @@
           <font-awesome-icon icon="exclamation-circle" class="warn-icon" />
           <div class="warn-content">
             <strong>AI 助手未启用</strong>
-            <p>{{ status.message || '请在服务端配置 datay.ai.api-key 后使用' }}</p>
+            <p>{{ status.message || '请在「服务配置 · 大模型」中配置 API Key 后使用' }}</p>
           </div>
         </div>
 

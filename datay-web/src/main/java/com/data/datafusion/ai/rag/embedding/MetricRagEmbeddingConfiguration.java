@@ -1,6 +1,7 @@
 package com.data.datafusion.ai.rag.embedding;
 
-import com.data.datafusion.ai.llm.AiProperties;
+import com.data.datafusion.ai.llm.LlmConfig;
+import com.data.datafusion.ai.llm.LlmConfigService;
 import com.data.datafusion.ai.rag.MetricRagProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +20,11 @@ public class MetricRagEmbeddingConfiguration {
     private static final Logger LOG = LoggerFactory.getLogger(MetricRagEmbeddingConfiguration.class);
 
     @Bean
-    public EmbeddingClient metricRagEmbeddingClient(MetricRagProperties rag, AiProperties ai) {
+    public EmbeddingClient metricRagEmbeddingClient(MetricRagProperties rag, LlmConfigService llmConfigService) {
         if (rag.isOpenAiProvider()) {
-            String baseUrl = firstNonBlank(rag.getEmbeddingBaseUrl(), ai.getBaseUrl());
-            String apiKey = firstNonBlank(rag.getEmbeddingApiKey(), ai.getApiKey());
+            LlmConfig llm = llmConfigService.getConfig();
+            String baseUrl = firstNonBlank(rag.getEmbeddingBaseUrl(), llm.getBaseUrl());
+            String apiKey = firstNonBlank(rag.getEmbeddingApiKey(), llm.getApiKey());
             if (baseUrl != null && apiKey != null && !apiKey.isBlank()) {
                 LOG.info("Metric RAG embedding provider: openai, model={}, baseUrl={}", rag.getEmbeddingModel(), baseUrl);
                 return new OpenAiEmbeddingClient(baseUrl, apiKey, rag.getEmbeddingModel(), rag.getEmbeddingTimeoutSeconds());

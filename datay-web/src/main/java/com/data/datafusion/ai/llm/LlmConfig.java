@@ -1,23 +1,14 @@
 package com.data.datafusion.ai.llm;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
 /**
- * AI 助手默认配置。
+ * 大模型服务配置。
  *
- * <p>兼容 OpenAI Chat Completions 协议，OpenAI / DeepSeek / 通义千问 / Ollama 等
- * 只需替换 base-url 与 model 即可对接。
- *
- * <p>运行时以大模型服务配置（{@code dp_service_config} 的 {@code llm} 分组，
- * 见 {@link LlmConfigService}）为准；此处的 {@code datay.ai.*} 仅作为缺省值/回退，
- * 便于通过环境变量或配置文件提供初始配置。
+ * <p>由 {@link LlmConfigService} 从 {@code dp_service_config} 的 {@code llm} 分组读写，
+ * 未配置的项回退到 {@link AiProperties} 提供的默认值（{@code datay.ai.*}）。
  */
-@Component
-@ConfigurationProperties(prefix = "datay.ai")
-public class AiProperties {
+public class LlmConfig {
 
-    /** 是否启用 AI 助手，关闭后接口返回不可用并自动降级。 */
+    /** 是否启用大模型服务，关闭后 AI 助手与「大模型」组件均不可用。 */
     private boolean enabled = true;
 
     /** OpenAI 兼容的 API 根地址，需包含版本段，例如 https://api.deepseek.com/v1。 */
@@ -35,14 +26,14 @@ public class AiProperties {
     /** 单次 LLM 请求超时（秒）。 */
     private int timeoutSeconds = 120;
 
-    /** Agent 循环最大轮次，达到上限后强制要求模型输出最终 SQL。 */
+    /** Agent 循环最大轮次。 */
     private int maxToolRounds = 6;
 
-    /** 是否允许模型调用具备副作用的工具，默认关闭以保证只读安全。 */
-    private boolean allowMutatingTools = false;
-
-    /** 单轮工具调用最大并发/次数上限，防止模型疯狂刷工具。 */
+    /** 单轮工具调用最大次数。 */
     private int maxToolCallsPerRound = 8;
+
+    /** 是否允许模型调用具备副作用的工具。 */
+    private boolean allowMutatingTools = false;
 
     public boolean isConfigured() {
         return enabled && apiKey != null && !apiKey.isBlank();
@@ -104,19 +95,19 @@ public class AiProperties {
         this.maxToolRounds = maxToolRounds;
     }
 
-    public boolean isAllowMutatingTools() {
-        return allowMutatingTools;
-    }
-
-    public void setAllowMutatingTools(boolean allowMutatingTools) {
-        this.allowMutatingTools = allowMutatingTools;
-    }
-
     public int getMaxToolCallsPerRound() {
         return maxToolCallsPerRound;
     }
 
     public void setMaxToolCallsPerRound(int maxToolCallsPerRound) {
         this.maxToolCallsPerRound = maxToolCallsPerRound;
+    }
+
+    public boolean isAllowMutatingTools() {
+        return allowMutatingTools;
+    }
+
+    public void setAllowMutatingTools(boolean allowMutatingTools) {
+        this.allowMutatingTools = allowMutatingTools;
     }
 }

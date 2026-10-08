@@ -9,7 +9,8 @@ import com.data.datafusion.ai.dto.AiGenerateRequest;
 import com.data.datafusion.ai.dto.AiGenerateResponse;
 import com.data.datafusion.ai.dto.AiToolInfo;
 import com.data.ai.llm.ChatMessage;
-import com.data.datafusion.ai.llm.AiProperties;
+import com.data.datafusion.ai.llm.LlmConfig;
+import com.data.datafusion.ai.llm.LlmConfigService;
 import com.data.datafusion.ai.tool.AiTool;
 import com.data.datafusion.ai.tool.AiToolRegistry;
 import com.data.datafusion.service.DataSourceService;
@@ -38,20 +39,20 @@ public class AiAssistantResource {
     private final AiAgent aiAgent;
     private final AiAssistantRegistry assistantRegistry;
     private final AiToolRegistry toolRegistry;
-    private final AiProperties properties;
+    private final LlmConfigService llmConfigService;
     private final DataSourceService dataSourceService;
 
     public AiAssistantResource(
         AiAgent aiAgent,
         AiAssistantRegistry assistantRegistry,
         AiToolRegistry toolRegistry,
-        AiProperties properties,
+        LlmConfigService llmConfigService,
         DataSourceService dataSourceService
     ) {
         this.aiAgent = aiAgent;
         this.assistantRegistry = assistantRegistry;
         this.toolRegistry = toolRegistry;
-        this.properties = properties;
+        this.llmConfigService = llmConfigService;
         this.dataSourceService = dataSourceService;
     }
 
@@ -60,14 +61,15 @@ public class AiAssistantResource {
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
+        LlmConfig config = llmConfigService.getConfig();
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("available", properties.isConfigured());
-        body.put("model", properties.getModel());
-        body.put("maxToolRounds", properties.getMaxToolRounds());
+        body.put("available", config.isConfigured());
+        body.put("model", config.getModel());
+        body.put("maxToolRounds", config.getMaxToolRounds());
         body.put("toolCount", toolRegistry.all().size());
         body.put("assistantCount", assistantRegistry.all().size());
-        if (!properties.isConfigured()) {
-            body.put("message", "AI 助手未配置，请在配置文件中设置 datay.ai.api-key");
+        if (!config.isConfigured()) {
+            body.put("message", "AI 助手未配置，请在「服务配置 · 大模型」中设置 API Key");
         }
         return ResponseEntity.ok(body);
     }
@@ -93,8 +95,8 @@ public class AiAssistantResource {
         if (request.getMessage() == null || request.getMessage().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "请输入您的数据需求"));
         }
-        if (!properties.isConfigured()) {
-            return ResponseEntity.ok(AiGenerateResponse.unavailable("AI 助手未配置，请先设置 datay.ai.api-key"));
+        if (!llmConfigService.getConfig().isConfigured()) {
+            return ResponseEntity.ok(AiGenerateResponse.unavailable("AI 助手未配置，请先在「服务配置 · 大模型」中设置 API Key"));
         }
 
         Optional<AiAssistant> assistant = resolveAssistant(request);
@@ -142,7 +144,7 @@ public class AiAssistantResource {
     }
 
     private AiAssistantInfo toAssistantInfo(AiAssistant assistant) {
-        boolean allowMutating = properties.isAllowMutatingTools() && assistant.allowMutatingTools();
+        boolean allowMutating = llmConfigService.getConfig().isAllowMutatingTools() && assistant.allowMutatingTools();
         List<AiToolInfo> tools = toolRegistry
             .allowed(allowMutating, assistant)
             .stream()

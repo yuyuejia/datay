@@ -1,8 +1,9 @@
 import FileManagementService, { type FileStorageConfig } from '@/entities/file-management/file-management.service';
 import EtlTaskStateService, { type IStatusStorageConfig } from '@/entities/etl-task/etl-task-state.service';
 import DataSourceService from '@/entities/data-source/data-source.service';
+import LlmConfigService, { type ILlmConfig } from './llm-config.service';
 
-export type ConfigFieldType = 'text' | 'password' | 'select' | 'datasource';
+export type ConfigFieldType = 'text' | 'password' | 'select' | 'datasource' | 'number' | 'switch';
 
 export interface ConfigField {
   key: string;
@@ -11,6 +12,10 @@ export interface ConfigField {
   placeholder?: string;
   hint?: string;
   options?: Array<{ label: string; value: string }>;
+  min?: number;
+  max?: number;
+  step?: number;
+  precision?: number;
   showWhen?: (values: Record<string, any>) => boolean;
 }
 
@@ -98,6 +103,48 @@ const statusStorageFields: ConfigField[] = [
   { key: 'minioBucketName', label: 'Bucket', type: 'text', placeholder: 'datay-status', showWhen: isMinio },
 ];
 
+const llmFields: ConfigField[] = [
+  {
+    key: 'enabled',
+    label: '启用大模型',
+    type: 'switch',
+    hint: '关闭后 AI 助手与「大模型」组件均不可用。',
+  },
+  {
+    key: 'baseUrl',
+    label: 'API 地址',
+    type: 'text',
+    placeholder: 'https://api.deepseek.com/v1',
+    hint: 'OpenAI 兼容的接口根地址，需包含版本段（如 /v1）；留空则使用系统级配置。',
+  },
+  {
+    key: 'apiKey',
+    label: 'API Key',
+    type: 'password',
+    hint: '留空则使用系统级配置中的 API Key；系统级亦为空时大模型不可用。',
+  },
+  { key: 'model', label: '模型', type: 'text', placeholder: 'deepseek-chat', hint: '留空则使用系统级配置。' },
+  {
+    key: 'temperature',
+    label: '采样温度',
+    type: 'number',
+    min: 0,
+    max: 2,
+    step: 0.1,
+    precision: 2,
+    hint: '生成 SQL 等场景建议保持较低值。',
+  },
+  { key: 'timeoutSeconds', label: '请求超时（秒）', type: 'number', min: 1, max: 600, step: 1 },
+  { key: 'maxToolRounds', label: '最大工具轮次', type: 'number', min: 1, max: 20, step: 1, hint: 'Agent 循环的轮次上限。' },
+  { key: 'maxToolCallsPerRound', label: '单轮最大工具调用', type: 'number', min: 1, max: 50, step: 1 },
+  {
+    key: 'allowMutatingTools',
+    label: '允许写操作工具',
+    type: 'switch',
+    hint: '默认禁止，需与助手自身声明同时放行。',
+  },
+];
+
 export const SERVICE_CONFIG_GROUPS: ConfigGroup[] = [
   {
     key: 'data-warehouse',
@@ -132,6 +179,15 @@ export const SERVICE_CONFIG_GROUPS: ConfigGroup[] = [
     load: () => new EtlTaskStateService().getConfig().then(cfg => ({ ...cfg })),
     save: values => new EtlTaskStateService().updateConfig(values as IStatusStorageConfig),
     test: () => new EtlTaskStateService().testConfig(),
+  },
+  {
+    key: 'llm',
+    label: '大模型',
+    description: '配置当前租户的 OpenAI 兼容服务（API 助手与「大模型」组件共用）；留空或未配置的项自动使用系统级配置（配置文件 datay.ai.*）。',
+    fields: llmFields,
+    load: () => new LlmConfigService().getConfig().then(cfg => ({ ...cfg })),
+    save: values => new LlmConfigService().updateConfig(values as ILlmConfig),
+    test: () => new LlmConfigService().testConfig(),
   },
 ];
 

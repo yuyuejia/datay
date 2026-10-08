@@ -140,8 +140,10 @@ LlmComponent 是一个按行调用大模型的组件，兼容 OpenAI Chat Comple
 ## DataY Web 使用说明
 
 在 DataY Web 的任务设计器中，「大模型」组件只需配置**系统提示词**与**用户输入**。
-接口地址、API Key、模型、温度、超时等连接参数由后端读取系统配置（`datay.ai.*`）后在生成任务定义时自动注入，
-任务配置中不会保存密钥。
+接口地址、API Key、模型、温度、超时等连接参数由后端读取**租户级服务配置**（「服务配置 · 大模型」，落库于 `dp_service_config` 的 `llm` 分组）后在生成任务定义时自动注入，
+任务配置中不会保存密钥。配置按「租户级覆盖、系统级兜底」两级解析：租户未配置的项自动回退到系统级配置。
+
+> 系统级配置来自 `datay.ai.*`（环境变量 / 配置文件）：
 
 ```yaml
 datay:
@@ -155,9 +157,9 @@ datay:
 ```
 
 设计器节点翻译逻辑见 `com.data.datafusion.service.etl.LlmNodeTranslator`：
-- 未配置 `datay.ai.api-key` 时拒绝生成任务定义；
+- 未配置大模型 API Key（服务配置与 `datay.ai.api-key` 均为空）时拒绝生成任务定义；
 - 未填写用户输入时拒绝生成任务定义；
-- 生成的单元使用后端 `LlmComponent`，并注入系统配置中的连接参数。
+- 生成的单元使用后端 `LlmComponent`，并注入服务配置中的连接参数。
 
 ## 运行日志
 

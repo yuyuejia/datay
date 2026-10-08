@@ -7,7 +7,8 @@ import com.data.ai.llm.ChatResponse;
 import com.data.ai.llm.OpenAiCompatibleClient;
 import com.data.ai.llm.ToolCall;
 import com.data.ai.llm.ToolDefinition;
-import com.data.datafusion.ai.llm.AiProperties;
+import com.data.datafusion.ai.llm.LlmConfig;
+import com.data.datafusion.ai.llm.LlmConfigService;
 import com.data.datafusion.ai.tool.AiTool;
 import com.data.datafusion.ai.tool.AiToolContext;
 import com.data.datafusion.ai.tool.AiToolRegistry;
@@ -41,13 +42,11 @@ public class AiAgent {
     private static final Logger LOG = LoggerFactory.getLogger(AiAgent.class);
 
     private final AiToolRegistry toolRegistry;
-    private final OpenAiCompatibleClient client;
-    private final AiProperties properties;
+    private final LlmConfigService llmConfigService;
 
-    public AiAgent(AiToolRegistry toolRegistry, OpenAiCompatibleClient client, AiProperties properties) {
+    public AiAgent(AiToolRegistry toolRegistry, LlmConfigService llmConfigService) {
         this.toolRegistry = toolRegistry;
-        this.client = client;
-        this.properties = properties;
+        this.llmConfigService = llmConfigService;
     }
 
     /**
@@ -67,13 +66,15 @@ public class AiAgent {
         List<ChatMessage> history,
         Map<String, Object> contextData
     ) {
-        if (!properties.isConfigured()) {
-            throw new IllegalStateException("AI 助手未配置，请先设置 datay.ai.api-key");
+        LlmConfig config = llmConfigService.getConfig();
+        if (!config.isConfigured()) {
+            throw new IllegalStateException("AI 助手未配置，请先在服务配置中设置大模型 API Key");
         }
+        OpenAiCompatibleClient client = llmConfigService.getActiveClient();
 
         Long dataSourceId = dataSource == null ? null : dataSource.getId();
         AiToolContext context = new AiToolContext(dataSourceId, dataSource, userMessage, assistant);
-        boolean allowMutating = properties.isAllowMutatingTools() && assistant.allowMutatingTools();
+        boolean allowMutating = config.isAllowMutatingTools() && assistant.allowMutatingTools();
 
         List<AiTool> allowedTools = toolRegistry.allowed(allowMutating, assistant);
         List<ToolDefinition> tools = allowedTools
@@ -96,7 +97,7 @@ public class AiAgent {
         int round = 0;
         boolean toolsAvailable = !tools.isEmpty();
         ChatResponse lastResponse = null;
-        int maxRounds = Math.max(1, properties.getMaxToolRounds());
+        int maxRounds = Math.max(1, config.getMaxToolRounds());
 
         while (round < maxRounds) {
             round++;
@@ -136,7 +137,7 @@ public class AiAgent {
             List<ToolCall> requested = response.getToolCalls();
             int executed = 0;
             for (ToolCall call : requested) {
-                if (executed >= Math.max(1, properties.getMaxToolCallsPerRound())) {
+                if (executed >= Math.max(1, config.getMaxToolCallsPerRound())) {
                     messages.add(
                         ChatMessage.tool(call.getId(), call.getName(), client.toJson(Map.of("error", "本轮工具调用次数超限，已忽略")))
                     );
