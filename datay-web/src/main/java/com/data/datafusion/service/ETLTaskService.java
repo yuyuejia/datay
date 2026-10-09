@@ -212,6 +212,10 @@ public class ETLTaskService {
             connection.put("sourceId", etlEdge.getSource());
             connection.put("targetId", etlEdge.getTarget());
             connection.put("sourcePort", 0);
+            // 连线标签透传给引擎，供路由类组件（如 RouteOnAttribute）按标签分流
+            if (etlEdge.getName() != null && !etlEdge.getName().trim().isEmpty()) {
+                connection.put("label", etlEdge.getName().trim());
+            }
             connections.add(connection);
         }
         // 生成最终的 JSON 结构

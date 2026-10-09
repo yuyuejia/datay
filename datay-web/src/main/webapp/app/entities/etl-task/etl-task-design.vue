@@ -8,8 +8,10 @@ import { MarkerType } from '@vue-flow/core';
 import ETLComponentService from '../etl-component/etl-component.service';
 import ETLTaskService from '../etl-task/etl-task.service';
 import ETLTaskNode from './etl-task-node.vue';
+import EtlTaskEdge from './EtlTaskEdge.vue';
 import DynamicParameterHelp from './DynamicParameterHelp.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { ElMessageBox } from 'element-plus';
 
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
@@ -30,6 +32,7 @@ const {
   onNodeDoubleClick,
   getNodes,
   getEdges,
+  setEdges,
   screenToFlowPosition,
   removeNodes,
 } = useVueFlow();
@@ -62,6 +65,7 @@ const router = useRouter();
 const isCreateMode = computed(() => !route.params.eTLTaskId);
 
 const nodeTypes = { etl: markRaw(ETLTaskNode) };
+const edgeTypes = { etl: markRaw(EtlTaskEdge) };
 
 const componentGroupMap = computed(() => {
   const map = {};
@@ -73,6 +77,28 @@ const componentGroupMap = computed(() => {
 
 const deleteNode = (nodeId) => {
   removeNodes([nodeId]);
+};
+
+const editEdgeLabel = edgeId => {
+  const edge = edges.value.find(item => item.id === edgeId);
+  if (!edge) {
+    return;
+  }
+  ElMessageBox.prompt('请输入连线标签，供属性路由（RouteOnAttribute）等组件按标签分流', '设置连线标签', {
+    inputValue: edge.label || edge.data?.label || '',
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPlaceholder: '例如：vip / normal / other',
+  })
+    .then(({ value }) => {
+      const label = (value || '').trim();
+      setEdges(
+        edges.value.map(item =>
+          item.id === edgeId ? { ...item, label, data: { ...(item.data || {}), label, onEditLabel: editEdgeLabel } } : item,
+        ),
+      );
+    })
+    .catch(() => {});
 };
 
 const loadComponents = async () => {
@@ -182,7 +208,10 @@ const retrieveETLTask = async (eTLTaskId) => {
       id: edge.code.toString(),
       source: edge.source.toString(),
       target: edge.target.toString(),
+      type: 'etl',
+      label: edge.name || '',
       markerEnd: MarkerType.ArrowClosed,
+      data: { label: edge.name || '', onEditLabel: editEdgeLabel },
     }));
 
     nodes.value = convertedNodes;
@@ -297,7 +326,9 @@ onNodeDragStop(({ event, nodes, node }) => {
 onConnect((connection) => {
   addEdges({
     ...connection,
+    type: 'etl',
     markerEnd: { type: MarkerType.ArrowClosed },
+    data: { label: '', onEditLabel: editEdgeLabel },
   });
 });
 
@@ -396,6 +427,7 @@ const buildTaskPayload = () => {
     code: edge.id,
     source: edge.source,
     target: edge.target,
+    name: (edge.label || edge.data?.label || '').trim(),
   }));
 
   return { ...eTLTask.value, nodes: updatedNodes, edges: updatedEdges };
@@ -858,6 +890,7 @@ const cancelTask = () => {
           v-model:nodes="nodes"
           v-model:edges="edges"
           :node-types="nodeTypes"
+          :edge-types="edgeTypes"
           :class="{ dark }"
           class="basic-flow full-height-vueflow"
           :default-viewport="{ zoom: 1.5 }"

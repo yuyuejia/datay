@@ -1,0 +1,62 @@
+{
+  "units": [
+    {
+      ".id": "gen1",
+      ".name": "GenerateFlowFile",
+      "inputData": "[{\"id\":1,\"type\":\"vip\"},{\"id\":2,\"type\":\"normal\"},{\"id\":3,\"type\":\"vip\"},{\"id\":4,\"type\":\"unknown\"},{\"id\":5,\"type\":\"normal\"}]",
+      "dataFormat": "JSON_ARRAY",
+      "loopCount": "1"
+    },
+    {
+      ".id": "route1",
+      ".name": "RouteOnAttribute",
+      "matchMode": "data",
+      "dataField": "type",
+      "defaultLabel": "other"
+    },
+    {
+      ".id": "log_vip",
+      ".name": "LogFlowFile",
+      "logLevel": "INFO",
+      "logDataContent": "true"
+    },
+    {
+      ".id": "log_normal",
+      ".name": "LogFlowFile",
+      "logLevel": "INFO",
+      "logDataContent": "true"
+    },
+    {
+      ".id": "log_other",
+      ".name": "LogFlowFile",
+      "logLevel": "INFO",
+      "logDataContent": "true"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "gen1",
+      "sourcePort": 0,
+      "targetId": "route1"
+    },
+    {
+      "sourceId": "route1",
+      "sourcePort": 0,
+      "targetId": "log_vip",
+      "label": "vip"
+    },
+    {
+      "sourceId": "route1",
+      "sourcePort": 0,
+      "targetId": "log_normal",
+      "label": "normal"
+    },
+    {
+      "sourceId": "route1",
+      "sourcePort": 0,
+      "targetId": "log_other",
+      "label": "other"
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -20,6 +20,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | `StreamSqlUnit` | 流式 SQL 处理，使用 DuckDB 对流式数据做 SQL 转换 | [StreamSqlUnit](components/StreamSqlUnit.md) |
 | `DataTransform` | 数据转换，预置类型转换 / 过滤 / 字符串 / 数学 / 日期等规则 | [DataTransform](components/DataTransform.md) |
 | `Join` | 多表关联，按配置生成 DuckDB Join SQL | [Join](components/Join.md) |
+| `RouteOnAttribute` | 属性路由，按 FlowFile 属性名 / 属性值 / 数据项与连线标签匹配自动分流，未匹配走 `other` 兜底 | [RouteOnAttribute](components/RouteOnAttribute.md) |
 
 ## 输出组件
 

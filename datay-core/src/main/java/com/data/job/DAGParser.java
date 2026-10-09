@@ -54,13 +54,17 @@ public class DAGParser {
             String sourceId = connection.getString("sourceId");
             String targetId = connection.getString("targetId");
             int sourcePort = connection.getIntValue("sourcePort");
+            String label = connection.getString("label");
+            if (label == null || label.trim().isEmpty()) {
+                label = connection.getString("name");
+            }
             Component source = components.get(sourceId);
             Component target = components.get(targetId);
             if (source == null || target == null) {
                 continue;
             }
-            source.getOutput().add(new Connection(sourceId, targetId, sourcePort));
-            target.getInput().add(new Connection(sourceId, targetId, sourcePort));
+            source.getOutput().add(new Connection(sourceId, targetId, sourcePort, label));
+            target.getInput().add(new Connection(sourceId, targetId, sourcePort, label));
             List<String> targets = edges.getOrDefault(sourceId, new ArrayList<>());
             targets.add(targetId);
             edges.put(sourceId, targets);
