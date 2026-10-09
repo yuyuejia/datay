@@ -1,5 +1,5 @@
 export interface IDataSource {
-  id?: number;
+  id?: string;
   name?: string | null;
   description?: string | null;
   type?: string | null;
@@ -20,7 +20,7 @@ export interface IDataSource {
 
 export class DataSource implements IDataSource {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public description?: string | null,
     public type?: string | null,

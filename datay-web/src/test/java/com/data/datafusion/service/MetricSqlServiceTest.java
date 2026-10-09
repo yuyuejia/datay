@@ -45,7 +45,7 @@ class MetricSqlServiceTest {
         );
 
         factModel = new DataModel();
-        factModel.setId(100L);
+        factModel.setId("100");
         factModel.setModelType("DWD");
         factModel.setName("销售订单明细事实表");
         factModel.setSchemaName("dwd");
@@ -63,10 +63,10 @@ class MetricSqlServiceTest {
         ModelField productSk = new ModelField();
         productSk.setFieldName("product_sk");
         productSk.setFieldType("LONG");
-        productSk.setDimensionModelId(300L);
+        productSk.setDimensionModelId("300");
 
-        when(dataModelRepository.findById(100L)).thenReturn(Optional.of(factModel));
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(100L)).thenReturn(List.of(amount, quantity, orderStatus, productSk));
+        when(dataModelRepository.findById("100")).thenReturn(Optional.of(factModel));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("100")).thenReturn(List.of(amount, quantity, orderStatus, productSk));
     }
 
     private MetricDTO atomicDto() {
@@ -74,7 +74,7 @@ class MetricSqlServiceTest {
         dto.setName("销售额");
         dto.setCode("sales_amount");
         dto.setMetricType(Metric.TYPE_ATOMIC);
-        dto.setFactModelId(100L);
+        dto.setFactModelId("100");
         dto.setFormula("SUM(amount)");
         return dto;
     }
@@ -109,11 +109,11 @@ class MetricSqlServiceTest {
     void shouldGenerateAtomicSqlWithDimensionJoin() {
         MetricDTO dto = atomicDto();
         dto.setFilterConfig(
-            "{\"conditions\":[{\"type\":\"DIMENSION\",\"factFieldName\":\"product_sk\",\"dimensionModelId\":300,\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"饮料\",\"logic\":\"AND\"}]}"
+            "{\"conditions\":[{\"type\":\"DIMENSION\",\"factFieldName\":\"product_sk\",\"dimensionModelId\":\"300\",\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"饮料\",\"logic\":\"AND\"}]}"
         );
 
         DataModel dimModel = new DataModel();
-        dimModel.setId(300L);
+        dimModel.setId("300");
         dimModel.setSchemaName("dwd");
         dimModel.setTableName("dim_product");
         ModelField dimPk = new ModelField();
@@ -121,8 +121,8 @@ class MetricSqlServiceTest {
         dimPk.setIsPrimaryKey(true);
         ModelField category = new ModelField();
         category.setFieldName("category_l1");
-        when(dataModelRepository.findById(300L)).thenReturn(Optional.of(dimModel));
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(300L)).thenReturn(List.of(dimPk, category));
+        when(dataModelRepository.findById("300")).thenReturn(Optional.of(dimModel));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("300")).thenReturn(List.of(dimPk, category));
 
         String sql = metricSqlService.generateSql(dto);
         assertThat(sql).contains("LEFT JOIN dwd.dim_product d0 ON f.product_sk = d0.product_sk");
@@ -132,19 +132,19 @@ class MetricSqlServiceTest {
     @Test
     void shouldGenerateDerivedSqlWithCtes() {
         Metric a = new Metric();
-        a.setId(1L);
+        a.setId("1");
         a.setCode("sales_amount");
         a.setName("销售额");
         a.setMetricType(Metric.TYPE_ATOMIC);
-        a.setFactModelId(100L);
+        a.setFactModelId("100");
         a.setFormula("SUM(amount)");
 
         Metric b = new Metric();
-        b.setId(2L);
+        b.setId("2");
         b.setCode("sales_quantity");
         b.setName("销售量");
         b.setMetricType(Metric.TYPE_ATOMIC);
-        b.setFactModelId(100L);
+        b.setFactModelId("100");
         b.setFormula("SUM(quantity)");
 
         when(metricRepository.findAll()).thenReturn(List.of(a, b));

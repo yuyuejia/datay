@@ -146,7 +146,7 @@ public class MetricQueryService {
     @Transactional(readOnly = true)
     public Map<String, Object> query(MetricQueryDTO dto) throws SQLException {
         QueryContext context = prepare(dto);
-        Long dataSourceId = validateDataSource(context);
+        String dataSourceId = validateDataSource(context);
         DataSourceDTO dataSource = dataSourceService
             .findOne(dataSourceId)
             .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + dataSourceId));
@@ -207,7 +207,7 @@ public class MetricQueryService {
         }
 
         List<Map<String, Object>> dimensions = new ArrayList<>();
-        for (Long dimensionModelId : context.commonDimensionModelIds) {
+        for (String dimensionModelId : context.commonDimensionModelIds) {
             Map<String, Object> item = new LinkedHashMap<>();
             DataModel dimensionModel = dataModelRepository.findById(dimensionModelId).orElse(null);
             item.put("dimensionModelCode", dimensionModel == null ? null : dimensionModel.getCode());
@@ -303,9 +303,9 @@ public class MetricQueryService {
         context.metrics = resolveMetrics(dto);
         context.byCode = loadByCode();
 
-        LinkedHashMap<Long, DataModel> factMap = new LinkedHashMap<>();
+        LinkedHashMap<String, DataModel> factMap = new LinkedHashMap<>();
         for (Metric metric : context.metrics) {
-            Long factModelId = resolveFactModelId(metric, context.byCode);
+            String factModelId = resolveFactModelId(metric, context.byCode);
             context.metricFactModel.put(metric.getId(), factModelId);
             DataModel factModel = dataModelRepository
                 .findById(factModelId)
@@ -331,7 +331,7 @@ public class MetricQueryService {
             DataModel dimensionModel = dataModelRepository
                 .findFirstByCode(dimensionModelCode)
                 .orElseThrow(() -> new IllegalArgumentException("维度模型不存在：" + dimensionModelCode));
-            Long dimensionModelId = dimensionModel.getId();
+            String dimensionModelId = dimensionModel.getId();
             if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
                 throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
             }
@@ -388,7 +388,7 @@ public class MetricQueryService {
                 if (!MetricFilterCondition.TYPE_DIMENSION.equals(condition.getType())) {
                     throw new IllegalArgumentException("业务限定仅支持按维度过滤");
                 }
-                Long dimensionModelId = condition.getDimensionModelId();
+                String dimensionModelId = condition.getDimensionModelId();
                 String dimensionModelCode = condition.getDimensionModelCode();
                 if (dimensionModelCode != null && !dimensionModelCode.isBlank()) {
                     dimensionModelId = dataModelRepository
@@ -414,8 +414,8 @@ public class MetricQueryService {
         return context;
     }
 
-    private Long validateDataSource(QueryContext context) {
-        Long dataSourceId = null;
+    private String validateDataSource(QueryContext context) {
+        String dataSourceId = null;
         for (DataModel factModel : context.factModels) {
             if (factModel.getDataSourceId() == null) {
                 throw new IllegalArgumentException("事实表未绑定数据源，无法查询：" + factModel.getName());
@@ -440,8 +440,8 @@ public class MetricQueryService {
 
     private String buildSingleFactSql(QueryContext context, DataModel factModel, List<Metric> metrics) {
         StringBuilder joins = new StringBuilder();
-        Map<Long, String> dimensionAlias = new HashMap<>();
-        Map<Long, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
+        Map<String, String> dimensionAlias = new HashMap<>();
+        Map<String, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
         List<String> selects = new ArrayList<>();
         List<String> groupBys = new ArrayList<>();
 
@@ -522,8 +522,8 @@ public class MetricQueryService {
 
     private String buildFactSubquery(QueryContext context, DataModel factModel, List<Metric> metrics) {
         StringBuilder joins = new StringBuilder();
-        Map<Long, String> dimensionAlias = new HashMap<>();
-        Map<Long, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
+        Map<String, String> dimensionAlias = new HashMap<>();
+        Map<String, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
         List<String> selects = new ArrayList<>();
         List<String> groupBys = new ArrayList<>();
 
@@ -580,8 +580,8 @@ public class MetricQueryService {
     private String buildWhere(
         QueryContext context,
         DataModel factModel,
-        Map<Long, String> dimensionJoin,
-        Map<Long, String> dimensionAlias,
+        Map<String, String> dimensionJoin,
+        Map<String, String> dimensionAlias,
         StringBuilder joins
     ) {
         List<String> parts = new ArrayList<>();
@@ -608,8 +608,8 @@ public class MetricQueryService {
     private String buildScopePredicate(
         QueryContext context,
         DataModel factModel,
-        Map<Long, String> dimensionJoin,
-        Map<Long, String> dimensionAlias,
+        Map<String, String> dimensionJoin,
+        Map<String, String> dimensionAlias,
         StringBuilder joins
     ) {
         if (context.dataScopes == null || context.dataScopes.isEmpty()) {
@@ -617,7 +617,7 @@ public class MetricQueryService {
         }
         List<String> groupPredicates = new ArrayList<>();
         for (ScopedDimension scope : context.dataScopes) {
-            Long dimensionModelId = scope.getDimensionModelId();
+            String dimensionModelId = scope.getDimensionModelId();
             String factFieldName = dimensionJoin.get(dimensionModelId);
             if (factFieldName == null) {
                 if ("DENY".equalsIgnoreCase(missingDimensionPolicy)) {
@@ -652,8 +652,8 @@ public class MetricQueryService {
 
     private String buildConditionPredicate(
         QueryContext context,
-        Map<Long, String> dimensionJoin,
-        Map<Long, String> dimensionAlias,
+        Map<String, String> dimensionJoin,
+        Map<String, String> dimensionAlias,
         StringBuilder joins
     ) {
         StringBuilder predicate = new StringBuilder();
@@ -728,7 +728,7 @@ public class MetricQueryService {
         }
     }
 
-    private List<String> primaryKeyFields(Long dimensionModelId) {
+    private List<String> primaryKeyFields(String dimensionModelId) {
         List<String> keys = new ArrayList<>();
         for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId)) {
             if (Boolean.TRUE.equals(field.getIsPrimaryKey())) {
@@ -743,7 +743,7 @@ public class MetricQueryService {
      * 层级维度取末级名称字段，其余优先业务名称字段（{@code *_name} / {@code name}）。
      */
     private String resolveDisplayField(DataModel dimensionModel) {
-        Long dimensionModelId = dimensionModel.getId();
+        String dimensionModelId = dimensionModel.getId();
         List<ModelField> fields = modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId);
         String configured = dimensionModel.getDisplayFieldName();
         if (configured != null && !configured.isBlank() && fields.stream().anyMatch(field -> configured.equals(field.getFieldName()))) {
@@ -784,7 +784,7 @@ public class MetricQueryService {
         return upper.contains("CHAR") || upper.contains("TEXT") || upper.contains("STRING");
     }
 
-    private String levelFieldName(Long dimensionModelId, int level, String role) {
+    private String levelFieldName(String dimensionModelId, int level, String role) {
         for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId)) {
             if (role.equalsIgnoreCase(field.getFieldRole()) && field.getLevelIndex() != null && field.getLevelIndex() == level) {
                 return field.getFieldName();
@@ -839,8 +839,8 @@ public class MetricQueryService {
         return byCode;
     }
 
-    private Map<Long, String> dimensionJoinMap(Long factModelId) {
-        Map<Long, String> map = new HashMap<>();
+    private Map<String, String> dimensionJoinMap(String factModelId) {
+        Map<String, String> map = new HashMap<>();
         for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModelId)) {
             if (field.getDimensionModelId() != null) {
                 map.putIfAbsent(field.getDimensionModelId(), field.getFieldName());
@@ -896,13 +896,13 @@ public class MetricQueryService {
     /**
      * 判断维度是否为事实表时间字段所关联的日期/时间维度（用于按年/月/周等时间分组）。
      */
-    private boolean isTimeDimension(QueryContext context, Long dimensionModelId) {
+    private boolean isTimeDimension(QueryContext context, String dimensionModelId) {
         for (DataModel factModel : context.factModels) {
             String timeField = factModel.getTimeFieldName();
             if (timeField == null || timeField.isBlank()) {
                 continue;
             }
-            Map<Long, String> joinMap = context.factDimensionMaps.get(factModel.getId());
+            Map<String, String> joinMap = context.factDimensionMaps.get(factModel.getId());
             String joinField = joinMap == null ? null : joinMap.get(dimensionModelId);
             if (timeField.equalsIgnoreCase(joinField)) {
                 return true;
@@ -911,14 +911,14 @@ public class MetricQueryService {
         return false;
     }
 
-    private List<Long> commonDimensions(List<DataModel> factModels) {
+    private List<String> commonDimensions(List<DataModel> factModels) {
         if (factModels.isEmpty()) {
             return List.of();
         }
-        List<Long> common = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
+        List<String> common = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModels.get(0).getId())) {
-            Long dimensionModelId = field.getDimensionModelId();
+            String dimensionModelId = field.getDimensionModelId();
             if (dimensionModelId == null || !seen.add(dimensionModelId)) {
                 continue;
             }
@@ -979,8 +979,8 @@ public class MetricQueryService {
      */
     private Function<Metric, String> filterPredicateProvider(
         DataModel factModel,
-        Map<Long, String> dimensionJoin,
-        Map<Long, String> dimensionAlias,
+        Map<String, String> dimensionJoin,
+        Map<String, String> dimensionAlias,
         StringBuilder joins
     ) {
         boolean supported = supportsAggregateFilter(factModel);
@@ -1023,8 +1023,8 @@ public class MetricQueryService {
     private String metricFilterPredicate(
         Metric metric,
         DataModel factModel,
-        Map<Long, String> dimensionJoin,
-        Map<Long, String> dimensionAlias,
+        Map<String, String> dimensionJoin,
+        Map<String, String> dimensionAlias,
         StringBuilder joins
     ) {
         MetricFilterConfig config = parseFilterConfig(metric.getFilterConfig());
@@ -1041,7 +1041,7 @@ public class MetricQueryService {
                     condition.getDimensionFieldName() != null &&
                     !condition.getDimensionFieldName().isBlank());
             if (dimensionScoped) {
-                Long dimensionModelId = condition.getDimensionModelId();
+                String dimensionModelId = condition.getDimensionModelId();
                 if (dimensionModelId == null) {
                     throw new IllegalArgumentException("指标业务限定的维度条件缺少关联维度：" + metric.getCode());
                 }
@@ -1136,7 +1136,7 @@ public class MetricQueryService {
         return -1;
     }
 
-    private String ensureDimensionJoin(String factFieldName, Long dimensionModelId, Map<Long, String> dimensionAlias, StringBuilder joins) {
+    private String ensureDimensionJoin(String factFieldName, String dimensionModelId, Map<String, String> dimensionAlias, StringBuilder joins) {
         String existing = dimensionAlias.get(dimensionModelId);
         if (existing != null) {
             return existing;
@@ -1245,14 +1245,14 @@ public class MetricQueryService {
         return String.join(".", parts);
     }
 
-    private Long resolveFactModelId(Metric metric, Map<String, Metric> byCode) {
+    private String resolveFactModelId(Metric metric, Map<String, Metric> byCode) {
         if (Metric.TYPE_ATOMIC.equals(metric.getMetricType())) {
             if (metric.getFactModelId() == null) {
                 throw new IllegalArgumentException("原子指标未绑定事实表：" + metric.getName());
             }
             return metric.getFactModelId();
         }
-        Set<Long> factModelIds = new LinkedHashSet<>();
+        Set<String> factModelIds = new LinkedHashSet<>();
         collectFactModelIds(metric, byCode, factModelIds, new HashSet<>());
         if (factModelIds.isEmpty()) {
             throw new IllegalArgumentException("无法确定衍生指标的事实表：" + metric.getName());
@@ -1263,7 +1263,7 @@ public class MetricQueryService {
         return factModelIds.iterator().next();
     }
 
-    private void collectFactModelIds(Metric metric, Map<String, Metric> byCode, Set<Long> out, Set<String> visited) {
+    private void collectFactModelIds(Metric metric, Map<String, Metric> byCode, Set<String> out, Set<String> visited) {
         if (metric == null || !visited.add(metric.getCode())) {
             return;
         }
@@ -1297,10 +1297,10 @@ public class MetricQueryService {
         Map<String, Metric> byCode;
         List<DataModel> factModels;
         boolean single;
-        Map<Long, Long> metricFactModel = new LinkedHashMap<>();
-        Map<Long, List<ModelField>> factFields = new HashMap<>();
-        Map<Long, Map<Long, String>> factDimensionMaps = new HashMap<>();
-        List<Long> commonDimensionModelIds = new ArrayList<>();
+        Map<String, String> metricFactModel = new LinkedHashMap<>();
+        Map<String, List<ModelField>> factFields = new HashMap<>();
+        Map<String, Map<String, String>> factDimensionMaps = new HashMap<>();
+        List<String> commonDimensionModelIds = new ArrayList<>();
         List<DimSelection> dimensions = new ArrayList<>();
         List<MetricFilterCondition> conditions = new ArrayList<>();
         List<ScopedDimension> dataScopes = new ArrayList<>();
@@ -1310,7 +1310,7 @@ public class MetricQueryService {
     /** 维度选择：维度模型 + 分组键字段 + 展示字段。 */
     private static class DimSelection {
 
-        Long dimensionModelId;
+        String dimensionModelId;
         List<String> groupKeyFields = new ArrayList<>();
         List<String> displayFields;
     }

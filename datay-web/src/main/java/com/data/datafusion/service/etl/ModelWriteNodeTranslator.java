@@ -74,12 +74,7 @@ public class ModelWriteNodeTranslator implements ETLNodeTranslator {
         if (modelIdValue == null) {
             throw new IllegalArgumentException("模型写入组件未选择数据模型");
         }
-        long modelId;
-        try {
-            modelId = Long.parseLong(modelIdValue.trim());
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("数据模型ID不合法: " + modelIdValue);
-        }
+        String modelId = modelIdValue.trim();
         DataModelDTO dataModel = dataModelService.findOne(modelId).orElse(null);
         if (dataModel == null) {
             throw new IllegalArgumentException("数据模型不存在: " + modelIdValue);

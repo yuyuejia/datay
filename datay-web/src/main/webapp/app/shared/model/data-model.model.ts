@@ -1,9 +1,9 @@
 export interface IDataModel {
-  id?: number;
+  id?: string;
   name?: string | null;
   code?: string | null;
   description?: string | null;
-  directoryId?: number | null;
+  directoryId?: string | null;
   modelType?: string | null;
   dimensionKind?: string | null;
   levelCount?: number | null;
@@ -17,7 +17,7 @@ export interface IDataModel {
   isRegistered?: boolean | null;
   project?: string | null;
   tenantId?: string | null;
-  dataSourceId?: number | null;
+  dataSourceId?: string | null;
   schemaName?: string | null;
   tableName?: string | null;
   /** 维度模型的默认显示字段（图表/筛选优先展示，通常为名称字段）。 */
@@ -28,11 +28,11 @@ export interface IDataModel {
 
 export class DataModel implements IDataModel {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public code?: string | null,
     public description?: string | null,
-    public directoryId?: number | null,
+    public directoryId?: string | null,
     public modelType?: string | null,
     public dimensionKind?: string | null,
     public levelCount?: number | null,
@@ -43,7 +43,7 @@ export class DataModel implements IDataModel {
     public isRegistered?: boolean | null,
     public project?: string | null,
     public tenantId?: string | null,
-    public dataSourceId?: number | null,
+    public dataSourceId?: string | null,
     public schemaName?: string | null,
     public tableName?: string | null,
     public displayFieldName?: string | null,

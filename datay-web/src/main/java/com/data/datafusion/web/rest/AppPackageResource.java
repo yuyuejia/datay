@@ -97,7 +97,7 @@ public class AppPackageResource {
 
     /** {@code GET /api/app-packages/:id} : 资产包详情，含完整内容。 */
     @GetMapping("/{id}")
-    public ResponseEntity<AppPackageDTO> getAppPackage(@PathVariable("id") Long id, @RequestParam(value = "includeContent", required = false, defaultValue = "true") boolean includeContent) {
+    public ResponseEntity<AppPackageDTO> getAppPackage(@PathVariable("id") String id, @RequestParam(value = "includeContent", required = false, defaultValue = "true") boolean includeContent) {
         LOG.debug("REST request to get AppPackage : {}", id);
         Optional<AppPackageDTO> dto = appPackageService.findOne(id, includeContent);
         return ResponseUtil.wrapOrNotFound(dto);
@@ -105,7 +105,7 @@ public class AppPackageResource {
 
     /** {@code GET /api/app-packages/:id/content} : 下载资产包 JSON 文件。 */
     @GetMapping("/{id}/content")
-    public ResponseEntity<byte[]> downloadContent(@PathVariable("id") Long id) {
+    public ResponseEntity<byte[]> downloadContent(@PathVariable("id") String id) {
         LOG.debug("REST request to download AppPackage content : {}", id);
         AppPackageDTO dto = appPackageService.findOne(id, true).orElse(null);
         if (dto == null || dto.getContent() == null) {
@@ -153,7 +153,7 @@ public class AppPackageResource {
 
     /** {@code POST /api/app-packages/:id/init} : 用市场上的某个资产包初始化数据应用。 */
     @PostMapping("/{id}/init")
-    public ResponseEntity<AppPackageInitResultDTO> initFromPackage(@PathVariable("id") Long id, @RequestBody(required = false) AppPackageInitRequestDTO request) {
+    public ResponseEntity<AppPackageInitResultDTO> initFromPackage(@PathVariable("id") String id, @RequestBody(required = false) AppPackageInitRequestDTO request) {
         LOG.debug("REST request to initialize app from package {} ", id);
         AppPackageInitRequestDTO payload = request == null ? new AppPackageInitRequestDTO() : request;
         payload.packageId = id;
@@ -166,7 +166,7 @@ public class AppPackageResource {
 
     /** {@code DELETE /api/app-packages/:id} : 删除本租户导出的资产包（系统预制包不可删除）。 */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAppPackage(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteAppPackage(@PathVariable("id") String id) {
         LOG.debug("REST request to delete AppPackage : {}", id);
         try {
             appPackageService.delete(id);

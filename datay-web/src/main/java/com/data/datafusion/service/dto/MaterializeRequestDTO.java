@@ -5,7 +5,7 @@ import java.util.List;
 
 public class MaterializeRequestDTO implements Serializable {
 
-    private Long dataSourceId;
+    private String dataSourceId;
     private String schemaName;
     private String tableName;
     private Boolean overwrite;
@@ -20,11 +20,11 @@ public class MaterializeRequestDTO implements Serializable {
     /** 时间维度预置数据结束日期（yyyy-MM-dd）。 */
     private String dataEnd;
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

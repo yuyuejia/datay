@@ -205,7 +205,7 @@ class DataSyncResourceIT {
     @Transactional
     void createDataSyncWithExistingId() throws Exception {
         // Create the DataSync with an existing ID
-        dataSync.setId(1L);
+        dataSync.setId("1");
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -230,7 +230,7 @@ class DataSyncResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSync.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSync.getId())))
             .andExpect(jsonPath("$.[*].jobName").value(hasItem(DEFAULT_JOB_NAME)))
             .andExpect(jsonPath("$.[*].jobCode").value(hasItem(DEFAULT_JOB_CODE)))
             .andExpect(jsonPath("$.[*].jobDesc").value(hasItem(DEFAULT_JOB_DESC)))
@@ -260,7 +260,7 @@ class DataSyncResourceIT {
             .perform(get(ENTITY_API_URL_ID, dataSync.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(dataSync.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(dataSync.getId()))
             .andExpect(jsonPath("$.jobName").value(DEFAULT_JOB_NAME))
             .andExpect(jsonPath("$.jobCode").value(DEFAULT_JOB_CODE))
             .andExpect(jsonPath("$.jobDesc").value(DEFAULT_JOB_DESC))
@@ -334,7 +334,7 @@ class DataSyncResourceIT {
     @Transactional
     void putNonExistingDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
@@ -356,7 +356,7 @@ class DataSyncResourceIT {
     @Transactional
     void putWithIdMismatchDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
@@ -378,7 +378,7 @@ class DataSyncResourceIT {
     @Transactional
     void putWithMissingIdPathParamDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
@@ -476,7 +476,7 @@ class DataSyncResourceIT {
     @Transactional
     void patchNonExistingDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
@@ -498,7 +498,7 @@ class DataSyncResourceIT {
     @Transactional
     void patchWithIdMismatchDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);
@@ -520,7 +520,7 @@ class DataSyncResourceIT {
     @Transactional
     void patchWithMissingIdPathParamDataSync() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSync.setId(longCount.incrementAndGet());
+        dataSync.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSync
         DataSyncDTO dataSyncDTO = dataSyncMapper.toDto(dataSync);

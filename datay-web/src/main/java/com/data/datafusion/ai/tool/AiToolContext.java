@@ -16,13 +16,13 @@ import java.util.Map;
  */
 public class AiToolContext {
 
-    private final Long dataSourceId;
+    private final String dataSourceId;
     private final DataSourceDTO dataSource;
     private final String userMessage;
     private final AiAssistant assistant;
     private final Map<String, Object> artifacts = new LinkedHashMap<>();
 
-    public AiToolContext(Long dataSourceId, DataSourceDTO dataSource, String userMessage, AiAssistant assistant) {
+    public AiToolContext(String dataSourceId, DataSourceDTO dataSource, String userMessage, AiAssistant assistant) {
         this.dataSourceId = dataSourceId;
         this.dataSource = dataSource;
         this.userMessage = userMessage;
@@ -46,7 +46,7 @@ public class AiToolContext {
         return artifacts;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 

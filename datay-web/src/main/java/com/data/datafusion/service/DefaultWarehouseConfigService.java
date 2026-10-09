@@ -30,7 +30,7 @@ public class DefaultWarehouseConfigService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Long> getDefaultDataSourceId() {
+    public Optional<String> getDefaultDataSourceId() {
         String tenantId = currentTenantId();
         if (tenantId == null) {
             return Optional.empty();
@@ -39,17 +39,10 @@ public class DefaultWarehouseConfigService {
             .findByDfGroupAndDfKeyAndTenantId(CONFIG_GROUP, KEY_DEFAULT_DATASOURCE_ID, tenantId)
             .map(ServiceConfig::getDfValue)
             .filter(value -> value != null && !value.isBlank())
-            .map(value -> {
-                try {
-                    return Long.valueOf(value.trim());
-                } catch (NumberFormatException e) {
-                    LOG.warn("Invalid default data source id in service config: {}", value);
-                    return null;
-                }
-            });
+            .map(String::trim);
     }
 
-    public void setDefaultDataSourceId(Long dataSourceId) {
+    public void setDefaultDataSourceId(String dataSourceId) {
         String tenantId = currentTenantId();
         LOG.debug("Request to set default data source id : {} for tenant : {}", dataSourceId, tenantId);
         Optional<ServiceConfig> existing = tenantId == null
@@ -64,7 +57,7 @@ public class DefaultWarehouseConfigService {
             serviceConfig.setDfKey(KEY_DEFAULT_DATASOURCE_ID);
             serviceConfig.setCreateTime(ZonedDateTime.now());
         }
-        serviceConfig.setDfValue(String.valueOf(dataSourceId));
+        serviceConfig.setDfValue(dataSourceId);
         serviceConfig.setTenantId(tenantId);
         serviceConfigRepository.save(serviceConfig);
     }

@@ -49,7 +49,7 @@ import type { DashboardSpec, FilterValues } from "@/shared/dashboard/types";
 import { useDashboardData } from "@/shared/dashboard/useDashboardData";
 
 const service = new DashboardService();
-const dashboardId = ref<number | undefined>();
+const dashboardId = ref<string | undefined>();
 const dashboardName = ref("");
 const spec = ref<DashboardSpec | undefined>();
 const filterValues = ref<FilterValues>({});
@@ -80,7 +80,7 @@ const resolveDashboard = async () => {
   const idParam = params.get("id");
   const code = params.get("code");
   if (idParam) {
-    dashboardId.value = Number(idParam);
+    dashboardId.value = idParam;
     return service.get(dashboardId.value);
   }
   if (code) {

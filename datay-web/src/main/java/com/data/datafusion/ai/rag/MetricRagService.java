@@ -115,7 +115,7 @@ public class MetricRagService {
         float[] queryVector = embeddingClient.embed(query);
         String vector = toVectorString(queryVector);
         String tenantId = currentTenantId();
-        List<Long> dimensionIds = resolveDimensionIds(dimensionModelCodes);
+        List<String> dimensionIds = resolveDimensionIds(dimensionModelCodes);
 
         result.put("enabled", true);
         result.put("provider", embeddingClient.provider());
@@ -413,7 +413,7 @@ public class MetricRagService {
         return queryScored(sql, vector, tenantId, null, limit, new String[] { "code", "name" });
     }
 
-    private List<Map<String, Object>> searchDimensionFields(String vector, String tenantId, int limit, List<Long> dimensionIds) {
+    private List<Map<String, Object>> searchDimensionFields(String vector, String tenantId, int limit, List<String> dimensionIds) {
         String sql =
             "SELECT dimension_model_id, dimension_code, dimension_name, field_name, field_desc, hierarchy, " +
             "list_cosine_similarity(embedding::FLOAT[], ?::FLOAT[]) AS score FROM " +
@@ -430,7 +430,7 @@ public class MetricRagService {
         );
     }
 
-    private List<Map<String, Object>> searchMembers(String vector, String tenantId, int limit, List<Long> dimensionIds) {
+    private List<Map<String, Object>> searchMembers(String vector, String tenantId, int limit, List<String> dimensionIds) {
         String sql =
             "SELECT dimension_model_id, dimension_code, field_name, member_value, " +
             "list_cosine_similarity(embedding::FLOAT[], ?::FLOAT[]) AS score FROM " +
@@ -451,7 +451,7 @@ public class MetricRagService {
         String sql,
         String vector,
         String tenantId,
-        List<Long> dimensionIds,
+        List<String> dimensionIds,
         int limit,
         String[] columns
     ) {
@@ -463,7 +463,7 @@ public class MetricRagService {
                 ps.setString(index++, tenantId);
             }
             if (dimensionIds != null && !dimensionIds.isEmpty()) {
-                for (Long id : dimensionIds) {
+                for (String id : dimensionIds) {
                     ps.setObject(index++, id);
                 }
             }
@@ -492,7 +492,7 @@ public class MetricRagService {
         String sql,
         String vector,
         String tenantId,
-        List<Long> dimensionIds,
+        List<String> dimensionIds,
         int limit,
         String[] columns
     ) {
@@ -521,23 +521,23 @@ public class MetricRagService {
         return scored.size() > limit ? new ArrayList<>(scored.subList(0, limit)) : scored;
     }
 
-    private static void bindTenantAndDimensions(PreparedStatement ps, String tenantId, List<Long> dimensionIds) throws SQLException {
+    private static void bindTenantAndDimensions(PreparedStatement ps, String tenantId, List<String> dimensionIds) throws SQLException {
         int index = 1;
         if (tenantId != null) {
             ps.setString(index++, tenantId);
         }
         if (dimensionIds != null && !dimensionIds.isEmpty()) {
-            for (Long id : dimensionIds) {
+            for (String id : dimensionIds) {
                 ps.setObject(index++, id);
             }
         }
     }
 
-    private List<Long> resolveDimensionIds(List<String> dimensionModelCodes) {
+    private List<String> resolveDimensionIds(List<String> dimensionModelCodes) {
         if (dimensionModelCodes == null || dimensionModelCodes.isEmpty()) {
             return List.of();
         }
-        List<Long> ids = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
         for (String code : dimensionModelCodes) {
             if (code == null || code.isBlank()) {
                 continue;
@@ -551,7 +551,7 @@ public class MetricRagService {
         return tenantId == null ? " WHERE tenant_id IS NULL" : " WHERE tenant_id = ?";
     }
 
-    private static String tenantAndDimensions(String tenantId, List<Long> dimensionIds) {
+    private static String tenantAndDimensions(String tenantId, List<String> dimensionIds) {
         StringBuilder sb = new StringBuilder(tenantWhere(tenantId));
         if (dimensionIds != null && !dimensionIds.isEmpty()) {
             sb.append(" AND dimension_model_id IN (");

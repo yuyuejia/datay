@@ -63,7 +63,7 @@ public class SqlPreviewTool implements AiTool {
         props.put("limit", limit);
 
         Map<String, Object> dataSourceId = new LinkedHashMap<>();
-        dataSourceId.put("type", "integer");
+        dataSourceId.put("type", "string");
         dataSourceId.put("description", "目标数据源 id，可选；缺省使用当前会话数据源。可用 list_data_sources 获取");
         props.put("dataSourceId", dataSourceId);
 
@@ -124,7 +124,7 @@ public class SqlPreviewTool implements AiTool {
         Object raw = arguments.get("dataSourceId");
         if (raw != null && !String.valueOf(raw).isBlank()) {
             try {
-                Long id = Long.parseLong(String.valueOf(raw).trim());
+                String id = String.valueOf(raw).trim();
                 return dataSourceService.findOne(id).orElse(null);
             } catch (NumberFormatException ignored) {
                 // 非法 id 时回退到会话数据源

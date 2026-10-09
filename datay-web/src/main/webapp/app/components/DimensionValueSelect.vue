@@ -63,7 +63,7 @@ import DimensionValueService from "@/shared/service/dimension-value.service";
 const props = withDefaults(
   defineProps<{
     modelValue?: string | string[];
-    dimensionModelId?: number | string;
+    dimensionModelId?: string;
     fieldName?: string;
     multiple?: boolean;
     placeholder?: string;

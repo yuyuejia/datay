@@ -99,7 +99,7 @@ public class MetricService {
         return enrich(findOne(entity.getId()).orElseThrow());
     }
 
-    public Optional<MetricDTO> update(Long id, MetricDTO dto) {
+    public Optional<MetricDTO> update(String id, MetricDTO dto) {
         LOG.debug("Request to update Metric : {}, {}", id, dto);
         validate(dto);
         ensureCodeUnique(dto.getCode(), id);
@@ -129,7 +129,7 @@ public class MetricService {
     }
 
     @Transactional(readOnly = true)
-    public List<MetricDTO> findByDirectoryId(Long directoryId) {
+    public List<MetricDTO> findByDirectoryId(String directoryId) {
         LOG.debug("Request to get Metrics by directoryId : {}", directoryId);
         return metricRepository.findByDirectoryId(directoryId).stream()
             .map(metricMapper::toDto)
@@ -147,7 +147,7 @@ public class MetricService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<MetricDTO> findOne(Long id) {
+    public Optional<MetricDTO> findOne(String id) {
         LOG.debug("Request to get Metric : {}", id);
         return metricRepository.findById(id).map(metricMapper::toDto).map(this::enrich);
     }
@@ -158,7 +158,7 @@ public class MetricService {
         return metricRepository.findAll().stream().map(metricMapper::toDto).map(this::enrich).collect(Collectors.toList());
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete Metric : {}", id);
         Optional<Metric> target = metricRepository.findById(id);
         if (target.isPresent()) {
@@ -389,15 +389,15 @@ public class MetricService {
     /**
      * 根据计算公式解析引用关系，判断新增引用后是否会形成循环依赖。
      */
-    boolean wouldCreateCycle(Long metricId, String formula, Map<String, Metric> byCode) {
-        Map<Long, Set<Long>> adjacency = new HashMap<>();
+    boolean wouldCreateCycle(String metricId, String formula, Map<String, Metric> byCode) {
+        Map<String, Set<String>> adjacency = new HashMap<>();
         for (Metric metric : byCode.values()) {
             if (!Metric.TYPE_DERIVED.equals(metric.getMetricType()) || metricId.equals(metric.getId())) {
                 continue;
             }
             adjacency.put(metric.getId(), resolveRefIds(metric.getFormula(), byCode));
         }
-        for (Long refId : resolveRefIds(formula, byCode)) {
+        for (String refId : resolveRefIds(formula, byCode)) {
             if (reaches(refId, metricId, adjacency, new HashSet<>())) {
                 return true;
             }
@@ -405,8 +405,8 @@ public class MetricService {
         return false;
     }
 
-    private Set<Long> resolveRefIds(String formula, Map<String, Metric> byCode) {
-        Set<Long> ids = new HashSet<>();
+    private Set<String> resolveRefIds(String formula, Map<String, Metric> byCode) {
+        Set<String> ids = new HashSet<>();
         for (String code : parseFormulaRefs(formula)) {
             Metric metric = byCode.get(code);
             if (metric != null) {
@@ -416,7 +416,7 @@ public class MetricService {
         return ids;
     }
 
-    private boolean reaches(Long current, Long target, Map<Long, Set<Long>> adjacency, Set<Long> visited) {
+    private boolean reaches(String current, String target, Map<String, Set<String>> adjacency, Set<String> visited) {
         if (current == null) {
             return false;
         }
@@ -426,11 +426,11 @@ public class MetricService {
         if (!visited.add(current)) {
             return false;
         }
-        Set<Long> next = adjacency.get(current);
+        Set<String> next = adjacency.get(current);
         if (next == null) {
             return false;
         }
-        for (Long node : next) {
+        for (String node : next) {
             if (reaches(node, target, adjacency, visited)) {
                 return true;
             }
@@ -438,7 +438,7 @@ public class MetricService {
         return false;
     }
 
-    private void ensureCodeUnique(String code, Long excludeId) {
+    private void ensureCodeUnique(String code, String excludeId) {
         Optional<Metric> conflict = excludeId == null ? metricRepository.findByCode(code) : metricRepository.findByCodeAndIdNot(code, excludeId);
         if (conflict.isPresent()) {
             throw new IllegalArgumentException("指标编码已存在：" + code);

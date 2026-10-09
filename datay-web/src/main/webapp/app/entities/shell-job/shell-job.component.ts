@@ -94,7 +94,7 @@ export default defineComponent({
       await retrieveShellJobs();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IJob) => {
       removeId.value = instance.id;

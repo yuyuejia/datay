@@ -1,10 +1,10 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.io.Serializable;
@@ -39,9 +39,9 @@ public class DataApi implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "name")
     private String name;
@@ -52,8 +52,8 @@ public class DataApi implements Serializable, TenantAware {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "data_source_id")
-    private Long dataSourceId;
+    @Column(name = "data_source_id", length = 36)
+    private String dataSourceId;
 
     @Column(name = "source_type")
     private String sourceType;
@@ -82,16 +82,16 @@ public class DataApi implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public DataApi id(Long id) {
+    public DataApi id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -134,16 +134,16 @@ public class DataApi implements Serializable, TenantAware {
         this.description = description;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return this.dataSourceId;
     }
 
-    public DataApi dataSourceId(Long dataSourceId) {
+    public DataApi dataSourceId(String dataSourceId) {
         this.setDataSourceId(dataSourceId);
         return this;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

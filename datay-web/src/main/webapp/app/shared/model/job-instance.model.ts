@@ -1,5 +1,5 @@
 export interface IJobInstance {
-  id?: number;
+  id?: string;
   instanceCode?: string | null;
   jobName?: string | null;
   jobCode?: string | null;
@@ -18,7 +18,7 @@ export interface IJobInstance {
 
 export class JobInstance implements IJobInstance {
   constructor(
-    public id?: number,
+    public id?: string,
     public instanceCode?: string | null,
     public jobName?: string | null,
     public jobCode?: string | null,

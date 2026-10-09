@@ -72,7 +72,7 @@ public class DataApiResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DataApiDTO> updateDataApi(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataApiDTO dataApiDTO
     ) {
         LOG.debug("REST request to update DataApi : {}, {}", id, dataApiDTO);
@@ -112,7 +112,7 @@ public class DataApiResource {
      * {@code GET  /api/data-apis/:id} : get the "id" dataApi.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DataApiDTO> getDataApi(@PathVariable("id") Long id) {
+    public ResponseEntity<DataApiDTO> getDataApi(@PathVariable("id") String id) {
         LOG.debug("REST request to get DataApi : {}", id);
         Optional<DataApiDTO> dataApiDTO = dataApiService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataApiDTO);
@@ -122,7 +122,7 @@ public class DataApiResource {
      * {@code DELETE  /api/data-apis/:id} : delete the "id" dataApi.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataApi(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDataApi(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataApi : {}", id);
         dataApiService.delete(id);
         return ResponseEntity.noContent()

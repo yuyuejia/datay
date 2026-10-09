@@ -10,7 +10,7 @@ const dataSourceApiUrl = "api/data-sources";
  * Payload persisted inside {@link IJob.jobContext} for a SQL task.
  */
 export interface ISqlTaskConfig {
-  dataSourceId?: number | null;
+  dataSourceId?: string | null;
   schema?: string | null;
   sql?: string | null;
 }
@@ -42,7 +42,7 @@ export default class SqlJobService {
     return this.retrieve({ ...paginationQuery, type: "SQL" });
   }
 
-  find(id: number): Promise<IJob> {
+  find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -81,7 +81,7 @@ export default class SqlJobService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -94,7 +94,7 @@ export default class SqlJobService {
     });
   }
 
-  run(id: number): Promise<any> {
+  run(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
@@ -107,7 +107,7 @@ export default class SqlJobService {
     });
   }
 
-  online(id: number): Promise<IJob> {
+  online(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`)
@@ -120,7 +120,7 @@ export default class SqlJobService {
     });
   }
 
-  offline(id: number): Promise<IJob> {
+  offline(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)
@@ -134,7 +134,7 @@ export default class SqlJobService {
   }
 
   /** Debug run: execute the given SQL against a data source without saving a job. */
-  debugQuery(dataSourceId: number, sql: string): Promise<any> {
+  debugQuery(dataSourceId: string, sql: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${dataSourceApiUrl}/${dataSourceId}/query`, { sql })

@@ -70,8 +70,8 @@ export default defineComponent({
     const errorMessage = ref('');
     const conflictStrategy = ref<'RENAME' | 'SKIP' | 'OVERWRITE'>('OVERWRITE');
     const onlineJobs = ref(false);
-    const dataSourceMapping = reactive<Record<string, number | null>>({});
-    const dataSourceOptions = ref<Array<{ id: number; label: string }>>([]);
+    const dataSourceMapping = reactive<Record<string, string | null>>({});
+    const dataSourceOptions = ref<Array<{ id: string; label: string }>>([]);
     const result = ref<IAppPackageInitResult | null>(null);
 
     const parsed = computed(() => parsePackageContent(props.content ?? props.pkg?.content));
@@ -122,8 +122,8 @@ export default defineComponent({
       }
     );
 
-    const collectMapping = (): Record<string, number> => {
-      const mapping: Record<string, number> = {};
+    const collectMapping = (): Record<string, string> => {
+      const mapping: Record<string, string> = {};
       Object.entries(dataSourceMapping).forEach(([key, value]) => {
         if (value != null) {
           mapping[key] = value;

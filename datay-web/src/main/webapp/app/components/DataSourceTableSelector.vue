@@ -87,7 +87,7 @@ const MAX_TABLES = 1000;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const props = defineProps<{
-  dataSourceId: number | null;
+  dataSourceId: string | null;
   schema: string | null;
   selectedTables: any[];
   selectedTable: string | null;

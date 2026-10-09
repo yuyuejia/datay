@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface JobInstanceRepository extends JpaRepository<JobInstance, Long> {
+public interface JobInstanceRepository extends JpaRepository<JobInstance, String> {
     @Query(
         value = "SELECT i.* FROM dp_job_instance i where i.status = :status  and i.job_code = :parentJobCode order by i.end_time DESC limit 1",
         nativeQuery = true

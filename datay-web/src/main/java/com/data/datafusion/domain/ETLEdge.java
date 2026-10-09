@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -17,9 +19,9 @@ public class ETLEdge implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "task_id")
     private String taskId;
@@ -50,16 +52,16 @@ public class ETLEdge implements Serializable, TenantAware {
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public ETLEdge id(Long id) {
+    public ETLEdge id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

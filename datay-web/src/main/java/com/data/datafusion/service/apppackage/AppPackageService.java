@@ -124,7 +124,7 @@ public class AppPackageService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<AppPackageDTO> findOne(Long id, boolean includeContent) {
+    public Optional<AppPackageDTO> findOne(String id, boolean includeContent) {
         return appPackageRepository.findById(id).filter(this::isVisible).map(entity -> toDto(entity, includeContent));
     }
 
@@ -270,7 +270,7 @@ public class AppPackageService {
         }
         validateContent(content);
 
-        Long packageId = entity == null ? null : entity.getId();
+        String packageId = entity == null ? null : entity.getId();
         String packageCode = entity == null ? content.getMeta().getCode() : entity.getCode();
         String packageName = entity == null ? content.getMeta().getName() : entity.getName();
         try {
@@ -300,7 +300,7 @@ public class AppPackageService {
     // ------------------------------------------------------------------ 删除
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(String id) {
         AppPackage entity = appPackageRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("资产包不存在：" + id));
         if (entity.isSystemPackage()) {
             throw new IllegalArgumentException("系统预制资产包不允许删除");

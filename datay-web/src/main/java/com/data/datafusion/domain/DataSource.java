@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import com.data.datafusion.config.StringMapConverter;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
@@ -20,9 +22,9 @@ public class DataSource implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "name")
     private String name;
@@ -72,16 +74,16 @@ public class DataSource implements Serializable, TenantAware {
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public DataSource id(Long id) {
+    public DataSource id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

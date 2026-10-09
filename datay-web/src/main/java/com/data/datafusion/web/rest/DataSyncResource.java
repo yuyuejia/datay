@@ -88,7 +88,7 @@ public class DataSyncResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DataSyncDTO> updateDataSync(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSyncDTO dataSyncDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update DataSync : {}, {}", id, dataSyncDTO);
@@ -123,7 +123,7 @@ public class DataSyncResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<DataSyncDTO> partialUpdateDataSync(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSyncDTO dataSyncDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update DataSync partially : {}, {}", id, dataSyncDTO);
@@ -167,7 +167,7 @@ public class DataSyncResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the dataSyncDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DataSyncDTO> getDataSync(@PathVariable("id") Long id) {
+    public ResponseEntity<DataSyncDTO> getDataSync(@PathVariable("id") String id) {
         LOG.debug("REST request to get DataSync : {}", id);
         Optional<DataSyncDTO> dataSyncDTO = dataSyncService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataSyncDTO);
@@ -180,7 +180,7 @@ public class DataSyncResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataSync(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDataSync(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataSync : {}", id);
         dataSyncService.delete(id);
         return ResponseEntity.noContent()
@@ -195,7 +195,7 @@ public class DataSyncResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
      */
     @PostMapping("/{id}/execute")
-    public ResponseEntity<Void> executeDataSync(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> executeDataSync(@PathVariable("id") String id) {
         LOG.debug("REST request to execute DataSync immediately : {}", id);
         dataSyncService.executeDataSyncNow(id);
         return ResponseEntity.ok().build();
@@ -210,7 +210,7 @@ public class DataSyncResource {
      */
     @GetMapping("/{id}/instances")
     public ResponseEntity<List<JobInstanceDTO>> getDataSyncInstances(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get instances for DataSync : {}", id);

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface AppPackageRepository extends JpaRepository<AppPackage, Long>, JpaSpecificationExecutor<AppPackage> {
+public interface AppPackageRepository extends JpaRepository<AppPackage, String>, JpaSpecificationExecutor<AppPackage> {
     Optional<AppPackage> findByCodeAndPackageType(String code, String packageType);
 
     Optional<AppPackage> findByCodeAndPackageTypeAndTenantId(String code, String packageType, String tenantId);

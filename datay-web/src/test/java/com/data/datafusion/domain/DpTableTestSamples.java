@@ -11,7 +11,7 @@ public class DpTableTestSamples {
 
     public static DpTable getDpTableSample1() {
         return new DpTable()
-            .id(1L)
+            .id("1")
             .name("name1")
             .schemaName("schemaName1")
             .description("description1")
@@ -27,7 +27,7 @@ public class DpTableTestSamples {
 
     public static DpTable getDpTableSample2() {
         return new DpTable()
-            .id(2L)
+            .id("2")
             .name("name2")
             .schemaName("schemaName2")
             .description("description2")
@@ -43,7 +43,7 @@ public class DpTableTestSamples {
 
     public static DpTable getDpTableRandomSampleGenerator() {
         return new DpTable()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .name(UUID.randomUUID().toString())
             .schemaName(UUID.randomUUID().toString())
             .description(UUID.randomUUID().toString())

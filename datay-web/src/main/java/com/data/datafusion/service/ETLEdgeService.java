@@ -95,7 +95,7 @@ public class ETLEdgeService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<ETLEdgeDTO> findOne(Long id) {
+    public Optional<ETLEdgeDTO> findOne(String id) {
         LOG.debug("Request to get ETLEdge : {}", id);
         return eTLEdgeRepository.findById(id).map(eTLEdgeMapper::toDto);
     }
@@ -105,7 +105,7 @@ public class ETLEdgeService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ETLEdge : {}", id);
         eTLEdgeRepository.deleteById(id);
     }

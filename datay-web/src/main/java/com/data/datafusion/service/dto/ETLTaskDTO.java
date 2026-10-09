@@ -12,13 +12,13 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class ETLTaskDTO implements Serializable {
 
-    private Long id;
+    private String id;
 
     private String taskName;
 
     private String taskCode;
 
-    private Long jobId;
+    private String jobId;
 
     private String taskDesc;
 
@@ -50,11 +50,11 @@ public class ETLTaskDTO implements Serializable {
 
     private List<ETLEdgeDTO> edges;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -74,11 +74,11 @@ public class ETLTaskDTO implements Serializable {
         this.taskCode = taskCode;
     }
 
-    public Long getJobId() {
+    public String getJobId() {
         return jobId;
     }
 
-    public void setJobId(Long jobId) {
+    public void setJobId(String jobId) {
         this.jobId = jobId;
     }
 

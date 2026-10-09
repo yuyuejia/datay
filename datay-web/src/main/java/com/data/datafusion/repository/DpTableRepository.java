@@ -9,4 +9,4 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface DpTableRepository extends JpaRepository<DpTable, Long> {}
+public interface DpTableRepository extends JpaRepository<DpTable, String> {}

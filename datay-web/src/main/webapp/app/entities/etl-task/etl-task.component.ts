@@ -186,7 +186,7 @@ export default defineComponent({
       currentLogInstance.value = null;
     };
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IETLTask) => {
       removeId.value = instance.id;
@@ -208,7 +208,7 @@ export default defineComponent({
       }
     };
 
-    const runETLTask = async (id: number) => {
+    const runETLTask = async (id: string) => {
       try {
         await eTLTaskService().run(id);
         const message = 'ETL Task has been triggered to run once';
@@ -218,7 +218,7 @@ export default defineComponent({
       }
     };
 
-    const onlineETLTask = async (id: number) => {
+    const onlineETLTask = async (id: string) => {
       try {
         await eTLTaskService().online(id);
         const message = 'ETL Task has been set to online';
@@ -229,7 +229,7 @@ export default defineComponent({
       }
     };
 
-    const offlineETLTask = async (id: number) => {
+    const offlineETLTask = async (id: string) => {
       try {
         await eTLTaskService().offline(id);
         const message = 'ETL Task has been set to offline';

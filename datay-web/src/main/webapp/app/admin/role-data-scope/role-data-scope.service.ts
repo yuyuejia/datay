@@ -9,7 +9,7 @@ export default class RoleDataScopeService {
     return axios.get(baseApiUrl, { params: roleName ? { roleName } : {} });
   }
 
-  find(id: number): Promise<any> {
+  find(id: string): Promise<any> {
     return axios.get(`${baseApiUrl}/${id}`);
   }
 
@@ -21,7 +21,7 @@ export default class RoleDataScopeService {
     return axios.put(`${baseApiUrl}/${entity.id}`, entity);
   }
 
-  remove(id: number): Promise<any> {
+  remove(id: string): Promise<any> {
     return axios.delete(`${baseApiUrl}/${id}`);
   }
 
@@ -35,7 +35,7 @@ export default class RoleDataScopeService {
     });
   }
 
-  retrieveDimensionFields(dimensionModelId: number): Promise<any> {
+  retrieveDimensionFields(dimensionModelId: string): Promise<any> {
     return axios.get(`api/data-models/${dimensionModelId}/fields`);
   }
 }

@@ -8,8 +8,8 @@ import org.springframework.stereotype.Repository;
 
 @SuppressWarnings("unused")
 @Repository
-public interface DataModelRepository extends JpaRepository<DataModel, Long> {
-    List<DataModel> findByDirectoryId(Long directoryId);
+public interface DataModelRepository extends JpaRepository<DataModel, String> {
+    List<DataModel> findByDirectoryId(String directoryId);
     List<DataModel> findByModelType(String modelType);
     Optional<DataModel> findFirstByCode(String code);
     Optional<DataModel> findFirstByName(String name);

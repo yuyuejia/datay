@@ -11,7 +11,7 @@ public class JobDependTestSamples {
 
     public static JobDepend getJobDependSample1() {
         return new JobDepend()
-            .id(1L)
+            .id("1")
             .parentJobCode("parentJobCode1")
             .childJobCode("childJobCode1")
             .jobCode("jobCode1")
@@ -21,7 +21,7 @@ public class JobDependTestSamples {
 
     public static JobDepend getJobDependSample2() {
         return new JobDepend()
-            .id(2L)
+            .id("2")
             .parentJobCode("parentJobCode2")
             .childJobCode("childJobCode2")
             .jobCode("jobCode2")
@@ -31,7 +31,7 @@ public class JobDependTestSamples {
 
     public static JobDepend getJobDependRandomSampleGenerator() {
         return new JobDepend()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .parentJobCode(UUID.randomUUID().toString())
             .childJobCode(UUID.randomUUID().toString())
             .jobCode(UUID.randomUUID().toString())

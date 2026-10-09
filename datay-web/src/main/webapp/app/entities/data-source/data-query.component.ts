@@ -78,7 +78,7 @@ export default defineComponent({
     const dataQueryService = inject('dataQueryService', () => new DataQueryService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
-    const dataSourceId = computed(() => Number(route.params.dataSourceId));
+    const dataSourceId = computed(() => (route.params.dataSourceId ? String(route.params.dataSourceId) : ''));
     const dataSourceName = ref('');
     const dataSourceType = ref('');
     const isExecuting = ref(false);

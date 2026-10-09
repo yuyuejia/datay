@@ -10,7 +10,7 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class JobDependDTO implements Serializable {
 
-    private Long id;
+    private String id;
 
     private String parentJobCode;
 
@@ -24,11 +24,11 @@ public class JobDependDTO implements Serializable {
 
     private String tenantId;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

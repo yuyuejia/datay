@@ -11,12 +11,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public class AppPackageDirectory {
 
     /** 包内逻辑 ID。 */
-    public Long oldId;
+    public String oldId;
 
     public String name;
 
     /** 父目录的包内逻辑 ID，根目录为 null。 */
-    public Long parentOldId;
+    public String parentOldId;
 
     public Integer sortOrder;
 }

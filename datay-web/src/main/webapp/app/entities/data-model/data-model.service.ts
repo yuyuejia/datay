@@ -5,7 +5,7 @@ import { type IDataModel } from "@/shared/model/data-model.model";
 const baseApiUrl = "api/data-models";
 
 export default class DataModelService {
-  find(id: number): Promise<IDataModel> {
+  find(id: string): Promise<IDataModel> {
     return new Promise<IDataModel>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -31,7 +31,7 @@ export default class DataModelService {
     });
   }
 
-  retrieveByDirectory(directoryId: number): Promise<any> {
+  retrieveByDirectory(directoryId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/by-directory`, { params: { directoryId } })
@@ -57,7 +57,7 @@ export default class DataModelService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -96,7 +96,7 @@ export default class DataModelService {
     });
   }
 
-  getFields(modelId: number): Promise<any> {
+  getFields(modelId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${modelId}/fields`)
@@ -109,7 +109,7 @@ export default class DataModelService {
     });
   }
 
-  saveFields(modelId: number, fields: any[]): Promise<any> {
+  saveFields(modelId: string, fields: any[]): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${modelId}/fields`, fields)
@@ -122,7 +122,7 @@ export default class DataModelService {
     });
   }
 
-  getMaterializeFields(modelId: number, dataSourceId: number): Promise<any> {
+  getMaterializeFields(modelId: string, dataSourceId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${modelId}/materialize-fields`, {
@@ -137,7 +137,7 @@ export default class DataModelService {
     });
   }
 
-  getSupportedPhysicalTypes(dataSourceId: number): Promise<any> {
+  getSupportedPhysicalTypes(dataSourceId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/materialize-types`, { params: { dataSourceId } })
@@ -163,7 +163,7 @@ export default class DataModelService {
     });
   }
 
-  checkMaterialize(modelId: number, request: any): Promise<any> {
+  checkMaterialize(modelId: string, request: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${modelId}/materialize-check`, request)
@@ -176,7 +176,7 @@ export default class DataModelService {
     });
   }
 
-  generateMaterializeDDL(modelId: number, request: any): Promise<any> {
+  generateMaterializeDDL(modelId: string, request: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${modelId}/materialize-ddl`, request)
@@ -189,7 +189,7 @@ export default class DataModelService {
     });
   }
 
-  materialize(modelId: number, request: any): Promise<any> {
+  materialize(modelId: string, request: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${modelId}/materialize`, request)
@@ -202,7 +202,7 @@ export default class DataModelService {
     });
   }
 
-  generateTimeData(modelId: number, request: any): Promise<any> {
+  generateTimeData(modelId: string, request: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${modelId}/generate-time-data`, request)

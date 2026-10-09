@@ -97,7 +97,7 @@ import type { DashboardFilter, DashboardSpec, FilterValues } from "./types";
 const props = defineProps<{
   filters: DashboardFilter[];
   modelValue: FilterValues;
-  dashboardId?: number;
+  dashboardId?: string;
   spec?: DashboardSpec;
 }>();
 

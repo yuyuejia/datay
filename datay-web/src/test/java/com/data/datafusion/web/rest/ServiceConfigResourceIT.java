@@ -150,7 +150,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void createServiceConfigWithExistingId() throws Exception {
         // Create the ServiceConfig with an existing ID
-        serviceConfig.setId(1L);
+        serviceConfig.setId("1");
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -175,7 +175,7 @@ class ServiceConfigResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(serviceConfig.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(serviceConfig.getId())))
             .andExpect(jsonPath("$.[*].dfGroup").value(hasItem(DEFAULT_DF_GROUP)))
             .andExpect(jsonPath("$.[*].dfKey").value(hasItem(DEFAULT_DF_KEY)))
             .andExpect(jsonPath("$.[*].dfValue").value(hasItem(DEFAULT_DF_VALUE)))
@@ -194,7 +194,7 @@ class ServiceConfigResourceIT {
             .perform(get(ENTITY_API_URL_ID, serviceConfig.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(serviceConfig.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(serviceConfig.getId()))
             .andExpect(jsonPath("$.dfGroup").value(DEFAULT_DF_GROUP))
             .andExpect(jsonPath("$.dfKey").value(DEFAULT_DF_KEY))
             .andExpect(jsonPath("$.dfValue").value(DEFAULT_DF_VALUE))
@@ -246,7 +246,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void putNonExistingServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
@@ -268,7 +268,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void putWithIdMismatchServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
@@ -290,7 +290,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void putWithMissingIdPathParamServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
@@ -372,7 +372,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void patchNonExistingServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
@@ -394,7 +394,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void patchWithIdMismatchServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);
@@ -416,7 +416,7 @@ class ServiceConfigResourceIT {
     @Transactional
     void patchWithMissingIdPathParamServiceConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        serviceConfig.setId(longCount.incrementAndGet());
+        serviceConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ServiceConfig
         ServiceConfigDTO serviceConfigDTO = serviceConfigMapper.toDto(serviceConfig);

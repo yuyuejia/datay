@@ -88,7 +88,7 @@ public class DashboardDataService {
      * @return {@code columns} / {@code rows} / {@code affectedRows} / {@code sql}
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> queryDataset(Long dashboardId, String datasetId, Map<String, Object> filterValues) throws SQLException {
+    public Map<String, Object> queryDataset(String dashboardId, String datasetId, Map<String, Object> filterValues) throws SQLException {
         AnalysisDashboard dashboard = dashboardRepository
             .findById(dashboardId)
             .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
@@ -101,7 +101,7 @@ public class DashboardDataService {
      */
     public Map<String, Object> queryDataset(
         Map<String, Object> spec,
-        Long fallbackDataSourceId,
+        String fallbackDataSourceId,
         String datasetId,
         Map<String, Object> filterValues
     ) throws SQLException {
@@ -117,7 +117,7 @@ public class DashboardDataService {
      * 加载筛选器选项：动态维度成员或静态值。
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> loadFilterOptions(Long dashboardId, String filterId, String keyword, Integer limit) {
+    public Map<String, Object> loadFilterOptions(String dashboardId, String filterId, String keyword, Integer limit) {
         AnalysisDashboard dashboard = dashboardRepository
             .findById(dashboardId)
             .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
@@ -269,20 +269,20 @@ public class DashboardDataService {
     // ---------------------------------------------------------------- sql data
 
     private Map<String, Object> querySqlDataset(
-        Long fallbackDataSourceId,
+        String fallbackDataSourceId,
         Map<String, Object> spec,
         Map<String, Object> dataset,
         Map<String, Object> filterValues
     ) throws SQLException {
         String sql = DashboardSqlGuard.requireReadOnly(asString(dataset.get("sql")));
-        Long dataSourceId = asLong(dataset.get("dataSourceId"));
+        String dataSourceId = asString(dataset.get("dataSourceId"));
         if (dataSourceId == null) {
             dataSourceId = fallbackDataSourceId;
         }
         if (dataSourceId == null) {
             throw new IllegalArgumentException("SQL 数据集未绑定数据源");
         }
-        final Long resolvedDataSourceId = dataSourceId;
+        final String resolvedDataSourceId = dataSourceId;
         DataSourceDTO dataSource = dataSourceService
             .findOne(resolvedDataSourceId)
             .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + resolvedDataSourceId));

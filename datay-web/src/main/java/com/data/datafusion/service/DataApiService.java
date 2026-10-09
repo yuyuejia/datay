@@ -64,7 +64,7 @@ public class DataApiService {
      * @param dataApiDTO the entity to update.
      * @return the updated entity, empty if not found.
      */
-    public Optional<DataApiDTO> update(Long id, DataApiDTO dataApiDTO) {
+    public Optional<DataApiDTO> update(String id, DataApiDTO dataApiDTO) {
         LOG.debug("Request to update DataApi : {}, {}", id, dataApiDTO);
         validate(dataApiDTO);
         ensureCodeUnique(dataApiDTO.getCode(), id);
@@ -116,7 +116,7 @@ public class DataApiService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<DataApiDTO> findOne(Long id) {
+    public Optional<DataApiDTO> findOne(String id) {
         LOG.debug("Request to get DataApi : {}", id);
         return dataApiRepository.findById(id).map(dataApiMapper::toDto);
     }
@@ -138,7 +138,7 @@ public class DataApiService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DataApi : {}", id);
         dataApiRepository.deleteById(id);
     }
@@ -179,7 +179,7 @@ public class DataApiService {
         }
     }
 
-    private void ensureCodeUnique(String code, Long excludeId) {
+    private void ensureCodeUnique(String code, String excludeId) {
         Optional<DataApi> conflict = excludeId == null
             ? dataApiRepository.findByCode(code)
             : dataApiRepository.findByCodeAndIdNot(code, excludeId);

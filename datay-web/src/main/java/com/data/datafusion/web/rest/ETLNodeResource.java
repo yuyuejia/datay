@@ -76,7 +76,7 @@ public class ETLNodeResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ETLNodeDTO> updateETLNode(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLNodeDTO eTLNodeDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ETLNode : {}, {}", id, eTLNodeDTO);
@@ -110,7 +110,7 @@ public class ETLNodeResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ETLNodeDTO> partialUpdateETLNode(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLNodeDTO eTLNodeDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ETLNode partially : {}, {}", id, eTLNodeDTO);
@@ -154,7 +154,7 @@ public class ETLNodeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the eTLNodeDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ETLNodeDTO> getETLNode(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLNodeDTO> getETLNode(@PathVariable("id") String id) {
         LOG.debug("REST request to get ETLNode : {}", id);
         Optional<ETLNodeDTO> eTLNodeDTO = eTLNodeService.findOne(id);
         return ResponseUtil.wrapOrNotFound(eTLNodeDTO);
@@ -167,7 +167,7 @@ public class ETLNodeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteETLNode(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteETLNode(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ETLNode : {}", id);
         eTLNodeService.delete(id);
         return ResponseEntity.noContent()

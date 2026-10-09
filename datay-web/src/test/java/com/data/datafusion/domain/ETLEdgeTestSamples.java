@@ -13,7 +13,7 @@ public class ETLEdgeTestSamples {
 
     public static ETLEdge getETLEdgeSample1() {
         return new ETLEdge()
-            .id(1L)
+            .id("1")
             .taskId("taskId1")
             .name("name1")
             .code("code1")
@@ -27,7 +27,7 @@ public class ETLEdgeTestSamples {
 
     public static ETLEdge getETLEdgeSample2() {
         return new ETLEdge()
-            .id(2L)
+            .id("2")
             .taskId("taskId2")
             .name("name2")
             .code("code2")
@@ -41,7 +41,7 @@ public class ETLEdgeTestSamples {
 
     public static ETLEdge getETLEdgeRandomSampleGenerator() {
         return new ETLEdge()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .taskId(UUID.randomUUID().toString())
             .name(UUID.randomUUID().toString())
             .code(UUID.randomUUID().toString())

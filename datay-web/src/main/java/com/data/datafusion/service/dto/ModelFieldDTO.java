@@ -7,8 +7,8 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class ModelFieldDTO implements Serializable {
 
-    private Long id;
-    private Long modelId;
+    private String id;
+    private String modelId;
     private String fieldName;
     private String fieldType;
     private Integer fieldLength;
@@ -18,26 +18,26 @@ public class ModelFieldDTO implements Serializable {
     private Integer sortOrder;
     private Boolean isPartitionKey;
     private Boolean isPrimaryKey;
-    private Long dimensionModelId;
-    private Long dimensionFieldId;
+    private String dimensionModelId;
+    private String dimensionFieldId;
     private String fieldRole;
     private Integer levelIndex;
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
-    public Long getModelId() {
+    public String getModelId() {
         return modelId;
     }
 
-    public void setModelId(Long modelId) {
+    public void setModelId(String modelId) {
         this.modelId = modelId;
     }
 
@@ -113,19 +113,19 @@ public class ModelFieldDTO implements Serializable {
         this.isPrimaryKey = isPrimaryKey;
     }
 
-    public Long getDimensionModelId() {
+    public String getDimensionModelId() {
         return dimensionModelId;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
+    public void setDimensionModelId(String dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
     }
 
-    public Long getDimensionFieldId() {
+    public String getDimensionFieldId() {
         return dimensionFieldId;
     }
 
-    public void setDimensionFieldId(Long dimensionFieldId) {
+    public void setDimensionFieldId(String dimensionFieldId) {
         this.dimensionFieldId = dimensionFieldId;
     }
 

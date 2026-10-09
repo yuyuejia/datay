@@ -150,11 +150,11 @@ public class DataSyncService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<DataSyncDTO> findOne(Long id) {
+    public Optional<DataSyncDTO> findOne(String id) {
         LOG.debug("Request to get DataSync : {}", id);
         Optional<DataSyncDTO> dataSyncDTO = dataSyncRepository.findById(id).map(dataSyncMapper::toDto);
         if (dataSyncDTO.isPresent()) {
-            List<DataSyncTableConfig> dataSyncTableConfigs = dataSyncTableConfigRepository.findAllBySyncTask(id.toString());
+            List<DataSyncTableConfig> dataSyncTableConfigs = dataSyncTableConfigRepository.findAllBySyncTask(id);
             dataSyncDTO.get().setSelectedTables(dataSyncTableConfigMapper.toDto(dataSyncTableConfigs));
         }
         return dataSyncDTO;
@@ -165,15 +165,15 @@ public class DataSyncService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DataSync : {}", id);
         Optional<DataSyncDTO> dataSyncDTO = findOne(id);
         if (dataSyncDTO.isPresent()) {
             dataSyncRepository.deleteById(id);
-            dataSyncTableConfigRepository.deleteAllBySyncTask(id.toString());
+            dataSyncTableConfigRepository.deleteAllBySyncTask(id);
             String jobCode = dataSyncDTO.get().getJobCode();
             if (jobCode != null && !jobCode.isEmpty()) {
-                jobService.delete(Long.valueOf(jobCode));
+                jobService.delete(jobCode);
             }
         }
     }
@@ -195,7 +195,7 @@ public class DataSyncService {
         }
     }
 
-    public void executeDataSyncNow(Long id) {
+    public void executeDataSyncNow(String id) {
         Optional<DataSyncDTO> dataSyncOpt = findOne(id);
         if (!dataSyncOpt.isPresent()) {
             throw new RuntimeException("DataSync not found: " + id);
@@ -210,15 +210,15 @@ public class DataSyncService {
         } else {
             String jobCode = dataSyncDTO.getJobCode();
             if (jobCode != null && !jobCode.isEmpty()) {
-                jobService.findOneJob(Long.valueOf(jobCode)).ifPresent(jobService::executeOnce);
+                jobService.findOneJob(jobCode).ifPresent(jobService::executeOnce);
             }
         }
     }
 
     public void syncTablesDDL(DataSyncDTO dataSyncDTO) throws SQLException {
-        Optional<DataSourceDTO> source = dataSourceService.findOne(Long.valueOf(dataSyncDTO.getSource()));
+        Optional<DataSourceDTO> source = dataSourceService.findOne(dataSyncDTO.getSource());
 
-        Optional<DataSourceDTO> target = dataSourceService.findOne(Long.valueOf(dataSyncDTO.getTarget()));
+        Optional<DataSourceDTO> target = dataSourceService.findOne(dataSyncDTO.getTarget());
         if (source.isPresent() && target.isPresent()) {
             DatasourceInfo sourceInfo = DataSourceQueryService.toDatasourceInfo(source.get());
             DatasourceInfo targetInfo = DataSourceQueryService.toDatasourceInfo(target.get());
@@ -254,7 +254,7 @@ public class DataSyncService {
     public Job saveETLJob(DataSyncDTO dataSyncDTO) {
         Job job = new Job();
         if (dataSyncDTO.getJobCode() != null) {
-            job.setId(Long.valueOf(dataSyncDTO.getJobCode()));
+            job.setId(dataSyncDTO.getJobCode());
         }
         job.setJobName(dataSyncDTO.getJobName());
         job.setType(TaskConstants.TASK_TYPE_ETL);
@@ -273,8 +273,8 @@ public class DataSyncService {
 
     public String generateETLJobJson(DataSyncDTO dataSyncDTO) {
         // 获取源和目标数据源
-        Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(Long.valueOf(dataSyncDTO.getSource()));
-        Optional<DataSourceDTO> targetOptional = dataSourceService.findOne(Long.valueOf(dataSyncDTO.getTarget()));
+        Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(dataSyncDTO.getSource());
+        Optional<DataSourceDTO> targetOptional = dataSourceService.findOne(dataSyncDTO.getTarget());
 
         DataSourceDTO source = sourceOptional.orElse(null);
         DataSourceDTO target = targetOptional.orElse(null);

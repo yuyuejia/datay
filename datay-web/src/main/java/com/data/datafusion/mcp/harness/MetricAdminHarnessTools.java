@@ -18,8 +18,6 @@ import org.springframework.data.domain.PageRequest;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.boolVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.clamp;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.intVal;
-import static com.data.datafusion.mcp.harness.DatayHarnessArgs.longVal;
-import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqLong;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqStr;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.str;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.bool;
@@ -103,8 +101,8 @@ public class MetricAdminHarnessTools {
         return DatayHarnessTool.read(
             "metric_get",
             "按 ID 查询单个指标定义，含公式、事实表、业务限定、状态与引用关系。",
-            object(properties("id", integer("指标 ID")), "id"),
-            (args, context) -> metricView(requireMetric(reqLong(args, "id")))
+            object(properties("id", string("指标 ID")), "id"),
+            (args, context) -> metricView(requireMetric(reqStr(args, "id")))
         );
     }
 
@@ -128,7 +126,7 @@ public class MetricAdminHarnessTools {
             "注意：原子指标改事实表后，原公式里的字段名可能不再存在于新事实表，校验会失败。",
             object(metricDefinitionProperties(), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 MetricDTO existing = requireMetric(id);
                 applyMetricFields(existing, args);
                 return metricService
@@ -144,9 +142,9 @@ public class MetricAdminHarnessTools {
         return DatayHarnessTool.write(
             "metric_delete",
             "按 ID 删除指标定义。若该指标被其它衍生指标的公式引用，平台会拒绝删除（需先解除引用）。",
-            object(properties("id", integer("指标 ID")), "id"),
+            object(properties("id", string("指标 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 MetricDTO existing = requireMetric(id);
                 metricService.delete(id);
                 Map<String, Object> result = new LinkedHashMap<>();
@@ -166,18 +164,18 @@ public class MetricAdminHarnessTools {
             "预览指标的计算 SQL，不执行。传 id 时用已保存的定义；也可以直接传一份指标定义草稿来验证公式是否正确。",
             object(
                 properties(
-                    "id", integer("已保存指标的 ID；给出时忽略下面的草稿字段"),
+                    "id", string("已保存指标的 ID；给出时忽略下面的草稿字段"),
                     "code", string("草稿模式：指标编码"),
                     "name", string("草稿模式：指标名称（可选）"),
                     "metricType", enumeration(List.of(Metric.TYPE_ATOMIC, Metric.TYPE_DERIVED), "草稿模式：指标类型"),
                     "dataType", enumeration(MetricService.DATA_TYPES, "草稿模式：数据类型"),
                     "formula", string("草稿模式：计算公式"),
-                    "factModelId", integer("草稿模式：事实表模型 ID（原子指标）"),
+                    "factModelId", string("草稿模式：事实表模型 ID（原子指标）"),
                     "filterConfig", string("草稿模式：业务限定 JSON（可选）")
                 )
             ),
             (args, context) -> {
-                Long id = longVal(args, "id");
+                String id = str(args, "id");
                 MetricDTO metric;
                 if (id != null) {
                     metric = requireMetric(id);
@@ -188,7 +186,7 @@ public class MetricAdminHarnessTools {
                     metric.setMetricType(str(args, "metricType"));
                     metric.setDataType(str(args, "dataType"));
                     metric.setFormula(str(args, "formula"));
-                    metric.setFactModelId(longVal(args, "factModelId"));
+                    metric.setFactModelId(str(args, "factModelId"));
                     metric.setFilterConfig(str(args, "filterConfig"));
                 }
                 Map<String, Object> result = new LinkedHashMap<>();
@@ -206,9 +204,9 @@ public class MetricAdminHarnessTools {
         return DatayHarnessTool.read(
             "metric_directory_list",
             "查询指标目录。传 parentId 返回其下子目录，不传返回全部目录。",
-            object(properties("parentId", integer("父目录 ID（可选）"))),
+            object(properties("parentId", string("父目录 ID（可选）"))),
             (args, context) -> {
-                Long parentId = longVal(args, "parentId");
+                String parentId = str(args, "parentId");
                 List<MetricDirectoryDTO> directories = parentId == null
                     ? metricDirectoryService.findAll()
                     : metricDirectoryService.findByParentId(parentId);
@@ -225,7 +223,7 @@ public class MetricAdminHarnessTools {
             object(
                 properties(
                     "name", string("目录名称"),
-                    "parentId", integer("父目录 ID（可选，不传为根目录）"),
+                    "parentId", string("父目录 ID（可选，不传为根目录）"),
                     "sortOrder", integer("排序值（可选，默认 0）")
                 ),
                 "name"
@@ -233,7 +231,7 @@ public class MetricAdminHarnessTools {
             (args, context) -> {
                 MetricDirectoryDTO dto = new MetricDirectoryDTO();
                 dto.setName(reqStr(args, "name"));
-                dto.setParentId(longVal(args, "parentId"));
+                dto.setParentId(str(args, "parentId"));
                 dto.setSortOrder(intVal(args, "sortOrder", 0));
                 return directoryView(metricDirectoryService.save(dto));
             }
@@ -247,15 +245,15 @@ public class MetricAdminHarnessTools {
             "按 ID 更新指标目录，只提交需要修改的字段（可改名或调整父目录、排序）。",
             object(
                 properties(
-                    "id", integer("指标目录 ID"),
+                    "id", string("指标目录 ID"),
                     "name", string("目录名称"),
-                    "parentId", integer("父目录 ID（传 0 或留空表示根目录）"),
+                    "parentId", string("父目录 ID（传 0 或留空表示根目录）"),
                     "sortOrder", integer("排序值")
                 ),
                 "id"
             ),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 MetricDirectoryDTO existing = metricDirectoryService
                     .findOne(id)
                     .orElseThrow(() -> new IllegalArgumentException("指标目录不存在: " + id));
@@ -263,8 +261,8 @@ public class MetricAdminHarnessTools {
                     existing.setName(str(args, "name"));
                 }
                 if (args.containsKey("parentId")) {
-                    Long parentId = longVal(args, "parentId");
-                    existing.setParentId(parentId == null || parentId == 0L ? null : parentId);
+                    String parentId = str(args, "parentId");
+                    existing.setParentId(parentId == null || "0".equals(parentId) ? null : parentId);
                 }
                 if (args.containsKey("sortOrder")) {
                     existing.setSortOrder(intVal(args, "sortOrder", existing.getSortOrder()));
@@ -279,9 +277,9 @@ public class MetricAdminHarnessTools {
         return DatayHarnessTool.write(
             "metric_directory_delete",
             "按 ID 删除指标目录。子目录与目录下的指标会被移动到根目录，不会被级联删除。",
-            object(properties("id", integer("指标目录 ID")), "id"),
+            object(properties("id", string("指标目录 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 MetricDirectoryDTO existing = metricDirectoryService
                     .findOne(id)
                     .orElseThrow(() -> new IllegalArgumentException("指标目录不存在: " + id));
@@ -300,14 +298,14 @@ public class MetricAdminHarnessTools {
 
     private static Map<String, Object> metricDefinitionProperties() {
         Map<String, Object> properties = properties(
-            "id", integer("指标 ID（更新时必填）"),
+            "id", string("指标 ID（更新时必填）"),
             "name", string("指标名称"),
             "code", string("指标编码，唯一，仅字母/数字/下划线/中划线，如 sales_amount"),
             "description", string("口径说明"),
-            "directoryId", integer("所属指标目录 ID（可选）"),
+            "directoryId", string("所属指标目录 ID（可选）"),
             "metricType", enumeration(List.of(Metric.TYPE_ATOMIC, Metric.TYPE_DERIVED), "指标类型：ATOMIC 原子 / DERIVED 衍生"),
             "status", enumeration(List.of(Metric.STATUS_ENABLED, Metric.STATUS_DISABLED), "状态，缺省 ENABLED"),
-            "factModelId", integer("事实表模型 ID（原子指标必填，且模型类型须为 DWD）"),
+            "factModelId", string("事实表模型 ID（原子指标必填，且模型类型须为 DWD）"),
             "formula", string(
                 "计算公式。原子指标为字段聚合表达式（如 SUM(amount)）；衍生指标用 ${指标编码} 引用其它指标（如 ${sales_amount} / ${sales_quantity}）"
             ),
@@ -332,7 +330,7 @@ public class MetricAdminHarnessTools {
 
     // ------------------------------------------------------------------ helpers
 
-    private MetricDTO requireMetric(Long id) {
+    private MetricDTO requireMetric(String id) {
         return metricService.findOne(id).orElseThrow(() -> new IllegalArgumentException("指标不存在: " + id));
     }
 
@@ -364,7 +362,7 @@ public class MetricAdminHarnessTools {
             dto.setDescription(str(args, "description"));
         }
         if (args.containsKey("directoryId")) {
-            dto.setDirectoryId(longVal(args, "directoryId"));
+            dto.setDirectoryId(str(args, "directoryId"));
         }
         if (args.containsKey("metricType")) {
             dto.setMetricType(str(args, "metricType"));
@@ -373,7 +371,7 @@ public class MetricAdminHarnessTools {
             dto.setStatus(str(args, "status"));
         }
         if (args.containsKey("factModelId")) {
-            dto.setFactModelId(longVal(args, "factModelId"));
+            dto.setFactModelId(str(args, "factModelId"));
         }
         if (args.containsKey("formula")) {
             dto.setFormula(str(args, "formula"));

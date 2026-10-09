@@ -98,7 +98,7 @@ public class DataSyncTableConfigService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<DataSyncTableConfigDTO> findOne(Long id) {
+    public Optional<DataSyncTableConfigDTO> findOne(String id) {
         LOG.debug("Request to get DataSyncTableConfig : {}", id);
         return dataSyncTableConfigRepository.findById(id).map(dataSyncTableConfigMapper::toDto);
     }
@@ -108,7 +108,7 @@ public class DataSyncTableConfigService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DataSyncTableConfig : {}", id);
         dataSyncTableConfigRepository.deleteById(id);
     }

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ETLNodeRepository extends JpaRepository<ETLNode, Long> {
+public interface ETLNodeRepository extends JpaRepository<ETLNode, String> {
     Optional<List<ETLNode>> findAllByTaskId(String taskId);
 
     void deleteAllByTaskId(String taskId);

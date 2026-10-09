@@ -10,7 +10,7 @@ public class TaskInstance implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private Long id;
+    private String id;
 
     private String instanceCode;
 
@@ -43,16 +43,16 @@ public class TaskInstance implements Serializable {
 
     private String ParentInstanceCode;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public TaskInstance id(Long id) {
+    public TaskInstance id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

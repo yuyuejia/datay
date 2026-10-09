@@ -7,11 +7,11 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class DataModelDTO implements Serializable {
 
-    private Long id;
+    private String id;
     private String name;
     private String code;
     private String description;
-    private Long directoryId;
+    private String directoryId;
     private String modelType;
     private String dimensionKind;
     private Integer levelCount;
@@ -22,7 +22,7 @@ public class DataModelDTO implements Serializable {
     private Boolean isRegistered;
     private String project;
     private String tenantId;
-    private Long dataSourceId;
+    private String dataSourceId;
     private String schemaName;
     private String tableName;
     /** 维度模型的默认显示字段（图表/筛选优先展示，通常为名称字段）。 */
@@ -30,11 +30,11 @@ public class DataModelDTO implements Serializable {
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -62,11 +62,11 @@ public class DataModelDTO implements Serializable {
         this.description = description;
     }
 
-    public Long getDirectoryId() {
+    public String getDirectoryId() {
         return directoryId;
     }
 
-    public void setDirectoryId(Long directoryId) {
+    public void setDirectoryId(String directoryId) {
         this.directoryId = directoryId;
     }
 
@@ -150,11 +150,11 @@ public class DataModelDTO implements Serializable {
         this.tenantId = tenantId;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

@@ -7,7 +7,7 @@ import { type IJobInstance } from '@/shared/model/job-instance.model';
 const baseApiUrl = 'api/job-instances';
 
 export default class JobInstanceService {
-  find(id: number): Promise<IJobInstance> {
+  find(id: string): Promise<IJobInstance> {
     return new Promise<IJobInstance>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class JobInstanceService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

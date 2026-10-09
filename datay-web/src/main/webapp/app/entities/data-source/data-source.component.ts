@@ -32,7 +32,7 @@ export default defineComponent({
     const search = ref('');
 
     const dataSources: Ref<IDataSource[]> = ref([]);
-    const defaultDataSourceId: Ref<number | null> = ref(null);
+    const defaultDataSourceId: Ref<string | null> = ref(null);
 
     const isFetching = ref(false);
 
@@ -64,7 +64,7 @@ export default defineComponent({
 
     const defaultWarehouseModal = ref<any>(null);
     const defaultWarehouseOptions: Ref<IDataSource[]> = ref([]);
-    const selectedDefaultId: Ref<number | null> = ref(null);
+    const selectedDefaultId: Ref<string | null> = ref(null);
 
     const openDefaultDialog = async () => {
       selectedDefaultId.value = defaultDataSourceId.value;
@@ -141,7 +141,7 @@ export default defineComponent({
       await Promise.all([retrieveDataSources(), retrieveDefaultWarehouse()]);
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IDataSource) => {
       removeId.value = instance.id;

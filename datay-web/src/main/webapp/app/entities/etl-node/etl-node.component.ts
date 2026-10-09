@@ -62,7 +62,7 @@ export default defineComponent({
       await retrieveETLNodes();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IETLNode) => {
       removeId.value = instance.id;

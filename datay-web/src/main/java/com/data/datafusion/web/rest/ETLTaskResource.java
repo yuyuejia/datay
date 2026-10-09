@@ -93,7 +93,7 @@ public class ETLTaskResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ETLTaskDTO> updateETLTask(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLTaskDTO eTLTaskDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ETLTask : {}, {}", id, eTLTaskDTO);
@@ -127,7 +127,7 @@ public class ETLTaskResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ETLTaskDTO> partialUpdateETLTask(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLTaskDTO eTLTaskDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ETLTask partially : {}, {}", id, eTLTaskDTO);
@@ -175,7 +175,7 @@ public class ETLTaskResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the eTLTaskDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ETLTaskDTO> getETLTask(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLTaskDTO> getETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to get ETLTask : {}", id);
         Optional<ETLTaskDTO> eTLTaskDTO = eTLTaskService.findOne(id);
         return ResponseUtil.wrapOrNotFound(eTLTaskDTO);
@@ -188,7 +188,7 @@ public class ETLTaskResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteETLTask(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ETLTask : {}", id);
         eTLTaskService.delete(id);
         return ResponseEntity.noContent()
@@ -203,7 +203,7 @@ public class ETLTaskResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
      */
     @PostMapping("/{id}/run")
-    public ResponseEntity<Void> runETLTask(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> runETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to run ETLTask : {}", id);
         eTLTaskService.executeOnce(id);
         return ResponseEntity.ok().build();
@@ -228,7 +228,7 @@ public class ETLTaskResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated ETLTaskDTO.
      */
     @PostMapping("/{id}/online")
-    public ResponseEntity<ETLTaskDTO> onlineETLTask(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLTaskDTO> onlineETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to online ETLTask : {}", id);
         ETLTaskDTO result = eTLTaskService.online(id);
         return ResponseEntity.ok()
@@ -243,7 +243,7 @@ public class ETLTaskResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated ETLTaskDTO.
      */
     @PostMapping("/{id}/offline")
-    public ResponseEntity<ETLTaskDTO> offlineETLTask(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLTaskDTO> offlineETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to offline ETLTask : {}", id);
         ETLTaskDTO result = eTLTaskService.offline(id);
         return ResponseEntity.ok()
@@ -260,7 +260,7 @@ public class ETLTaskResource {
      */
     @GetMapping("/{id}/instances")
     public ResponseEntity<List<JobInstanceDTO>> getETLTaskInstances(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get instances for ETLTask : {}", id);
@@ -268,7 +268,7 @@ public class ETLTaskResource {
         if (eTLTaskDTO.isEmpty()) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
-        Long jobId = eTLTaskDTO.get().getJobId();
+        String jobId = eTLTaskDTO.get().getJobId();
         if (jobId == null) {
             return ResponseEntity.ok()
                 .headers(PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), Page.empty()))

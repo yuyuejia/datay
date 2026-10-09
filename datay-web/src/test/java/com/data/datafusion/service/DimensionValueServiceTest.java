@@ -42,22 +42,22 @@ class DimensionValueServiceTest {
     @Test
     void shouldPageDimensionValues() throws SQLException {
         DataModel dimStore = new DataModel();
-        dimStore.setId(3002L);
+        dimStore.setId("3002");
         dimStore.setCode("dim_store");
         dimStore.setModelType("DIMENSION");
         dimStore.setSchemaName("main");
         dimStore.setTableName("dim_store");
-        dimStore.setDataSourceId(1600L);
-        when(dataModelRepository.findById(3002L)).thenReturn(Optional.of(dimStore));
+        dimStore.setDataSourceId("1600");
+        when(dataModelRepository.findById("3002")).thenReturn(Optional.of(dimStore));
         ModelField city = new ModelField();
         city.setFieldName("city");
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(List.of(city));
-        when(dataSourceService.findOne(1600L)).thenReturn(Optional.of(new DataSourceDTO()));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(city));
+        when(dataSourceService.findOne("1600")).thenReturn(Optional.of(new DataSourceDTO()));
         when(dataSourceQueryService.executeQuery(any(), anyString()))
             .thenReturn(Map.of("rows", List.of(Map.of("cnt", 2L))))
             .thenReturn(Map.of("rows", List.of(Map.of("city", "北京"), Map.of("city", "上海"))));
 
-        Map<String, Object> result = dimensionValueService.pageValues(3002L, "city", "北", 1, 20);
+        Map<String, Object> result = dimensionValueService.pageValues("3002", "city", "北", 1, 20);
 
         assertThat(result).containsEntry("total", 2L).containsEntry("page", 1).containsEntry("size", 20);
         @SuppressWarnings("unchecked")
@@ -68,12 +68,12 @@ class DimensionValueServiceTest {
     @Test
     void shouldRejectNonDimensionModel() {
         DataModel fact = new DataModel();
-        fact.setId(3101L);
+        fact.setId("3101");
         fact.setCode("fact_sales_order_item");
         fact.setModelType("DWD");
-        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(fact));
+        when(dataModelRepository.findById("3101")).thenReturn(Optional.of(fact));
 
-        assertThatThrownBy(() -> dimensionValueService.pageValues(3101L, "amount", null, 1, 20))
+        assertThatThrownBy(() -> dimensionValueService.pageValues("3101", "amount", null, 1, 20))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("只能查询维度模型");
     }

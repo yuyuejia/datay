@@ -1,6 +1,6 @@
 /** 数据应用资产包的市场条目。 */
 export interface IAppPackage {
-  id?: number;
+  id?: string;
   tenantId?: string | null;
   name?: string | null;
   code?: string | null;
@@ -35,22 +35,22 @@ export interface IAppPackageContent {
     source?: string;
     exportedBy?: string;
   };
-  dataSources?: Array<{ oldId?: number; name?: string; type?: string; url?: string }>;
-  modelDirectories?: Array<{ oldId?: number; name?: string }>;
-  models?: Array<{ oldId?: number; name?: string; code?: string; modelType?: string; fields?: unknown[] }>;
-  metricDirectories?: Array<{ oldId?: number; name?: string }>;
-  metrics?: Array<{ oldId?: number; name?: string; code?: string; metricType?: string; unit?: string }>;
-  etlTasks?: Array<{ oldId?: number; taskName?: string; taskCode?: string; nodes?: unknown[]; edges?: unknown[] }>;
-  sqlJobs?: Array<{ oldId?: number; jobName?: string; cron?: string }>;
-  dagJobs?: Array<{ oldId?: number; jobName?: string; cron?: string }>;
-  otherJobs?: Array<{ oldId?: number; jobName?: string; type?: string }>;
+  dataSources?: Array<{ oldId?: string; name?: string; type?: string; url?: string }>;
+  modelDirectories?: Array<{ oldId?: string; name?: string }>;
+  models?: Array<{ oldId?: string; name?: string; code?: string; modelType?: string; fields?: unknown[] }>;
+  metricDirectories?: Array<{ oldId?: string; name?: string }>;
+  metrics?: Array<{ oldId?: string; name?: string; code?: string; metricType?: string; unit?: string }>;
+  etlTasks?: Array<{ oldId?: string; taskName?: string; taskCode?: string; nodes?: unknown[]; edges?: unknown[] }>;
+  sqlJobs?: Array<{ oldId?: string; jobName?: string; cron?: string }>;
+  dagJobs?: Array<{ oldId?: string; jobName?: string; cron?: string }>;
+  otherJobs?: Array<{ oldId?: string; jobName?: string; type?: string }>;
   jobDepends?: unknown[];
   summary?: Record<string, number>;
 }
 
 /** 导出向导候选资产。 */
 export interface IAppPackageOption {
-  id?: number;
+  id?: string;
   name?: string | null;
   code?: string | null;
   subtitle?: string | null;
@@ -74,12 +74,12 @@ export interface IAppPackageExportRequest {
   description?: string;
   category?: string;
   version?: string;
-  dataSourceIds: number[];
-  modelIds: number[];
-  metricIds: number[];
-  etlTaskIds: number[];
-  sqlJobIds: number[];
-  dagJobIds: number[];
+  dataSourceIds: string[];
+  modelIds: string[];
+  metricIds: string[];
+  etlTaskIds: string[];
+  sqlJobIds: string[];
+  dagJobIds: string[];
   includeReferences: boolean;
   saveToMarket: boolean;
   overwrite?: boolean;
@@ -87,8 +87,8 @@ export interface IAppPackageExportRequest {
 
 /** 数据源处理明细。 */
 export interface IAppPackageDataSourceMapping {
-  oldId?: number;
-  newId?: number;
+  oldId?: string;
+  newId?: string;
   key?: string;
   name?: string;
   action?: 'CREATED' | 'REUSED' | 'MAPPED';
@@ -96,23 +96,23 @@ export interface IAppPackageDataSourceMapping {
 
 /** 初始化请求。 */
 export interface IAppPackageInitRequest {
-  packageId?: number | null;
+  packageId?: string | null;
   content?: string | null;
   conflictStrategy?: 'RENAME' | 'SKIP' | 'OVERWRITE';
-  dataSourceMapping?: Record<string, number>;
+  dataSourceMapping?: Record<string, string>;
   onlineJobs?: boolean;
 }
 
 /** 初始化结果。 */
 export interface IAppPackageInitResult {
-  packageId?: number | null;
+  packageId?: string | null;
   packageName?: string | null;
   packageCode?: string | null;
   status?: string | null;
   message?: string | null;
   counts?: Record<string, number>;
   dataSources?: IAppPackageDataSourceMapping[];
-  idMapping?: Record<string, Record<string, number>>;
+  idMapping?: Record<string, Record<string, string>>;
   warnings?: string[];
   /** 初始化后的建议操作，例如「先运行某某编排任务」。 */
   nextSteps?: string[];
@@ -120,9 +120,9 @@ export interface IAppPackageInitResult {
 
 /** 数据应用初始化记录。 */
 export interface IAppPackageInstance {
-  id?: number;
+  id?: string;
   tenantId?: string | null;
-  packageId?: number | null;
+  packageId?: string | null;
   packageCode?: string | null;
   packageName?: string | null;
   status?: string | null;

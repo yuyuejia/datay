@@ -3,7 +3,6 @@ package com.data.datafusion.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +47,7 @@ class MetricServiceTest {
 
     private DataModel model(String modelType) {
         DataModel model = new DataModel();
-        model.setId(100L);
+        model.setId("100");
         model.setModelType(modelType);
         model.setSchemaName("dwd");
         model.setTableName("fact_sales_order_item");
@@ -60,7 +59,7 @@ class MetricServiceTest {
         dto.setName("销售额");
         dto.setCode("sales_amount");
         dto.setMetricType(Metric.TYPE_ATOMIC);
-        dto.setFactModelId(100L);
+        dto.setFactModelId("100");
         dto.setFormula("SUM(amount)");
         dto.setDataType("DECIMAL");
         return dto;
@@ -83,7 +82,7 @@ class MetricServiceTest {
     @Test
     void saveShouldRejectNonDwdFactModel() {
         MetricDTO dto = atomicDto();
-        when(dataModelRepository.findById(100L)).thenReturn(Optional.of(model("DWS")));
+        when(dataModelRepository.findById("100")).thenReturn(Optional.of(model("DWS")));
         assertThatThrownBy(() -> metricService.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DWD");
     }
 
@@ -91,7 +90,7 @@ class MetricServiceTest {
     void saveShouldRejectEmptyAtomicFormula() {
         MetricDTO dto = atomicDto();
         dto.setFormula("  ");
-        when(dataModelRepository.findById(100L)).thenReturn(Optional.of(model("DWD")));
+        when(dataModelRepository.findById("100")).thenReturn(Optional.of(model("DWD")));
         assertThatThrownBy(() -> metricService.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("计算公式不能为空");
     }
 
@@ -99,7 +98,7 @@ class MetricServiceTest {
     void saveShouldRejectIllegalAtomicFormula() {
         MetricDTO dto = atomicDto();
         dto.setFormula("SUM(amount); DROP TABLE t");
-        when(dataModelRepository.findById(100L)).thenReturn(Optional.of(model("DWD")));
+        when(dataModelRepository.findById("100")).thenReturn(Optional.of(model("DWD")));
         assertThatThrownBy(() -> metricService.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("计算公式只能包含");
     }
 
@@ -107,10 +106,10 @@ class MetricServiceTest {
     void saveShouldRejectMissingDataType() {
         MetricDTO dto = atomicDto();
         dto.setDataType(null);
-        when(dataModelRepository.findById(100L)).thenReturn(Optional.of(model("DWD")));
+        when(dataModelRepository.findById("100")).thenReturn(Optional.of(model("DWD")));
         ModelField field = new ModelField();
         field.setFieldName("amount");
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(100L)).thenReturn(List.of(field));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("100")).thenReturn(List.of(field));
         assertThatThrownBy(() -> metricService.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("数据类型");
     }
 
@@ -143,12 +142,12 @@ class MetricServiceTest {
     @Test
     void saveShouldRejectCyclicReference() {
         Metric a = new Metric();
-        a.setId(1L);
+        a.setId("1");
         a.setCode("a");
         a.setName("A");
         a.setMetricType(Metric.TYPE_ATOMIC);
         Metric b = new Metric();
-        b.setId(2L);
+        b.setId("2");
         b.setCode("b");
         b.setName("B");
         b.setMetricType(Metric.TYPE_DERIVED);
@@ -157,13 +156,13 @@ class MetricServiceTest {
         when(metricRepository.findAll()).thenReturn(List.of(a, b));
 
         MetricDTO dto = new MetricDTO();
-        dto.setId(1L);
+        dto.setId("1");
         dto.setName("A");
         dto.setCode("a");
         dto.setMetricType(Metric.TYPE_DERIVED);
         dto.setFormula("${b}");
         dto.setDataType("DECIMAL");
-        when(metricRepository.findByCodeAndIdNot(any(), anyLong())).thenReturn(Optional.empty());
+        when(metricRepository.findByCodeAndIdNot(any(), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> metricService.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("循环引用");
     }

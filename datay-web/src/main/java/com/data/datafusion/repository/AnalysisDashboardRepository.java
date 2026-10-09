@@ -11,8 +11,8 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface AnalysisDashboardRepository extends JpaRepository<AnalysisDashboard, Long>, JpaSpecificationExecutor<AnalysisDashboard> {
+public interface AnalysisDashboardRepository extends JpaRepository<AnalysisDashboard, String>, JpaSpecificationExecutor<AnalysisDashboard> {
     Optional<AnalysisDashboard> findByCode(String code);
 
-    Optional<AnalysisDashboard> findByCodeAndIdNot(String code, Long id);
+    Optional<AnalysisDashboard> findByCodeAndIdNot(String code, String id);
 }

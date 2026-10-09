@@ -76,7 +76,7 @@ public class JobInstanceResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<JobInstanceDTO> updateJobInstance(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody JobInstanceDTO jobInstanceDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update JobInstance : {}, {}", id, jobInstanceDTO);
@@ -110,7 +110,7 @@ public class JobInstanceResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<JobInstanceDTO> partialUpdateJobInstance(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody JobInstanceDTO jobInstanceDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update JobInstance partially : {}, {}", id, jobInstanceDTO);
@@ -166,7 +166,7 @@ public class JobInstanceResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the jobInstanceDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<JobInstanceDTO> getJobInstance(@PathVariable("id") Long id) {
+    public ResponseEntity<JobInstanceDTO> getJobInstance(@PathVariable("id") String id) {
         LOG.debug("REST request to get JobInstance : {}", id);
         Optional<JobInstanceDTO> jobInstanceDTO = jobInstanceService.findOne(id);
         return ResponseUtil.wrapOrNotFound(jobInstanceDTO);
@@ -179,7 +179,7 @@ public class JobInstanceResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJobInstance(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteJobInstance(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JobInstance : {}", id);
         jobInstanceService.delete(id);
         return ResponseEntity.noContent()

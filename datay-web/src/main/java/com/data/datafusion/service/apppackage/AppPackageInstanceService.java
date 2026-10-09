@@ -44,7 +44,7 @@ public class AppPackageInstanceService {
      * @param message     结果说明
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(Long packageId, String packageCode, String packageName, AppPackageInitResultDTO result, String message) {
+    public void record(String packageId, String packageCode, String packageName, AppPackageInitResultDTO result, String message) {
         AppPackageInstance entity = new AppPackageInstance();
         entity.setPackageId(packageId);
         entity.setPackageCode(packageCode);

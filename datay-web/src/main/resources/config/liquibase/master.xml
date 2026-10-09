@@ -48,6 +48,7 @@
     <include file="config/liquibase/changelog/20261001000000_added_entity_AppPackage.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261004000000_fix_optional_tenant_id.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261005000000_fix_seed_mcp_token_hash.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261009000000_uuid_v7_primary_keys.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -15,9 +17,9 @@ public class DataModel implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "name")
     private String name;
@@ -28,8 +30,8 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "directory_id")
-    private Long directoryId;
+    @Column(name = "directory_id", length = 36)
+    private String directoryId;
 
     @Column(name = "model_type")
     private String modelType;
@@ -64,8 +66,8 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "tenant_id")
     private String tenantId;
 
-    @Column(name = "data_source_id")
-    private Long dataSourceId;
+    @Column(name = "data_source_id", length = 36)
+    private String dataSourceId;
 
     @Column(name = "schema_name")
     private String schemaName;
@@ -83,16 +85,16 @@ public class DataModel implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public DataModel id(Long id) {
+    public DataModel id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -135,16 +137,16 @@ public class DataModel implements Serializable, TenantAware {
         this.description = description;
     }
 
-    public Long getDirectoryId() {
+    public String getDirectoryId() {
         return this.directoryId;
     }
 
-    public DataModel directoryId(Long directoryId) {
+    public DataModel directoryId(String directoryId) {
         this.setDirectoryId(directoryId);
         return this;
     }
 
-    public void setDirectoryId(Long directoryId) {
+    public void setDirectoryId(String directoryId) {
         this.directoryId = directoryId;
     }
 
@@ -278,16 +280,16 @@ public class DataModel implements Serializable, TenantAware {
         this.tenantId = tenantId;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return this.dataSourceId;
     }
 
-    public DataModel dataSourceId(Long dataSourceId) {
+    public DataModel dataSourceId(String dataSourceId) {
         this.setDataSourceId(dataSourceId);
         return this;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

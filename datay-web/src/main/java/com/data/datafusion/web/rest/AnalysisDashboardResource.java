@@ -74,7 +74,7 @@ public class AnalysisDashboardResource {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<AnalysisDashboardDTO> updateDashboard(@PathVariable("id") Long id, @RequestBody AnalysisDashboardDTO dto) {
+    public ResponseEntity<AnalysisDashboardDTO> updateDashboard(@PathVariable("id") String id, @RequestBody AnalysisDashboardDTO dto) {
         LOG.debug("REST request to update AnalysisDashboard : {}, {}", id, dto);
         if (dto.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -117,13 +117,13 @@ public class AnalysisDashboardResource {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AnalysisDashboardDTO> getDashboard(@PathVariable("id") Long id) {
+    public ResponseEntity<AnalysisDashboardDTO> getDashboard(@PathVariable("id") String id) {
         LOG.debug("REST request to get AnalysisDashboard : {}", id);
         return ResponseUtil.wrapOrNotFound(dashboardService.findOne(id));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDashboard(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDashboard(@PathVariable("id") String id) {
         LOG.debug("REST request to delete AnalysisDashboard : {}", id);
         dashboardService.delete(id);
         return ResponseEntity.noContent()
@@ -136,7 +136,7 @@ public class AnalysisDashboardResource {
      */
     @PostMapping("/{id}/datasets/{datasetId}/query")
     public ResponseEntity<Map<String, Object>> queryDataset(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @PathVariable("datasetId") String datasetId,
         @RequestBody(required = false) Map<String, Object> filterValues
     ) {
@@ -155,7 +155,7 @@ public class AnalysisDashboardResource {
      */
     @GetMapping("/{id}/filters/{filterId}/options")
     public ResponseEntity<Map<String, Object>> loadFilterOptions(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @PathVariable("filterId") String filterId,
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "limit", required = false) Integer limit
@@ -195,7 +195,7 @@ public class AnalysisDashboardResource {
             Map<String, Object> filterValues = body.get("filterValues") instanceof Map<?, ?> map
                 ? (Map<String, Object>) map
                 : null;
-            Long dataSourceId = DashboardDataService.asLong(body.get("dataSourceId"));
+            String dataSourceId = body.get("dataSourceId") == null ? null : String.valueOf(body.get("dataSourceId"));
             return ResponseEntity.ok().body(dashboardDataService.queryDataset(spec, dataSourceId, datasetId, filterValues));
         } catch (IllegalArgumentException e) {
             throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "datasetQueryError");

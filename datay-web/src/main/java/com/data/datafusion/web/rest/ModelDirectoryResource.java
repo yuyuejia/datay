@@ -50,7 +50,7 @@ public class ModelDirectoryResource {
 
     @PutMapping("/{id}")
     public ResponseEntity<ModelDirectoryDTO> updateModelDirectory(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ModelDirectoryDTO modelDirectoryDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ModelDirectory : {}, {}", id, modelDirectoryDTO);
@@ -71,7 +71,7 @@ public class ModelDirectoryResource {
 
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ModelDirectoryDTO> partialUpdateModelDirectory(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ModelDirectoryDTO modelDirectoryDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ModelDirectory : {}, {}", id, modelDirectoryDTO);
@@ -99,21 +99,21 @@ public class ModelDirectoryResource {
     }
 
     @GetMapping("/by-parent")
-    public ResponseEntity<List<ModelDirectoryDTO>> getModelDirectoriesByParent(@RequestParam(required = false) Long parentId) {
+    public ResponseEntity<List<ModelDirectoryDTO>> getModelDirectoriesByParent(@RequestParam(required = false) String parentId) {
         LOG.debug("REST request to get ModelDirectories by parentId : {}", parentId);
         List<ModelDirectoryDTO> list = modelDirectoryService.findByParentId(parentId);
         return ResponseEntity.ok().body(list);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ModelDirectoryDTO> getModelDirectory(@PathVariable("id") Long id) {
+    public ResponseEntity<ModelDirectoryDTO> getModelDirectory(@PathVariable("id") String id) {
         LOG.debug("REST request to get ModelDirectory : {}", id);
         Optional<ModelDirectoryDTO> modelDirectoryDTO = modelDirectoryService.findOne(id);
         return ResponseUtil.wrapOrNotFound(modelDirectoryDTO);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteModelDirectory(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteModelDirectory(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ModelDirectory : {}", id);
         modelDirectoryService.delete(id);
         return ResponseEntity.noContent()

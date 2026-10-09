@@ -11,7 +11,7 @@ public class DataSourceTestSamples {
 
     public static DataSource getDataSourceSample1() {
         return new DataSource()
-            .id(1L)
+            .id("1")
             .name("name1")
             .description("description1")
             .type("type1")
@@ -26,7 +26,7 @@ public class DataSourceTestSamples {
 
     public static DataSource getDataSourceSample2() {
         return new DataSource()
-            .id(2L)
+            .id("2")
             .name("name2")
             .description("description2")
             .type("type2")
@@ -41,7 +41,7 @@ public class DataSourceTestSamples {
 
     public static DataSource getDataSourceRandomSampleGenerator() {
         return new DataSource()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .name(UUID.randomUUID().toString())
             .description(UUID.randomUUID().toString())
             .type(UUID.randomUUID().toString())

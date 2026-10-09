@@ -72,7 +72,7 @@ public class AiAgent {
         }
         OpenAiCompatibleClient client = llmConfigService.getActiveClient();
 
-        Long dataSourceId = dataSource == null ? null : dataSource.getId();
+        String dataSourceId = dataSource == null ? null : dataSource.getId();
         AiToolContext context = new AiToolContext(dataSourceId, dataSource, userMessage, assistant);
         boolean allowMutating = config.isAllowMutatingTools() && assistant.allowMutatingTools();
 

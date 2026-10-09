@@ -64,7 +64,7 @@ public class AnalysisDashboardService {
         return mapper.toDto(entity);
     }
 
-    public Optional<AnalysisDashboardDTO> update(Long id, AnalysisDashboardDTO dto) {
+    public Optional<AnalysisDashboardDTO> update(String id, AnalysisDashboardDTO dto) {
         LOG.debug("Request to update AnalysisDashboard : {}, {}", id, dto);
         validate(dto);
         return repository
@@ -92,7 +92,7 @@ public class AnalysisDashboardService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<AnalysisDashboardDTO> findOne(Long id) {
+    public Optional<AnalysisDashboardDTO> findOne(String id) {
         LOG.debug("Request to get AnalysisDashboard : {}", id);
         return repository.findById(id).map(mapper::toDto);
     }
@@ -103,7 +103,7 @@ public class AnalysisDashboardService {
         return repository.findByCode(code).map(mapper::toDto);
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete AnalysisDashboard : {}", id);
         repository.deleteById(id);
     }
@@ -112,7 +112,7 @@ public class AnalysisDashboardService {
      * 解析看板 spec 为对象，供数据查询使用。
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> parseSpec(Long id) {
+    public Map<String, Object> parseSpec(String id) {
         AnalysisDashboard dashboard = repository
             .findById(id)
             .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + id));
@@ -150,7 +150,7 @@ public class AnalysisDashboardService {
         }
     }
 
-    private String resolveCode(String requested, Long excludeId) {
+    private String resolveCode(String requested, String excludeId) {
         String candidate = requested;
         if (candidate == null || candidate.isBlank()) {
             candidate = "dashboard_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);

@@ -11,12 +11,12 @@ class ETLNodeDTOTest {
     void dtoEqualsVerifier() throws Exception {
         TestUtil.equalsVerifier(ETLNodeDTO.class);
         ETLNodeDTO eTLNodeDTO1 = new ETLNodeDTO();
-        eTLNodeDTO1.setId(1L);
+        eTLNodeDTO1.setId("1");
         ETLNodeDTO eTLNodeDTO2 = new ETLNodeDTO();
         assertThat(eTLNodeDTO1).isNotEqualTo(eTLNodeDTO2);
         eTLNodeDTO2.setId(eTLNodeDTO1.getId());
         assertThat(eTLNodeDTO1).isEqualTo(eTLNodeDTO2);
-        eTLNodeDTO2.setId(2L);
+        eTLNodeDTO2.setId("2");
         assertThat(eTLNodeDTO1).isNotEqualTo(eTLNodeDTO2);
         eTLNodeDTO1.setId(null);
         assertThat(eTLNodeDTO1).isNotEqualTo(eTLNodeDTO2);

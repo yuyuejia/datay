@@ -178,7 +178,7 @@ export default defineComponent({
       oracleIdentifierType.value = 'service';
       if (props.mode === 'edit' && props.dataSourceId) {
         try {
-          const res = await dataSourceService().find(props.dataSourceId as number);
+          const res = await dataSourceService().find(props.dataSourceId as string);
           res.updateTime = new Date(res.updateTime);
           res.createTime = new Date(res.createTime);
           dataSource.value = res;

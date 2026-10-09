@@ -12,14 +12,14 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class MetricDTO implements Serializable {
 
-    private Long id;
+    private String id;
     private String name;
     private String code;
     private String description;
-    private Long directoryId;
+    private String directoryId;
     private String metricType;
     private String status;
-    private Long factModelId;
+    private String factModelId;
     private String filterConfig;
     private String unit;
     private String dataType;
@@ -38,11 +38,11 @@ public class MetricDTO implements Serializable {
     /** 事实表物理表名（展示用）。 */
     private String factTableName;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -70,11 +70,11 @@ public class MetricDTO implements Serializable {
         this.description = description;
     }
 
-    public Long getDirectoryId() {
+    public String getDirectoryId() {
         return directoryId;
     }
 
-    public void setDirectoryId(Long directoryId) {
+    public void setDirectoryId(String directoryId) {
         this.directoryId = directoryId;
     }
 
@@ -94,11 +94,11 @@ public class MetricDTO implements Serializable {
         this.status = status;
     }
 
-    public Long getFactModelId() {
+    public String getFactModelId() {
         return factModelId;
     }
 
-    public void setFactModelId(Long factModelId) {
+    public void setFactModelId(String factModelId) {
         this.factModelId = factModelId;
     }
 

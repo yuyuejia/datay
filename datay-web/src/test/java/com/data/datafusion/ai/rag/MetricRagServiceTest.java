@@ -54,13 +54,13 @@ class MetricRagServiceTest {
         when(metricService.findAllSimple()).thenReturn(List.of(metric("销售金额", "sales_amount"), metric("订单数", "order_count")));
 
         DataModel dimStore = new DataModel();
-        dimStore.setId(3002L);
+        dimStore.setId("3002");
         dimStore.setCode("dim_store");
         dimStore.setName("门店维度");
         dimStore.setModelType("DIMENSION");
         dimStore.setSchemaName("main");
         dimStore.setTableName("dim_store");
-        dimStore.setDataSourceId(1600L);
+        dimStore.setDataSourceId("1600");
 
         ModelField city = new ModelField();
         city.setFieldName("city");
@@ -68,13 +68,13 @@ class MetricRagServiceTest {
         city.setDescription("城市");
 
         when(dataModelRepository.findByModelType("DIMENSION")).thenReturn(List.of(dimStore));
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(List.of(city));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(city));
 
         DataSourceDTO dataSource = new DataSourceDTO();
-        dataSource.setId(1600L);
+        dataSource.setId("1600");
         dataSource.setType("DUCKDB");
         dataSource.setUrl("jdbc:duckdb:./data/ecommerce.duckdb");
-        when(dataSourceService.findOne(1600L)).thenReturn(Optional.of(dataSource));
+        when(dataSourceService.findOne("1600")).thenReturn(Optional.of(dataSource));
         when(dataSourceQueryService.executeQuery(any(DataSourceDTO.class), anyString()))
             .thenReturn(Map.of("columns", List.of("city"), "rows", List.of(Map.of("city", "北京"), Map.of("city", "上海"))));
 

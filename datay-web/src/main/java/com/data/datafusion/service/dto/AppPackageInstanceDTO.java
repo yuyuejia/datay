@@ -13,11 +13,11 @@ public class AppPackageInstanceDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private Long id;
+    private String id;
 
     private String tenantId;
 
-    private Long packageId;
+    private String packageId;
 
     private String packageCode;
 
@@ -34,11 +34,11 @@ public class AppPackageInstanceDTO implements Serializable {
 
     private ZonedDateTime createTime;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -50,11 +50,11 @@ public class AppPackageInstanceDTO implements Serializable {
         this.tenantId = tenantId;
     }
 
-    public Long getPackageId() {
+    public String getPackageId() {
         return packageId;
     }
 
-    public void setPackageId(Long packageId) {
+    public void setPackageId(String packageId) {
         this.packageId = packageId;
     }
 

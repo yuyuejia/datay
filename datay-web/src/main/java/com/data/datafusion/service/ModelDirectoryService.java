@@ -61,7 +61,7 @@ public class ModelDirectoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<ModelDirectoryDTO> findByParentId(Long parentId) {
+    public List<ModelDirectoryDTO> findByParentId(String parentId) {
         LOG.debug("Request to get ModelDirectories by parentId : {}", parentId);
         if (parentId == null) {
             return modelDirectoryRepository.findByParentIdIsNullOrderBySortOrderAsc().stream()
@@ -74,12 +74,12 @@ public class ModelDirectoryService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<ModelDirectoryDTO> findOne(Long id) {
+    public Optional<ModelDirectoryDTO> findOne(String id) {
         LOG.debug("Request to get ModelDirectory : {}", id);
         return modelDirectoryRepository.findById(id).map(modelDirectoryMapper::toDto);
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ModelDirectory : {}", id);
         modelDirectoryRepository.deleteById(id);
     }

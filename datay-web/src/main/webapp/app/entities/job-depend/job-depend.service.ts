@@ -7,7 +7,7 @@ import { type IJobDepend } from '@/shared/model/job-depend.model';
 const baseApiUrl = 'api/job-depends';
 
 export default class JobDependService {
-  find(id: number): Promise<IJobDepend> {
+  find(id: string): Promise<IJobDepend> {
     return new Promise<IJobDepend>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class JobDependService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

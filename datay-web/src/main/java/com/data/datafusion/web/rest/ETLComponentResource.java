@@ -84,7 +84,7 @@ public class ETLComponentResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ETLComponentDTO> updateETLComponent(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLComponentDTO eTLComponentDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ETLComponent : {}, {}", id, eTLComponentDTO);
@@ -118,7 +118,7 @@ public class ETLComponentResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ETLComponentDTO> partialUpdateETLComponent(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLComponentDTO eTLComponentDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ETLComponent partially : {}, {}", id, eTLComponentDTO);
@@ -174,7 +174,7 @@ public class ETLComponentResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the eTLComponentDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ETLComponentDTO> getETLComponent(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLComponentDTO> getETLComponent(@PathVariable("id") String id) {
         LOG.debug("REST request to get ETLComponent : {}", id);
         Optional<ETLComponentDTO> eTLComponentDTO = eTLComponentService.findOne(id);
         return ResponseUtil.wrapOrNotFound(eTLComponentDTO);
@@ -187,7 +187,7 @@ public class ETLComponentResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteETLComponent(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteETLComponent(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ETLComponent : {}", id);
         eTLComponentService.delete(id);
         return ResponseEntity.noContent()

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ETLTaskRepository extends JpaRepository<ETLTask, Long>, JpaSpecificationExecutor<ETLTask> {
-    Optional<ETLTask> findByJobId(Long jobId);
+public interface ETLTaskRepository extends JpaRepository<ETLTask, String>, JpaSpecificationExecutor<ETLTask> {
+    Optional<ETLTask> findByJobId(String jobId);
 
     Optional<ETLTask> findFirstByTaskCode(String taskCode);
 

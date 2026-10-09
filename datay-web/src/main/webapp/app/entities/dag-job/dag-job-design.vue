@@ -116,7 +116,7 @@ const buildNodeFromJob = (job, position, layout) => ({
     y: Math.round(Math.random() * 300),
   },
   data: {
-    jobId: Number(job.id),
+    jobId: String(job.id),
     label: layout && layout.label ? layout.label : job.jobName,
     jobType: job.type || "JOB",
     status: job.status || "OFFLINE",
@@ -351,14 +351,14 @@ const closeDetail = () => {
 };
 
 const buildJobContext = () => {
-  const jobs = nodes.value.map((node) => ({ id: Number(node.id) }));
+  const jobs = nodes.value.map((node) => ({ id: String(node.id) }));
   const jobDepends = edges.value.map((edge) => ({
-    parentJobCode: Number(edge.source),
-    childJobCode: Number(edge.target),
+    parentJobCode: String(edge.source),
+    childJobCode: String(edge.target),
     lastInterval: 0,
   }));
   const nodeLayout = nodes.value.map((node) => ({
-    jobId: Number(node.id),
+    jobId: String(node.id),
     label: node.data.label,
     xAxis: node.position.x,
     yAxis: node.position.y,

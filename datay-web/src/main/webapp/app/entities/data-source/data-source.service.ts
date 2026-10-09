@@ -7,7 +7,7 @@ import { type IDataSource } from '@/shared/model/data-source.model';
 const baseApiUrl = 'api/data-sources';
 
 export default class DataSourceService {
-  find(id: number): Promise<IDataSource> {
+  find(id: string): Promise<IDataSource> {
     return new Promise<IDataSource>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class DataSourceService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -98,7 +98,7 @@ export default class DataSourceService {
     });
   }
 
-  setDefaultWarehouse(id: number): Promise<any> {
+  setDefaultWarehouse(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .put(`${baseApiUrl}/${id}/default-warehouse`)
@@ -111,7 +111,7 @@ export default class DataSourceService {
     });
   }
 
-  getSchemas(id: number): Promise<any> {
+  getSchemas(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}/schemas`)
@@ -124,7 +124,7 @@ export default class DataSourceService {
     });
   }
 
-  getTables(dataSourceId: number, schema: string, limit?: number, search?: string): Promise<any> {
+  getTables(dataSourceId: string, schema: string, limit?: number, search?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       const params = new URLSearchParams();
       if (limit) params.set('limit', String(limit));
@@ -141,7 +141,7 @@ export default class DataSourceService {
     });
   }
 
-  getFields(dataSourceId: number, schema: string, table: string): Promise<any> {
+  getFields(dataSourceId: string, schema: string, table: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/columns`)
@@ -154,7 +154,7 @@ export default class DataSourceService {
     });
   }
 
-  getTableDetail(dataSourceId: number, schema: string, table: string): Promise<any> {
+  getTableDetail(dataSourceId: string, schema: string, table: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/meta`)

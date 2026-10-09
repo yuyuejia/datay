@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface JobDependRepository extends JpaRepository<JobDepend, Long> {
+public interface JobDependRepository extends JpaRepository<JobDepend, String> {
     List<JobDepend> findByChildJobCode(String childJobCode);
 
     List<JobDepend> findByParentJobCode(String jobCode);

@@ -208,7 +208,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void createDataSyncTableConfigWithExistingId() throws Exception {
         // Create the DataSyncTableConfig with an existing ID
-        dataSyncTableConfig.setId(1L);
+        dataSyncTableConfig.setId("1");
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -233,7 +233,7 @@ class DataSyncTableConfigResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSyncTableConfig.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSyncTableConfig.getId())))
             .andExpect(jsonPath("$.[*].syncTask").value(hasItem(DEFAULT_SYNC_TASK)))
             .andExpect(jsonPath("$.[*].srcDatasource").value(hasItem(DEFAULT_SRC_DATASOURCE)))
             .andExpect(jsonPath("$.[*].srcSchemaName").value(hasItem(DEFAULT_SRC_SCHEMA_NAME)))
@@ -263,7 +263,7 @@ class DataSyncTableConfigResourceIT {
             .perform(get(ENTITY_API_URL_ID, dataSyncTableConfig.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(dataSyncTableConfig.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(dataSyncTableConfig.getId()))
             .andExpect(jsonPath("$.syncTask").value(DEFAULT_SYNC_TASK))
             .andExpect(jsonPath("$.srcDatasource").value(DEFAULT_SRC_DATASOURCE))
             .andExpect(jsonPath("$.srcSchemaName").value(DEFAULT_SRC_SCHEMA_NAME))
@@ -337,7 +337,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void putNonExistingDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
@@ -359,7 +359,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void putWithIdMismatchDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
@@ -381,7 +381,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void putWithMissingIdPathParamDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
@@ -482,7 +482,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void patchNonExistingDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
@@ -504,7 +504,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void patchWithIdMismatchDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);
@@ -526,7 +526,7 @@ class DataSyncTableConfigResourceIT {
     @Transactional
     void patchWithMissingIdPathParamDataSyncTableConfig() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSyncTableConfig.setId(longCount.incrementAndGet());
+        dataSyncTableConfig.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSyncTableConfig
         DataSyncTableConfigDTO dataSyncTableConfigDTO = dataSyncTableConfigMapper.toDto(dataSyncTableConfig);

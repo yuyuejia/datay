@@ -8,7 +8,7 @@ import java.io.Serializable;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class MetricRefDTO implements Serializable {
 
-    private Long id;
+    private String id;
     private String code;
     private String name;
     private String metricType;
@@ -16,7 +16,7 @@ public class MetricRefDTO implements Serializable {
 
     public MetricRefDTO() {}
 
-    public MetricRefDTO(Long id, String code, String name, String metricType, String status) {
+    public MetricRefDTO(String id, String code, String name, String metricType, String status) {
         this.id = id;
         this.code = code;
         this.name = name;
@@ -24,11 +24,11 @@ public class MetricRefDTO implements Serializable {
         this.status = status;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

@@ -35,7 +35,7 @@ export default class AppPackageService {
     });
   }
 
-  find(id: number): Promise<IAppPackage> {
+  find(id: string): Promise<IAppPackage> {
     return new Promise<IAppPackage>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -49,7 +49,7 @@ export default class AppPackageService {
   }
 
   /** 下载资产包 JSON 文件。 */
-  download(id: number): Promise<Blob> {
+  download(id: string): Promise<Blob> {
     return new Promise<Blob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}/content`, { responseType: 'blob' })
@@ -105,7 +105,7 @@ export default class AppPackageService {
   }
 
   /** 用市场中已有的资产包初始化数据应用。 */
-  initPackage(id: number, request?: IAppPackageInitRequest): Promise<IAppPackageInitResult> {
+  initPackage(id: string, request?: IAppPackageInitRequest): Promise<IAppPackageInitResult> {
     return new Promise<IAppPackageInitResult>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/init`, request || {})
@@ -146,7 +146,7 @@ export default class AppPackageService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

@@ -23,7 +23,7 @@ public class MetricFilterCondition {
     private String factFieldName;
 
     /** 维度模型 id（仅维度条件或维度时间字段时使用）。 */
-    private Long dimensionModelId;
+    private String dimensionModelId;
 
     /** 维度模型编码（指标查询时使用，优先于 dimensionModelId）。 */
     private String dimensionModelCode;
@@ -59,11 +59,11 @@ public class MetricFilterCondition {
         this.factFieldName = factFieldName;
     }
 
-    public Long getDimensionModelId() {
+    public String getDimensionModelId() {
         return dimensionModelId;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
+    public void setDimensionModelId(String dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
     }
 

@@ -9,4 +9,4 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ETLComponentRepository extends JpaRepository<ETLComponent, Long> {}
+public interface ETLComponentRepository extends JpaRepository<ETLComponent, String> {}

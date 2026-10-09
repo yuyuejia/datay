@@ -11,7 +11,7 @@ import type { DashboardSpec, DatasetResult, FilterValues } from "./types";
  * - 未保存预览（仅提供 spec）走 `/preview-dataset`。
  */
 export function useDashboardData(config: {
-  dashboardId?: Ref<number | undefined>;
+  dashboardId?: Ref<string | undefined>;
   spec: Ref<DashboardSpec | undefined>;
 }) {
   const service = new DashboardService();

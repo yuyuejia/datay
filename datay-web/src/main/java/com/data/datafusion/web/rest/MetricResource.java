@@ -62,7 +62,7 @@ public class MetricResource {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MetricDTO> updateMetric(@PathVariable("id") Long id, @RequestBody MetricDTO metricDTO) {
+    public ResponseEntity<MetricDTO> updateMetric(@PathVariable("id") String id, @RequestBody MetricDTO metricDTO) {
         LOG.debug("REST request to update Metric : {}, {}", id, metricDTO);
         if (metricDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -96,7 +96,7 @@ public class MetricResource {
     }
 
     @GetMapping("/by-directory")
-    public ResponseEntity<List<MetricDTO>> getMetricsByDirectory(@RequestParam Long directoryId) {
+    public ResponseEntity<List<MetricDTO>> getMetricsByDirectory(@RequestParam String directoryId) {
         LOG.debug("REST request to get Metrics by directoryId : {}", directoryId);
         return ResponseEntity.ok().body(metricService.findByDirectoryId(directoryId));
     }
@@ -108,14 +108,14 @@ public class MetricResource {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MetricDTO> getMetric(@PathVariable("id") Long id) {
+    public ResponseEntity<MetricDTO> getMetric(@PathVariable("id") String id) {
         LOG.debug("REST request to get Metric : {}", id);
         Optional<MetricDTO> metricDTO = metricService.findOne(id);
         return ResponseUtil.wrapOrNotFound(metricDTO);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMetric(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteMetric(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Metric : {}", id);
         try {
             metricService.delete(id);
@@ -139,7 +139,7 @@ public class MetricResource {
     }
 
     @GetMapping("/{id}/preview-sql")
-    public ResponseEntity<Map<String, String>> previewSqlById(@PathVariable("id") Long id) {
+    public ResponseEntity<Map<String, String>> previewSqlById(@PathVariable("id") String id) {
         LOG.debug("REST request to preview SQL for Metric : {}", id);
         MetricDTO metricDTO = metricService
             .findOne(id)

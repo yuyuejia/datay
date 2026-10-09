@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class AppPackageJob {
 
     /** 包内逻辑 ID（Job ID）。 */
-    public Long oldId;
+    public String oldId;
 
     public String jobName;
 

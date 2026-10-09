@@ -11,9 +11,9 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface MetricDirectoryRepository extends JpaRepository<MetricDirectory, Long> {
-    List<MetricDirectory> findByParentIdOrderBySortOrderAsc(Long parentId);
+public interface MetricDirectoryRepository extends JpaRepository<MetricDirectory, String> {
+    List<MetricDirectory> findByParentIdOrderBySortOrderAsc(String parentId);
     List<MetricDirectory> findByParentIdIsNullOrderBySortOrderAsc();
-    Optional<MetricDirectory> findFirstByNameAndParentId(String name, Long parentId);
+    Optional<MetricDirectory> findFirstByNameAndParentId(String name, String parentId);
     Optional<MetricDirectory> findFirstByNameAndParentIdIsNull(String name);
 }

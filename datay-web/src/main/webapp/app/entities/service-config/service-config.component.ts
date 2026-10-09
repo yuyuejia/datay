@@ -62,7 +62,7 @@ export default defineComponent({
       await retrieveServiceConfigs();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IServiceConfig) => {
       removeId.value = instance.id;

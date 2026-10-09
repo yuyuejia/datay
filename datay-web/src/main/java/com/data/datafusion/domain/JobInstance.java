@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -18,9 +20,9 @@ public class JobInstance implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "instance_code")
     private String instanceCode;
@@ -68,16 +70,16 @@ public class JobInstance implements Serializable, TenantAware {
     @Column(name = "parent_instance_code")
     private String parentInstanceCode;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public JobInstance id(Long id) {
+    public JobInstance id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

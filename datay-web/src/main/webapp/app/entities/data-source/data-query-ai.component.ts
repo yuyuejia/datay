@@ -32,7 +32,7 @@ export default defineComponent({
   props: {
     modelValue: { type: Boolean, default: undefined },
     value: { type: Boolean, default: undefined }, // Vue 2 compat: v-model → value
-    dataSourceId: { type: Number, default: undefined },
+    dataSourceId: { type: [Number, String], default: undefined },
     assistantId: { type: String, default: "query" },
   },
   emits: ["update:modelValue", "input", "apply-sql"],

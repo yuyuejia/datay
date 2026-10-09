@@ -34,7 +34,7 @@ class DimensionInfoToolTest {
     @SuppressWarnings("unchecked")
     void shouldReturnBasicInfoAndRecommendedNameField() {
         DataModel model = new DataModel();
-        model.setId(3002L);
+        model.setId("3002");
         model.setCode("dim_store");
         model.setName("门店维度");
         model.setModelType("DIMENSION");
@@ -44,7 +44,7 @@ class DimensionInfoToolTest {
         ModelField sk = field("store_sk", "LONG", true, null, null);
         ModelField code = field("store_code", "VARCHAR", false, null, null);
         ModelField name = field("store_name", "VARCHAR", false, null, null);
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(List.of(sk, code, name));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(sk, code, name));
 
         Map<String, Object> result = (Map<String, Object>) tool.execute(Map.of("dimensionModelCode", "dim_store"), null);
 
@@ -59,7 +59,7 @@ class DimensionInfoToolTest {
     @SuppressWarnings("unchecked")
     void shouldRecommendLevelNameFieldForHierarchy() {
         DataModel model = new DataModel();
-        model.setId(3004L);
+        model.setId("3004");
         model.setCode("dim_category");
         model.setName("品类层级维度");
         model.setModelType("DIMENSION");
@@ -71,7 +71,7 @@ class DimensionInfoToolTest {
         ModelField l1name = field("level1_name", "VARCHAR", false, "LEVEL_NAME", 1);
         ModelField l2id = field("level2_id", "LONG", true, "LEVEL_ID", 2);
         ModelField l2name = field("level2_name", "VARCHAR", false, "LEVEL_NAME", 2);
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3004L)).thenReturn(List.of(l1id, l1name, l2id, l2name));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3004")).thenReturn(List.of(l1id, l1name, l2id, l2name));
 
         Map<String, Object> result = (Map<String, Object>) tool.execute(Map.of("dimensionModelCode", "dim_category"), null);
 
@@ -85,7 +85,7 @@ class DimensionInfoToolTest {
     @SuppressWarnings("unchecked")
     void shouldPreferConfiguredDisplayField() {
         DataModel model = new DataModel();
-        model.setId(3002L);
+        model.setId("3002");
         model.setCode("dim_store");
         model.setName("门店维度");
         model.setModelType("DIMENSION");
@@ -93,7 +93,7 @@ class DimensionInfoToolTest {
         model.setDisplayFieldName("store_code");
         when(dataModelRepository.findFirstByCode("dim_store")).thenReturn(Optional.of(model));
 
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(
             List.of(field("store_sk", "LONG", true, null, null), field("store_code", "VARCHAR", false, null, null), field("store_name", "VARCHAR", false, null, null))
         );
 

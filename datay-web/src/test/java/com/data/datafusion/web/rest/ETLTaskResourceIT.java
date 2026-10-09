@@ -45,8 +45,8 @@ class ETLTaskResourceIT {
     private static final String DEFAULT_TASK_CODE = "AAAAAAAAAA";
     private static final String UPDATED_TASK_CODE = "BBBBBBBBBB";
 
-    private static final Long DEFAULT_JOB_ID = 1L;
-    private static final Long UPDATED_JOB_ID = 2L;
+    private static final String DEFAULT_JOB_ID = "1";
+    private static final String UPDATED_JOB_ID = "2";
 
     private static final String DEFAULT_TASK_DESC = "AAAAAAAAAA";
     private static final String UPDATED_TASK_DESC = "BBBBBBBBBB";
@@ -205,7 +205,7 @@ class ETLTaskResourceIT {
     @Transactional
     void createETLTaskWithExistingId() throws Exception {
         // Create the ETLTask with an existing ID
-        eTLTask.setId(1L);
+        eTLTask.setId("1");
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -230,10 +230,10 @@ class ETLTaskResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLTask.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLTask.getId())))
             .andExpect(jsonPath("$.[*].taskName").value(hasItem(DEFAULT_TASK_NAME)))
             .andExpect(jsonPath("$.[*].taskCode").value(hasItem(DEFAULT_TASK_CODE)))
-            .andExpect(jsonPath("$.[*].jobId").value(hasItem(DEFAULT_JOB_ID.intValue())))
+            .andExpect(jsonPath("$.[*].jobId").value(hasItem(DEFAULT_JOB_ID)))
             .andExpect(jsonPath("$.[*].taskDesc").value(hasItem(DEFAULT_TASK_DESC)))
             .andExpect(jsonPath("$.[*].dir").value(hasItem(DEFAULT_DIR)))
             .andExpect(jsonPath("$.[*].type").value(hasItem(DEFAULT_TYPE)))
@@ -260,10 +260,10 @@ class ETLTaskResourceIT {
             .perform(get(ENTITY_API_URL_ID, eTLTask.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(eTLTask.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(eTLTask.getId()))
             .andExpect(jsonPath("$.taskName").value(DEFAULT_TASK_NAME))
             .andExpect(jsonPath("$.taskCode").value(DEFAULT_TASK_CODE))
-            .andExpect(jsonPath("$.jobId").value(DEFAULT_JOB_ID.intValue()))
+            .andExpect(jsonPath("$.jobId").value(DEFAULT_JOB_ID))
             .andExpect(jsonPath("$.taskDesc").value(DEFAULT_TASK_DESC))
             .andExpect(jsonPath("$.dir").value(DEFAULT_DIR))
             .andExpect(jsonPath("$.type").value(DEFAULT_TYPE))
@@ -332,7 +332,7 @@ class ETLTaskResourceIT {
     @Transactional
     void putNonExistingETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
@@ -352,7 +352,7 @@ class ETLTaskResourceIT {
     @Transactional
     void putWithIdMismatchETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
@@ -374,7 +374,7 @@ class ETLTaskResourceIT {
     @Transactional
     void putWithMissingIdPathParamETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
@@ -470,7 +470,7 @@ class ETLTaskResourceIT {
     @Transactional
     void patchNonExistingETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
@@ -492,7 +492,7 @@ class ETLTaskResourceIT {
     @Transactional
     void patchWithIdMismatchETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);
@@ -514,7 +514,7 @@ class ETLTaskResourceIT {
     @Transactional
     void patchWithMissingIdPathParamETLTask() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLTask.setId(longCount.incrementAndGet());
+        eTLTask.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLTask
         ETLTaskDTO eTLTaskDTO = eTLTaskMapper.toDto(eTLTask);

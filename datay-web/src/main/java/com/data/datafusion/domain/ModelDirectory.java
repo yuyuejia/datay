@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -15,9 +17,9 @@ public class ModelDirectory implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "tenant_id")
     private String tenantId;
@@ -25,8 +27,8 @@ public class ModelDirectory implements Serializable, TenantAware {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "parent_id")
-    private Long parentId;
+    @Column(name = "parent_id", length = 36)
+    private String parentId;
 
     @Column(name = "sort_order")
     private Integer sortOrder;
@@ -37,16 +39,16 @@ public class ModelDirectory implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public ModelDirectory id(Long id) {
+    public ModelDirectory id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -63,16 +65,16 @@ public class ModelDirectory implements Serializable, TenantAware {
         this.name = name;
     }
 
-    public Long getParentId() {
+    public String getParentId() {
         return this.parentId;
     }
 
-    public ModelDirectory parentId(Long parentId) {
+    public ModelDirectory parentId(String parentId) {
         this.setParentId(parentId);
         return this;
     }
 
-    public void setParentId(Long parentId) {
+    public void setParentId(String parentId) {
         this.parentId = parentId;
     }
 

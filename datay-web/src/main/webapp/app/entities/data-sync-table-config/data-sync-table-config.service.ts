@@ -7,7 +7,7 @@ import { type IDataSyncTableConfig } from '@/shared/model/data-sync-table-config
 const baseApiUrl = 'api/data-sync-table-configs';
 
 export default class DataSyncTableConfigService {
-  find(id: number): Promise<IDataSyncTableConfig> {
+  find(id: string): Promise<IDataSyncTableConfig> {
     return new Promise<IDataSyncTableConfig>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class DataSyncTableConfigService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

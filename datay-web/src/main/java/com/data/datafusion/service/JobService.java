@@ -174,7 +174,7 @@ public class JobService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<JobDTO> findOne(Long id) {
+    public Optional<JobDTO> findOne(String id) {
         LOG.debug("Request to get JobDTO : {}", id);
         return jobRepository.findById(id).map(jobMapper::toDto);
     }
@@ -184,7 +184,7 @@ public class JobService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete Job : {}", id);
         Job job = jobRepository.findById(id).get();
         jobRepository.deleteById(id);
@@ -192,7 +192,7 @@ public class JobService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Job> findOneJob(Long id) {
+    public Optional<Job> findOneJob(String id) {
         LOG.debug("Request to get Job : {}", id);
         return jobRepository.findById(id);
     }

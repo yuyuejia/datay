@@ -4,7 +4,7 @@ import static com.data.datafusion.mcp.harness.DatayHarnessArgs.clamp;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.intVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.mapList;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.mapVal;
-import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqLong;
+import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqStr;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.str;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.array;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.freeObject;
@@ -84,8 +84,8 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.read(
             "etl_task_get",
             "按 ID 查询 ETL 任务详情，包含节点与连线组成的任务设计图。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
-            (args, context) -> DatayHarnessViews.etlTask(requireTask(reqLong(args, "id")), true)
+            object(properties("id", string("ETL 任务 ID")), "id"),
+            (args, context) -> DatayHarnessViews.etlTask(requireTask(reqStr(args, "id")), true)
         );
     }
 
@@ -137,7 +137,7 @@ public class EtlTaskHarnessTools {
             "按 ID 更新 ETL 任务。只提交需要修改的字段：仅改名称/调度等元信息时不会触碰任务设计图；提交 nodes 或 edges 时会整体替换设计图并重新生成执行计划。",
             object(
                 properties(
-                    "id", integer("ETL 任务 ID"),
+                    "id", string("ETL 任务 ID"),
                     "taskName", string("任务名称"),
                     "taskCode", string("任务编码"),
                     "taskDesc", string("任务描述"),
@@ -151,7 +151,7 @@ public class EtlTaskHarnessTools {
                 "id"
             ),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 ETLTaskDTO existing = requireTask(id);
                 List<Map<String, Object>> rawNodes = mapList(args, "nodes");
                 List<Map<String, Object>> rawEdges = mapList(args, "edges");
@@ -188,9 +188,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.write(
             "etl_task_delete",
             "按 ID 删除 ETL 任务，同时删除其调度 Job 与任务设计图。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
+            object(properties("id", string("ETL 任务 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 ETLTaskDTO existing = requireTask(id);
                 etlTaskService.delete(id);
                 Map<String, Object> result = new LinkedHashMap<>();
@@ -207,9 +207,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.write(
             "etl_task_run",
             "立即触发一次 ETL 任务执行（不等同于上线调度）。可用 etl_task_instances 查询执行结果。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
+            object(properties("id", string("ETL 任务 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 requireTask(id);
                 etlTaskService.executeOnce(id);
                 Map<String, Object> result = new LinkedHashMap<>();
@@ -226,9 +226,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.write(
             "etl_task_online",
             "把 ETL 任务置为 ONLINE 并按 cron 加入调度。任务需已生成执行计划（jobId 非空）。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
+            object(properties("id", string("ETL 任务 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 ETLTaskDTO existing = requireTask(id);
                 if (existing.getJobId() == null) {
                     throw new IllegalArgumentException("任务尚未生成执行计划（jobId 为空），无法上线");
@@ -243,9 +243,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.write(
             "etl_task_offline",
             "把 ETL 任务置为 OFFLINE 并取消调度。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
+            object(properties("id", string("ETL 任务 ID")), "id"),
             (args, context) -> {
-                Long id = reqLong(args, "id");
+                String id = reqStr(args, "id");
                 requireTask(id);
                 return DatayHarnessViews.etlTask(etlTaskService.offline(id), true);
             }
@@ -259,7 +259,7 @@ public class EtlTaskHarnessTools {
             "试跑 ETL 任务并返回各节点的采样数据：源组件最多读取 rowLimit 条，sink 组件只读不写，不影响目标库与增量状态。",
             object(
                 properties(
-                    "id", integer("ETL 任务 ID（与 task 二选一，推荐用已保存的任务）"),
+                    "id", string("ETL 任务 ID（与 task 二选一，推荐用已保存的任务）"),
                     "task", freeObject("尚未保存的任务定义，结构同 etl_task_create 的入参"),
                     "rowLimit", integer("每个源组件的采样行数，默认 100"),
                     "targetNodeId", string("只运行到该节点及其上游（可选）")
@@ -267,7 +267,7 @@ public class EtlTaskHarnessTools {
             ),
             (args, context) -> {
                 ETLDebugDTO request = new ETLDebugDTO();
-                Long id = DatayHarnessArgs.longVal(args, "id");
+                String id = DatayHarnessArgs.str(args, "id");
                 if (id != null) {
                     request.setTask(requireTask(id));
                 } else {
@@ -289,9 +289,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.read(
             "etl_task_instances",
             "分页查询 ETL 任务的执行实例（运行历史与状态）。",
-            object(properties("id", integer("ETL 任务 ID"), "page", integer("页码，从 0 开始，默认 0"), "size", integer("每页条数，默认 20，最大 200")), "id"),
+            object(properties("id", string("ETL 任务 ID"), "page", integer("页码，从 0 开始，默认 0"), "size", integer("每页条数，默认 20，最大 200")), "id"),
             (args, context) -> {
-                ETLTaskDTO task = requireTask(reqLong(args, "id"));
+                ETLTaskDTO task = requireTask(reqStr(args, "id"));
                 if (task.getJobId() == null) {
                     return DatayHarnessViews.page(Page.<JobInstanceDTO>empty(), DatayHarnessViews::jobInstance);
                 }
@@ -308,9 +308,9 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.read(
             "etl_task_job_preview",
             "预览 ETL 任务编译出的执行计划 JSON（引擎视角的 units / connections），便于排查配置问题。",
-            object(properties("id", integer("ETL 任务 ID")), "id"),
+            object(properties("id", string("ETL 任务 ID")), "id"),
             (args, context) -> {
-                ETLTaskDTO task = requireTask(reqLong(args, "id"));
+                ETLTaskDTO task = requireTask(reqStr(args, "id"));
                 String jobJson = etlTaskService.generateETLJobJson(task);
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("taskId", task.getId());
@@ -340,7 +340,7 @@ public class EtlTaskHarnessTools {
         }
     }
 
-    private ETLTaskDTO requireTask(Long id) {
+    private ETLTaskDTO requireTask(String id) {
         if (!etlTaskRepository.existsById(id)) {
             throw new IllegalArgumentException("ETL 任务不存在: " + id);
         }

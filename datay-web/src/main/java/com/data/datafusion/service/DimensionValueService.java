@@ -56,7 +56,7 @@ public class DimensionValueService {
      * @param size             每页条数
      * @return values / total / page / size
      */
-    public Map<String, Object> pageValues(Long dimensionModelId, String fieldName, String keyword, Integer page, Integer size) {
+    public Map<String, Object> pageValues(String dimensionModelId, String fieldName, String keyword, Integer page, Integer size) {
         DataModel dimension = dataModelRepository
             .findById(dimensionModelId)
             .orElseThrow(() -> new IllegalArgumentException("维度模型不存在：" + dimensionModelId));

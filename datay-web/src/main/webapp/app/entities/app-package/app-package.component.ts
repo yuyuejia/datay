@@ -169,7 +169,7 @@ export default defineComponent({
       initVisible.value = true;
     };
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (row: IAppPackage) => {
       removeId.value = row.id;

@@ -8,9 +8,9 @@ import org.springframework.stereotype.Repository;
 
 @SuppressWarnings("unused")
 @Repository
-public interface ModelDirectoryRepository extends JpaRepository<ModelDirectory, Long> {
-    List<ModelDirectory> findByParentIdOrderBySortOrderAsc(Long parentId);
+public interface ModelDirectoryRepository extends JpaRepository<ModelDirectory, String> {
+    List<ModelDirectory> findByParentIdOrderBySortOrderAsc(String parentId);
     List<ModelDirectory> findByParentIdIsNullOrderBySortOrderAsc();
-    Optional<ModelDirectory> findFirstByNameAndParentId(String name, Long parentId);
+    Optional<ModelDirectory> findFirstByNameAndParentId(String name, String parentId);
     Optional<ModelDirectory> findFirstByNameAndParentIdIsNull(String name);
 }

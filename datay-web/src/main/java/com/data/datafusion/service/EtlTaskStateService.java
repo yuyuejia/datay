@@ -54,7 +54,7 @@ public class EtlTaskStateService {
     /**
      * 获取任务的节点编码到节点名称（label）的映射，用于状态按节点分组展示。
      */
-    public Map<String, String> getNodeNames(Long taskId) {
+    public Map<String, String> getNodeNames(String taskId) {
         Map<String, String> names = new LinkedHashMap<>();
         List<ETLNode> nodes = etlNodeRepository.findAllByTaskId(String.valueOf(taskId)).orElse(Collections.emptyList());
         for (ETLNode node : nodes) {
@@ -79,7 +79,7 @@ public class EtlTaskStateService {
         return statusStorageConfigService.buildStrategy(statusStorageConfigService.getConfig());
     }
 
-    public Optional<ETLTask> findTask(Long taskId) {
+    public Optional<ETLTask> findTask(String taskId) {
         return etlTaskRepository.findById(taskId);
     }
 
@@ -93,7 +93,7 @@ public class EtlTaskStateService {
     /**
      * 加载任务状态，不存在时返回空 Map。
      */
-    public Map<String, Object> loadState(Long taskId) {
+    public Map<String, Object> loadState(String taskId) {
         ETLTask task = requireTask(taskId);
         String jobCode = resolveJobCode(task);
         if (jobCode == null) {
@@ -108,7 +108,7 @@ public class EtlTaskStateService {
      *
      * @return 合并后的完整状态
      */
-    public Map<String, Object> patchState(Long taskId, Map<String, Object> patch) {
+    public Map<String, Object> patchState(String taskId, Map<String, Object> patch) {
         ETLTask task = requireTask(taskId);
         String jobCode = requireJobCode(task);
         synchronized (lockOf(jobCode)) {
@@ -134,7 +134,7 @@ public class EtlTaskStateService {
      *
      * @return 删除后的状态（整任务删除时为空 Map）
      */
-    public Map<String, Object> deleteState(Long taskId, String key) {
+    public Map<String, Object> deleteState(String taskId, String key) {
         ETLTask task = requireTask(taskId);
         String jobCode = requireJobCode(task);
         StatusStorageStrategy strategy = statusStorageConfigService.getActiveStrategy();
@@ -178,7 +178,7 @@ public class EtlTaskStateService {
     /**
      * 任务当前是否有运行中的实例。
      */
-    public boolean isRunning(Long taskId) {
+    public boolean isRunning(String taskId) {
         ETLTask task = requireTask(taskId);
         String jobCode = resolveJobCode(task);
         if (jobCode == null) {
@@ -189,14 +189,14 @@ public class EtlTaskStateService {
 
     private Optional<ETLTask> resolveTask(String jobCode) {
         try {
-            return etlTaskRepository.findByJobId(Long.valueOf(jobCode));
+            return etlTaskRepository.findByJobId(jobCode);
         } catch (NumberFormatException e) {
             LOG.debug("状态 jobCode 非任务 ID：{}", jobCode);
             return Optional.empty();
         }
     }
 
-    private ETLTask requireTask(Long taskId) {
+    private ETLTask requireTask(String taskId) {
         return etlTaskRepository
             .findById(taskId)
             .orElseThrow(() -> new IllegalArgumentException("ETL 任务不存在: " + taskId));
@@ -216,17 +216,17 @@ public class EtlTaskStateService {
 
     public static class StateSummary {
 
-        private Long taskId;
+        private String taskId;
         private String taskName;
         private String taskCode;
         private String jobCode;
         private List<String> keys = new ArrayList<>();
 
-        public Long getTaskId() {
+        public String getTaskId() {
             return taskId;
         }
 
-        public void setTaskId(Long taskId) {
+        public void setTaskId(String taskId) {
             this.taskId = taskId;
         }
 

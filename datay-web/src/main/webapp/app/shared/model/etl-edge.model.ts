@@ -1,5 +1,5 @@
 export interface IETLEdge {
-  id?: number;
+  id?: string;
   taskId?: string | null;
   name?: string | null;
   code?: string | null;
@@ -13,7 +13,7 @@ export interface IETLEdge {
 
 export class ETLEdge implements IETLEdge {
   constructor(
-    public id?: number,
+    public id?: string,
     public taskId?: string | null,
     public name?: string | null,
     public code?: string | null,

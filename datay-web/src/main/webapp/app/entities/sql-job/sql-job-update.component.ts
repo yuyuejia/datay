@@ -54,7 +54,7 @@ export default defineComponent({
 
     const sqlJob = ref<IJob>({ jobName: "", cron: "", status: "OFFLINE" });
     const dataSources = ref<IDataSource[]>([]);
-    const dataSourceId = ref<number | null>(null);
+    const dataSourceId = ref<string | null>(null);
     const dataSourceName = ref("");
     const dataSourceType = ref("");
     const selectedSchema = ref<string | null>(null);
@@ -387,7 +387,7 @@ export default defineComponent({
       }
     };
 
-    const onDataSourceChange = async (value: number | null) => {
+    const onDataSourceChange = async (value: string | null) => {
       dataSourceId.value = value;
       resultColumns.value = [];
       resultData.value = [];
@@ -543,7 +543,7 @@ export default defineComponent({
         const config =
           typeof jobContext === "string" ? JSON.parse(jobContext) : jobContext;
         if (config.dataSourceId != null) {
-          dataSourceId.value = Number(config.dataSourceId);
+          dataSourceId.value = String(config.dataSourceId);
         }
         if (config.schema) {
           selectedSchema.value = config.schema;
@@ -563,7 +563,7 @@ export default defineComponent({
         return;
       }
       try {
-        const job = await sqlJobService().find(Number(route.params.jobId));
+        const job = await sqlJobService().find(String(route.params.jobId));
         sqlJob.value = job;
         parseJobContext(job.jobContext);
       } catch (error) {

@@ -1,5 +1,5 @@
 export interface IServiceConfig {
-  id?: number;
+  id?: string;
   dfGroup?: string | null;
   dfKey?: string | null;
   dfValue?: string | null;
@@ -9,7 +9,7 @@ export interface IServiceConfig {
 
 export class ServiceConfig implements IServiceConfig {
   constructor(
-    public id?: number,
+    public id?: string,
     public dfGroup?: string | null,
     public dfKey?: string | null,
     public dfValue?: string | null,

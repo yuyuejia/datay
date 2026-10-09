@@ -76,7 +76,7 @@ public class DpTableResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DpTableDTO> updateDpTable(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DpTableDTO dpTableDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update DpTable : {}, {}", id, dpTableDTO);
@@ -110,7 +110,7 @@ public class DpTableResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<DpTableDTO> partialUpdateDpTable(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DpTableDTO dpTableDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update DpTable partially : {}, {}", id, dpTableDTO);
@@ -154,7 +154,7 @@ public class DpTableResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the dpTableDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DpTableDTO> getDpTable(@PathVariable("id") Long id) {
+    public ResponseEntity<DpTableDTO> getDpTable(@PathVariable("id") String id) {
         LOG.debug("REST request to get DpTable : {}", id);
         Optional<DpTableDTO> dpTableDTO = dpTableService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dpTableDTO);
@@ -167,7 +167,7 @@ public class DpTableResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDpTable(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDpTable(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DpTable : {}", id);
         dpTableService.delete(id);
         return ResponseEntity.noContent()

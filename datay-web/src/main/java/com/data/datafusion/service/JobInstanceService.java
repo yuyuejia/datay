@@ -150,12 +150,12 @@ public class JobInstanceService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<JobInstanceDTO> findOne(Long id) {
+    public Optional<JobInstanceDTO> findOne(String id) {
         LOG.debug("Request to get JobInstance : {}", id);
         return jobInstanceRepository.findById(id).map(jobInstanceMapper::toDto);
     }
 
-    public JobInstance findOneJobInstance(Long id) {
+    public JobInstance findOneJobInstance(String id) {
         return jobInstanceRepository.findById(id).orElse(null);
     }
 
@@ -168,7 +168,7 @@ public class JobInstanceService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete JobInstance : {}", id);
         jobInstanceRepository.deleteById(id);
     }
@@ -264,7 +264,7 @@ public class JobInstanceService {
         return isDependSuccess;
     }
 
-    public JobInstance buildJobInstance(Long jobId) {
+    public JobInstance buildJobInstance(String jobId) {
         Job job = jobRepository.findById(jobId).orElseThrow();
         JobInstance jobInstance = new JobInstance();
         jobInstance.setJobName(job.getJobName());

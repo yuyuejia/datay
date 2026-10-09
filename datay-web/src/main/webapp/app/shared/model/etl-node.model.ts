@@ -1,5 +1,5 @@
 export interface IETLNode {
-  id?: number;
+  id?: string;
   taskId?: string | null;
   label?: string | null;
   code?: string | null;
@@ -17,7 +17,7 @@ export interface IETLNode {
 
 export class ETLNode implements IETLNode {
   constructor(
-    public id?: number,
+    public id?: string,
     public taskId?: string | null,
     public label?: string | null,
     public code?: string | null,

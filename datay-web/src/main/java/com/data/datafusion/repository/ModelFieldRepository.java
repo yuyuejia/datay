@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 
 @SuppressWarnings("unused")
 @Repository
-public interface ModelFieldRepository extends JpaRepository<ModelField, Long> {
-    List<ModelField> findByModelIdOrderBySortOrderAsc(Long modelId);
-    void deleteByModelId(Long modelId);
+public interface ModelFieldRepository extends JpaRepository<ModelField, String> {
+    List<ModelField> findByModelIdOrderBySortOrderAsc(String modelId);
+    void deleteByModelId(String modelId);
 }

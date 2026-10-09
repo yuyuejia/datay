@@ -11,12 +11,12 @@ class ServiceConfigDTOTest {
     void dtoEqualsVerifier() throws Exception {
         TestUtil.equalsVerifier(ServiceConfigDTO.class);
         ServiceConfigDTO serviceConfigDTO1 = new ServiceConfigDTO();
-        serviceConfigDTO1.setId(1L);
+        serviceConfigDTO1.setId("1");
         ServiceConfigDTO serviceConfigDTO2 = new ServiceConfigDTO();
         assertThat(serviceConfigDTO1).isNotEqualTo(serviceConfigDTO2);
         serviceConfigDTO2.setId(serviceConfigDTO1.getId());
         assertThat(serviceConfigDTO1).isEqualTo(serviceConfigDTO2);
-        serviceConfigDTO2.setId(2L);
+        serviceConfigDTO2.setId("2");
         assertThat(serviceConfigDTO1).isNotEqualTo(serviceConfigDTO2);
         serviceConfigDTO1.setId(null);
         assertThat(serviceConfigDTO1).isNotEqualTo(serviceConfigDTO2);

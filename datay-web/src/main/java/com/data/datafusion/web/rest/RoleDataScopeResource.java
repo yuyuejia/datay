@@ -45,7 +45,7 @@ public class RoleDataScopeResource {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RoleDataScopeDTO> getRoleDataScope(@PathVariable("id") Long id) {
+    public ResponseEntity<RoleDataScopeDTO> getRoleDataScope(@PathVariable("id") String id) {
         LOG.debug("REST request to get RoleDataScope : {}", id);
         Optional<RoleDataScopeDTO> dto = roleDataScopeService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dto);
@@ -69,7 +69,7 @@ public class RoleDataScopeResource {
 
     @PutMapping("/{id}")
     public ResponseEntity<RoleDataScopeDTO> updateRoleDataScope(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody RoleDataScopeDTO dto
     ) {
         LOG.debug("REST request to update RoleDataScope : {}, {}", id, dto);
@@ -90,7 +90,7 @@ public class RoleDataScopeResource {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRoleDataScope(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteRoleDataScope(@PathVariable("id") String id) {
         LOG.debug("REST request to delete RoleDataScope : {}", id);
         roleDataScopeService.delete(id);
         return ResponseEntity.noContent()

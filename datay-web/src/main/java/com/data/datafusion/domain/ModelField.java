@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -15,15 +17,15 @@ public class ModelField implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "tenant_id")
     private String tenantId;
 
-    @Column(name = "model_id")
-    private Long modelId;
+    @Column(name = "model_id", length = 36)
+    private String modelId;
 
     @Column(name = "field_name")
     private String fieldName;
@@ -52,11 +54,11 @@ public class ModelField implements Serializable, TenantAware {
     @Column(name = "is_primary_key")
     private Boolean isPrimaryKey;
 
-    @Column(name = "dimension_model_id")
-    private Long dimensionModelId;
+    @Column(name = "dimension_model_id", length = 36)
+    private String dimensionModelId;
 
-    @Column(name = "dimension_field_id")
-    private Long dimensionFieldId;
+    @Column(name = "dimension_field_id", length = 36)
+    private String dimensionFieldId;
 
     @Column(name = "field_role")
     private String fieldRole;
@@ -70,16 +72,16 @@ public class ModelField implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public ModelField id(Long id) {
+    public ModelField id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -96,16 +98,16 @@ public class ModelField implements Serializable, TenantAware {
         this.tenantId = tenantId;
     }
 
-    public Long getModelId() {
+    public String getModelId() {
         return this.modelId;
     }
 
-    public ModelField modelId(Long modelId) {
+    public ModelField modelId(String modelId) {
         this.setModelId(modelId);
         return this;
     }
 
-    public void setModelId(Long modelId) {
+    public void setModelId(String modelId) {
         this.modelId = modelId;
     }
 
@@ -226,29 +228,29 @@ public class ModelField implements Serializable, TenantAware {
         this.isPrimaryKey = isPrimaryKey;
     }
 
-    public Long getDimensionModelId() {
+    public String getDimensionModelId() {
         return this.dimensionModelId;
     }
 
-    public ModelField dimensionModelId(Long dimensionModelId) {
+    public ModelField dimensionModelId(String dimensionModelId) {
         this.setDimensionModelId(dimensionModelId);
         return this;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
+    public void setDimensionModelId(String dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
     }
 
-    public Long getDimensionFieldId() {
+    public String getDimensionFieldId() {
         return this.dimensionFieldId;
     }
 
-    public ModelField dimensionFieldId(Long dimensionFieldId) {
+    public ModelField dimensionFieldId(String dimensionFieldId) {
         this.setDimensionFieldId(dimensionFieldId);
         return this;
     }
 
-    public void setDimensionFieldId(Long dimensionFieldId) {
+    public void setDimensionFieldId(String dimensionFieldId) {
         this.dimensionFieldId = dimensionFieldId;
     }
 

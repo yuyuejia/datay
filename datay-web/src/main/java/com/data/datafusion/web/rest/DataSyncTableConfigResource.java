@@ -80,7 +80,7 @@ public class DataSyncTableConfigResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DataSyncTableConfigDTO> updateDataSyncTableConfig(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSyncTableConfigDTO dataSyncTableConfigDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update DataSyncTableConfig : {}, {}", id, dataSyncTableConfigDTO);
@@ -114,7 +114,7 @@ public class DataSyncTableConfigResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<DataSyncTableConfigDTO> partialUpdateDataSyncTableConfig(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSyncTableConfigDTO dataSyncTableConfigDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update DataSyncTableConfig partially : {}, {}", id, dataSyncTableConfigDTO);
@@ -160,7 +160,7 @@ public class DataSyncTableConfigResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the dataSyncTableConfigDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DataSyncTableConfigDTO> getDataSyncTableConfig(@PathVariable("id") Long id) {
+    public ResponseEntity<DataSyncTableConfigDTO> getDataSyncTableConfig(@PathVariable("id") String id) {
         LOG.debug("REST request to get DataSyncTableConfig : {}", id);
         Optional<DataSyncTableConfigDTO> dataSyncTableConfigDTO = dataSyncTableConfigService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataSyncTableConfigDTO);
@@ -173,7 +173,7 @@ public class DataSyncTableConfigResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataSyncTableConfig(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDataSyncTableConfig(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataSyncTableConfig : {}", id);
         dataSyncTableConfigService.delete(id);
         return ResponseEntity.noContent()

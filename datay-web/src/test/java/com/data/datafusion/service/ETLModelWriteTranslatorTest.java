@@ -80,19 +80,19 @@ class ETLModelWriteTranslatorTest {
 
     private void mockDataModelBound() {
         DataModelDTO dataModel = new DataModelDTO();
-        dataModel.setId(3001L);
+        dataModel.setId("3001");
         dataModel.setName("客户维度");
-        dataModel.setDataSourceId(9L);
+        dataModel.setDataSourceId("9");
         dataModel.setSchemaName("dwd");
         dataModel.setTableName("dim_customer");
-        when(dataModelService.findOne(3001L)).thenReturn(Optional.of(dataModel));
+        when(dataModelService.findOne("3001")).thenReturn(Optional.of(dataModel));
 
         DataSourceDTO dataSource = new DataSourceDTO();
-        dataSource.setId(9L);
+        dataSource.setId("9");
         dataSource.setUrl("jdbc:mysql://127.0.0.1:3306");
         dataSource.setUsername("root");
         dataSource.setPassword("password");
-        when(dataSourceService.findOne(9L)).thenReturn(Optional.of(dataSource));
+        when(dataSourceService.findOne("9")).thenReturn(Optional.of(dataSource));
     }
 
     @Test
@@ -156,9 +156,9 @@ class ETLModelWriteTranslatorTest {
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
 
         DataModelDTO dataModel = new DataModelDTO();
-        dataModel.setId(3001L);
+        dataModel.setId("3001");
         dataModel.setName("客户维度");
-        when(dataModelService.findOne(3001L)).thenReturn(Optional.of(dataModel));
+        when(dataModelService.findOne("3001")).thenReturn(Optional.of(dataModel));
 
         assertThatThrownBy(() -> etlTaskService.generateETLJobJson(etlTaskWithNodes()))
             .isInstanceOf(IllegalArgumentException.class)
@@ -171,10 +171,10 @@ class ETLModelWriteTranslatorTest {
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
 
         DataModelDTO dataModel = new DataModelDTO();
-        dataModel.setId(3001L);
+        dataModel.setId("3001");
         dataModel.setName("客户维度");
-        dataModel.setDataSourceId(9L);
-        when(dataModelService.findOne(3001L)).thenReturn(Optional.of(dataModel));
+        dataModel.setDataSourceId("9");
+        when(dataModelService.findOne("3001")).thenReturn(Optional.of(dataModel));
 
         assertThatThrownBy(() -> etlTaskService.generateETLJobJson(etlTaskWithNodes()))
             .isInstanceOf(IllegalArgumentException.class)

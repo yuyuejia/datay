@@ -5,7 +5,7 @@ import { type IMetric } from "@/shared/model/metric.model";
 const baseApiUrl = "api/metrics";
 
 export default class MetricService {
-  find(id: number): Promise<IMetric> {
+  find(id: string): Promise<IMetric> {
     return new Promise<IMetric>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -44,7 +44,7 @@ export default class MetricService {
     });
   }
 
-  retrieveByDirectory(directoryId: number): Promise<any> {
+  retrieveByDirectory(directoryId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/by-directory`, { params: { directoryId } })
@@ -70,7 +70,7 @@ export default class MetricService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -122,7 +122,7 @@ export default class MetricService {
     });
   }
 
-  previewSqlById(id: number): Promise<any> {
+  previewSqlById(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}/preview-sql`)

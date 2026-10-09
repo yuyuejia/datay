@@ -175,7 +175,7 @@ class JobResourceIT {
     @Transactional
     void createJobWithExistingId() throws Exception {
         // Create the Job with an existing ID
-        job.setId(1L);
+        job.setId("1");
         JobDTO jobDTO = jobMapper.toDto(job);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -200,7 +200,7 @@ class JobResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(job.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(job.getId())))
             .andExpect(jsonPath("$.[*].jobName").value(hasItem(DEFAULT_JOB_NAME)))
             .andExpect(jsonPath("$.[*].jobGroup").value(hasItem(DEFAULT_JOB_GROUP)))
             .andExpect(jsonPath("$.[*].type").value(hasItem(DEFAULT_TYPE)))
@@ -224,7 +224,7 @@ class JobResourceIT {
             .perform(get(ENTITY_API_URL_ID, job.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(job.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(job.getId()))
             .andExpect(jsonPath("$.jobName").value(DEFAULT_JOB_NAME))
             .andExpect(jsonPath("$.jobGroup").value(DEFAULT_JOB_GROUP))
             .andExpect(jsonPath("$.type").value(DEFAULT_TYPE))
@@ -282,7 +282,7 @@ class JobResourceIT {
     @Transactional
     void putNonExistingJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);
@@ -300,7 +300,7 @@ class JobResourceIT {
     @Transactional
     void putWithIdMismatchJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);
@@ -322,7 +322,7 @@ class JobResourceIT {
     @Transactional
     void putWithMissingIdPathParamJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);
@@ -406,7 +406,7 @@ class JobResourceIT {
     @Transactional
     void patchNonExistingJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);
@@ -426,7 +426,7 @@ class JobResourceIT {
     @Transactional
     void patchWithIdMismatchJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);
@@ -448,7 +448,7 @@ class JobResourceIT {
     @Transactional
     void patchWithMissingIdPathParamJob() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        job.setId(longCount.incrementAndGet());
+        job.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the Job
         JobDTO jobDTO = jobMapper.toDto(job);

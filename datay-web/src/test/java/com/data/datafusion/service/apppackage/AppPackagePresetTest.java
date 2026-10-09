@@ -77,13 +77,13 @@ class AppPackagePresetTest {
     }
 
     private void assertReferences(String file, AppPackageContent content) {
-        Set<Long> dataSourceIds = ids(content.getDataSources().stream().map(item -> item.oldId).collect(Collectors.toSet()));
-        Set<Long> modelIds = ids(content.getModels().stream().map(item -> item.oldId).collect(Collectors.toSet()));
-        Set<Long> modelDirectoryIds = ids(content.getModelDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
-        Set<Long> metricDirectoryIds = ids(content.getMetricDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
-        Set<Long> modelFieldIds = new LinkedHashSet<>();
+        Set<String> dataSourceIds = ids(content.getDataSources().stream().map(item -> item.oldId).collect(Collectors.toSet()));
+        Set<String> modelIds = ids(content.getModels().stream().map(item -> item.oldId).collect(Collectors.toSet()));
+        Set<String> modelDirectoryIds = ids(content.getModelDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
+        Set<String> metricDirectoryIds = ids(content.getMetricDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
+        Set<String> modelFieldIds = new LinkedHashSet<>();
         content.getModels().forEach(model -> model.fields.forEach(field -> modelFieldIds.add(field.oldId)));
-        Set<Long> metricCodes = content.getMetrics().stream().map(metric -> metric.oldId).collect(Collectors.toSet());
+        Set<String> metricCodes = content.getMetrics().stream().map(metric -> metric.oldId).collect(Collectors.toSet());
         Set<String> metricCodeNames = content.getMetrics().stream().map(metric -> metric.code).collect(Collectors.toSet());
 
         // 数据源与目录
@@ -141,11 +141,11 @@ class AppPackagePresetTest {
                 }
                 JsonNode sourceId = config.get("sourceId");
                 if (sourceId != null && sourceId.canConvertToLong()) {
-                    assertThat(dataSourceIds).as("%s: etl node %s sourceId", file, node.label).contains(sourceId.asLong());
+                    assertThat(dataSourceIds).as("%s: etl node %s sourceId", file, node.label).contains(sourceId.asText());
                 }
                 JsonNode modelId = config.get("modelId");
                 if (modelId != null && modelId.canConvertToLong()) {
-                    assertThat(modelIds).as("%s: etl node %s modelId", file, node.label).contains(modelId.asLong());
+                    assertThat(modelIds).as("%s: etl node %s modelId", file, node.label).contains(modelId.asText());
                 }
             }
         }
@@ -156,13 +156,13 @@ class AppPackagePresetTest {
             .forEach(job -> {
                 JsonNode dataSourceId = job.jobContext == null ? null : job.jobContext.get("dataSourceId");
                 if (dataSourceId != null && dataSourceId.canConvertToLong()) {
-                    assertThat(dataSourceIds).as("%s: sql job %s dataSourceId", file, job.jobName).contains(dataSourceId.asLong());
+                    assertThat(dataSourceIds).as("%s: sql job %s dataSourceId", file, job.jobName).contains(dataSourceId.asText());
                 }
                 assertThat(job.type).as("%s: sql job %s type", file, job.jobName).isEqualTo(TaskConstants.TASK_TYPE_SQL);
             });
 
         // 编排任务引用的子任务必须存在于包内（SQL 任务按 Job ID、ETL 任务按其调度 Job ID）
-        Set<Long> jobIds = new LinkedHashSet<>();
+        Set<String> jobIds = new LinkedHashSet<>();
         content.getSqlJobs().forEach(job -> jobIds.add(job.oldId));
         content.getOtherJobs().forEach(job -> jobIds.add(job.oldId));
         content.getEtlTasks().forEach(task -> jobIds.add(task.jobOldId));
@@ -175,13 +175,13 @@ class AppPackagePresetTest {
                 assertThat(jobs).as("%s: dag job %s jobs", file, job.jobName).isNotNull();
                 jobs.forEach(item -> {
                     JsonNode id = item.get("id");
-                    assertThat(jobIds).as("%s: dag job %s child %s", file, job.jobName, id).contains(id.asLong());
+                    assertThat(jobIds).as("%s: dag job %s child %s", file, job.jobName, id).contains(id.asText());
                 });
                 JsonNode depends = job.jobContext.get("jobDepends");
                 if (depends != null) {
                     depends.forEach(depend -> {
-                        assertThat(jobIds).as("%s: dag job %s parent", file, job.jobName).contains(depend.get("parentJobCode").asLong());
-                        assertThat(jobIds).as("%s: dag job %s child", file, job.jobName).contains(depend.get("childJobCode").asLong());
+                        assertThat(jobIds).as("%s: dag job %s parent", file, job.jobName).contains(depend.get("parentJobCode").asText());
+                        assertThat(jobIds).as("%s: dag job %s child", file, job.jobName).contains(depend.get("childJobCode").asText());
                     });
                 }
             });
@@ -189,7 +189,7 @@ class AppPackagePresetTest {
         assertThat(metricCodes).as("%s: metric oldIds", file).doesNotContainNull();
     }
 
-    private Set<Long> ids(Set<Long> source) {
+    private Set<String> ids(Set<String> source) {
         assertThat(source).doesNotContainNull();
         return source;
     }

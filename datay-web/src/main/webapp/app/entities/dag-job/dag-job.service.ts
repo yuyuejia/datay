@@ -49,7 +49,7 @@ export default class DagJobService {
     });
   }
 
-  find(id: number): Promise<IJob> {
+  find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -88,7 +88,7 @@ export default class DagJobService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -101,7 +101,7 @@ export default class DagJobService {
     });
   }
 
-  run(id: number): Promise<any> {
+  run(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
@@ -114,7 +114,7 @@ export default class DagJobService {
     });
   }
 
-  online(id: number): Promise<IJob> {
+  online(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`)
@@ -127,7 +127,7 @@ export default class DagJobService {
     });
   }
 
-  offline(id: number): Promise<IJob> {
+  offline(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)

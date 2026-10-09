@@ -7,7 +7,7 @@ import { type IDataSync } from '@/shared/model/data-sync.model';
 const baseApiUrl = 'api/data-syncs';
 
 export default class DataSyncService {
-  find(id: number): Promise<IDataSync> {
+  find(id: string): Promise<IDataSync> {
     return new Promise<IDataSync>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class DataSyncService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -85,7 +85,7 @@ export default class DataSyncService {
     });
   }
 
-  execute(id: number): Promise<any> {
+  execute(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/execute`)
@@ -98,7 +98,7 @@ export default class DataSyncService {
     });
   }
 
-  getTaskInstances(taskId: number, paginationQuery?: any): Promise<any> {
+  getTaskInstances(taskId: string, paginationQuery?: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${taskId}/instances?${buildPaginationQueryOpts(paginationQuery)}`)

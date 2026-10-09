@@ -7,7 +7,7 @@ import { type IDpTable } from '@/shared/model/dp-table.model';
 const baseApiUrl = 'api/dp-tables';
 
 export default class DpTableService {
-  find(id: number): Promise<IDpTable> {
+  find(id: string): Promise<IDpTable> {
     return new Promise<IDpTable>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class DpTableService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

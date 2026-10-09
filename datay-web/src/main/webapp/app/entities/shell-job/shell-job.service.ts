@@ -32,7 +32,7 @@ export default class ShellJobService {
     return this.retrieve({ ...paginationQuery, type: "SHELL" });
   }
 
-  find(id: number): Promise<IJob> {
+  find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -71,7 +71,7 @@ export default class ShellJobService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -84,7 +84,7 @@ export default class ShellJobService {
     });
   }
 
-  run(id: number): Promise<any> {
+  run(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
@@ -97,7 +97,7 @@ export default class ShellJobService {
     });
   }
 
-  online(id: number): Promise<IJob> {
+  online(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`)
@@ -110,7 +110,7 @@ export default class ShellJobService {
     });
   }
 
-  offline(id: number): Promise<IJob> {
+  offline(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)

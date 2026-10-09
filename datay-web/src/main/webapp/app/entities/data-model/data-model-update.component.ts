@@ -18,13 +18,13 @@ import { type IDataSource } from "@/shared/model/data-source.model";
 import { useAlertService } from "@/shared/alert/alert.service";
 
 interface TreeNode {
-  id: number;
+  id: string;
   name: string;
   children?: TreeNode[];
 }
 
 interface FlatDirectoryOption {
-  id: number;
+  id: string;
   name: string;
   level: number;
 }
@@ -55,7 +55,7 @@ export default defineComponent({
 
     const modelMode = ref<"normal" | "register">("normal");
     const registerAvailableDataSources = ref<IDataSource[]>([]);
-    const registerSelectedDataSourceId = ref<number | null>(null);
+    const registerSelectedDataSourceId = ref<string | null>(null);
     const registerSchemas = ref<string[]>([]);
     const registerSelectedSchema = ref<string | null>(null);
     const registerTables = ref<string[]>([]);
@@ -95,7 +95,7 @@ export default defineComponent({
 
     const directoryTreeData: Ref<TreeNode[]> = ref([]);
     const dimensionModels: Ref<IDataModel[]> = ref([]);
-    const dimensionFieldsCache: Ref<Record<number, IModelField[]>> = ref({});
+    const dimensionFieldsCache: Ref<Record<string, IModelField[]>> = ref({});
 
     const logicalTypes: Ref<{ type: string; label: string }[]> = ref([]);
 
@@ -105,7 +105,7 @@ export default defineComponent({
       try {
         const res = await modelDirectoryService().retrieve();
         const directories: IModelDirectory[] = res.data;
-        const buildTree = (parentId: number | null): TreeNode[] => {
+        const buildTree = (parentId: string | null): TreeNode[] => {
           return directories
             .filter((d) => (d.parentId || null) === parentId)
             .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -144,7 +144,7 @@ export default defineComponent({
       }
     };
 
-    const loadDimensionFields = async (modelId: number) => {
+    const loadDimensionFields = async (modelId: string) => {
       if (dimensionFieldsCache.value[modelId]) {
         return;
       }
@@ -156,7 +156,7 @@ export default defineComponent({
       }
     };
 
-    const getDimensionFields = (modelId: number) => {
+    const getDimensionFields = (modelId: string) => {
       if (!dimensionFieldsCache.value[modelId]) {
         loadDimensionFields(modelId);
       }
@@ -165,7 +165,7 @@ export default defineComponent({
 
     const handleDimensionModelChange = async (
       row: IModelField,
-      modelId: number | null,
+      modelId: string | null,
     ) => {
       row.dimensionFieldId = null;
       if (modelId) {
@@ -178,7 +178,7 @@ export default defineComponent({
       }
     };
 
-    const retrieveDataModel = async (modelId: number) => {
+    const retrieveDataModel = async (modelId: string) => {
       try {
         const res = await dataModelService().find(modelId);
         if (res.modelType === "DIMENSION" && !res.dimensionKind) {
@@ -493,7 +493,7 @@ export default defineComponent({
     };
 
     const importDialogVisible = ref(false);
-    const importSelectedDataSourceId = ref<number | null>(null);
+    const importSelectedDataSourceId = ref<string | null>(null);
     const importAvailableDataSources = ref<IDataSource[]>([]);
     const importSchemas = ref<string[]>([]);
     const importSelectedSchema = ref<string | null>(null);
@@ -910,7 +910,7 @@ export default defineComponent({
       }
       if (route.params?.dataModelId) {
         isEdit.value = true;
-        await retrieveDataModel(Number(route.params.dataModelId));
+        await retrieveDataModel(String(route.params.dataModelId));
         if (dataModel.value.isRegistered === true) {
           modelMode.value = "register";
           await loadRegisterDataSources();
@@ -920,7 +920,7 @@ export default defineComponent({
           }
         }
       } else if (route.query?.directoryId) {
-        dataModel.value.directoryId = Number(route.query.directoryId);
+        dataModel.value.directoryId = String(route.query.directoryId);
         dataModel.value.modelType = "DWD";
       }
     });

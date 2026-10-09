@@ -76,7 +76,7 @@ public class ETLEdgeResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ETLEdgeDTO> updateETLEdge(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLEdgeDTO eTLEdgeDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ETLEdge : {}, {}", id, eTLEdgeDTO);
@@ -110,7 +110,7 @@ public class ETLEdgeResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ETLEdgeDTO> partialUpdateETLEdge(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ETLEdgeDTO eTLEdgeDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ETLEdge partially : {}, {}", id, eTLEdgeDTO);
@@ -154,7 +154,7 @@ public class ETLEdgeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the eTLEdgeDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ETLEdgeDTO> getETLEdge(@PathVariable("id") Long id) {
+    public ResponseEntity<ETLEdgeDTO> getETLEdge(@PathVariable("id") String id) {
         LOG.debug("REST request to get ETLEdge : {}", id);
         Optional<ETLEdgeDTO> eTLEdgeDTO = eTLEdgeService.findOne(id);
         return ResponseUtil.wrapOrNotFound(eTLEdgeDTO);
@@ -167,7 +167,7 @@ public class ETLEdgeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteETLEdge(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteETLEdge(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ETLEdge : {}", id);
         eTLEdgeService.delete(id);
         return ResponseEntity.noContent()

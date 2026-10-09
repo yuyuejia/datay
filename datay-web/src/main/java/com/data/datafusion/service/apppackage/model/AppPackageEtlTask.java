@@ -17,10 +17,10 @@ import java.util.List;
 public class AppPackageEtlTask {
 
     /** 包内逻辑 ID（任务 ID）。 */
-    public Long oldId;
+    public String oldId;
 
     /** 调度 Job 的包内逻辑 ID，供编排任务引用。 */
-    public Long jobOldId;
+    public String jobOldId;
 
     public String taskName;
 
@@ -45,7 +45,7 @@ public class AppPackageEtlTask {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AppPackageEtlNode {
 
-        public Long oldId;
+        public String oldId;
 
         public String label;
 
@@ -70,7 +70,7 @@ public class AppPackageEtlTask {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AppPackageEtlEdge {
 
-        public Long oldId;
+        public String oldId;
 
         public String name;
 

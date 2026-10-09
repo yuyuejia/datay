@@ -12,7 +12,7 @@ export interface IDimensionValuePage {
  */
 export default class DimensionValueService {
   pageValues(
-    dimensionModelId: number | string,
+    dimensionModelId: string,
     fieldName: string,
     keyword?: string,
     page = 1,

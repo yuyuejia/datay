@@ -11,7 +11,7 @@ public class JobTestSamples {
 
     public static Job getJobSample1() {
         return new Job()
-            .id(1L)
+            .id("1")
             .jobName("jobName1")
             .jobGroup("jobGroup1")
             .type("type1")
@@ -24,7 +24,7 @@ public class JobTestSamples {
 
     public static Job getJobSample2() {
         return new Job()
-            .id(2L)
+            .id("2")
             .jobName("jobName2")
             .jobGroup("jobGroup2")
             .type("type2")
@@ -37,7 +37,7 @@ public class JobTestSamples {
 
     public static Job getJobRandomSampleGenerator() {
         return new Job()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .jobName(UUID.randomUUID().toString())
             .jobGroup(UUID.randomUUID().toString())
             .type(UUID.randomUUID().toString())

@@ -103,7 +103,7 @@ import { ref, onMounted, watch } from 'vue';
 import DataSourceService from '@/entities/data-source/data-source.service';
 
 const props = defineProps<{
-  dataSourceId: number | null;
+  dataSourceId: string | null;
   schema: string | null;
   table: string | null;
   selectedFields: any[];

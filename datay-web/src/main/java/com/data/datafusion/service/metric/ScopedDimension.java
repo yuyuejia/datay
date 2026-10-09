@@ -10,15 +10,15 @@ import java.util.List;
  */
 public class ScopedDimension {
 
-    private Long dimensionModelId;
+    private String dimensionModelId;
 
     private List<MetricFilterCondition> conditions = new ArrayList<>();
 
-    public Long getDimensionModelId() {
+    public String getDimensionModelId() {
         return dimensionModelId;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
+    public void setDimensionModelId(String dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
     }
 

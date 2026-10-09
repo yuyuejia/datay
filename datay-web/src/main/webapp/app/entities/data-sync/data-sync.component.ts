@@ -63,7 +63,7 @@ export default defineComponent({
       await retrieveDataSyncs();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IDataSync) => {
       removeId.value = instance.id;

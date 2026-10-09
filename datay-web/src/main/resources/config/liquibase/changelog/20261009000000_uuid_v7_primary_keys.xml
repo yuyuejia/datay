@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        将业务实体的主键与外键从自增 bigint 调整为有序 UUID v7（varchar(36)）。
+        应用层由 UuidV7Generator 生成新值；历史数据按原值保留为字符串。
+    -->
+    <changeSet id="20261009000000-1-drop-identity-h2" author="datafusion" dbms="h2">
+        <sql>
+            ALTER TABLE dp_analysis_dashboard ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_app_package ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_app_package_instance ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_data_api ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE model_directory ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE data_model ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE model_field ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_datasource ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_data_sync ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_sync_table_config ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_table ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_etl_component ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_etl_edge ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_etl_node ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_etl_task ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_job ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_job_depend ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_job_instance ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_metric ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_metric_directory ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_role_data_scope ALTER COLUMN id DROP IDENTITY;
+            ALTER TABLE dp_service_config ALTER COLUMN id DROP IDENTITY;
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261009000000-2-uuid-columns" author="datafusion">
+        <modifyDataType tableName="dp_analysis_dashboard" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_analysis_dashboard" columnName="data_source_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_app_package" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_app_package_instance" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_app_package_instance" columnName="package_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_data_api" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_data_api" columnName="data_source_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_directory" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_directory" columnName="parent_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="data_model" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="data_model" columnName="directory_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="data_model" columnName="data_source_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_field" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_field" columnName="model_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_field" columnName="dimension_model_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="model_field" columnName="dimension_field_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_datasource" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_data_sync" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_sync_table_config" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_table" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_etl_component" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_etl_edge" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_etl_node" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_etl_task" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_etl_task" columnName="job_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_job" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_job_depend" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_job_instance" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_metric" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_metric" columnName="directory_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_metric" columnName="fact_model_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_metric_directory" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_metric_directory" columnName="parent_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_role_data_scope" columnName="id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_role_data_scope" columnName="dimension_model_id" newDataType="${uuidType}"/>
+        <modifyDataType tableName="dp_service_config" columnName="id" newDataType="${uuidType}"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,7 +1,7 @@
 import type { DataSyncTableConfig } from "@/shared/model/data-sync-table-config.model";
 
 export interface IDataSync {
-  id?: number;
+  id?: string;
   jobName?: string | null;
   jobCode?: string | null;
   jobDesc?: string | null;
@@ -24,7 +24,7 @@ export interface IDataSync {
 
 export class DataSync implements IDataSync {
   constructor(
-    public id?: number,
+    public id?: string,
     public jobName?: string | null,
     public jobCode?: string | null,
     public jobDesc?: string | null,

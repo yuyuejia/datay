@@ -34,7 +34,7 @@ export default defineComponent({
     });
 
     const retrieve = async () => {
-      const id = Number(route.params.packageId);
+      const id = route.params.packageId ? String(route.params.packageId) : '';
       if (!id) {
         alertService.showError('资产包 ID 不存在');
         return;

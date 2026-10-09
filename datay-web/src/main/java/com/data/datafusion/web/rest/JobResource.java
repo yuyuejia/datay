@@ -76,7 +76,7 @@ public class JobResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<JobDTO> updateJob(@PathVariable(value = "id", required = false) final Long id, @RequestBody JobDTO jobDTO)
+    public ResponseEntity<JobDTO> updateJob(@PathVariable(value = "id", required = false) final String id, @RequestBody JobDTO jobDTO)
         throws URISyntaxException {
         LOG.debug("REST request to update Job : {}, {}", id, jobDTO);
         if (jobDTO.getId() == null) {
@@ -108,7 +108,7 @@ public class JobResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    public ResponseEntity<JobDTO> partialUpdateJob(@PathVariable(value = "id", required = false) final Long id, @RequestBody JobDTO jobDTO)
+    public ResponseEntity<JobDTO> partialUpdateJob(@PathVariable(value = "id", required = false) final String id, @RequestBody JobDTO jobDTO)
         throws URISyntaxException {
         LOG.debug("REST request to partial update Job partially : {}, {}", id, jobDTO);
         if (jobDTO.getId() == null) {
@@ -159,7 +159,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the jobDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<JobDTO> getJob(@PathVariable("id") Long id) {
+    public ResponseEntity<JobDTO> getJob(@PathVariable("id") String id) {
         LOG.debug("REST request to get Job : {}", id);
         Optional<JobDTO> jobDTO = jobService.findOne(id);
         return ResponseUtil.wrapOrNotFound(jobDTO);
@@ -172,7 +172,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJob(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteJob(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Job : {}", id);
         jobService.delete(id);
         return ResponseEntity.noContent()
@@ -187,7 +187,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
      */
     @PostMapping("/{id}/run")
-    public ResponseEntity<Void> runJob(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> runJob(@PathVariable("id") String id) {
         LOG.debug("REST request to run Job : {}", id);
         jobService.executeOnce(jobService.findOneJob(id).get());
         return ResponseEntity.ok().build();
@@ -200,7 +200,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
      */
     @PostMapping("/{id}/online")
-    public ResponseEntity<JobDTO> onlineJob(@PathVariable("id") Long id) {
+    public ResponseEntity<JobDTO> onlineJob(@PathVariable("id") String id) {
         LOG.debug("REST request to online Job : {}", id);
         Job job = jobService
             .findOneJob(id)
@@ -219,7 +219,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
      */
     @PostMapping("/{id}/offline")
-    public ResponseEntity<JobDTO> offlineJob(@PathVariable("id") Long id) {
+    public ResponseEntity<JobDTO> offlineJob(@PathVariable("id") String id) {
         LOG.debug("REST request to offline Job : {}", id);
         Job job = jobService
             .findOneJob(id)

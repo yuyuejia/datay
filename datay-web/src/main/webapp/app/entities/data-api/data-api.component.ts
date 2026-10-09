@@ -23,14 +23,14 @@ export default defineComponent({
     const search = ref('');
 
     const dataApis: Ref<IDataApi[]> = ref([]);
-    const dataSourceNames = ref<Record<number, string>>({});
+    const dataSourceNames = ref<Record<string, string>>({});
 
     const isFetching = ref(false);
 
     const loadDataSources = async () => {
       try {
         const res = await dataSourceService().retrieve({ page: 0, size: 200 });
-        const names: Record<number, string> = {};
+        const names: Record<string, string> = {};
         (res.data || []).forEach((item: any) => {
           names[item.id] = item.name;
         });
@@ -98,7 +98,7 @@ export default defineComponent({
       await retrieveDataApis();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IDataApi) => {
       removeId.value = instance.id;

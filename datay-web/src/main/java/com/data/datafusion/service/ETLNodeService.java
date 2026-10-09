@@ -95,7 +95,7 @@ public class ETLNodeService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<ETLNodeDTO> findOne(Long id) {
+    public Optional<ETLNodeDTO> findOne(String id) {
         LOG.debug("Request to get ETLNode : {}", id);
         return eTLNodeRepository.findById(id).map(eTLNodeMapper::toDto);
     }
@@ -105,7 +105,7 @@ public class ETLNodeService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ETLNode : {}", id);
         eTLNodeRepository.deleteById(id);
     }

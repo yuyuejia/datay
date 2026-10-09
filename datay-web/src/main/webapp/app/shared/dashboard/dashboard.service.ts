@@ -5,11 +5,11 @@ import type { DashboardSpec, DatasetResult, FilterValues } from "./types";
 const baseApiUrl = "api/analysis-dashboards";
 
 export interface AnalysisDashboard {
-  id?: number;
+  id?: string;
   name: string;
   code?: string;
   description?: string;
-  dataSourceId?: number;
+  dataSourceId?: string;
   spec?: string;
   status?: string;
   createTime?: string;
@@ -40,7 +40,7 @@ export default class DashboardService {
     return axios.get(baseApiUrl, { params: query }).then((res) => res.data);
   }
 
-  get(id: number): Promise<AnalysisDashboard> {
+  get(id: string): Promise<AnalysisDashboard> {
     return axios.get(`${baseApiUrl}/${id}`).then((res) => res.data);
   }
 
@@ -54,16 +54,16 @@ export default class DashboardService {
     return axios.post(baseApiUrl, dto).then((res) => res.data);
   }
 
-  update(id: number, dto: AnalysisDashboard): Promise<AnalysisDashboard> {
+  update(id: string, dto: AnalysisDashboard): Promise<AnalysisDashboard> {
     return axios.put(`${baseApiUrl}/${id}`, dto).then((res) => res.data);
   }
 
-  remove(id: number): Promise<void> {
+  remove(id: string): Promise<void> {
     return axios.delete(`${baseApiUrl}/${id}`).then(() => undefined);
   }
 
   queryDataset(
-    id: number,
+    id: string,
     datasetId: string,
     filterValues?: FilterValues,
   ): Promise<DatasetResult> {
@@ -79,7 +79,7 @@ export default class DashboardService {
     spec: DashboardSpec,
     datasetId: string,
     filterValues?: FilterValues,
-    dataSourceId?: number,
+    dataSourceId?: string,
   ): Promise<DatasetResult> {
     return axios
       .post(`${baseApiUrl}/preview-dataset`, {
@@ -92,7 +92,7 @@ export default class DashboardService {
   }
 
   loadFilterOptions(
-    id: number,
+    id: string,
     filterId: string,
     keyword?: string,
   ): Promise<FilterOptionResult> {

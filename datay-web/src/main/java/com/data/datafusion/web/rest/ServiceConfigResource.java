@@ -78,7 +78,7 @@ public class ServiceConfigResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<ServiceConfigDTO> updateServiceConfig(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ServiceConfigDTO serviceConfigDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update ServiceConfig : {}, {}", id, serviceConfigDTO);
@@ -112,7 +112,7 @@ public class ServiceConfigResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ServiceConfigDTO> partialUpdateServiceConfig(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody ServiceConfigDTO serviceConfigDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ServiceConfig partially : {}, {}", id, serviceConfigDTO);
@@ -156,7 +156,7 @@ public class ServiceConfigResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the serviceConfigDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ServiceConfigDTO> getServiceConfig(@PathVariable("id") Long id) {
+    public ResponseEntity<ServiceConfigDTO> getServiceConfig(@PathVariable("id") String id) {
         LOG.debug("REST request to get ServiceConfig : {}", id);
         Optional<ServiceConfigDTO> serviceConfigDTO = serviceConfigService.findOne(id);
         return ResponseUtil.wrapOrNotFound(serviceConfigDTO);
@@ -169,7 +169,7 @@ public class ServiceConfigResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteServiceConfig(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteServiceConfig(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ServiceConfig : {}", id);
         serviceConfigService.delete(id);
         return ResponseEntity.noContent()

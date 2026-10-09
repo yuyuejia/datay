@@ -192,7 +192,7 @@ public class ETLTaskService {
                 if (key.equals("sourceId")) {
                     Map<String, Object> sourceId = new LinkedHashMap<>();
                     String dataSourceId = config.get(key).toString();
-                    Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(Long.valueOf(dataSourceId));
+                    Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(dataSourceId);
                     if (sourceOptional.isEmpty()) {
                         throw new IllegalArgumentException("数据源不存在: " + dataSourceId);
                     }
@@ -292,7 +292,7 @@ public class ETLTaskService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<ETLTaskDTO> findOne(Long id) {
+    public Optional<ETLTaskDTO> findOne(String id) {
         LOG.debug("Request to get ETLTask : {}", id);
         Optional<List<ETLNodeDTO>> etlNodeList = eTLNodeRepository.findAllByTaskId(String.valueOf(id)).map(eTLNodeMapper::toDto);
         Optional<List<ETLEdgeDTO>> etlEdgeList = etlEdgeRepository.findAllByTaskId(String.valueOf(id)).map(etlEdgeMapper::toDto);
@@ -307,7 +307,7 @@ public class ETLTaskService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ETLTask : {}", id);
         eTLTaskRepository
             .findById(id)
@@ -327,7 +327,7 @@ public class ETLTaskService {
      * @param id ETLTask的ID
      * @return 更新后的ETLTaskDTO
      */
-    public ETLTaskDTO online(Long id) {
+    public ETLTaskDTO online(String id) {
         LOG.debug("Request to online ETLTask : {}", id);
         return eTLTaskRepository
             .findById(id)
@@ -354,7 +354,7 @@ public class ETLTaskService {
      * @param id ETLTask的ID
      * @return 更新后的ETLTaskDTO
      */
-    public ETLTaskDTO offline(Long id) {
+    public ETLTaskDTO offline(String id) {
         LOG.debug("Request to offline ETLTask : {}", id);
         return eTLTaskRepository
             .findById(id)
@@ -382,7 +382,7 @@ public class ETLTaskService {
      *
      * @param id ETLTask的ID
      */
-    public void executeOnce(Long id) {
+    public void executeOnce(String id) {
         LOG.debug("Request to executeOnce ETLTask : {}", id);
         ETLTask etlTask = eTLTaskRepository.findById(id).orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
 

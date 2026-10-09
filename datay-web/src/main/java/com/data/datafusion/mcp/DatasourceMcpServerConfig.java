@@ -215,7 +215,7 @@ public class DatasourceMcpServerConfig {
 
     private Tool datasourceQueryTool() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("dataSourceId", integerProp("数据源 ID"));
+        properties.put("dataSourceId", stringProp("数据源 ID"));
         properties.put("sql", stringProp("要执行的 SQL 查询语句"));
         return Tool.builder("datasource_query", schema(properties, List.of("dataSourceId", "sql")))
             .description("在指定数据源上执行 SQL 查询，返回 columns、rows 与 affectedRows")
@@ -224,7 +224,7 @@ public class DatasourceMcpServerConfig {
 
     private Tool datasourceTablesTool() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("dataSourceId", integerProp("数据源 ID"));
+        properties.put("dataSourceId", stringProp("数据源 ID"));
         properties.put("schema", stringProp("schema / 数据库名，可选，默认使用数据源配置的 schema"));
         properties.put("search", stringProp("可选关键字，按表名模糊过滤"));
         properties.put("limit", integerProp("最大返回表数量，默认 200，最大 1000"));
@@ -252,8 +252,8 @@ public class DatasourceMcpServerConfig {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("jobName", stringProp("同步任务名称"));
         properties.put("jobDesc", stringProp("任务描述"));
-        properties.put("sourceId", integerProp("源数据源 ID"));
-        properties.put("targetId", integerProp("目标数据源 ID"));
+        properties.put("sourceId", stringProp("源数据源 ID"));
+        properties.put("targetId", stringProp("目标数据源 ID"));
         properties.put("type", stringProp("同步类型：FULL_SYNC / DATA_ONLY / SCHEMA_ONLY，默认 FULL_SYNC"));
         properties.put("cron", stringProp("调度表达式（可选）"));
         properties.put("tables", tablesArray);
@@ -265,7 +265,7 @@ public class DatasourceMcpServerConfig {
 
     private Tool syncTaskExecuteTool() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("syncTaskId", integerProp("同步任务 ID（DataSync 的 id）"));
+        properties.put("syncTaskId", stringProp("同步任务 ID（DataSync 的 id）"));
         return Tool.builder("sync_task_execute", schema(properties, List.of("syncTaskId")))
             .description("立即执行指定的数据同步任务")
             .build();
@@ -321,7 +321,7 @@ public class DatasourceMcpServerConfig {
     private CallToolResult queryDataSource(McpSyncServerExchange exchange, CallToolRequest request) {
         return runWithTenant(exchange, "查询失败", () -> {
             Map<String, Object> args = request.arguments();
-            Long id = asLong(args, "dataSourceId");
+            String id = asString(args, "dataSourceId");
             String sql = asString(args, "sql");
             if (id == null) {
                 return errorResult("缺少 dataSourceId 参数");
@@ -337,7 +337,7 @@ public class DatasourceMcpServerConfig {
     private CallToolResult listDataSourceTables(McpSyncServerExchange exchange, CallToolRequest request) {
         return runWithTenant(exchange, "数据源表清单查询失败", () -> {
             Map<String, Object> args = request.arguments();
-            Long id = asLong(args, "dataSourceId");
+            String id = asString(args, "dataSourceId");
             if (id == null) {
                 return errorResult("缺少 dataSourceId 参数");
             }
@@ -366,8 +366,8 @@ public class DatasourceMcpServerConfig {
     private CallToolResult createSyncTask(McpSyncServerExchange exchange, CallToolRequest request) {
         return runWithTenant(exchange, "同步任务创建失败", () -> {
             Map<String, Object> args = request.arguments();
-            Long sourceId = asLong(args, "sourceId");
-            Long targetId = asLong(args, "targetId");
+            String sourceId = asString(args, "sourceId");
+            String targetId = asString(args, "targetId");
             if (sourceId == null || targetId == null) {
                 return errorResult("缺少 sourceId 或 targetId 参数");
             }
@@ -381,8 +381,8 @@ public class DatasourceMcpServerConfig {
             DataSyncDTO dto = new DataSyncDTO();
             dto.setJobName(asString(args, "jobName"));
             dto.setJobDesc(asString(args, "jobDesc"));
-            dto.setSource(String.valueOf(sourceId));
-            dto.setTarget(String.valueOf(targetId));
+            dto.setSource(sourceId);
+            dto.setTarget(targetId);
             String type = asString(args, "type");
             dto.setType(type == null || type.isBlank() ? "FULL_SYNC" : type);
             dto.setCron(asString(args, "cron"));
@@ -415,7 +415,7 @@ public class DatasourceMcpServerConfig {
     private CallToolResult executeSyncTask(McpSyncServerExchange exchange, CallToolRequest request) {
         return runWithTenant(exchange, "同步任务执行失败", () -> {
             Map<String, Object> args = request.arguments();
-            Long id = asLong(args, "syncTaskId");
+            String id = asString(args, "syncTaskId");
             if (id == null) {
                 return errorResult("缺少 syncTaskId 参数");
             }
@@ -516,7 +516,7 @@ public class DatasourceMcpServerConfig {
 
     // ---------------------------------------------------------------- helpers
 
-    private List<DataSyncTableConfigDTO> parseTables(Object tablesObj, Long sourceId, Long targetId) {
+    private List<DataSyncTableConfigDTO> parseTables(Object tablesObj, String sourceId, String targetId) {
         List<DataSyncTableConfigDTO> result = new ArrayList<>();
         if (tablesObj instanceof List<?> list) {
             for (Object item : list) {
@@ -527,8 +527,8 @@ public class DatasourceMcpServerConfig {
                     config.setSrcColPks(strOf(map.get("srcColPks")));
                     config.setDesSchemaName(strOf(map.get("desSchemaName")));
                     config.setDesTableName(strOf(map.get("desTableName")));
-                    config.setSrcDatasource(String.valueOf(sourceId));
-                    config.setDesDatasource(String.valueOf(targetId));
+                    config.setSrcDatasource(sourceId);
+                    config.setDesDatasource(targetId);
                     result.add(config);
                 }
             }

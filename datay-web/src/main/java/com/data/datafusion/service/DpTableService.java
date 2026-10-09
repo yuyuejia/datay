@@ -95,7 +95,7 @@ public class DpTableService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<DpTableDTO> findOne(Long id) {
+    public Optional<DpTableDTO> findOne(String id) {
         LOG.debug("Request to get DpTable : {}", id);
         return dpTableRepository.findById(id).map(dpTableMapper::toDto);
     }
@@ -105,7 +105,7 @@ public class DpTableService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DpTable : {}", id);
         dpTableRepository.deleteById(id);
     }

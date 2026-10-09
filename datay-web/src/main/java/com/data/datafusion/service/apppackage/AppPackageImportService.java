@@ -121,7 +121,7 @@ public class AppPackageImportService {
      * @return 初始化结果（含各类 ID 映射）
      */
     @Transactional
-    public AppPackageInitResultDTO importContent(AppPackageContent content, AppPackageInitRequestDTO request, Long packageId) {
+    public AppPackageInitResultDTO importContent(AppPackageContent content, AppPackageInitRequestDTO request, String packageId) {
         AppPackageInitResultDTO result = new AppPackageInitResultDTO();
         result.packageId = packageId;
         result.packageName = content.getMeta() == null ? null : content.getMeta().getName();
@@ -129,23 +129,23 @@ public class AppPackageImportService {
         String strategy = normalizeStrategy(request);
 
         // 1. 数据源：复用优先，其次新建，同时应用调用方指定的绑定
-        Map<Long, Long> dataSourceMap = importDataSources(content, request, result);
+        Map<String, String> dataSourceMap = importDataSources(content, request, result);
 
         // 2. 模型目录与模型（含字段）
-        Map<Long, Long> modelDirectoryMap = importModelDirectories(content, result);
-        Map<Long, Long> modelMap = new LinkedHashMap<>();
-        Map<Long, Long> modelFieldMap = new LinkedHashMap<>();
+        Map<String, String> modelDirectoryMap = importModelDirectories(content, result);
+        Map<String, String> modelMap = new LinkedHashMap<>();
+        Map<String, String> modelFieldMap = new LinkedHashMap<>();
         Map<String, String> modelCodeRename = new LinkedHashMap<>();
         importModels(content, strategy, dataSourceMap, modelDirectoryMap, modelMap, modelFieldMap, modelCodeRename, result);
 
         // 3. 指标目录与指标
-        Map<Long, Long> metricDirectoryMap = importMetricDirectories(content, result);
-        Map<Long, Long> metricMap = new LinkedHashMap<>();
+        Map<String, String> metricDirectoryMap = importMetricDirectories(content, result);
+        Map<String, String> metricMap = new LinkedHashMap<>();
         importMetrics(content, strategy, modelMap, metricDirectoryMap, modelCodeRename, metricMap, result);
 
         // 4. ETL 任务（会同步生成调度 Job）
-        Map<Long, Long> etlTaskMap = new LinkedHashMap<>();
-        Map<Long, Long> jobMap = new LinkedHashMap<>();
+        Map<String, String> etlTaskMap = new LinkedHashMap<>();
+        Map<String, String> jobMap = new LinkedHashMap<>();
         importEtlTasks(content, strategy, dataSourceMap, modelMap, request, etlTaskMap, jobMap, result);
 
         // 5. SQL 任务与其它任务
@@ -155,7 +155,7 @@ public class AppPackageImportService {
         }
 
         // 6. 编排任务（依赖前面的 Job 映射，按依赖顺序多轮创建）
-        Map<Long, Long> dagJobMap = new LinkedHashMap<>();
+        Map<String, String> dagJobMap = new LinkedHashMap<>();
         importDagJobs(content, strategy, Boolean.TRUE.equals(request == null ? null : request.onlineJobs), jobMap, dagJobMap, result);
 
         // 7. 任务依赖
@@ -181,7 +181,7 @@ public class AppPackageImportService {
      * <p>资产包里的 SQL / ETL 任务往往有上下游依赖（例如 ADS 汇总依赖事实表），
      * 直接单跑某个下游任务必然失败。这里明确告诉用户应当先运行编排任务。
      */
-    private List<String> buildNextSteps(AppPackageContent content, Map<Long, Long> dagJobMap, Map<Long, Long> jobMap) {
+    private List<String> buildNextSteps(AppPackageContent content, Map<String, String> dagJobMap, Map<String, String> jobMap) {
         List<String> steps = new ArrayList<>();
         List<String> dagNames = new ArrayList<>();
         for (AppPackageJob item : nonNull(content.getDagJobs())) {
@@ -203,8 +203,8 @@ public class AppPackageImportService {
 
     // ------------------------------------------------------------------ 数据源
 
-    private Map<Long, Long> importDataSources(AppPackageContent content, AppPackageInitRequestDTO request, AppPackageInitResultDTO result) {
-        Map<Long, Long> mapping = new LinkedHashMap<>();
+    private Map<String, String> importDataSources(AppPackageContent content, AppPackageInitRequestDTO request, AppPackageInitResultDTO result) {
+        Map<String, String> mapping = new LinkedHashMap<>();
         int created = 0;
         int reused = 0;
         int bound = 0;
@@ -218,7 +218,7 @@ public class AppPackageImportService {
             detail.key = key;
             detail.name = item.name;
 
-            Long newId = resolveBoundDataSource(request, key, item.oldId);
+            String newId = resolveBoundDataSource(request, key, item.oldId);
             if (newId != null) {
                 detail.action = "MAPPED";
                 bound++;
@@ -246,18 +246,18 @@ public class AppPackageImportService {
         return mapping;
     }
 
-    private Long resolveBoundDataSource(AppPackageInitRequestDTO request, String key, Long oldId) {
+    private String resolveBoundDataSource(AppPackageInitRequestDTO request, String key, String oldId) {
         if (request == null || request.dataSourceMapping == null || request.dataSourceMapping.isEmpty()) {
             return null;
         }
-        Long mapped = request.dataSourceMapping.get(key);
+        String mapped = request.dataSourceMapping.get(key);
         if (mapped == null) {
-            mapped = request.dataSourceMapping.get(String.valueOf(oldId));
+            mapped = request.dataSourceMapping.get(oldId);
         }
         if (mapped == null) {
             return null;
         }
-        Long targetId = mapped;
+        String targetId = mapped;
         return dataSourceRepository
             .findById(targetId)
             .map(DataSource::getId)
@@ -286,8 +286,8 @@ public class AppPackageImportService {
 
     // ------------------------------------------------------------------ 目录
 
-    private Map<Long, Long> importModelDirectories(AppPackageContent content, AppPackageInitResultDTO result) {
-        Map<Long, Long> mapping = new LinkedHashMap<>();
+    private Map<String, String> importModelDirectories(AppPackageContent content, AppPackageInitResultDTO result) {
+        Map<String, String> mapping = new LinkedHashMap<>();
         int created = 0;
         List<AppPackageDirectory> pending = new ArrayList<>(nonNull(content.getModelDirectories()));
         while (!pending.isEmpty()) {
@@ -301,12 +301,12 @@ public class AppPackageImportService {
                     next.add(directory);
                     continue;
                 }
-                Long parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
+                String parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
                 ModelDirectory entity = findModelDirectory(directory.name, parentId);
                 if (entity == null) {
                     entity = new ModelDirectory();
                     entity.setName(directory.name == null ? "导入目录" : directory.name);
-                    entity.setParentId(parentId == null ? 0L : parentId);
+                    entity.setParentId(parentId);
                     entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
                     ZonedDateTime now = ZonedDateTime.now();
                     entity.setCreateTime(now);
@@ -322,7 +322,7 @@ public class AppPackageImportService {
                     result.warnings.add("模型目录的父目录不在资产包内，已挂到根目录：" + directory.name);
                     ModelDirectory entity = new ModelDirectory();
                     entity.setName(directory.name == null ? "导入目录" : directory.name);
-                    entity.setParentId(0L);
+                    entity.setParentId(null);
                     entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
                     ZonedDateTime now = ZonedDateTime.now();
                     entity.setCreateTime(now);
@@ -339,19 +339,16 @@ public class AppPackageImportService {
         return mapping;
     }
 
-    private ModelDirectory findModelDirectory(String name, Long parentId) {
+    private ModelDirectory findModelDirectory(String name, String parentId) {
         String directoryName = name == null ? "导入目录" : name;
         if (parentId == null) {
-            return modelDirectoryRepository
-                .findFirstByNameAndParentId(directoryName, 0L)
-                .or(() -> modelDirectoryRepository.findFirstByNameAndParentIdIsNull(directoryName))
-                .orElse(null);
+            return modelDirectoryRepository.findFirstByNameAndParentIdIsNull(directoryName).orElse(null);
         }
         return modelDirectoryRepository.findFirstByNameAndParentId(directoryName, parentId).orElse(null);
     }
 
-    private Map<Long, Long> importMetricDirectories(AppPackageContent content, AppPackageInitResultDTO result) {
-        Map<Long, Long> mapping = new LinkedHashMap<>();
+    private Map<String, String> importMetricDirectories(AppPackageContent content, AppPackageInitResultDTO result) {
+        Map<String, String> mapping = new LinkedHashMap<>();
         int created = 0;
         List<AppPackageDirectory> pending = new ArrayList<>(nonNull(content.getMetricDirectories()));
         while (!pending.isEmpty()) {
@@ -365,12 +362,12 @@ public class AppPackageImportService {
                     next.add(directory);
                     continue;
                 }
-                Long parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
+                String parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
                 MetricDirectory entity = findMetricDirectory(directory.name, parentId);
                 if (entity == null) {
                     entity = new MetricDirectory();
                     entity.setName(directory.name == null ? "导入目录" : directory.name);
-                    entity.setParentId(parentId == null ? 0L : parentId);
+                    entity.setParentId(parentId);
                     entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
                     ZonedDateTime now = ZonedDateTime.now();
                     entity.setCreateTime(now);
@@ -386,7 +383,7 @@ public class AppPackageImportService {
                     result.warnings.add("指标目录的父目录不在资产包内，已挂到根目录：" + directory.name);
                     MetricDirectory entity = new MetricDirectory();
                     entity.setName(directory.name == null ? "导入目录" : directory.name);
-                    entity.setParentId(0L);
+                    entity.setParentId(null);
                     entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
                     ZonedDateTime now = ZonedDateTime.now();
                     entity.setCreateTime(now);
@@ -403,13 +400,10 @@ public class AppPackageImportService {
         return mapping;
     }
 
-    private MetricDirectory findMetricDirectory(String name, Long parentId) {
+    private MetricDirectory findMetricDirectory(String name, String parentId) {
         String directoryName = name == null ? "导入目录" : name;
         if (parentId == null) {
-            return metricDirectoryRepository
-                .findFirstByNameAndParentId(directoryName, 0L)
-                .or(() -> metricDirectoryRepository.findFirstByNameAndParentIdIsNull(directoryName))
-                .orElse(null);
+            return metricDirectoryRepository.findFirstByNameAndParentIdIsNull(directoryName).orElse(null);
         }
         return metricDirectoryRepository.findFirstByNameAndParentId(directoryName, parentId).orElse(null);
     }
@@ -419,10 +413,10 @@ public class AppPackageImportService {
     private void importModels(
         AppPackageContent content,
         String strategy,
-        Map<Long, Long> dataSourceMap,
-        Map<Long, Long> directoryMap,
-        Map<Long, Long> modelMap,
-        Map<Long, Long> modelFieldMap,
+        Map<String, String> dataSourceMap,
+        Map<String, String> directoryMap,
+        Map<String, String> modelMap,
+        Map<String, String> modelFieldMap,
         Map<String, String> modelCodeRename,
         AppPackageInitResultDTO result
     ) {
@@ -489,11 +483,11 @@ public class AppPackageImportService {
 
         // 字段分两轮写入：第一轮按字段名 upsert（覆盖时保留原字段 ID），第二轮补上「关联维度字段」
         // （dimensionFieldId 依赖第一轮生成的字段 ID）
-        List<long[]> pendingDimensionField = new ArrayList<>();
+        List<String[]> pendingDimensionField = new ArrayList<>();
         int fieldCount = 0;
         int fieldRemoved = 0;
         for (AppPackageModel item : nonNull(content.getModels())) {
-            Long newModelId = item.oldId == null ? null : modelMap.get(item.oldId);
+            String newModelId = item.oldId == null ? null : modelMap.get(item.oldId);
             if (newModelId == null) {
                 continue;
             }
@@ -538,7 +532,7 @@ public class AppPackageImportService {
                     modelFieldMap.put(field.oldId, entity.getId());
                 }
                 if (field.dimensionFieldOldId != null) {
-                    pendingDimensionField.add(new long[] { entity.getId(), field.dimensionFieldOldId });
+                    pendingDimensionField.add(new String[] { entity.getId(), field.dimensionFieldOldId });
                 }
                 fieldCount++;
             }
@@ -550,8 +544,8 @@ public class AppPackageImportService {
                 }
             }
         }
-        for (long[] pair : pendingDimensionField) {
-            Long dimensionFieldId = modelFieldMap.get(pair[1]);
+        for (String[] pair : pendingDimensionField) {
+            String dimensionFieldId = modelFieldMap.get(pair[1]);
             if (dimensionFieldId == null) {
                 result.warnings.add("字段关联的维度字段不在资产包内，已忽略该关联：field#" + pair[0]);
                 continue;
@@ -583,24 +577,24 @@ public class AppPackageImportService {
     private void importMetrics(
         AppPackageContent content,
         String strategy,
-        Map<Long, Long> modelMap,
-        Map<Long, Long> directoryMap,
+        Map<String, String> modelMap,
+        Map<String, String> directoryMap,
         Map<String, String> modelCodeRename,
-        Map<Long, Long> metricMap,
+        Map<String, String> metricMap,
         AppPackageInitResultDTO result
     ) {
         List<AppPackageMetric> items = new ArrayList<>(nonNull(content.getMetrics()));
 
         // 预判编码冲突，先定稿每个指标的最终编码：后续公式改写、依赖排序都以最终编码为准
         Set<String> tenantCodes = new LinkedHashSet<>();
-        Map<String, Long> existingMetricIds = new LinkedHashMap<>();
+        Map<String, String> existingMetricIds = new LinkedHashMap<>();
         metricRepository.findAll().forEach(metric -> {
             tenantCodes.add(metric.getCode());
             existingMetricIds.put(metric.getCode(), metric.getId());
         });
         Set<String> plannedCodes = new LinkedHashSet<>(tenantCodes);
         Map<String, String> codeRename = new LinkedHashMap<>();
-        Set<Long> skippedIds = new LinkedHashSet<>();
+        Set<String> skippedIds = new LinkedHashSet<>();
         Set<String> overwriteCodes = new LinkedHashSet<>();
         for (AppPackageMetric item : items) {
             if (item.oldId == null || item.code == null) {
@@ -662,7 +656,7 @@ public class AppPackageImportService {
                 dto.setDataType(item.dataType);
                 dto.setIsAdditive(item.isAdditive);
                 dto.setFormula(rewriteFormula(item.formula, codeRename));
-                Long existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingMetricIds.get(dto.getCode()) : null;
+                String existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingMetricIds.get(dto.getCode()) : null;
                 MetricDTO saved;
                 if (existingId != null) {
                     saved = metricService
@@ -733,7 +727,7 @@ public class AppPackageImportService {
      * <p>兼容两种资产包写法：结构化的 JSON 对象，或（历史版本 / 手工编写）以字符串承载的 JSON 文本；
      * 返回值统一为可写回 {@code Metric.filterConfig} 的 JSON 字符串。
      */
-    private String remapFilterConfig(JsonNode filterConfig, Map<Long, Long> modelMap, Map<String, String> modelCodeRename) {
+    private String remapFilterConfig(JsonNode filterConfig, Map<String, String> modelMap, Map<String, String> modelCodeRename) {
         if (filterConfig == null || filterConfig.isNull()) {
             return null;
         }
@@ -772,11 +766,11 @@ public class AppPackageImportService {
     private void importEtlTasks(
         AppPackageContent content,
         String strategy,
-        Map<Long, Long> dataSourceMap,
-        Map<Long, Long> modelMap,
+        Map<String, String> dataSourceMap,
+        Map<String, String> modelMap,
         AppPackageInitRequestDTO request,
-        Map<Long, Long> etlTaskMap,
-        Map<Long, Long> jobMap,
+        Map<String, String> etlTaskMap,
+        Map<String, String> jobMap,
         AppPackageInitResultDTO result
     ) {
         int created = 0;
@@ -849,8 +843,8 @@ public class AppPackageImportService {
 
     private ETLNodeDTO toNodeDto(
         AppPackageEtlTask.AppPackageEtlNode node,
-        Map<Long, Long> dataSourceMap,
-        Map<Long, Long> modelMap,
+        Map<String, String> dataSourceMap,
+        Map<String, String> modelMap,
         AppPackageInitResultDTO result
     ) {
         ETLNodeDTO dto = new ETLNodeDTO();
@@ -866,7 +860,7 @@ public class AppPackageImportService {
             return dto;
         }
         warnUnmappedReferences(node.label, raw, dataSourceMap, modelMap, result);
-        Map<String, Map<Long, Long>> remap = new LinkedHashMap<>();
+        Map<String, Map<String, String>> remap = new LinkedHashMap<>();
         remap.put("sourceId", dataSourceMap);
         remap.put("modelId", modelMap);
         JsonNode remapped = remapIds(raw.deepCopy(), remap);
@@ -877,20 +871,20 @@ public class AppPackageImportService {
     private void warnUnmappedReferences(
         String nodeLabel,
         JsonNode config,
-        Map<Long, Long> dataSourceMap,
-        Map<Long, Long> modelMap,
+        Map<String, String> dataSourceMap,
+        Map<String, String> modelMap,
         AppPackageInitResultDTO result
     ) {
         if (config == null || !config.isObject()) {
             return;
         }
         JsonNode sourceId = config.get("sourceId");
-        if (sourceId != null && sourceId.canConvertToLong() && !dataSourceMap.containsKey(sourceId.asLong())) {
-            result.warnings.add("ETL 节点引用的数据源不在资产包内：" + nodeLabel + " -> dataSourceId=" + sourceId.asLong());
+        if (sourceId != null && !sourceId.isContainerNode() && !dataSourceMap.containsKey(sourceId.asText())) {
+            result.warnings.add("ETL 节点引用的数据源不在资产包内：" + nodeLabel + " -> dataSourceId=" + sourceId.asText());
         }
         JsonNode modelId = config.get("modelId");
-        if (modelId != null && modelId.canConvertToLong() && !modelMap.containsKey(modelId.asLong())) {
-            result.warnings.add("ETL 节点引用的数据模型不在资产包内：" + nodeLabel + " -> modelId=" + modelId.asLong());
+        if (modelId != null && !modelId.isContainerNode() && !modelMap.containsKey(modelId.asText())) {
+            result.warnings.add("ETL 节点引用的数据模型不在资产包内：" + nodeLabel + " -> modelId=" + modelId.asText());
         }
     }
 
@@ -911,9 +905,9 @@ public class AppPackageImportService {
         List<AppPackageJob> items,
         String type,
         String strategy,
-        Map<Long, Long> dataSourceMap,
+        Map<String, String> dataSourceMap,
         AppPackageInitRequestDTO request,
-        Map<Long, Long> jobMap,
+        Map<String, String> jobMap,
         AppPackageInitResultDTO result
     ) {
         int created = 0;
@@ -927,8 +921,8 @@ public class AppPackageImportService {
             if (context != null && TaskConstants.TASK_TYPE_SQL.equals(type)) {
                 if (context.isObject()) {
                     JsonNode dataSourceId = context.get("dataSourceId");
-                    if (dataSourceId != null && dataSourceId.canConvertToLong() && !dataSourceMap.containsKey(dataSourceId.asLong())) {
-                        result.warnings.add("SQL 任务引用的数据源不在资产包内：" + item.jobName + " -> dataSourceId=" + dataSourceId.asLong());
+                    if (dataSourceId != null && !dataSourceId.isContainerNode() && !dataSourceMap.containsKey(dataSourceId.asText())) {
+                        result.warnings.add("SQL 任务引用的数据源不在资产包内：" + item.jobName + " -> dataSourceId=" + dataSourceId.asText());
                     }
                 }
                 context = remapIds(context, Map.of("dataSourceId", dataSourceMap));
@@ -1016,8 +1010,8 @@ public class AppPackageImportService {
         AppPackageContent content,
         String strategy,
         boolean onlineJobs,
-        Map<Long, Long> jobMap,
-        Map<Long, Long> dagJobMap,
+        Map<String, String> jobMap,
+        Map<String, String> dagJobMap,
         AppPackageInitResultDTO result
     ) {
         List<AppPackageJob> pending = new ArrayList<>(nonNull(content.getDagJobs()));
@@ -1059,8 +1053,8 @@ public class AppPackageImportService {
         AppPackageJob item,
         String strategy,
         boolean online,
-        Map<Long, Long> jobMap,
-        Map<Long, Long> dagJobMap,
+        Map<String, String> jobMap,
+        Map<String, String> dagJobMap,
         AppPackageInitResultDTO result
     ) {
         Job existing = item.jobName == null ? null : jobRepository.findFirstByJobName(item.jobName).orElse(null);
@@ -1099,19 +1093,19 @@ public class AppPackageImportService {
         return true;
     }
 
-    private boolean isDagInPackage(AppPackageContent content, Long jobOldId) {
+    private boolean isDagInPackage(AppPackageContent content, String jobOldId) {
         return nonNull(content.getDagJobs()).stream().anyMatch(item -> jobOldId.equals(item.oldId));
     }
 
-    private Set<Long> extractDagReferences(JsonNode context) {
-        Set<Long> ids = new LinkedHashSet<>();
+    private Set<String> extractDagReferences(JsonNode context) {
+        Set<String> ids = new LinkedHashSet<>();
         if (context == null || !context.isObject()) {
             return ids;
         }
         JsonNode jobs = context.get("jobs");
         if (jobs != null && jobs.isArray()) {
             for (JsonNode job : jobs) {
-                Long id = asLong(job.get("id"));
+                String id = asText(job.get("id"));
                 if (id != null) {
                     ids.add(id);
                 }
@@ -1124,19 +1118,19 @@ public class AppPackageImportService {
      * 重写编排任务 jobContext 中的子任务引用：jobs、jobDepends、nodeLayout。
      * 引用了包外任务的节点会被移除并记录告警，避免导入出一个必然失败的 DAG。
      */
-    private JsonNode remapDagContext(JsonNode context, Map<Long, Long> jobMap, AppPackageInitResultDTO result, String dagName) {
+    private JsonNode remapDagContext(JsonNode context, Map<String, String> jobMap, AppPackageInitResultDTO result, String dagName) {
         if (context == null || !context.isObject()) {
             return context;
         }
         ObjectNode root = ((ObjectNode) context).deepCopy();
 
-        Set<Long> keptOldIds = new LinkedHashSet<>();
+        Set<String> keptOldIds = new LinkedHashSet<>();
         ArrayNode jobs = AppPackageJson.mapper().createArrayNode();
         JsonNode jobsNode = root.get("jobs");
         if (jobsNode != null && jobsNode.isArray()) {
             for (JsonNode job : jobsNode) {
-                Long oldId = asLong(job.get("id"));
-                Long newId = oldId == null ? null : jobMap.get(oldId);
+                String oldId = asText(job.get("id"));
+                String newId = oldId == null ? null : jobMap.get(oldId);
                 if (newId == null) {
                     result.warnings.add("编排任务引用的子任务不在资产包内，已移除该节点：" + dagName + " -> jobId=" + oldId);
                     continue;
@@ -1153,10 +1147,10 @@ public class AppPackageImportService {
         JsonNode dependsNode = root.get("jobDepends");
         if (dependsNode != null && dependsNode.isArray()) {
             for (JsonNode depend : dependsNode) {
-                Long parentOld = asLong(depend.get("parentJobCode"));
-                Long childOld = asLong(depend.get("childJobCode"));
-                Long parentNew = parentOld == null ? null : jobMap.get(parentOld);
-                Long childNew = childOld == null ? null : jobMap.get(childOld);
+                String parentOld = asText(depend.get("parentJobCode"));
+                String childOld = asText(depend.get("childJobCode"));
+                String parentNew = parentOld == null ? null : jobMap.get(parentOld);
+                String childNew = childOld == null ? null : jobMap.get(childOld);
                 if (parentNew == null || childNew == null || !keptOldIds.contains(parentOld) || !keptOldIds.contains(childOld)) {
                     continue;
                 }
@@ -1172,8 +1166,8 @@ public class AppPackageImportService {
         JsonNode layoutNode = root.get("nodeLayout");
         if (layoutNode != null && layoutNode.isArray()) {
             for (JsonNode item : layoutNode) {
-                Long oldId = asLong(item.get("jobId"));
-                Long newId = oldId == null ? null : jobMap.get(oldId);
+                String oldId = asText(item.get("jobId"));
+                String newId = oldId == null ? null : jobMap.get(oldId);
                 if (newId == null || !keptOldIds.contains(oldId)) {
                     continue;
                 }
@@ -1188,19 +1182,19 @@ public class AppPackageImportService {
 
     // ------------------------------------------------------------------ 任务依赖
 
-    private void importJobDepends(AppPackageContent content, Map<Long, Long> jobMap, AppPackageInitResultDTO result) {
+    private void importJobDepends(AppPackageContent content, Map<String, String> jobMap, AppPackageInitResultDTO result) {
         int created = 0;
         for (AppPackageJobDepend item : nonNull(content.getJobDepends())) {
-            Long parentNew = item.parentJobOldId == null ? null : jobMap.get(item.parentJobOldId);
-            Long childNew = item.childJobOldId == null ? null : jobMap.get(item.childJobOldId);
+            String parentNew = item.parentJobOldId == null ? null : jobMap.get(item.parentJobOldId);
+            String childNew = item.childJobOldId == null ? null : jobMap.get(item.childJobOldId);
             if (parentNew == null || childNew == null) {
                 result.warnings.add("任务依赖引用的任务不在资产包内，已忽略：" + item.parentJobOldId + " -> " + item.childJobOldId);
                 continue;
             }
             JobDepend entity = new JobDepend();
-            entity.setParentJobCode(String.valueOf(parentNew));
-            entity.setChildJobCode(String.valueOf(childNew));
-            entity.setJobCode(String.valueOf(childNew));
+            entity.setParentJobCode(parentNew);
+            entity.setChildJobCode(childNew);
+            entity.setJobCode(childNew);
             entity.setLastInterval(item.lastInterval == null ? 0L : item.lastInterval);
             entity.setCreateTime(ZonedDateTime.now());
             jobDependRepository.save(entity);
@@ -1215,7 +1209,7 @@ public class AppPackageImportService {
      * 递归重写 JSON 中指定字段名的数字 ID：字段名命中且值能在映射表中找到时替换为新 ID，
      * 找不到则保留原值（由调用方决定是否告警）。
      */
-    private JsonNode remapIds(JsonNode node, Map<String, Map<Long, Long>> remapByField) {
+    private JsonNode remapIds(JsonNode node, Map<String, Map<String, String>> remapByField) {
         if (node == null) {
             return null;
         }
@@ -1225,9 +1219,9 @@ public class AppPackageImportService {
             object.fieldNames().forEachRemaining(names::add);
             for (String name : names) {
                 JsonNode value = object.get(name);
-                Map<Long, Long> mapping = remapByField.get(name);
-                if (mapping != null && value != null && value.canConvertToLong()) {
-                    Long mapped = mapping.get(value.asLong());
+                Map<String, String> mapping = remapByField.get(name);
+                if (mapping != null && value != null && !value.isContainerNode()) {
+                    String mapped = mapping.get(value.asText());
                     if (mapped != null) {
                         object.put(name, mapped);
                         continue;
@@ -1253,24 +1247,16 @@ public class AppPackageImportService {
         return node;
     }
 
-    private static Long asLong(JsonNode node) {
-        if (node == null || node.isNull()) {
+    private static String asText(JsonNode node) {
+        if (node == null || node.isNull() || node.isContainerNode()) {
             return null;
         }
-        if (node.canConvertToLong()) {
-            return node.asLong();
-        }
-        try {
-            return Long.valueOf(node.asText().trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        String value = node.asText();
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static Map<String, Long> toStringKeyMap(Map<Long, Long> source) {
-        Map<String, Long> result = new LinkedHashMap<>();
-        source.forEach((key, value) -> result.put(String.valueOf(key), value));
-        return result;
+    private static Map<String, String> toStringKeyMap(Map<String, String> source) {
+        return new LinkedHashMap<>(source);
     }
 
     private static String normalizeStrategy(AppPackageInitRequestDTO request) {

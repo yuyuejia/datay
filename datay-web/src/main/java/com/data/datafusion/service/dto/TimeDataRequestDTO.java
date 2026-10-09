@@ -7,18 +7,18 @@ import java.io.Serializable;
  */
 public class TimeDataRequestDTO implements Serializable {
 
-    private Long dataSourceId;
+    private String dataSourceId;
     private String schemaName;
     private String tableName;
     private String start;
     private String end;
     private Boolean overwrite;
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

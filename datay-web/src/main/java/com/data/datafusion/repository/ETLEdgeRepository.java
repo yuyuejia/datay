@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ETLEdgeRepository extends JpaRepository<ETLEdge, Long> {
+public interface ETLEdgeRepository extends JpaRepository<ETLEdge, String> {
     Optional<List<ETLEdge>> findAllByTaskId(String taskId);
 
     void deleteAllByTaskId(String taskId);

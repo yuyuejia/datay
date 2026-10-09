@@ -43,7 +43,7 @@ import { ref, onMounted, computed } from 'vue';
 import DataSourceService from '@/entities/data-source/data-source.service';
 
 const props = defineProps<{
-  datasourceId?: number | null;
+  datasourceId?: string | null;
   schema?: string | null;
   dataSourceType?: string | null; // 新增：数据源类型过滤参数
 }>();
@@ -54,7 +54,7 @@ const dataSourceService = new DataSourceService();
 const showModal = ref(false);
 const dataSources = ref<any[]>([]);
 const schemas = ref<string[]>([]);
-const selectedDataSource = ref<number | null>(props.datasourceId || null);
+const selectedDataSource = ref<string | null>(props.datasourceId || null);
 const showName = ref<string | null>();
 const selectedSchema = ref<string | null>(props.schema || null);
 const selectedDataSourceType = ref<string | null>(props.dataSourceType || '');

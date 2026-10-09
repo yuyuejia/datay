@@ -7,7 +7,7 @@ import { type IServiceConfig } from '@/shared/model/service-config.model';
 const baseApiUrl = 'api/service-configs';
 
 export default class ServiceConfigService {
-  find(id: number): Promise<IServiceConfig> {
+  find(id: string): Promise<IServiceConfig> {
     return new Promise<IServiceConfig>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class ServiceConfigService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

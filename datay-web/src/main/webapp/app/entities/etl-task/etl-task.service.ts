@@ -7,7 +7,7 @@ import { type IETLTask } from '@/shared/model/etl-task.model';
 const baseApiUrl = 'api/etl-tasks';
 
 export default class ETLTaskService {
-  find(id: number): Promise<IETLTask> {
+  find(id: string): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class ETLTaskService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -85,7 +85,7 @@ export default class ETLTaskService {
     });
   }
 
-  run(id: number): Promise<any> {
+  run(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
@@ -111,7 +111,7 @@ export default class ETLTaskService {
     });
   }
 
-  online(id: number): Promise<IETLTask> {
+  online(id: string): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`)
@@ -124,7 +124,7 @@ export default class ETLTaskService {
     });
   }
 
-  offline(id: number): Promise<IETLTask> {
+  offline(id: string): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)
@@ -137,7 +137,7 @@ export default class ETLTaskService {
     });
   }
 
-  getTaskInstances(taskId: number, paginationQuery?: any): Promise<any> {
+  getTaskInstances(taskId: string, paginationQuery?: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${taskId}/instances?${buildPaginationQueryOpts(paginationQuery)}`)

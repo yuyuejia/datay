@@ -1,8 +1,8 @@
 export interface IETLTask {
-  id?: number;
+  id?: string;
   taskName?: string | null;
   taskCode?: string | null;
-  jobId?: number | null;
+  jobId?: string | null;
   taskDesc?: string | null;
   dir?: string | null;
   type?: string | null;
@@ -20,10 +20,10 @@ export interface IETLTask {
 
 export class ETLTask implements IETLTask {
   constructor(
-    public id?: number,
+    public id?: string,
     public taskName?: string | null,
     public taskCode?: string | null,
-    public jobId?: number | null,
+    public jobId?: string | null,
     public taskDesc?: string | null,
     public dir?: string | null,
     public type?: string | null,

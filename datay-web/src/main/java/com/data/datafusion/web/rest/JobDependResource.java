@@ -76,7 +76,7 @@ public class JobDependResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<JobDependDTO> updateJobDepend(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody JobDependDTO jobDependDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update JobDepend : {}, {}", id, jobDependDTO);
@@ -110,7 +110,7 @@ public class JobDependResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<JobDependDTO> partialUpdateJobDepend(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody JobDependDTO jobDependDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update JobDepend partially : {}, {}", id, jobDependDTO);
@@ -154,7 +154,7 @@ public class JobDependResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the jobDependDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<JobDependDTO> getJobDepend(@PathVariable("id") Long id) {
+    public ResponseEntity<JobDependDTO> getJobDepend(@PathVariable("id") String id) {
         LOG.debug("REST request to get JobDepend : {}", id);
         Optional<JobDependDTO> jobDependDTO = jobDependService.findOne(id);
         return ResponseUtil.wrapOrNotFound(jobDependDTO);
@@ -167,7 +167,7 @@ public class JobDependResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJobDepend(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteJobDepend(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JobDepend : {}", id);
         jobDependService.delete(id);
         return ResponseEntity.noContent()

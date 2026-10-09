@@ -1,5 +1,5 @@
 export interface IDpTable {
-  id?: number;
+  id?: string;
   name?: string | null;
   schemaName?: string | null;
   description?: string | null;
@@ -17,7 +17,7 @@ export interface IDpTable {
 
 export class DpTable implements IDpTable {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public schemaName?: string | null,
     public description?: string | null,

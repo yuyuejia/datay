@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificationExecutor<Job> {
+public interface JobRepository extends JpaRepository<Job, String>, JpaSpecificationExecutor<Job> {
     List<Job> findByStatus(String status);
 
     List<Job> findByTypeOrderByIdAsc(String type);

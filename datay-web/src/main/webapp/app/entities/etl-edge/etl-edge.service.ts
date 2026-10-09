@@ -7,7 +7,7 @@ import { type IETLEdge } from '@/shared/model/etl-edge.model';
 const baseApiUrl = 'api/etl-edges';
 
 export default class ETLEdgeService {
-  find(id: number): Promise<IETLEdge> {
+  find(id: string): Promise<IETLEdge> {
     return new Promise<IETLEdge>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class ETLEdgeService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

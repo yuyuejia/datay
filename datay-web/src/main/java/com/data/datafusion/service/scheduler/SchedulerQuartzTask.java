@@ -19,7 +19,7 @@ public class SchedulerQuartzTask implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         JobInstanceService jobInstanceService = SpringUtils.getBean(JobInstanceService.class);
-        JobInstance jobInstance = jobInstanceService.buildJobInstance(Long.valueOf(context.getJobDetail().getKey().getName()));
+        JobInstance jobInstance = jobInstanceService.buildJobInstance(context.getJobDetail().getKey().getName());
         jobInstance.setCreateTime(ZonedDateTime.now());
         // 调度线程无请求上下文，需按任务所属租户设置租户上下文，否则租户过滤器会以 dummy 租户拦截。
         Long tenantId = parseTenantId(jobInstance.getTenantId());

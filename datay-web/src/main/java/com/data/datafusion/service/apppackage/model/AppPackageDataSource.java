@@ -16,7 +16,7 @@ import java.util.Map;
 public class AppPackageDataSource {
 
     /** 包内逻辑 ID，即导出时来源租户的真实数据源 ID。 */
-    public Long oldId;
+    public String oldId;
 
     /** 逻辑唯一键：{@code name|type|url}，用于跨租户匹配复用。 */
     public String key;

@@ -7,7 +7,7 @@ import { type IETLNode } from '@/shared/model/etl-node.model';
 const baseApiUrl = 'api/etl-nodes';
 
 export default class ETLNodeService {
-  find(id: number): Promise<IETLNode> {
+  find(id: string): Promise<IETLNode> {
     return new Promise<IETLNode>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class ETLNodeService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

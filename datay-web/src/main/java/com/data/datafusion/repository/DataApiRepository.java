@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface DataApiRepository extends JpaRepository<DataApi, Long>, JpaSpecificationExecutor<DataApi> {
+public interface DataApiRepository extends JpaRepository<DataApi, String>, JpaSpecificationExecutor<DataApi> {
     Optional<DataApi> findByCode(String code);
-    Optional<DataApi> findByCodeAndIdNot(String code, Long id);
+    Optional<DataApi> findByCodeAndIdNot(String code, String id);
 }

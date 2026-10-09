@@ -9,4 +9,4 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface DataSyncRepository extends JpaRepository<DataSync, Long> {}
+public interface DataSyncRepository extends JpaRepository<DataSync, String> {}

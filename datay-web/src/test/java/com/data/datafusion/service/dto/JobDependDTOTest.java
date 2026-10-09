@@ -11,12 +11,12 @@ class JobDependDTOTest {
     void dtoEqualsVerifier() throws Exception {
         TestUtil.equalsVerifier(JobDependDTO.class);
         JobDependDTO jobDependDTO1 = new JobDependDTO();
-        jobDependDTO1.setId(1L);
+        jobDependDTO1.setId("1");
         JobDependDTO jobDependDTO2 = new JobDependDTO();
         assertThat(jobDependDTO1).isNotEqualTo(jobDependDTO2);
         jobDependDTO2.setId(jobDependDTO1.getId());
         assertThat(jobDependDTO1).isEqualTo(jobDependDTO2);
-        jobDependDTO2.setId(2L);
+        jobDependDTO2.setId("2");
         assertThat(jobDependDTO1).isNotEqualTo(jobDependDTO2);
         jobDependDTO1.setId(null);
         assertThat(jobDependDTO1).isNotEqualTo(jobDependDTO2);

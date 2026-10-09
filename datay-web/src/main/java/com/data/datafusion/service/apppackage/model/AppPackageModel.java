@@ -13,13 +13,13 @@ import java.util.List;
 public class AppPackageModel {
 
     /** 包内逻辑 ID。 */
-    public Long oldId;
+    public String oldId;
 
     /** 关联数据源的包内逻辑 ID。 */
-    public Long dataSourceOldId;
+    public String dataSourceOldId;
 
     /** 所属模型目录的包内逻辑 ID。 */
-    public Long directoryOldId;
+    public String directoryOldId;
 
     public String name;
 
@@ -59,7 +59,7 @@ public class AppPackageModel {
     public static class AppPackageModelField {
 
         /** 包内逻辑 ID。 */
-        public Long oldId;
+        public String oldId;
 
         public String fieldName;
 
@@ -80,10 +80,10 @@ public class AppPackageModel {
         public Boolean isPrimaryKey;
 
         /** 关联维度模型的包内逻辑 ID。 */
-        public Long dimensionModelOldId;
+        public String dimensionModelOldId;
 
         /** 关联维度字段的包内逻辑 ID。 */
-        public Long dimensionFieldOldId;
+        public String dimensionFieldOldId;
 
         public String fieldRole;
 

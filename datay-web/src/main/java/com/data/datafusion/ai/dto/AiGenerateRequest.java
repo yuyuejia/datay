@@ -12,7 +12,7 @@ public class AiGenerateRequest {
     private String message;
 
     /** 当前会话绑定的数据源 ID，可选。 */
-    private Long dataSourceId;
+    private String dataSourceId;
 
     /** 目标助手 id，缺省时回退到注册顺序中的第一个助手。 */
     private String assistantId;
@@ -62,11 +62,11 @@ public class AiGenerateRequest {
         this.message = message;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

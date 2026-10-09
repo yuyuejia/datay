@@ -44,15 +44,15 @@ class MetricAdminHarnessToolsTest {
     @Test
     void shouldMergeUpdateWithoutWipingUnspecifiedFields() throws Exception {
         MetricDTO existing = existingAtomicMetric();
-        when(metricService.findOne(7L)).thenReturn(Optional.of(existing));
-        when(metricService.update(eq(7L), any())).thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+        when(metricService.findOne("7")).thenReturn(Optional.of(existing));
+        when(metricService.update(eq("7"), any())).thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
 
         Object result = tools
             .metricUpdateHarnessTool()
-            .execute(Map.of("id", 7L, "description", "口径改为：成交金额（含税）"), context());
+            .execute(Map.of("id", "7", "description", "口径改为：成交金额（含税）"), context());
 
         ArgumentCaptor<MetricDTO> captor = ArgumentCaptor.forClass(MetricDTO.class);
-        verify(metricService).update(eq(7L), captor.capture());
+        verify(metricService).update(eq("7"), captor.capture());
         MetricDTO sent = captor.getValue();
 
         assertThat(sent.getDescription()).isEqualTo("口径改为：成交金额（含税）");
@@ -60,7 +60,7 @@ class MetricAdminHarnessToolsTest {
         assertThat(sent.getName()).isEqualTo("销售额");
         assertThat(sent.getCode()).isEqualTo("sales_amount");
         assertThat(sent.getFormula()).isEqualTo("SUM(amount)");
-        assertThat(sent.getFactModelId()).isEqualTo(3101L);
+        assertThat(sent.getFactModelId()).isEqualTo("3101");
         assertThat(sent.getDataType()).isEqualTo("DECIMAL");
         assertThat(sent.getMetricType()).isEqualTo(Metric.TYPE_ATOMIC);
 
@@ -70,9 +70,9 @@ class MetricAdminHarnessToolsTest {
 
     @Test
     void shouldRejectUpdateForUnknownMetric() {
-        when(metricService.findOne(404L)).thenReturn(Optional.empty());
+        when(metricService.findOne("404")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> tools.metricUpdateHarnessTool().execute(Map.of("id", 404L, "name", "x"), context()))
+        assertThatThrownBy(() -> tools.metricUpdateHarnessTool().execute(Map.of("id", "404", "name", "x"), context()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("指标不存在");
     }
@@ -81,7 +81,7 @@ class MetricAdminHarnessToolsTest {
     void shouldCreateAtomicMetricFromRequiredFields() throws Exception {
         when(metricService.save(any())).thenAnswer(invocation -> {
             MetricDTO dto = invocation.getArgument(0);
-            dto.setId(99L);
+            dto.setId("99");
             return dto;
         });
 
@@ -94,7 +94,7 @@ class MetricAdminHarnessToolsTest {
                     "metricType", Metric.TYPE_ATOMIC,
                     "dataType", "DECIMAL",
                     "formula", "SUM(amount)",
-                    "factModelId", 3101,
+                    "factModelId", "3101",
                     "unit", "元",
                     "filterConfig", "{\"conditions\":[]}"
                 ),
@@ -107,19 +107,19 @@ class MetricAdminHarnessToolsTest {
         assertThat(sent.getName()).isEqualTo("销售额");
         assertThat(sent.getCode()).isEqualTo("sales_amount");
         assertThat(sent.getFormula()).isEqualTo("SUM(amount)");
-        assertThat(sent.getFactModelId()).isEqualTo(3101L);
+        assertThat(sent.getFactModelId()).isEqualTo("3101");
         assertThat(sent.getUnit()).isEqualTo("元");
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void shouldDeleteMetricAndReportWhatWasRemoved() throws Exception {
-        when(metricService.findOne(7L)).thenReturn(Optional.of(existingAtomicMetric()));
+        when(metricService.findOne("7")).thenReturn(Optional.of(existingAtomicMetric()));
 
-        Map<String, Object> result = (Map<String, Object>) tools.metricDeleteHarnessTool().execute(Map.of("id", 7L), context());
+        Map<String, Object> result = (Map<String, Object>) tools.metricDeleteHarnessTool().execute(Map.of("id", "7"), context());
 
-        verify(metricService).delete(7L);
-        assertThat(result).containsEntry("deletedId", 7L).containsEntry("code", "sales_amount");
+        verify(metricService).delete("7");
+        assertThat(result).containsEntry("deletedId", "7").containsEntry("code", "sales_amount");
     }
 
     @Test
@@ -133,7 +133,7 @@ class MetricAdminHarnessToolsTest {
                     "code", "sales_amount",
                     "metricType", Metric.TYPE_ATOMIC,
                     "dataType", "DECIMAL",
-                    "factModelId", 3101,
+                    "factModelId", "3101",
                     "formula", "SUM(amount)"
                 ),
                 context()
@@ -163,14 +163,14 @@ class MetricAdminHarnessToolsTest {
 
     private static MetricDTO existingAtomicMetric() {
         MetricDTO dto = new MetricDTO();
-        dto.setId(7L);
+        dto.setId("7");
         dto.setName("销售额");
         dto.setCode("sales_amount");
         dto.setDescription("原口径");
         dto.setMetricType(Metric.TYPE_ATOMIC);
         dto.setStatus(Metric.STATUS_ENABLED);
         dto.setDataType("DECIMAL");
-        dto.setFactModelId(3101L);
+        dto.setFactModelId("3101");
         dto.setFormula("SUM(amount)");
         return dto;
     }

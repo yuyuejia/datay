@@ -1,5 +1,5 @@
 export interface IETLComponent {
-  id?: number;
+  id?: string;
   name?: string | null;
   code?: string | null;
   desc?: string | null;
@@ -16,7 +16,7 @@ export interface IETLComponent {
 
 export class ETLComponent implements IETLComponent {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public code?: string | null,
     public desc?: string | null,

@@ -95,7 +95,7 @@ public class ETLComponentService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<ETLComponentDTO> findOne(Long id) {
+    public Optional<ETLComponentDTO> findOne(String id) {
         LOG.debug("Request to get ETLComponent : {}", id);
         return eTLComponentRepository.findById(id).map(eTLComponentMapper::toDto);
     }
@@ -105,7 +105,7 @@ public class ETLComponentService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ETLComponent : {}", id);
         eTLComponentRepository.deleteById(id);
     }

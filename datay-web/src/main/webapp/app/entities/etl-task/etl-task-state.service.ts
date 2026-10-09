@@ -12,7 +12,7 @@ export interface IStatusStorageConfig {
 }
 
 export interface IEtlTaskStateResponse {
-  taskId: number;
+  taskId: string;
   taskName: string;
   taskCode: string;
   jobCode: string;
@@ -21,7 +21,7 @@ export interface IEtlTaskStateResponse {
 }
 
 export interface IEtlTaskStateSummary {
-  taskId: number;
+  taskId: string;
   taskName: string;
   taskCode: string;
   jobCode: string;
@@ -65,7 +65,7 @@ export default class EtlTaskStateService {
     });
   }
 
-  getState(taskId: number): Promise<IEtlTaskStateResponse> {
+  getState(taskId: string): Promise<IEtlTaskStateResponse> {
     return new Promise<IEtlTaskStateResponse>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${taskId}`)
@@ -74,7 +74,7 @@ export default class EtlTaskStateService {
     });
   }
 
-  patchState(taskId: number, patch: Record<string, any>): Promise<IEtlTaskStateResponse> {
+  patchState(taskId: string, patch: Record<string, any>): Promise<IEtlTaskStateResponse> {
     return new Promise<IEtlTaskStateResponse>((resolve, reject) => {
       axios
         .patch(`${baseApiUrl}/${taskId}`, patch)
@@ -83,7 +83,7 @@ export default class EtlTaskStateService {
     });
   }
 
-  deleteState(taskId: number, key?: string, force = false): Promise<IEtlTaskStateResponse> {
+  deleteState(taskId: string, key?: string, force = false): Promise<IEtlTaskStateResponse> {
     return new Promise<IEtlTaskStateResponse>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${taskId}`, { params: { key, force } })

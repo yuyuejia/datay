@@ -95,7 +95,7 @@ public class ServiceConfigService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<ServiceConfigDTO> findOne(Long id) {
+    public Optional<ServiceConfigDTO> findOne(String id) {
         LOG.debug("Request to get ServiceConfig : {}", id);
         return serviceConfigRepository.findById(id).map(serviceConfigMapper::toDto);
     }
@@ -105,7 +105,7 @@ public class ServiceConfigService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ServiceConfig : {}", id);
         serviceConfigRepository.deleteById(id);
     }

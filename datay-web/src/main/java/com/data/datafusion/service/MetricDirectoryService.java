@@ -57,7 +57,7 @@ public class MetricDirectoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<MetricDirectoryDTO> findByParentId(Long parentId) {
+    public List<MetricDirectoryDTO> findByParentId(String parentId) {
         LOG.debug("Request to get MetricDirectories by parentId : {}", parentId);
         if (parentId == null) {
             return metricDirectoryRepository.findByParentIdIsNullOrderBySortOrderAsc().stream()
@@ -70,7 +70,7 @@ public class MetricDirectoryService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<MetricDirectoryDTO> findOne(Long id) {
+    public Optional<MetricDirectoryDTO> findOne(String id) {
         LOG.debug("Request to get MetricDirectory : {}", id);
         return metricDirectoryRepository.findById(id).map(metricDirectoryMapper::toDto);
     }
@@ -78,7 +78,7 @@ public class MetricDirectoryService {
     /**
      * 删除目录：子目录与目录下的指标移动到根目录，避免悬挂引用。
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete MetricDirectory : {}", id);
         metricDirectoryRepository.findByParentIdOrderBySortOrderAsc(id).forEach(child -> child.setParentId(null));
         metricRepository.findByDirectoryId(id).forEach(metric -> metric.setDirectoryId(null));

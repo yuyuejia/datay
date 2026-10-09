@@ -62,7 +62,7 @@ export default defineComponent({
       await retrieveETLComponents();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IETLComponent) => {
       removeId.value = instance.id;

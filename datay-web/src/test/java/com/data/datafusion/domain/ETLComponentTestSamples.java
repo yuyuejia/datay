@@ -13,7 +13,7 @@ public class ETLComponentTestSamples {
 
     public static ETLComponent getETLComponentSample1() {
         return new ETLComponent()
-            .id(1L)
+            .id("1")
             .name("name1")
             .code("code1")
             .desc("desc1")
@@ -28,7 +28,7 @@ public class ETLComponentTestSamples {
 
     public static ETLComponent getETLComponentSample2() {
         return new ETLComponent()
-            .id(2L)
+            .id("2")
             .name("name2")
             .code("code2")
             .desc("desc2")
@@ -43,7 +43,7 @@ public class ETLComponentTestSamples {
 
     public static ETLComponent getETLComponentRandomSampleGenerator() {
         return new ETLComponent()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .name(UUID.randomUUID().toString())
             .code(UUID.randomUUID().toString())
             .desc(UUID.randomUUID().toString())

@@ -103,7 +103,7 @@ export default defineComponent({
         return;
       }
       try {
-        const job = await shellJobService().find(Number(route.params.jobId));
+        const job = await shellJobService().find(String(route.params.jobId));
         shellJob.value = job;
         shellScript.value = job.jobContext || "";
       } catch (error) {

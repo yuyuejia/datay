@@ -43,12 +43,6 @@
           min-width="160"
         ></el-table-column>
         <el-table-column
-          prop="id"
-          label="ID"
-          sortable="custom"
-          width="90"
-        ></el-table-column>
-        <el-table-column
           prop="cron"
           label="Cron 表达式"
           sortable="custom"

@@ -74,7 +74,7 @@ class RoleDataScopeServiceTest {
             );
     }
 
-    private RoleDataScope scope(String roleName, Long dimensionModelId, String filterConfig) {
+    private RoleDataScope scope(String roleName, String dimensionModelId, String filterConfig) {
         RoleDataScope entity = new RoleDataScope();
         entity.setRoleName(roleName);
         entity.setDimensionModelId(dimensionModelId);
@@ -102,33 +102,33 @@ class RoleDataScopeServiceTest {
         authenticate("ROLE_REGION");
         RoleDataScope store = scope(
             "ROLE_REGION",
-            3002L,
+            "3002",
             "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionFieldName\":\"city\",\"operator\":\"EQ\",\"value\":\"北京\"}]}"
         );
         RoleDataScope store2 = scope(
             "ROLE_REGION",
-            3002L,
+            "3002",
             "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionFieldName\":\"city\",\"operator\":\"EQ\",\"value\":\"上海\"}]}"
         );
         RoleDataScope product = scope(
             "ROLE_REGION",
-            3003L,
+            "3003",
             "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionFieldName\":\"category_l1\",\"operator\":\"IN\",\"value\":\"手机,电脑\"}]}"
         );
         when(roleDataScopeRepository.findByRoleNameInAndEnabledTrue(any())).thenReturn(List.of(store, store2, product));
 
         List<ScopedDimension> scopes = roleDataScopeService.resolveEffectiveScopes();
         assertThat(scopes).hasSize(2);
-        assertThat(scopes.get(0).getDimensionModelId()).isEqualTo(3002L);
+        assertThat(scopes.get(0).getDimensionModelId()).isEqualTo("3002");
         assertThat(scopes.get(0).getConditions()).hasSize(2);
-        assertThat(scopes.get(1).getDimensionModelId()).isEqualTo(3003L);
+        assertThat(scopes.get(1).getDimensionModelId()).isEqualTo("3003");
         assertThat(scopes.get(1).getConditions()).hasSize(1);
     }
 
     @Test
     void shouldIgnoreRulesWithoutConditions() {
         authenticate("ROLE_REGION");
-        RoleDataScope empty = scope("ROLE_REGION", 3002L, null);
+        RoleDataScope empty = scope("ROLE_REGION", "3002", null);
         when(roleDataScopeRepository.findByRoleNameInAndEnabledTrue(any())).thenReturn(List.of(empty));
         assertThat(roleDataScopeService.resolveEffectiveScopes()).isEmpty();
     }
@@ -137,8 +137,8 @@ class RoleDataScopeServiceTest {
     void shouldRejectUnknownRoleOnSave() {
         RoleDataScopeDTO dto = new RoleDataScopeDTO();
         dto.setRoleName("ROLE_UNKNOWN");
-        dto.setDimensionModelId(3002L);
-        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_UNKNOWN", 3002L, validConfig()));
+        dto.setDimensionModelId("3002");
+        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_UNKNOWN", "3002", validConfig()));
         when(authorityRepository.existsById("ROLE_UNKNOWN")).thenReturn(false);
 
         assertThatThrownBy(() -> roleDataScopeService.save(dto))
@@ -150,13 +150,13 @@ class RoleDataScopeServiceTest {
     void shouldRejectNonDimensionModelOnSave() {
         RoleDataScopeDTO dto = new RoleDataScopeDTO();
         dto.setRoleName("ROLE_REGION");
-        dto.setDimensionModelId(3101L);
-        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_REGION", 3101L, validConfig()));
+        dto.setDimensionModelId("3101");
+        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_REGION", "3101", validConfig()));
         when(authorityRepository.existsById("ROLE_REGION")).thenReturn(true);
         DataModel fact = new DataModel();
         fact.setModelType("DWD");
         fact.setCode("fact_sales_order_item");
-        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(fact));
+        when(dataModelRepository.findById("3101")).thenReturn(Optional.of(fact));
 
         assertThatThrownBy(() -> roleDataScopeService.save(dto))
             .isInstanceOf(IllegalArgumentException.class)
@@ -167,14 +167,14 @@ class RoleDataScopeServiceTest {
     void shouldRejectInvalidOperatorOnSave() {
         RoleDataScopeDTO dto = new RoleDataScopeDTO();
         dto.setRoleName("ROLE_REGION");
-        dto.setDimensionModelId(3002L);
+        dto.setDimensionModelId("3002");
         String config = "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionFieldName\":\"city\",\"operator\":\"BAD\",\"value\":\"北京\"}]}";
-        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_REGION", 3002L, config));
+        when(roleDataScopeMapper.toEntity(dto)).thenReturn(dtoEntity("ROLE_REGION", "3002", config));
         when(authorityRepository.existsById("ROLE_REGION")).thenReturn(true);
-        when(dataModelRepository.findById(3002L)).thenReturn(Optional.of(dimensionModel(3002L, "dim_store")));
+        when(dataModelRepository.findById("3002")).thenReturn(Optional.of(dimensionModel("3002", "dim_store")));
         ModelField city = new ModelField();
         city.setFieldName("city");
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(List.of(city));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(city));
 
         assertThatThrownBy(() -> roleDataScopeService.save(dto))
             .isInstanceOf(IllegalArgumentException.class)
@@ -184,26 +184,26 @@ class RoleDataScopeServiceTest {
     @Test
     void shouldPreserveTenantIdOnUpdate() {
         RoleDataScopeDTO dto = new RoleDataScopeDTO();
-        dto.setId(1L);
+        dto.setId("1");
         dto.setRoleName("ROLE_REGION");
-        dto.setDimensionModelId(3002L);
+        dto.setDimensionModelId("3002");
         dto.setFilterConfig(validConfig());
         dto.setEnabled(true);
 
         RoleDataScope existing = new RoleDataScope();
-        existing.setId(1L);
+        existing.setId("1");
         existing.setTenantId("1");
-        when(roleDataScopeRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(roleDataScopeRepository.findById("1")).thenReturn(Optional.of(existing));
 
-        RoleDataScope mapped = dtoEntity("ROLE_REGION", 3002L, validConfig());
-        mapped.setId(1L);
+        RoleDataScope mapped = dtoEntity("ROLE_REGION", "3002", validConfig());
+        mapped.setId("1");
         when(roleDataScopeMapper.toEntity(dto)).thenReturn(mapped);
         when(roleDataScopeMapper.toDto(any(RoleDataScope.class))).thenReturn(dto);
         when(authorityRepository.existsById("ROLE_REGION")).thenReturn(true);
-        when(dataModelRepository.findById(3002L)).thenReturn(Optional.of(dimensionModel(3002L, "dim_store")));
+        when(dataModelRepository.findById("3002")).thenReturn(Optional.of(dimensionModel("3002", "dim_store")));
         ModelField city = new ModelField();
         city.setFieldName("city");
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3002L)).thenReturn(List.of(city));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(city));
         when(roleDataScopeRepository.save(any(RoleDataScope.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         roleDataScopeService.update(dto);
@@ -211,7 +211,7 @@ class RoleDataScopeServiceTest {
         assertThat(mapped.getTenantId()).isEqualTo("1");
     }
 
-    private RoleDataScope dtoEntity(String roleName, Long dimensionModelId, String filterConfig) {
+    private RoleDataScope dtoEntity(String roleName, String dimensionModelId, String filterConfig) {
         RoleDataScope entity = new RoleDataScope();
         entity.setRoleName(roleName);
         entity.setDimensionModelId(dimensionModelId);
@@ -220,7 +220,7 @@ class RoleDataScopeServiceTest {
         return entity;
     }
 
-    private DataModel dimensionModel(Long id, String code) {
+    private DataModel dimensionModel(String id, String code) {
         DataModel model = new DataModel();
         model.setId(id);
         model.setCode(code);

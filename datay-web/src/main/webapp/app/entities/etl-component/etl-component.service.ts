@@ -7,7 +7,7 @@ import { type IETLComponent } from '@/shared/model/etl-component.model';
 const baseApiUrl = 'api/etl-components';
 
 export default class ETLComponentService {
-  find(id: number): Promise<IETLComponent> {
+  find(id: string): Promise<IETLComponent> {
     return new Promise<IETLComponent>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -46,7 +46,7 @@ export default class ETLComponentService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

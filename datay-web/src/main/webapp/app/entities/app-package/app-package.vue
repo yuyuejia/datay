@@ -15,7 +15,6 @@
         </router-link>
       </div>
     </h2>
-    <br />
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="资产包" name="packages">

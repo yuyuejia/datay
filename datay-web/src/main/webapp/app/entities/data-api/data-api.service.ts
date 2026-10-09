@@ -7,7 +7,7 @@ import { type IDataApi } from '@/shared/model/data-api.model';
 const baseApiUrl = 'api/data-apis';
 
 export default class DataApiService {
-  find(id: number): Promise<IDataApi> {
+  find(id: string): Promise<IDataApi> {
     return new Promise<IDataApi>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -33,7 +33,7 @@ export default class DataApiService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

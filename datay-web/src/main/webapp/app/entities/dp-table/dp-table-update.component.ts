@@ -42,7 +42,7 @@ export default defineComponent({
       retrieveDpTable(route.params.dpTableId);
     }
 
-    const handleSourceSelected = (selection: { dataSourceId: number; schema: string }) => {
+    const handleSourceSelected = (selection: { dataSourceId: string; schema: string }) => {
       dpTable.value.sourceId = `${selection.dataSourceId}`;
       dpTable.value.sourceSchema = selection.schema;
     };

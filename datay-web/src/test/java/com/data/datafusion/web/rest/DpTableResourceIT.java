@@ -190,7 +190,7 @@ class DpTableResourceIT {
     @Transactional
     void createDpTableWithExistingId() throws Exception {
         // Create the DpTable with an existing ID
-        dpTable.setId(1L);
+        dpTable.setId("1");
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -215,7 +215,7 @@ class DpTableResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(dpTable.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(dpTable.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].schemaName").value(hasItem(DEFAULT_SCHEMA_NAME)))
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
@@ -242,7 +242,7 @@ class DpTableResourceIT {
             .perform(get(ENTITY_API_URL_ID, dpTable.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(dpTable.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(dpTable.getId()))
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.schemaName").value(DEFAULT_SCHEMA_NAME))
             .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
@@ -308,7 +308,7 @@ class DpTableResourceIT {
     @Transactional
     void putNonExistingDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
@@ -328,7 +328,7 @@ class DpTableResourceIT {
     @Transactional
     void putWithIdMismatchDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
@@ -350,7 +350,7 @@ class DpTableResourceIT {
     @Transactional
     void putWithMissingIdPathParamDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
@@ -443,7 +443,7 @@ class DpTableResourceIT {
     @Transactional
     void patchNonExistingDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
@@ -465,7 +465,7 @@ class DpTableResourceIT {
     @Transactional
     void patchWithIdMismatchDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);
@@ -487,7 +487,7 @@ class DpTableResourceIT {
     @Transactional
     void patchWithMissingIdPathParamDpTable() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dpTable.setId(longCount.incrementAndGet());
+        dpTable.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DpTable
         DpTableDTO dpTableDTO = dpTableMapper.toDto(dpTable);

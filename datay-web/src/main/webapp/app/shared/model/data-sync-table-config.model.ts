@@ -1,5 +1,5 @@
 export interface IDataSyncTableConfig {
-  id?: number;
+  id?: string;
   syncTask?: string | null;
   srcDatasource?: string | null;
   srcSchemaName?: string | null;
@@ -20,7 +20,7 @@ export interface IDataSyncTableConfig {
 
 export class DataSyncTableConfig implements IDataSyncTableConfig {
   constructor(
-    public id?: number,
+    public id?: string,
     public syncTask?: string | null,
     public srcDatasource?: string | null,
     public srcSchemaName?: string | null,

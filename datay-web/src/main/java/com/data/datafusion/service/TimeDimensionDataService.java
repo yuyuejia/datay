@@ -51,7 +51,7 @@ public class TimeDimensionDataService {
     /**
      * 生成并写入预置数据，返回写入行数。
      */
-    public int generate(Long modelId, TimeDataRequestDTO request) {
+    public int generate(String modelId, TimeDataRequestDTO request) {
         DataModel model = dataModelRepository
             .findById(modelId)
             .orElseThrow(() -> new IllegalArgumentException("数据模型不存在：" + modelId));
@@ -60,7 +60,7 @@ public class TimeDimensionDataService {
         }
         List<TimeGranularity> levels = TimeGranularity.parse(model.getTimeLevels());
 
-        Long dataSourceId = request != null && request.getDataSourceId() != null ? request.getDataSourceId() : model.getDataSourceId();
+        String dataSourceId = request != null && request.getDataSourceId() != null ? request.getDataSourceId() : model.getDataSourceId();
         String schema = firstNonBlank(request == null ? null : request.getSchemaName(), model.getSchemaName());
         String table = firstNonBlank(request == null ? null : request.getTableName(), model.getTableName());
         if (dataSourceId == null || table == null || table.isBlank()) {

@@ -145,7 +145,7 @@ public class MetricSqlService {
         String factAlias = "f";
 
         StringBuilder joins = new StringBuilder();
-        Map<Long, String> dimensionAlias = new HashMap<>();
+        Map<String, String> dimensionAlias = new HashMap<>();
         List<String> conditions = new ArrayList<>();
 
         MetricFilterConfig config = parseFilterConfig(metric.getFilterConfig());
@@ -185,8 +185,8 @@ public class MetricSqlService {
         return sb.toString();
     }
 
-    private String ensureDimensionJoin(MetricFilterCondition condition, Map<Long, String> dimensionAlias, StringBuilder joins) {
-        Long dimModelId = condition.getDimensionModelId();
+    private String ensureDimensionJoin(MetricFilterCondition condition, Map<String, String> dimensionAlias, StringBuilder joins) {
+        String dimModelId = condition.getDimensionModelId();
         String alias = dimensionAlias.get(dimModelId);
         if (alias != null) {
             return alias;

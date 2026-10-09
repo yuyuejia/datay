@@ -58,10 +58,10 @@ class DashboardDimensionValidatorTest {
     @Test
     void shouldKeepFilterWhenDimensionHasData() {
         DataModel model = new DataModel();
-        model.setId(1L);
+        model.setId("1");
         model.setCode("dim_region");
         when(dataModelRepository.findFirstByCode("dim_region")).thenReturn(Optional.of(model));
-        when(dimensionValueService.pageValues(eq(1L), eq("region_name"), any(), anyInt(), anyInt()))
+        when(dimensionValueService.pageValues(eq("1"), eq("region_name"), any(), anyInt(), anyInt()))
             .thenReturn(Map.of("values", List.of("华东")));
 
         Map<String, Object> spec = validator.sanitizeFilters(specWith(List.of(filter("region", "dimension", "dim_region", "region_name"))));
@@ -81,10 +81,10 @@ class DashboardDimensionValidatorTest {
     @Test
     void shouldDropFilterWhenDimensionHasNoData() {
         DataModel model = new DataModel();
-        model.setId(2L);
+        model.setId("2");
         model.setCode("dim_empty");
         when(dataModelRepository.findFirstByCode("dim_empty")).thenReturn(Optional.of(model));
-        when(dimensionValueService.pageValues(eq(2L), eq("name"), any(), anyInt(), anyInt())).thenReturn(Map.of("values", List.of()));
+        when(dimensionValueService.pageValues(eq("2"), eq("name"), any(), anyInt(), anyInt())).thenReturn(Map.of("values", List.of()));
 
         Map<String, Object> spec = validator.sanitizeFilters(specWith(List.of(filter("x", "dimension", "dim_empty", "name"))));
 

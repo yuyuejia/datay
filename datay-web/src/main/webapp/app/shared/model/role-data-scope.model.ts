@@ -11,9 +11,9 @@ export interface IRoleScopeFilterConfig {
 }
 
 export interface IRoleDataScope {
-  id?: number;
+  id?: string;
   roleName?: string;
-  dimensionModelId?: number;
+  dimensionModelId?: string;
   filterConfig?: string;
   enabled?: boolean;
   createTime?: Date;
@@ -22,9 +22,9 @@ export interface IRoleDataScope {
 
 export class RoleDataScope implements IRoleDataScope {
   constructor(
-    public id?: number,
+    public id?: string,
     public roleName?: string,
-    public dimensionModelId?: number,
+    public dimensionModelId?: string,
     public filterConfig?: string,
     public enabled?: boolean,
     public createTime?: Date,

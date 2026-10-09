@@ -85,7 +85,7 @@ public class DataModelResource {
 
     @PutMapping("/{id}")
     public ResponseEntity<DataModelDTO> updateDataModel(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataModelDTO dataModelDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update DataModel : {}, {}", id, dataModelDTO);
@@ -106,7 +106,7 @@ public class DataModelResource {
 
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<DataModelDTO> partialUpdateDataModel(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataModelDTO dataModelDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update DataModel : {}, {}", id, dataModelDTO);
@@ -134,7 +134,7 @@ public class DataModelResource {
     }
 
     @GetMapping("/by-directory")
-    public ResponseEntity<List<DataModelDTO>> getDataModelsByDirectory(@RequestParam Long directoryId) {
+    public ResponseEntity<List<DataModelDTO>> getDataModelsByDirectory(@RequestParam String directoryId) {
         LOG.debug("REST request to get DataModels by directoryId : {}", directoryId);
         List<DataModelDTO> list = dataModelService.findByDirectoryId(directoryId);
         return ResponseEntity.ok().body(list);
@@ -148,14 +148,14 @@ public class DataModelResource {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DataModelDTO> getDataModel(@PathVariable("id") Long id) {
+    public ResponseEntity<DataModelDTO> getDataModel(@PathVariable("id") String id) {
         LOG.debug("REST request to get DataModel : {}", id);
         Optional<DataModelDTO> dataModelDTO = dataModelService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataModelDTO);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataModel(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDataModel(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataModel : {}", id);
         modelFieldService.deleteByModelId(id);
         dataModelService.delete(id);
@@ -165,7 +165,7 @@ public class DataModelResource {
     }
 
     @GetMapping("/{id}/fields")
-    public ResponseEntity<List<ModelFieldDTO>> getModelFields(@PathVariable("id") Long id) {
+    public ResponseEntity<List<ModelFieldDTO>> getModelFields(@PathVariable("id") String id) {
         LOG.debug("REST request to get ModelFields for DataModel : {}", id);
         List<ModelFieldDTO> fields = modelFieldService.findByModelId(id);
         return ResponseEntity.ok().body(fields);
@@ -173,7 +173,7 @@ public class DataModelResource {
 
     @GetMapping("/{id}/values")
     public ResponseEntity<Map<String, Object>> getDimensionValues(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestParam("fieldName") String fieldName,
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
@@ -189,7 +189,7 @@ public class DataModelResource {
 
     @PostMapping("/{id}/fields")
     public ResponseEntity<List<ModelFieldDTO>> saveModelFields(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody List<ModelFieldDTO> modelFieldDTOs
     ) {
         LOG.debug("REST request to save ModelFields for DataModel : {}", id);
@@ -203,7 +203,7 @@ public class DataModelResource {
     }
 
     @GetMapping("/materialize-types")
-    public ResponseEntity<List<String>> getSupportedPhysicalTypes(@RequestParam Long dataSourceId) {
+    public ResponseEntity<List<String>> getSupportedPhysicalTypes(@RequestParam String dataSourceId) {
         LOG.debug("REST request to get supported physical types for DataSource : {}", dataSourceId);
         Optional<DataSourceDTO> dsOpt = dataSourceService.findOne(dataSourceId);
         if (dsOpt.isEmpty()) {
@@ -231,8 +231,8 @@ public class DataModelResource {
 
     @GetMapping("/{id}/materialize-fields")
     public ResponseEntity<List<MaterializeFieldDTO>> getMaterializeFields(
-        @PathVariable("id") Long id,
-        @RequestParam Long dataSourceId
+        @PathVariable("id") String id,
+        @RequestParam String dataSourceId
     ) {
         LOG.debug("REST request to get materialize fields for DataModel : {} and DataSource : {}", id, dataSourceId);
         List<ModelFieldDTO> modelFields = modelFieldService.findByModelId(id);
@@ -249,7 +249,7 @@ public class DataModelResource {
 
     @PostMapping("/{id}/materialize-check")
     public ResponseEntity<MaterializeResponseDTO> checkMaterialize(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody MaterializeRequestDTO request
     ) {
         LOG.debug("REST request to check materialize status for DataModel : {}", id);
@@ -259,7 +259,7 @@ public class DataModelResource {
 
     @PostMapping("/{id}/materialize-ddl")
     public ResponseEntity<MaterializeResponseDTO> generateMaterializeDDL(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody MaterializeRequestDTO request
     ) {
         LOG.debug("REST request to generate materialize DDL for DataModel : {}", id);
@@ -269,7 +269,7 @@ public class DataModelResource {
 
     @PostMapping("/{id}/materialize")
     public ResponseEntity<MaterializeResponseDTO> materialize(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody MaterializeRequestDTO request
     ) {
         LOG.debug("REST request to materialize DataModel : {} to table : {}", id, request.getTableName());
@@ -305,7 +305,7 @@ public class DataModelResource {
     }
 
     @PostMapping("/{id}/generate-time-data")
-    public ResponseEntity<?> generateTimeData(@PathVariable("id") Long id, @RequestBody TimeDataRequestDTO request) {
+    public ResponseEntity<?> generateTimeData(@PathVariable("id") String id, @RequestBody TimeDataRequestDTO request) {
         LOG.debug("REST request to generate time dimension data for DataModel : {}", id);
         try {
             int rows = timeDimensionDataService.generate(id, request);

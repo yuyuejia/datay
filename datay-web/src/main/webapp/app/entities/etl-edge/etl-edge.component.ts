@@ -60,7 +60,7 @@ export default defineComponent({
       await retrieveETLEdges();
     });
 
-    const removeId: Ref<number> = ref(null);
+    const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IETLEdge) => {
       removeId.value = instance.id;

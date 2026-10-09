@@ -136,7 +136,7 @@ class DataApiExecuteServiceApiTest {
 
     private static DataApiDTO api(String apiConfig) {
         DataApiDTO dto = new DataApiDTO();
-        dto.setId(1L);
+        dto.setId("1");
         dto.setCode("orders");
         dto.setStatus(DataApi.STATUS_ENABLED);
         dto.setSourceType(DataApi.SOURCE_TYPE_API);

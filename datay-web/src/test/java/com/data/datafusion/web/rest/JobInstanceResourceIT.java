@@ -190,7 +190,7 @@ class JobInstanceResourceIT {
     @Transactional
     void createJobInstanceWithExistingId() throws Exception {
         // Create the JobInstance with an existing ID
-        jobInstance.setId(1L);
+        jobInstance.setId("1");
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -215,7 +215,7 @@ class JobInstanceResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(jobInstance.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(jobInstance.getId())))
             .andExpect(jsonPath("$.[*].instanceCode").value(hasItem(DEFAULT_INSTANCE_CODE)))
             .andExpect(jsonPath("$.[*].jobName").value(hasItem(DEFAULT_JOB_NAME)))
             .andExpect(jsonPath("$.[*].jobCode").value(hasItem(DEFAULT_JOB_CODE)))
@@ -242,7 +242,7 @@ class JobInstanceResourceIT {
             .perform(get(ENTITY_API_URL_ID, jobInstance.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(jobInstance.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(jobInstance.getId()))
             .andExpect(jsonPath("$.instanceCode").value(DEFAULT_INSTANCE_CODE))
             .andExpect(jsonPath("$.jobName").value(DEFAULT_JOB_NAME))
             .andExpect(jsonPath("$.jobCode").value(DEFAULT_JOB_CODE))
@@ -310,7 +310,7 @@ class JobInstanceResourceIT {
     @Transactional
     void putNonExistingJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
@@ -332,7 +332,7 @@ class JobInstanceResourceIT {
     @Transactional
     void putWithIdMismatchJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
@@ -354,7 +354,7 @@ class JobInstanceResourceIT {
     @Transactional
     void putWithMissingIdPathParamJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
@@ -450,7 +450,7 @@ class JobInstanceResourceIT {
     @Transactional
     void patchNonExistingJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
@@ -472,7 +472,7 @@ class JobInstanceResourceIT {
     @Transactional
     void patchWithIdMismatchJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);
@@ -494,7 +494,7 @@ class JobInstanceResourceIT {
     @Transactional
     void patchWithMissingIdPathParamJobInstance() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobInstance.setId(longCount.incrementAndGet());
+        jobInstance.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobInstance
         JobInstanceDTO jobInstanceDTO = jobInstanceMapper.toDto(jobInstance);

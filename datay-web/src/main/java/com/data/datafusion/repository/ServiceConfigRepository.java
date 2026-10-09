@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @SuppressWarnings("unused")
 @Repository
-public interface ServiceConfigRepository extends JpaRepository<ServiceConfig, Long> {
+public interface ServiceConfigRepository extends JpaRepository<ServiceConfig, String> {
 
     Optional<ServiceConfig> findByDfGroupAndDfKey(String dfGroup, String dfKey);
 

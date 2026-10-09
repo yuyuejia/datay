@@ -10,13 +10,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AppPackageJobDepend {
 
-    public Long oldId;
+    public String oldId;
 
     /** 父任务的包内逻辑 ID。 */
-    public Long parentJobOldId;
+    public String parentJobOldId;
 
     /** 子任务的包内逻辑 ID。 */
-    public Long childJobOldId;
+    public String childJobOldId;
 
     public Long lastInterval;
 }

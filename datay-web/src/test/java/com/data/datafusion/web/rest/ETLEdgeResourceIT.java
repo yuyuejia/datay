@@ -165,7 +165,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void createETLEdgeWithExistingId() throws Exception {
         // Create the ETLEdge with an existing ID
-        eTLEdge.setId(1L);
+        eTLEdge.setId("1");
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -190,7 +190,7 @@ class ETLEdgeResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLEdge.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLEdge.getId())))
             .andExpect(jsonPath("$.[*].taskId").value(hasItem(DEFAULT_TASK_ID)))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].code").value(hasItem(DEFAULT_CODE)))
@@ -213,7 +213,7 @@ class ETLEdgeResourceIT {
             .perform(get(ENTITY_API_URL_ID, eTLEdge.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(eTLEdge.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(eTLEdge.getId()))
             .andExpect(jsonPath("$.taskId").value(DEFAULT_TASK_ID))
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.code").value(DEFAULT_CODE))
@@ -271,7 +271,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void putNonExistingETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
@@ -291,7 +291,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void putWithIdMismatchETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
@@ -313,7 +313,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void putWithMissingIdPathParamETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
@@ -396,7 +396,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void patchNonExistingETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
@@ -418,7 +418,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void patchWithIdMismatchETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);
@@ -440,7 +440,7 @@ class ETLEdgeResourceIT {
     @Transactional
     void patchWithMissingIdPathParamETLEdge() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLEdge.setId(longCount.incrementAndGet());
+        eTLEdge.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLEdge
         ETLEdgeDTO eTLEdgeDTO = eTLEdgeMapper.toDto(eTLEdge);

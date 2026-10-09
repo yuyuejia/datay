@@ -10,11 +10,11 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class DataApiDTO implements Serializable {
 
-    private Long id;
+    private String id;
     private String name;
     private String code;
     private String description;
-    private Long dataSourceId;
+    private String dataSourceId;
     private String sourceType;
     private String schemaName;
     private String tableName;
@@ -25,11 +25,11 @@ public class DataApiDTO implements Serializable {
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -57,11 +57,11 @@ public class DataApiDTO implements Serializable {
         this.description = description;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return dataSourceId;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

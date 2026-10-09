@@ -127,7 +127,7 @@ public class DataSourceService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<DataSourceDTO> findOne(Long id) {
+    public Optional<DataSourceDTO> findOne(String id) {
         LOG.debug("Request to get DataSource : {}", id);
         return dataSourceRepository.findById(id).map(dataSourceMapper::toDto);
     }
@@ -137,7 +137,7 @@ public class DataSourceService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DataSource : {}", id);
         dataSourceRepository.deleteById(id);
     }

@@ -91,7 +91,7 @@ public class DataModelService {
     }
 
     @Transactional(readOnly = true)
-    public List<DataModelDTO> findByDirectoryId(Long directoryId) {
+    public List<DataModelDTO> findByDirectoryId(String directoryId) {
         LOG.debug("Request to get DataModels by directoryId : {}", directoryId);
         return dataModelRepository.findByDirectoryId(directoryId).stream()
             .map(dataModelMapper::toDto)
@@ -107,12 +107,12 @@ public class DataModelService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<DataModelDTO> findOne(Long id) {
+    public Optional<DataModelDTO> findOne(String id) {
         LOG.debug("Request to get DataModel : {}", id);
         return dataModelRepository.findById(id).map(dataModelMapper::toDto);
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete DataModel : {}", id);
         dataModelRepository.deleteById(id);
     }

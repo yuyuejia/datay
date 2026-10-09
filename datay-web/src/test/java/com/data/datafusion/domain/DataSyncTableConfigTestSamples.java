@@ -13,7 +13,7 @@ public class DataSyncTableConfigTestSamples {
 
     public static DataSyncTableConfig getDataSyncTableConfigSample1() {
         return new DataSyncTableConfig()
-            .id(1L)
+            .id("1")
             .syncTask("syncTask1")
             .srcDatasource("srcDatasource1")
             .srcSchemaName("srcSchemaName1")
@@ -32,7 +32,7 @@ public class DataSyncTableConfigTestSamples {
 
     public static DataSyncTableConfig getDataSyncTableConfigSample2() {
         return new DataSyncTableConfig()
-            .id(2L)
+            .id("2")
             .syncTask("syncTask2")
             .srcDatasource("srcDatasource2")
             .srcSchemaName("srcSchemaName2")
@@ -51,7 +51,7 @@ public class DataSyncTableConfigTestSamples {
 
     public static DataSyncTableConfig getDataSyncTableConfigRandomSampleGenerator() {
         return new DataSyncTableConfig()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .syncTask(UUID.randomUUID().toString())
             .srcDatasource(UUID.randomUUID().toString())
             .srcSchemaName(UUID.randomUUID().toString())

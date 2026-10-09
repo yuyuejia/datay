@@ -1,9 +1,9 @@
 export interface IDataApi {
-  id?: number;
+  id?: string;
   name?: string | null;
   code?: string | null;
   description?: string | null;
-  dataSourceId?: number | null;
+  dataSourceId?: string | null;
   sourceType?: string | null;
   schemaName?: string | null;
   tableName?: string | null;
@@ -57,11 +57,11 @@ export function parseApiConfig(apiConfig?: string | null): IApiConfig | null {
 
 export class DataApi implements IDataApi {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public code?: string | null,
     public description?: string | null,
-    public dataSourceId?: number | null,
+    public dataSourceId?: string | null,
     public sourceType?: string | null,
     public schemaName?: string | null,
     public tableName?: string | null,

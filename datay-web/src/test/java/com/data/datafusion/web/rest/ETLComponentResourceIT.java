@@ -185,7 +185,7 @@ class ETLComponentResourceIT {
     @Transactional
     void createETLComponentWithExistingId() throws Exception {
         // Create the ETLComponent with an existing ID
-        eTLComponent.setId(1L);
+        eTLComponent.setId("1");
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -210,7 +210,7 @@ class ETLComponentResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLComponent.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLComponent.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].code").value(hasItem(DEFAULT_CODE)))
             .andExpect(jsonPath("$.[*].desc").value(hasItem(DEFAULT_DESC)))
@@ -236,7 +236,7 @@ class ETLComponentResourceIT {
             .perform(get(ENTITY_API_URL_ID, eTLComponent.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(eTLComponent.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(eTLComponent.getId()))
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.code").value(DEFAULT_CODE))
             .andExpect(jsonPath("$.desc").value(DEFAULT_DESC))
@@ -302,7 +302,7 @@ class ETLComponentResourceIT {
     @Transactional
     void putNonExistingETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
@@ -324,7 +324,7 @@ class ETLComponentResourceIT {
     @Transactional
     void putWithIdMismatchETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
@@ -346,7 +346,7 @@ class ETLComponentResourceIT {
     @Transactional
     void putWithMissingIdPathParamETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
@@ -441,7 +441,7 @@ class ETLComponentResourceIT {
     @Transactional
     void patchNonExistingETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
@@ -463,7 +463,7 @@ class ETLComponentResourceIT {
     @Transactional
     void patchWithIdMismatchETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);
@@ -485,7 +485,7 @@ class ETLComponentResourceIT {
     @Transactional
     void patchWithMissingIdPathParamETLComponent() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLComponent.setId(longCount.incrementAndGet());
+        eTLComponent.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLComponent
         ETLComponentDTO eTLComponentDTO = eTLComponentMapper.toDto(eTLComponent);

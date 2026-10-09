@@ -64,7 +64,7 @@ export default defineComponent({
     const spec = ref<DashboardSpec | undefined>();
     const specError = ref("");
     const filterValues = ref<FilterValues>({});
-    const editingId: Ref<number | undefined> = ref(undefined);
+    const editingId: Ref<string | undefined> = ref(undefined);
     const samples = ref<string[]>([]);
 
     const saveModal = ref<any>(null);
@@ -89,7 +89,7 @@ export default defineComponent({
       }
     };
 
-    const loadExisting = async (id: number) => {
+    const loadExisting = async (id: string) => {
       try {
         const dashboard = await dashboardService.get(id);
         editingId.value = id;
@@ -103,7 +103,7 @@ export default defineComponent({
 
     onMounted(async () => {
       await loadAssistant();
-      const id = route.query.id ? Number(route.query.id) : undefined;
+      const id = route.query.id ? String(route.query.id) : undefined;
       if (id) {
         await loadExisting(id);
       }

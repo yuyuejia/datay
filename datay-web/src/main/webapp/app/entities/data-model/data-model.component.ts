@@ -22,7 +22,7 @@ import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
 
 interface TreeNode {
-  id: number;
+  id: string;
   label: string;
   type: "directory" | "model";
   children?: TreeNode[];
@@ -94,7 +94,7 @@ export default defineComponent({
     const directoryDialogVisible = ref(false);
     const directoryDialogTitle = ref("新增目录");
     const directoryForm: Ref<IModelDirectory> = ref(new ModelDirectory());
-    const editingDirectoryId: Ref<number | null> = ref(null);
+    const editingDirectoryId: Ref<string | null> = ref(null);
 
     const deleteDialogVisible = ref(false);
     const deleteMessage = ref("");
@@ -104,14 +104,14 @@ export default defineComponent({
     const materializeDialogVisible = ref(false);
     const materializeLoading = ref(false);
     const dataSources: Ref<any[]> = ref([]);
-    const defaultWarehouseId = ref<number | null>(null);
+    const defaultWarehouseId = ref<string | null>(null);
     const materializeSchemas: Ref<string[]> = ref([]);
     const materializeTableExists = ref(false);
     const materializeDDLPreview = ref("");
     const materializePhysicalTypes: Ref<string[]> = ref([]);
 
     const materializeForm = ref({
-      dataSourceId: null as number | null,
+      dataSourceId: null as string | null,
       schemaName: "",
       tableName: "",
     });
@@ -425,7 +425,7 @@ export default defineComponent({
     };
 
     const getDataSourceName = (
-      dataSourceId: number | null | undefined,
+      dataSourceId: string | null | undefined,
     ): string => {
       if (!dataSourceId) return "-";
       const ds = dataSources.value.find((d) => d.id === dataSourceId);
@@ -447,16 +447,16 @@ export default defineComponent({
         const modelRes = await dataModelService().retrieve();
         const models: IDataModel[] = modelRes.data;
 
-        const modelMap = new Map<number, IDataModel[]>();
+        const modelMap = new Map<string, IDataModel[]>();
         for (const model of models) {
-          const dirId = model.directoryId || 0;
+          const dirId = model.directoryId || "";
           if (!modelMap.has(dirId)) {
             modelMap.set(dirId, []);
           }
           modelMap.get(dirId)!.push(model);
         }
 
-        const buildTree = (parentId: number | null): TreeNode[] => {
+        const buildTree = (parentId: string | null): TreeNode[] => {
           const children: TreeNode[] = [];
           const dirs = directories.filter(
             (d) => (d.parentId || null) === parentId,
@@ -487,7 +487,7 @@ export default defineComponent({
         };
 
         const rootNodes = buildTree(null);
-        const rootModels = modelMap.get(0) || [];
+        const rootModels = modelMap.get("") || [];
         for (const model of rootModels) {
           rootNodes.push({
             id: model.id!,
@@ -512,7 +512,7 @@ export default defineComponent({
       }
     };
 
-    const loadModelFields = async (modelId: number) => {
+    const loadModelFields = async (modelId: string) => {
       fieldsLoading.value = true;
       try {
         const res = await dataModelService().getFields(modelId);
@@ -539,7 +539,7 @@ export default defineComponent({
       }
     };
 
-    const showAddDirectoryDialog = (parentId: number | null) => {
+    const showAddDirectoryDialog = (parentId: string | null) => {
       editingDirectoryId.value = null;
       directoryDialogTitle.value = "新增目录";
       directoryForm.value = new ModelDirectory();
@@ -564,7 +564,7 @@ export default defineComponent({
       }
     };
 
-    const showAddModelDialog = (directoryId: number) => {
+    const showAddModelDialog = (directoryId: string) => {
       router.push({
         name: "DataModelCreate",
         query: { directoryId: String(directoryId) },
@@ -641,7 +641,7 @@ export default defineComponent({
       }
       const modelId = route.query.modelId;
       if (modelId) {
-        const findNode = (nodes: TreeNode[], id: number): TreeNode | null => {
+        const findNode = (nodes: TreeNode[], id: string): TreeNode | null => {
           for (const node of nodes) {
             if (node.type === "model" && node.id === id) {
               return node;
@@ -653,7 +653,7 @@ export default defineComponent({
           }
           return null;
         };
-        const targetNode = findNode(treeData.value, Number(modelId));
+        const targetNode = findNode(treeData.value, String(modelId));
         if (targetNode) {
           await nextTick();
           handleNodeClick(targetNode);

@@ -82,7 +82,7 @@ export default class AiAssistantService {
 
   generate(
     message: string,
-    dataSourceId: number | undefined,
+    dataSourceId: string | undefined,
     history: AiHistoryMessage[] = [],
     assistantId = "query",
     contextData?: Record<string, any>,

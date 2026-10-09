@@ -68,7 +68,7 @@ public class ModelFieldService {
     }
 
     @Transactional(readOnly = true)
-    public List<ModelFieldDTO> findByModelId(Long modelId) {
+    public List<ModelFieldDTO> findByModelId(String modelId) {
         LOG.debug("Request to get ModelFields by modelId : {}", modelId);
         return modelFieldRepository.findByModelIdOrderBySortOrderAsc(modelId).stream()
             .map(modelFieldMapper::toDto)
@@ -76,17 +76,17 @@ public class ModelFieldService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<ModelFieldDTO> findOne(Long id) {
+    public Optional<ModelFieldDTO> findOne(String id) {
         LOG.debug("Request to get ModelField : {}", id);
         return modelFieldRepository.findById(id).map(modelFieldMapper::toDto);
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete ModelField : {}", id);
         modelFieldRepository.deleteById(id);
     }
 
-    public void deleteByModelId(Long modelId) {
+    public void deleteByModelId(String modelId) {
         LOG.debug("Request to delete ModelFields by modelId : {}", modelId);
         modelFieldRepository.deleteByModelId(modelId);
     }

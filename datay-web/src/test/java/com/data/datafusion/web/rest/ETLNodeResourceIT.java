@@ -190,7 +190,7 @@ class ETLNodeResourceIT {
     @Transactional
     void createETLNodeWithExistingId() throws Exception {
         // Create the ETLNode with an existing ID
-        eTLNode.setId(1L);
+        eTLNode.setId("1");
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -215,7 +215,7 @@ class ETLNodeResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLNode.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(eTLNode.getId())))
             .andExpect(jsonPath("$.[*].taskId").value(hasItem(DEFAULT_TASK_ID)))
             .andExpect(jsonPath("$.[*].label").value(hasItem(DEFAULT_LABEL)))
             .andExpect(jsonPath("$.[*].code").value(hasItem(DEFAULT_CODE)))
@@ -242,7 +242,7 @@ class ETLNodeResourceIT {
             .perform(get(ENTITY_API_URL_ID, eTLNode.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(eTLNode.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(eTLNode.getId()))
             .andExpect(jsonPath("$.taskId").value(DEFAULT_TASK_ID))
             .andExpect(jsonPath("$.label").value(DEFAULT_LABEL))
             .andExpect(jsonPath("$.code").value(DEFAULT_CODE))
@@ -308,7 +308,7 @@ class ETLNodeResourceIT {
     @Transactional
     void putNonExistingETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
@@ -328,7 +328,7 @@ class ETLNodeResourceIT {
     @Transactional
     void putWithIdMismatchETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
@@ -350,7 +350,7 @@ class ETLNodeResourceIT {
     @Transactional
     void putWithMissingIdPathParamETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
@@ -442,7 +442,7 @@ class ETLNodeResourceIT {
     @Transactional
     void patchNonExistingETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
@@ -464,7 +464,7 @@ class ETLNodeResourceIT {
     @Transactional
     void patchWithIdMismatchETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);
@@ -486,7 +486,7 @@ class ETLNodeResourceIT {
     @Transactional
     void patchWithMissingIdPathParamETLNode() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        eTLNode.setId(longCount.incrementAndGet());
+        eTLNode.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the ETLNode
         ETLNodeDTO eTLNodeDTO = eTLNodeMapper.toDto(eTLNode);

@@ -12,8 +12,8 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface AppPackageInstanceRepository extends JpaRepository<AppPackageInstance, Long> {
+public interface AppPackageInstanceRepository extends JpaRepository<AppPackageInstance, String> {
     Page<AppPackageInstance> findByTenantIdOrderByIdDesc(String tenantId, Pageable pageable);
 
-    List<AppPackageInstance> findByTenantIdAndPackageIdOrderByIdDesc(String tenantId, Long packageId);
+    List<AppPackageInstance> findByTenantIdAndPackageIdOrderByIdDesc(String tenantId, String packageId);
 }

@@ -185,7 +185,7 @@ class DataSourceResourceIT {
     @Transactional
     void createDataSourceWithExistingId() throws Exception {
         // Create the DataSource with an existing ID
-        dataSource.setId(1L);
+        dataSource.setId("1");
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -210,7 +210,7 @@ class DataSourceResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSource.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(dataSource.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
             .andExpect(jsonPath("$.[*].type").value(hasItem(DEFAULT_TYPE)))
@@ -236,7 +236,7 @@ class DataSourceResourceIT {
             .perform(get(ENTITY_API_URL_ID, dataSource.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(dataSource.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(dataSource.getId()))
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
             .andExpect(jsonPath("$.type").value(DEFAULT_TYPE))
@@ -302,7 +302,7 @@ class DataSourceResourceIT {
     @Transactional
     void putNonExistingDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
@@ -324,7 +324,7 @@ class DataSourceResourceIT {
     @Transactional
     void putWithIdMismatchDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
@@ -346,7 +346,7 @@ class DataSourceResourceIT {
     @Transactional
     void putWithMissingIdPathParamDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
@@ -442,7 +442,7 @@ class DataSourceResourceIT {
     @Transactional
     void patchNonExistingDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
@@ -464,7 +464,7 @@ class DataSourceResourceIT {
     @Transactional
     void patchWithIdMismatchDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);
@@ -486,7 +486,7 @@ class DataSourceResourceIT {
     @Transactional
     void patchWithMissingIdPathParamDataSource() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        dataSource.setId(longCount.incrementAndGet());
+        dataSource.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the DataSource
         DataSourceDTO dataSourceDTO = dataSourceMapper.toDto(dataSource);

@@ -7,19 +7,19 @@ import java.util.Objects;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class RoleDataScopeDTO implements Serializable {
 
-    private Long id;
+    private String id;
     private String roleName;
-    private Long dimensionModelId;
+    private String dimensionModelId;
     private String filterConfig;
     private Boolean enabled;
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -31,11 +31,11 @@ public class RoleDataScopeDTO implements Serializable {
         this.roleName = roleName;
     }
 
-    public Long getDimensionModelId() {
+    public String getDimensionModelId() {
         return dimensionModelId;
     }
 
-    public void setDimensionModelId(Long dimensionModelId) {
+    public void setDimensionModelId(String dimensionModelId) {
         this.dimensionModelId = dimensionModelId;
     }
 

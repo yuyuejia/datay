@@ -13,10 +13,10 @@ public class ETLTaskTestSamples {
 
     public static ETLTask getETLTaskSample1() {
         return new ETLTask()
-            .id(1L)
+            .id("1")
             .taskName("taskName1")
             .taskCode("taskCode1")
-            .jobId(1L)
+            .jobId("1")
             .taskDesc("taskDesc1")
             .dir("dir1")
             .type("type1")
@@ -32,10 +32,10 @@ public class ETLTaskTestSamples {
 
     public static ETLTask getETLTaskSample2() {
         return new ETLTask()
-            .id(2L)
+            .id("2")
             .taskName("taskName2")
             .taskCode("taskCode2")
-            .jobId(2L)
+            .jobId("2")
             .taskDesc("taskDesc2")
             .dir("dir2")
             .type("type2")
@@ -51,10 +51,10 @@ public class ETLTaskTestSamples {
 
     public static ETLTask getETLTaskRandomSampleGenerator() {
         return new ETLTask()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .taskName(UUID.randomUUID().toString())
             .taskCode(UUID.randomUUID().toString())
-            .jobId(longCount.incrementAndGet())
+            .jobId(UUID.randomUUID().toString())
             .taskDesc(UUID.randomUUID().toString())
             .dir(UUID.randomUUID().toString())
             .type(UUID.randomUUID().toString())

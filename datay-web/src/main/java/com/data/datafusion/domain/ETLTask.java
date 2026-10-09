@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import java.io.Serializable;
@@ -18,9 +20,9 @@ public class ETLTask implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "task_name")
     private String taskName;
@@ -28,8 +30,8 @@ public class ETLTask implements Serializable, TenantAware {
     @Column(name = "task_code")
     private String taskCode;
 
-    @Column(name = "job_id")
-    private Long jobId;
+    @Column(name = "job_id", length = 36)
+    private String jobId;
 
     @Column(name = "task_desc")
     private String taskDesc;
@@ -72,16 +74,16 @@ public class ETLTask implements Serializable, TenantAware {
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public ETLTask id(Long id) {
+    public ETLTask id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -111,16 +113,16 @@ public class ETLTask implements Serializable, TenantAware {
         this.taskCode = taskCode;
     }
 
-    public Long getJobId() {
+    public String getJobId() {
         return this.jobId;
     }
 
-    public ETLTask jobId(Long jobId) {
+    public ETLTask jobId(String jobId) {
         this.setJobId(jobId);
         return this;
     }
 
-    public void setJobId(Long jobId) {
+    public void setJobId(String jobId) {
         this.jobId = jobId;
     }
 

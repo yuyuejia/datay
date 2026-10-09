@@ -96,7 +96,7 @@ public class JobDependService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    public Optional<JobDependDTO> findOne(Long id) {
+    public Optional<JobDependDTO> findOne(String id) {
         LOG.debug("Request to get JobDepend : {}", id);
         return jobDependRepository.findById(id).map(jobDependMapper::toDto);
     }
@@ -106,7 +106,7 @@ public class JobDependService {
      *
      * @param id the id of the entity.
      */
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete JobDepend : {}", id);
         jobDependRepository.deleteById(id);
     }

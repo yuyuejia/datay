@@ -11,7 +11,7 @@ export const FILTER_TYPE_TIME = "TIME";
 export interface IMetricFilterCondition {
   type?: string | null;
   factFieldName?: string | null;
-  dimensionModelId?: number | null;
+  dimensionModelId?: string | null;
   dimensionModelCode?: string | null;
   dimensionFieldName?: string | null;
   operator?: string | null;
@@ -45,7 +45,7 @@ export interface IMetricQueryRequest {
 }
 
 export interface IMetricRef {
-  id?: number;
+  id?: string;
   code?: string;
   name?: string;
   metricType?: string;
@@ -53,14 +53,14 @@ export interface IMetricRef {
 }
 
 export interface IMetric {
-  id?: number;
+  id?: string;
   name?: string | null;
   code?: string | null;
   description?: string | null;
-  directoryId?: number | null;
+  directoryId?: string | null;
   metricType?: string | null;
   status?: string | null;
-  factModelId?: number | null;
+  factModelId?: string | null;
   filterConfig?: string | null;
   unit?: string | null;
   dataType?: string | null;
@@ -76,14 +76,14 @@ export interface IMetric {
 
 export class Metric implements IMetric {
   constructor(
-    public id?: number,
+    public id?: string,
     public name?: string | null,
     public code?: string | null,
     public description?: string | null,
-    public directoryId?: number | null,
+    public directoryId?: string | null,
     public metricType?: string | null,
     public status?: string | null,
-    public factModelId?: number | null,
+    public factModelId?: string | null,
     public filterConfig?: string | null,
     public unit?: string | null,
     public dataType?: string | null,

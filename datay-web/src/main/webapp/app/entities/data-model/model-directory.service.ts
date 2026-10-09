@@ -5,7 +5,7 @@ import { type IModelDirectory } from "@/shared/model/model-directory.model";
 const baseApiUrl = "api/model-directories";
 
 export default class ModelDirectoryService {
-  find(id: number): Promise<IModelDirectory> {
+  find(id: string): Promise<IModelDirectory> {
     return new Promise<IModelDirectory>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -31,7 +31,7 @@ export default class ModelDirectoryService {
     });
   }
 
-  retrieveByParent(parentId?: number): Promise<any> {
+  retrieveByParent(parentId?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       const params = parentId != null ? { params: { parentId } } : {};
       axios
@@ -45,7 +45,7 @@ export default class ModelDirectoryService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

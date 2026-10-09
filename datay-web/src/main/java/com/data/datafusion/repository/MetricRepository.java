@@ -12,10 +12,10 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface MetricRepository extends JpaRepository<Metric, Long>, JpaSpecificationExecutor<Metric> {
+public interface MetricRepository extends JpaRepository<Metric, String>, JpaSpecificationExecutor<Metric> {
     Optional<Metric> findByCode(String code);
     Optional<Metric> findFirstByName(String name);
-    Optional<Metric> findByCodeAndIdNot(String code, Long id);
-    List<Metric> findByDirectoryId(Long directoryId);
+    Optional<Metric> findByCodeAndIdNot(String code, String id);
+    List<Metric> findByDirectoryId(String directoryId);
     List<Metric> findByMetricType(String metricType);
 }

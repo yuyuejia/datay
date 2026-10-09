@@ -5,7 +5,7 @@ import { type IMetricDirectory } from "@/shared/model/metric-directory.model";
 const baseApiUrl = "api/metric-directories";
 
 export default class MetricDirectoryService {
-  find(id: number): Promise<IMetricDirectory> {
+  find(id: string): Promise<IMetricDirectory> {
     return new Promise<IMetricDirectory>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -31,7 +31,7 @@ export default class MetricDirectoryService {
     });
   }
 
-  retrieveByParent(parentId?: number): Promise<any> {
+  retrieveByParent(parentId?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       const params = parentId != null ? { params: { parentId } } : {};
       axios
@@ -45,7 +45,7 @@ export default class MetricDirectoryService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)

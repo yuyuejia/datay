@@ -13,7 +13,7 @@ public class ETLNodeTestSamples {
 
     public static ETLNode getETLNodeSample1() {
         return new ETLNode()
-            .id(1L)
+            .id("1")
             .taskId("taskId1")
             .label("label1")
             .code("code1")
@@ -29,7 +29,7 @@ public class ETLNodeTestSamples {
 
     public static ETLNode getETLNodeSample2() {
         return new ETLNode()
-            .id(2L)
+            .id("2")
             .taskId("taskId2")
             .label("label2")
             .code("code2")
@@ -45,7 +45,7 @@ public class ETLNodeTestSamples {
 
     public static ETLNode getETLNodeRandomSampleGenerator() {
         return new ETLNode()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .taskId(UUID.randomUUID().toString())
             .label(UUID.randomUUID().toString())
             .code(UUID.randomUUID().toString())

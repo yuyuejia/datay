@@ -50,7 +50,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import DataModelService from '@/entities/data-model/data-model.service';
 
 const props = defineProps<{
-  modelId?: number | null;
+  modelId?: string | null;
 }>();
 
 const emit = defineEmits(['selected']);
@@ -59,7 +59,7 @@ const dataModelService = new DataModelService();
 const showModal = ref(false);
 const models = ref<any[]>([]);
 const searchQuery = ref('');
-const selectedModelId = ref<number | null>(props.modelId || null);
+const selectedModelId = ref<string | null>(props.modelId || null);
 
 const showName = ref<string | null>(null);
 

@@ -17,10 +17,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class AppPackageMetric {
 
     /** 包内逻辑 ID。 */
-    public Long oldId;
+    public String oldId;
 
     /** 所属指标目录的包内逻辑 ID。 */
-    public Long directoryOldId;
+    public String directoryOldId;
 
     public String name;
 
@@ -33,7 +33,7 @@ public class AppPackageMetric {
     public String status;
 
     /** 事实表模型的包内逻辑 ID。 */
-    public Long factModelOldId;
+    public String factModelOldId;
 
     /** 业务限定，保持结构化以便重写其中的 {@code dimensionModelId}。 */
     public JsonNode filterConfig;

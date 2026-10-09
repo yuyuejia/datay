@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
@@ -28,9 +30,9 @@ public class AnalysisDashboard implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "tenant_id")
     private String tenantId;
@@ -44,8 +46,8 @@ public class AnalysisDashboard implements Serializable, TenantAware {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "data_source_id")
-    private Long dataSourceId;
+    @Column(name = "data_source_id", length = 36)
+    private String dataSourceId;
 
     @Column(name = "spec")
     private String spec;
@@ -59,16 +61,16 @@ public class AnalysisDashboard implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public AnalysisDashboard id(Long id) {
+    public AnalysisDashboard id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -124,16 +126,16 @@ public class AnalysisDashboard implements Serializable, TenantAware {
         this.description = description;
     }
 
-    public Long getDataSourceId() {
+    public String getDataSourceId() {
         return this.dataSourceId;
     }
 
-    public AnalysisDashboard dataSourceId(Long dataSourceId) {
+    public AnalysisDashboard dataSourceId(String dataSourceId) {
         this.setDataSourceId(dataSourceId);
         return this;
     }
 
-    public void setDataSourceId(Long dataSourceId) {
+    public void setDataSourceId(String dataSourceId) {
         this.dataSourceId = dataSourceId;
     }
 

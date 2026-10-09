@@ -92,51 +92,51 @@ class MetricQueryPermissionResourceTest {
     @BeforeEach
     void setUp() throws SQLException {
         Metric salesAmount = new Metric();
-        salesAmount.setId(2610L);
+        salesAmount.setId("2610");
         salesAmount.setCode("sales_amount");
         salesAmount.setName("销售额");
         salesAmount.setMetricType(Metric.TYPE_ATOMIC);
-        salesAmount.setFactModelId(3101L);
+        salesAmount.setFactModelId("3101");
         salesAmount.setFormula("SUM(amount)");
         when(metricRepository.findByCode("sales_amount")).thenReturn(Optional.of(salesAmount));
         when(metricRepository.findAll()).thenReturn(List.of(salesAmount));
 
         DataModel fact = new DataModel();
-        fact.setId(3101L);
+        fact.setId("3101");
         fact.setCode("fact_sales_order_item");
         fact.setModelType("DWD");
         fact.setSchemaName("main");
         fact.setTableName("fact_sales_order_item");
-        fact.setDataSourceId(1600L);
-        when(dataModelRepository.findById(3101L)).thenReturn(Optional.of(fact));
-        when(dataSourceService.findOne(1600L)).thenReturn(Optional.of(new DataSourceDTO()));
+        fact.setDataSourceId("1600");
+        when(dataModelRepository.findById("3101")).thenReturn(Optional.of(fact));
+        when(dataSourceService.findOne("1600")).thenReturn(Optional.of(new DataSourceDTO()));
         when(dataSourceQueryService.executeQuery(any(), anyString()))
             .thenReturn(Map.of("columns", List.of(), "rows", List.of(), "affectedRows", 0));
 
         DataModel dimProduct = new DataModel();
-        dimProduct.setId(3003L);
+        dimProduct.setId("3003");
         dimProduct.setCode("dim_product");
         dimProduct.setModelType("DIMENSION");
         dimProduct.setDimensionKind("NORMAL");
         dimProduct.setSchemaName("main");
         dimProduct.setTableName("dim_product");
-        when(dataModelRepository.findById(3003L)).thenReturn(Optional.of(dimProduct));
+        when(dataModelRepository.findById("3003")).thenReturn(Optional.of(dimProduct));
 
         ModelField amount = new ModelField();
         amount.setFieldName("amount");
         ModelField productSk = new ModelField();
         productSk.setFieldName("product_sk");
-        productSk.setDimensionModelId(3003L);
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3101L)).thenReturn(List.of(amount, productSk));
+        productSk.setDimensionModelId("3003");
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3101")).thenReturn(List.of(amount, productSk));
 
         ModelField productPk = new ModelField();
         productPk.setFieldName("product_sk");
         productPk.setIsPrimaryKey(true);
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(3003L)).thenReturn(List.of(productPk));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3003")).thenReturn(List.of(productPk));
 
         RoleDataScope scope = new RoleDataScope();
         scope.setRoleName("ROLE_REGION");
-        scope.setDimensionModelId(3003L);
+        scope.setDimensionModelId("3003");
         scope.setEnabled(true);
         scope.setFilterConfig(
             "{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionFieldName\":\"category_l1\",\"operator\":\"EQ\",\"value\":\"电子产品\"}]}"

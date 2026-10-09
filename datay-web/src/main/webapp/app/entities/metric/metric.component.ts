@@ -47,7 +47,7 @@ const toDateTimeText = (value: any): string | null => {
 };
 
 interface TreeNode {
-  id: number;
+  id: string;
   label: string;
   type: "directory" | "metric";
   children?: TreeNode[];
@@ -95,12 +95,12 @@ export default defineComponent({
     });
 
     const selectedMetric: Ref<IMetric | null> = ref(null);
-    const selectedDirectoryId = ref<number | null>(null);
+    const selectedDirectoryId = ref<string | null>(null);
 
     const directoryDialogVisible = ref(false);
     const directoryDialogTitle = ref("新增目录");
     const directoryForm: Ref<IMetricDirectory> = ref(new MetricDirectory());
-    const editingDirectoryId: Ref<number | null> = ref(null);
+    const editingDirectoryId: Ref<string | null> = ref(null);
 
     const deleteDialogVisible = ref(false);
     const deleteMessage = ref("");
@@ -123,16 +123,16 @@ export default defineComponent({
         const metricRes = await metricService().retrieveAll();
         const metrics: IMetric[] = metricRes.data || [];
 
-        const metricMap = new Map<number, IMetric[]>();
+        const metricMap = new Map<string, IMetric[]>();
         for (const metric of metrics) {
-          const dirId = metric.directoryId || 0;
+          const dirId = metric.directoryId || "";
           if (!metricMap.has(dirId)) {
             metricMap.set(dirId, []);
           }
           metricMap.get(dirId)!.push(metric);
         }
 
-        const buildTree = (parentId: number | null): TreeNode[] => {
+        const buildTree = (parentId: string | null): TreeNode[] => {
           const children: TreeNode[] = [];
           directories
             .filter((d) => (d.parentId || null) === parentId)
@@ -162,7 +162,7 @@ export default defineComponent({
         };
 
         const rootNodes = buildTree(null);
-        (metricMap.get(0) || []).forEach((metric) => {
+        (metricMap.get("") || []).forEach((metric) => {
           rootNodes.push({
             id: metric.id!,
             label: metric.name || "",
@@ -191,7 +191,7 @@ export default defineComponent({
       }
     };
 
-    const selectMetricId = async (metricId: number) => {
+    const selectMetricId = async (metricId: string) => {
       const findNode = (nodes: TreeNode[]): TreeNode | null => {
         for (const node of nodes) {
           if (node.type === "metric" && node.id === metricId) {
@@ -214,7 +214,7 @@ export default defineComponent({
       }
     };
 
-    const showAddDirectoryDialog = (parentId: number | null) => {
+    const showAddDirectoryDialog = (parentId: string | null) => {
       editingDirectoryId.value = null;
       directoryDialogTitle.value = "新增目录";
       directoryForm.value = new MetricDirectory();
@@ -243,7 +243,7 @@ export default defineComponent({
       }
     };
 
-    const showAddMetricDialog = (directoryId: number | null) => {
+    const showAddMetricDialog = (directoryId: string | null) => {
       router.push({
         name: "MetricCreate",
         query: directoryId != null ? { directoryId: String(directoryId) } : {},
@@ -682,7 +682,7 @@ export default defineComponent({
       await loadTree();
       const metricId = route.query.metricId;
       if (metricId) {
-        await selectMetricId(Number(metricId));
+        await selectMetricId(String(metricId));
       }
     });
 

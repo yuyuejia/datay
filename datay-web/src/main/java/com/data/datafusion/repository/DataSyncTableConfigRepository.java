@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface DataSyncTableConfigRepository extends JpaRepository<DataSyncTableConfig, Long> {
+public interface DataSyncTableConfigRepository extends JpaRepository<DataSyncTableConfig, String> {
     List<DataSyncTableConfig> findAllBySyncTask(String taskId);
 
     void deleteAllBySyncTask(String taskId);

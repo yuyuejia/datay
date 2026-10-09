@@ -14,7 +14,7 @@ public class AppPackageInitResultDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    public Long packageId;
+    public String packageId;
 
     public String packageName;
 
@@ -32,7 +32,7 @@ public class AppPackageInitResultDTO implements Serializable {
     public List<DataSourceMapping> dataSources = new ArrayList<>();
 
     /** 各类资产的「包内逻辑 ID → 新 ID」对照表，键为资产类型。 */
-    public Map<String, Map<String, Long>> idMapping = new LinkedHashMap<>();
+    public Map<String, Map<String, String>> idMapping = new LinkedHashMap<>();
 
     /** 导入过程中的告警，例如被跳过的资产、缺失的引用。 */
     public List<String> warnings = new ArrayList<>();
@@ -45,9 +45,9 @@ public class AppPackageInitResultDTO implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
-        public Long oldId;
+        public String oldId;
 
-        public Long newId;
+        public String newId;
 
         public String key;
 

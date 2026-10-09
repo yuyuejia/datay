@@ -49,12 +49,12 @@ class EtlTaskStateServiceTest {
         when(statusStorageConfigService.getActiveStrategy()).thenReturn(storage);
 
         task = new ETLTask();
-        task.setId(5L);
-        task.setJobId(1001L);
+        task.setId("5");
+        task.setJobId("1001");
         task.setTaskName("sync-task");
 
-        when(etlTaskRepository.findById(5L)).thenReturn(Optional.of(task));
-        when(etlTaskRepository.findByJobId(1001L)).thenReturn(Optional.of(task));
+        when(etlTaskRepository.findById("5")).thenReturn(Optional.of(task));
+        when(etlTaskRepository.findByJobId("1001")).thenReturn(Optional.of(task));
         when(jobInstanceService.findByJobCodeAndStatus(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
             .thenReturn(java.util.Collections.emptyList());
 
@@ -68,7 +68,7 @@ class EtlTaskStateServiceTest {
 
     @Test
     void getNodeNamesReturnsLabel() {
-        assertEquals("订单输入", service.getNodeNames(5L).get("node1"));
+        assertEquals("订单输入", service.getNodeNames("5").get("node1"));
     }
 
     @Test
@@ -82,11 +82,11 @@ class EtlTaskStateServiceTest {
         patch.put("node1.binlogPosition", 200);
         patch.put("node1.binlogFile", null);
 
-        Map<String, Object> merged = service.patchState(5L, patch);
+        Map<String, Object> merged = service.patchState("5", patch);
 
         assertFalse(merged.containsKey("node1.binlogFile"));
         assertEquals(200, merged.get("node1.binlogPosition"));
-        assertEquals(200, service.loadState(5L).get("node1.binlogPosition"));
+        assertEquals(200, service.loadState("5").get("node1.binlogPosition"));
     }
 
     @Test
@@ -96,7 +96,7 @@ class EtlTaskStateServiceTest {
         initial.put("b", "2");
         storage.saveStatus(initial, "1001");
 
-        Map<String, Object> result = service.deleteState(5L, "a");
+        Map<String, Object> result = service.deleteState("5", "a");
 
         assertFalse(result.containsKey("a"));
         assertEquals("2", result.get("b"));
@@ -108,8 +108,8 @@ class EtlTaskStateServiceTest {
         initial.put("a", "1");
         storage.saveStatus(initial, "1001");
 
-        assertTrue(service.loadState(5L).containsKey("a"));
-        service.deleteState(5L, null);
-        assertTrue(service.loadState(5L).isEmpty());
+        assertTrue(service.loadState("5").containsKey("a"));
+        service.deleteState("5", null);
+        assertTrue(service.loadState("5").isEmpty());
     }
 }

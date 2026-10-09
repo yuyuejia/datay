@@ -95,12 +95,12 @@ public class RoleDataScopeService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<RoleDataScopeDTO> findOne(Long id) {
+    public Optional<RoleDataScopeDTO> findOne(String id) {
         LOG.debug("Request to get RoleDataScope : {}", id);
         return roleDataScopeRepository.findById(id).map(roleDataScopeMapper::toDto);
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         LOG.debug("Request to delete RoleDataScope : {}", id);
         roleDataScopeRepository.deleteById(id);
     }
@@ -121,9 +121,9 @@ public class RoleDataScopeService {
             return List.of();
         }
 
-        Map<Long, List<MetricFilterCondition>> grouped = new LinkedHashMap<>();
+        Map<String, List<MetricFilterCondition>> grouped = new LinkedHashMap<>();
         for (RoleDataScope scope : scopes) {
-            Long dimensionModelId = scope.getDimensionModelId();
+            String dimensionModelId = scope.getDimensionModelId();
             if (dimensionModelId == null) {
                 continue;
             }
@@ -135,7 +135,7 @@ public class RoleDataScopeService {
         }
 
         List<ScopedDimension> result = new ArrayList<>();
-        for (Map.Entry<Long, List<MetricFilterCondition>> entry : grouped.entrySet()) {
+        for (Map.Entry<String, List<MetricFilterCondition>> entry : grouped.entrySet()) {
             ScopedDimension scoped = new ScopedDimension();
             scoped.setDimensionModelId(entry.getKey());
             scoped.setConditions(entry.getValue());

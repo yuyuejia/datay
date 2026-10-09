@@ -90,8 +90,8 @@ export default defineComponent({
     const aggFunctions = AGG_FUNCTIONS;
 
     const flatDirectoryOptions = computed(() => {
-      const result: Array<{ id: number; name: string; level: number }> = [];
-      const build = (parentId: number | null, level: number) => {
+      const result: Array<{ id: string; name: string; level: number }> = [];
+      const build = (parentId: string | null, level: number) => {
         directories.value
           .filter((d) => (d.parentId || null) === parentId)
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -333,7 +333,7 @@ export default defineComponent({
       }
     };
 
-    const retrieveMetric = async (metricId: number) => {
+    const retrieveMetric = async (metricId: string) => {
       try {
         const res = await metricService().find(metricId);
         res.createTime = res.createTime ? new Date(res.createTime) : null;
@@ -373,13 +373,13 @@ export default defineComponent({
       await loadAllMetrics();
       if (route.params?.metricId) {
         isEdit.value = true;
-        await retrieveMetric(Number(route.params.metricId));
+        await retrieveMetric(String(route.params.metricId));
       } else {
         metric.value = new Metric();
         metric.value.metricType = METRIC_TYPE_ATOMIC;
         metric.value.status = METRIC_STATUS_ENABLED;
         if (route.query.directoryId) {
-          metric.value.directoryId = Number(route.query.directoryId);
+          metric.value.directoryId = String(route.query.directoryId);
         }
       }
     };

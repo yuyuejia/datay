@@ -13,7 +13,7 @@ public class DataSyncTestSamples {
 
     public static DataSync getDataSyncSample1() {
         return new DataSync()
-            .id(1L)
+            .id("1")
             .jobName("jobName1")
             .jobCode("jobCode1")
             .jobDesc("jobDesc1")
@@ -32,7 +32,7 @@ public class DataSyncTestSamples {
 
     public static DataSync getDataSyncSample2() {
         return new DataSync()
-            .id(2L)
+            .id("2")
             .jobName("jobName2")
             .jobCode("jobCode2")
             .jobDesc("jobDesc2")
@@ -51,7 +51,7 @@ public class DataSyncTestSamples {
 
     public static DataSync getDataSyncRandomSampleGenerator() {
         return new DataSync()
-            .id(longCount.incrementAndGet())
+            .id(UUID.randomUUID().toString())
             .jobName(UUID.randomUUID().toString())
             .jobCode(UUID.randomUUID().toString())
             .jobDesc(UUID.randomUUID().toString())

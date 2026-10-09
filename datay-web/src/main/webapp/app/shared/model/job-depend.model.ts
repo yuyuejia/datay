@@ -1,5 +1,5 @@
 export interface IJobDepend {
-  id?: number;
+  id?: string;
   parentJobCode?: string | null;
   childJobCode?: string | null;
   jobCode?: string | null;
@@ -10,7 +10,7 @@ export interface IJobDepend {
 
 export class JobDepend implements IJobDepend {
   constructor(
-    public id?: number,
+    public id?: string,
     public parentJobCode?: string | null,
     public childJobCode?: string | null,
     public jobCode?: string | null,

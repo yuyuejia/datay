@@ -16,7 +16,7 @@ public class AppPackageInitRequestDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** 市场中资产包 ID，与 {@link #content} 二选一。 */
-    public Long packageId;
+    public String packageId;
 
     /** 资产包 JSON 内容，与 {@link #packageId} 二选一。 */
     public String content;
@@ -31,7 +31,7 @@ public class AppPackageInitRequestDTO implements Serializable {
      * 数据源绑定覆盖：键为资产包内数据源逻辑键（{@code name|type|url}）或包内逻辑 ID 字符串，
      * 值为目标租户已有数据源 ID。命中的条目直接复用指定数据源，不再按名称自动匹配或新建。
      */
-    public Map<String, Long> dataSourceMapping = new LinkedHashMap<>();
+    public Map<String, String> dataSourceMapping = new LinkedHashMap<>();
 
     /** 初始化后是否把导入的任务置为上线（默认 false，仅导入为离线，避免误调度）。 */
     public Boolean onlineJobs = Boolean.FALSE;

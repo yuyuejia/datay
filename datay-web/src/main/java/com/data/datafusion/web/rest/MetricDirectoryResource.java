@@ -56,7 +56,7 @@ public class MetricDirectoryResource {
 
     @PutMapping("/{id}")
     public ResponseEntity<MetricDirectoryDTO> updateMetricDirectory(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody MetricDirectoryDTO dto
     ) throws URISyntaxException {
         LOG.debug("REST request to update MetricDirectory : {}, {}", id, dto);
@@ -82,20 +82,20 @@ public class MetricDirectoryResource {
     }
 
     @GetMapping("/by-parent")
-    public ResponseEntity<List<MetricDirectoryDTO>> getMetricDirectoriesByParent(@RequestParam(required = false) Long parentId) {
+    public ResponseEntity<List<MetricDirectoryDTO>> getMetricDirectoriesByParent(@RequestParam(required = false) String parentId) {
         LOG.debug("REST request to get MetricDirectories by parentId : {}", parentId);
         return ResponseEntity.ok().body(metricDirectoryService.findByParentId(parentId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MetricDirectoryDTO> getMetricDirectory(@PathVariable("id") Long id) {
+    public ResponseEntity<MetricDirectoryDTO> getMetricDirectory(@PathVariable("id") String id) {
         LOG.debug("REST request to get MetricDirectory : {}", id);
         Optional<MetricDirectoryDTO> dto = metricDirectoryService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dto);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMetricDirectory(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteMetricDirectory(@PathVariable("id") String id) {
         LOG.debug("REST request to delete MetricDirectory : {}", id);
         metricDirectoryService.delete(id);
         return ResponseEntity.noContent()

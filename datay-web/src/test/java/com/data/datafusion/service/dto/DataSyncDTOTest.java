@@ -11,12 +11,12 @@ class DataSyncDTOTest {
     void dtoEqualsVerifier() throws Exception {
         TestUtil.equalsVerifier(DataSyncDTO.class);
         DataSyncDTO dataSyncDTO1 = new DataSyncDTO();
-        dataSyncDTO1.setId(1L);
+        dataSyncDTO1.setId("1");
         DataSyncDTO dataSyncDTO2 = new DataSyncDTO();
         assertThat(dataSyncDTO1).isNotEqualTo(dataSyncDTO2);
         dataSyncDTO2.setId(dataSyncDTO1.getId());
         assertThat(dataSyncDTO1).isEqualTo(dataSyncDTO2);
-        dataSyncDTO2.setId(2L);
+        dataSyncDTO2.setId("2");
         assertThat(dataSyncDTO1).isNotEqualTo(dataSyncDTO2);
         dataSyncDTO1.setId(null);
         assertThat(dataSyncDTO1).isNotEqualTo(dataSyncDTO2);

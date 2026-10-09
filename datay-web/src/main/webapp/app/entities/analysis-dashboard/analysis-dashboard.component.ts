@@ -30,7 +30,7 @@ export default defineComponent({
     const isFetching = ref(false);
     const search = ref("");
     const removeEntity = ref<any>(null);
-    const removeId: Ref<number | null> = ref(null);
+    const removeId: Ref<string | null> = ref(null);
 
     const retrieveDashboards = async () => {
       isFetching.value = true;
@@ -85,8 +85,8 @@ export default defineComponent({
               !!input && input.trim().length > 0,
           },
         );
-        const detail = await service.get(row.id as number);
-        await service.update(row.id as number, {
+        const detail = await service.get(row.id as string);
+        await service.update(row.id as string, {
           ...detail,
           name: value.trim(),
         });
@@ -108,7 +108,7 @@ export default defineComponent({
 
     const removeDashboard = async () => {
       try {
-        await service.remove(removeId.value as number);
+        await service.remove(removeId.value as string);
         ElMessage.success("看板已删除");
         closeDialog();
         await retrieveDashboards();

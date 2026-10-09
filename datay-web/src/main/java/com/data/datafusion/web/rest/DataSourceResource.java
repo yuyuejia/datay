@@ -93,7 +93,7 @@ public class DataSourceResource {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DataSourceDTO> updateDataSource(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSourceDTO dataSourceDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update DataSource : {}, {}", id, dataSourceDTO);
@@ -127,7 +127,7 @@ public class DataSourceResource {
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<DataSourceDTO> partialUpdateDataSource(
-        @PathVariable(value = "id", required = false) final Long id,
+        @PathVariable(value = "id", required = false) final String id,
         @RequestBody DataSourceDTO dataSourceDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update DataSource partially : {}, {}", id, dataSourceDTO);
@@ -175,7 +175,7 @@ public class DataSourceResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the dataSourceDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<DataSourceDTO> getDataSource(@PathVariable("id") Long id) {
+    public ResponseEntity<DataSourceDTO> getDataSource(@PathVariable("id") String id) {
         LOG.debug("REST request to get DataSource : {}", id);
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataSourceDTO);
@@ -188,7 +188,7 @@ public class DataSourceResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataSource(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteDataSource(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataSource : {}", id);
         dataSourceService.delete(id);
         return ResponseEntity.noContent()
@@ -205,7 +205,7 @@ public class DataSourceResource {
     public ResponseEntity<Map<String, Object>> getDefaultWarehouse() {
         LOG.debug("REST request to get default warehouse data source");
         Map<String, Object> result = new HashMap<>();
-        Long dataSourceId = defaultWarehouseConfigService.getDefaultDataSourceId().orElse(null);
+        String dataSourceId = defaultWarehouseConfigService.getDefaultDataSourceId().orElse(null);
         if (dataSourceId != null && !dataSourceRepository.existsById(dataSourceId)) {
             dataSourceId = null;
         }
@@ -221,7 +221,7 @@ public class DataSourceResource {
      */
     @PutMapping("/{id}/default-warehouse")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
-    public ResponseEntity<Map<String, Object>> setDefaultWarehouse(@PathVariable("id") Long id) {
+    public ResponseEntity<Map<String, Object>> setDefaultWarehouse(@PathVariable("id") String id) {
         LOG.debug("REST request to set default warehouse data source : {}", id);
         if (!dataSourceRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
@@ -234,7 +234,7 @@ public class DataSourceResource {
 
     //根据数据库id获取schema信息
     @GetMapping("/{id}/schemas")
-    public ResponseEntity<List<String>> getSchema(@PathVariable("id") Long id) throws SQLException {
+    public ResponseEntity<List<String>> getSchema(@PathVariable("id") String id) throws SQLException {
         LOG.debug("REST request to get DataSource schemas : {}", id);
         List<String> schemas = new ArrayList<>();
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
@@ -250,7 +250,7 @@ public class DataSourceResource {
     //根据数据源id和schema获取表清单
     @GetMapping("/{id}/schemas/{schema}/tables")
     public ResponseEntity<List<TableMeta>> getTables(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @PathVariable("schema") String schema,
         @RequestParam(value = "limit", required = false) Integer limit,
         @RequestParam(value = "search", required = false) String search
@@ -270,7 +270,7 @@ public class DataSourceResource {
     //根据数据源id和schema获取字段清单
     @GetMapping("/{id}/schemas/{schema}/tables/{table}/columns")
     public ResponseEntity<List<ColumnMeta>> getColumns(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @PathVariable("schema") String schema,
         @PathVariable("table") String table
     ) throws SQLException {
@@ -289,7 +289,7 @@ public class DataSourceResource {
     //根据数据源id、schema和表名获取表详细信息（字段、索引、注释等）
     @GetMapping("/{id}/schemas/{schema}/tables/{table}/meta")
     public ResponseEntity<Map<String, Object>> getTableDetail(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @PathVariable("schema") String schema,
         @PathVariable("table") String table
     ) throws SQLException {
@@ -336,7 +336,7 @@ public class DataSourceResource {
      */
     @PostMapping("/{id}/query")
     public ResponseEntity<Map<String, Object>> executeQuery(
-        @PathVariable("id") Long id,
+        @PathVariable("id") String id,
         @RequestBody Map<String, String> request
     ) {
         String sql = request.get("sql");

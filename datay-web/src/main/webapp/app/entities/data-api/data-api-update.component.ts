@@ -166,7 +166,7 @@ export default defineComponent({
       preHeadersText.value = JSON.stringify(parsed.preProcess?.headers || {}, null, 2);
     };
 
-    const retrieveDataApi = async (dataApiId: number) => {
+    const retrieveDataApi = async (dataApiId: string) => {
       try {
         const res = await dataApiService().find(dataApiId);
         res.createTime = new Date(res.createTime);
@@ -186,7 +186,7 @@ export default defineComponent({
 
     if (route.params?.dataApiId) {
       isEdit.value = true;
-      retrieveDataApi(Number(route.params.dataApiId));
+      retrieveDataApi(String(route.params.dataApiId));
     } else {
       dataApi.value.sourceType = DATA_API_SOURCE_TYPE_TABLE;
       dataApi.value.status = DATA_API_STATUS_ENABLED;
@@ -207,7 +207,7 @@ export default defineComponent({
     };
 
     const onDataSourceChange = (value: any) => {
-      dataApi.value.dataSourceId = value ? Number(value) : null;
+      dataApi.value.dataSourceId = value ? String(value) : null;
       dataApi.value.schemaName = null;
       dataApi.value.tableName = null;
       schemas.value = [];

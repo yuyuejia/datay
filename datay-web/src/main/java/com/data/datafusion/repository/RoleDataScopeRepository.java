@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface RoleDataScopeRepository extends JpaRepository<RoleDataScope, Long> {
+public interface RoleDataScopeRepository extends JpaRepository<RoleDataScope, String> {
     List<RoleDataScope> findByRoleName(String roleName);
 
     List<RoleDataScope> findByRoleNameAndEnabledTrue(String roleName);

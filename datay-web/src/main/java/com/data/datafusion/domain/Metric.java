@@ -1,5 +1,7 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.util.entity.UuidV7Id;
+
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
@@ -36,9 +38,9 @@ public class Metric implements Serializable, TenantAware {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @UuidV7Id
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "tenant_id")
     private String tenantId;
@@ -52,8 +54,8 @@ public class Metric implements Serializable, TenantAware {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "directory_id")
-    private Long directoryId;
+    @Column(name = "directory_id", length = 36)
+    private String directoryId;
 
     @Column(name = "metric_type")
     private String metricType;
@@ -61,8 +63,8 @@ public class Metric implements Serializable, TenantAware {
     @Column(name = "status")
     private String status;
 
-    @Column(name = "fact_model_id")
-    private Long factModelId;
+    @Column(name = "fact_model_id", length = 36)
+    private String factModelId;
 
     @Column(name = "filter_config")
     private String filterConfig;
@@ -85,16 +87,16 @@ public class Metric implements Serializable, TenantAware {
     @Column(name = "update_time")
     private ZonedDateTime updateTime;
 
-    public Long getId() {
+    public String getId() {
         return this.id;
     }
 
-    public Metric id(Long id) {
+    public Metric id(String id) {
         this.setId(id);
         return this;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -150,16 +152,16 @@ public class Metric implements Serializable, TenantAware {
         this.description = description;
     }
 
-    public Long getDirectoryId() {
+    public String getDirectoryId() {
         return this.directoryId;
     }
 
-    public Metric directoryId(Long directoryId) {
+    public Metric directoryId(String directoryId) {
         this.setDirectoryId(directoryId);
         return this;
     }
 
-    public void setDirectoryId(Long directoryId) {
+    public void setDirectoryId(String directoryId) {
         this.directoryId = directoryId;
     }
 
@@ -189,16 +191,16 @@ public class Metric implements Serializable, TenantAware {
         this.status = status;
     }
 
-    public Long getFactModelId() {
+    public String getFactModelId() {
         return this.factModelId;
     }
 
-    public Metric factModelId(Long factModelId) {
+    public Metric factModelId(String factModelId) {
         this.setFactModelId(factModelId);
         return this;
     }
 
-    public void setFactModelId(Long factModelId) {
+    public void setFactModelId(String factModelId) {
         this.factModelId = factModelId;
     }
 

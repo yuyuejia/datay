@@ -45,7 +45,7 @@ public final class SqlTaskContextAssembler {
         if (config == null || config.containsKey("dataSource")) {
             return jobContext;
         }
-        Long dataSourceId = config.getLong("dataSourceId");
+        String dataSourceId = config.getString("dataSourceId");
         if (dataSourceId == null) {
             return jobContext;
         }

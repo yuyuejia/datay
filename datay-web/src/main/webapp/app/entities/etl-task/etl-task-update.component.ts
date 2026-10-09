@@ -34,7 +34,7 @@ export default defineComponent({
       console.log('Cron表达式已更新:', value);
     };
 
-    const retrieveETLTask = async (eTLTaskId: number) => {
+    const retrieveETLTask = async (eTLTaskId: string) => {
       try {
         const res = await eTLTaskService().find(eTLTaskId);
         res.updateTime = new Date(res.updateTime);

@@ -155,7 +155,7 @@ class JobDependResourceIT {
     @Transactional
     void createJobDependWithExistingId() throws Exception {
         // Create the JobDepend with an existing ID
-        jobDepend.setId(1L);
+        jobDepend.setId("1");
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
@@ -180,7 +180,7 @@ class JobDependResourceIT {
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(jobDepend.getId().intValue())))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(jobDepend.getId())))
             .andExpect(jsonPath("$.[*].parentJobCode").value(hasItem(DEFAULT_PARENT_JOB_CODE)))
             .andExpect(jsonPath("$.[*].childJobCode").value(hasItem(DEFAULT_CHILD_JOB_CODE)))
             .andExpect(jsonPath("$.[*].jobCode").value(hasItem(DEFAULT_JOB_CODE)))
@@ -200,7 +200,7 @@ class JobDependResourceIT {
             .perform(get(ENTITY_API_URL_ID, jobDepend.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(jobDepend.getId().intValue()))
+            .andExpect(jsonPath("$.id").value(jobDepend.getId()))
             .andExpect(jsonPath("$.parentJobCode").value(DEFAULT_PARENT_JOB_CODE))
             .andExpect(jsonPath("$.childJobCode").value(DEFAULT_CHILD_JOB_CODE))
             .andExpect(jsonPath("$.jobCode").value(DEFAULT_JOB_CODE))
@@ -254,7 +254,7 @@ class JobDependResourceIT {
     @Transactional
     void putNonExistingJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
@@ -276,7 +276,7 @@ class JobDependResourceIT {
     @Transactional
     void putWithIdMismatchJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
@@ -298,7 +298,7 @@ class JobDependResourceIT {
     @Transactional
     void putWithMissingIdPathParamJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
@@ -385,7 +385,7 @@ class JobDependResourceIT {
     @Transactional
     void patchNonExistingJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
@@ -407,7 +407,7 @@ class JobDependResourceIT {
     @Transactional
     void patchWithIdMismatchJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);
@@ -429,7 +429,7 @@ class JobDependResourceIT {
     @Transactional
     void patchWithMissingIdPathParamJobDepend() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        jobDepend.setId(longCount.incrementAndGet());
+        jobDepend.setId(String.valueOf(longCount.incrementAndGet()));
 
         // Create the JobDepend
         JobDependDTO jobDependDTO = jobDependMapper.toDto(jobDepend);

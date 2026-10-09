@@ -86,12 +86,12 @@ public class AppPackageExportService {
      * @return 资产包清单
      */
     public AppPackageContent buildContent(AppPackageExportRequestDTO request) {
-        Collection<Long> initialDataSources = toIdSet(request.dataSourceIds);
-        Collection<Long> initialModels = toIdSet(request.modelIds);
-        Collection<Long> initialMetrics = toIdSet(request.metricIds);
-        Collection<Long> initialEtlTasks = toIdSet(request.etlTaskIds);
-        Collection<Long> initialSqlJobs = toIdSet(request.sqlJobIds);
-        Collection<Long> initialDagJobs = toIdSet(request.dagJobIds);
+        Collection<String> initialDataSources = toIdSet(request.dataSourceIds);
+        Collection<String> initialModels = toIdSet(request.modelIds);
+        Collection<String> initialMetrics = toIdSet(request.metricIds);
+        Collection<String> initialEtlTasks = toIdSet(request.etlTaskIds);
+        Collection<String> initialSqlJobs = toIdSet(request.sqlJobIds);
+        Collection<String> initialDagJobs = toIdSet(request.dagJobIds);
 
         Selection selection = new Selection();
         selection.dataSourceIds.addAll(initialDataSources);
@@ -137,7 +137,7 @@ public class AppPackageExportService {
             int before = selection.size();
 
             // 数据模型：字段引用的维度模型 + 模型绑定的数据源
-            for (Long modelId : new ArrayList<>(selection.modelIds)) {
+            for (String modelId : new ArrayList<>(selection.modelIds)) {
                 DataModel model = dataModelRepository.findById(modelId).orElse(null);
                 if (model == null) {
                     continue;
@@ -153,7 +153,7 @@ public class AppPackageExportService {
             }
 
             // 指标：事实模型 + 业务限定里引用的维度模型（按编码定位，包内自洽）
-            for (Long metricId : new ArrayList<>(selection.metricIds)) {
+            for (String metricId : new ArrayList<>(selection.metricIds)) {
                 Metric metric = metricRepository.findById(metricId).orElse(null);
                 if (metric == null) {
                     continue;
@@ -167,7 +167,7 @@ public class AppPackageExportService {
             }
 
             // ETL 任务：节点配置里的数据源与数据模型
-            for (Long etlTaskId : new ArrayList<>(selection.etlTaskIds)) {
+            for (String etlTaskId : new ArrayList<>(selection.etlTaskIds)) {
                 ETLTask task = etlTaskRepository.findById(etlTaskId).orElse(null);
                 if (task == null) {
                     continue;
@@ -175,25 +175,25 @@ public class AppPackageExportService {
                 if (task.getJobId() != null) {
                     selection.etlJobIds.add(task.getJobId());
                 }
-                List<ETLNode> nodes = etlNodeRepository.findAllByTaskId(String.valueOf(etlTaskId)).orElse(Collections.emptyList());
+                List<ETLNode> nodes = etlNodeRepository.findAllByTaskId(etlTaskId).orElse(Collections.emptyList());
                 for (ETLNode node : nodes) {
                     JsonNode config = AppPackageJson.readTreeQuietly(node.getConfig());
                     if (config == null || !config.isObject()) {
                         continue;
                     }
                     JsonNode sourceId = config.get("sourceId");
-                    if (sourceId != null && sourceId.canConvertToLong()) {
-                        selection.dataSourceIds.add(sourceId.asLong());
+                    if (sourceId != null && !sourceId.isContainerNode()) {
+                        selection.dataSourceIds.add(sourceId.asText());
                     }
                     JsonNode modelId = config.get("modelId");
-                    if (modelId != null && modelId.canConvertToLong()) {
-                        selection.modelIds.add(modelId.asLong());
+                    if (modelId != null && !modelId.isContainerNode()) {
+                        selection.modelIds.add(modelId.asText());
                     }
                 }
             }
 
             // SQL 任务：绑定的数据源
-            for (Long jobId : new ArrayList<>(selection.jobIdsByType(TaskConstants.TASK_TYPE_SQL))) {
+            for (String jobId : new ArrayList<>(selection.jobIdsByType(TaskConstants.TASK_TYPE_SQL))) {
                 Job job = jobRepository.findById(jobId).orElse(null);
                 if (job == null) {
                     continue;
@@ -201,19 +201,19 @@ public class AppPackageExportService {
                 JsonNode context = AppPackageJson.readTreeQuietly(job.getJobContext());
                 if (context != null && context.isObject()) {
                     JsonNode dataSourceId = context.get("dataSourceId");
-                    if (dataSourceId != null && dataSourceId.canConvertToLong()) {
-                        selection.dataSourceIds.add(dataSourceId.asLong());
+                    if (dataSourceId != null && !dataSourceId.isContainerNode()) {
+                        selection.dataSourceIds.add(dataSourceId.asText());
                     }
                 }
             }
 
             // 编排任务：递归纳入被编排的子任务
-            for (Long jobId : new ArrayList<>(selection.jobIdsByType(TaskConstants.TASK_TYPE_DAG))) {
+            for (String jobId : new ArrayList<>(selection.jobIdsByType(TaskConstants.TASK_TYPE_DAG))) {
                 Job job = jobRepository.findById(jobId).orElse(null);
                 if (job == null) {
                     continue;
                 }
-                for (Long childJobId : extractDagChildJobIds(job.getJobContext())) {
+                for (String childJobId : extractDagChildJobIds(job.getJobContext())) {
                     addReferencedJob(selection, childJobId);
                 }
             }
@@ -229,7 +229,7 @@ public class AppPackageExportService {
      * 把一个被引用的 Job 按类型归入选择集：ETL 任务归入 {@code etlTaskIds}，SQL / DAG 归入对应类型，
      * 其余（Shell / Spark / Flink 等）作为其它任务一并打包。
      */
-    private void addReferencedJob(Selection selection, Long jobId) {
+    private void addReferencedJob(Selection selection, String jobId) {
         if (selection.allJobIds().contains(jobId)) {
             return;
         }
@@ -247,7 +247,7 @@ public class AppPackageExportService {
     }
     private List<AppPackageDataSource> buildDataSources(Selection selection) {
         List<AppPackageDataSource> items = new ArrayList<>();
-        for (Long id : selection.dataSourceIds) {
+        for (String id : selection.dataSourceIds) {
             dataSourceRepository
                 .findById(id)
                 .ifPresent(dataSource -> {
@@ -274,7 +274,7 @@ public class AppPackageExportService {
 
     private List<AppPackageModel> buildModels(Selection selection) {
         List<AppPackageModel> items = new ArrayList<>();
-        for (Long id : selection.modelIds) {
+        for (String id : selection.modelIds) {
             dataModelRepository
                 .findById(id)
                 .ifPresent(model -> {
@@ -328,21 +328,21 @@ public class AppPackageExportService {
     }
 
     private List<AppPackageDirectory> buildModelDirectories(Selection selection) {
-        Set<Long> directoryIds = new LinkedHashSet<>();
-        for (Long modelId : selection.modelIds) {
+        Set<String> directoryIds = new LinkedHashSet<>();
+        for (String modelId : selection.modelIds) {
             dataModelRepository.findById(modelId).map(DataModel::getDirectoryId).ifPresent(directoryIds::add);
         }
         List<AppPackageDirectory> items = new ArrayList<>();
-        Set<Long> added = new HashSet<>();
-        for (Long directoryId : directoryIds) {
+        Set<String> added = new HashSet<>();
+        for (String directoryId : directoryIds) {
             collectModelDirectory(directoryId, items, added);
         }
-        items.sort(Comparator.comparing(item -> item.oldId == null ? 0L : item.oldId));
+        items.sort(Comparator.comparing(item -> item.oldId == null ? "" : item.oldId));
         return items;
     }
 
-    private void collectModelDirectory(Long directoryId, List<AppPackageDirectory> items, Set<Long> added) {
-        Long current = directoryId;
+    private void collectModelDirectory(String directoryId, List<AppPackageDirectory> items, Set<String> added) {
+        String current = directoryId;
         while (current != null && added.add(current)) {
             ModelDirectory directory = modelDirectoryRepository.findById(current).orElse(null);
             if (directory == null) {
@@ -351,7 +351,7 @@ public class AppPackageExportService {
             AppPackageDirectory item = new AppPackageDirectory();
             item.oldId = directory.getId();
             item.name = directory.getName();
-            item.parentOldId = directory.getParentId() == null || directory.getParentId() == 0L ? null : directory.getParentId();
+            item.parentOldId = directory.getParentId() == null || directory.getParentId().isBlank() ? null : directory.getParentId();
             item.sortOrder = directory.getSortOrder();
             items.add(item);
             current = item.parentOldId;
@@ -360,7 +360,7 @@ public class AppPackageExportService {
 
     private List<AppPackageMetric> buildMetrics(Selection selection) {
         List<AppPackageMetric> items = new ArrayList<>();
-        for (Long id : selection.metricIds) {
+        for (String id : selection.metricIds) {
             metricRepository
                 .findById(id)
                 .ifPresent(metric -> {
@@ -385,14 +385,14 @@ public class AppPackageExportService {
     }
 
     private List<AppPackageDirectory> buildMetricDirectories(Selection selection) {
-        Set<Long> directoryIds = new LinkedHashSet<>();
-        for (Long metricId : selection.metricIds) {
+        Set<String> directoryIds = new LinkedHashSet<>();
+        for (String metricId : selection.metricIds) {
             metricRepository.findById(metricId).map(Metric::getDirectoryId).ifPresent(directoryIds::add);
         }
         List<AppPackageDirectory> items = new ArrayList<>();
-        Set<Long> added = new HashSet<>();
-        for (Long directoryId : directoryIds) {
-            Long current = directoryId;
+        Set<String> added = new HashSet<>();
+        for (String directoryId : directoryIds) {
+            String current = directoryId;
             while (current != null && added.add(current)) {
                 MetricDirectory directory = metricDirectoryRepository.findById(current).orElse(null);
                 if (directory == null) {
@@ -401,19 +401,19 @@ public class AppPackageExportService {
                 AppPackageDirectory item = new AppPackageDirectory();
                 item.oldId = directory.getId();
                 item.name = directory.getName();
-                item.parentOldId = directory.getParentId() == null || directory.getParentId() == 0L ? null : directory.getParentId();
+                item.parentOldId = directory.getParentId() == null || directory.getParentId().isBlank() ? null : directory.getParentId();
                 item.sortOrder = directory.getSortOrder();
                 items.add(item);
                 current = item.parentOldId;
             }
         }
-        items.sort(Comparator.comparing(item -> item.oldId == null ? 0L : item.oldId));
+        items.sort(Comparator.comparing(item -> item.oldId == null ? "" : item.oldId));
         return items;
     }
 
     private List<AppPackageEtlTask> buildEtlTasks(Selection selection) {
         List<AppPackageEtlTask> items = new ArrayList<>();
-        for (Long id : selection.etlTaskIds) {
+        for (String id : selection.etlTaskIds) {
             etlTaskRepository
                 .findById(id)
                 .ifPresent(task -> {
@@ -429,14 +429,14 @@ public class AppPackageExportService {
                     item.project = task.getProject();
                     item.nodes =
                         etlNodeRepository
-                            .findAllByTaskId(String.valueOf(id))
+                            .findAllByTaskId(id)
                             .orElse(Collections.emptyList())
                             .stream()
                             .map(this::toNodeItem)
                             .toList();
                     item.edges =
                         etlEdgeRepository
-                            .findAllByTaskId(String.valueOf(id))
+                            .findAllByTaskId(id)
                             .orElse(Collections.emptyList())
                             .stream()
                             .map(this::toEdgeItem)
@@ -475,7 +475,7 @@ public class AppPackageExportService {
 
     private List<AppPackageJob> buildJobs(Selection selection, String type) {
         List<AppPackageJob> items = new ArrayList<>();
-        for (Long id : selection.jobIdsByType(type)) {
+        for (String id : selection.jobIdsByType(type)) {
             jobRepository.findById(id).ifPresent(job -> items.add(toJobItem(job)));
         }
         return items;
@@ -483,11 +483,11 @@ public class AppPackageExportService {
 
     private List<AppPackageJob> buildOtherJobs(Selection selection) {
         List<AppPackageJob> items = new ArrayList<>();
-        for (Map.Entry<String, Set<Long>> entry : selection.jobIdsByType.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : selection.jobIdsByType.entrySet()) {
             if (TaskConstants.TASK_TYPE_SQL.equals(entry.getKey()) || TaskConstants.TASK_TYPE_DAG.equals(entry.getKey())) {
                 continue;
             }
-            for (Long id : entry.getValue()) {
+            for (String id : entry.getValue()) {
                 jobRepository.findById(id).ifPresent(job -> items.add(toJobItem(job)));
             }
         }
@@ -511,14 +511,14 @@ public class AppPackageExportService {
      * 导出包内任务之间的依赖关系：父、子任务都在包内时才导出。
      */
     private List<AppPackageJobDepend> buildJobDepends(Selection selection) {
-        Set<Long> jobIds = selection.allJobIds();
+        Set<String> jobIds = selection.allJobIds();
         if (jobIds.isEmpty()) {
             return new ArrayList<>();
         }
         List<AppPackageJobDepend> items = new ArrayList<>();
         for (JobDepend depend : jobDependRepository.findAll()) {
-            Long parent = parseLong(depend.getParentJobCode());
-            Long child = parseLong(depend.getChildJobCode());
+            String parent = trimToNull(depend.getParentJobCode());
+            String child = trimToNull(depend.getChildJobCode());
             if (parent == null || child == null || !jobIds.contains(parent) || !jobIds.contains(child)) {
                 continue;
             }
@@ -557,8 +557,8 @@ public class AppPackageExportService {
     /**
      * 从编排任务的 jobContext 中取出子任务 ID。
      */
-    private Set<Long> extractDagChildJobIds(String jobContext) {
-        Set<Long> ids = new LinkedHashSet<>();
+    private Set<String> extractDagChildJobIds(String jobContext) {
+        Set<String> ids = new LinkedHashSet<>();
         JsonNode root = AppPackageJson.readTreeQuietly(jobContext);
         if (root == null || !root.isObject()) {
             return ids;
@@ -566,44 +566,26 @@ public class AppPackageExportService {
         JsonNode jobs = root.get("jobs");
         if (jobs != null && jobs.isArray()) {
             for (JsonNode job : jobs) {
-                JsonNode id = job.get("id");
-                if (id != null && id.canConvertToLong()) {
-                    ids.add(id.asLong());
-                }
+                addIfPresent(ids, job.get("id"));
             }
         }
         JsonNode depends = root.get("jobDepends");
         if (depends != null && depends.isArray()) {
             for (JsonNode depend : depends) {
-                addIfNumeric(ids, depend.get("parentJobCode"));
-                addIfNumeric(ids, depend.get("childJobCode"));
+                addIfPresent(ids, depend.get("parentJobCode"));
+                addIfPresent(ids, depend.get("childJobCode"));
             }
         }
         return ids;
     }
 
-    private void addIfNumeric(Set<Long> ids, JsonNode node) {
-        if (node == null || node.isNull()) {
+    private void addIfPresent(Set<String> ids, JsonNode node) {
+        if (node == null || node.isNull() || node.isContainerNode()) {
             return;
         }
-        if (node.canConvertToLong()) {
-            ids.add(node.asLong());
-            return;
-        }
-        Long value = parseLong(node.asText());
+        String value = trimToNull(node.asText());
         if (value != null) {
             ids.add(value);
-        }
-    }
-
-    private static Long parseLong(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.valueOf(value.trim());
-        } catch (NumberFormatException e) {
-            return null;
         }
     }
 
@@ -615,7 +597,7 @@ public class AppPackageExportService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static Collection<Long> toIdSet(List<Long> ids) {
+    private static Collection<String> toIdSet(List<String> ids) {
         if (ids == null) {
             return Collections.emptyList();
         }
@@ -627,25 +609,25 @@ public class AppPackageExportService {
      */
     private static final class Selection {
 
-        private final Set<Long> dataSourceIds = new LinkedHashSet<>();
+        private final Set<String> dataSourceIds = new LinkedHashSet<>();
 
-        private final Set<Long> modelIds = new LinkedHashSet<>();
+        private final Set<String> modelIds = new LinkedHashSet<>();
 
-        private final Set<Long> metricIds = new LinkedHashSet<>();
+        private final Set<String> metricIds = new LinkedHashSet<>();
 
-        private final Set<Long> etlTaskIds = new LinkedHashSet<>();
+        private final Set<String> etlTaskIds = new LinkedHashSet<>();
 
         /** ETL 任务对应的调度 Job ID，供编排任务引用映射使用。 */
-        private final Set<Long> etlJobIds = new LinkedHashSet<>();
+        private final Set<String> etlJobIds = new LinkedHashSet<>();
 
-        private final Map<String, Set<Long>> jobIdsByType = new LinkedHashMap<>();
+        private final Map<String, Set<String>> jobIdsByType = new LinkedHashMap<>();
 
-        Set<Long> jobIdsByType(String type) {
+        Set<String> jobIdsByType(String type) {
             return jobIdsByType.computeIfAbsent(type == null ? "UNKNOWN" : type, key -> new LinkedHashSet<>());
         }
 
-        Set<Long> allJobIds() {
-            Set<Long> all = new LinkedHashSet<>(etlJobIds);
+        Set<String> allJobIds() {
+            Set<String> all = new LinkedHashSet<>(etlJobIds);
             jobIdsByType.values().forEach(all::addAll);
             return all;
         }

@@ -47,7 +47,7 @@ export interface DashboardDataset {
   type: DatasetType;
   metricQuery?: MetricQuerySpec;
   sql?: string;
-  dataSourceId?: number;
+  dataSourceId?: string;
 }
 
 export interface DataRefSeries {

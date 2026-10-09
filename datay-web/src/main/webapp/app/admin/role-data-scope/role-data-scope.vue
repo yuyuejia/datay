@@ -143,7 +143,7 @@ const form = ref<IRoleDataScope>({});
 const conditions = ref<IRoleScopeCondition[]>([]);
 const errorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.response?.data?.detail || fallback;
 
-const dimensionName = (id?: number) => {
+const dimensionName = (id?: string) => {
   const dimension = dimensions.value.find((item) => item.id === id);
   return dimension ? dimension.name || dimension.code : id ? `#${id}` : "";
 };
@@ -216,7 +216,7 @@ const loadScopes = async () => {
   }
 };
 
-const loadFields = async (dimensionModelId?: number) => {
+const loadFields = async (dimensionModelId?: string) => {
   if (!dimensionModelId) {
     fields.value = [];
     return;
@@ -270,7 +270,7 @@ const openCreate = () => {
   conditions.value = [newCondition()];
   fields.value = [];
   dialogVisible.value = true;
-  loadFields(form.value.dimensionModelId as number);
+  loadFields(form.value.dimensionModelId);
 };
 
 const openEdit = (row: IRoleDataScope) => {
@@ -285,7 +285,7 @@ const openEdit = (row: IRoleDataScope) => {
 
 const onDimensionChange = () => {
   conditions.value = [newCondition()];
-  loadFields(form.value.dimensionModelId as number);
+  loadFields(form.value.dimensionModelId);
 };
 
 const addCondition = () => {
@@ -310,7 +310,7 @@ const submit = async () => {
   try {
     const payload: IRoleDataScope = {
       ...form.value,
-      dimensionModelId: Number(form.value.dimensionModelId),
+      dimensionModelId: String(form.value.dimensionModelId),
       filterConfig: JSON.stringify({
         conditions: validConditions.map((condition) => ({
           type: "DIMENSION",

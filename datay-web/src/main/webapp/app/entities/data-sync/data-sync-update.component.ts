@@ -25,9 +25,9 @@ export default defineComponent({
     const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'zh-cn'), true);
 
     const dataSyncLoaded = ref(false);
-    const sourceDataSourceId = ref<number | null>(null);
+    const sourceDataSourceId = ref<string | null>(null);
     const sourceSchema = ref<string | null>(null);
-    const targetDataSourceId = ref<number | null>(null);
+    const targetDataSourceId = ref<string | null>(null);
     const targetSchema = ref<string | null>(null);
 
     const route = useRoute();
@@ -89,13 +89,13 @@ export default defineComponent({
     const v$ = useVuelidate(validationRules, dataSync as any);
     v$.value.$validate();
 
-    const handleSourceSelected = (selection: { dataSourceId: number; schema: string }) => {
+    const handleSourceSelected = (selection: { dataSourceId: string; schema: string }) => {
       dataSync.value.source = `${selection.dataSourceId}`;
       sourceDataSourceId.value = selection.dataSourceId;
       sourceSchema.value = selection.schema;
     };
 
-    const handleTargetSelected = (selection: { dataSourceId: number; schema: string }) => {
+    const handleTargetSelected = (selection: { dataSourceId: string; schema: string }) => {
       dataSync.value.target = `${selection.dataSourceId}`;
       targetDataSourceId.value = selection.dataSourceId;
       targetSchema.value = selection.schema;

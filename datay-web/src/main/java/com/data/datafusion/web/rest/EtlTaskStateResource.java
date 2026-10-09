@@ -97,7 +97,7 @@ public class EtlTaskStateResource {
      * {@code GET /etl-task-state/{taskId}} : get the state of a task.
      */
     @GetMapping("/{taskId}")
-    public ResponseEntity<Map<String, Object>> getState(@PathVariable("taskId") Long taskId) {
+    public ResponseEntity<Map<String, Object>> getState(@PathVariable("taskId") String taskId) {
         ETLTask task = requireTask(taskId);
         Map<String, Object> state = etlTaskStateService.loadState(taskId);
         return ResponseEntity.ok(buildStateResponse(task, state));
@@ -110,7 +110,7 @@ public class EtlTaskStateResource {
      */
     @PatchMapping("/{taskId}")
     public ResponseEntity<Map<String, Object>> patchState(
-        @PathVariable("taskId") Long taskId,
+        @PathVariable("taskId") String taskId,
         @RequestBody(required = false) Map<String, Object> patch
     ) {
         ETLTask task = requireTask(taskId);
@@ -125,7 +125,7 @@ public class EtlTaskStateResource {
      */
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Map<String, Object>> deleteState(
-        @PathVariable("taskId") Long taskId,
+        @PathVariable("taskId") String taskId,
         @RequestParam(value = "key", required = false) String key,
         @RequestParam(value = "force", required = false, defaultValue = "false") boolean force
     ) {
@@ -146,7 +146,7 @@ public class EtlTaskStateResource {
         return response;
     }
 
-    private ETLTask requireTask(Long taskId) {
+    private ETLTask requireTask(String taskId) {
         ETLTask task = etlTaskStateService.findTask(taskId).orElse(null);
         if (task == null) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");

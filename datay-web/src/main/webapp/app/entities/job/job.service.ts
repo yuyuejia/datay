@@ -6,7 +6,7 @@ import { type IJob } from '@/shared/model/job.model';
 const baseApiUrl = 'api/jobs';
 
 export default class JobService {
-  find(id: number): Promise<IJob> {
+  find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
@@ -32,7 +32,7 @@ export default class JobService {
     });
   }
 
-  delete(id: number): Promise<any> {
+  delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
@@ -84,7 +84,7 @@ export default class JobService {
     });
   }
 
-  executeOnce(id: number): Promise<any> {
+  executeOnce(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
