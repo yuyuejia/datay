@@ -103,12 +103,14 @@ public class DuckLakeConverter implements TypeConverter {
 
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
         String upperType = columnMeta.getType().toUpperCase();
-        String type = commonDataType2ColumnType.get(upperType);
+        // DuckDB/DuckLake 的类型名可能携带精度/长度（如 DECIMAL(18,2)），查表前去掉括号部分
+        String baseType = DatabaseConverter.stripTypeParameters(upperType);
+        String type = commonDataType2ColumnType.get(baseType);
         if (type == null) {
-            if (upperType.startsWith("INTERVAL")) {
+            if (baseType.startsWith("INTERVAL")) {
                 type = DuckLakeType.VARCHAR.name();
                 columnMeta.setLength(100);
-            } else if (upperType.startsWith("INT")) {
+            } else if (baseType.startsWith("INT")) {
                 // PostgreSQL int2/int4/int8 等整型名称统一回退为 BIGINT
                 type = DuckLakeType.BIGINT.name();
             } else {
@@ -116,13 +118,29 @@ public class DuckLakeConverter implements TypeConverter {
                 type = DuckLakeType.VARCHAR.name();
             }
         }
-        if ("NUMBER".equals(upperType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 20 && columnMeta.getPrecision() > 0) {
+        if ("NUMBER".equals(baseType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 20 && columnMeta.getPrecision() > 0) {
             type = DuckLakeType.BIGINT.name();
+        }
+        // 精度/小数位兜底：部分 JDBC 驱动只在类型名里给出 DECIMAL(18,2)，ColumnMeta 的 precision 为空
+        int precision = columnMeta.getPrecision();
+        int scale = columnMeta.getScale();
+        if (("DECIMAL".equals(baseType) || "NUMERIC".equals(baseType))) {
+            int[] precisionScale = DatabaseConverter.parseTypePrecisionScale(upperType);
+            if (precisionScale != null) {
+                if (precision <= 0) {
+                    precision = precisionScale[0];
+                }
+                if (scale <= 0) {
+                    scale = precisionScale[1];
+                }
+            } else if (precision <= 0 && columnMeta.getLength() > 0) {
+                precision = columnMeta.getLength();
+            }
         }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
         column.setLength(columnMeta.getLength());
-        column.setPrecision(columnMeta.getPrecision());
-        column.setScale(columnMeta.getScale());
+        column.setPrecision(precision);
+        column.setScale(scale);
         column.setNullable(columnMeta.isNullable());
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());

@@ -33,6 +33,47 @@ public class DatabaseConverter {
         converters.put(dbType.toLowerCase(), converter);
     }
 
+    /**
+     * 去掉类型名中的精度/长度限定，便于按基础类型查表。
+     * 例如 {@code DECIMAL(18,2) -> DECIMAL}、{@code VARCHAR(64) -> VARCHAR}。
+     */
+    public static String stripTypeParameters(String type) {
+        if (type == null) {
+            return null;
+        }
+        int index = type.indexOf('(');
+        return index > 0 ? type.substring(0, index).trim() : type;
+    }
+
+    /**
+     * 解析类型名中的精度与小数位，例如 {@code DECIMAL(18,2) -> [18, 2]}、{@code NUMERIC(10) -> [10, 0]}。
+     *
+     * <p>部分 JDBC 驱动（如 DuckDB）只在 {@code TYPE_NAME} 中携带精度信息，而
+     * {@link ColumnMeta#getPrecision()} 为空，需要从类型名兜底解析，避免生成裸 {@code DECIMAL}
+     * 导致精度/小数位丢失。
+     *
+     * @return 长度为 2 的数组 {@code [precision, scale]}；无法解析时返回 {@code null}
+     */
+    public static int[] parseTypePrecisionScale(String type) {
+        if (type == null) {
+            return null;
+        }
+        int open = type.indexOf('(');
+        int close = type.indexOf(')');
+        if (open < 0 || close <= open) {
+            return null;
+        }
+        String inner = type.substring(open + 1, close).trim();
+        String[] parts = inner.split(",");
+        try {
+            int precision = Integer.parseInt(parts[0].trim());
+            int scale = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
+            return new int[] { precision, scale };
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     // 核心转换方法
     public static ColumnMeta convert(String sourceDB, String targetDB, ColumnMeta sourceColumnMeta) {
         //        TypeConverter sourceConverter = converters.get(sourceDB.toLowerCase());
@@ -49,7 +90,7 @@ public class DatabaseConverter {
     }
 
     public static TableMeta convert(String sourceDB, String targetDB, TableMeta sourceTableMeta) {
-        if (sourceDB.equals(targetDB)) return new TableMeta(sourceTableMeta.getTable(), sourceTableMeta.columns());
+        if (sourceDB != null && sourceDB.equalsIgnoreCase(targetDB)) return new TableMeta(sourceTableMeta.getTable(), sourceTableMeta.columns());
         List<ColumnMeta> columns = new ArrayList<>();
         for (ColumnMeta col : sourceTableMeta.columns()) {
             ColumnMeta ColumnMeta = convert(sourceDB, targetDB, col);

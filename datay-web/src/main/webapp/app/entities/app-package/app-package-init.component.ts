@@ -19,14 +19,21 @@ const COUNT_LABELS: Record<string, string> = {
   modelDirectories: '模型目录',
   models: '数据模型',
   modelsSkipped: '跳过的模型',
+  modelsOverwritten: '覆盖的数据模型',
   modelFields: '模型字段',
+  modelFieldsRemoved: '移除的模型字段',
   metricDirectories: '指标目录',
   metrics: '指标',
   metricsSkipped: '跳过的指标',
+  metricsOverwritten: '覆盖的指标',
   etlTasks: 'ETL 任务',
+  etlTasksOverwritten: '覆盖的 ETL 任务',
   sqlJobs: 'SQL 任务',
+  sqlJobsOverwritten: '覆盖的 SQL 任务',
   dagJobs: '编排任务',
+  dagJobsOverwritten: '覆盖的编排任务',
   otherJobs: '其它任务',
+  otherJobsOverwritten: '覆盖的其它任务',
   jobDepends: '任务依赖',
 };
 
@@ -61,7 +68,7 @@ export default defineComponent({
     const step = ref<'form' | 'done'>('form');
     const submitting = ref(false);
     const errorMessage = ref('');
-    const conflictStrategy = ref<'RENAME' | 'SKIP'>('RENAME');
+    const conflictStrategy = ref<'RENAME' | 'SKIP' | 'OVERWRITE'>('OVERWRITE');
     const onlineJobs = ref(false);
     const dataSourceMapping = reactive<Record<string, number | null>>({});
     const dataSourceOptions = ref<Array<{ id: number; label: string }>>([]);
@@ -99,7 +106,7 @@ export default defineComponent({
       step.value = 'form';
       submitting.value = false;
       errorMessage.value = '';
-      conflictStrategy.value = 'RENAME';
+      conflictStrategy.value = 'OVERWRITE';
       onlineJobs.value = false;
       result.value = null;
       Object.keys(dataSourceMapping).forEach((key) => delete dataSourceMapping[key]);

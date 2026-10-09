@@ -21,7 +21,10 @@ public class AppPackageInitRequestDTO implements Serializable {
     /** 资产包 JSON 内容，与 {@link #packageId} 二选一。 */
     public String content;
 
-    /** 冲突策略：RENAME 自动重命名（默认） / SKIP 跳过已存在的同编码资产。 */
+    /**
+     * 冲突策略：OVERWRITE 覆盖更新已存在的同编码 / 同名资产（默认，用于资产包升级后的覆盖安装） /
+     * RENAME 自动重命名 / SKIP 跳过已存在的同编码资产。
+     */
     public String conflictStrategy;
 
     /**

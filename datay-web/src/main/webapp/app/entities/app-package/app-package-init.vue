@@ -28,9 +28,13 @@
 
       <h6>冲突处理</h6>
       <el-radio-group v-model="conflictStrategy" class="mb-3">
-        <el-radio value="RENAME">编码冲突时自动重命名（推荐）</el-radio>
+        <el-radio value="OVERWRITE">覆盖更新已存在的同编码 / 同名资产（推荐）</el-radio>
+        <el-radio value="RENAME">编码冲突时自动重命名</el-radio>
         <el-radio value="SKIP">编码冲突时跳过该资产</el-radio>
       </el-radio-group>
+      <div v-if="conflictStrategy === 'OVERWRITE'" class="text-muted small mb-3">
+        用于资产包升级后的覆盖安装：同编码的数据模型 / 指标 / ETL 任务与同名的任务会就地更新并保留原有 ID，原本在线的任务覆盖后继续保持在线。
+      </div>
 
       <div class="mb-3">
         <el-checkbox v-model="onlineJobs">初始化后直接把任务置为「上线」并加入调度</el-checkbox>

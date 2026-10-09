@@ -98,7 +98,7 @@ export interface IAppPackageDataSourceMapping {
 export interface IAppPackageInitRequest {
   packageId?: number | null;
   content?: string | null;
-  conflictStrategy?: 'RENAME' | 'SKIP';
+  conflictStrategy?: 'RENAME' | 'SKIP' | 'OVERWRITE';
   dataSourceMapping?: Record<string, number>;
   onlineJobs?: boolean;
 }

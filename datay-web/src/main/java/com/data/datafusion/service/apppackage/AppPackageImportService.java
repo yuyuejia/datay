@@ -37,18 +37,22 @@ import org.springframework.transaction.annotation.Transactional;
  * </ul>
  *
  * <p>资产包内所有对象一律以「离线」状态导入，避免初始化动作直接把任务挂到调度上；
- * 需要上线时由调用方显式传 {@code onlineJobs=true}。
+ * 需要上线时由调用方显式传 {@code onlineJobs=true}。当冲突策略为 {@link #STRATEGY_OVERWRITE} 时，
+ * 已存在的资产会就地更新（保留原 ID），原本在线的任务在覆盖后继续保持在线，便于资产包升级后的覆盖安装。
  */
 @Service
 public class AppPackageImportService {
 
     private static final Logger LOG = LoggerFactory.getLogger(AppPackageImportService.class);
 
-    /** 冲突策略：自动重命名（默认）。 */
+    /** 冲突策略：自动重命名。 */
     public static final String STRATEGY_RENAME = "RENAME";
 
     /** 冲突策略：跳过已存在的同编码资产。 */
     public static final String STRATEGY_SKIP = "SKIP";
+
+    /** 冲突策略：覆盖更新已存在的同编码 / 同名资产（默认，用于资产包升级后的覆盖安装）。 */
+    public static final String STRATEGY_OVERWRITE = "OVERWRITE";
 
     /** 导入后的初始状态：离线。 */
     private static final String IMPORTED_STATUS = TaskConstants.TASK_STATUS_OFFLINE;
@@ -424,22 +428,34 @@ public class AppPackageImportService {
     ) {
         int created = 0;
         int skipped = 0;
+        int overwritten = 0;
         for (AppPackageModel item : nonNull(content.getModels())) {
             if (item.oldId == null) {
                 continue;
             }
-            if (item.code != null && dataModelRepository.findFirstByCode(item.code).isPresent()) {
-                if (STRATEGY_SKIP.equals(strategy)) {
-                    result.warnings.add("数据模型编码已存在，按策略跳过：" + item.code);
-                    skipped++;
-                    continue;
+            DataModel existing = item.code == null ? null : dataModelRepository.findFirstByCode(item.code).orElse(null);
+            boolean overwrite = existing != null && STRATEGY_OVERWRITE.equals(strategy);
+            DataModel entity;
+            if (overwrite) {
+                // 覆盖安装：沿用已存在模型与其字段，就地更新定义
+                entity = existing;
+                overwritten++;
+            } else {
+                if (existing != null) {
+                    if (STRATEGY_SKIP.equals(strategy)) {
+                        result.warnings.add("数据模型编码已存在，按策略跳过：" + item.code);
+                        skipped++;
+                        continue;
+                    }
+                    String newCode = uniqueModelCode(item.code);
+                    modelCodeRename.put(item.code, newCode);
+                    result.warnings.add("数据模型编码已存在，已重命名为：" + item.code + " -> " + newCode);
+                    item.code = newCode;
                 }
-                String newCode = uniqueModelCode(item.code);
-                modelCodeRename.put(item.code, newCode);
-                result.warnings.add("数据模型编码已存在，已重命名为：" + item.code + " -> " + newCode);
-                item.code = newCode;
+                entity = new DataModel();
+                entity.setCreateTime(ZonedDateTime.now());
+                created++;
             }
-            DataModel entity = new DataModel();
             entity.setName(item.name);
             entity.setCode(item.code);
             entity.setDescription(item.description);
@@ -463,28 +479,41 @@ public class AppPackageImportService {
             }
             entity.setDataSourceId(item.dataSourceOldId == null ? null : dataSourceMap.get(item.dataSourceOldId));
             entity.setDirectoryId(item.directoryOldId == null ? null : directoryMap.get(item.directoryOldId));
-            ZonedDateTime now = ZonedDateTime.now();
-            entity.setCreateTime(now);
-            entity.setUpdateTime(now);
+            entity.setUpdateTime(ZonedDateTime.now());
             entity = dataModelRepository.save(entity);
             modelMap.put(item.oldId, entity.getId());
-            created++;
         }
         result.counts.put("models", created);
         result.counts.put("modelsSkipped", skipped);
+        result.counts.put("modelsOverwritten", overwritten);
 
-        // 字段分两轮写入：第一轮建立字段与维度模型的关联，第二轮补上「关联维度字段」
+        // 字段分两轮写入：第一轮按字段名 upsert（覆盖时保留原字段 ID），第二轮补上「关联维度字段」
         // （dimensionFieldId 依赖第一轮生成的字段 ID）
         List<long[]> pendingDimensionField = new ArrayList<>();
         int fieldCount = 0;
+        int fieldRemoved = 0;
         for (AppPackageModel item : nonNull(content.getModels())) {
             Long newModelId = item.oldId == null ? null : modelMap.get(item.oldId);
             if (newModelId == null) {
                 continue;
             }
+            Map<String, ModelField> existingFields = new LinkedHashMap<>();
+            for (ModelField existing : modelFieldRepository.findByModelIdOrderBySortOrderAsc(newModelId)) {
+                if (existing.getFieldName() != null) {
+                    existingFields.put(existing.getFieldName(), existing);
+                }
+            }
+            Set<String> packageFieldNames = new LinkedHashSet<>();
             for (AppPackageModel.AppPackageModelField field : nonNull(item.fields)) {
-                ModelField entity = new ModelField();
-                entity.setModelId(newModelId);
+                if (field.fieldName != null) {
+                    packageFieldNames.add(field.fieldName);
+                }
+                ModelField entity = field.fieldName == null ? null : existingFields.get(field.fieldName);
+                boolean isNew = entity == null;
+                if (isNew) {
+                    entity = new ModelField();
+                    entity.setModelId(newModelId);
+                }
                 entity.setFieldName(field.fieldName);
                 entity.setFieldType(field.fieldType);
                 entity.setFieldLength(field.fieldLength);
@@ -500,9 +529,10 @@ public class AppPackageImportService {
                 entity.setDimensionModelId(field.dimensionModelOldId == null ? null : modelMap.get(field.dimensionModelOldId));
                 entity.setFieldRole(field.fieldRole);
                 entity.setLevelIndex(field.levelIndex);
-                ZonedDateTime now = ZonedDateTime.now();
-                entity.setCreateTime(now);
-                entity.setUpdateTime(now);
+                if (isNew) {
+                    entity.setCreateTime(ZonedDateTime.now());
+                }
+                entity.setUpdateTime(ZonedDateTime.now());
                 entity = modelFieldRepository.save(entity);
                 if (field.oldId != null) {
                     modelFieldMap.put(field.oldId, entity.getId());
@@ -511,6 +541,13 @@ public class AppPackageImportService {
                     pendingDimensionField.add(new long[] { entity.getId(), field.dimensionFieldOldId });
                 }
                 fieldCount++;
+            }
+            // 覆盖安装：删除资产包中已移除的字段（新模型时 existingFields 为空，不会误删）
+            for (ModelField removed : existingFields.values()) {
+                if (!packageFieldNames.contains(removed.getFieldName())) {
+                    modelFieldRepository.delete(removed);
+                    fieldRemoved++;
+                }
             }
         }
         for (long[] pair : pendingDimensionField) {
@@ -528,6 +565,7 @@ public class AppPackageImportService {
                 });
         }
         result.counts.put("modelFields", fieldCount);
+        result.counts.put("modelFieldsRemoved", fieldRemoved);
     }
 
     private String uniqueModelCode(String code) {
@@ -555,15 +593,24 @@ public class AppPackageImportService {
 
         // 预判编码冲突，先定稿每个指标的最终编码：后续公式改写、依赖排序都以最终编码为准
         Set<String> tenantCodes = new LinkedHashSet<>();
-        metricRepository.findAll().forEach(metric -> tenantCodes.add(metric.getCode()));
+        Map<String, Long> existingMetricIds = new LinkedHashMap<>();
+        metricRepository.findAll().forEach(metric -> {
+            tenantCodes.add(metric.getCode());
+            existingMetricIds.put(metric.getCode(), metric.getId());
+        });
         Set<String> plannedCodes = new LinkedHashSet<>(tenantCodes);
         Map<String, String> codeRename = new LinkedHashMap<>();
         Set<Long> skippedIds = new LinkedHashSet<>();
+        Set<String> overwriteCodes = new LinkedHashSet<>();
         for (AppPackageMetric item : items) {
             if (item.oldId == null || item.code == null) {
                 continue;
             }
             if (!plannedCodes.add(item.code)) {
+                if (STRATEGY_OVERWRITE.equals(strategy) && tenantCodes.contains(item.code) && overwriteCodes.add(item.code)) {
+                    // 覆盖安装：沿用已存在指标的编码，稍后就地更新
+                    continue;
+                }
                 if (STRATEGY_SKIP.equals(strategy)) {
                     result.warnings.add("指标编码已存在，按策略跳过：" + item.code);
                     skippedIds.add(item.oldId);
@@ -586,6 +633,7 @@ public class AppPackageImportService {
         }
         Set<String> availableCodes = new LinkedHashSet<>(tenantCodes);
         int created = 0;
+        int overwritten = 0;
         int round = 0;
         while (!pending.isEmpty() && round <= pending.size() + 1) {
             round++;
@@ -614,12 +662,21 @@ public class AppPackageImportService {
                 dto.setDataType(item.dataType);
                 dto.setIsAdditive(item.isAdditive);
                 dto.setFormula(rewriteFormula(item.formula, codeRename));
-                MetricDTO saved = metricService.save(dto);
+                Long existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingMetricIds.get(dto.getCode()) : null;
+                MetricDTO saved;
+                if (existingId != null) {
+                    saved = metricService
+                        .update(existingId, dto)
+                        .orElseThrow(() -> new IllegalArgumentException("指标不存在，无法覆盖：" + dto.getCode()));
+                    overwritten++;
+                } else {
+                    saved = metricService.save(dto);
+                    created++;
+                }
                 metricMap.put(item.oldId, saved.getId());
                 if (saved.getCode() != null) {
                     availableCodes.add(saved.getCode());
                 }
-                created++;
             }
             if (next.size() == pending.size()) {
                 StringBuilder missing = new StringBuilder();
@@ -632,6 +689,7 @@ public class AppPackageImportService {
         }
         result.counts.put("metrics", created);
         result.counts.put("metricsSkipped", skippedIds.size());
+        result.counts.put("metricsOverwritten", overwritten);
     }
 
     private String uniqueMetricCode(String code, Set<String> usedCodes) {
@@ -722,11 +780,14 @@ public class AppPackageImportService {
         AppPackageInitResultDTO result
     ) {
         int created = 0;
+        int overwritten = 0;
         for (AppPackageEtlTask item : nonNull(content.getEtlTasks())) {
             if (item.oldId == null) {
                 continue;
             }
-            if (item.taskCode != null && etlTaskRepository.findFirstByTaskCode(item.taskCode).isPresent()) {
+            ETLTask existing = item.taskCode == null ? null : etlTaskRepository.findFirstByTaskCode(item.taskCode).orElse(null);
+            boolean overwrite = existing != null && STRATEGY_OVERWRITE.equals(strategy);
+            if (existing != null && !overwrite) {
                 if (STRATEGY_SKIP.equals(strategy)) {
                     result.warnings.add("ETL 任务编码已存在，按策略跳过：" + item.taskCode);
                     continue;
@@ -743,22 +804,37 @@ public class AppPackageImportService {
             dto.setType(item.type == null ? TaskConstants.TASK_TYPE_ETL : item.type);
             dto.setCron(item.cron);
             dto.setProject(item.project);
-            dto.setStatus(IMPORTED_STATUS);
             dto.setDr(0);
             dto.setNodes(nonNull(item.nodes).stream().map(node -> toNodeDto(node, dataSourceMap, modelMap, result)).toList());
             dto.setEdges(nonNull(item.edges).stream().map(this::toEdgeDto).toList());
-            ETLTaskDTO saved = etlTaskService.save(dto);
+            ETLTaskDTO saved;
+            boolean keepOnline = false;
+            if (overwrite) {
+                // 覆盖安装：就地更新任务与它对应的调度 Job，保留任务 ID 以维持编排引用
+                dto.setId(existing.getId());
+                dto.setJobId(existing.getJobId());
+                dto.setCreateTime(existing.getCreateTime());
+                dto.setTenantId(existing.getTenantId());
+                keepOnline = TaskConstants.TASK_STATUS_ONLINE.equals(existing.getStatus());
+                dto.setStatus(keepOnline ? TaskConstants.TASK_STATUS_ONLINE : IMPORTED_STATUS);
+                saved = etlTaskService.update(dto);
+                overwritten++;
+            } else {
+                dto.setStatus(IMPORTED_STATUS);
+                saved = etlTaskService.save(dto);
+                created++;
+            }
             etlTaskMap.put(item.oldId, saved.getId());
             if (item.jobOldId != null && saved.getJobId() != null) {
                 // 编排任务引用的是 Job ID，这里把 ETL 任务的 Job ID 也登记进映射表
                 jobMap.put(item.jobOldId, saved.getJobId());
             }
-            if (Boolean.TRUE.equals(request == null ? null : request.onlineJobs)) {
+            if (keepOnline || Boolean.TRUE.equals(request == null ? null : request.onlineJobs)) {
                 etlTaskService.online(saved.getId());
             }
-            created++;
         }
         result.counts.put("etlTasks", created);
+        result.counts.put("etlTasksOverwritten", overwritten);
     }
 
     private String uniqueEtlTaskCode(String code) {
@@ -841,6 +917,8 @@ public class AppPackageImportService {
         AppPackageInitResultDTO result
     ) {
         int created = 0;
+        int overwritten = 0;
+        String resolvedType = type == null ? null : type;
         for (AppPackageJob item : nonNull(items)) {
             if (item.oldId == null) {
                 continue;
@@ -855,29 +933,40 @@ public class AppPackageImportService {
                 }
                 context = remapIds(context, Map.of("dataSourceId", dataSourceMap));
             }
-            String jobName = resolveJobName(item.jobName, strategy, result);
-            if (jobName == null) {
-                continue;
+            String jobType = resolvedType == null ? item.type : resolvedType;
+            Job existing = item.jobName == null ? null : jobRepository.findFirstByJobName(item.jobName).orElse(null);
+            Job job;
+            boolean keepOnline = false;
+            if (existing != null && STRATEGY_OVERWRITE.equals(strategy) && Objects.equals(jobType, existing.getType())) {
+                // 覆盖安装：就地更新同名同类型任务，保留任务 ID 以维持编排引用
+                job = existing;
+                keepOnline = TaskConstants.TASK_STATUS_ONLINE.equals(existing.getStatus());
+                overwritten++;
+            } else {
+                String jobName = resolveJobName(item.jobName, strategy, result);
+                if (jobName == null) {
+                    continue;
+                }
+                job = new Job();
+                job.setJobName(jobName);
+                job.setCreateTime(ZonedDateTime.now());
+                created++;
             }
-            Job job = new Job();
-            job.setJobName(jobName);
             job.setJobGroup(item.jobGroup == null ? "datafusion" : item.jobGroup);
-            job.setType(type == null ? item.type : type);
+            job.setType(jobType);
             job.setCron(item.cron);
             job.setJobContext(context == null ? null : context.toString());
-            job.setStatus(IMPORTED_STATUS);
+            job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
             job.setProject(item.project);
-            ZonedDateTime now = ZonedDateTime.now();
-            job.setCreateTime(now);
-            job.setUpdateTime(now);
+            job.setUpdateTime(ZonedDateTime.now());
             job = jobRepository.save(job);
             jobMap.put(item.oldId, job.getId());
-            if (Boolean.TRUE.equals(request == null ? null : request.onlineJobs)) {
+            if (keepOnline || Boolean.TRUE.equals(request == null ? null : request.onlineJobs)) {
                 jobService.online(job, false);
             }
-            created++;
         }
         result.counts.merge(jobCountKey(type), created, Integer::sum);
+        result.counts.merge(jobCountKey(type) + "Overwritten", overwritten, Integer::sum);
     }
 
     private String jobCountKey(String type) {
@@ -974,26 +1063,37 @@ public class AppPackageImportService {
         Map<Long, Long> dagJobMap,
         AppPackageInitResultDTO result
     ) {
-        String jobName = resolveJobName(item.jobName, strategy, result);
-        if (jobName == null) {
-            return false;
+        Job existing = item.jobName == null ? null : jobRepository.findFirstByJobName(item.jobName).orElse(null);
+        Job job;
+        String jobName;
+        boolean keepOnline = false;
+        if (existing != null && STRATEGY_OVERWRITE.equals(strategy) && TaskConstants.TASK_TYPE_DAG.equals(existing.getType())) {
+            // 覆盖安装：就地更新同名编排任务，保留任务 ID 以维持编排引用
+            job = existing;
+            jobName = item.jobName;
+            keepOnline = TaskConstants.TASK_STATUS_ONLINE.equals(existing.getStatus());
+            result.counts.merge("dagJobsOverwritten", 1, Integer::sum);
+        } else {
+            jobName = resolveJobName(item.jobName, strategy, result);
+            if (jobName == null) {
+                return false;
+            }
+            job = new Job();
+            job.setJobName(jobName);
+            job.setCreateTime(ZonedDateTime.now());
         }
         JsonNode context = remapDagContext(item.jobContext, jobMap, result, jobName);
-        Job job = new Job();
-        job.setJobName(jobName);
         job.setJobGroup(item.jobGroup == null ? "datafusion" : item.jobGroup);
         job.setType(TaskConstants.TASK_TYPE_DAG);
         job.setCron(item.cron);
         job.setJobContext(context == null ? null : context.toString());
-        job.setStatus(IMPORTED_STATUS);
+        job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
         job.setProject(item.project);
-        ZonedDateTime now = ZonedDateTime.now();
-        job.setCreateTime(now);
-        job.setUpdateTime(now);
+        job.setUpdateTime(ZonedDateTime.now());
         job = jobRepository.save(job);
         jobMap.put(item.oldId, job.getId());
         dagJobMap.put(item.oldId, job.getId());
-        if (online) {
+        if (keepOnline || online) {
             jobService.online(job, false);
         }
         return true;
@@ -1176,7 +1276,7 @@ public class AppPackageImportService {
     private static String normalizeStrategy(AppPackageInitRequestDTO request) {
         String strategy = request == null ? null : request.conflictStrategy;
         if (strategy == null || strategy.isBlank()) {
-            return STRATEGY_RENAME;
+            return STRATEGY_OVERWRITE;
         }
         return strategy.trim().toUpperCase(Locale.ROOT);
     }

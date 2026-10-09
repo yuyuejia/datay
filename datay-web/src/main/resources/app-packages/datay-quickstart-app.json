@@ -4,7 +4,7 @@
   "meta": {
     "name": "DataY 快速入门应用",
     "code": "datay_quickstart_app",
-    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排」的完整链路。",
+    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排」的完整链路。",
     "category": "快速入门",
     "version": "1.0.0",
     "source": "SYSTEM"
@@ -754,6 +754,466 @@
           "status": "0"
         }
       ]
+    },
+    {
+      "oldId": 6005,
+      "jobOldId": 7005,
+      "taskName": "属性路由分流演示",
+      "taskCode": "qs_etl_route_demo",
+      "taskDesc": "生成测试数据，按 type 字段分流到 vip / normal / other 三条连线并分别记录日志，演示 RouteOnAttribute 属性路由组件。",
+      "dir": "/快速入门/路由演示",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5141,
+          "label": "生成测试数据",
+          "code": "n1",
+          "desc": "生成含 type 字段的 JSON 数组样例数据",
+          "type": "GenerateFlowFile",
+          "config": {
+            "dataFormat": "JSON_ARRAY",
+            "inputData": "[{\"id\":1,\"type\":\"vip\"},{\"id\":2,\"type\":\"normal\"},{\"id\":3,\"type\":\"vip\"},{\"id\":4,\"type\":\"unknown\"}]",
+            "loopCount": "1"
+          },
+          "xAxis": "120",
+          "yAxis": "200",
+          "status": "0"
+        },
+        {
+          "oldId": 5142,
+          "label": "按 type 分流",
+          "code": "n2",
+          "desc": "按数据项字段 type 与连线标签匹配，未匹配的数据走 other 兜底",
+          "type": "RouteOnAttribute",
+          "config": {
+            "matchMode": "data",
+            "dataField": "type",
+            "defaultLabel": "other"
+          },
+          "xAxis": "460",
+          "yAxis": "200",
+          "status": "0"
+        },
+        {
+          "oldId": 5143,
+          "label": "记录 vip 数据",
+          "code": "n3",
+          "desc": "接收 type=vip 的数据并记录日志",
+          "type": "LogFlowFile",
+          "config": {
+            "logDataContent": "true"
+          },
+          "xAxis": "820",
+          "yAxis": "80",
+          "status": "0"
+        },
+        {
+          "oldId": 5144,
+          "label": "记录 normal 数据",
+          "code": "n4",
+          "desc": "接收 type=normal 的数据并记录日志",
+          "type": "LogFlowFile",
+          "config": {
+            "logDataContent": "true"
+          },
+          "xAxis": "820",
+          "yAxis": "200",
+          "status": "0"
+        },
+        {
+          "oldId": 5145,
+          "label": "记录 other 兜底数据",
+          "code": "n5",
+          "desc": "接收未匹配任何标签的数据并记录日志",
+          "type": "LogFlowFile",
+          "config": {
+            "logDataContent": "true"
+          },
+          "xAxis": "820",
+          "yAxis": "320",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5241,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5242,
+          "name": "vip",
+          "code": "e2",
+          "source": "n2",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5243,
+          "name": "normal",
+          "code": "e3",
+          "source": "n2",
+          "target": "n4",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5244,
+          "name": "other",
+          "code": "e4",
+          "source": "n2",
+          "target": "n5",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6006,
+      "jobOldId": 7006,
+      "taskName": "订单数据清洗转换",
+      "taskCode": "qs_etl_data_clean",
+      "taskDesc": "读取源库 ods_order，用 DataTransform 去空格、状态转大写并过滤无效金额，写入数仓 dwd_order_clean（全量覆盖）。",
+      "dir": "/快速入门/数据处理",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5151,
+          "label": "读取订单(源库)",
+          "code": "n1",
+          "desc": "从入门业务库 main.ods_order 读取全量数据",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9000,
+            "schema": "main",
+            "table": "ods_order"
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5152,
+          "label": "清洗转换",
+          "code": "n2",
+          "desc": "去除订单号空格、订单状态转大写，并过滤金额小于等于 0 的无效行",
+          "type": "DataTransform",
+          "config": {
+            "rules": [
+              {
+                "type": "trim",
+                "column": "order_id"
+              },
+              {
+                "type": "upper",
+                "column": "order_status"
+              }
+            ],
+            "filters": [
+              {
+                "column": "order_amount",
+                "operator": ">",
+                "value": 0
+              }
+            ],
+            "filterLogic": "AND",
+            "outputTable": "dwd_order_clean"
+          },
+          "xAxis": "460",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5153,
+          "label": "写入清洗结果",
+          "code": "n3",
+          "desc": "写入数仓 main.dwd_order_clean，每次运行前清空",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "dwd_order_clean",
+            "model": "overwrite"
+          },
+          "xAxis": "820",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5251,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5252,
+          "name": "",
+          "code": "e2",
+          "source": "n2",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6007,
+      "jobOldId": 7007,
+      "taskName": "订单门店关联宽表",
+      "taskCode": "qs_etl_join_wide",
+      "taskDesc": "读取源库 ods_order 与 ods_store，用 Join 关联生成订单宽表，写入数仓 dwd_order_wide（全量覆盖）。",
+      "dir": "/快速入门/数据处理",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5161,
+          "label": "读取订单(源库)",
+          "code": "n1",
+          "desc": "从入门业务库 main.ods_order 读取全量数据",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9000,
+            "schema": "main",
+            "table": "ods_order"
+          },
+          "xAxis": "120",
+          "yAxis": "80",
+          "status": "0"
+        },
+        {
+          "oldId": 5162,
+          "label": "读取门店(源库)",
+          "code": "n2",
+          "desc": "从入门业务库 main.ods_store 读取全量数据",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9000,
+            "schema": "main",
+            "table": "ods_store"
+          },
+          "xAxis": "120",
+          "yAxis": "260",
+          "status": "0"
+        },
+        {
+          "oldId": 5163,
+          "label": "关联宽表",
+          "code": "n3",
+          "desc": "ods_order LEFT JOIN ods_store，按 store_key = store_id 关联",
+          "type": "Join",
+          "config": {
+            "outputTable": "dwd_order_wide",
+            "selectColumns": "ods_order.order_id, ods_order.order_date_key, ods_order.store_key, ods_store.store_name, ods_store.city, ods_order.category_key, ods_order.order_status, ods_order.quantity, ods_order.order_amount",
+            "fromTable": "ods_order",
+            "joins": [
+              {
+                "type": "LEFT",
+                "table": "ods_store",
+                "leftTable": "ods_order",
+                "leftField": "store_key",
+                "rightField": "store_id"
+              }
+            ]
+          },
+          "xAxis": "460",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5164,
+          "label": "写入宽表",
+          "code": "n4",
+          "desc": "写入数仓 main.dwd_order_wide，每次运行前清空",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "dwd_order_wide",
+            "model": "overwrite"
+          },
+          "xAxis": "820",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5261,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5262,
+          "name": "",
+          "code": "e2",
+          "source": "n2",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5263,
+          "name": "",
+          "code": "e3",
+          "source": "n3",
+          "target": "n4",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6008,
+      "jobOldId": 7008,
+      "taskName": "门店销售SQL聚合",
+      "taskCode": "qs_etl_sql_agg",
+      "taskDesc": "读取源库 ods_order，用 StreamSqlUnit 执行 DuckDB SQL 按门店汇总订单数与销售额，写入数仓 dws_store_sales（全量覆盖）。",
+      "dir": "/快速入门/数据处理",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5171,
+          "label": "读取订单(源库)",
+          "code": "n1",
+          "desc": "从入门业务库 main.ods_order 读取全量数据",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9000,
+            "schema": "main",
+            "table": "ods_order"
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5172,
+          "label": "SQL 聚合",
+          "code": "n2",
+          "desc": "按门店聚合订单数与销售额",
+          "type": "StreamSqlUnit",
+          "config": {
+            "sql": "SELECT store_key, CAST(COUNT(*) AS BIGINT) AS order_cnt, SUM(CAST(order_amount AS DECIMAL)) AS sales_amount FROM ods_order GROUP BY store_key"
+          },
+          "xAxis": "460",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5173,
+          "label": "写入汇总表",
+          "code": "n3",
+          "desc": "写入数仓 main.dws_store_sales，每次运行前清空",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "dws_store_sales",
+            "model": "overwrite"
+          },
+          "xAxis": "820",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5271,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5272,
+          "name": "",
+          "code": "e2",
+          "source": "n2",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6009,
+      "jobOldId": 7009,
+      "taskName": "订单增量同步",
+      "taskCode": "qs_etl_incr_sync",
+      "taskDesc": "读取源库 ods_order，按 order_date_key 增量抽取并追加写入数仓 dwd_order_incr。",
+      "dir": "/快速入门/同步示例",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5181,
+          "label": "增量读取订单(源库)",
+          "code": "n1",
+          "desc": "按 order_date_key 增量抽取，首次全量、之后只取大于上次水位的记录",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9000,
+            "schema": "main",
+            "table": "ods_order",
+            "incrColumn": "order_date_key"
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5182,
+          "label": "追加写入增量表",
+          "code": "n2",
+          "desc": "追加写入数仓 main.dwd_order_incr",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "dwd_order_incr",
+            "model": "append"
+          },
+          "xAxis": "520",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5281,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
     }
   ],
   "sqlJobs": [
@@ -811,6 +1271,21 @@
             "id": 7004
           },
           {
+            "id": 7005
+          },
+          {
+            "id": 7006
+          },
+          {
+            "id": 7007
+          },
+          {
+            "id": 7008
+          },
+          {
+            "id": 7009
+          },
+          {
             "id": 7011
           }
         ],
@@ -833,6 +1308,31 @@
           {
             "parentJobCode": 7010,
             "childJobCode": 7004,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7005,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7006,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7008,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7009,
             "lastInterval": 0
           },
           {
@@ -888,6 +1388,36 @@
             "yAxis": 370
           },
           {
+            "jobId": 7005,
+            "label": "属性路由分流演示",
+            "xAxis": 700,
+            "yAxis": 420
+          },
+          {
+            "jobId": 7006,
+            "label": "订单数据清洗转换",
+            "xAxis": 700,
+            "yAxis": 520
+          },
+          {
+            "jobId": 7007,
+            "label": "订单门店关联宽表",
+            "xAxis": 700,
+            "yAxis": 620
+          },
+          {
+            "jobId": 7008,
+            "label": "门店销售SQL聚合",
+            "xAxis": 700,
+            "yAxis": 720
+          },
+          {
+            "jobId": 7009,
+            "label": "订单增量同步",
+            "xAxis": 700,
+            "yAxis": 820
+          },
+          {
             "jobId": 7011,
             "label": "生成日销售汇总表",
             "xAxis": 700,
@@ -908,11 +1438,11 @@
     "modelFields": 33,
     "metricDirectories": 1,
     "metrics": 4,
-    "etlTasks": 4,
+    "etlTasks": 9,
     "sqlJobs": 2,
     "dagJobs": 1,
     "otherJobs": 0,
     "jobDepends": 0,
-    "total": 54
+    "total": 59
   }
 }
