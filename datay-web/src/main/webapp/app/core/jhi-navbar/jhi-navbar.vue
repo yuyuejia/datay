@@ -1,7 +1,6 @@
 <template>
   <nav data-cy="navbar" class="navbar navbar-expand-md navbar-dark jh-navbar">
     <router-link class="navbar-brand logo" to="/">
-      <span class="logo-img"></span>
       <span class="navbar-title">Data<span class="logo-y">Y</span></span>
     </router-link>
     <button
@@ -187,7 +186,7 @@
 }
 
 .jh-navbar {
-  background-color: #353d47;
+  background: linear-gradient(135deg, #0f1d45 0%, #16265c 100%);
   padding: 0.2em 1em;
 }
 
@@ -269,23 +268,7 @@
   padding: 0 7px;
 }
 
-.logo .logo-img {
-  height: 45px;
-  display: inline-block;
-  vertical-align: middle;
-  width: 45px;
-}
-
-.logo-img {
-  height: 100%;
-  background: url('/content/images/logo-jhipster.png') no-repeat center center;
-  background-size: contain;
-  width: 100%;
-  filter: drop-shadow(0 0 0.05rem white);
-  margin: 0 5px;
-}
-
 .logo-y {
-    color: #ff6900;
+    color: #8ec5ff;
 }
 </style>
