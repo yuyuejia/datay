@@ -1,13 +1,21 @@
 import { type Ref, computed, defineComponent, inject, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
-import { type DbType, type ExtraParamDef, dbTypes } from './db-types';
+import {
+  type ConnectionModeDef,
+  type DbFormConfig,
+  type DbType,
+  type ExtraParamDef,
+  type IdentifierTypeDef,
+  dbTypes,
+  resolveDbFormConfig,
+} from './db-types';
 import {
   type OracleIdentifierType,
   type UrlMode,
   buildSimpleUrl,
-  isNetworkType,
   parseSimpleUrl,
+  renderUrlTemplate,
 } from './db-url.util';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -50,21 +58,42 @@ export default defineComponent({
     const isSaving = ref(false);
     const isTestingConnection = ref(false);
     const extraParamRows: Ref<ExtraParamRow[]> = ref([]);
-    const duckdbMode = ref('file');
-    const duckdbFile = ref('');
+    const selectedConnectionMode = ref('');
+    const filePath = ref('');
     const urlMode = ref<UrlMode>('simple');
     const oracleIdentifierType = ref<OracleIdentifierType>('service');
+    const driverStatus: Ref<any> = ref(null);
+    const isDownloadingDriver = ref(false);
 
-    const isDuckDb = computed(() => dataSource.value.type === 'DUCKDB');
+    const selectedDbType = computed<DbType | null>(() => {
+      if (!dataSource.value.type) return null;
+      return dbTypes.find(db => db.name === dataSource.value.type) || null;
+    });
 
-    // DuckDB / DuckLake 通过本地文件或挂载方式访问，无需用户名密码
-    const requiresCredentials = computed(() => !['DUCKDB', 'DUCKLAKE'].includes(dataSource.value.type ?? ''));
+    // 表单字段/连接能力完全由数据源类型配置驱动
+    const formConfig = computed<DbFormConfig>(() => resolveDbFormConfig(selectedDbType.value));
 
-    const showUrlModeToggle = computed(() => !!dataSource.value.type && isNetworkType(dataSource.value.type));
+    const selectedConnectionModeDef = computed<ConnectionModeDef | undefined>(() =>
+      formConfig.value.connectionModes.find(m => m.value === selectedConnectionMode.value),
+    );
 
-    const isOracle = computed(() => dataSource.value.type === 'ORACLE');
-
-    const schemaEnabled = computed(() => !!selectedDbType.value?.schemaEnabled);
+    const showConnectionModeSelector = computed(() => formConfig.value.connectionModes.length > 0);
+    const hasConnectionModes = computed(() => formConfig.value.connectionModes.length > 0);
+    const showFileField = computed(() => !!selectedConnectionModeDef.value?.file);
+    const showNetworkFields = computed(
+      () => (formConfig.value.network && urlMode.value === 'simple') || !!selectedConnectionModeDef.value?.network,
+    );
+    const hostLabel = computed(() =>
+      selectedConnectionModeDef.value?.network ? selectedConnectionModeDef.value.hostLabel || '主机' : 'IP/主机',
+    );
+    const identifierTypes = computed<IdentifierTypeDef[]>(() => formConfig.value.identifierTypes);
+    const hasIdentifierTypes = computed(() => identifierTypes.value.length > 0);
+    const databaseLabel = computed(() => {
+      if (!hasIdentifierTypes.value) return '数据库名';
+      const selected = identifierTypes.value.find(t => t.value === oracleIdentifierType.value);
+      return selected ? selected.label.replace(/\s*\(.*\)\s*$/, '') : '数据库名';
+    });
+    const requiresCredentials = computed(() => formConfig.value.credentials);
 
     watch(
       () => props.show,
@@ -84,18 +113,17 @@ export default defineComponent({
       () => dataSource.value.type,
       () => {
         syncExtraParamsFromTemplate();
+        loadDriverStatus();
       },
     );
 
-    watch(duckdbMode, () => {
+    watch(selectedConnectionMode, () => {
       syncExtraParamsFromTemplate();
     });
 
     const effectiveExtraParamsTemplate = computed<ExtraParamDef[]>(() => {
-      const dbType = selectedDbType.value;
-      if (!dbType) return [];
-      const mode = dbType.connectionModes?.find(m => m.value === duckdbMode.value);
-      return mode?.extraParamsTemplate ?? dbType.extraParamsTemplate ?? [];
+      const mode = selectedConnectionModeDef.value;
+      return mode?.extraParamsTemplate ?? selectedDbType.value?.extraParamsTemplate ?? [];
     });
 
     const syncExtraParamsFromTemplate = () => {
@@ -147,16 +175,50 @@ export default defineComponent({
       buildExtraParamsFromRows();
     };
 
-    const inferDuckdbMode = (url?: string | null) => (url && url.startsWith('quack:') ? 'quack' : 'file');
+    const loadDriverStatus = async () => {
+      if (!selectedDbType.value?.downloadable || !dataSource.value.type) {
+        driverStatus.value = null;
+        return;
+      }
+      try {
+        driverStatus.value = await dataSourceService().getDriverStatus(dataSource.value.type, dataSource.value.version || undefined);
+      } catch (error) {
+        driverStatus.value = null;
+      }
+    };
 
-    const extractDuckdbFile = (url?: string | null) =>
-      url && url.startsWith('jdbc:duckdb:') ? url.substring('jdbc:duckdb:'.length) : '';
+    const onDriverDownload = async () => {
+      if (!dataSource.value.type) return;
+      isDownloadingDriver.value = true;
+      try {
+        const result = await dataSourceService().downloadDriver(dataSource.value.type, dataSource.value.version || undefined);
+        alertService.showSuccess(result.message || '驱动下载成功');
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isDownloadingDriver.value = false;
+        await loadDriverStatus();
+      }
+    };
+
+    const inferConnectionModeFromUrl = (url?: string | null) => {
+      const modes = formConfig.value.connectionModes;
+      if (modes.length === 0) {
+        selectedConnectionMode.value = '';
+        filePath.value = '';
+        return;
+      }
+      const matched = modes.find(m => m.urlPrefix && url && url.startsWith(m.urlPrefix));
+      selectedConnectionMode.value = matched?.value ?? formConfig.value.defaultConnectionMode ?? modes[0].value;
+      const fileMode = modes.find(m => m.file && m.urlPrefix);
+      filePath.value = fileMode && url && url.startsWith(fileMode.urlPrefix!) ? url.substring(fileMode.urlPrefix!.length) : '';
+    };
 
     const applyUrlModeFromUrl = () => {
-      const type = dataSource.value.type;
+      const cfg = formConfig.value;
       urlMode.value = dataSource.value.connectionMode === 'simple' ? 'simple' : 'custom';
-      if (urlMode.value === 'simple' && type && isNetworkType(type)) {
-        const fields = parseSimpleUrl(type, dataSource.value.url);
+      if (urlMode.value === 'simple' && cfg.network) {
+        const fields = parseSimpleUrl(dataSource.value.type, dataSource.value.url);
         if (fields) {
           dataSource.value.hostname = fields.hostname;
           dataSource.value.port = fields.port;
@@ -166,27 +228,28 @@ export default defineComponent({
           }
         }
       }
+      inferConnectionModeFromUrl(dataSource.value.url);
     };
 
     const initModal = async () => {
       dataSource.value = new DataSource();
       currentStep.value = 1;
       extraParamRows.value = [];
-      duckdbMode.value = 'file';
-      duckdbFile.value = '';
+      selectedConnectionMode.value = '';
+      filePath.value = '';
       urlMode.value = 'simple';
       oracleIdentifierType.value = 'service';
+      driverStatus.value = null;
       if (props.mode === 'edit' && props.dataSourceId) {
         try {
           const res = await dataSourceService().find(props.dataSourceId as string);
           res.updateTime = new Date(res.updateTime);
           res.createTime = new Date(res.createTime);
           dataSource.value = res;
-          duckdbMode.value = inferDuckdbMode(res.url);
-          duckdbFile.value = extractDuckdbFile(res.url);
           applyUrlModeFromUrl();
           currentStep.value = 2;
           syncExtraParamsFromTemplate();
+          loadDriverStatus();
         } catch (error) {
           alertService.showHttpError(error.response);
           closeModal();
@@ -200,16 +263,12 @@ export default defineComponent({
 
     const selectedTypeName = computed(() => dataSource.value.type || '');
 
-    const selectedDbType = computed<DbType | null>(() => {
-      if (!dataSource.value.type) return null;
-      return dbTypes.find(db => db.name === dataSource.value.type) || null;
-    });
-
     const selectDbType = (dbType: DbType) => {
       dataSource.value.type = dbType.name;
-      duckdbMode.value = dbType.defaultConnectionMode || 'file';
-      urlMode.value = isNetworkType(dbType.name) ? 'simple' : 'custom';
-      oracleIdentifierType.value = 'service';
+      const cfg = resolveDbFormConfig(dbType);
+      selectedConnectionMode.value = cfg.defaultConnectionMode ?? cfg.connectionModes[0]?.value ?? '';
+      urlMode.value = cfg.network ? 'simple' : 'custom';
+      oracleIdentifierType.value = cfg.identifierTypes[0]?.value ?? 'service';
       if (dbType.defaultPort && !dataSource.value.port) {
         dataSource.value.port = dbType.defaultPort;
       }
@@ -217,11 +276,12 @@ export default defineComponent({
         dataSource.value.version = dbType.supportedVersions[dbType.supportedVersions.length - 1];
       }
       updateUrl();
+      loadDriverStatus();
     };
 
     const onConnectionModeChange = (mode: string) => {
-      duckdbMode.value = mode;
-      const modeDef = selectedDbType.value?.connectionModes?.find(m => m.value === mode);
+      selectedConnectionMode.value = mode;
+      const modeDef = formConfig.value.connectionModes.find(m => m.value === mode);
       if (modeDef?.defaultPort && !dataSource.value.port) {
         dataSource.value.port = modeDef.defaultPort;
       }
@@ -235,18 +295,18 @@ export default defineComponent({
 
     const onTypeChange = () => {
       const dbType = selectedDbType.value;
-      if (dbType) {
-        duckdbMode.value = dbType.defaultConnectionMode || 'file';
-        urlMode.value = isNetworkType(dbType.name) ? 'simple' : 'custom';
-        oracleIdentifierType.value = 'service';
-        if (dbType.defaultPort && !dataSource.value.port) {
-          dataSource.value.port = dbType.defaultPort;
-        }
-        if (dbType.supportedVersions.length > 0 && !dataSource.value.version) {
-          dataSource.value.version = dbType.supportedVersions[dbType.supportedVersions.length - 1];
-        }
-        updateUrl();
+      if (!dbType) return;
+      const cfg = formConfig.value;
+      selectedConnectionMode.value = cfg.defaultConnectionMode ?? cfg.connectionModes[0]?.value ?? '';
+      urlMode.value = cfg.network ? 'simple' : 'custom';
+      oracleIdentifierType.value = cfg.identifierTypes[0]?.value ?? 'service';
+      if (dbType.defaultPort && !dataSource.value.port) {
+        dataSource.value.port = dbType.defaultPort;
       }
+      if (dbType.supportedVersions.length > 0 && !dataSource.value.version) {
+        dataSource.value.version = dbType.supportedVersions[dbType.supportedVersions.length - 1];
+      }
+      updateUrl();
     };
 
     const onUrlModeChange = (mode: UrlMode) => {
@@ -265,29 +325,25 @@ export default defineComponent({
       const dbType = selectedDbType.value;
       if (!dbType) return;
 
-      if (dbType.name === 'DUCKDB') {
-        if (duckdbMode.value === 'quack') {
-          const host = dataSource.value.hostname || '';
-          if (!host) {
-            dataSource.value.url = '';
-            return;
-          }
-          dataSource.value.url = dataSource.value.port ? `quack:${host}:${dataSource.value.port}` : `quack:${host}`;
-        } else {
-          dataSource.value.url = 'jdbc:duckdb:' + (duckdbFile.value || '');
+      const modeDef = selectedConnectionModeDef.value;
+      if (modeDef?.urlTemplate) {
+        if (modeDef.network && !dataSource.value.hostname) {
+          dataSource.value.url = '';
+          return;
         }
-        return;
-      }
-
-      if (dbType.name === 'DUCKLAKE') {
-        // DuckLake 元数据地址由用户填写，仅在为空时填入模板默认值，避免测试连接/保存时被覆盖
-        if (!dataSource.value.url || !dataSource.value.url.trim()) {
-          dataSource.value.url = buildSimpleUrl(dbType.name, { hostname: '', port: '', database: '' }, dataSource.value.version);
-        }
+        dataSource.value.url = renderUrlTemplate(modeDef.urlTemplate, {
+          host: dataSource.value.hostname || '',
+          port: dataSource.value.port || '',
+          database: dataSource.value.database || '',
+          file: filePath.value || '',
+        });
         return;
       }
 
       if (urlMode.value === 'custom') {
+        if (!dataSource.value.url || !dataSource.value.url.trim()) {
+          dataSource.value.url = buildSimpleUrl(dbType.name, { hostname: '', port: '', database: '' }, dataSource.value.version);
+        }
         return;
       }
 
@@ -304,6 +360,7 @@ export default defineComponent({
     };
 
     const syncDerivedFields = () => {
+      const cfg = formConfig.value;
       dataSource.value.connectionMode = urlMode.value;
       if (urlMode.value === 'custom') {
         const parsed = parseSimpleUrl(dataSource.value.type, dataSource.value.url);
@@ -311,8 +368,8 @@ export default defineComponent({
           dataSource.value.database = parsed.database;
         }
       }
-      if (!schemaEnabled.value) {
-        dataSource.value.schemaName = isOracle.value
+      if (!cfg.schemaEnabled) {
+        dataSource.value.schemaName = cfg.schemaFromUsername
           ? (dataSource.value.username || '').toUpperCase()
           : dataSource.value.database;
       }
@@ -335,6 +392,7 @@ export default defineComponent({
     };
 
     const validateForm = (): boolean => {
+      const cfg = formConfig.value;
       if (!dataSource.value.name || !dataSource.value.name.trim()) {
         alertService.showError('请输入数据源名称');
         return false;
@@ -343,14 +401,13 @@ export default defineComponent({
         alertService.showError('请选择数据源类型');
         return false;
       }
-      if (isDuckDb.value) {
-        if (duckdbMode.value === 'quack' && (!dataSource.value.hostname || !dataSource.value.hostname.trim())) {
-          alertService.showError('请输入 Quack 服务地址');
+      // 连接方式型（如 DuckDB）：按所选模式校验
+      if (hasConnectionModes.value) {
+        const modeDef = selectedConnectionModeDef.value;
+        if (modeDef?.network && (!dataSource.value.hostname || !dataSource.value.hostname.trim())) {
+          alertService.showError('请输入' + (modeDef.hostLabel || '主机'));
           return false;
         }
-        return true;
-      }
-      if (dataSource.value.type === 'DUCKLAKE') {
         return true;
       }
       if (urlMode.value === 'custom') {
@@ -360,12 +417,12 @@ export default defineComponent({
         }
         return true;
       }
-      if (!dataSource.value.hostname || !dataSource.value.hostname.trim()) {
+      if (cfg.network && (!dataSource.value.hostname || !dataSource.value.hostname.trim())) {
         alertService.showError('请输入IP/主机');
         return false;
       }
-      if (!dataSource.value.database || !dataSource.value.database.trim()) {
-        alertService.showError(isOracle.value ? '请输入服务名或 SID' : '请输入数据库名');
+      if (cfg.databaseEnabled && (!dataSource.value.database || !dataSource.value.database.trim())) {
+        alertService.showError(hasIdentifierTypes.value ? `请输入${databaseLabel.value}` : '请输入数据库名');
         return false;
       }
       return true;
@@ -373,8 +430,10 @@ export default defineComponent({
 
     const testConnectionDisabled = computed(() => {
       if (isTestingConnection.value || !dataSource.value.type || !dataSource.value.url) return true;
-      if (!requiresCredentials.value) return false;
-      if (urlMode.value === 'simple' && !dataSource.value.hostname) return true;
+      const cfg = formConfig.value;
+      if (!cfg.credentials) return false;
+      if (selectedConnectionModeDef.value?.network && !dataSource.value.hostname) return true;
+      if (cfg.network && urlMode.value === 'simple' && !dataSource.value.hostname) return true;
       return !dataSource.value.username;
     });
 
@@ -383,9 +442,14 @@ export default defineComponent({
       updateUrl();
       syncDerivedFields();
       buildExtraParamsFromRows();
-      if (!requiresCredentials.value) {
+      const cfg = formConfig.value;
+      if (cfg.clearCredentialsOnSave) {
         dataSource.value.username = null;
         dataSource.value.password = null;
+      }
+      if (cfg.clearDatabaseOnSave) {
+        dataSource.value.database = null;
+        dataSource.value.schemaName = null;
       }
 
       isSaving.value = true;
@@ -444,17 +508,26 @@ export default defineComponent({
       dbTypes,
       selectedTypeName,
       selectedDbType,
+      formConfig,
       extraParamRows,
-      duckdbMode,
-      duckdbFile,
-      isDuckDb,
+      selectedConnectionMode,
+      selectedConnectionModeDef,
+      filePath,
       requiresCredentials,
       urlMode,
       oracleIdentifierType,
-      showUrlModeToggle,
-      isOracle,
-      schemaEnabled,
+      showConnectionModeSelector,
+      hasConnectionModes,
+      showFileField,
+      showNetworkFields,
+      hostLabel,
+      identifierTypes,
+      hasIdentifierTypes,
+      databaseLabel,
       effectiveExtraParamsTemplate,
+      driverStatus,
+      isDownloadingDriver,
+      onDriverDownload,
       testConnectionDisabled,
       selectDbType,
       selectAndGo,

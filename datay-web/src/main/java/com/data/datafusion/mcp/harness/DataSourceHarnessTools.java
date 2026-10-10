@@ -90,7 +90,7 @@ public class DataSourceHarnessTools {
             object(
                 properties(
                     "name", string("数据源名称"),
-                    "type", string("数据库类型，如 mysql、postgresql、oracle、sqlserver、duckdb、doris、clickhouse"),
+                    "type", string("数据库类型，如 mysql、postgresql、oracle、sqlserver、duckdb、doris、clickhouse、dm"),
                     "url", string("JDBC 连接 URL，如 jdbc:mysql://127.0.0.1:3306/dbname"),
                     "hostname", string("主机名（可选，便于展示）"),
                     "port", string("端口（可选，便于展示）"),

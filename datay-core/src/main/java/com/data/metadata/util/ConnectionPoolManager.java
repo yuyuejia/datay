@@ -30,11 +30,6 @@ public class ConnectionPoolManager {
 
     // 驱动包根目录配置
     private static final String DRIVER_BASE_DIR = "drivers";
-    private static final String MYSQL_DRIVER_DIR = DRIVER_BASE_DIR + "/mysql";
-    private static final String ORACLE_DRIVER_DIR = DRIVER_BASE_DIR + "/oracle";
-    private static final String POSTGRESQL_DRIVER_DIR = DRIVER_BASE_DIR + "/postgresql";
-    private static final String SQLSERVER_DRIVER_DIR = DRIVER_BASE_DIR + "/sqlserver";
-    private static final String DUCKDB_DRIVER_DIR = DRIVER_BASE_DIR + "/duckdb";
 
 
     /**
@@ -213,14 +208,42 @@ public class ConnectionPoolManager {
                         // 使用自定义类加载器加载驱动类
                         Class<?> driverClass = classLoader.loadClass(driverClassName);
                         // 注册驱动
-                        java.sql.Driver driver = (java.sql.Driver) driverClass.newInstance();
-                        java.sql.DriverManager.registerDriver(new DriverProxy(driver, classLoader));
+                        java.sql.Driver driver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
+                        registerDriverProxy(driver, classLoader);
                     } catch (Exception e) {
                         throw new RuntimeException("Failed to load driver: " + driverClassName, e);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 将隔离加载的驱动注册到 {@link java.sql.DriverManager}。
+     *
+     * <p>{@code DriverManager} 会按「调用方类加载器」过滤已注册驱动（{@code isDriverAllowed}）。
+     * 在 Spring Boot devtools 等重启类加载器环境下，本类由重启类加载器加载，而调用 JDBC 的
+     * HikariCP 由系统类加载器加载，导致 {@link DriverProxy} 被过滤、报 “No suitable driver”。
+     * 因此优先用系统类加载器加载 {@link DriverProxy} 并创建代理实例，确保过滤通过；
+     * 若系统类加载器无法加载（如可执行 fat jar），则回退为当前类加载器直接注册。
+     */
+    private static void registerDriverProxy(java.sql.Driver driver, DriverClassLoader classLoader) throws Exception {
+        ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+        if (systemClassLoader != null && DriverProxy.class.getClassLoader() != systemClassLoader) {
+            try {
+                Class<?> proxyClass = Class.forName(DriverProxy.class.getName(), true, systemClassLoader);
+                if (proxyClass != DriverProxy.class) {
+                    java.sql.Driver proxy = (java.sql.Driver) proxyClass.getConstructor(java.sql.Driver.class).newInstance(driver);
+                    java.sql.DriverManager.registerDriver(proxy);
+                    return;
+                }
+            } catch (Throwable e) {
+                System.err.println(
+                    "Failed to register driver proxy via system classloader, falling back to current classloader: " + e.getMessage()
+                );
+            }
+        }
+        java.sql.DriverManager.registerDriver(new DriverProxy(driver, classLoader));
     }
 
     //    drivers/
@@ -250,7 +273,11 @@ public class ConnectionPoolManager {
      * 根据数据源类型和版本加载对应的驱动包
      */
     private static void loadDriverJarByTypeAndVersion(DBType dbType, String version, DriverClassLoader classLoader) {
-        String driverDir = getDriverDirectory(dbType, version);
+        String resolvedVersion = (version == null || version.isBlank()) ? "default" : version;
+        // 平台未内置的驱动（如达梦）在缺失时按需从 Maven 仓库下载
+        ensureDriverDownloaded(dbType, resolvedVersion);
+
+        String driverDir = getDriverDirectory(dbType, resolvedVersion);
         File dir = new File(driverDir);
 
         if (dir.exists() && dir.isDirectory()) {
@@ -259,7 +286,7 @@ public class ConnectionPoolManager {
                 for (File jarFile : jarFiles) {
                     try {
                         classLoader.addDriverJar(jarFile.getAbsolutePath());
-                        System.out.println("Loaded driver JAR: " + jarFile.getAbsolutePath() + " for " + dbType + " version " + version);
+                        System.out.println("Loaded driver JAR: " + jarFile.getAbsolutePath() + " for " + dbType + " version " + resolvedVersion);
                     } catch (Exception e) {
                         System.err.println("Failed to load driver JAR: " + jarFile.getAbsolutePath() + ", error: " + e.getMessage());
                     }
@@ -271,6 +298,25 @@ public class ConnectionPoolManager {
             // 如果指定版本的目录不存在，尝试加载默认版本的驱动
             System.err.println("Driver directory not found: " + driverDir + ", trying default version");
             loadDefaultDriverJar(dbType, classLoader);
+        }
+    }
+
+    /**
+     * 当内置驱动缺失且该类型支持 Maven 下载时，自动下载到驱动目录。
+     */
+    private static void ensureDriverDownloaded(DBType dbType, String version) {
+        if (dbType == null || !dbType.isDownloadable()) {
+            return;
+        }
+        if (DriverDownloader.isDriverInstalled(dbType, version)) {
+            return;
+        }
+        try {
+            DriverDownloader.downloadDriver(dbType, version);
+        } catch (Exception e) {
+            System.err.println(
+                "Failed to auto-download driver for " + dbType + " version " + version + ": " + e.getMessage()
+            );
         }
     }
 
@@ -303,42 +349,17 @@ public class ConnectionPoolManager {
     }
 
     /**
-     * 获取驱动目录路径
+     * 获取驱动目录路径（统一为 {@code drivers/<type>/default}，与下载目录保持一致）
      */
     private static String getDriverDirectory(DBType dbType, String version) {
-        String baseDir = getDriverBaseDirectory(dbType);
-        return baseDir + "/" + version;
+        return DriverDownloader.getDriverDir(dbType, version).getPath();
     }
 
     /**
      * 获取默认驱动目录路径
      */
     private static String getDefaultDriverDirectory(DBType dbType) {
-        return getDriverBaseDirectory(dbType) + "/default";
-    }
-
-    /**
-     * 获取驱动基础目录路径
-     */
-    private static String getDriverBaseDirectory(DBType dbType) {
-        if (dbType == null) {
-            return DRIVER_BASE_DIR;
-        }
-
-        switch (dbType) {
-            case MYSQL:
-                return MYSQL_DRIVER_DIR;
-            case ORACLE:
-                return ORACLE_DRIVER_DIR;
-            case POSTGRESQL:
-                return POSTGRESQL_DRIVER_DIR;
-            case SQLSERVER:
-                return SQLSERVER_DRIVER_DIR;
-            case DUCKDB:
-                return DUCKDB_DRIVER_DIR;
-            default:
-                return DRIVER_BASE_DIR + "/" + dbType.name().toLowerCase();
-        }
+        return DriverDownloader.getDriverDir(dbType, null).getPath();
     }
 
     /**

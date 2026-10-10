@@ -776,6 +776,8 @@ public class DBUtils {
             return "SELECT 1";
         } else if (url.startsWith("jdbc:sqlserver:")) {
             return "SELECT 1";
+        } else if (url.startsWith("jdbc:dm:")) {
+            return "SELECT 1";
         } else if (url.startsWith("jdbc:duckdb:") || url.startsWith("quack:")) {
             return "SELECT 1";
         } else if (url.startsWith("jdbc:clickhouse:")) {
@@ -1032,6 +1034,8 @@ public class DBUtils {
             tableMeta = getTableMetaData(conn, null, schema, table);
         } else if (DBType.POSTGRESQL.toString().equals(dbType)) {
             tableMeta = getTableMetaData(conn, null, schema, table);
+        } else if (DBType.DM.toString().equals(dbType)) {
+            tableMeta = getTableMetaData(conn, null, schema, table);
         } else {
             tableMeta = getTableMetaData(conn, schema, null, table);
         }
@@ -1080,7 +1084,12 @@ public class DBUtils {
                 String name = rs.getString("COLUMN_NAME");
                 String type = rs.getString("TYPE_NAME");
                 int size = rs.getInt("COLUMN_SIZE");
-                boolean isNullable = rs.getBoolean("IS_NULLABLE");
+                // 多数驱动（DM/MySQL/Oracle/PG 等）的 IS_NULLABLE 为字符串 "YES"/"NO"，
+                // 直接 getBoolean("YES") 会得到 false，导致所有列被误判为 NOT NULL。
+                String nullableFlag = rs.getString("IS_NULLABLE");
+                boolean isNullable =
+                    nullableFlag == null ||
+                    !("NO".equalsIgnoreCase(nullableFlag) || "0".equals(nullableFlag) || "false".equalsIgnoreCase(nullableFlag));
                 // 新增字段描述、精度和小数位数的获取
                 String remarks = rs.getString("REMARKS");
                 int decimalDigits = rs.getInt("DECIMAL_DIGITS");
@@ -1143,7 +1152,11 @@ public class DBUtils {
             tableMeta.setComment(getTableComment(conn, catalog, schema, table));
             tableMeta.setIndexes(getTableIndexes(conn, catalog, schema, table));
             return tableMeta;
-        } else if (DBType.ORACLE.toString().equals(dbType) || DBType.POSTGRESQL.toString().equals(dbType)) {
+        } else if (
+            DBType.ORACLE.toString().equals(dbType) ||
+            DBType.POSTGRESQL.toString().equals(dbType) ||
+            DBType.DM.toString().equals(dbType)
+        ) {
             TableMeta tableMeta = getTableMetaData(conn, null, schema, table);
             tableMeta.setDbType(dbType);
             tableMeta.setComment(getTableComment(conn, null, schema, table));
@@ -1229,6 +1242,8 @@ public class DBUtils {
             return DBType.POSTGRESQL.toString();
         } else if (jdbcUrl.startsWith("jdbc:sqlserver:")) {
             return DBType.SQLSERVER.toString();
+        } else if (jdbcUrl.startsWith("jdbc:dm:")) {
+            return DBType.DM.toString();
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
@@ -1249,6 +1264,8 @@ public class DBUtils {
             return DBType.POSTGRESQL;
         } else if (jdbcUrl.startsWith("jdbc:sqlserver:")) {
             return DBType.SQLSERVER;
+        } else if (jdbcUrl.startsWith("jdbc:dm:")) {
+            return DBType.DM;
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB;
         } else if (jdbcUrl.startsWith("jdbc:clickhouse:")) {
@@ -1317,6 +1334,18 @@ public class DBUtils {
                 info.setHostname(matcher.group(1));
                 info.setPort(matcher.group(2));
                 info.setDatabase(matcher.group(3));
+            }
+        }
+        // 达梦 URL格式: jdbc:dm://hostname:port[/schema]
+        else if (urlLower.startsWith("jdbc:dm:")) {
+            Pattern pattern = Pattern.compile("jdbc:dm://([^:/?]+)(?::(\\d+))?(?:/([^?]+))?");
+            Matcher matcher = pattern.matcher(datasourceInfo.getUrl());
+            if (matcher.find()) {
+                info.setHostname(matcher.group(1));
+                info.setPort(matcher.group(2));
+                if (matcher.group(3) != null && !matcher.group(3).isEmpty()) {
+                    info.setDbschema(matcher.group(3));
+                }
             }
         }
 
@@ -1823,6 +1852,8 @@ public class DBUtils {
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {
             return tableExists(conn, null, schema, table);
         } else if (jdbcUrl.startsWith("jdbc:postgresql:")) {
+            return tableExists(conn, null, schema, table);
+        } else if (jdbcUrl.startsWith("jdbc:dm:")) {
             return tableExists(conn, null, schema, table);
         }
         return tableExists(conn, schema, null, table);

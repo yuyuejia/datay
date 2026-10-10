@@ -15,13 +15,24 @@
             <el-option v-for="dbType in dbTypes" :key="dbType.name" :value="dbType.name" :label="dbType.displayName" />
           </el-select>
           </el-form-item>
-          <el-form-item v-if="selectedDbType && selectedDbType.connectionModes && selectedDbType.connectionModes.length > 0" label="连接方式">
+          <el-form-item v-if="selectedDbType?.downloadable" label="JDBC 驱动">
+            <div class="driver-status">
+              <el-tag v-if="driverStatus?.installed" type="success" size="small">已安装</el-tag>
+              <el-tag v-else type="warning" size="small">未安装</el-tag>
+              <span class="driver-name text-muted">{{ driverStatus?.jarName || '驱动未下载' }}</span>
+              <el-button type="primary" plain size="small" :loading="isDownloadingDriver" @click="onDriverDownload">
+                {{ driverStatus?.installed ? '重新下载驱动' : '下载驱动' }}
+              </el-button>
+            </div>
+            <small class="text-muted d-block">该数据库驱动未内置，测试连接或首次连接时会自动下载，也可手动下载到驱动目录</small>
+          </el-form-item>
+          <el-form-item v-if="showConnectionModeSelector" label="连接方式">
             <div class="d-flex gap-3">
               <div
-                v-for="mode in selectedDbType.connectionModes"
+                v-for="mode in formConfig.connectionModes"
                 :key="mode.value"
                 class="connection-mode-option"
-                :class="{ selected: duckdbMode === mode.value }"
+                :class="{ selected: selectedConnectionMode === mode.value }"
                 @click="onConnectionModeChange(mode.value)"
               >
                 <span class="connection-mode-label">{{ mode.label }}</span>
@@ -29,36 +40,35 @@
               </div>
             </div>
           </el-form-item>
-          <el-form-item v-if="showUrlModeToggle" label="连接方式">
+          <el-form-item v-if="formConfig.network" label="连接方式">
             <el-radio-group v-model="urlMode" @change="onUrlModeChange">
               <el-radio-button value="simple">简易模式</el-radio-button>
               <el-radio-button value="custom">自定义模式</el-radio-button>
             </el-radio-group>
             <small class="text-muted d-block">简易模式自动生成 JDBC URL，自定义模式手动填写 JDBC URL</small>
           </el-form-item>
-          <el-form-item v-if="isDuckDb && duckdbMode === 'file'" label="数据库文件路径">
-            <el-input name="duckdbFile" id="data-source-duckdb-file" data-cy="duckdbFile" placeholder="留空表示内存数据库，例如 /data/analytics.duckdb" v-model="duckdbFile" @input="updateUrl" />
+          <el-form-item v-if="showFileField" label="数据库文件路径">
+            <el-input name="filePath" id="data-source-file-path" data-cy="filePath" placeholder="留空表示内存数据库，例如 /data/analytics.duckdb" v-model="filePath" @input="updateUrl" />
             <small class="text-muted">无需填写主机、端口、用户名和密码</small>
           </el-form-item>
           <el-form-item label="Url">
-            <el-input name="url" id="data-source-url" data-cy="url" v-model="dataSource.url" :disabled="isDuckDb || urlMode === 'simple'" />
+            <el-input name="url" id="data-source-url" data-cy="url" v-model="dataSource.url" :disabled="hasConnectionModes || urlMode === 'simple'" />
           </el-form-item>
-          <div class="form-row" v-if="(!isDuckDb && urlMode === 'simple') || (isDuckDb && duckdbMode === 'quack')">
-            <el-form-item class="col-md-8" :label="isDuckDb ? 'Quack 服务地址' : 'IP/主机'">
+          <div class="form-row" v-if="showNetworkFields">
+            <el-form-item class="col-md-8" :label="hostLabel">
             <el-input name="hostname" id="data-source-hostname" data-cy="hostname" v-model="dataSource.hostname" @input="updateUrl" />
           </el-form-item>
             <el-form-item class="col-md-4" label="端口">
             <el-input name="port" id="data-source-port" data-cy="port" v-model="dataSource.port" @input="updateUrl" />
           </el-form-item>
           </div>
-          <template v-if="!isDuckDb && urlMode === 'simple'">
-            <el-form-item v-if="isOracle" label="连接标识类型">
+          <template v-if="formConfig.databaseEnabled && urlMode === 'simple'">
+            <el-form-item v-if="hasIdentifierTypes" label="连接标识类型">
             <el-select name="oracleIdentifierType" id="data-source-oracle-identifier-type" v-model="oracleIdentifierType" @change="onOracleIdentifierTypeChange">
-              <el-option value="service" label="服务名 (Service Name)" />
-              <el-option value="sid" label="SID" />
+              <el-option v-for="idType in identifierTypes" :key="idType.value" :value="idType.value" :label="idType.label" />
             </el-select>
           </el-form-item>
-            <el-form-item :label="isOracle ? (oracleIdentifierType === 'sid' ? 'SID' : '服务名') : '数据库名'">
+            <el-form-item :label="databaseLabel">
             <el-input name="database" id="data-source-database" data-cy="database" v-model="dataSource.database" @input="updateUrl" />
           </el-form-item>
           </template>
@@ -68,7 +78,7 @@
           <el-form-item v-if="requiresCredentials" label="Password">
             <el-input type="password" name="password" id="data-source-password" data-cy="password" v-model="v$.password.$model" />
           </el-form-item>
-          <el-form-item v-if="!isDuckDb && schemaEnabled" label="默认Schema">
+          <el-form-item v-if="formConfig.schemaEnabled" label="默认Schema">
             <el-input name="schemaName" id="data-source-schemaName" data-cy="schemaName" v-model="dataSource.schemaName" />
           </el-form-item>
 
@@ -136,6 +146,20 @@
 .connection-mode-label {
   font-weight: 600;
   color: #212529;
+}
+
+.driver-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.driver-status .driver-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .extra-params-toolbar {

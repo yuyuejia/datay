@@ -102,8 +102,6 @@
   background: #fff;
   color: #1677ff;
   border-color: #dcdfe6;
-  border-bottom: 1px solid #fff;
-  box-shadow: inset 0 2px 0 #1677ff;
 }
 
 .tab-item--active .tab-item-title {

@@ -26,6 +26,7 @@ public class DatabaseConverter {
         converters.put("postgresql", new PostgresqlConverter());
         converters.put("doris", new DorisConverter());
         converters.put("avro", new AVROConverter());
+        converters.put("dm", new DmConverter());
     }
 
     // 注册数据库类型转换器
@@ -160,6 +161,8 @@ public class DatabaseConverter {
             case "postgresql":
                 return "\"" + columnName + "\"";
             case "oracle":
+                return "\"" + columnName.toUpperCase() + "\"";
+            case "dm":
                 return "\"" + columnName.toUpperCase() + "\"";
             default:
                 return columnName;

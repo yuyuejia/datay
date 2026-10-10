@@ -140,7 +140,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 
 ## 支持的数据源
 
-- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
+- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB, 达梦（DM）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）

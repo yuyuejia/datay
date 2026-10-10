@@ -11,7 +11,7 @@ export interface SimpleUrlFields {
   oracleIdentifierType?: OracleIdentifierType;
 }
 
-const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9]+:\/\/([^:/]+)(?::(\d+))?\/([^?]*)/i;
+const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9]+:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*))?/i;
 const SQLSERVER_URL_PATTERN = /^jdbc:sqlserver:\/\/([^:;]+)(?::(\d+))?.*?databaseName=([^;]+)/i;
 const ORACLE_SERVICE_PATTERN = /^jdbc:oracle:thin:@\/\/([^:/]+)(?::(\d+))?\/(.+)$/i;
 const ORACLE_SID_PATTERN = /^jdbc:oracle:thin:@([^:/]+)(?::(\d+))?:(.+)$/i;
@@ -88,7 +88,28 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
 
   const match = NETWORK_URL_PATTERN.exec(url);
   if (!match) return null;
-  return { hostname: match[1], port: match[2] ?? '', database: match[3] };
+  return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
 }
 
 export { isNetworkType };
+
+export interface UrlTemplateValues {
+  host?: string;
+  port?: string;
+  database?: string;
+  file?: string;
+}
+
+/**
+ * 按模板生成 JDBC URL，支持 {host} {port} {database} {file} 占位符。
+ * {port} 与 {database} 为空时连同其前置分隔符一并移除（可选段），
+ * 便于表达如 `quack:{host}:{port}` 这类端口可省略的地址。
+ */
+export function renderUrlTemplate(template: string, values: UrlTemplateValues): string {
+  return template
+    .replace(/[:/]?\{(port|database)\}/gi, (match, key: string) => {
+      const value = values[key as keyof UrlTemplateValues];
+      return value ? match.replace(/\{(\w+)\}/, String(value)) : '';
+    })
+    .replace(/\{(host|file)\}/gi, (_match, key: string) => values[key as keyof UrlTemplateValues] ?? '');
+}

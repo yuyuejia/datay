@@ -18,8 +18,20 @@ public class DriverProxy implements Driver {
         this.classLoader = classLoader;
     }
 
+    /**
+     * 仅持有目标驱动的代理，不切换线程上下文类加载器。
+     * <p>用于需要以系统类加载器反序列化/创建代理实例的场景（如 devtools 重启类加载器环境下，
+     * {@link java.sql.DriverManager} 会按调用方类加载器过滤驱动）。
+     */
+    public DriverProxy(Driver targetDriver) {
+        this(targetDriver, null);
+    }
+
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
+        if (classLoader == null) {
+            return targetDriver.connect(url, info);
+        }
         // 保存当前线程的类加载器
         ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
 

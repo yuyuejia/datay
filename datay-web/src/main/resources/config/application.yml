@@ -253,6 +253,10 @@ datay:
       member-index-enabled: true
       # 单字段成员抽样上限
       member-sample-limit: 200
+  # 数据库 JDBC 驱动按需下载：平台未内置的驱动（如达梦）在首次连接或手动下载时拉取到 drivers/ 目录
+  driver:
+    # Maven 仓库地址，逗号或分号分隔，按顺序回退；也可通过环境变量 DATAY_DRIVER_REPOS 覆盖
+    repos: ${DATAY_DRIVER_REPOS:https://repo1.maven.org/maven2,https://maven.aliyun.com/repository/public}
   # 平台管理 Harness：通过 MCP 端点 /mcp/datay 暴露数据源、ETL 任务、数据模型等对象的增删改查与运行类操作
   mcp:
     harness:

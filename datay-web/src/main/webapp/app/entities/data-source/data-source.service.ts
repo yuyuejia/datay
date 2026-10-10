@@ -179,4 +179,30 @@ export default class DataSourceService {
         });
     });
   }
+
+  getDriverStatus(type: string, version?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`api/drivers/${type}`, { params: version ? { version } : {} })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  downloadDriver(type: string, version?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`api/drivers/${type}/download`, null, { params: version ? { version } : {} })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
 }

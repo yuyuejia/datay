@@ -138,6 +138,33 @@ public enum DBType {
         "org.apache.avro.jdbc.AvroDriver",
         "jdbc:avro://{host}:{port}/{database}",
         Map.of("1.8", "avro-jdbc-1.8.2.jar", "1.9", "avro-jdbc-1.9.2.jar", "1.10", "avro-jdbc-1.10.2.jar", "1.11", "avro-jdbc-1.11.3.jar")
+    ),
+
+    /**
+     * 达梦数据库（DaMeng / DM）。
+     * <p>JDBC 驱动未随平台打包，按需从 Maven 仓库下载到驱动目录（见 {@link com.data.metadata.util.DriverDownloader}）。
+     */
+    DM(
+        "达梦数据库",
+        Arrays.asList("8.1.1.193", "8.1.2.79", "8.1.2.141", "8.1.2.192", "8.1.3.62", "8.1.3.140"),
+        "dm.jdbc.driver.DmDriver",
+        "jdbc:dm://{host}:{port}",
+        Map.of(
+            "8.1.1.193",
+            "DmJdbcDriver18-8.1.1.193.jar",
+            "8.1.2.79",
+            "DmJdbcDriver18-8.1.2.79.jar",
+            "8.1.2.141",
+            "DmJdbcDriver18-8.1.2.141.jar",
+            "8.1.2.192",
+            "DmJdbcDriver18-8.1.2.192.jar",
+            "8.1.3.62",
+            "DmJdbcDriver18-8.1.3.62.jar",
+            "8.1.3.140",
+            "DmJdbcDriver18-8.1.3.140.jar"
+        ),
+        "com.dameng",
+        "DmJdbcDriver18"
     );
 
     private final String displayName;
@@ -145,6 +172,8 @@ public enum DBType {
     private final String driverClassName;
     private final String jdbcUrlTemplate;
     private final Map<String, String> versionToDriverJar;
+    private final String mavenGroupId;
+    private final String mavenArtifactId;
 
     DBType(
         String displayName,
@@ -153,11 +182,25 @@ public enum DBType {
         String jdbcUrlTemplate,
         Map<String, String> versionToDriverJar
     ) {
+        this(displayName, supportedVersions, driverClassName, jdbcUrlTemplate, versionToDriverJar, null, null);
+    }
+
+    DBType(
+        String displayName,
+        List<String> supportedVersions,
+        String driverClassName,
+        String jdbcUrlTemplate,
+        Map<String, String> versionToDriverJar,
+        String mavenGroupId,
+        String mavenArtifactId
+    ) {
         this.displayName = displayName;
         this.supportedVersions = supportedVersions;
         this.driverClassName = driverClassName;
         this.jdbcUrlTemplate = jdbcUrlTemplate;
         this.versionToDriverJar = versionToDriverJar;
+        this.mavenGroupId = mavenGroupId;
+        this.mavenArtifactId = mavenArtifactId;
     }
 
     public String getDisplayName() {
@@ -183,7 +226,46 @@ public enum DBType {
     }
 
     public String getDriverJarForVersion(String version) {
-        return versionToDriverJar.getOrDefault(version, versionToDriverJar.get(getDefaultVersion()));
+        String resolved = (version == null || version.isBlank() || "default".equalsIgnoreCase(version)) ? getDefaultVersion() : version;
+        return versionToDriverJar.getOrDefault(resolved, versionToDriverJar.get(getDefaultVersion()));
+    }
+
+    public String getMavenGroupId() {
+        return mavenGroupId;
+    }
+
+    public String getMavenArtifactId() {
+        return mavenArtifactId;
+    }
+
+    /**
+     * 是否可以通过 Maven 仓库按需下载驱动。仅有 Maven 坐标（groupId/artifactId）的类型才支持。
+     */
+    public boolean isDownloadable() {
+        return mavenGroupId != null && !mavenGroupId.isBlank() && mavenArtifactId != null && !mavenArtifactId.isBlank();
+    }
+
+    /**
+     * 将版本占位符（含 {@code default}）解析为具体版本号。
+     */
+    public String resolveVersion(String version) {
+        return (version == null || version.isBlank() || "default".equalsIgnoreCase(version)) ? getDefaultVersion() : version;
+    }
+
+    /**
+     * 计算驱动 jar 在 Maven 仓库中的相对路径，例如
+     * {@code com/dameng/DmJdbcDriver18/8.1.3.140/DmJdbcDriver18-8.1.3.140.jar}。
+     */
+    public String getMavenDriverRelativePath(String version) {
+        if (!isDownloadable()) {
+            return null;
+        }
+        String resolved = resolveVersion(version);
+        String jarName = getDriverJarForVersion(resolved);
+        if (jarName == null) {
+            jarName = mavenArtifactId + "-" + resolved + ".jar";
+        }
+        return mavenGroupId.replace('.', '/') + "/" + mavenArtifactId + "/" + resolved + "/" + jarName;
     }
 
     public boolean isVersionSupported(String version) {
@@ -217,7 +299,7 @@ public enum DBType {
     }
 
     public static List<DBType> getTypesWithVersionSupport() {
-        return Arrays.asList(MYSQL, ORACLE, POSTGRESQL, SQLSERVER, DUCKDB, CLICKHOUSE, GREENPLUM, DORIS);
+        return Arrays.asList(MYSQL, ORACLE, POSTGRESQL, SQLSERVER, DUCKDB, CLICKHOUSE, GREENPLUM, DORIS, DM);
     }
 
     public static DBType getByDisplayName(String displayName) {
