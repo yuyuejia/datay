@@ -7,6 +7,11 @@
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
         </el-button>
+        <el-button type="success" class="mr-2" @click="triggerImport" data-cy="entityImportButton">
+          <font-awesome-icon icon="file-import"></font-awesome-icon>
+          <span>导入任务</span>
+        </el-button>
+        <input ref="fileInput" type="file" accept=".json,application/json" style="display: none" @change="onFileSelected" />
         <router-link :to="{ name: 'ETLTaskDesignNew' }" custom v-slot="{ navigate }">
           <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-etl-task">
             <font-awesome-icon icon="plus"></font-awesome-icon>
@@ -41,7 +46,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="410">
+        <el-table-column label="操作" fixed="right" min-width="360">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
@@ -58,15 +63,20 @@
               <el-button size="small" v-if="scope.row.status != 'OFFLINE'" @click="offlineETLTask(scope.row.id)" class="offline" data-cy="entityOfflineButton">
                 <span class="d-none d-md-inline">下线</span>
               </el-button>
-              <el-button type="info" size="small" @click="prepareViewInstances(scope.row)" data-cy="entityLogButton">
-                <span class="d-none d-md-inline">日志</span>
-              </el-button>
-              <el-button type="primary" plain size="small" @click="openStateManager(scope.row)" data-cy="entityStateButton">
-                <span class="d-none d-md-inline">状态</span>
-              </el-button>
-              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
-                <span class="d-none d-md-inline">删除</span>
-              </el-button>
+              <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
+                <el-button type="info" plain size="small" data-cy="entityMoreButton">
+                  <span class="d-none d-md-inline">更多</span>
+                  <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="logs" data-cy="entityLogButton">日志</el-dropdown-item>
+                    <el-dropdown-item command="state" data-cy="entityStateButton">状态</el-dropdown-item>
+                    <el-dropdown-item command="export" data-cy="entityExportButton">导出</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided data-cy="entityDeleteButton">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -221,6 +231,38 @@
           <el-button type="danger" plain @click="clearState" :disabled="isStateSaving">清空状态</el-button>
           <el-button type="primary" @click="saveState" :disabled="isStateSaving">保存修改</el-button>
           <el-button @click="closeStateModal()">关闭</el-button>
+        </div>
+      </template>
+    </app-modal>
+    <app-modal v-model="importResultVisible" id="importResultModal" size="lg" scrollable>
+      <template #modal-title>
+        <span>ETL 任务导入结果</span>
+      </template>
+      <div class="modal-body" v-if="importResult">
+        <p>
+          任务名称：<strong>{{ importResult.taskName }}</strong>
+        </p>
+        <p>
+          任务编码：<strong>{{ importResult.taskCode }}</strong>
+          <span v-if="importResult.renamed" class="text-warning">（因冲突已自动重命名）</span>
+        </p>
+        <div v-if="importUnmatchedRefs(importResult).length">
+          <p class="text-danger">以下引用的数据源 / 模型未在当前租户找到，已保留原值，需要手动修复：</p>
+          <ul>
+            <li v-for="(name, idx) in importUnmatchedRefs(importResult)" :key="idx">{{ name }}</li>
+          </ul>
+        </div>
+        <div v-if="importResult.warnings && importResult.warnings.length">
+          <p>提示：</p>
+          <ul>
+            <li v-for="(w, idx) in importResult.warnings" :key="idx">{{ w }}</li>
+          </ul>
+        </div>
+        <p class="text-muted" style="margin-top: 12px">任务已离线导入，可在列表中编辑或上线。</p>
+      </div>
+      <template #modal-footer>
+        <div>
+          <el-button type="primary" @click="closeImportResult">关闭</el-button>
         </div>
       </template>
     </app-modal>

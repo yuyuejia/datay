@@ -3,7 +3,7 @@ import { ElMessageBox } from 'element-plus';
 
 import ETLTaskService from './etl-task.service';
 import EtlTaskStateService from './etl-task-state.service';
-import { type IETLTask } from '@/shared/model/etl-task.model';
+import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -240,6 +240,96 @@ export default defineComponent({
       }
     };
 
+    // ---------------- 导出 / 导入 ----------------
+
+    const fileInput = ref<HTMLInputElement | null>(null);
+    const importResultVisible = ref(false);
+    const importResult: Ref<IETLTaskImportResult | null> = ref(null);
+
+    const exportETLTask = async (task: IETLTask) => {
+      try {
+        const data = await eTLTaskService().exportTask(task.id);
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${task.taskCode || 'etl-task'}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        alertService.showInfo('任务已导出', { variant: 'success' });
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const triggerImport = () => {
+      fileInput.value?.click();
+    };
+
+    const onFileSelected = async (event: Event) => {
+      const input = event.target as HTMLInputElement;
+      const file = input?.files?.[0];
+      input.value = '';
+      if (!file) {
+        return;
+      }
+      const text = await file.text();
+      let transfer: IETLTaskTransfer;
+      try {
+        transfer = JSON.parse(text);
+      } catch {
+        alertService.showError('所选文件不是合法的 JSON 任务文件');
+        return;
+      }
+      if (!transfer || !transfer.task) {
+        alertService.showError('所选文件不是合法的 ETL 任务文件');
+        return;
+      }
+      try {
+        const result = await eTLTaskService().importTask(transfer);
+        importResult.value = result;
+        importResultVisible.value = true;
+        alertService.showInfo('ETL 任务导入成功', { variant: 'success' });
+        await retrieveETLTasks();
+      } catch (error: any) {
+        alertService.showError(error.response?.data?.detail || error.response?.data?.message || 'ETL 任务导入失败');
+      }
+    };
+
+    const closeImportResult = () => {
+      importResultVisible.value = false;
+    };
+
+    const importUnmatchedRefs = (result: IETLTaskImportResult | null): string[] => {
+      if (!result) {
+        return [];
+      }
+      const items = [...(result.dataSources || []), ...(result.models || [])];
+      return items.filter(item => !item.matched).map(item => item.label || item.oldId);
+    };
+
+    // 操作列「更多」下拉：日志 / 状态 / 导出 / 删除
+    const handleRowCommand = (command: string, task: IETLTask) => {
+      switch (command) {
+        case 'logs':
+          prepareViewInstances(task);
+          break;
+        case 'state':
+          openStateManager(task);
+          break;
+        case 'export':
+          exportETLTask(task);
+          break;
+        case 'delete':
+          prepareRemove(task);
+          break;
+        default:
+          break;
+      }
+    };
+
     const stateModal = ref<any>(null);
     const currentStateTask: Ref<IETLTask> = ref<IETLTask>({});
     const stateJobCode = ref('');
@@ -415,6 +505,15 @@ export default defineComponent({
       runETLTask,
       onlineETLTask,
       offlineETLTask,
+      fileInput,
+      importResultVisible,
+      importResult,
+      exportETLTask,
+      triggerImport,
+      onFileSelected,
+      closeImportResult,
+      importUnmatchedRefs,
+      handleRowCommand,
       itemsPerPage,
       queryCount,
       page,

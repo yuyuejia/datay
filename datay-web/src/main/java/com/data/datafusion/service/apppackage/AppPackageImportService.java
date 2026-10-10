@@ -739,7 +739,7 @@ public class AppPackageImportService {
             }
             root = parsed;
         }
-        JsonNode remapped = remapIds(root.deepCopy(), Map.of("dimensionModelId", modelMap));
+        JsonNode remapped = AppPackageIdRemapper.remapIds(root.deepCopy(), Map.of("dimensionModelId", modelMap));
         if (!modelCodeRename.isEmpty() && remapped.isObject()) {
             JsonNode conditions = remapped.get("conditions");
             if (conditions != null && conditions.isArray()) {
@@ -863,7 +863,7 @@ public class AppPackageImportService {
         Map<String, Map<String, String>> remap = new LinkedHashMap<>();
         remap.put("sourceId", dataSourceMap);
         remap.put("modelId", modelMap);
-        JsonNode remapped = remapIds(raw.deepCopy(), remap);
+        JsonNode remapped = AppPackageIdRemapper.remapIds(raw.deepCopy(), remap);
         dto.setConfig(remapped == null ? null : remapped.toString());
         return dto;
     }
@@ -925,7 +925,7 @@ public class AppPackageImportService {
                         result.warnings.add("SQL 任务引用的数据源不在资产包内：" + item.jobName + " -> dataSourceId=" + dataSourceId.asText());
                     }
                 }
-                context = remapIds(context, Map.of("dataSourceId", dataSourceMap));
+                context = AppPackageIdRemapper.remapIds(context, Map.of("dataSourceId", dataSourceMap));
             }
             String jobType = resolvedType == null ? item.type : resolvedType;
             Job existing = item.jobName == null ? null : jobRepository.findFirstByJobName(item.jobName).orElse(null);
@@ -1204,48 +1204,6 @@ public class AppPackageImportService {
     }
 
     // ------------------------------------------------------------------ 通用工具
-
-    /**
-     * 递归重写 JSON 中指定字段名的数字 ID：字段名命中且值能在映射表中找到时替换为新 ID，
-     * 找不到则保留原值（由调用方决定是否告警）。
-     */
-    private JsonNode remapIds(JsonNode node, Map<String, Map<String, String>> remapByField) {
-        if (node == null) {
-            return null;
-        }
-        if (node.isObject()) {
-            ObjectNode object = (ObjectNode) node;
-            List<String> names = new ArrayList<>();
-            object.fieldNames().forEachRemaining(names::add);
-            for (String name : names) {
-                JsonNode value = object.get(name);
-                Map<String, String> mapping = remapByField.get(name);
-                if (mapping != null && value != null && !value.isContainerNode()) {
-                    String mapped = mapping.get(value.asText());
-                    if (mapped != null) {
-                        object.put(name, mapped);
-                        continue;
-                    }
-                }
-                JsonNode remapped = remapIds(value, remapByField);
-                if (remapped != null && remapped != value) {
-                    object.set(name, remapped);
-                }
-            }
-            return object;
-        }
-        if (node.isArray()) {
-            ArrayNode array = (ArrayNode) node;
-            for (int i = 0; i < array.size(); i++) {
-                JsonNode remapped = remapIds(array.get(i), remapByField);
-                if (remapped != null && remapped != array.get(i)) {
-                    array.set(i, remapped);
-                }
-            }
-            return array;
-        }
-        return node;
-    }
 
     private static String asText(JsonNode node) {
         if (node == null || node.isNull() || node.isContainerNode()) {

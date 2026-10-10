@@ -8,7 +8,10 @@ import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.dto.ETLDebugDTO;
 import com.data.datafusion.service.dto.ETLDebugResultDTO;
 import com.data.datafusion.service.dto.ETLTaskDTO;
+import com.data.datafusion.service.dto.ETLTaskImportResultDTO;
+import com.data.datafusion.service.dto.ETLTaskTransferDTO;
 import com.data.datafusion.service.dto.JobInstanceDTO;
+import com.data.datafusion.service.etl.ETLTaskTransferService;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -23,8 +26,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -50,10 +55,18 @@ public class ETLTaskResource {
 
     private final JobInstanceService jobInstanceService;
 
-    public ETLTaskResource(ETLTaskService eTLTaskService, ETLTaskRepository eTLTaskRepository, JobInstanceService jobInstanceService) {
+    private final ETLTaskTransferService eTLTaskTransferService;
+
+    public ETLTaskResource(
+        ETLTaskService eTLTaskService,
+        ETLTaskRepository eTLTaskRepository,
+        JobInstanceService jobInstanceService,
+        ETLTaskTransferService eTLTaskTransferService
+    ) {
         this.eTLTaskService = eTLTaskService;
         this.eTLTaskRepository = eTLTaskRepository;
         this.jobInstanceService = jobInstanceService;
+        this.eTLTaskTransferService = eTLTaskTransferService;
     }
 
     /**
@@ -179,6 +192,38 @@ public class ETLTaskResource {
         LOG.debug("REST request to get ETLTask : {}", id);
         Optional<ETLTaskDTO> eTLTaskDTO = eTLTaskService.findOne(id);
         return ResponseUtil.wrapOrNotFound(eTLTaskDTO);
+    }
+
+    /**
+     * {@code GET  /etl-tasks/:id/export} : 导出单个 ETL 任务为可移植的 JSON。
+     *
+     * @param id the id of the ETLTask to export.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the transfer object in body.
+     */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<ETLTaskTransferDTO> exportETLTask(@PathVariable("id") String id) {
+        LOG.debug("REST request to export ETLTask : {}", id);
+        try {
+            return ResponseEntity.ok(eTLTaskTransferService.exportTask(id));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    /**
+     * {@code POST  /etl-tasks/import} : 从导出的 JSON 导入一个新的 ETL 任务（离线）。
+     *
+     * @param transfer the exported ETL task JSON.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the import result in body.
+     */
+    @PostMapping("/import")
+    public ResponseEntity<ETLTaskImportResultDTO> importETLTask(@RequestBody ETLTaskTransferDTO transfer) {
+        LOG.debug("REST request to import ETLTask : {}", transfer == null || transfer.task == null ? null : transfer.task.taskCode);
+        try {
+            return ResponseEntity.ok(eTLTaskTransferService.importTask(transfer));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     /**

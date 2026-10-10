@@ -113,6 +113,25 @@ public class ETLTaskService {
     }
 
     /**
+     * 仅保存任务定义（含节点与连线），不生成调度 Job。
+     *
+     * <p>用于导入等「引用的数据源 / 模型可能尚未匹配」的场景：此时无法生成可执行的 Job，
+     * 先落库为离线任务，待用户修复引用后再经保存 / 上线流程生成 Job。
+     *
+     * @param eTLTaskDTO the entity to save.
+     * @return the persisted entity.
+     */
+    public ETLTaskDTO saveWithoutJob(ETLTaskDTO eTLTaskDTO) {
+        LOG.debug("Request to save ETLTask without job : {}", eTLTaskDTO);
+        ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
+        eTLTask.setJobId(eTLTaskDTO.getJobId());
+        eTLTask = eTLTaskRepository.save(eTLTask);
+        eTLTaskDTO.setId(eTLTask.getId());
+        updateNodesAndEdges(eTLTaskDTO);
+        return eTLTaskMapper.toDto(eTLTask);
+    }
+
+    /**
      * Update a eTLTask.
      *
      * @param eTLTaskDTO the entity to save.

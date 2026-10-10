@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
-import { type IETLTask } from '@/shared/model/etl-task.model';
+import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
 
 const baseApiUrl = 'api/etl-tasks';
 
@@ -11,6 +11,34 @@ export default class ETLTaskService {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  /** 导出单个 ETL 任务为可移植的 JSON。 */
+  exportTask(id: string): Promise<IETLTaskTransfer> {
+    return new Promise<IETLTaskTransfer>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${id}/export`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  /** 从导出的 JSON 导入一个新的 ETL 任务（离线）。 */
+  importTask(transfer: IETLTaskTransfer): Promise<IETLTaskImportResult> {
+    return new Promise<IETLTaskImportResult>((resolve, reject) => {
+      axios
+        .post(`${baseApiUrl}/import`, transfer)
         .then(res => {
           resolve(res.data);
         })
