@@ -33,6 +33,7 @@
         <argLine>-Djava.security.egd=file:/dev/./urandom -Xmx1G</argLine>
         <m2e.apt.activation>jdt_apt</m2e.apt.activation>
         <run.addResources>false</run.addResources>
+        <maven.test.skip>false</maven.test.skip>
         <spring-boot.version>3.4.5</spring-boot.version>
         <liquibase.version>4.29.2</liquibase.version>
         <h2.version>2.3.232</h2.version>
@@ -1182,6 +1183,7 @@
                                 </goals>
                                 <phase>test</phase>
                                 <configuration>
+                                    <skip>${maven.test.skip}</skip>
                                     <arguments>run webapp:test</arguments>
                                     <npmInheritsProxyConfigFromMaven>false</npmInheritsProxyConfigFromMaven>
                                 </configuration>
