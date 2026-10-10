@@ -1,5 +1,9 @@
-import { defineComponent, provide } from "vue";
+import { computed, defineComponent, provide } from "vue";
+import { storeToRefs } from "pinia";
+import { useRoute } from "vue-router";
 
+import { useStore } from "@/store";
+import { useTabStore } from "@/shared/config/store/tab-store";
 import DataSourceService from "./data-source/data-source.service";
 import JobInstanceService from "./job-instance/job-instance.service";
 import JobService from "./job/job.service";
@@ -23,6 +27,11 @@ import UserService from "@/entities/user/user.service";
 export default defineComponent({
   name: "Entities",
   setup() {
+    const route = useRoute();
+    const store = useStore();
+    const { cachedViews } = storeToRefs(useTabStore());
+    const innerKey = computed(() => `${route.fullPath}-${store.tenantVersion}`);
+
     provide("userService", () => new UserService());
     provide("dataSourceService", () => new DataSourceService());
     provide("jobInstanceService", () => new JobInstanceService());
@@ -45,5 +54,7 @@ export default defineComponent({
     provide("sqlJobService", () => new SqlJobService());
     provide("shellJobService", () => new ShellJobService());
     // jhipster-needle-add-entity-service-to-entities-component - JHipster will import entities services here
+
+    return { cachedViews, innerKey };
   },
 });

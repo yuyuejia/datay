@@ -4,8 +4,10 @@ import { useRoute } from "vue-router";
 
 import Ribbon from "@/core/ribbon/ribbon.vue";
 import JhiNavbar from "@/core/jhi-navbar/jhi-navbar.vue";
+import TabView from "@/core/tab-view/tab-view.vue";
 import { useAlertService } from "@/shared/alert/alert.service";
 import { useStore } from "@/store";
+import { useTabStore } from "@/shared/config/store/tab-store";
 import "@/shared/config/dayjs";
 
 export default defineComponent({
@@ -13,6 +15,7 @@ export default defineComponent({
   components: {
     ribbon: Ribbon,
     "jhi-navbar": JhiNavbar,
+    "tab-view": TabView,
   },
   setup() {
     provide("alertService", useAlertService());
@@ -20,6 +23,7 @@ export default defineComponent({
     const store = useStore();
     const { tenantVersion, authenticated, availableTenants, tenantsLoaded } =
       storeToRefs(store);
+    const { cachedViews } = storeToRefs(useTabStore());
 
     const noTenant = computed(
       () =>
@@ -29,9 +33,20 @@ export default defineComponent({
     );
 
     const route = useRoute();
+
+    const rootCachedViews = computed(() => ["Entities", ...cachedViews.value]);
+
+    const rootKey = computed(() => {
+      const top = route.matched[0];
+      if (top?.name === "Entities") {
+        return `entities-${tenantVersion.value}`;
+      }
+      return `${route.fullPath}-${tenantVersion.value}`;
+    });
+
     const isDesignPage = computed(() => {
       return (
-          route.name === "Home" ||
+        route.name === "Home" ||
         route.name === "ETLTaskDesign" ||
         route.name === "ETLTaskDesignNew" ||
         route.name === "ETLTaskCreate" ||
@@ -48,8 +63,11 @@ export default defineComponent({
       isDesignPage,
       isLoginPage,
       tenantVersion,
+      authenticated,
       route,
       noTenant,
+      rootCachedViews,
+      rootKey,
     };
   },
 });

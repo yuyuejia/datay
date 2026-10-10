@@ -62,6 +62,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "JhiRoleManagement" });
+
 import { onMounted, ref } from "vue";
 
 import RoleManagementService from "./role-management.service";

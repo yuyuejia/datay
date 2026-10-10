@@ -4,6 +4,7 @@ import { maxLength, minLength, required, sameAs } from '@vuelidate/validators';
 import axios from 'axios';
 
 export default defineComponent({
+  name: 'ChangePassword',
   validations() {
     return {
       resetPassword: {

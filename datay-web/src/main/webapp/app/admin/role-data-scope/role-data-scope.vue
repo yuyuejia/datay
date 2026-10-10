@@ -104,6 +104,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "JhiRoleDataScope" });
+
 import { onMounted, ref } from "vue";
 
 import RoleDataScopeService from "./role-data-scope.service";

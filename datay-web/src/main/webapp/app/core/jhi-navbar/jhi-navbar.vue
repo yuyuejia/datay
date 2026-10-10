@@ -187,7 +187,7 @@
 
 .jh-navbar {
   background: linear-gradient(135deg, #0f1d45 0%, #16265c 100%);
-  padding: 0.2em 1em;
+  padding: 0 1em;
 }
 
 .jh-navbar .profile-image {
@@ -202,7 +202,7 @@
 }
 
 .jh-navbar ul.navbar-nav {
-  padding: 0.5em;
+  padding: 0.1em 0.5em;
 }
 
 .jh-navbar .navbar-nav .nav-item {

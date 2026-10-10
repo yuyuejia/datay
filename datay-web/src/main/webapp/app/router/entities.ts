@@ -109,6 +109,7 @@ const AppPackageDetails = () =>
 
 export default {
   path: "/",
+  name: "Entities",
   component: Entities,
   children: [
     {

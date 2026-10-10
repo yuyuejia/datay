@@ -5,6 +5,7 @@
       <div id="app-header">
         <jhi-navbar></jhi-navbar>
       </div>
+      <tab-view v-if="authenticated"></tab-view>
       <div class="container-fluid">
         <div
           class="card jh-card"
@@ -17,7 +18,11 @@
               请联系管理员将您添加到租户后再使用系统功能。
             </p>
           </div>
-          <router-view v-else :key="route.fullPath + '-' + tenantVersion"></router-view>
+          <router-view v-else v-slot="{ Component }">
+            <keep-alive :include="rootCachedViews" :max="20">
+              <component :is="Component" :key="rootKey" />
+            </keep-alive>
+          </router-view>
         </div>
       </div>
     </template>
