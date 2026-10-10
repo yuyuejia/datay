@@ -19,16 +19,23 @@
           <span class="brand-name">DataY</span>
         </a>
         <nav class="nav" id="nav">
-          <a href="#integration">数据集成</a>
-          <a href="#modeling">数据建模</a>
-          <a href="#development">数据开发</a>
-          <a href="#scheduling">任务调度</a>
-          <a href="#application">数据应用</a>
+          <a href="#capabilities">功能介绍</a>
+          <a href="#contact">联系我们</a>
           <a class="nav-doc" href="help/">帮助文档</a>
         </nav>
         <div class="header-actions">
           <a class="btn btn-ghost" href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
-          <a class="btn btn-primary" href="https://github.com/yuyuejia/datay" target="_blank" rel="noopener">GitHub</a>
+          <div class="repo-links">
+            <a class="repo-link" href="https://github.com/yuyuejia/datay" target="_blank" rel="noopener" title="GitHub" aria-label="GitHub">
+              <img src="assets/img/github.png" alt="GitHub" width="20" height="20" />
+            </a>
+            <a class="repo-link" href="https://gitee.com/yuyuejia/datay" target="_blank" rel="noopener" title="Gitee" aria-label="Gitee">
+              <img src="assets/img/gitee.png" alt="Gitee" width="20" height="20" />
+            </a>
+            <a class="repo-link" href="https://cnb.cool/yuyuejia/datay" target="_blank" rel="noopener" title="CNB" aria-label="CNB">
+              <img src="assets/img/cnb.png" alt="CNB" width="20" height="20" />
+            </a>
+          </div>
         </div>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
           <span></span><span></span><span></span>
@@ -300,15 +307,23 @@ java -jar datay-web/target/*.jar \
         </div>
       </section>
 
-      <section class="cta">
-        <div class="container cta-inner">
-          <div>
-            <h2>准备好用 2C4G 跑通数据全链路了吗？</h2>
-            <p>阅读文档，或直接进在线演示体验。</p>
+      <section class="section" id="contact">
+        <div class="container">
+          <div class="section-head">
+            <h2>联系我们</h2>
+            <p>邮件或微信，随时与我们交流合作与使用问题。</p>
           </div>
-          <div class="cta-actions">
-            <a class="btn btn-light btn-lg" href="help/">进入帮助文档</a>
-            <a class="btn btn-outline-light btn-lg" href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
+          <div class="contact">
+            <div class="contact-card">
+              <h3>邮件</h3>
+              <p>产品咨询、商务合作、问题反馈，欢迎来信。</p>
+              <a class="contact-mail" href="mailto:datay@yuyuejia.com.cn">datay@yuyuejia.com.cn</a>
+            </div>
+            <div class="contact-card">
+              <h3>微信</h3>
+              <p>扫码添加微信，加入交流群与我们沟通。</p>
+              <img class="contact-qr" src="help/images/weixin.png" alt="DataY 微信二维码" loading="lazy" />
+            </div>
           </div>
         </div>
       </section>
@@ -323,6 +338,8 @@ java -jar datay-web/target/*.jar \
         <div class="footer-links">
           <a href="help/">帮助文档</a>
           <a href="https://github.com/yuyuejia/datay" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://gitee.com/yuyuejia/datay" target="_blank" rel="noopener">Gitee</a>
+          <a href="https://cnb.cool/yuyuejia/datay" target="_blank" rel="noopener">CNB</a>
           <a href="https://github.com/yuyuejia/datay/issues" target="_blank" rel="noopener">问题反馈</a>
           <a href="http://datay-demo.yuyuejia.com.cn/" target="_blank" rel="noopener">在线演示</a>
         </div>
