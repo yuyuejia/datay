@@ -15,6 +15,8 @@ import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
 import com.data.datafusion.service.mapper.DataSyncMapper;
 import com.data.datafusion.service.mapper.DataSyncTableConfigMapper;
+import com.data.datasource.DataSourceProviderFactory;
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.DatabaseConverter;
@@ -220,6 +222,11 @@ public class DataSyncService {
 
         Optional<DataSourceDTO> target = dataSourceService.findOne(dataSyncDTO.getTarget());
         if (source.isPresent() && target.isPresent()) {
+            if (!isJdbcDatasource(target.get())) {
+                // Elasticsearch 等非 JDBC 目标无建表概念，跳过 DDL，写入时按需创建索引
+                LOG.debug("目标数据源 {} 为非 JDBC 类型，跳过建表 DDL", target.get().getType());
+                return;
+            }
             DatasourceInfo sourceInfo = DataSourceQueryService.toDatasourceInfo(source.get());
             DatasourceInfo targetInfo = DataSourceQueryService.toDatasourceInfo(target.get());
             boolean quackTarget = targetInfo.getUrl() != null && targetInfo.getUrl().startsWith("quack:");
@@ -249,6 +256,16 @@ public class DataSyncService {
                 }
             }
         }
+    }
+
+    /**
+     * 是否为 JDBC 数据源。缺省（无类型）按 JDBC 处理，保持历史行为。
+     */
+    private static boolean isJdbcDatasource(DataSourceDTO dto) {
+        if (dto == null || dto.getType() == null || dto.getType().isBlank()) {
+            return true;
+        }
+        return DataSourceProviderFactory.provider(dto.getType()) instanceof JdbcDataSourceProvider;
     }
 
     public Job saveETLJob(DataSyncDTO dataSyncDTO) {
@@ -320,10 +337,11 @@ public class DataSyncService {
         jdbcInput.put("where", ""); // 假设 DataSyncDTO 有 getWhereClause 方法
         units.add(jdbcInput);
 
-        // 生成 JdbcOutput 组件
-        Map<String, Object> jdbcOutput = new LinkedHashMap<>();
-        jdbcOutput.put(".id", RandomUtil.randomString(8));
-        jdbcOutput.put(".name", "StreamJdbcOutput");
+        // 生成输出组件：JDBC 目标用 StreamJdbcOutput，非 JDBC 目标（如 Elasticsearch）用 ElasticsearchOutput
+        boolean jdbcTarget = isJdbcDatasource(target);
+        Map<String, Object> outputNode = new LinkedHashMap<>();
+        outputNode.put(".id", RandomUtil.randomString(8));
+        outputNode.put(".name", jdbcTarget ? "StreamJdbcOutput" : "ElasticsearchOutput");
 
         if (target != null) {
             Map<String, Object> sourceIdOutput = new LinkedHashMap<>();
@@ -336,19 +354,30 @@ public class DataSyncService {
             sourceIdOutput.put("hostname", target.getHostname());
             sourceIdOutput.put("port", target.getPort());
             sourceIdOutput.put("extraParams", target.getExtraParams());
-            jdbcOutput.put("sourceId", sourceIdOutput);
+            outputNode.put("sourceId", sourceIdOutput);
         }
-        jdbcOutput.put("table", ""); // 假设 DataSyncDTO 有 getDesTableName 方法
-        if (overwrite) {
-            jdbcOutput.put("model", "overwrite");
+
+        DataSyncTableConfigDTO firstTable = selectedTables.get(0);
+        if (jdbcTarget) {
+            outputNode.put("table", ""); // 目标表由上游 FlowFile 表名属性决定
+            if (overwrite) {
+                outputNode.put("model", "overwrite");
+            }
+        } else {
+            // 非 JDBC 目标：显式配置的目标表名作为索引名，缺省回退到上游表名
+            outputNode.put("table", firstTable.getDesTableName() == null ? "" : firstTable.getDesTableName());
+            outputNode.put("model", overwrite ? "overwrite" : "append");
+            if (firstTable.getSrcColPks() != null && !firstTable.getSrcColPks().isBlank()) {
+                outputNode.put("idField", firstTable.getSrcColPks().split(",")[0].trim());
+            }
         }
-        units.add(jdbcOutput);
+        units.add(outputNode);
 
         // 生成连接信息
         Map<String, Object> connection = new LinkedHashMap<>();
         connection.put("sourceId", jdbcInput.get(".id"));
         connection.put("sourcePort", 0);
-        connection.put("targetId", jdbcOutput.get(".id"));
+        connection.put("targetId", outputNode.get(".id"));
 
         connections.add(connection);
         // 生成最终的 JSON 结构

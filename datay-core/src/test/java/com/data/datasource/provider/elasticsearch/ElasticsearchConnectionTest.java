@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,11 @@ class ElasticsearchConnectionTest {
                 body =
                     "{\"idx1\":{\"mappings\":{\"properties\":{\"id\":{\"type\":\"long\"}," +
                     "\"name\":{\"type\":\"keyword\"},\"obj\":{\"properties\":{\"x\":{\"type\":\"long\"}}}}}}}";
+            } else if ("/_bulk".equals(path)) {
+                body =
+                    "{\"took\":2,\"errors\":false,\"items\":[" +
+                    "{\"index\":{\"_index\":\"idx1\",\"_id\":\"1\",\"status\":201}}," +
+                    "{\"index\":{\"_index\":\"idx1\",\"status\":201}}]}";
             } else {
                 body = "{}";
             }
@@ -103,6 +109,17 @@ class ElasticsearchConnectionTest {
     @Test
     void exposesSchemas() throws Exception {
         assertEquals(List.of("_all"), connection().getSchemas());
+    }
+
+    @Test
+    void bulkIndexesDocuments() throws Exception {
+        int written = connection().bulkIndex("idx1", List.of(Map.of("id", 1, "name", "a"), Map.of("id", 2, "name", "b")), "id");
+        assertEquals(2, written);
+    }
+
+    @Test
+    void recreatesIndexWithoutError() throws Exception {
+        connection().recreateIndex("idx1");
     }
 
     @Test

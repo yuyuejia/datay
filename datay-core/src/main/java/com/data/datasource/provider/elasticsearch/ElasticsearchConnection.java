@@ -233,6 +233,67 @@ public class ElasticsearchConnection implements DataSourceConnection {
         return new QueryResult(columns, rows, rows.size());
     }
 
+    // ------------------------------------------------------------------ write
+
+    /**
+     * 覆盖式重建索引（用于全量同步）：先删除同名索引再创建，避免残留旧文档。
+     */
+    public void recreateIndex(String index) throws Exception {
+        try {
+            request("DELETE", "/" + encode(index), null);
+        } catch (IOException ignored) {
+            // 索引不存在时删除返回 404，忽略
+        }
+        request("PUT", "/" + encode(index), "{}");
+    }
+
+    /**
+     * 批量写入文档到指定索引，返回成功写入的文档数。
+     *
+     * @param idField 指定作为文档 {@code _id} 的字段名；为 {@code null} 时由 ES 自动生成
+     */
+    public int bulkIndex(String index, List<Map<String, Object>> documents, String idField) throws Exception {
+        if (documents == null || documents.isEmpty()) {
+            return 0;
+        }
+        StringBuilder ndjson = new StringBuilder();
+        for (Map<String, Object> document : documents) {
+            JSONObject meta = new JSONObject();
+            meta.set("_index", index);
+            if (idField != null && document.get(idField) != null) {
+                meta.set("_id", String.valueOf(document.get(idField)));
+            }
+            JSONObject action = new JSONObject();
+            action.set("index", meta);
+            ndjson.append(action).append('\n');
+            ndjson.append(new JSONObject(document)).append('\n');
+        }
+        String response = request("POST", "/_bulk", ndjson.toString(), "application/x-ndjson");
+        JSONObject result = JSONUtil.parseObj(response);
+        JSONArray items = result.getJSONArray("items");
+        int success = 0;
+        String firstError = null;
+        if (items != null) {
+            for (int i = 0; i < items.size(); i++) {
+                JSONObject item = items.getJSONObject(i).getJSONObject("index");
+                if (item == null) {
+                    continue;
+                }
+                Integer statusObj = item.getInt("status");
+                int status = statusObj == null ? 0 : statusObj;
+                if (status >= 200 && status < 300) {
+                    success++;
+                } else if (firstError == null) {
+                    firstError = item.getJSONObject("error") == null ? item.toString() : item.getJSONObject("error").toString();
+                }
+            }
+        }
+        if (Boolean.TRUE.equals(result.getBool("errors"))) {
+            throw new IOException("Elasticsearch 批量写入存在失败项: " + firstError);
+        }
+        return success;
+    }
+
     // ------------------------------------------------------------------ metadata
 
     private static void flattenMapping(JSONObject properties, String prefix, List<ColumnMeta> out) {
@@ -258,12 +319,16 @@ public class ElasticsearchConnection implements DataSourceConnection {
     // ------------------------------------------------------------------ http
 
     private String request(String method, String path, String body) throws Exception {
+        return request(method, path, body, "application/json");
+    }
+
+    private String request(String method, String path, String body, String contentType) throws Exception {
         HttpRequest.Builder builder = HttpRequest
             .newBuilder()
             .uri(URI.create(baseUrl + path))
             .timeout(timeout)
             .header("Accept", "application/json")
-            .header("Content-Type", "application/json");
+            .header("Content-Type", contentType);
         if (authorization != null) {
             builder.header("Authorization", authorization);
         }
