@@ -8,15 +8,10 @@ import {
   type ExtraParamDef,
   type IdentifierTypeDef,
   dbTypes,
+  findDbType,
   resolveDbFormConfig,
 } from './db-types';
-import {
-  type OracleIdentifierType,
-  type UrlMode,
-  buildSimpleUrl,
-  parseSimpleUrl,
-  renderUrlTemplate,
-} from './db-url.util';
+import { type OracleIdentifierType, type UrlMode, buildSimpleUrl, parseSimpleUrl, renderUrlTemplate } from './db-url.util';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -67,7 +62,7 @@ export default defineComponent({
 
     const selectedDbType = computed<DbType | null>(() => {
       if (!dataSource.value.type) return null;
-      return dbTypes.find(db => db.name === dataSource.value.type) || null;
+      return findDbType(dataSource.value.type) || null;
     });
 
     // 表单字段/连接能力完全由数据源类型配置驱动
@@ -245,6 +240,7 @@ export default defineComponent({
           const res = await dataSourceService().find(props.dataSourceId as string);
           res.updateTime = new Date(res.updateTime);
           res.createTime = new Date(res.createTime);
+          res.type = findDbType(res.type)?.name ?? (res.type || '').toUpperCase();
           dataSource.value = res;
           applyUrlModeFromUrl();
           currentStep.value = 2;
@@ -369,9 +365,7 @@ export default defineComponent({
         }
       }
       if (!cfg.schemaEnabled) {
-        dataSource.value.schemaName = cfg.schemaFromUsername
-          ? (dataSource.value.username || '').toUpperCase()
-          : dataSource.value.database;
+        dataSource.value.schemaName = cfg.schemaFromUsername ? (dataSource.value.username || '').toUpperCase() : dataSource.value.database;
       }
     };
 

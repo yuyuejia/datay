@@ -93,6 +93,17 @@ const DEFAULT_FORM_CONFIG: DbFormConfig = {
   connectionModes: [],
 };
 
+/**
+ * 按类型标识查找数据源类型配置（大小写不敏感）。
+ * 数据源存储的 type 可能大小写不一致（如 MCP 注册传入 "mysql"、界面选择 "MYSQL"），
+ * 统一以大小写不敏感方式匹配，避免图标/表单配置丢失。
+ */
+export function findDbType(type?: string | null): DbType | undefined {
+  if (!type) return undefined;
+  const normalized = type.toUpperCase();
+  return dbTypes.find(db => db.name.toUpperCase() === normalized);
+}
+
 export function resolveDbFormConfig(dbType?: DbType | null): DbFormConfig {
   if (!dbType) return DEFAULT_FORM_CONFIG;
   return {
@@ -192,7 +203,13 @@ export const dbTypes: DbType[] = [
         urlTemplate: 'quack:{host}:{port}',
         extraParamsTemplate: [
           { key: 'quack.token', label: 'Token', required: false, description: 'Quack 服务端认证 Token' },
-          { key: 'quack.disable_ssl', label: 'DISABLE_SSL', required: false, defaultValue: 'false', description: '远程非 localhost 时是否使用明文 HTTP 连接' },
+          {
+            key: 'quack.disable_ssl',
+            label: 'DISABLE_SSL',
+            required: false,
+            defaultValue: 'false',
+            description: '远程非 localhost 时是否使用明文 HTTP 连接',
+          },
         ],
       },
     ],
@@ -244,6 +261,24 @@ export const dbTypes: DbType[] = [
     image: '/content/images/doris.svg',
     extraParamsTemplate: [
       { key: 'fe_endpoint', label: 'FE Endpoint', required: false, description: 'Doris FE 节点 HTTP 端点，格式：http://host:port' },
+    ],
+  },
+  {
+    name: 'ELASTICSEARCH',
+    displayName: 'Elasticsearch',
+    jdbcUrlTemplate: 'http://{host}:{port}',
+    supportedVersions: [],
+    defaultPort: '9200',
+    image: '/content/images/elasticsearch.svg',
+    // 非 JDBC 数据源：通过 REST API 访问，无数据库/schema 概念，索引即「表」。
+    // 仅使用自定义 URL 模式（不提供 http/https 连接模式选择），https 证书默认忽略校验。
+    network: false,
+    databaseEnabled: false,
+    clearDatabaseOnSave: true,
+    extraParamsTemplate: [
+      { key: 'es.path_prefix', label: 'Path Prefix', required: false, description: '反向代理下的路径前缀，如 es' },
+      { key: 'es.api_key', label: 'API Key', required: false, description: '使用 ApiKey 认证时填写（与用户名/密码二选一）' },
+      { key: 'es.default_index', label: '默认索引', required: false, description: '使用 Query DSL 查询时的默认索引' },
     ],
   },
 ];

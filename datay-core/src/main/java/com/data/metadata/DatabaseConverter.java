@@ -35,6 +35,20 @@ public class DatabaseConverter {
     }
 
     /**
+     * 按数据库类型获取已注册的方言转换器，不存在时返回 {@code null}。
+     */
+    public static TypeConverter getConverter(String dbType) {
+        return dbType == null ? null : converters.get(dbType.toLowerCase());
+    }
+
+    /**
+     * 通用的逻辑类型转换器（{@code common}），用于无专属方言的场景。
+     */
+    public static TypeConverter getCommonConverter() {
+        return converters.get("common");
+    }
+
+    /**
      * 去掉类型名中的精度/长度限定，便于按基础类型查表。
      * 例如 {@code DECIMAL(18,2) -> DECIMAL}、{@code VARCHAR(64) -> VARCHAR}。
      */

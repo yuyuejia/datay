@@ -20,7 +20,7 @@
             <span>Type</span>
           </dt>
           <dd>
-            <span>{{ dataSource.type }}</span>
+            <span>{{ typeLabel(dataSource.type) }}</span>
           </dd>
           <dt>
             <span>Url</span>
@@ -88,12 +88,7 @@
       </div>
     </div>
 
-    <data-source-modal
-      v-model:show="modalShow"
-      mode="edit"
-      :data-source-id="dataSource.id"
-      @saved="onModalSaved"
-    ></data-source-modal>
+    <data-source-modal v-model:show="modalShow" mode="edit" :data-source-id="dataSource.id" @saved="onModalSaved"></data-source-modal>
   </div>
 </template>
 

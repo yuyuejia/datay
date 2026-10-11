@@ -12,6 +12,10 @@ import cn.hutool.db.sql.NamedSql;
 import cn.hutool.db.sql.SqlBuilder;
 import cn.hutool.db.sql.SqlExecutor;
 import cn.hutool.crypto.digest.DigestUtil;
+import com.data.datasource.DataSourceProvider;
+import com.data.datasource.DataSourceProviderFactory;
+import com.data.datasource.provider.JdbcDataSourceProvider;
+import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
@@ -31,8 +35,6 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -112,23 +114,16 @@ public class DBUtils {
     }
 
     /**
-     * 获取数据库连接（使用连接池）
+     * 获取数据库连接（使用连接池）。
+     *
+     * <p>连接建立及 DuckLake / Quack 等特殊初始化由对应数据源 Provider 负责。
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo) throws SQLException {
-        String url = datasourceInfo.getUrl();
-        if (url != null && url.startsWith("ducklake:")) {
-            // 每个 DuckLake 数据源使用独立的本地 DuckDB 文件，避免多个 DuckLake 共用同一实例时 catalog 冲突。
-            // 本地 scratch 库无需用户名密码：DuckDB 会拒绝以不同 user 配置打开同一文件，
-            // 且 DuckLake 元数据库的账号密码是通过 ATTACH 字符串传递的。
-            Connection conn = ConnectionPoolManager.getConnection(resolveDuckLakeJdbcUrl(datasourceInfo), null, null);
-            setupDuckLakeConnection(conn, datasourceInfo);
-            return conn;
+        DataSourceProvider provider = datasourceInfo.getType() == null ? null : DataSourceProviderFactory.provider(datasourceInfo.getType());
+        if (provider instanceof JdbcDataSourceProvider jdbcProvider) {
+            return jdbcProvider.openConnection(datasourceInfo);
         }
-        Connection conn = ConnectionPoolManager.getConnection(datasourceInfo);
-        if (url != null && url.startsWith("quack:")) {
-            setupQuackConnection(conn, datasourceInfo);
-        }
-        return conn;
+        return ConnectionPoolManager.getConnection(datasourceInfo);
     }
 
     public static final String DUCKLAKE_CATALOG = "ducklake";
@@ -136,9 +131,6 @@ public class DBUtils {
 
     // DuckLake 本地挂载文件目录（相对于工作目录）
     private static final String DUCKLAKE_LOCAL_DIR = "log/ducklake";
-
-    // 每个 DuckLake 元数据路径对应一把锁，保证同一数据源的 ATTACH 串行执行
-    private static final ConcurrentHashMap<String, ReentrantLock> DUCKLAKE_LOCKS = new ConcurrentHashMap<>();
 
     /**
      * 计算 DuckLake 元数据位置（用于生成本地挂载文件与串行锁）。
@@ -186,130 +178,6 @@ public class DBUtils {
         }
         File dbFile = new File(dir, "ducklake_" + hash + ".duckdb");
         return "jdbc:duckdb:" + dbFile.getAbsolutePath();
-    }
-
-    private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
-        Map<String, String> extraParams = datasourceInfo.getExtraParams();
-        String ducklakeFilePath = resolveDuckLakeMetadataLocation(datasourceInfo);
-
-        // 同一 DuckLake 的连接可能来自同一连接池的多个连接，ATTACH 为库级操作，需串行处理
-        ReentrantLock lock = DUCKLAKE_LOCKS.computeIfAbsent(ducklakeFilePath, key -> new ReentrantLock());
-        lock.lock();
-        try {
-            Statement stmt;
-
-            stmt = conn.createStatement();
-            try { stmt.execute("INSTALL ducklake"); } catch (Exception ignored) {}
-            try { stmt.execute("LOAD ducklake"); } catch (Exception ignored) {}
-            try { stmt.close(); } catch (Exception ignored) {}
-
-            if (extraParams != null) {
-                String store = extraParams.get("s3.data_path");
-                if (store != null && store.startsWith("s3://")) {
-                    String keyId = extraParams.get("s3.key_id");
-                    String secret = extraParams.get("s3.secret");
-                    String endpoint = extraParams.get("s3.endpoint");
-                    String urlStyle = extraParams.get("s3.url_style");
-                    String useSsl = extraParams.get("s3.use_ssl");
-
-                    if (keyId != null && secret != null && endpoint != null && urlStyle != null && useSsl != null) {
-                        stmt = conn.createStatement();
-                        String s3Secret = String.format(
-                            "CREATE OR REPLACE SECRET (TYPE s3, KEY_ID '%s', SECRET '%s', ENDPOINT '%s', url_style '%s', USE_SSL '%s');",
-                            keyId, secret, endpoint, urlStyle, useSsl
-                        );
-                        stmt.execute(s3Secret);
-                        try { stmt.close(); } catch (Exception ignored) {}
-                    }
-                }
-            }
-
-            // DuckLake 必须以 "ducklake:" 形式挂载，否则会被当成普通 DuckDB 库，暴露 ducklake_* 元数据表
-            String attachedType = getAttachedDatabaseType(conn, DUCKLAKE_CATALOG);
-            if (!"ducklake".equalsIgnoreCase(attachedType)) {
-                // 兼容历史错误挂载：已作为普通 duckdb 库挂载时先卸载再重新按时挂载
-                if (attachedType != null) {
-                    stmt = conn.createStatement();
-                    try { stmt.execute("DETACH " + DUCKLAKE_CATALOG + ";"); } catch (Exception ignored) {}
-                    try { stmt.close(); } catch (Exception ignored) {}
-                }
-
-                StringBuilder attachSql = new StringBuilder(
-                    String.format("ATTACH 'ducklake:%s' AS %s", escapeSqlString(ducklakeFilePath), DUCKLAKE_CATALOG)
-                );
-                String store = extraParams != null ? extraParams.get("s3.data_path") : null;
-                if (store != null && !store.trim().isEmpty()) {
-                    attachSql.append(" (data_path '").append(escapeSqlString(store)).append("')");
-                }
-                attachSql.append(";");
-
-                stmt = conn.createStatement();
-                stmt.execute(attachSql.toString());
-                try { stmt.close(); } catch (Exception ignored) {}
-            }
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * 获取当前 DuckDB 连接所属数据库中指定 catalog 的类型；未挂载时返回 {@code null}。
-     *
-     * <p>DuckLake catalog 的 type 为 {@code ducklake}，普通 DuckDB 库为 {@code duckdb}。
-     */
-    private static String getAttachedDatabaseType(Connection conn, String catalog) throws SQLException {
-        try (
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(
-                String.format("SELECT type FROM duckdb_databases() WHERE database_name = '%s'", catalog)
-            )
-        ) {
-            return rs.next() ? rs.getString(1) : null;
-        }
-    }
-
-    /**
-     * 初始化 Quack 远程连接：加载 quack 扩展并将远程 DuckDB 服务挂载为 catalog。
-     */
-    private static void setupQuackConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {
-        String quackUri = datasourceInfo.getUrl();
-        java.util.Map<String, String> extraParams = datasourceInfo.getExtraParams();
-
-        Statement stmt = conn.createStatement();
-        try { stmt.execute("INSTALL quack"); } catch (Exception ignored) {}
-        try { stmt.execute("LOAD quack"); } catch (Exception ignored) {}
-        try { stmt.close(); } catch (Exception ignored) {}
-
-        stmt = conn.createStatement();
-        try { stmt.execute(String.format("DETACH %s;", QUACK_CATALOG)); } catch (Exception ignored) {}
-        try { stmt.close(); } catch (Exception ignored) {}
-
-        StringBuilder attachSql = new StringBuilder(
-            String.format("ATTACH '%s' AS %s", escapeSqlString(quackUri), QUACK_CATALOG)
-        );
-        List<String> options = new ArrayList<>();
-        if (extraParams != null) {
-            String token = extraParams.get("quack.token");
-            if (token != null && !token.trim().isEmpty()) {
-                options.add(String.format("TOKEN '%s'", escapeSqlString(token)));
-            }
-            String disableSsl = extraParams.get("quack.disable_ssl");
-            if ("true".equalsIgnoreCase(disableSsl)) {
-                options.add("DISABLE_SSL true");
-            }
-        }
-        if (!options.isEmpty()) {
-            attachSql.append(" (").append(String.join(", ", options)).append(")");
-        }
-        attachSql.append(";");
-
-        stmt = conn.createStatement();
-        stmt.execute(attachSql.toString());
-        try { stmt.close(); } catch (Exception ignored) {}
-    }
-
-    private static String escapeSqlString(String value) {
-        return value == null ? "" : value.replace("'", "''");
     }
 
     /**
@@ -763,95 +631,24 @@ public class DBUtils {
     }
 
     /**
-     * 根据数据库URL获取测试查询语句
+     * 根据数据库URL获取测试查询语句（由对应数据源 Provider 提供）。
      * @param url 数据库URL
      * @return 适合该数据库的测试查询语句
      */
     public static String getTestQuery(String url) {
-        if (url.startsWith("jdbc:mysql:") || url.startsWith("jdbc:mariadb:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:oracle:")) {
-            return "SELECT 1 FROM DUAL";
-        } else if (url.startsWith("jdbc:postgresql:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:sqlserver:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:dm:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:duckdb:") || url.startsWith("quack:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:clickhouse:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:greenplum:")) {
-            return "SELECT 1";
-        } else if (url.startsWith("jdbc:doris:")) {
-            return "SELECT 1";
-        } else {
-            return "SELECT 1"; // 默认查询
-        }
+        JdbcDataSourceProvider provider = resolveJdbcProvider(url);
+        return provider != null ? provider.getTestQuery() : "SELECT 1";
     }
 
-    //获取schema信息
+    //获取schema信息（由对应数据源 Provider 提供）
     public static List<String> getSchemas(Connection conn) throws SQLException {
-        String jdbcUrl = conn.getMetaData().getURL();
-        if (jdbcUrl.startsWith("jdbc:mysql:")) {
-            return getCatalogs(conn);
-        }
-        DatabaseMetaData metaData = conn.getMetaData();
-
-        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
-            String targetCatalog = resolveDuckCatalog(metaData);
-            return new ArrayList<>(getDistinctSchemas(metaData, targetCatalog));
-        }
-
-        List<String> schemas = new ArrayList<>();
-        try (ResultSet rs = metaData.getSchemas()) {
-            while (rs.next()) {
-                schemas.add(rs.getString("TABLE_SCHEM"));
-            }
-        }
-        return schemas;
+        JdbcDataSourceProvider provider = resolveJdbcProvider(conn);
+        return provider != null ? provider.getSchemas(conn) : JdbcMetadata.readSchemas(conn);
     }
 
-    private static String resolveDuckCatalog(DatabaseMetaData metaData) throws SQLException {
-        try (ResultSet rs = metaData.getCatalogs()) {
-            while (rs.next()) {
-                String cat = rs.getString("TABLE_CAT");
-                if (DUCKLAKE_CATALOG.equals(cat)) {
-                    return DUCKLAKE_CATALOG;
-                }
-                if (QUACK_CATALOG.equals(cat)) {
-                    return QUACK_CATALOG;
-                }
-            }
-        }
-        try {
-            return metaData.getConnection().getCatalog();
-        } catch (Exception e) {
-            return "memory";
-        }
-    }
-
-    private static java.util.Set<String> getDistinctSchemas(DatabaseMetaData metaData, String catalog) throws SQLException {
-        java.util.Set<String> schemas = new java.util.LinkedHashSet<>();
-        try (ResultSet rs = metaData.getSchemas(catalog, null)) {
-            while (rs.next()) {
-                schemas.add(rs.getString("TABLE_SCHEM"));
-            }
-        }
-        return schemas;
-    }
-
-    //获取schema信息
+    //获取catalog信息
     public static List<String> getCatalogs(Connection conn) throws SQLException {
-        DatabaseMetaData metaData = conn.getMetaData();
-        List<String> schemas = new ArrayList<>();
-        try (ResultSet rs = metaData.getCatalogs()) {
-            while (rs.next()) {
-                schemas.add(rs.getString("TABLE_CAT"));
-            }
-        }
-        return schemas;
+        return JdbcMetadata.getCatalogs(conn);
     }
 
     //获取表列表
@@ -864,183 +661,19 @@ public class DBUtils {
     }
 
     public static List<TableMeta> getTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        String jdbcUrl = conn.getMetaData().getURL();
-        DatabaseMetaData metaData = conn.getMetaData();
-        List<TableMeta> tables = new ArrayList<>();
-        String tableNamePattern = (search != null && !search.isEmpty()) ? "%" + search + "%" : null;
-
-        String catalog = null;
-        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
-            catalog = resolveDuckCatalog(metaData);
+        JdbcDataSourceProvider provider = resolveJdbcProvider(conn);
+        if (provider != null) {
+            return provider.getTables(conn, schema, limit, search);
         }
-
-        String[] tableTypes;
-        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
-            tableTypes = new String[] { "TABLE", "BASE TABLE" };
-        } else {
-            tableTypes = new String[] { "TABLE" };
-        }
-
-        if (jdbcUrl.startsWith("jdbc:mysql:")) {
-            catalog = schema;
-            schema = null;
-        }
-
-        // Quack 远程目录不会向本地 JDBC 元数据暴露表信息，改由 quack.query 在远端查询
-        if (jdbcUrl.startsWith("jdbc:duckdb:") && QUACK_CATALOG.equals(catalog)) {
-            return getQuackTableList(conn, schema, limit, search);
-        }
-
-        try (ResultSet rs = metaData.getTables(catalog, schema, tableNamePattern, tableTypes)) {
-            while (rs.next()) {
-                if (limit != null && tables.size() >= limit) {
-                    break;
-                }
-                String tableName = rs.getString("TABLE_NAME");
-                String tableComment = rs.getString("REMARKS");
-                String tableCatalog = rs.getString("TABLE_CAT");
-                String tableSchema = rs.getString("TABLE_SCHEM");
-                TableMeta tableMeta = new TableMeta(tableName);
-                if (tableComment != null) {
-                    tableMeta.setComment(tableComment);
-                }
-                if (jdbcUrl.startsWith("jdbc:duckdb:") && tableCatalog != null && !tableCatalog.isEmpty()) {
-                    tableMeta.setCatalog(tableCatalog);
-                }
-                if (tableSchema != null && !tableSchema.isEmpty()) {
-                    tableMeta.setSchema(tableSchema);
-                }
-                tables.add(tableMeta);
-            }
-        }
-        return tables;
-    }
-
-    /**
-     * 通过 Quack 远程查询获取表清单（远程目录不暴露 JDBC 元数据）。
-     */
-    private static List<TableMeta> getQuackTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        StringBuilder remoteSql = new StringBuilder(
-            "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE'"
-        );
-        if (schema != null && !schema.isEmpty()) {
-            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
-        }
-        if (search != null && !search.isEmpty()) {
-            remoteSql.append(" AND table_name ILIKE '%").append(escapeSqlString(search)).append("%'");
-        }
-        remoteSql.append(" ORDER BY table_schema, table_name");
-        if (limit != null) {
-            remoteSql.append(" LIMIT ").append(limit);
-        }
-
-        List<TableMeta> tables = new ArrayList<>();
-        try (
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT table_schema, table_name FROM quack.query($q$" + remoteSql + "$q$)")
-        ) {
-            while (rs.next()) {
-                TableMeta tableMeta = new TableMeta(rs.getString("table_name"));
-                tableMeta.setSchema(rs.getString("table_schema"));
-                tableMeta.setCatalog(QUACK_CATALOG);
-                tables.add(tableMeta);
-            }
-        }
-        return tables;
-    }
-
-    /**
-     * 通过 Quack 远程查询获取字段清单（远程目录不暴露 JDBC 元数据）。
-     */
-    private static TableMeta getQuackTableMetaData(Connection conn, String schema, String table) throws SQLException {
-        StringBuilder remoteSql = new StringBuilder(
-            "SELECT column_name, data_type, is_nullable, column_default, numeric_precision, numeric_scale, character_maximum_length " +
-            "FROM information_schema.columns WHERE table_name = '" + escapeSqlString(table) + "'"
-        );
-        if (schema != null && !schema.isEmpty()) {
-            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
-        }
-        remoteSql.append(" ORDER BY ordinal_position");
-
-        List<ColumnMeta> columns = new ArrayList<>();
-        try (
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT * FROM quack.query($q$" + remoteSql + "$q$)")
-        ) {
-            while (rs.next()) {
-                String name = rs.getString("column_name");
-                String type = rs.getString("data_type");
-                boolean nullable = !"NO".equalsIgnoreCase(rs.getString("is_nullable"));
-                String defaultValue = rs.getString("column_default");
-
-                int length = rs.getInt("character_maximum_length");
-                if (rs.wasNull()) {
-                    length = -1;
-                }
-                int precision = rs.getInt("numeric_precision");
-                if (rs.wasNull()) {
-                    precision = -1;
-                }
-                int scale = rs.getInt("numeric_scale");
-                if (rs.wasNull()) {
-                    scale = -1;
-                }
-
-                ColumnMeta column = new ColumnMeta(name, type, length, precision, scale);
-                column.setNullable(nullable);
-                column.setDefaultValue(defaultValue);
-                columns.add(column);
-            }
-        }
-        if (columns.isEmpty()) {
-            throw new SQLException("Table " + table + " not found.");
-        }
-        TableMeta tableMeta = new TableMeta(table, columns);
-        tableMeta.setDbType(DBType.DUCKDB.toString());
-        tableMeta.setCatalog(QUACK_CATALOG);
-        if (schema != null) {
-            tableMeta.setSchema(schema);
-        }
-        return tableMeta;
-    }
-
-    /**
-     * Quack 远程表存在性判断（远端 information_schema 查询）。
-     */
-    private static boolean quackTableExists(Connection conn, String schema, String table) throws SQLException {
-        StringBuilder remoteSql = new StringBuilder("SELECT 1 FROM information_schema.tables WHERE table_name = '")
-            .append(escapeSqlString(table))
-            .append("'");
-        if (schema != null && !schema.isEmpty()) {
-            remoteSql.append(" AND table_schema = '").append(escapeSqlString(schema)).append("'");
-        }
-        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(wrapQuackQuery(remoteSql.toString()))) {
-            return rs.next();
-        }
+        return JdbcMetadata.readTableList(conn, null, schema, new String[] { "TABLE" }, limit, search, false);
     }
 
     public static TableMeta getTableMetaData(Connection conn, String schema, String table) throws SQLException {
-        String jdbcUrl = conn.getMetaData().getURL();
-        String dbType = DBUtils.getDBType(jdbcUrl);
-        TableMeta tableMeta = null;
-        if (DBType.DUCKDB.toString().equals(dbType)) {
-            String catalog = resolveDuckCatalog(conn.getMetaData());
-            if (QUACK_CATALOG.equals(catalog)) {
-                tableMeta = getQuackTableMetaData(conn, schema, table);
-            } else {
-                tableMeta = getTableMetaData(conn, catalog, schema, table);
-            }
-        } else if (DBType.ORACLE.toString().equals(dbType)) {
-            tableMeta = getTableMetaData(conn, null, schema, table);
-        } else if (DBType.POSTGRESQL.toString().equals(dbType)) {
-            tableMeta = getTableMetaData(conn, null, schema, table);
-        } else if (DBType.DM.toString().equals(dbType)) {
-            tableMeta = getTableMetaData(conn, null, schema, table);
-        } else {
-            tableMeta = getTableMetaData(conn, schema, null, table);
+        JdbcDataSourceProvider provider = resolveJdbcProvider(conn);
+        if (provider != null) {
+            return provider.getTableMeta(conn, schema, table);
         }
-        tableMeta.setDbType(dbType);
-        return tableMeta;
+        return JdbcMetadata.readTableMeta(conn, schema, null, table);
     }
 
     /**
@@ -1068,168 +701,36 @@ public class DBUtils {
     }
 
     public static TableMeta getTableMetaData(Connection conn, String catalog, String schema, String table) throws SQLException {
-        DatabaseMetaData metaData = conn.getMetaData();
-        List<ColumnMeta> columns = new ArrayList<>();
-
-        // 新增主键信息采集
-        Set<String> primaryKeys = new HashSet<>();
-        try (ResultSet pkRs = metaData.getPrimaryKeys(catalog, schema, table)) {
-            while (pkRs.next()) {
-                primaryKeys.add(pkRs.getString("COLUMN_NAME"));
-            }
-        }
-
-        try (ResultSet rs = metaData.getColumns(catalog, schema, table, null)) {
-            while (rs.next()) {
-                String name = rs.getString("COLUMN_NAME");
-                String type = rs.getString("TYPE_NAME");
-                int size = rs.getInt("COLUMN_SIZE");
-                // 多数驱动（DM/MySQL/Oracle/PG 等）的 IS_NULLABLE 为字符串 "YES"/"NO"，
-                // 直接 getBoolean("YES") 会得到 false，导致所有列被误判为 NOT NULL。
-                String nullableFlag = rs.getString("IS_NULLABLE");
-                boolean isNullable =
-                    nullableFlag == null ||
-                    !("NO".equalsIgnoreCase(nullableFlag) || "0".equals(nullableFlag) || "false".equalsIgnoreCase(nullableFlag));
-                // 新增字段描述、精度和小数位数的获取
-                String remarks = rs.getString("REMARKS");
-                int decimalDigits = rs.getInt("DECIMAL_DIGITS");
-                int numPrecRadix = rs.getInt("NUM_PREC_RADIX");
-                String defaultValue = rs.getString("COLUMN_DEF");
-                // 处理数值类型精度
-                int precision = -1;
-                int scale = -1;
-                if (
-                    "NUMBER".equalsIgnoreCase(type) ||
-                    "DECIMAL".startsWith(type.toUpperCase()) ||
-                    "NUMERIC".equalsIgnoreCase(type) ||
-                    "FLOAT".equalsIgnoreCase(type) ||
-                    "DOUBLE".equalsIgnoreCase(type)
-                ) {
-                    // Oracle的NUMBER类型：size 是 precision，decimalDigits 是 scale
-                    precision = size; // 精度（总位数）
-                    scale = decimalDigits; // 小数位数
-                }
-
-                // 创建包含完整元数据的列对象（假设ColumnMeta已添加description字段）
-                ColumnMeta column = new ColumnMeta(name, type, size, precision, scale);
-                column.setNullable(isNullable);
-                column.setComment(remarks);
-                column.setDefaultValue(defaultValue);
-                //                column.setAutoIncrement("YES".equalsIgnoreCase(rs.getString("IS_AUTOINCREMENT")));
-                // 新增主键标识设置
-                column.setPrimaryKey(primaryKeys.contains(name));
-                columns.add(column);
-            }
-        }
-        if (columns.isEmpty()) {
-            throw new SQLException("Table " + table + " not found.");
-        }
-        TableMeta tableMeta = new TableMeta(table, columns);
-        if (schema != null) {
-            tableMeta.setSchema(schema);
-        } else if (catalog != null) {
-            tableMeta.setSchema(catalog);
-        }
-        return tableMeta;
+        return JdbcMetadata.readTableMeta(conn, catalog, schema, table);
     }
 
     /**
-     * 获取表详细信息：字段、索引、表注释等。
+     * 获取表详细信息：字段、索引、表注释等（由对应数据源 Provider 提供）。
      */
     public static TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
-        DatabaseMetaData metaData = conn.getMetaData();
-        String dbType = DBUtils.getDBType(metaData.getURL());
-        if (DBType.DUCKDB.toString().equals(dbType)) {
-            String catalog = resolveDuckCatalog(metaData);
-            if (QUACK_CATALOG.equals(catalog)) {
-                TableMeta tableMeta = getQuackTableMetaData(conn, schema, table);
-                tableMeta.setDbType(dbType);
-                return tableMeta;
-            }
-            TableMeta tableMeta = getTableMetaData(conn, catalog, schema, table);
-            tableMeta.setDbType(dbType);
-            tableMeta.setCatalog(catalog);
-            tableMeta.setComment(getTableComment(conn, catalog, schema, table));
-            tableMeta.setIndexes(getTableIndexes(conn, catalog, schema, table));
-            return tableMeta;
-        } else if (
-            DBType.ORACLE.toString().equals(dbType) ||
-            DBType.POSTGRESQL.toString().equals(dbType) ||
-            DBType.DM.toString().equals(dbType)
-        ) {
-            TableMeta tableMeta = getTableMetaData(conn, null, schema, table);
-            tableMeta.setDbType(dbType);
-            tableMeta.setComment(getTableComment(conn, null, schema, table));
-            tableMeta.setIndexes(getTableIndexes(conn, null, schema, table));
-            return tableMeta;
-        } else {
-            TableMeta tableMeta = getTableMetaData(conn, schema, null, table);
-            tableMeta.setDbType(dbType);
-            tableMeta.setCatalog(schema);
-            tableMeta.setComment(getTableComment(conn, schema, null, table));
-            tableMeta.setIndexes(getTableIndexes(conn, schema, null, table));
-            return tableMeta;
+        JdbcDataSourceProvider provider = resolveJdbcProvider(conn);
+        if (provider != null) {
+            return provider.getTableDetail(conn, schema, table);
         }
+        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, schema, null, table);
+        tableMeta.setCatalog(schema);
+        tableMeta.setComment(JdbcMetadata.getTableComment(conn, schema, null, table));
+        tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, schema, null, table));
+        return tableMeta;
     }
 
     /**
      * 获取表注释。
      */
     public static String getTableComment(Connection conn, String catalog, String schema, String table) {
-        try (ResultSet rs = conn.getMetaData().getTables(catalog, schema, table, new String[] { "TABLE", "VIEW" })) {
-            while (rs.next()) {
-                String tableName = rs.getString("TABLE_NAME");
-                if (tableName != null && tableName.equalsIgnoreCase(table)) {
-                    return rs.getString("REMARKS");
-                }
-            }
-        } catch (SQLException e) {
-            // ignore remarks failure
-        }
-        return null;
+        return JdbcMetadata.getTableComment(conn, catalog, schema, table);
     }
 
     /**
      * 获取表索引信息。
      */
     public static List<IndexMeta> getTableIndexes(Connection conn, String catalog, String schema, String table) throws SQLException {
-        Map<String, IndexMeta> indexMap = new LinkedHashMap<>();
-        try (ResultSet rs = conn.getMetaData().getIndexInfo(catalog, schema, table, false, false)) {
-            while (rs.next()) {
-                String indexName = rs.getString("INDEX_NAME");
-                if (indexName == null) {
-                    continue;
-                }
-                String columnName = rs.getString("COLUMN_NAME");
-                boolean nonUnique = rs.getBoolean("NON_UNIQUE");
-                short indexType = rs.getShort("TYPE");
-                IndexMeta indexMeta = indexMap.get(indexName);
-                if (indexMeta == null) {
-                    indexMeta = new IndexMeta(indexName);
-                    indexMeta.setUnique(!nonUnique);
-                    indexMeta.setType(resolveIndexType(indexType));
-                    indexMap.put(indexName, indexMeta);
-                }
-                indexMeta.addColumn(columnName);
-            }
-        } catch (SQLException e) {
-            // 部分驱动不支持索引元数据，忽略并返回已有结果
-        }
-        return new ArrayList<>(indexMap.values());
-    }
-
-    private static String resolveIndexType(short indexType) {
-        switch (indexType) {
-            case DatabaseMetaData.tableIndexClustered:
-                return "clustered";
-            case DatabaseMetaData.tableIndexHashed:
-                return "hashed";
-            case DatabaseMetaData.tableIndexStatistic:
-                return "statistic";
-            case DatabaseMetaData.tableIndexOther:
-            default:
-                return "other";
-        }
+        return JdbcMetadata.getTableIndexes(conn, catalog, schema, table);
     }
 
     // 根据 JDBC URL 判断数据库类型
@@ -1278,6 +779,30 @@ public class DBUtils {
             return DBType.DUCKLAKE;
         }
         return null;
+    }
+
+    /**
+     * 按 JDBC URL 解析对应的数据源 Provider，用于把库表元数据、连通性测试、表存在性等
+     * 与具体数据库相关的能力委托到各数据源 Provider 实现。
+     */
+    private static JdbcDataSourceProvider resolveJdbcProvider(String jdbcUrl) {
+        if (jdbcUrl == null) {
+            return null;
+        }
+        DataSourceProvider provider = null;
+        DBType dbType = getDBTypeEnum(jdbcUrl);
+        if (dbType != null) {
+            provider = DataSourceProviderFactory.provider(dbType.name());
+        }
+        if (provider == null) {
+            // 未在中心表中登记的类型，改由各 Provider 依据自身 URL 前缀识别
+            provider = DataSourceProviderFactory.providerForUrl(jdbcUrl);
+        }
+        return provider instanceof JdbcDataSourceProvider jdbcProvider ? jdbcProvider : null;
+    }
+
+    private static JdbcDataSourceProvider resolveJdbcProvider(Connection conn) throws SQLException {
+        return resolveJdbcProvider(conn.getMetaData().getURL());
     }
 
     /**
@@ -1840,21 +1365,9 @@ public class DBUtils {
     }
 
     public static boolean tableExists(Connection conn, String schema, String table) throws SQLException {
-        String jdbcUrl = conn.getMetaData().getURL();
-        if (jdbcUrl.startsWith("jdbc:duckdb:")) {
-            if (isQuackConnection(conn)) {
-                return quackTableExists(conn, schema, table);
-            }
-            if (isDuckLakeConnection(conn)) {
-                return tableExists(conn, DUCKLAKE_CATALOG, schema, table);
-            }
-            return tableExists(conn, null, schema, table);
-        } else if (jdbcUrl.startsWith("jdbc:oracle:")) {
-            return tableExists(conn, null, schema, table);
-        } else if (jdbcUrl.startsWith("jdbc:postgresql:")) {
-            return tableExists(conn, null, schema, table);
-        } else if (jdbcUrl.startsWith("jdbc:dm:")) {
-            return tableExists(conn, null, schema, table);
+        JdbcDataSourceProvider provider = resolveJdbcProvider(conn);
+        if (provider != null) {
+            return provider.tableExists(conn, schema, table);
         }
         return tableExists(conn, schema, null, table);
     }

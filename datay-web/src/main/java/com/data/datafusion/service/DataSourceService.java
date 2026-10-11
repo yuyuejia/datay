@@ -4,7 +4,8 @@ import com.data.datafusion.domain.DataSource;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.mapper.DataSourceMapper;
-import com.data.metadata.util.DBUtils;
+import com.data.datasource.DataSourceConnection;
+import com.data.datasource.DataSourceProviderFactory;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +44,28 @@ public class DataSourceService {
      */
     public DataSourceDTO save(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to save DataSource : {}", dataSourceDTO);
+        normalizeType(dataSourceDTO);
         DataSource dataSource = dataSourceMapper.toEntity(dataSourceDTO);
         dataSource = dataSourceRepository.save(dataSource);
         return dataSourceMapper.toDto(dataSource);
+    }
+
+    /**
+     * 归一化数据源类型标识为规范大写，避免不同入口（界面选择大写、MCP 传入小写）导致
+     * 类型匹配、图标与表单配置失灵。
+     */
+    private static void normalizeType(DataSourceDTO dataSourceDTO) {
+        if (dataSourceDTO != null && dataSourceDTO.getType() != null) {
+            dataSourceDTO.setType(dataSourceDTO.getType().trim().toUpperCase());
+        }
+    }
+
+    /**
+     * 读取时归一化类型，兼容历史存量为小写的数据源。
+     */
+    private static DataSourceDTO normalize(DataSourceDTO dataSourceDTO) {
+        normalizeType(dataSourceDTO);
+        return dataSourceDTO;
     }
 
     /**
@@ -56,6 +76,7 @@ public class DataSourceService {
      */
     public DataSourceDTO update(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to update DataSource : {}", dataSourceDTO);
+        normalizeType(dataSourceDTO);
         DataSource dataSource = dataSourceMapper.toEntity(dataSourceDTO);
         dataSource = dataSourceRepository.save(dataSource);
         return dataSourceMapper.toDto(dataSource);
@@ -69,6 +90,7 @@ public class DataSourceService {
      */
     public Optional<DataSourceDTO> partialUpdate(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to partially update DataSource : {}", dataSourceDTO);
+        normalizeType(dataSourceDTO);
 
         return dataSourceRepository
             .findById(dataSourceDTO.getId())
@@ -90,7 +112,7 @@ public class DataSourceService {
     @Transactional(readOnly = true)
     public Page<DataSourceDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all DataSources");
-        return dataSourceRepository.findAll(pageable).map(dataSourceMapper::toDto);
+        return dataSourceRepository.findAll(pageable).map(entity -> normalize(dataSourceMapper.toDto(entity)));
     }
 
     /**
@@ -103,7 +125,7 @@ public class DataSourceService {
     @Transactional(readOnly = true)
     public Page<DataSourceDTO> findAll(Pageable pageable, String search) {
         LOG.debug("Request to get all DataSources with search: {}", search);
-        return dataSourceRepository.findAll(buildSearchSpecification(search), pageable).map(dataSourceMapper::toDto);
+        return dataSourceRepository.findAll(buildSearchSpecification(search), pageable).map(entity -> normalize(dataSourceMapper.toDto(entity)));
     }
 
     private Specification<DataSource> buildSearchSpecification(String search) {
@@ -129,7 +151,7 @@ public class DataSourceService {
     @Transactional(readOnly = true)
     public Optional<DataSourceDTO> findOne(String id) {
         LOG.debug("Request to get DataSource : {}", id);
-        return dataSourceRepository.findById(id).map(dataSourceMapper::toDto);
+        return dataSourceRepository.findById(id).map(entity -> normalize(dataSourceMapper.toDto(entity)));
     }
 
     /**
@@ -149,6 +171,11 @@ public class DataSourceService {
      */
     public boolean testConnection(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to test DataSource connection: {}", dataSourceDTO);
-        return DBUtils.testConnection(DataSourceQueryService.toDatasourceInfo(dataSourceDTO));
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSourceDTO))) {
+            return connection.testConnection();
+        } catch (Exception e) {
+            LOG.debug("Data source connection test failed: {}", e.getMessage());
+            return false;
+        }
     }
 }

@@ -3,7 +3,7 @@
     <h2 id="page-heading" data-cy="DataSourceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="data-source-heading">数据源列表</span>
       <div class="d-flex align-items-center">
-        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / IP / 端口 / 地址搜索" clearable/>
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / IP / 端口 / 地址搜索" clearable />
         <el-button
           v-if="canManageDefaultWarehouse"
           type="warning"
@@ -15,7 +15,13 @@
           <font-awesome-icon icon="database"></font-awesome-icon>
           <span>设置默认数仓</span>
         </el-button>
-        <el-button type="primary" @click="openCreateModal" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-source">
+        <el-button
+          type="primary"
+          @click="openCreateModal"
+          id="jh-create-entity"
+          data-cy="entityCreateButton"
+          class="jh-create-entity create-data-source"
+        >
           <font-awesome-icon icon="plus"></font-awesome-icon>
           <span>创建数据源</span>
         </el-button>
@@ -33,7 +39,7 @@
             <span class="type-cell">
               <img v-if="getTypeImage(scope.row.type)" :src="getTypeImage(scope.row.type)" class="type-icon" :alt="scope.row.type" />
               <font-awesome-icon v-else icon="database" class="type-fa-icon" />
-              <span>{{ scope.row.type }}</span>
+              <span>{{ typeLabel(scope.row.type) }}</span>
             </span>
           </template>
         </el-table-column>
@@ -87,7 +93,12 @@
       <div class="modal-body">
         <p>选择该租户的默认数仓，数据模型物化时将默认使用该数据源。</p>
         <el-select v-model="selectedDefaultId" placeholder="请选择数据源" filterable clearable style="width: 420px">
-          <el-option v-for="ds in defaultWarehouseOptions" :key="ds.id" :label="`${ds.name} (${ds.type})`" :value="ds.id"></el-option>
+          <el-option
+            v-for="ds in defaultWarehouseOptions"
+            :key="ds.id"
+            :label="`${ds.name} (${typeLabel(ds.type)})`"
+            :value="ds.id"
+          ></el-option>
         </el-select>
       </div>
       <template #modal-footer>

@@ -2,6 +2,7 @@ import { type Ref, computed, defineComponent, inject, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import DataSourceService from './data-source.service';
+import { findDbType } from './db-types';
 import { useDateFormat } from '@/shared/composables';
 import { type IDataSource } from '@/shared/model/data-source.model';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -23,7 +24,7 @@ export default defineComponent({
     const dataSource: Ref<IDataSource> = ref({});
 
     // DuckDB / DuckLake 通过本地文件或挂载方式访问，无需用户名密码
-    const requiresCredentials = computed(() => !['DUCKDB', 'DUCKLAKE'].includes(dataSource.value.type ?? ''));
+    const requiresCredentials = computed(() => !['DUCKDB', 'DUCKLAKE'].includes((dataSource.value.type ?? '').toUpperCase()));
 
     const retrieveDataSource = async dataSourceId => {
       try {
@@ -50,12 +51,17 @@ export default defineComponent({
       }
     };
 
+    const typeLabel = (type?: string | null): string => {
+      return findDbType(type)?.name ?? (type ? type.toUpperCase() : '');
+    };
+
     return {
       ...dateFormat,
       alertService,
       dataSource,
       previousState,
       requiresCredentials,
+      typeLabel,
       modalShow,
       openEditModal,
       onModalSaved,

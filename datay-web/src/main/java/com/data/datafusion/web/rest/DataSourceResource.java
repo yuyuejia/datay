@@ -5,13 +5,14 @@ import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.dto.DataSourceDTO;
-import com.data.metadata.util.DBUtils;
+import com.data.datasource.DataSourceConnection;
+import com.data.datasource.DataSourceProviderFactory;
+import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
 import org.slf4j.Logger;
@@ -240,8 +241,12 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
-                schemas = DBUtils.getSchemas(connection);
+            try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+                schemas = connection.getSchemas();
+            } catch (SQLException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new SQLException(e.getMessage(), e);
             }
         }
         return ResponseEntity.ok().body(schemas);
@@ -260,8 +265,12 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
-                tables = DBUtils.getTableList(connection, schema, limit, search);
+            try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+                tables = connection.getTables(schema, limit, search);
+            } catch (SQLException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new SQLException(e.getMessage(), e);
             }
         }
         return ResponseEntity.ok().body(tables);
@@ -279,8 +288,12 @@ public class DataSourceResource {
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
-                columns = DBUtils.getTableMetaData(connection, schema, table).columns();
+            try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+                columns = connection.getTableMeta(schema, table).columns();
+            } catch (SQLException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new SQLException(e.getMessage(), e);
             }
         }
         return ResponseEntity.ok().body(columns);
@@ -299,18 +312,31 @@ public class DataSourceResource {
             return ResponseEntity.notFound().build();
         }
         DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
-        try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource));) {
-            TableMeta tableMeta = DBUtils.getTableDetail(connection, schema, table);
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("table", tableMeta.getTable());
-            result.put("schema", tableMeta.getSchema());
-            result.put("catalog", tableMeta.getCatalog());
-            result.put("dbType", tableMeta.getDbType());
-            result.put("comment", tableMeta.getComment());
-            result.put("columns", tableMeta.columns());
-            result.put("indexes", tableMeta.getIndexes());
-            return ResponseEntity.ok().body(result);
+        TableMeta tableMeta;
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            tableMeta = connection.getTableDetail(schema, table);
+        } catch (SQLException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage(), e);
         }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("table", tableMeta.getTable());
+        result.put("schema", tableMeta.getSchema());
+        result.put("catalog", tableMeta.getCatalog());
+        result.put("dbType", tableMeta.getDbType());
+        result.put("comment", tableMeta.getComment());
+        result.put("columns", tableMeta.columns());
+        result.put("indexes", tableMeta.getIndexes());
+        return ResponseEntity.ok().body(result);
+    }
+
+    /**
+     * 列出平台支持的数据源类型（由数据源 SPI 注册表提供），供前端数据源表单动态渲染。
+     */
+    @GetMapping("/types")
+    public ResponseEntity<List<DataSourceTypeDescriptor>> getDataSourceTypes() {
+        return ResponseEntity.ok().body(DataSourceProviderFactory.descriptors());
     }
 
     /**

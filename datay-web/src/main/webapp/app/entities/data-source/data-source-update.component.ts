@@ -7,6 +7,7 @@ import { useDateFormat, useValidation } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 import {
   dbTypes,
+  findDbType,
   type ConnectionModeDef,
   type DbFormConfig,
   type ExtraParamDef,
@@ -43,7 +44,7 @@ export default defineComponent({
 
     const selectedDbType = computed(() => {
       if (!dataSource.value.type) return null;
-      return dbTypes.find(db => db.name === dataSource.value.type) || null;
+      return findDbType(dataSource.value.type) || null;
     });
 
     // 表单字段/连接能力完全由数据源类型配置驱动，避免按类型硬编码判断
@@ -291,9 +292,7 @@ export default defineComponent({
         }
       }
       if (!cfg.schemaEnabled) {
-        dataSource.value.schemaName = cfg.schemaFromUsername
-          ? (dataSource.value.username || '').toUpperCase()
-          : dataSource.value.database;
+        dataSource.value.schemaName = cfg.schemaFromUsername ? (dataSource.value.username || '').toUpperCase() : dataSource.value.database;
       }
     };
 
@@ -302,6 +301,7 @@ export default defineComponent({
         const res = await dataSourceService().find(dataSourceId);
         res.updateTime = new Date(res.updateTime);
         res.createTime = new Date(res.createTime);
+        res.type = findDbType(res.type)?.name ?? (res.type || '').toUpperCase();
         dataSource.value = res;
         applyUrlModeFromUrl();
         syncExtraParamsFromTemplate();

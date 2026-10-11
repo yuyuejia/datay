@@ -1,7 +1,7 @@
 import { type Ref, computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
-import { dbTypes } from './db-types';
+import { findDbType } from './db-types';
 import { type IDataSource } from '@/shared/model/data-source.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -49,8 +49,11 @@ export default defineComponent({
     };
 
     const getTypeImage = (type?: string | null): string | undefined => {
-      if (!type) return undefined;
-      return dbTypes.find(t => t.name === type)?.image;
+      return findDbType(type)?.image;
+    };
+
+    const typeLabel = (type?: string | null): string => {
+      return findDbType(type)?.name ?? (type ? type.toUpperCase() : '');
     };
 
     const retrieveDefaultWarehouse = async () => {
@@ -225,6 +228,7 @@ export default defineComponent({
       saveDefaultWarehouse,
       retrieveDefaultWarehouse,
       getTypeImage,
+      typeLabel,
       isFetching,
       retrieveDataSources,
       clear,

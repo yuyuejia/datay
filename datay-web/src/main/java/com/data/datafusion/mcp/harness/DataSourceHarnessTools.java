@@ -15,10 +15,10 @@ import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datasource.DataSourceConnection;
+import com.data.datasource.DataSourceProviderFactory;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
-import com.data.metadata.util.DBUtils;
-import java.sql.Connection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,8 +90,8 @@ public class DataSourceHarnessTools {
             object(
                 properties(
                     "name", string("数据源名称"),
-                    "type", string("数据库类型，如 mysql、postgresql、oracle、sqlserver、duckdb、doris、clickhouse、dm"),
-                    "url", string("JDBC 连接 URL，如 jdbc:mysql://127.0.0.1:3306/dbname"),
+                    "type", string("数据库类型，如 mysql、postgresql、oracle、sqlserver、duckdb、doris、clickhouse、dm、elasticsearch"),
+                    "url", string("连接 URL，如 jdbc:mysql://127.0.0.1:3306/dbname；Elasticsearch 为 http://127.0.0.1:9200"),
                     "hostname", string("主机名（可选，便于展示）"),
                     "port", string("端口（可选，便于展示）"),
                     "schemaName", string("默认 schema / 数据库名（可选）"),
@@ -223,8 +223,8 @@ public class DataSourceHarnessTools {
             object(properties("id", string("数据源 ID")), "id"),
             (args, context) -> {
                 DataSourceDTO dto = requireDataSource(reqStr(args, "id"));
-                try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dto))) {
-                    return DBUtils.getSchemas(connection);
+                try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dto))) {
+                    return connection.getSchemas();
                 }
             }
         );
@@ -248,8 +248,8 @@ public class DataSourceHarnessTools {
                 DataSourceDTO dto = requireDataSource(reqStr(args, "id"));
                 String schema = Optional.ofNullable(str(args, "schema")).orElse(dto.getSchemaName());
                 Integer limit = clamp(intVal(args, "limit", 200), 1, 1000);
-                try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dto))) {
-                    List<TableMeta> tables = DBUtils.getTableList(connection, schema, limit, str(args, "search"));
+                try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dto))) {
+                    List<TableMeta> tables = connection.getTables(schema, limit, str(args, "search"));
                     return DatayHarnessViews.list(tables, DataSourceHarnessTools::tableMetaView);
                 }
             }
@@ -266,8 +266,8 @@ public class DataSourceHarnessTools {
                 DataSourceDTO dto = requireDataSource(reqStr(args, "id"));
                 String schema = Optional.ofNullable(str(args, "schema")).orElse(dto.getSchemaName());
                 String table = reqStr(args, "table");
-                try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dto))) {
-                    List<ColumnMeta> columns = DBUtils.getTableMetaData(connection, schema, table).columns();
+                try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dto))) {
+                    List<ColumnMeta> columns = connection.getTableMeta(schema, table).columns();
                     return DatayHarnessViews.list(columns, DataSourceHarnessTools::columnMetaView);
                 }
             }

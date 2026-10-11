@@ -12,8 +12,9 @@ import com.data.datafusion.service.DataSyncService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
+import com.data.datasource.DataSourceConnection;
+import com.data.datasource.DataSourceProviderFactory;
 import com.data.metadata.TableMeta;
-import com.data.metadata.util.DBUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServer;
@@ -29,7 +30,6 @@ import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.sql.Connection;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -189,8 +189,8 @@ public class DatasourceMcpServerConfig {
     private Tool datasourceRegisterTool() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("name", stringProp("数据源名称"));
-        properties.put("type", stringProp("数据库类型，如 mysql、postgresql、oracle、duckdb"));
-        properties.put("url", stringProp("JDBC 连接 URL，如 jdbc:mysql://127.0.0.1:3306/dbname"));
+        properties.put("type", stringProp("数据源类型，如 mysql、postgresql、oracle、duckdb、elasticsearch"));
+        properties.put("url", stringProp("连接 URL；JDBC 数据源形如 jdbc:mysql://127.0.0.1:3306/dbname，Elasticsearch 形如 http://127.0.0.1:9200"));
         properties.put("username", stringProp("用户名"));
         properties.put("password", stringProp("密码"));
         properties.put("hostname", stringProp("主机名"));
@@ -354,10 +354,12 @@ public class DatasourceMcpServerConfig {
             int limit = resolveTableLimit(asLong(args, "limit"));
 
             List<Map<String, Object>> tables = new ArrayList<>();
-            try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dto))) {
-                for (TableMeta table : DBUtils.getTableList(connection, schema, limit, search)) {
+            try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dto))) {
+                for (TableMeta table : connection.getTables(schema, limit, search)) {
                     tables.add(toTableMetaView(table));
                 }
+            } catch (Exception e) {
+                return errorResult("数据源表清单查询失败: " + e.getMessage());
             }
             return jsonResult(tables);
         });

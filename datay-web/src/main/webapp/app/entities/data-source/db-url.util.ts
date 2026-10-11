@@ -1,4 +1,4 @@
-import { dbTypes } from './db-types';
+import { findDbType } from './db-types';
 
 export type UrlMode = 'simple' | 'custom';
 
@@ -15,8 +15,12 @@ const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9]+:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*)
 const SQLSERVER_URL_PATTERN = /^jdbc:sqlserver:\/\/([^:;]+)(?::(\d+))?.*?databaseName=([^;]+)/i;
 const ORACLE_SERVICE_PATTERN = /^jdbc:oracle:thin:@\/\/([^:/]+)(?::(\d+))?\/(.+)$/i;
 const ORACLE_SID_PATTERN = /^jdbc:oracle:thin:@([^:/]+)(?::(\d+))?:(.+)$/i;
+const HTTP_URL_PATTERN = /^(https?):\/\/([^:/]+)(?::(\d+))?/i;
 
-const isNetworkType = (type: string): boolean => type !== 'DUCKDB' && type !== 'DUCKLAKE';
+const isNetworkType = (type: string): boolean => {
+  const normalized = (type ?? '').toUpperCase();
+  return normalized !== 'DUCKDB' && normalized !== 'DUCKLAKE';
+};
 
 /**
  * 根据数据库类型和简易模式字段生成 JDBC URL。
@@ -26,19 +30,27 @@ export function buildSimpleUrl(type: string, fields: SimpleUrlFields, version?: 
   const host = fields.hostname || '{host}';
   const port = fields.port || '{port}';
   const database = fields.database || '{database}';
+  const normalizedType = (type ?? '').toUpperCase();
 
-  if (type === 'ORACLE') {
+  if (normalizedType === 'ORACLE') {
     return fields.oracleIdentifierType === 'sid'
       ? `jdbc:oracle:thin:@${host}:${port}:${database}`
       : `jdbc:oracle:thin:@//${host}:${port}/${database}`;
   }
 
-  const dbType = dbTypes.find(db => db.name === type);
-  if (!dbType) return '';
+  if (normalizedType === 'ELASTICSEARCH') {
+    return `http://${fields.hostname || '{host}'}:${fields.port || '{port}'}`;
+  }
 
-  let url = dbType.jdbcUrlTemplate.replace(/{host}/g, host).replace(/{port}/g, port).replace(/{database}/g, database);
+  const dbType = findDbType(type);
+  if (!dbType || !dbType.jdbcUrlTemplate) return '';
 
-  if (type === 'MYSQL' && version) {
+  let url = dbType.jdbcUrlTemplate
+    .replace(/{host}/g, host)
+    .replace(/{port}/g, port)
+    .replace(/{database}/g, database);
+
+  if (normalizedType === 'MYSQL' && version) {
     if (version.startsWith('5.')) {
       url = url.replace('serverTimezone=Asia/Shanghai', 'serverTimezone=UTC');
       if (!url.includes('useSSL=')) {
@@ -58,7 +70,9 @@ export function buildSimpleUrl(type: string, fields: SimpleUrlFields, version?: 
 export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFields | null {
   if (!url || !isNetworkType(type)) return null;
 
-  if (type === 'ORACLE') {
+  const normalizedType = (type ?? '').toUpperCase();
+
+  if (normalizedType === 'ORACLE') {
     const serviceMatch = ORACLE_SERVICE_PATTERN.exec(url);
     if (serviceMatch) {
       return {
@@ -80,10 +94,16 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
     return null;
   }
 
-  if (type === 'SQLSERVER') {
+  if (normalizedType === 'SQLSERVER') {
     const match = SQLSERVER_URL_PATTERN.exec(url);
     if (!match) return null;
     return { hostname: match[1], port: match[2] ?? '', database: match[3] };
+  }
+
+  if (normalizedType === 'ELASTICSEARCH') {
+    const match = HTTP_URL_PATTERN.exec(url);
+    if (!match) return null;
+    return { hostname: match[2], port: match[3] ?? '', database: '' };
   }
 
   const match = NETWORK_URL_PATTERN.exec(url);
