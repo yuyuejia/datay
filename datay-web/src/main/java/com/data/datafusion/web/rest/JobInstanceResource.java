@@ -140,9 +140,12 @@ public class JobInstanceResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of jobInstances in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<JobInstanceDTO>> getAllJobInstances(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
-        LOG.debug("REST request to get a page of JobInstances");
-        Page<JobInstanceDTO> page = jobInstanceService.findAll(pageable);
+    public ResponseEntity<List<JobInstanceDTO>> getAllJobInstances(
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(value = "status", required = false) String status
+    ) {
+        LOG.debug("REST request to get a page of JobInstances, status: {}", status);
+        Page<JobInstanceDTO> page = jobInstanceService.findAll(pageable, status);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }

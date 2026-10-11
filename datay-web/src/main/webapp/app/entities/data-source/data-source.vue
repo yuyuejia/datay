@@ -21,7 +21,6 @@
         </el-button>
       </div>
     </h2>
-    <br />
     <div class="alert alert-warning" v-if="!isFetching && dataSources && dataSources.length === 0">
       <span>未找到数据源</span>
     </div>

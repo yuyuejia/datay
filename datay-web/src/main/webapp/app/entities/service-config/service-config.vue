@@ -19,7 +19,6 @@
         </el-button>
       </div>
     </h2>
-    <br />
     <div class="alert alert-warning" v-if="!isFetching && serviceConfigs && serviceConfigs.length === 0">
       <span>未找到服务配置</span>
     </div>

@@ -12,7 +12,6 @@
         </router-link>
       </div>
     </h2>
-    <br />
     <div class="alert alert-warning" v-if="!isFetching && dataApis && dataApis.length === 0">
       <span>未找到数据服务</span>
     </div>

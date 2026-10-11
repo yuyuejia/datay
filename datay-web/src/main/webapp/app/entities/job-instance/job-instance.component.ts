@@ -23,6 +23,18 @@ export default defineComponent({
 
     const isFetching = ref(false);
 
+    // 状态过滤：值为空表示不过滤
+    const statusFilter = ref('');
+    const statusOptions = [
+      { value: 'FAILED', label: '失败' },
+      { value: 'RUNNING', label: '运行中' },
+      { value: 'APPENDING', label: '等待中' },
+      { value: 'WAITING', label: '等待依赖' },
+      { value: 'SUCCESSFUL', label: '成功' },
+      { value: 'TIMEOUT', label: '超时' },
+      { value: 'INTERRUPTED', label: '已中断' },
+    ];
+
     // 新增：日志相关状态
     const logContent = ref('');
     const isLogLoading = ref(false);
@@ -48,6 +60,13 @@ export default defineComponent({
 
     const clear = () => {
       page.value = 1;
+    };
+
+    // 可终止的任务状态：运行中、启动中，以及尚未开始执行的等待/排队状态
+    const STOPPABLE_STATUSES = ['RUNNING', 'STARTING'];
+    const canStop = (status?: string | null): boolean => {
+      const normalized = status?.toUpperCase();
+      return normalized != null && STOPPABLE_STATUSES.includes(normalized);
     };
 
     // 新增：状态标签类型映射（成功绿、失败红、终止黄、其他灰）
@@ -80,11 +99,14 @@ export default defineComponent({
     const retrieveJobInstances = async () => {
       isFetching.value = true;
       try {
-        const paginationQuery = {
+        const paginationQuery: any = {
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
         };
+        if (statusFilter.value) {
+          paginationQuery.status = statusFilter.value;
+        }
         const res = await jobInstanceService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
@@ -286,10 +308,7 @@ export default defineComponent({
       let fileName: string;
       if (isDagLog.value) {
         content = subTaskLogs.value
-          .map(
-            sub =>
-              `===== ${sub.instance.jobName} (${sub.instance.instanceCode}) [${sub.instance.status}] =====\n${sub.content || ''}`,
-          )
+          .map(sub => `===== ${sub.instance.jobName} (${sub.instance.instanceCode}) [${sub.instance.status}] =====\n${sub.content || ''}`)
           .join('\n\n');
         fileName = `dag-log-${currentLogInstance.value.instanceCode}.txt`;
       } else {
@@ -382,12 +401,24 @@ export default defineComponent({
       await retrieveJobInstances();
     });
 
+    // 状态过滤变化时，回到第一页重新查询
+    const handleStatusFilterChange = async () => {
+      if (page.value === 1) {
+        await retrieveJobInstances();
+      } else {
+        clear();
+      }
+    };
+
     return {
       jobInstances,
       handleSyncList,
       isFetching,
       retrieveJobInstances,
       clear,
+      statusFilter,
+      statusOptions,
+      handleStatusFilterChange,
       ...dateFormat,
       removeId,
       removeEntity,
@@ -421,6 +452,7 @@ export default defineComponent({
       handleSortChange,
       formatDateTime,
       getStatusType,
+      canStop,
       prepareStopJobInstance,
       stopJobInstance,
       closeStopDialog,

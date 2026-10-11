@@ -26,6 +26,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Service Implementation for managing {@link com.data.datafusion.domain.JobInstance}.
@@ -122,6 +125,24 @@ public class JobInstanceService {
     }
 
     /**
+     * Get all the jobInstances filtered by status.
+     *
+     * @param pageable the pagination information.
+     * @param status   the optional status to filter by (nullable).
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<JobInstanceDTO> findAll(Pageable pageable, String status) {
+        if (!StringUtils.hasText(status)) {
+            return findAll(pageable);
+        }
+        LOG.debug("Request to get all JobInstances (exclude DAG sub tasks) with status: {}", status);
+        return jobInstanceRepository
+            .findByParentInstanceCodeIsNullAndStatus(status.trim(), pageable)
+            .map(jobInstanceMapper::toDto);
+    }
+
+    /**
      * 查询某个 DAG 编排实例下的子任务实例列表。
      *
      * @param parentInstanceCode DAG 顶层实例代码
@@ -202,10 +223,23 @@ public class JobInstanceService {
             FlowInstance flowInstance = buildFlowInstance(jobInstance);
             jobInstance.setJobContext(JSONObject.toJSONString(flowInstance));
         }
-        //发送任务执行事件，worker会接收并执行
+        //发送任务执行事件，worker会接收并执行。
+        //必须在事务提交后再投递启动事件：否则执行 worker 会在实例落库前就变更状态，
+        //而状态事件处理线程按 instanceCode 回查数据库时读不到该实例，导致运行状态丢失，实例一直停留在 APPENDING。
         JobStatusEvent startJobEvent = new JobStatusEvent();
         startJobEvent.setJobInstance(jobInstance);
-        EventServiceFactory.getEventService().pushStartJobEvent(startJobEvent);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        EventServiceFactory.getEventService().pushStartJobEvent(startJobEvent);
+                    }
+                }
+            );
+        } else {
+            EventServiceFactory.getEventService().pushStartJobEvent(startJobEvent);
+        }
     }
 
     public FlowInstance buildFlowInstance(JobInstance jobInstance) {

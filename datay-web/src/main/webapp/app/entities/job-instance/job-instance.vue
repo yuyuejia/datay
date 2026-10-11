@@ -3,18 +3,34 @@
     <h2 id="page-heading" data-cy="JobInstanceHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="job-instance-heading">任务实例列表</span>
       <div class="d-flex align-items-center">
+        <el-select
+          v-model="statusFilter"
+          placeholder="全部状态"
+          clearable
+          class="mr-2"
+          style="width: 160px"
+          @change="handleStatusFilterChange"
+        >
+          <el-option label="全部状态" value="" />
+          <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+        </el-select>
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
         </el-button>
         <router-link :to="{ name: 'JobInstanceCreate' }" custom v-slot="{ navigate }">
-          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-job-instance">
+          <el-button
+            type="primary"
+            @click="navigate"
+            id="jh-create-entity"
+            data-cy="entityCreateButton"
+            class="jh-create-entity create-job-instance"
+          >
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建任务实例</span>
           </el-button>
         </router-link>
       </div>
     </h2>
-    <br />
     <div class="alert alert-warning" v-if="!isFetching && jobInstances && jobInstances.length === 0">
       <span>未找到任务实例</span>
     </div>
@@ -53,7 +69,14 @@
                 <span class="d-none d-md-inline">日志</span>
               </el-button>
               <!-- 新增：终止任务按钮 -->
-              <el-button type="danger" size="small" v-if="scope.row.status === 'RUNNING' || scope.row.status === 'STARTING'" @click="prepareStopJobInstance(scope.row)" class="stop" data-cy="entityStopButton">
+              <el-button
+                type="danger"
+                size="small"
+                v-if="canStop(scope.row.status)"
+                @click="prepareStopJobInstance(scope.row)"
+                class="stop"
+                data-cy="entityStopButton"
+              >
                 <span class="d-none d-md-inline">终止</span>
               </el-button>
               <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
