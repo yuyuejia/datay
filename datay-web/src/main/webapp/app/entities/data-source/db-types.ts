@@ -135,7 +135,7 @@ export const dbTypes: DbType[] = [
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai',
     supportedVersions: ['5.4', '6.1', '6.5', '7.1', '7.5', '8.0'],
     defaultPort: '4000',
-    image: '/content/images/mysql.svg',
+    image: '/content/images/tidb.svg',
   },
   {
     name: 'ORACLE',
