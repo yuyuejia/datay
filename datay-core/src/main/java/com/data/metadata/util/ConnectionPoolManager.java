@@ -1,7 +1,9 @@
 package com.data.metadata.util;
 
+import com.data.datasource.DataSourceProvider;
+import com.data.datasource.DataSourceProviderFactory;
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.DatasourceInfo;
-import com.data.metadata.DBType;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -82,32 +84,25 @@ public class ConnectionPoolManager {
         return dataSource.getConnection();
     }
 
-    private static String DUCKLAKE_CATALOG = "ducklake";
-
     /**
-     * 创建HikariCP数据源
+     * 创建HikariCP数据源。
+     *
+     * <p>所有与具体数据库相关的差异（URL 转换、账号密码、驱动属性、连通性测试语句、驱动加载）
+     * 均由 URL 对应的 {@link JdbcDataSourceProvider} 提供，本类不再判断数据库类型。
      */
     private static HikariDataSource createDataSource(String poolKey, String url, String user, String password, String version) {
         HikariConfig config = new HikariConfig();
 
-        DBType dbType = DBUtils.getDBTypeEnum(url);
-        String resolvedUrl = url;
-        if (dbType == DBType.DUCKLAKE) {
-            resolvedUrl = convertDuckLakeUrlToDuckDBUrl(url);
-        } else if (url.startsWith("quack:")) {
-            // Quack 远程连接底层仍使用 DuckDB 驱动，实际的 ATTACH 在获取连接后完成
-            resolvedUrl = "jdbc:duckdb:";
-        }
+        JdbcDataSourceProvider provider = resolveJdbcProvider(url);
+        String resolvedUrl = provider != null ? provider.resolveJdbcUrl(url) : url;
 
         config.setJdbcUrl(resolvedUrl);
-        if (dbType == DBType.DUCKDB || dbType == DBType.DUCKLAKE) {
-            // DuckDB / Quack / DuckLake 本地连接不使用账号密码，
-            // 且 DuckDB 会拒绝以不同 user 配置打开同一数据库文件（Connection Error: ... different configuration）
-            config.setUsername(null);
-            config.setPassword(null);
-        } else {
+        if (provider == null || provider.requiresCredentials()) {
             config.setUsername(user);
             config.setPassword(password);
+        } else {
+            config.setUsername(null);
+            config.setPassword(null);
         }
         config.setPoolName("HikariPool-" + poolKey);
 
@@ -117,81 +112,43 @@ public class ConnectionPoolManager {
         config.setIdleTimeout(DEFAULT_IDLE_TIMEOUT);
         config.setMaxLifetime(DEFAULT_MAX_LIFETIME);
 
-        config.setConnectionTestQuery(DBUtils.getTestQuery(resolvedUrl));
+        config.setConnectionTestQuery(provider != null ? provider.getTestQuery() : "SELECT 1");
         config.setValidationTimeout(5000);
 
-        configureDatabaseSpecificSettings(config, dbType);
+        if (provider != null) {
+            provider.dataSourceProperties().forEach(config::addDataSourceProperty);
+        }
 
-        loadDriverWithCustomClassLoader(resolvedUrl, dbType, version);
+        loadDriverWithCustomClassLoader(provider, version);
 
         return new HikariDataSource(config);
     }
 
-    private static String convertDuckLakeUrlToDuckDBUrl(String ducklakeUrl) {
-        if (ducklakeUrl != null && ducklakeUrl.startsWith("ducklake:")) {
-            // DuckLake 正常由 DBUtils.resolveDuckLakeJdbcUrl 解析为独立本地文件；
-            // 这里复用同一解析逻辑，避免直接调用本类时回退到共享内存实例。
-            DatasourceInfo info = new DatasourceInfo();
-            info.setUrl(ducklakeUrl);
-            return DBUtils.resolveDuckLakeJdbcUrl(info);
-        }
-        return ducklakeUrl;
-    }
-
     /**
-     * 配置数据库特定设置
+     * 按 JDBC URL 解析对应的数据源 Provider，无法匹配时返回 {@code null}。
      */
-    private static void configureDatabaseSpecificSettings(HikariConfig config, DBType dbType) {
-        if (dbType == null) {
-            return;
+    private static JdbcDataSourceProvider resolveJdbcProvider(String url) {
+        if (url == null) {
+            return null;
         }
-
-        switch (dbType) {
-            case MYSQL:
-                config.addDataSourceProperty("cachePrepStmts", "true");
-                config.addDataSourceProperty("prepStmtCacheSize", "250");
-                config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-                config.addDataSourceProperty("useServerPrepStmts", "true");
-                config.addDataSourceProperty("useLocalSessionState", "true");
-                config.addDataSourceProperty("rewriteBatchedStatements", "true");
-                config.addDataSourceProperty("cacheResultSetMetadata", "true");
-                config.addDataSourceProperty("cacheServerConfiguration", "true");
-                config.addDataSourceProperty("elideSetAutoCommits", "true");
-                config.addDataSourceProperty("maintainTimeStats", "false");
-                break;
-            case POSTGRESQL:
-                config.addDataSourceProperty("preparedStatementCacheQueries", "256");
-                config.addDataSourceProperty("preparedStatementCacheSizeMiB", "5");
-                config.addDataSourceProperty("assumeMinServerVersion", "9.0");
-                break;
-            case ORACLE:
-                config.addDataSourceProperty("oracle.jdbc.ReadTimeout", "30000");
-                config.addDataSourceProperty("oracle.net.CONNECT_TIMEOUT", "10000");
-                break;
-            case DUCKDB:
-            case DUCKLAKE:
-                config.addDataSourceProperty("jdbc_stream_results", "true");
-                break;
-            default:
-                // 其他数据库类型使用默认配置
-                break;
-        }
+        DataSourceProvider provider = DataSourceProviderFactory.providerForUrl(url);
+        return provider instanceof JdbcDataSourceProvider jdbcProvider ? jdbcProvider : null;
     }
 
     /**
      * 使用自定义类加载器加载驱动
      */
-    private static void loadDriverWithCustomClassLoader(String url, DBType dbType, String version) {
-        if (dbType == null) {
+    private static void loadDriverWithCustomClassLoader(JdbcDataSourceProvider provider, String version) {
+        if (provider == null) {
             return;
         }
 
-        String driverClassName = DBUtils.getDriverClassName(url, version);
-        if ("Unknown".equals(driverClassName)) {
+        String driverClassName = provider.driverClassName(version);
+        if (driverClassName == null || driverClassName.isBlank() || "Unknown".equals(driverClassName)) {
             return;
         }
 
-        String driverKey = generateDriverKey(dbType.name(), version, driverClassName);
+        String driverKey = generateDriverKey(provider.typeName(), version, driverClassName);
         DriverClassLoader classLoader = driverClassLoaders.get(driverKey);
 
         if (classLoader == null) {
@@ -201,8 +158,9 @@ public class ConnectionPoolManager {
                     classLoader = new DriverClassLoader();
                     driverClassLoaders.put(driverKey, classLoader);
 
-                    // 根据数据源类型和版本加载对应的驱动包
-                    loadDriverJarByTypeAndVersion(dbType, version, classLoader);
+                    // 按需下载，并加载该数据源驱动目录下的驱动包
+                    provider.ensureDriverAvailable(version);
+                    loadDriverJars(provider.driverDirectory(version), classLoader, provider.typeName(), version);
 
                     try {
                         // 使用自定义类加载器加载驱动类
@@ -246,131 +204,35 @@ public class ConnectionPoolManager {
         java.sql.DriverManager.registerDriver(new DriverProxy(driver, classLoader));
     }
 
-    //    drivers/
-    //        ├── mysql/
-    //        │   ├── 5.7/
-    //        │   │   └── mysql-connector-java-5.1.49.jar
-    //        │   ├── 8.0/
-    //        │   │   └── mysql-connector-java-8.0.33.jar
-    //        │   └── default/
-    //        │       └── mysql-connector-java-8.0.33.jar
-    //        ├── oracle/
-    //        │   ├── 11g/
-    //        │   │   └── ojdbc6.jar
-    //        │   ├── 19c/
-    //        │   │   └── ojdbc8.jar
-    //        │   └── default/
-    //        │       └── ojdbc8.jar
-    //        └── postgresql/
-    //        │   ├── 9.6/
-    //        │   │   └── postgresql-9.4.1212.jar
-    //        │   ├── 13/
-    //        │   │   └── postgresql-42.5.0.jar
-    //        │   └── default/
-    //        │       └── postgresql-42.5.0.jar
-
     /**
-     * 根据数据源类型和版本加载对应的驱动包
+     * 加载指定目录下的全部驱动 jar。
+     *
+     * <p>驱动目录解析与按需下载均由各数据源 Provider 提供（见
+     * {@link JdbcDataSourceProvider#driverDirectory(String)}）；目录不存在时仅告警，
+     * 驱动类仍可能由平台类路径提供。
      */
-    private static void loadDriverJarByTypeAndVersion(DBType dbType, String version, DriverClassLoader classLoader) {
-        String resolvedVersion = (version == null || version.isBlank()) ? "default" : version;
-        // 平台未内置的驱动（如达梦）在缺失时按需从 Maven 仓库下载
-        ensureDriverDownloaded(dbType, resolvedVersion);
-
-        String driverDir = getDriverDirectory(dbType, resolvedVersion);
-        File dir = new File(driverDir);
-
-        if (dir.exists() && dir.isDirectory()) {
-            File[] jarFiles = dir.listFiles((dir1, name) -> name.toLowerCase().endsWith(".jar"));
-            if (jarFiles != null) {
-                for (File jarFile : jarFiles) {
-                    try {
-                        classLoader.addDriverJar(jarFile.getAbsolutePath());
-                        System.out.println("Loaded driver JAR: " + jarFile.getAbsolutePath() + " for " + dbType + " version " + resolvedVersion);
-                    } catch (Exception e) {
-                        System.err.println("Failed to load driver JAR: " + jarFile.getAbsolutePath() + ", error: " + e.getMessage());
-                    }
-                }
-            } else {
-                System.err.println("No JAR files found in driver directory: " + driverDir);
-            }
-        } else {
-            // 如果指定版本的目录不存在，尝试加载默认版本的驱动
-            System.err.println("Driver directory not found: " + driverDir + ", trying default version");
-            loadDefaultDriverJar(dbType, classLoader);
-        }
-    }
-
-    /**
-     * 当内置驱动缺失且该类型支持 Maven 下载时，自动下载到驱动目录。
-     */
-    private static void ensureDriverDownloaded(DBType dbType, String version) {
-        if (dbType == null || !dbType.isDownloadable()) {
-            return;
-        }
-        if (DriverDownloader.isDriverInstalled(dbType, version)) {
-            return;
-        }
-        try {
-            DriverDownloader.downloadDriver(dbType, version);
-        } catch (Exception e) {
+    private static void loadDriverJars(File dir, DriverClassLoader classLoader, String dbType, String version) {
+        if (dir == null || !dir.exists() || !dir.isDirectory()) {
             System.err.println(
-                "Failed to auto-download driver for " + dbType + " version " + version + ": " + e.getMessage()
+                "Driver directory not found: " + (dir == null ? "n/a" : dir.getPath()) + " for " + dbType
             );
+            return;
         }
-    }
-
-    /**
-     * 加载默认版本的驱动包
-     */
-    private static void loadDefaultDriverJar(DBType dbType, DriverClassLoader classLoader) {
-        String defaultDriverDir = getDefaultDriverDirectory(dbType);
-        File dir = new File(defaultDriverDir);
-
-        if (dir.exists() && dir.isDirectory()) {
-            File[] jarFiles = dir.listFiles((dir1, name) -> name.toLowerCase().endsWith(".jar"));
-            if (jarFiles != null) {
-                for (File jarFile : jarFiles) {
-                    try {
-                        classLoader.addDriverJar(jarFile.getAbsolutePath());
-                        System.out.println("Loaded default driver JAR: " + jarFile.getAbsolutePath() + " for " + dbType);
-                    } catch (Exception e) {
-                        System.err.println(
-                            "Failed to load default driver JAR: " + jarFile.getAbsolutePath() + ", error: " + e.getMessage()
-                        );
-                    }
-                }
-            } else {
-                System.err.println("No JAR files found in default driver directory: " + defaultDriverDir);
+        File[] jarFiles = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".jar"));
+        if (jarFiles == null || jarFiles.length == 0) {
+            System.err.println("No JAR files found in driver directory: " + dir.getPath() + " for " + dbType);
+            return;
+        }
+        for (File jarFile : jarFiles) {
+            try {
+                classLoader.addDriverJar(jarFile.getAbsolutePath());
+                System.out.println(
+                    "Loaded driver JAR: " + jarFile.getAbsolutePath() + " for " + dbType + " version " + version
+                );
+            } catch (Exception e) {
+                System.err.println("Failed to load driver JAR: " + jarFile.getAbsolutePath() + ", error: " + e.getMessage());
             }
-        } else {
-            System.err.println("Default driver directory not found: " + defaultDriverDir);
         }
-    }
-
-    /**
-     * 获取驱动目录路径（统一为 {@code drivers/<type>/default}，与下载目录保持一致）
-     */
-    private static String getDriverDirectory(DBType dbType, String version) {
-        return DriverDownloader.getDriverDir(dbType, version).getPath();
-    }
-
-    /**
-     * 获取默认驱动目录路径
-     */
-    private static String getDefaultDriverDirectory(DBType dbType) {
-        return DriverDownloader.getDriverDir(dbType, null).getPath();
-    }
-
-    /**
-     * 获取驱动类名（向后兼容方法）
-     */
-    private static String getDriverClassName(String url) {
-        DBType dbType = DBUtils.getDBTypeEnum(url);
-        if (dbType != null) {
-            return dbType.getDriverClassName();
-        }
-        return "Unknown";
     }
 
     /**

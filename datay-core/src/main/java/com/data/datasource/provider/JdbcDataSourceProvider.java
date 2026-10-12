@@ -11,10 +11,14 @@ import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.TypeConverter;
 import com.data.metadata.util.ConnectionPoolManager;
+import com.data.metadata.util.DriverDownloader;
+import java.io.File;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * JDBC 数据源 Provider 基类，收敛所有关系型数据库共用的标准能力。
@@ -44,7 +48,7 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     /**
      * 该 Provider 负责的数据源类型标识（如 {@code MYSQL}）。
      */
-    protected String typeName() {
+    public String typeName() {
         return descriptor().getType();
     }
 
@@ -102,6 +106,71 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
      */
     public Connection openConnection(DatasourceInfo info) throws SQLException {
         return ConnectionPoolManager.getConnection(info);
+    }
+
+    // ------------------------------------------------------------------ 连接池配置（数据库特定）
+
+    /**
+     * 解析用于建立连接池的 JDBC URL。默认原样返回；需要转换的子类覆写
+     * （如 Quack 复用 DuckDB 驱动、DuckLake 生成本地挂载文件）。
+     */
+    public String resolveJdbcUrl(String url) {
+        return url;
+    }
+
+    /**
+     * 建立连接是否使用账号密码。默认使用；本地 DuckDB / DuckLake 等无账号数据的类型覆写为 {@code false}，
+     * 避免以不同 user 配置打开同一 DuckDB 文件导致 {@code different configuration} 错误。
+     */
+    public boolean requiresCredentials() {
+        return true;
+    }
+
+    /**
+     * 连接池底层数据源的驱动属性（数据库特定性能参数）。默认无。
+     */
+    public Map<String, String> dataSourceProperties() {
+        return Collections.emptyMap();
+    }
+
+    /**
+     * 驱动类名（按版本）。默认取 {@link #descriptor()} 声明，驱动类名不随版本变化。
+     */
+    public String driverClassName(String version) {
+        return descriptor().getDriverClassName();
+    }
+
+    /**
+     * 驱动 jar 所在目录。默认按 {@link #descriptor()} 类型推导的 {@link DBType} 计算
+     * （{@code drivers/<type>/default}）。返回 {@code null} 表示无需自定义类加载。
+     */
+    public File driverDirectory(String version) {
+        DBType dbType = resolveDbType();
+        return dbType == null ? null : DriverDownloader.getDriverDir(dbType, version);
+    }
+
+    /**
+     * 若该类型支持 Maven 下载且本地缺失，则按需下载驱动。默认按 {@link #descriptor()} 类型推导。
+     */
+    public void ensureDriverAvailable(String version) {
+        DBType dbType = resolveDbType();
+        if (dbType == null || !dbType.isDownloadable() || DriverDownloader.isDriverInstalled(dbType, version)) {
+            return;
+        }
+        try {
+            DriverDownloader.downloadDriver(dbType, version);
+        } catch (Exception e) {
+            System.err.println(
+                "Failed to auto-download driver for " + dbType + " version " + version + ": " + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * 由 {@link #descriptor()} 的类型标识解析对应的 {@link DBType}，未登记时返回 {@code null}。
+     */
+    protected DBType resolveDbType() {
+        return DBType.fromString(descriptor().getType());
     }
 
     /**

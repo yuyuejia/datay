@@ -15,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,29 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
     protected List<String> urlPrefixes() {
         // 本地 DuckDB 与 Quack 远程协议共用 DuckDB 驱动
         return List.of("jdbc:duckdb:", "quack:");
+    }
+
+    @Override
+    public String resolveJdbcUrl(String url) {
+        // Quack 远程连接底层仍使用 DuckDB 驱动，实际的 ATTACH 在获取连接后完成
+        if (url != null && url.startsWith("quack:")) {
+            return "jdbc:duckdb:";
+        }
+        return url;
+    }
+
+    @Override
+    public boolean requiresCredentials() {
+        // DuckDB / Quack / DuckLake 本地连接不使用账号密码，
+        // 且 DuckDB 会拒绝以不同 user 配置打开同一数据库文件
+        return false;
+    }
+
+    @Override
+    public Map<String, String> dataSourceProperties() {
+        Map<String, String> props = new LinkedHashMap<>();
+        props.put("jdbc_stream_results", "true");
+        return props;
     }
 
     @Override

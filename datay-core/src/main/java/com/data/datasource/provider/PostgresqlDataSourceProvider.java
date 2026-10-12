@@ -7,6 +7,8 @@ import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * PostgreSQL 数据源 Provider，复用 {@link JdbcDataSourceProvider} 的 JDBC 标准能力。
@@ -19,6 +21,15 @@ public class PostgresqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.POSTGRESQL);
+    }
+
+    @Override
+    public Map<String, String> dataSourceProperties() {
+        Map<String, String> props = new LinkedHashMap<>();
+        props.put("preparedStatementCacheQueries", "256");
+        props.put("preparedStatementCacheSizeMiB", "5");
+        props.put("assumeMinServerVersion", "9.0");
+        return props;
     }
 
     @Override

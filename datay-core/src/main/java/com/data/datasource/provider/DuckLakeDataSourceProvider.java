@@ -40,6 +40,18 @@ public class DuckLakeDataSourceProvider extends DuckDbDataSourceProvider {
     }
 
     @Override
+    public String resolveJdbcUrl(String url) {
+        if (url != null && url.startsWith("ducklake:")) {
+            // DuckLake 由 DBUtils.resolveDuckLakeJdbcUrl 解析为独立本地文件；
+            // 直接调用连接池时复用同一解析逻辑，避免回退到共享内存实例。
+            DatasourceInfo info = new DatasourceInfo();
+            info.setUrl(url);
+            return DBUtils.resolveDuckLakeJdbcUrl(info);
+        }
+        return url;
+    }
+
+    @Override
     public Connection openConnection(DatasourceInfo info) throws SQLException {
         // 本地 scratch 库无需用户名密码：DuckDB 会拒绝以不同 user 配置打开同一文件
         Connection conn = ConnectionPoolManager.getConnection(DBUtils.resolveDuckLakeJdbcUrl(info), null, null);

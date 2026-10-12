@@ -7,6 +7,8 @@ import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Oracle 数据源 Provider，复用 {@link JdbcDataSourceProvider} 的 JDBC 标准能力。
@@ -20,6 +22,14 @@ public class OracleDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.ORACLE);
+    }
+
+    @Override
+    public Map<String, String> dataSourceProperties() {
+        Map<String, String> props = new LinkedHashMap<>();
+        props.put("oracle.jdbc.ReadTimeout", "30000");
+        props.put("oracle.net.CONNECT_TIMEOUT", "10000");
+        return props;
     }
 
     @Override

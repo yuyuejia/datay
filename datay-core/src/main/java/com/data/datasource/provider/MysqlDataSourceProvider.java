@@ -7,7 +7,9 @@ import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * MySQL 数据源 Provider，复用 {@link JdbcDataSourceProvider} 的 JDBC 标准能力。
@@ -20,6 +22,22 @@ public class MysqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.MYSQL);
+    }
+
+    @Override
+    public Map<String, String> dataSourceProperties() {
+        Map<String, String> props = new LinkedHashMap<>();
+        props.put("cachePrepStmts", "true");
+        props.put("prepStmtCacheSize", "250");
+        props.put("prepStmtCacheSqlLimit", "2048");
+        props.put("useServerPrepStmts", "true");
+        props.put("useLocalSessionState", "true");
+        props.put("rewriteBatchedStatements", "true");
+        props.put("cacheResultSetMetadata", "true");
+        props.put("cacheServerConfiguration", "true");
+        props.put("elideSetAutoCommits", "true");
+        props.put("maintainTimeStats", "false");
+        return props;
     }
 
     @Override
