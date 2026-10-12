@@ -1,5 +1,6 @@
 package com.data.datasource;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -8,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
+import com.data.datasource.provider.influxdb.InfluxDbDataSourceProvider;
 import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,6 +42,15 @@ class DataSourceProviderFactoryTest {
         assertInstanceOf(MongoDataSourceProvider.class, provider);
         assertTrue(DataSourceProviderFactory.hasType(MongoDataSourceProvider.TYPE));
         assertFalse(provider.descriptors().get(0).isJdbc());
+    }
+
+    @Test
+    void resolvesInfluxDbToNonJdbcProvider() {
+        DataSourceProvider provider = DataSourceProviderFactory.provider("influxdb");
+        assertInstanceOf(InfluxDbDataSourceProvider.class, provider);
+        assertTrue(DataSourceProviderFactory.hasType(InfluxDbDataSourceProvider.TYPE));
+        assertFalse(provider.descriptors().get(0).isJdbc());
+        assertEquals("8086", provider.descriptors().get(0).getDefaultPort());
     }
 
     @Test

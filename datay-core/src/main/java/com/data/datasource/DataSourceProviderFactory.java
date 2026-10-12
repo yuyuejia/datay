@@ -22,6 +22,7 @@ import com.data.datasource.provider.SqliteDataSourceProvider;
 import com.data.datasource.provider.StarRocksDataSourceProvider;
 import com.data.datasource.provider.TidbDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
+import com.data.datasource.provider.influxdb.InfluxDbDataSourceProvider;
 import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import java.lang.reflect.Modifier;
@@ -91,6 +92,7 @@ public final class DataSourceProviderFactory {
         register(new DmDataSourceProvider());
         register(new ElasticsearchDataSourceProvider());
         register(new MongoDataSourceProvider());
+        register(new InfluxDbDataSourceProvider());
         register(new GenericJdbcDataSourceProvider());
     }
 

@@ -408,4 +408,30 @@ export const dbTypes: DbType[] = [
       { key: 'es.default_index', label: '默认索引', required: false, description: '使用 Query DSL 查询时的默认索引' },
     ],
   },
+  {
+    name: 'INFLUXDB',
+    displayName: 'InfluxDB',
+    jdbcUrlTemplate: 'http://{host}:{port}',
+    supportedVersions: [],
+    defaultPort: '8086',
+    image: '/content/images/influxdb.svg',
+    // 非 JDBC 时序数据库：通过 HTTP API 访问（1.x InfluxQL / 2.x Flux）。
+    // 仅使用自定义 URL 模式：URL 直接携带协议与主机端口，Bucket（2.x）/ Database（1.x）存入「默认Schema」，
+    // 1.x 使用用户名/密码认证；2.x 只需额外的 Org 与 Token 两个参数（填写即自动按 2.x 连接）。
+    network: false,
+    credentials: true,
+    credentialsOptional: true,
+    schemaEnabled: true,
+    databaseEnabled: false,
+    clearDatabaseOnSave: true,
+    extraParamsTemplate: [
+      { key: 'influx.org', label: 'Org (2.x)', required: false, description: 'InfluxDB 2.x 组织名，填写后自动按 2.x（Flux）连接' },
+      {
+        key: 'influx.token',
+        label: 'Token (2.x)',
+        required: false,
+        description: 'InfluxDB 2.x API Token；缺省且无 Org 时按 1.x（InfluxQL + 用户名/密码）连接',
+      },
+    ],
+  },
 ];

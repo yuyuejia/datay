@@ -39,7 +39,7 @@ export function buildSimpleUrl(type: string, fields: SimpleUrlFields, version?: 
       : `jdbc:oracle:thin:@//${host}:${port}/${database}`;
   }
 
-  if (normalizedType === 'ELASTICSEARCH') {
+  if (normalizedType === 'ELASTICSEARCH' || normalizedType === 'INFLUXDB') {
     return `http://${fields.hostname || '{host}'}:${fields.port || '{port}'}`;
   }
 
@@ -101,7 +101,7 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
     return { hostname: match[1], port: match[2] ?? '', database: match[3] };
   }
 
-  if (normalizedType === 'ELASTICSEARCH') {
+  if (normalizedType === 'ELASTICSEARCH' || normalizedType === 'INFLUXDB') {
     const match = HTTP_URL_PATTERN.exec(url);
     if (!match) return null;
     return { hostname: match[2], port: match[3] ?? '', database: '' };
