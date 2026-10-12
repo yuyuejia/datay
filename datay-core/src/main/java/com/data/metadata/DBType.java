@@ -27,6 +27,31 @@ public enum DBType {
         )
     ),
 
+    /**
+     * TiDB（MySQL 协议兼容的分布式数据库）。
+     * <p>使用 MySQL Connector/J 驱动与 {@code jdbc:mysql://} URL 模板，默认端口 4000。
+     */
+    TIDB(
+        "TiDB",
+        Arrays.asList("5.4", "6.1", "6.5", "7.1", "7.5", "8.0"),
+        "com.mysql.cj.jdbc.Driver",
+        "jdbc:mysql://{host}:{port}/{database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai",
+        Map.of(
+            "5.4",
+            "mysql-connector-java-8.0.33.jar",
+            "6.1",
+            "mysql-connector-java-8.0.33.jar",
+            "6.5",
+            "mysql-connector-java-8.0.33.jar",
+            "7.1",
+            "mysql-connector-java-8.0.33.jar",
+            "7.5",
+            "mysql-connector-java-8.0.33.jar",
+            "8.0",
+            "mysql-connector-java-8.0.33.jar"
+        )
+    ),
+
     ORACLE(
         "Oracle Database",
         Arrays.asList("11g", "12c", "18c", "19c", "21c", "23c"),
@@ -299,7 +324,7 @@ public enum DBType {
     }
 
     public static List<DBType> getTypesWithVersionSupport() {
-        return Arrays.asList(MYSQL, ORACLE, POSTGRESQL, SQLSERVER, DUCKDB, CLICKHOUSE, GREENPLUM, DORIS, DM);
+        return Arrays.asList(MYSQL, TIDB, ORACLE, POSTGRESQL, SQLSERVER, DUCKDB, CLICKHOUSE, GREENPLUM, DORIS, DM);
     }
 
     public static DBType getByDisplayName(String displayName) {

@@ -153,6 +153,7 @@ export default defineComponent({
       const type = (dataSourceType.value || "").toUpperCase();
       if (
         type.includes("MYSQL") ||
+        type.includes("TIDB") ||
         type.includes("DORIS") ||
         type.includes("CLICKHOUSE")
       ) {
@@ -398,7 +399,7 @@ export default defineComponent({
 
     const getSqlDialect = () => {
       const type = (dataSourceType.value || "").toUpperCase();
-      const backtickTypes = ["MYSQL", "DORIS", "CLICKHOUSE"];
+      const backtickTypes = ["MYSQL", "TIDB", "DORIS", "CLICKHOUSE"];
       const bracketTypes = ["SQLSERVER", "SQL_SERVER", "MSSQL"];
       const isBacktick = backtickTypes.some((t) => type.includes(t));
       const isBracket = bracketTypes.some((t) => type.includes(t));
@@ -450,7 +451,7 @@ export default defineComponent({
 
     const getFormatterDialect = (): string => {
       const type = (dataSourceType.value || "").toUpperCase();
-      if (type.includes("MYSQL") || type.includes("DORIS")) {
+      if (type.includes("MYSQL") || type.includes("TIDB") || type.includes("DORIS")) {
         return "mysql";
       }
       if (type.includes("CLICKHOUSE")) {

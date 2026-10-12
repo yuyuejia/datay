@@ -13,6 +13,7 @@ import com.data.datasource.provider.MysqlDataSourceProvider;
 import com.data.datasource.provider.OracleDataSourceProvider;
 import com.data.datasource.provider.PostgresqlDataSourceProvider;
 import com.data.datasource.provider.SqlServerDataSourceProvider;
+import com.data.datasource.provider.TidbDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import java.lang.reflect.Modifier;
@@ -63,6 +64,7 @@ public final class DataSourceProviderFactory {
      */
     private static void registerBuiltins() {
         register(new MysqlDataSourceProvider());
+        register(new TidbDataSourceProvider());
         register(new OracleDataSourceProvider());
         register(new PostgresqlDataSourceProvider());
         register(new SqlServerDataSourceProvider());

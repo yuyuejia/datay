@@ -20,6 +20,7 @@ public class DatabaseConverter {
         // 注册默认转换器
         converters.put("common", new LogicConverter());
         converters.put("mysql", new MysqlConverter());
+        converters.put("tidb", new TidbConverter());
         converters.put("duckdb", new DuckDBConverter());
         converters.put("ducklake", new DuckLakeConverter());
         converters.put("oracle", new OracleConverter());
