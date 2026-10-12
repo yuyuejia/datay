@@ -17,7 +17,7 @@
 
     <div class="collapse navbar-collapse" id="header-tabs">
       <ul class="navbar-nav">
-        <li v-if="authenticated" class="nav-item dropdown pointer">
+        <li v-if="authenticated && availableTenants.length > 1" class="nav-item dropdown pointer">
           <el-dropdown trigger="click" data-cy="tenantMenu" popper-class="jh-dropdown-menu">
             <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <font-awesome-icon icon="building" class="mr-1" />
