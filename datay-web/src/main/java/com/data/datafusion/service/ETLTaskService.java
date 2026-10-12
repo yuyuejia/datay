@@ -216,10 +216,14 @@ public class ETLTaskService {
                         throw new IllegalArgumentException("数据源不存在: " + dataSourceId);
                     }
                     DataSourceDTO source = sourceOptional.get();
+                    sourceId.put("type", source.getType());
                     sourceId.put("url", source.getUrl());
                     sourceId.put("driver", DBUtils.getDriverClassName(source.getUrl()));
                     sourceId.put("username", source.getUsername());
                     sourceId.put("password", source.getPassword());
+                    sourceId.put("hostname", source.getHostname());
+                    sourceId.put("port", source.getPort());
+                    sourceId.put("extraParams", source.getExtraParams());
                     sourceId.put("dbschema", config.get("schema") == null ? "" : config.get("schema").toString());
                     unit.put("sourceId", sourceId);
                 }
