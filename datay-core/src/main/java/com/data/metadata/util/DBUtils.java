@@ -749,6 +749,8 @@ public class DBUtils {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
             return DBType.DUCKLAKE.toString();
+        } else if (jdbcUrl.startsWith("jdbc:sqlite:")) {
+            return DBType.SQLITE.toString();
         }
         return "Unknown";
     }
@@ -777,6 +779,8 @@ public class DBUtils {
             return DBType.DORIS;
         } else if (jdbcUrl.startsWith("ducklake:")) {
             return DBType.DUCKLAKE;
+        } else if (jdbcUrl.startsWith("jdbc:sqlite:")) {
+            return DBType.SQLITE;
         }
         return null;
     }

@@ -157,6 +157,99 @@ public enum DBType {
         Map.of("1.2", "mysql-connector-java-8.0.33.jar", "2.0", "mysql-connector-java-8.0.33.jar", "2.1", "mysql-connector-java-8.0.33.jar")
     ),
 
+    /**
+     * MariaDB（MySQL 协议兼容）。复用 MySQL Connector/J 驱动与 {@code jdbc:mysql://} URL 模板。
+     */
+    MARIADB(
+        "MariaDB",
+        Arrays.asList("10.6", "10.11", "11.4"),
+        "com.mysql.cj.jdbc.Driver",
+        "jdbc:mysql://{host}:{port}/{database}",
+        Map.of("10.6", "mysql-connector-java-8.0.33.jar", "10.11", "mysql-connector-java-8.0.33.jar", "11.4", "mysql-connector-java-8.0.33.jar")
+    ),
+
+    /**
+     * StarRocks（MySQL 协议兼容，FE 查询端口默认 9030）。
+     */
+    STARROCKS(
+        "StarRocks",
+        Arrays.asList("2.5", "3.0", "3.1", "3.2"),
+        "com.mysql.cj.jdbc.Driver",
+        "jdbc:mysql://{host}:{port}/{database}",
+        Map.of(
+            "2.5",
+            "mysql-connector-java-8.0.33.jar",
+            "3.0",
+            "mysql-connector-java-8.0.33.jar",
+            "3.1",
+            "mysql-connector-java-8.0.33.jar",
+            "3.2",
+            "mysql-connector-java-8.0.33.jar"
+        )
+    ),
+
+    /**
+     * OceanBase（MySQL 模式，OBServer SQL 端口默认 2881）。
+     */
+    OCEANBASE(
+        "OceanBase",
+        Arrays.asList("3.2", "4.0", "4.2", "4.3"),
+        "com.mysql.cj.jdbc.Driver",
+        "jdbc:mysql://{host}:{port}/{database}",
+        Map.of(
+            "3.2",
+            "mysql-connector-java-8.0.33.jar",
+            "4.0",
+            "mysql-connector-java-8.0.33.jar",
+            "4.2",
+            "mysql-connector-java-8.0.33.jar",
+            "4.3",
+            "mysql-connector-java-8.0.33.jar"
+        )
+    ),
+
+    /**
+     * PolarDB（MySQL 版，MySQL 协议兼容）。
+     */
+    POLARDB(
+        "PolarDB",
+        Arrays.asList("5.6", "5.7", "8.0"),
+        "com.mysql.cj.jdbc.Driver",
+        "jdbc:mysql://{host}:{port}/{database}",
+        Map.of("5.6", "mysql-connector-java-8.0.33.jar", "5.7", "mysql-connector-java-8.0.33.jar", "8.0", "mysql-connector-java-8.0.33.jar")
+    ),
+
+    /**
+     * GaussDB / openGauss（PostgreSQL 协议兼容，默认端口 8000）。
+     */
+    GAUSSDB(
+        "GaussDB",
+        Arrays.asList("2.0", "3.0", "5.0", "6.0"),
+        "org.postgresql.Driver",
+        "jdbc:postgresql://{host}:{port}/{database}",
+        Map.of(
+            "2.0",
+            "postgresql-42.7.0.jar",
+            "3.0",
+            "postgresql-42.7.0.jar",
+            "5.0",
+            "postgresql-42.7.0.jar",
+            "6.0",
+            "postgresql-42.7.0.jar"
+        )
+    ),
+
+    /**
+     * SQLite（嵌入式文件数据库，驱动随平台打包）。
+     */
+    SQLITE(
+        "SQLite",
+        Arrays.asList("3.45.1.0", "3.46.1.0", "3.47.1.0"),
+        "org.sqlite.JDBC",
+        "jdbc:sqlite:{database}",
+        Map.of("3.45.1.0", "sqlite-jdbc-3.45.1.0.jar", "3.46.1.0", "sqlite-jdbc-3.46.1.0.jar", "3.47.1.0", "sqlite-jdbc-3.47.1.0.jar")
+    ),
+
     AVRO(
         "Apache Avro",
         Arrays.asList("1.8", "1.9", "1.10", "1.11"),
@@ -324,7 +417,24 @@ public enum DBType {
     }
 
     public static List<DBType> getTypesWithVersionSupport() {
-        return Arrays.asList(MYSQL, TIDB, ORACLE, POSTGRESQL, SQLSERVER, DUCKDB, CLICKHOUSE, GREENPLUM, DORIS, DM);
+        return Arrays.asList(
+            MYSQL,
+            TIDB,
+            MARIADB,
+            STARROCKS,
+            OCEANBASE,
+            POLARDB,
+            GAUSSDB,
+            SQLITE,
+            ORACLE,
+            POSTGRESQL,
+            SQLSERVER,
+            DUCKDB,
+            CLICKHOUSE,
+            GREENPLUM,
+            DORIS,
+            DM
+        );
     }
 
     public static DBType getByDisplayName(String displayName) {

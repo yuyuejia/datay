@@ -369,12 +369,29 @@ export default defineComponent({
       return parts.join('.');
     };
 
+    const isDocumentDataSource = () => (dataSourceType.value || '').toUpperCase().includes('MONGO');
+
     const buildSelectSql = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 100) => {
       const dialect = getSqlDialect();
       const catalogPart = catalog ? `${dialect.quote(catalog)}.` : '';
       const schemaPart = schema ? `${dialect.quote(schema)}.` : '';
       const baseSql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
       return dialect.limit(baseSql, limit);
+    };
+
+    const buildMongoQuery = (schema: string | undefined, tableName: string, limit = 100) => {
+      const envelope: Record<string, unknown> = { collection: tableName, filter: {}, limit };
+      if (schema) {
+        envelope.database = schema;
+      }
+      return JSON.stringify(envelope);
+    };
+
+    const buildQueryStatement = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 100) => {
+      if (isDocumentDataSource()) {
+        return buildMongoQuery(schema, tableName, limit);
+      }
+      return buildSelectSql(catalog, schema, tableName, limit);
     };
 
     const buildInsertSql = (data: TableNode, columns: ColumnInfo[]) => {
@@ -452,7 +469,7 @@ export default defineComponent({
 
     const copyTableSql = async (data: TableNode, kind: 'select' | 'insert' | 'ddl') => {
       if (kind === 'select') {
-        await copyToClipboard(buildSelectSql(data.catalog, data.schema, data.name), 'SELECT 语句已复制');
+        await copyToClipboard(buildQueryStatement(data.catalog, data.schema, data.name), 'SELECT 语句已复制');
         return;
       }
       try {
@@ -475,7 +492,7 @@ export default defineComponent({
       tab.loading = true;
       tab.error = '';
       try {
-        const sqlText = buildSelectSql(tab.catalog, tab.schema, tab.table, tab.limit);
+        const sqlText = buildQueryStatement(tab.catalog, tab.schema, tab.table, tab.limit);
         const res = await dataQueryService().executeQuery(dataSourceId.value, sqlText);
         const columns = res.columns || res.columnNames || res.fields || [];
         const rows = res.rows || res.data || res.result || [];
@@ -549,12 +566,12 @@ export default defineComponent({
     };
 
     const openSelectInEditor = (tab: PreviewTab) => {
-      applyToEditor(buildSelectSql(tab.catalog, tab.schema, tab.table, 100));
+      applyToEditor(buildQueryStatement(tab.catalog, tab.schema, tab.table, 100));
       activeTab.value = 'sql';
     };
 
     const copyPreviewSelect = (tab: PreviewTab) => {
-      copyToClipboard(buildSelectSql(tab.catalog, tab.schema, tab.table, tab.limit), 'SELECT 语句已复制');
+      copyToClipboard(buildQueryStatement(tab.catalog, tab.schema, tab.table, tab.limit), 'SELECT 语句已复制');
     };
 
     const handleTabRemove = (name: string | number) => {
@@ -594,7 +611,7 @@ export default defineComponent({
         return;
       }
       if (command === 'toEditor') {
-        applyToEditor(buildSelectSql(data.catalog, data.schema, data.name, 100));
+        applyToEditor(buildQueryStatement(data.catalog, data.schema, data.name, 100));
         activeTab.value = 'sql';
         return;
       }

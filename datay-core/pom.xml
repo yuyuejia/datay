@@ -63,6 +63,12 @@
           <artifactId>mongodb-driver-sync</artifactId>
           <version>5.6.1</version>
       </dependency>
+      <!-- SQLite JDBC 驱动（嵌入式文件数据库） -->
+      <dependency>
+          <groupId>org.xerial</groupId>
+          <artifactId>sqlite-jdbc</artifactId>
+          <version>3.47.1.0</version>
+      </dependency>
       <dependency>
           <groupId>cn.hutool</groupId>
           <artifactId>hutool-all</artifactId>
