@@ -8,6 +8,7 @@ import com.data.datasource.provider.DmDataSourceProvider;
 import com.data.datasource.provider.DorisDataSourceProvider;
 import com.data.datasource.provider.DuckDbDataSourceProvider;
 import com.data.datasource.provider.DuckLakeDataSourceProvider;
+import com.data.datasource.provider.GenericJdbcDataSourceProvider;
 import com.data.datasource.provider.GreenplumDataSourceProvider;
 import com.data.datasource.provider.MysqlDataSourceProvider;
 import com.data.datasource.provider.OracleDataSourceProvider;
@@ -78,6 +79,7 @@ public final class DataSourceProviderFactory {
         register(new DmDataSourceProvider());
         register(new ElasticsearchDataSourceProvider());
         register(new MongoDataSourceProvider());
+        register(new GenericJdbcDataSourceProvider());
     }
 
     private DataSourceProviderFactory() {}

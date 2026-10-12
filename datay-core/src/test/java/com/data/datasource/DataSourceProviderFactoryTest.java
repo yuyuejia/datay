@@ -21,6 +21,10 @@ class DataSourceProviderFactoryTest {
         assertInstanceOf(JdbcDataSourceProvider.class, provider);
         assertTrue(DataSourceProviderFactory.hasType("oracle"));
         assertTrue(DataSourceProviderFactory.hasType("duckdb"));
+        // 通用 JDBC
+        DataSourceProvider generic = DataSourceProviderFactory.provider("jdbc");
+        assertInstanceOf(JdbcDataSourceProvider.class, generic);
+        assertTrue(generic.descriptors().get(0).isJdbc());
     }
 
     @Test

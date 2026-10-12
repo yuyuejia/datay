@@ -277,6 +277,38 @@ export const dbTypes: DbType[] = [
     ],
   },
   {
+    name: 'JDBC',
+    displayName: '通用 JDBC',
+    jdbcUrlTemplate: '',
+    supportedVersions: [],
+    defaultPort: '',
+    image: '/content/images/jdbc.svg',
+    // 通用 JDBC：手动填写任意 JDBC URL 与驱动类，适配平台未内置的数据库（Hive/Phoenix/Trino/StarRocks 等）。
+    network: false,
+    credentials: true,
+    credentialsOptional: true,
+    databaseEnabled: false,
+    schemaEnabled: true,
+    extraParamsTemplate: [
+      { key: 'jdbc.driverClass', label: '驱动类名', required: true, description: 'JDBC 驱动类，如 org.apache.hive.jdbc.HiveDriver' },
+      { key: 'jdbc.driverJar', label: '驱动 Jar 路径', required: false, description: '驱动 Jar 文件或目录路径；留空则使用平台类路径' },
+      {
+        key: 'jdbc.maven.groupId',
+        label: 'Maven GroupId',
+        required: false,
+        description: '从 Maven 仓库下载驱动时的 groupId，如 org.apache.hive',
+      },
+      {
+        key: 'jdbc.maven.artifactId',
+        label: 'Maven ArtifactId',
+        required: false,
+        description: '从 Maven 仓库下载驱动时的 artifactId，如 hive-jdbc',
+      },
+      { key: 'jdbc.maven.version', label: 'Maven Version', required: false, description: '从 Maven 仓库下载驱动时的版本，如 3.1.3' },
+      { key: 'jdbc.testQuery', label: '测试查询', required: false, defaultValue: 'SELECT 1', description: '连通性测试语句，默认 SELECT 1' },
+    ],
+  },
+  {
     name: 'MONGODB',
     displayName: 'MongoDB',
     jdbcUrlTemplate: 'mongodb://{host}:{port}/{database}',

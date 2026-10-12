@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#3B6EA5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <title>Generic JDBC</title>
+  <ellipse cx="12" cy="5.5" rx="7" ry="2.8" fill="#E8F0FA"/>
+  <path d="M5 5.5v13c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8v-13"/>
+  <path d="M5 12c0 1.55 3.13 2.8 7 2.8s7-1.25 7-2.8"/>
+</svg>

@@ -45,6 +45,27 @@ public class DriverClassLoader extends URLClassLoader {
         }
     }
 
+    /**
+     * 从已加载的驱动 JAR 中强制加载类（子加载器优先），再回退到应用类加载器。
+     *
+     * <p>用于通用 JDBC 自定义驱动：驱动类名任意（如 {@code org.apache.hive.jdbc.HiveDriver}），
+     * 无法预先登记在 {@link #loadClass(String, boolean)} 的前缀白名单里，因此需要显式从
+     * 已加入的 JAR 中加载。
+     */
+    public Class<?> loadDriverClass(String name) throws ClassNotFoundException {
+        synchronized (getClassLoadingLock(name)) {
+            Class<?> loadedClass = findLoadedClass(name);
+            if (loadedClass != null) {
+                return loadedClass;
+            }
+            try {
+                return findClass(name);
+            } catch (ClassNotFoundException e) {
+                return loadClass(name);
+            }
+        }
+    }
+
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         // 检查是否已经加载过

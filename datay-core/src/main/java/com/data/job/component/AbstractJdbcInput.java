@@ -119,7 +119,8 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      * 打开源数据库连接。
      */
     protected Connection getSourceConnection() throws SQLException {
-        return DBUtils.getConnection(datasource.getUrl(), datasource.getUsername(), datasource.getPassword());
+        // 通过数据源类型解析连接（支持通用 JDBC 等需要按类型加载自定义驱动的数据源）
+        return DBUtils.getConnection(datasource);
     }
 
     /**

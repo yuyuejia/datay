@@ -155,6 +155,63 @@ public final class DriverDownloader {
         throw new IOException("驱动下载失败（" + dbType.name() + " " + dbType.resolveVersion(version) + "），已尝试仓库：" + failures);
     }
 
+    /**
+     * 下载指定 Maven 坐标的 JAR 到目标目录（用于通用 JDBC 自定义驱动）。
+     *
+     * <p>会依次尝试所有仓库，校验为合法 JAR 后原子落盘；目标文件已存在时直接返回。
+     *
+     * @param groupId    Maven groupId，如 {@code org.apache.hive}
+     * @param artifactId Maven artifactId，如 {@code hive-jdbc}
+     * @param version    Maven 版本，如 {@code 3.1.3}
+     * @param dir        目标目录
+     * @return 下载后的 JAR 文件
+     * @throws IOException 坐标不完整或所有仓库下载失败时
+     */
+    public static File downloadJar(String groupId, String artifactId, String version, File dir) throws IOException {
+        if (
+            groupId == null ||
+            groupId.isBlank() ||
+            artifactId == null ||
+            artifactId.isBlank() ||
+            version == null ||
+            version.isBlank()
+        ) {
+            throw new IOException("Maven 坐标不完整（groupId/artifactId/version）");
+        }
+        String relativePath =
+            groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + ".jar";
+        String jarName = artifactId + "-" + version + ".jar";
+
+        if (!dir.exists() && !dir.mkdirs() && !dir.exists()) {
+            throw new IOException("无法创建驱动目录：" + dir.getAbsolutePath());
+        }
+        File target = new File(dir, jarName);
+        if (target.exists() && target.length() > 0) {
+            return target;
+        }
+
+        List<String> repos = getRepoUrls();
+        List<String> failures = new ArrayList<>();
+        for (String repo : repos) {
+            String url = trimTrailingSlash(repo) + "/" + relativePath;
+            File tmp = new File(dir, jarName + ".part");
+            try {
+                downloadToFile(url, tmp);
+                validateJar(tmp, url);
+                moveIntoPlace(tmp, target);
+                System.out.println("Downloaded driver JAR from " + url + " to " + target.getAbsolutePath());
+                return target;
+            } catch (Exception e) {
+                deleteQuietly(tmp);
+                failures.add(repo + " -> " + e.getMessage());
+                System.err.println("Failed to download driver from " + url + ": " + e.getMessage());
+            }
+        }
+        throw new IOException(
+            "驱动下载失败（" + groupId + ":" + artifactId + ":" + version + "），已尝试仓库：" + failures
+        );
+    }
+
     private static void downloadToFile(String url, File dest) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
