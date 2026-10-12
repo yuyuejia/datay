@@ -1,5 +1,13 @@
 <template>
   <div class="data-model-container">
+    <div class="page-header">
+      <h4 class="page-title">维度建模</h4>
+      <div class="page-header-actions">
+        <el-button type="primary" @click="showAddModelDialog('')">
+          <font-awesome-icon icon="plus" /> 新增模型
+        </el-button>
+      </div>
+    </div>
     <div class="data-model-layout">
       <div class="tree-panel">
         <div class="tree-header">
@@ -568,9 +576,29 @@
   flex-direction: column;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 12px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .data-model-layout {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   gap: 0;
 }
 
