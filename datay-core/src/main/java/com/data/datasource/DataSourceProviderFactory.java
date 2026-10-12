@@ -15,6 +15,7 @@ import com.data.datasource.provider.PostgresqlDataSourceProvider;
 import com.data.datasource.provider.SqlServerDataSourceProvider;
 import com.data.datasource.provider.TidbDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
+import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -76,6 +77,7 @@ public final class DataSourceProviderFactory {
         register(new AvroDataSourceProvider());
         register(new DmDataSourceProvider());
         register(new ElasticsearchDataSourceProvider());
+        register(new MongoDataSourceProvider());
     }
 
     private DataSourceProviderFactory() {}

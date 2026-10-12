@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
+import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,15 @@ class DataSourceProviderFactoryTest {
     void resolvesNonJdbcTypeToElasticsearchProvider() {
         DataSourceProvider provider = DataSourceProviderFactory.provider(ElasticsearchDataSourceProvider.TYPE);
         assertInstanceOf(ElasticsearchDataSourceProvider.class, provider);
-        assertFalse(DataSourceProviderFactory.hasType("mongodb"));
+        assertFalse(DataSourceProviderFactory.hasType("hbase"));
+    }
+
+    @Test
+    void resolvesMongoDbToNonJdbcProvider() {
+        DataSourceProvider provider = DataSourceProviderFactory.provider("mongodb");
+        assertInstanceOf(MongoDataSourceProvider.class, provider);
+        assertTrue(DataSourceProviderFactory.hasType(MongoDataSourceProvider.TYPE));
+        assertFalse(provider.descriptors().get(0).isJdbc());
     }
 
     @Test
@@ -43,6 +52,7 @@ class DataSourceProviderFactoryTest {
             .collect(Collectors.toList());
         assertTrue(types.contains("MYSQL"));
         assertTrue(types.contains(ElasticsearchDataSourceProvider.TYPE));
+        assertTrue(types.contains("MONGODB"));
 
         DataSourceTypeDescriptor es = DataSourceProviderFactory
             .descriptors()

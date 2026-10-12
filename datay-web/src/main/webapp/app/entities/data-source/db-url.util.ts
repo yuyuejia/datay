@@ -16,6 +16,7 @@ const SQLSERVER_URL_PATTERN = /^jdbc:sqlserver:\/\/([^:;]+)(?::(\d+))?.*?databas
 const ORACLE_SERVICE_PATTERN = /^jdbc:oracle:thin:@\/\/([^:/]+)(?::(\d+))?\/(.+)$/i;
 const ORACLE_SID_PATTERN = /^jdbc:oracle:thin:@([^:/]+)(?::(\d+))?:(.+)$/i;
 const HTTP_URL_PATTERN = /^(https?):\/\/([^:/]+)(?::(\d+))?/i;
+const MONGO_URL_PATTERN = /^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^:/?]+)(?::(\d+))?(?:\/([^?]*))?/i;
 
 const isNetworkType = (type: string): boolean => {
   const normalized = (type ?? '').toUpperCase();
@@ -104,6 +105,12 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
     const match = HTTP_URL_PATTERN.exec(url);
     if (!match) return null;
     return { hostname: match[2], port: match[3] ?? '', database: '' };
+  }
+
+  if (normalizedType === 'MONGODB') {
+    const match = MONGO_URL_PATTERN.exec(url);
+    if (!match) return null;
+    return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
   }
 
   const match = NETWORK_URL_PATTERN.exec(url);

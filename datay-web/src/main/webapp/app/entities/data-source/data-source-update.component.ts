@@ -338,6 +338,7 @@ export default defineComponent({
       const cfg = formConfig.value;
       if (!cfg.credentials) return false;
       if (cfg.network && urlMode.value === 'simple' && !dataSource.value.hostname) return true;
+      if (cfg.credentialsOptional) return false;
       return !dataSource.value.username;
     });
 
@@ -349,7 +350,7 @@ export default defineComponent({
         alertService.showError('请先完成数据源配置');
         return;
       }
-      if (requiresCredentials.value && !dataSource.value.username) {
+      if (requiresCredentials.value && !formConfig.value.credentialsOptional && !dataSource.value.username) {
         alertService.showError('请先填写用户名');
         return;
       }

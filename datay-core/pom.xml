@@ -57,6 +57,12 @@
           <artifactId>duckdb_jdbc</artifactId>
           <version>1.5.3.0</version>
       </dependency>
+      <!-- MongoDB 官方同步驱动（非 JDBC 数据源，含 mongodb-driver-core 与 bson） -->
+      <dependency>
+          <groupId>org.mongodb</groupId>
+          <artifactId>mongodb-driver-sync</artifactId>
+          <version>5.6.1</version>
+      </dependency>
       <dependency>
           <groupId>cn.hutool</groupId>
           <artifactId>hutool-all</artifactId>

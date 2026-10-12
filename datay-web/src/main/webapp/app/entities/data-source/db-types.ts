@@ -45,6 +45,8 @@ export interface DbType {
   network?: boolean;
   /** 需要用户名/密码。默认 true */
   credentials?: boolean;
+  /** 用户名/密码为可选（如 MongoDB 允许无认证），填写凭据时不缺省校验。默认 false */
+  credentialsOptional?: boolean;
   /** 显示并保存「默认 Schema」。默认 false */
   schemaEnabled?: boolean;
   /** 简易模式下显示「数据库名」。默认 true */
@@ -71,6 +73,7 @@ export interface DbType {
 export interface DbFormConfig {
   network: boolean;
   credentials: boolean;
+  credentialsOptional: boolean;
   schemaEnabled: boolean;
   databaseEnabled: boolean;
   identifierTypes: IdentifierTypeDef[];
@@ -84,6 +87,7 @@ export interface DbFormConfig {
 const DEFAULT_FORM_CONFIG: DbFormConfig = {
   network: true,
   credentials: true,
+  credentialsOptional: false,
   schemaEnabled: false,
   databaseEnabled: true,
   identifierTypes: [],
@@ -109,6 +113,7 @@ export function resolveDbFormConfig(dbType?: DbType | null): DbFormConfig {
   return {
     network: dbType.network ?? DEFAULT_FORM_CONFIG.network,
     credentials: dbType.credentials ?? DEFAULT_FORM_CONFIG.credentials,
+    credentialsOptional: dbType.credentialsOptional ?? DEFAULT_FORM_CONFIG.credentialsOptional,
     schemaEnabled: dbType.schemaEnabled ?? DEFAULT_FORM_CONFIG.schemaEnabled,
     databaseEnabled: dbType.databaseEnabled ?? DEFAULT_FORM_CONFIG.databaseEnabled,
     identifierTypes: dbType.identifierTypes ?? DEFAULT_FORM_CONFIG.identifierTypes,
@@ -269,6 +274,23 @@ export const dbTypes: DbType[] = [
     image: '/content/images/doris.svg',
     extraParamsTemplate: [
       { key: 'fe_endpoint', label: 'FE Endpoint', required: false, description: 'Doris FE 节点 HTTP 端点，格式：http://host:port' },
+    ],
+  },
+  {
+    name: 'MONGODB',
+    displayName: 'MongoDB',
+    jdbcUrlTemplate: 'mongodb://{host}:{port}/{database}',
+    supportedVersions: [],
+    defaultPort: '27017',
+    image: '/content/images/mongodb.svg',
+    // 非 JDBC 数据源：文档型数据库，集合即「表」，查询使用 JSON 信封（find/aggregate）。
+    credentials: true,
+    credentialsOptional: true,
+    databaseEnabled: true,
+    extraParamsTemplate: [
+      { key: 'authSource', label: '认证库 (authSource)', required: false, description: '认证数据库，默认取连接数据库或 admin' },
+      { key: 'replicaSet', label: '副本集 (replicaSet)', required: false, description: '副本集名称' },
+      { key: 'tls', label: 'TLS', required: false, defaultValue: 'false', description: '是否启用 TLS 加密连接' },
     ],
   },
   {

@@ -97,27 +97,29 @@
             <el-form-item v-if="formConfig.schemaEnabled" label="默认Schema">
             <el-input name="schemaName" id="data-source-schemaName" data-cy="schemaName" v-model="dataSource.schemaName" />
           </el-form-item>
-            <el-form-item v-if="effectiveExtraParamsTemplate.length > 0 || extraParamRows.length > 0" label="扩展参数">
-            <div class="extra-params-toolbar">
-                <el-button type="primary" plain size="small" @click="addExtraParam">
-                  <font-awesome-icon icon="plus"></font-awesome-icon>&nbsp;添加参数
-                </el-button>
-              </div>
-              <div v-if="extraParamRows.length === 0" class="extra-params-empty">暂无扩展参数</div>
-              <div v-for="(row, index) in extraParamRows" :key="index" class="extra-param-row">
-                <div class="extra-param-main">
-                  <el-input class="extra-param-key" v-model="row.key" placeholder="参数名" :readonly="!!effectiveExtraParamsTemplate.find(t => t.key === row.key)" />
-                  <el-input class="extra-param-value" v-model="row.value" :placeholder="row.label || '参数值'" />
-                  <el-button class="extra-param-remove" type="danger" plain @click="removeExtraParam(index)" :disabled="!!row.required" title="删除参数">
-                    <font-awesome-icon icon="trash"></font-awesome-icon>
+            <el-collapse v-if="effectiveExtraParamsTemplate.length > 0 || extraParamRows.length > 0" class="extra-params-collapse">
+              <el-collapse-item title="扩展参数" name="extraParams">
+                <div class="extra-params-toolbar">
+                  <el-button type="primary" plain size="small" @click="addExtraParam">
+                    <font-awesome-icon icon="plus"></font-awesome-icon>&nbsp;添加参数
                   </el-button>
                 </div>
-                <div v-if="row.description || row.required" class="extra-param-hint">
-                  <span v-if="row.required" class="extra-param-required">* 必填</span>
-                  <span v-if="row.description">{{ row.description }}</span>
+                <div v-if="extraParamRows.length === 0" class="extra-params-empty">暂无扩展参数</div>
+                <div v-for="(row, index) in extraParamRows" :key="index" class="extra-param-row">
+                  <div class="extra-param-main">
+                    <el-input class="extra-param-key" v-model="row.key" placeholder="参数名" :readonly="!!effectiveExtraParamsTemplate.find(t => t.key === row.key)" />
+                    <el-input class="extra-param-value" v-model="row.value" :placeholder="row.label || '参数值'" />
+                    <el-button class="extra-param-remove" type="danger" plain @click="removeExtraParam(index)" :disabled="!!row.required" title="删除参数">
+                      <font-awesome-icon icon="trash"></font-awesome-icon>
+                    </el-button>
+                  </div>
+                  <div v-if="row.description || row.required" class="extra-param-hint">
+                    <span v-if="row.required" class="extra-param-required">* 必填</span>
+                    <span v-if="row.description">{{ row.description }}</span>
+                  </div>
                 </div>
-              </div>
-          </el-form-item>
+              </el-collapse-item>
+            </el-collapse>
           </div>
         </el-form>
       </div>
