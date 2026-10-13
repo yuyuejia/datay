@@ -89,10 +89,23 @@
           </el-form-item>
             </template>
             <el-form-item v-if="requiresCredentials" label="用户名">
-            <el-input name="username" id="data-source-username" data-cy="username" v-model="dataSource.username" />
+            <el-input
+              name="datay-ds-account"
+              autocomplete="off"
+              id="data-source-username"
+              data-cy="username"
+              v-model="dataSource.username"
+            />
           </el-form-item>
             <el-form-item v-if="requiresCredentials" label="密码">
-            <el-input type="password" name="password" id="data-source-password" data-cy="password" v-model="dataSource.password" />
+            <el-input
+              type="password"
+              name="datay-ds-secret"
+              autocomplete="new-password"
+              id="data-source-password"
+              data-cy="password"
+              v-model="dataSource.password"
+            />
           </el-form-item>
             <el-form-item v-if="formConfig.schemaEnabled" label="默认Schema">
             <el-input name="schemaName" id="data-source-schemaName" data-cy="schemaName" v-model="dataSource.schemaName" />
