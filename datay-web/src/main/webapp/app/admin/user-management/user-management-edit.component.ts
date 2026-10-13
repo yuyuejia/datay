@@ -25,6 +25,17 @@ const emailValidator = (value: string) => {
   return /^[^\s@]+@[^\s@]+$/.test(value);
 };
 
+/**
+ * 与后端 ManagedUserVM 的 @Size(min = 4, max = 100) 对齐：
+ * 密码可选，新建时留空则走邮件激活，编辑时留空表示不修改。
+ */
+const optionalPasswordValidator = (value: string) => {
+  if (!value) {
+    return true;
+  }
+  return value.length >= 4 && value.length <= 100;
+};
+
 const validations: any = {
   userAccount: {
     login: {
@@ -42,6 +53,9 @@ const validations: any = {
       format: emailValidator,
       minLength: minLength(5),
       maxLength: maxLength(254),
+    },
+    password: {
+      format: optionalPasswordValidator,
     },
   },
 };
@@ -94,6 +108,10 @@ export default defineComponent({
   methods: {
     save(): void {
       this.isSaving = true;
+      // 密码留空表示不设置（新建）或不修改（编辑），直接改密码请填非空值
+      if (!this.userAccount.password) {
+        delete this.userAccount.password;
+      }
       if (this.userAccount.id) {
         this.userManagementService
           .update(this.userAccount)

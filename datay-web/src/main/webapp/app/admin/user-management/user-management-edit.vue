@@ -95,6 +95,31 @@
               >
             </div>
           </el-form-item>
+          <el-form-item label="密码">
+            <el-input
+              type="password"
+              show-password
+              name="password"
+              :placeholder="
+                userAccount.id
+                  ? '留空则不修改密码'
+                  : '留空则由用户通过邮件自行设置'
+              "
+              v-model="v$.userAccount.password.$model"
+            />
+            <div
+              v-if="
+                v$.userAccount.password.$anyDirty &&
+                v$.userAccount.password.$invalid
+              "
+            >
+              <small
+                class="form-text text-danger"
+                v-if="!v$.userAccount.password.format"
+                >密码长度需为 4 - 100 个字符.</small
+              >
+            </div>
+          </el-form-item>
           <el-form-item label="状态">
             <el-checkbox
               :disabled="userAccount.id === null"

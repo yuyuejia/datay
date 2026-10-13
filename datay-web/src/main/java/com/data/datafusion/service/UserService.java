@@ -135,6 +135,20 @@ public class UserService {
     }
 
     public User createUser(AdminUserDTO userDTO) {
+        return createUser(userDTO, null);
+    }
+
+    /**
+     * Create a user, optionally with a password chosen by the administrator.
+     *
+     * <p>When no password is given, a random one is generated and a reset key is issued so that the
+     * user can set his own password from the creation email.
+     *
+     * @param userDTO user to create.
+     * @param password the plain text password to apply, {@code null} or blank to let the user set it by email.
+     * @return the created user.
+     */
+    public User createUser(AdminUserDTO userDTO, String password) {
         User user = new User();
         user.setLogin(userDTO.getLogin().toLowerCase());
         user.setFirstName(userDTO.getFirstName());
@@ -148,10 +162,12 @@ public class UserService {
         } else {
             user.setLangKey(userDTO.getLangKey());
         }
-        String encryptedPassword = passwordEncoder.encode(RandomUtil.generatePassword());
-        user.setPassword(encryptedPassword);
-        user.setResetKey(RandomUtil.generateResetKey());
-        user.setResetDate(Instant.now());
+        boolean passwordProvided = StringUtils.isNotBlank(password);
+        user.setPassword(passwordEncoder.encode(passwordProvided ? password : RandomUtil.generatePassword()));
+        if (!passwordProvided) {
+            user.setResetKey(RandomUtil.generateResetKey());
+            user.setResetDate(Instant.now());
+        }
         user.setActivated(true);
         if (userDTO.getAuthorities() != null) {
             Set<Authority> authorities = userDTO
@@ -175,6 +191,20 @@ public class UserService {
      * @return updated user.
      */
     public Optional<AdminUserDTO> updateUser(AdminUserDTO userDTO) {
+        return updateUser(userDTO, null);
+    }
+
+    /**
+     * Update all information for a specific user, and return the modified user.
+     *
+     * <p>When a password is given it replaces the current one and any pending reset key is cleared, so
+     * that an administrator can hand over a usable password.
+     *
+     * @param userDTO user to update.
+     * @param password the plain text password to apply, {@code null} or blank to keep the current one.
+     * @return updated user.
+     */
+    public Optional<AdminUserDTO> updateUser(AdminUserDTO userDTO, String password) {
         return Optional.of(userRepository.findById(userDTO.getId()))
             .filter(Optional::isPresent)
             .map(Optional::get)
@@ -188,6 +218,11 @@ public class UserService {
                 user.setImageUrl(userDTO.getImageUrl());
                 user.setActivated(userDTO.isActivated());
                 user.setLangKey(userDTO.getLangKey());
+                if (StringUtils.isNotBlank(password)) {
+                    user.setPassword(passwordEncoder.encode(password));
+                    user.setResetKey(null);
+                    user.setResetDate(null);
+                }
                 Set<Authority> managedAuthorities = user.getAuthorities();
                 managedAuthorities.clear();
                 userDTO

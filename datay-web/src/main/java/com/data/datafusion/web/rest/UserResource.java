@@ -10,11 +10,13 @@ import com.data.datafusion.service.dto.AdminUserDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.datafusion.web.rest.errors.EmailAlreadyUsedException;
 import com.data.datafusion.web.rest.errors.LoginAlreadyUsedException;
+import com.data.datafusion.web.rest.vm.ManagedUserVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,9 +97,9 @@ public class UserResource {
     /**
      * {@code POST  /admin/users}  : Creates a new user.
      * <p>
-     * Creates a new user if the login and email are not already used, and sends a
-     * mail with an activation link.
-     * The user needs to be activated on creation.
+     * Creates a new user if the login and email are not already used.
+     * When a password is supplied in the payload the user can sign in right away and no mail is sent;
+     * otherwise a creation mail with a password reset link is sent so that the user sets his own password.
      *
      * @param userDTO the user to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new user, or with status {@code 400 (Bad Request)} if the login or email is already in use.
@@ -106,7 +108,7 @@ public class UserResource {
      */
     @PostMapping("/users")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<User> createUser(@Valid @RequestBody AdminUserDTO userDTO) throws URISyntaxException {
+    public ResponseEntity<User> createUser(@Valid @RequestBody ManagedUserVM userDTO) throws URISyntaxException {
         LOG.debug("REST request to save User : {}", userDTO);
 
         if (userDTO.getId() != null) {
@@ -117,8 +119,12 @@ public class UserResource {
         } else if (userRepository.findOneByEmailIgnoreCase(userDTO.getEmail()).isPresent()) {
             throw new EmailAlreadyUsedException();
         } else {
-            User newUser = userService.createUser(userDTO);
-            mailService.sendCreationEmail(newUser);
+            User newUser = userService.createUser(userDTO, userDTO.getPassword());
+            if (StringUtils.isBlank(userDTO.getPassword())) {
+                mailService.sendCreationEmail(newUser);
+            } else {
+                LOG.debug("User '{}' created with an administrator provided password, no creation email sent", newUser.getLogin());
+            }
             return ResponseEntity.created(new URI("/api/admin/users/" + newUser.getLogin()))
                 .headers(
                     HeaderUtil.createAlert(applicationName, "A user is created with identifier " + newUser.getLogin(), newUser.getLogin())
@@ -130,6 +136,9 @@ public class UserResource {
     /**
      * {@code PUT /admin/users} : Updates an existing User.
      *
+     * <p>When a password is supplied in the payload it replaces the current one, so that an administrator
+     * can reset the password of a user.
+     *
      * @param userDTO the user to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated user.
      * @throws EmailAlreadyUsedException {@code 400 (Bad Request)} if the email is already in use.
@@ -139,7 +148,7 @@ public class UserResource {
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<AdminUserDTO> updateUser(
         @PathVariable(name = "login", required = false) @Pattern(regexp = Constants.LOGIN_REGEX) String login,
-        @Valid @RequestBody AdminUserDTO userDTO
+        @Valid @RequestBody ManagedUserVM userDTO
     ) {
         LOG.debug("REST request to update User : {}", userDTO);
         Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
@@ -150,7 +159,7 @@ public class UserResource {
         if (existingUser.isPresent() && (!existingUser.orElseThrow().getId().equals(userDTO.getId()))) {
             throw new LoginAlreadyUsedException();
         }
-        Optional<AdminUserDTO> updatedUser = userService.updateUser(userDTO);
+        Optional<AdminUserDTO> updatedUser = userService.updateUser(userDTO, userDTO.getPassword());
 
         return ResponseUtil.wrapOrNotFound(
             updatedUser,

@@ -12,6 +12,7 @@ import com.data.datafusion.security.AuthoritiesConstants;
 import com.data.datafusion.service.UserService;
 import com.data.datafusion.service.dto.AdminUserDTO;
 import com.data.datafusion.service.mapper.UserMapper;
+import com.data.datafusion.web.rest.vm.ManagedUserVM;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import java.util.*;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +68,9 @@ class UserResourceIT {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private EntityManager em;
@@ -158,6 +163,32 @@ class UserResourceIT {
         assertThat(convertedUser.getEmail()).isEqualTo(DEFAULT_EMAIL);
         assertThat(convertedUser.getImageUrl()).isEqualTo(DEFAULT_IMAGEURL);
         assertThat(convertedUser.getLangKey()).isEqualTo(DEFAULT_LANGKEY);
+    }
+
+    @Test
+    @Transactional
+    void createUserWithPassword() throws Exception {
+        String password = "password1234";
+
+        ManagedUserVM userDTO = new ManagedUserVM();
+        userDTO.setLogin(DEFAULT_LOGIN);
+        userDTO.setFirstName(DEFAULT_FIRSTNAME);
+        userDTO.setLastName(DEFAULT_LASTNAME);
+        userDTO.setEmail(DEFAULT_EMAIL);
+        userDTO.setActivated(true);
+        userDTO.setLangKey(DEFAULT_LANGKEY);
+        userDTO.setAuthorities(Collections.singleton(AuthoritiesConstants.USER));
+        userDTO.setPassword(password);
+
+        restUserMockMvc
+            .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .andExpect(status().isCreated());
+
+        User createdUser = userRepository.findOneByLogin(DEFAULT_LOGIN).orElseThrow();
+        // No reset key, the administrator chosen password is usable straight away.
+        assertThat(createdUser.isActivated()).isTrue();
+        assertThat(createdUser.getResetKey()).isNull();
+        assertThat(passwordEncoder.matches(password, createdUser.getPassword())).isTrue();
     }
 
     @Test
@@ -320,6 +351,41 @@ class UserResourceIT {
             assertThat(testUser.getImageUrl()).isEqualTo(UPDATED_IMAGEURL);
             assertThat(testUser.getLangKey()).isEqualTo(UPDATED_LANGKEY);
         });
+    }
+
+    @Test
+    @Transactional
+    void updateUserWithPassword() throws Exception {
+        // Initialize the database
+        userRepository.saveAndFlush(user);
+        String password = "newpassword1234";
+
+        ManagedUserVM userDTO = new ManagedUserVM();
+        userDTO.setId(user.getId());
+        userDTO.setLogin(user.getLogin());
+        userDTO.setFirstName(user.getFirstName());
+        userDTO.setLastName(user.getLastName());
+        userDTO.setEmail(user.getEmail());
+        userDTO.setActivated(user.isActivated());
+        userDTO.setLangKey(user.getLangKey());
+        userDTO.setAuthorities(Collections.singleton(AuthoritiesConstants.USER));
+        userDTO.setPassword(password);
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .andExpect(status().isOk());
+
+        User testUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(password, testUser.getPassword())).isTrue();
+
+        // An update without a password keeps the current one
+        userDTO.setPassword(null);
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .andExpect(status().isOk());
+
+        testUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(password, testUser.getPassword())).isTrue();
     }
 
     @Test
