@@ -145,5 +145,34 @@ describe('Component Tests', () => {
         expect(routerGoMock).toHaveBeenCalledWith(-1);
       });
     });
+
+    describe('Url mode switch', () => {
+      it('Should preserve the custom url when switching to simple and back to custom', async () => {
+        // GIVEN
+        const wrapper = shallowMount(DataSourceUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataSource = {
+          type: 'MYSQL',
+          url: 'jdbc:mysql://custom-host:3307/customdb?useSSL=false',
+          hostname: '127.0.0.1',
+          port: '3306',
+          database: 'demo',
+        };
+        await comp.$nextTick();
+        const customUrl = comp.dataSource.url;
+
+        // WHEN switch to simple mode
+        comp.onUrlModeChange('simple');
+        await comp.$nextTick();
+        // THEN the url is regenerated from the simple fields
+        expect(comp.dataSource.url).not.toEqual(customUrl);
+
+        // WHEN switch back to custom mode
+        comp.onUrlModeChange('custom');
+        await comp.$nextTick();
+        // THEN the custom url is restored
+        expect(comp.dataSource.url).toEqual(customUrl);
+      });
+    });
   });
 });

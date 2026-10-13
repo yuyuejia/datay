@@ -56,6 +56,8 @@ export default defineComponent({
     const selectedConnectionMode = ref('');
     const filePath = ref('');
     const urlMode = ref<UrlMode>('simple');
+    // 自定义模式下用户填写的 URL，切换模式时用于保存与恢复
+    const customUrl = ref('');
     const oracleIdentifierType = ref<OracleIdentifierType>('service');
     const driverStatus: Ref<any> = ref(null);
     const isDownloadingDriver = ref(false);
@@ -233,6 +235,7 @@ export default defineComponent({
       selectedConnectionMode.value = '';
       filePath.value = '';
       urlMode.value = 'simple';
+      customUrl.value = '';
       oracleIdentifierType.value = 'service';
       driverStatus.value = null;
       if (props.mode === 'edit' && props.dataSourceId) {
@@ -264,6 +267,7 @@ export default defineComponent({
       const cfg = resolveDbFormConfig(dbType);
       selectedConnectionMode.value = cfg.defaultConnectionMode ?? cfg.connectionModes[0]?.value ?? '';
       urlMode.value = cfg.network ? 'simple' : 'custom';
+      customUrl.value = '';
       oracleIdentifierType.value = cfg.identifierTypes[0]?.value ?? 'service';
       if (dbType.defaultPort && !dataSource.value.port) {
         dataSource.value.port = dbType.defaultPort;
@@ -295,6 +299,7 @@ export default defineComponent({
       const cfg = formConfig.value;
       selectedConnectionMode.value = cfg.defaultConnectionMode ?? cfg.connectionModes[0]?.value ?? '';
       urlMode.value = cfg.network ? 'simple' : 'custom';
+      customUrl.value = '';
       oracleIdentifierType.value = cfg.identifierTypes[0]?.value ?? 'service';
       if (dbType.defaultPort && !dataSource.value.port) {
         dataSource.value.port = dbType.defaultPort;
@@ -308,6 +313,15 @@ export default defineComponent({
     const onUrlModeChange = (mode: UrlMode) => {
       urlMode.value = mode;
       if (mode === 'simple') {
+        // 切换前 url 仍是自定义值，先保存，避免生成简易 URL 时丢失
+        if (dataSource.value.url && dataSource.value.url.trim()) {
+          customUrl.value = dataSource.value.url;
+        }
+        updateUrl();
+      } else if (customUrl.value && customUrl.value.trim()) {
+        // 切回自定义模式：恢复之前保存的自定义 URL
+        dataSource.value.url = customUrl.value;
+      } else {
         updateUrl();
       }
     };
