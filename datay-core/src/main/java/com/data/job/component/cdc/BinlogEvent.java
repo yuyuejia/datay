@@ -42,6 +42,9 @@ public class BinlogEvent {
     private Long xid; // 事务ID
     private String query; // QUERY事件的SQL语句
 
+    /** 变更流断点标识（MongoDB Change Streams 的 resumeToken，JSON 字符串）。 */
+    private String resumeToken;
+
     public BinlogEvent() {}
 
     public BinlogEvent(EventType eventType, String database, String table) {
@@ -156,6 +159,14 @@ public class BinlogEvent {
         this.tableMeta = tableMeta;
     }
 
+    public String getResumeToken() {
+        return resumeToken;
+    }
+
+    public void setResumeToken(String resumeToken) {
+        this.resumeToken = resumeToken;
+    }
+
     /**
      * 转换为JSON格式，便于传输和存储
      */
@@ -171,6 +182,7 @@ public class BinlogEvent {
         json.put("nextBinlogPosition", nextBinlogPosition);
         json.put("xid", xid);
         json.put("query", query);
+        json.put("resumeToken", resumeToken);
 
         if (beforeData != null) {
             json.put("beforeData", new JSONObject(beforeData));

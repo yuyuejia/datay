@@ -164,8 +164,15 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         // 合并所有事件的数据：DELETE 取变更前镜像，INSERT/UPDATE 取变更后镜像
         JSONArray mergedData = new JSONArray();
         for (BinlogEvent event : eventBuffer) {
-            mergedFlowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
-            mergedFlowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
+            if (event.getBinlogFileName() != null) {
+                mergedFlowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
+            }
+            if (event.getBinlogPosition() != null) {
+                mergedFlowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
+            }
+            if (event.getResumeToken() != null) {
+                mergedFlowFile.setStatus(component.getId() + "." + "resumeToken", event.getResumeToken());
+            }
 
             if (firstEvent.getEventType() == BinlogEvent.EventType.DELETE) {
                 if (event.getBeforeData() != null) {
@@ -200,8 +207,15 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         flowFile.setAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE, "true");
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, event.getTimestamp());
         flowFile.setAttribute("_xid", event.getXid());
-        flowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
-        flowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
+        if (event.getBinlogFileName() != null) {
+            flowFile.setStatus(component.getId() + "." + "binlogFile", event.getBinlogFileName());
+        }
+        if (event.getBinlogPosition() != null) {
+            flowFile.setStatus(component.getId() + "." + "binlogPosition", event.getBinlogPosition());
+        }
+        if (event.getResumeToken() != null) {
+            flowFile.setStatus(component.getId() + "." + "resumeToken", event.getResumeToken());
+        }
 //        flowFile.setAttribute("_binlogFile", event.getBinlogFileName());
 //        flowFile.setAttribute("_binlogPosition", event.getBinlogPosition());
 

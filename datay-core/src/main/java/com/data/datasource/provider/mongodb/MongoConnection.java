@@ -104,6 +104,35 @@ public class MongoConnection implements DataSourceConnection {
         return defaultDatabase;
     }
 
+    // ------------------------------------------------------------------ CDC 复用能力
+
+    /** 暴露底层 MongoClient，供 Change Streams 等 CDC 场景复用同一连接配置。 */
+    public MongoClient mongoClient() {
+        return client;
+    }
+
+    /** 解析目标数据库名：显式传入优先，否则回退连接默认库。 */
+    public String databaseName(String database) {
+        return resolveDatabase(database);
+    }
+
+    /** 获取集合句柄（供 Change Streams / 游标读取使用）。 */
+    public MongoCollection<Document> collection(String database, String collectionName) {
+        return client.getDatabase(resolveDatabase(database)).getCollection(collectionName);
+    }
+
+    /** 列出数据库下所有集合名（排除 system.*）。 */
+    public List<String> listCollections(String database) {
+        List<String> names = new ArrayList<>();
+        for (String name : client.getDatabase(resolveDatabase(database)).listCollectionNames()) {
+            if (name.startsWith("system.")) {
+                continue;
+            }
+            names.add(name);
+        }
+        return names;
+    }
+
     // ------------------------------------------------------------------ DataSourceConnection
 
     @Override
@@ -426,7 +455,8 @@ public class MongoConnection implements DataSourceConnection {
         return AllDataType.VARCHAR.getName();
     }
 
-    private static Map<String, Object> normalizeDocument(Document document) {
+    /** 将 BSON 文档规范化为 JSON 友好的有序 Map（供 CDC 事件与快照复用）。 */
+    public static Map<String, Object> normalizeDocument(Document document) {
         Map<String, Object> row = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : document.entrySet()) {
             row.put(entry.getKey(), normalizeBson(entry.getValue()));

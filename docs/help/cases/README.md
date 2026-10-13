@@ -28,6 +28,7 @@
 | [MySQL CDC 实时同步到 DuckLake](cases/mysqlCDC-ducklake.md) | Binlog → DuckLake |
 | [PostgreSQL CDC 实时同步到 DuckDB](cases/postgresCDC-duckdb.md) | 逻辑复制 → DuckDB |
 | [PostgreSQL CDC 实时同步到 DuckLake](cases/postgresCDC-ducklake.md) | 逻辑复制 → DuckLake |
+| [MongoDB CDC 实时同步到 DuckDB](cases/mongoCDC-duckdb.md) | Change Streams → DuckDB |
 
 ## 文件 / HTTP / 飞书
 

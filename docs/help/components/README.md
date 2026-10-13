@@ -12,6 +12,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | `StreamJdbcInput` | JDBC 数据源输入，支持多表、增量、流式读取 | [StreamJdbcInput](components/StreamJdbcInput.md) |
 | `MySQLBinlogInput` | 读取 MySQL Binlog，实时捕获数据变更（CDC） | [MySQLBinlogInput](components/MySQLBinlogInput.md) |
 | `PostgresCDCInput` | PostgreSQL 逻辑复制（WAL / pgoutput）实时捕获变更 | [PostgresCDCInput](components/PostgresCDCInput.md) |
+| `MongoCDCInput` | MongoDB Change Streams 实时捕获集合变更（需副本集） | [MongoCDCInput](components/MongoCDCInput.md) |
 
 ## 处理组件
 

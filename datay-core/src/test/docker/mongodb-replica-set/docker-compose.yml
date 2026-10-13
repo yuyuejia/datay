@@ -1,0 +1,12 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: datay-mongo-cdc
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--port", "27017", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

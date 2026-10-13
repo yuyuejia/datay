@@ -1,0 +1,38 @@
+{
+  "units": [
+    {
+      ".id": "MongoCDCInput",
+      ".name": "MongoCDCInput",
+      "sourceId": {
+        "type": "mongodb",
+        "url": "mongodb://127.0.0.1:27017",
+        "dbschema": "test",
+        "extraParams": {
+          "directConnection": "true"
+        }
+      },
+      "database": "test",
+      "collection": "cdc_demo"
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/mongo-cdc-duckdb-test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "MongoCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

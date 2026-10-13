@@ -32,12 +32,14 @@
   - [MySQL CDC 到 DuckLake](cases/mysqlCDC-ducklake.md)
   - [PostgreSQL CDC 到 DuckDB](cases/postgresCDC-duckdb.md)
   - [PostgreSQL CDC 到 DuckLake](cases/postgresCDC-ducklake.md)
+  - [MongoDB CDC 到 DuckDB](cases/mongoCDC-duckdb.md)
 
 - **ETL 组件介绍**
   - [组件总览](components/README.md)
   - [StreamJdbcInput 输入](components/StreamJdbcInput.md)
   - [MySQLBinlogInput CDC](components/MySQLBinlogInput.md)
   - [PostgresCDCInput CDC](components/PostgresCDCInput.md)
+  - [MongoCDCInput CDC](components/MongoCDCInput.md)
   - [StreamJdbcOutput 输出](components/StreamJdbcOutput.md)
   - [StreamSqlUnit 流式 SQL](components/StreamSqlUnit.md)
   - [DataTransform 转换](components/DataTransform.md)
