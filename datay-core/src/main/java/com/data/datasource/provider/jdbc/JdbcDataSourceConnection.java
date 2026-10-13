@@ -166,11 +166,21 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         if (value == null) {
             return null;
         }
-        if (value instanceof java.sql.Timestamp || value instanceof java.sql.Date || value instanceof java.sql.Time) {
-            return value.toString();
-        }
         if (value instanceof BigDecimal) {
             return ((BigDecimal) value).doubleValue();
+        }
+        if (value instanceof String || value instanceof Boolean || value instanceof Number) {
+            return value;
+        }
+        // 标准时间类型统一转为字符串展示
+        if (
+            value instanceof java.sql.Timestamp ||
+            value instanceof java.sql.Date ||
+            value instanceof java.sql.Time ||
+            value instanceof java.util.Date ||
+            value instanceof java.time.temporal.Temporal
+        ) {
+            return value.toString();
         }
         if (value instanceof byte[]) {
             return "[BLOB]";
@@ -182,6 +192,8 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         if (value instanceof java.sql.Blob) {
             return "[BLOB]";
         }
-        return value;
+        // 驱动特有类型（如 oracle.sql.TIMESTAMP/RAW/NUMBER、PGobject 等）没有通用序列化支持，
+        // 统一降级为其文本表示，避免序列化失败导致查询预览报 500。
+        return value.toString();
     }
 }
