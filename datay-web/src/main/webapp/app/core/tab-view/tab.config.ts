@@ -46,8 +46,7 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   AnalysisDashboard: { path: '/analysis-dashboard', title: '分析看板', componentName: 'AnalysisDashboard', closable: true },
   AppPackage: { path: '/app-package', title: '应用市场', componentName: 'AppPackage', closable: true },
   // 账号菜单
-  Settings: { path: '/account/settings', title: '设置', componentName: 'Settings', closable: true },
-  ChangePassword: { path: '/account/password', title: '密码', componentName: 'ChangePassword', closable: true },
+  Settings: { path: '/account/settings', title: '个人设置', componentName: 'Settings', closable: true },
   // 系统管理
   JhiUser: { path: '/admin/user-management', title: '用户管理', componentName: 'JhiUserManagementComponent', closable: true },
   JhiTenant: { path: '/admin/tenant-management', title: '租户管理', componentName: 'JhiTenantManagementComponent', closable: true },

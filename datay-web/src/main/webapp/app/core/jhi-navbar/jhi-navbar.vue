@@ -129,12 +129,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="authenticated" data-cy="settings" command="/account/settings">
-                  <font-awesome-icon icon="wrench" />
-                  <span>设置</span>
-                </el-dropdown-item>
-                <el-dropdown-item v-if="authenticated" data-cy="passwordItem" command="/account/password">
-                  <font-awesome-icon icon="lock" />
-                  <span>密码</span>
+                  <span>个人设置</span>
                 </el-dropdown-item>
                 <el-dropdown-item v-if="hasAnyAuthority('ROLE_ADMIN') && authenticated" command="/admin/user-management">
                   <span>用户管理</span>

@@ -1,13 +1,23 @@
+import { vitest } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
 import axios from 'axios';
 import sinon from 'sinon';
 import { createTestingPinia } from '@pinia/testing';
+import { type RouteLocation } from 'vue-router';
 
 import Settings from './settings.vue';
 import { useStore } from '@/store';
 import { EMAIL_ALREADY_USED_TYPE } from '@/constants';
 
 type SettingsComponentType = InstanceType<typeof Settings>;
+
+let route: Partial<RouteLocation>;
+const routerReplaceMock = vitest.fn();
+
+vitest.mock('vue-router', () => ({
+  useRoute: () => route,
+  useRouter: () => ({ replace: routerReplaceMock }),
+}));
 
 const pinia = createTestingPinia({ stubActions: false });
 
@@ -29,7 +39,9 @@ describe('Settings Component', () => {
   beforeEach(() => {
     axiosStub.get.resolves({});
     axiosStub.post.reset();
+    routerReplaceMock.mockReset();
 
+    route = { path: '/account/settings', query: {} };
     store.setAuthentication(account);
     const wrapper = shallowMount(Settings, {
       global: {
@@ -37,6 +49,23 @@ describe('Settings Component', () => {
       },
     });
     settings = wrapper.vm;
+  });
+
+  it('should open the account tab by default', () => {
+    expect(settings.activeTab).toBe('account');
+  });
+
+  it('should open the password tab when asked through the tab query parameter', () => {
+    // WHEN
+    route = { path: '/account/settings', query: { tab: 'password' } };
+    const wrapper = shallowMount(Settings, {
+      global: {
+        plugins: [pinia],
+      },
+    });
+
+    // THEN
+    expect(wrapper.vm.activeTab).toBe('password');
   });
 
   it('should send the current identity upon save', async () => {

@@ -5,7 +5,6 @@ const Register = () => import('@/account/register/register.vue');
 const Activate = () => import('@/account/activate/activate.vue');
 const ResetPasswordInit = () => import('@/account/reset-password/init/reset-password-init.vue');
 const ResetPasswordFinish = () => import('@/account/reset-password/finish/reset-password-finish.vue');
-const ChangePassword = () => import('@/account/change-password/change-password.vue');
 const Settings = () => import('@/account/settings/settings.vue');
 
 export default [
@@ -39,11 +38,10 @@ export default [
     component: ResetPasswordFinish,
     meta: { public: true },
   },
+  // 密码已并入个人设置页，这里保留旧链接的兼容跳转
   {
     path: '/account/password',
-    name: 'ChangePassword',
-    component: ChangePassword,
-    meta: { authorities: [Authority.USER] },
+    redirect: { name: 'Settings', query: { tab: 'password' } },
   },
   {
     path: '/account/settings',

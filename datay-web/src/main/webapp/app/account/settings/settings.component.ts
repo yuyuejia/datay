@@ -1,9 +1,16 @@
-import { type ComputedRef, type Ref, computed, defineComponent, inject, ref } from 'vue';
+import { type ComputedRef, type Ref, computed, defineComponent, inject, ref, watch } from 'vue';
 import { useVuelidate } from '@vuelidate/core';
 import { email, maxLength, minLength, required } from '@vuelidate/validators';
 import axios from 'axios';
+import { useRoute, useRouter } from 'vue-router';
+import ChangePassword from '@/account/change-password/change-password.vue';
 import { EMAIL_ALREADY_USED_TYPE } from '@/constants';
 import { useStore } from '@/store';
+
+const ACCOUNT_TAB = 'account';
+const PASSWORD_TAB = 'password';
+
+const resolveTab = (tab: unknown): string => (tab === PASSWORD_TAB ? PASSWORD_TAB : ACCOUNT_TAB);
 
 const validations = {
   settingsAccount: {
@@ -29,8 +36,13 @@ const validations = {
 export default defineComponent({
   name: 'Settings',
   validations,
+  components: {
+    ChangePassword,
+  },
   setup() {
     const store = useStore();
+    const route = useRoute();
+    const router = useRouter();
 
     const success: Ref<string> = ref(null);
     const error: Ref<string> = ref(null);
@@ -38,9 +50,23 @@ export default defineComponent({
     const hasMcpToken: Ref<boolean> = ref(false);
     const generatedToken: Ref<string> = ref(null);
     const tokenCopied: Ref<boolean> = ref(false);
+    const isSaving: Ref<boolean> = ref(false);
+    // 支持 /account/settings?tab=password 直达「修改密码」
+    const activeTab: Ref<string> = ref(resolveTab(route.query.tab));
 
     const settingsAccount = computed(() => store.account);
     const username = inject<ComputedRef<string>>('currentUsername', () => computed(() => store.account?.login), true);
+    const pageTitle = computed(() => (username.value ? `[${username.value}] 的个人设置` : '个人设置'));
+
+    watch(
+      () => route.query.tab,
+      tab => {
+        activeTab.value = resolveTab(tab);
+      },
+    );
+    watch(activeTab, tab => {
+      router.replace({ path: route.path, query: { ...route.query, tab } });
+    });
 
     return {
       success,
@@ -49,8 +75,11 @@ export default defineComponent({
       hasMcpToken,
       generatedToken,
       tokenCopied,
+      isSaving,
+      activeTab,
       settingsAccount,
       username,
+      pageTitle,
       v$: useVuelidate(),
     };
   },
@@ -58,6 +87,10 @@ export default defineComponent({
     this.loadMcpTokenStatus();
   },
   methods: {
+    /** 只在校验过且已改动时提示，避免一进页面满屏红字. */
+    fieldError(field: any, message: string): string {
+      return field?.$anyDirty && field?.$invalid ? message : '';
+    },
     loadMcpTokenStatus() {
       return axios
         .get('api/account/mcp-token')
@@ -95,6 +128,7 @@ export default defineComponent({
     save() {
       this.error = null;
       this.errorEmailExists = null;
+      this.isSaving = true;
       return axios
         .post('api/account', this.settingsAccount)
         .then(() => {
@@ -109,6 +143,9 @@ export default defineComponent({
             this.errorEmailExists = 'ERROR';
             this.error = null;
           }
+        })
+        .finally(() => {
+          this.isSaving = false;
         });
     },
   },
