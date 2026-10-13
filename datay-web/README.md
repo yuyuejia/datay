@@ -193,6 +193,7 @@ ETL 中的有状态组件会把运行状态持久化，任务下次启动时读�
 - `StreamJdbcInput` / `JdbcInput`：保存增量列水位（`<组件id>.lastIncrValue.<表>`）
 - `MySQLBinlogInput`：保存 binlog 文件与位点（`<组件id>.binlogFile`、`<组件id>.binlogPosition`）
 - `PostgresCDCInput`：保存 WAL LSN（`<组件id>.binlogPosition`）
+- `OracleCDCInput`：保存已提交 SCN（`<组件id>.binlogPosition`）
 
 状态以 `jobCode`（即 `ETLTask.jobId`）为维度存储，支持在「ETL 任务列表 → 状态」中查询、修改、删除。
 
@@ -284,7 +285,7 @@ OpenAI / DeepSeek / 通义千问 / Ollama 等只要兼容该协议，替换 `bas
 - **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO 对象存储
-- **CDC**: MySQL Binlog
+- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制, Oracle LogMiner, MongoDB Change Streams
 
 ## 监控与日志
 

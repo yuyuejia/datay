@@ -39,7 +39,7 @@ datay/
 
 - 支持 MySQL / PostgreSQL / Oracle / Doris / ClickHouse / DuckDB 等十余种数据源
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
-- 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC 实时同步
+- 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
 
 ### 📐 维度建模（Dimensional Modeling）
@@ -134,6 +134,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - [MySQL CDC实时同步到DuckLake](datay-core/docs/example/mysqlCDC-ducklake.md)
 - [PostgreSQL CDC实时同步到DuckDB](datay-core/docs/example/postgresCDC-duckdb.md)
 - [PostgreSQL CDC实时同步到DuckLake](datay-core/docs/example/postgresCDC-ducklake.md)
+- [Oracle CDC实时同步到DuckDB](datay-core/docs/example/oracleCDC-duckdb.md)
 - [Mysql同步到Apache Doris](datay-core/docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](datay-core/docs/example/mysql-ducklake.md)
 - [使用DuckDB SQL进行数据处理](datay-core/docs/example/mysql-sqlunit-mysql.md)
@@ -143,7 +144,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB, 达梦（DM）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
-- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）
+- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, MongoDB Change Streams
 
 ## 联系方式
 

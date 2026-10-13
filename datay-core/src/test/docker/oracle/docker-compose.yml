@@ -1,0 +1,16 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: datay-oracle-cdc
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: datay
+      APP_USER_PASSWORD: datay123
+    ports:
+      - "1521:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 120s

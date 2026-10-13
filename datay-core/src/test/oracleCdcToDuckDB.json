@@ -1,0 +1,39 @@
+{
+  "units": [
+    {
+      ".id": "OracleCDCInput",
+      ".name": "OracleCDCInput",
+      "sourceId": {
+        "url": "jdbc:oracle:thin:@//127.0.0.1:1521/FREEPDB1",
+        "driver": "oracle.jdbc.OracleDriver",
+        "username": "datay",
+        "password": "datay123",
+        "dbschema": "DATAY"
+      },
+      "schema": "DATAY",
+      "tableNamePattern": "CDC_DEMO",
+      "snapshot": true,
+      "ignoreError": false
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/oracle-cdc-duckdb-test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "OracleCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

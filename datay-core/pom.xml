@@ -141,6 +141,13 @@
           <version>1.10.0</version>
           <scope>test</scope>
       </dependency>
+      <!-- 测试期启用 SLF4J 输出，便于查看 CDC 采集日志 -->
+      <dependency>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-simple</artifactId>
+          <version>2.0.17</version>
+          <scope>test</scope>
+      </dependency>
       <!-- OkHttp HTTP客户端 -->
       <dependency>
           <groupId>com.squareup.okhttp3</groupId>
