@@ -51,8 +51,9 @@ const dateKeywords = [
     <app-modal v-model="visible" id="dynamicParamHelpModal" title="动态参数说明" size="lg" scrollable ok-only ok-title="关闭">
       <div class="dp-body">
         <p class="dp-intro">
-          组件的文本类配置项支持动态参数，运行时会被自动替换为实际值。使用 <code class="dp-code">#{...}</code> 引用内置参数，
-          使用 <code class="dp-code">${attr:名称}</code> 引用上游传递的属性。
+          组件的文本类配置项支持动态参数，运行时会被自动替换为实际值。使用 <code class="dp-code">#{...}</code> 引用内置参数， 使用
+          <code class="dp-code">${数据项key}</code> 引用上游传入的数据内容，使用
+          <code class="dp-code">${attr:名称}</code> 引用上游传递的属性。
         </p>
 
         <div class="dp-section-title">一、内置参数 #{...}</div>
@@ -65,7 +66,9 @@ const dateKeywords = [
           </thead>
           <tbody>
             <tr v-for="item in builtinParams" :key="item.expr">
-              <td><code class="dp-code">{{ item.expr }}</code></td>
+              <td>
+                <code class="dp-code">{{ item.expr }}</code>
+              </td>
               <td>{{ item.desc }}</td>
             </tr>
           </tbody>
@@ -89,12 +92,16 @@ const dateKeywords = [
           </thead>
           <tbody>
             <tr v-for="item in timeExamples" :key="item.expr">
-              <td><code class="dp-code">{{ item.expr }}</code></td>
+              <td>
+                <code class="dp-code">{{ item.expr }}</code>
+              </td>
               <td>{{ item.desc }}</td>
             </tr>
           </tbody>
         </table>
-        <p class="dp-note">注意：单独使用 <code class="dp-code">#{NOW}</code> 不会被替换，需要带偏移量，例如 <code class="dp-code">#{NOW + 0d}</code>。</p>
+        <p class="dp-note">
+          注意：单独使用 <code class="dp-code">#{NOW}</code> 不会被替换，需要带偏移量，例如 <code class="dp-code">#{NOW + 0d}</code>。
+        </p>
 
         <div class="dp-section-title">三、日期关键字 #{关键字[, 格式]}</div>
         <p class="dp-note">同样支持在逗号后追加自定义输出格式。</p>
@@ -140,8 +147,37 @@ const dateKeywords = [
             </tr>
           </tbody>
         </table>
+        <p class="dp-note">可用的属性名称取决于上游组件。可在节点配置弹窗的「调试」页中查看上一次运行的「关键属性」，据此引用对应名称。</p>
+
+        <div class="dp-section-title">五、引用上游数据 ${数据项key}</div>
+        <table class="dp-table">
+          <thead>
+            <tr>
+              <th style="width: 260px">写法</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code class="dp-code">${数据项key}</code></td>
+              <td>
+                直接取上游传入的 FlowFile 数据内容中的字段值，例如 <code class="dp-code">${content}</code>、<code class="dp-code"
+                  >${order_id}</code
+                >。 逐行处理的组件（如大模型、决策模型）中，指向当前行的字段。
+              </td>
+            </tr>
+            <tr>
+              <td><code class="dp-code">${FLOW_FILE_DATA}</code></td>
+              <td>取当前 FlowFile 的完整数据内容（整个数据集或整个 JSON 对象）。</td>
+            </tr>
+            <tr>
+              <td><code class="dp-code">${ROW_DATA}</code></td>
+              <td>逐行处理的组件中，取当前行的完整数据内容。</td>
+            </tr>
+          </tbody>
+        </table>
         <p class="dp-note">
-          可用的属性名称取决于上游组件。可在节点配置弹窗的「调试」页中查看上一次运行的「关键属性」，据此引用对应名称。
+          可用的数据项 key 取决于上游传来的数据。可在节点配置弹窗的「调试」页中查看上一次运行输出的采样字段，据此引用对应名称。
         </p>
       </div>
     </app-modal>

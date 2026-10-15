@@ -37,6 +37,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | --- | --- | --- |
 | `HttpListener` | HTTP 监听器，接收请求并触发数据处理任务 | [HttpListener](components/HttpListener.md) |
 | `LlmComponent` | 按行调用大模型，兼容 OpenAI Chat Completions 协议 | [LlmComponent](components/LlmComponent.md) |
+| `DecisionComponent` | 按行调用 Ollama 决策模型（`/v1/systemone`），一次请求对一组命名问题作答 | [DecisionComponent](components/DecisionComponent.md) |
 
 ## 其他内置组件
 

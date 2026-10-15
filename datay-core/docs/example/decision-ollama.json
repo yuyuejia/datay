@@ -1,0 +1,32 @@
+{
+  "units": [
+    {
+      ".id": "gen_tickets",
+      ".name": "GenerateFlowFile",
+      "dataFormat": "JSON_ARRAY",
+      "inputData": "[{\"ticket_id\":\"T001\",\"content\":\"订单扣了两次钱，请把多扣的那笔退给我，急！\"},{\"ticket_id\":\"T002\",\"content\":\"登录一直失败，验证码怎么都收不到\"},{\"ticket_id\":\"T003\",\"content\":\"账号好像被盗了，有人用我的账号下单，赶紧帮我冻结\"}]"
+    },
+    {
+      ".id": "decide",
+      ".name": "DecisionComponent",
+      "baseUrl": "http://localhost:11434/v1",
+      "apiKey": "ollama",
+      "model": "tev1:0.8b",
+      "timeoutSeconds": 60,
+      "stateFields": "content",
+      "answerPrefix": "decision_",
+      "includeConfidence": true,
+      "includeProbabilities": true,
+      "questions": "{\"category\":{\"type\":\"choice\",\"instructions\":\"这条工单该由哪个团队处理？\",\"criteria\":{\"refund\":\"退款与扣款\",\"tech\":\"技术故障\",\"logistics\":\"物流问题\",\"account\":\"账号安全\",\"other\":\"其他\"}},\"refund\":{\"type\":\"noul\",\"instructions\":\"客户是否明确要求退款？\"},\"urgency\":{\"type\":\"score\",\"instructions\":\"这条工单有多紧急？\",\"criteria\":[\"低\",\"中\",\"高\"]}}"
+    },
+    {
+      ".id": "log_output",
+      ".name": "LogFlowFile",
+      "logLevel": "INFO"
+    }
+  ],
+  "connections": [
+    { "sourceId": "gen_tickets", "targetId": "decide" },
+    { "sourceId": "decide", "targetId": "log_output" }
+  ]
+}

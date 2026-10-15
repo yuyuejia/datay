@@ -253,6 +253,14 @@ datay:
       member-index-enabled: true
       # 单字段成员抽样上限
       member-sample-limit: 200
+  # 决策模型（Ollama Jev-style，/v1/systemone）：本地低延迟决策，供「决策模型」组件使用
+  # 也可通过环境变量覆盖：DATAY_DECISION_BASE_URL / DATAY_DECISION_API_KEY / DATAY_DECISION_MODEL
+  decision:
+    enabled: true
+    base-url: ${DATAY_DECISION_BASE_URL:http://localhost:11434/v1}
+    api-key: ${DATAY_DECISION_API_KEY:ollama}
+    model: ${DATAY_DECISION_MODEL:nimble}
+    timeout-seconds: 120
   # 数据库 JDBC 驱动按需下载：平台未内置的驱动（如达梦）在首次连接或手动下载时拉取到 drivers/ 目录
   driver:
     # Maven 仓库地址，逗号或分号分隔，按顺序回退；也可通过环境变量 DATAY_DRIVER_REPOS 覆盖

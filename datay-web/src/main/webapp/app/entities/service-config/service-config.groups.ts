@@ -2,6 +2,7 @@ import FileManagementService, { type FileStorageConfig } from '@/entities/file-m
 import EtlTaskStateService, { type IStatusStorageConfig } from '@/entities/etl-task/etl-task-state.service';
 import DataSourceService from '@/entities/data-source/data-source.service';
 import LlmConfigService, { type ILlmConfig } from './llm-config.service';
+import DecisionConfigService, { type IDecisionConfig } from './decision-config.service';
 
 export type ConfigFieldType = 'text' | 'password' | 'select' | 'datasource' | 'number' | 'switch';
 
@@ -145,6 +146,30 @@ const llmFields: ConfigField[] = [
   },
 ];
 
+const decisionFields: ConfigField[] = [
+  {
+    key: 'enabled',
+    label: '启用决策模型',
+    type: 'switch',
+    hint: '关闭后「决策模型」组件不可用。',
+  },
+  {
+    key: 'baseUrl',
+    label: 'API 地址',
+    type: 'text',
+    placeholder: 'http://localhost:11434/v1',
+    hint: 'Ollama 服务根地址，需包含版本段（如 /v1）；留空则使用系统级配置。',
+  },
+  {
+    key: 'apiKey',
+    label: 'API Key',
+    type: 'password',
+    hint: 'Ollama 本地服务默认忽略，可填写 ollama；留空则使用系统级配置。',
+  },
+  { key: 'model', label: '模型', type: 'text', placeholder: 'nimble', hint: '决策模型名，如 nimble / tev1；留空则使用系统级配置。' },
+  { key: 'timeoutSeconds', label: '请求超时（秒）', type: 'number', min: 1, max: 600, step: 1 },
+];
+
 export const SERVICE_CONFIG_GROUPS: ConfigGroup[] = [
   {
     key: 'data-warehouse',
@@ -183,11 +208,22 @@ export const SERVICE_CONFIG_GROUPS: ConfigGroup[] = [
   {
     key: 'llm',
     label: '大模型',
-    description: '配置当前租户的 OpenAI 兼容服务（API 助手与「大模型」组件共用）；留空或未配置的项自动使用系统级配置（配置文件 datay.ai.*）。',
+    description:
+      '配置当前租户的 OpenAI 兼容服务（API 助手与「大模型」组件共用）；留空或未配置的项自动使用系统级配置（配置文件 datay.ai.*）。',
     fields: llmFields,
     load: () => new LlmConfigService().getConfig().then(cfg => ({ ...cfg })),
     save: values => new LlmConfigService().updateConfig(values as ILlmConfig),
     test: () => new LlmConfigService().testConfig(),
+  },
+  {
+    key: 'decision',
+    label: '决策模型',
+    description:
+      '配置当前租户的 Ollama Jev-style 决策模型服务（「决策模型」组件使用）；留空或未配置的项自动使用系统级配置（配置文件 datay.decision.*）。',
+    fields: decisionFields,
+    load: () => new DecisionConfigService().getConfig().then(cfg => ({ ...cfg })),
+    save: values => new DecisionConfigService().updateConfig(values as IDecisionConfig),
+    test: () => new DecisionConfigService().testConfig(),
   },
 ];
 

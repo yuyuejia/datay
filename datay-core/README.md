@@ -110,6 +110,7 @@ public class Example {
 - [Mysql同步到Apache Doris](docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](docs/example/mysql-ducklake.md)
 - [使用DuckDB SQL进行数据处理](docs/example/mysql-sqlunit-mysql.md)
+- [决策模型实时决策（Ollama）](docs/example/decision-ollama.json)
 
 ## 支持的数据源
 
@@ -131,6 +132,8 @@ public class Example {
 - [StreamSqlUnit](docs/component/StreamSqlUnit.md) : 流式SQL处理,使用DuckDB对流式数据进行SQL处理
 - [SqlTask](docs/component/SqlTask.md) : 执行对应数据库的SQL任务
 - [JavaScriptComponent](docs/component/JavaScriptComponent.md) : Java脚本组件,支持在任务中执行自定义逻辑
+- [LlmComponent](docs/component/LlmComponent.md) : 按行调用 OpenAI 兼容大模型接口
+- [DecisionComponent](docs/component/DecisionComponent.md) : 按行调用 Ollama 决策模型接口（/v1/systemone）
 
 ### 输出组件
 - [StreamJdbcOutput](docs/component/StreamJdbcOutput.md) : JDBC数据源输出
