@@ -1320,7 +1320,8 @@ const cancelTask = () => {
 }
 
 .config-modal-body {
-  max-height: 72vh;
+  height: 64vh;
+  max-height: 64vh;
   overflow-y: auto;
 }
 
