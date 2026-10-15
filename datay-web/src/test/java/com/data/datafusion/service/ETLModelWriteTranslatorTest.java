@@ -195,4 +195,28 @@ class ETLModelWriteTranslatorTest {
         var units = JSONUtil.parseObj(jobJson).getJSONArray("units");
         assertThat(units.getJSONObject(0).getStr(".name")).isEqualTo("DuckDBSql");
     }
+
+    @Test
+    void shouldPassParallelismToTranslatedUnit() {
+        when(eTLNodeMapper.toEntity(anyList()))
+            .thenReturn(List.of(modelWriteNode("{\"modelId\":3001,\"model\":\"overwrite\",\"parallelism\":8}")));
+        when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
+        mockDataModelBound();
+
+        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(etlTaskWithNodes())).getJSONArray("units").getJSONObject(0);
+        assertThat(unit.getStr("parallelism")).isEqualTo("8");
+    }
+
+    @Test
+    void shouldPassParallelismToRegularUnit() {
+        ETLNode sqlNode = new ETLNode();
+        sqlNode.setCode("SQL_01");
+        sqlNode.setType("DuckDBSql");
+        sqlNode.setConfig("{\"sql\":\"select 1\",\"parallelism\":4}");
+        when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(sqlNode));
+        when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
+
+        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(etlTaskWithNodes())).getJSONArray("units").getJSONObject(0);
+        assertThat(unit.getStr("parallelism")).isEqualTo("4");
+    }
 }

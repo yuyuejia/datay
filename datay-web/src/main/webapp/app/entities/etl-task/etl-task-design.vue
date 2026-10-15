@@ -58,6 +58,7 @@ const upstreamTablesCache = new Map();
 const debugError = ref('');
 const debugElapsed = ref(0);
 const activeConfigTab = ref('config');
+const nodeParallelism = ref(1);
 
 const route = useRoute();
 const router = useRouter();
@@ -262,6 +263,7 @@ onNodeDoubleClick((event) => {
   editingNodeLabel.value = event.node.data?.label || '';
   currentSavedConfig.value = null;
   activeConfigTab.value = 'config';
+  nodeParallelism.value = Number(event.node.data?.config?.parallelism) || 1;
   debugError.value = '';
   const componentType = event.node.data.type;
   selectedConfigComponent.value = componentConfigMap[componentType];
@@ -277,6 +279,12 @@ onNodeDoubleClick((event) => {
 const isApplyingConfig = ref(false);
 let appliedConfigForDebug = false;
 
+// 并发数随节点配置一起保存到 config 中，由后端转换为引擎 unit 的 parallelism 属性
+const buildConfigWithParallelism = (config) => ({
+  ...(config || {}),
+  parallelism: nodeParallelism.value,
+});
+
 const applyConfigToSelectedNode = (config) => {
   const nodeIndex = nodes.value.findIndex((node) => node.id === selectedNode.value.id);
   if (nodeIndex !== -1) {
@@ -288,8 +296,9 @@ const applyConfigToSelectedNode = (config) => {
 };
 
 const handleComponentSave = (config) => {
-  currentSavedConfig.value = config;
-  applyConfigToSelectedNode(config);
+  const mergedConfig = buildConfigWithParallelism(config);
+  currentSavedConfig.value = mergedConfig;
+  applyConfigToSelectedNode(mergedConfig);
   if (isApplyingConfig.value) {
     appliedConfigForDebug = true;
     return;
@@ -918,10 +927,21 @@ const cancelTask = () => {
       <div class="config-modal-body">
         <div class="config-tab-header">
           <div class="config-tab-item" :class="{ active: activeConfigTab === 'config' }" @click="activeConfigTab = 'config'">配置</div>
+          <div class="config-tab-item" :class="{ active: activeConfigTab === 'parallelism' }" @click="activeConfigTab = 'parallelism'">
+            并发设置
+          </div>
           <div class="config-tab-item" :class="{ active: activeConfigTab === 'debug' }" @click="activeConfigTab = 'debug'">调试</div>
         </div>
         <div v-show="activeConfigTab === 'config'" class="config-tab-panel">
           <component :is="selectedConfigComponent" :node="selectedNode" @save="handleComponentSave" ref="configComponentRef" />
+        </div>
+        <div v-show="activeConfigTab === 'parallelism'" class="config-tab-panel">
+          <el-form label-position="top" class="parallelism-form">
+            <el-form-item label="并发数（parallelism）">
+              <el-input-number v-model="nodeParallelism" :min="1" :max="1000" :step="1" controls-position="right" />
+              <small class="form-text text-muted">组件的并发线程数，默认为 1；数值越大写入/处理吞吐越高，请根据数据源承载能力设置。</small>
+            </el-form-item>
+          </el-form>
         </div>
         <div v-show="activeConfigTab === 'debug'" class="config-tab-panel">
           <div class="debug-tab-toolbar">
@@ -1339,6 +1359,14 @@ const cancelTask = () => {
 
 .config-tab-panel {
   padding-top: 4px;
+}
+
+.parallelism-form .form-text {
+  display: block;
+  margin-top: 4px;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .debug-tab-toolbar {

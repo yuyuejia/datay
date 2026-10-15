@@ -199,6 +199,11 @@ public class ETLTaskService {
             unit.put(".id", etlNode.getCode());
             unit.put(".name", etlNode.getType());
             JSONObject config = JSONUtil.parseObj(etlNode.getConfig());
+            // 并发数：设计器配置在 config.parallelism，传递给引擎作为 unit 级并发属性
+            Object parallelism = config.get("parallelism");
+            if (parallelism != null && !parallelism.toString().isBlank()) {
+                unit.put("parallelism", parallelism.toString());
+            }
             ETLNodeTranslator translator = etlNodeTranslatorRegistry.get(etlNode.getType());
             if (translator != null) {
                 // 设计器组件 -> 引擎组件：由注册的翻译器展开为后端可执行的任务定义
