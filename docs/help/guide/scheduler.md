@@ -84,6 +84,91 @@ docker compose -f src/main/docker/scheduler-cluster.yml up -d
 docker compose -f src/main/docker/scheduler-cluster.yml up -d --scale worker=3
 ```
 
+## ETL 任务执行模式
+
+ETL 任务默认在 worker 进程内执行；也可以通过配置切换为 **docker 模式**：任务在独立的
+docker 容器中执行，容器提供 Java 运行环境，任务 jar、驱动目录与日志目录通过挂载共享给容器。
+这样可以把 ETL 运行时与调度进程隔离，避免任务依赖或内存占用影响调度服务。
+
+```yaml
+development:
+  etl:
+    mode: docker            # local（默认，进程内执行）| docker
+    docker:
+      image: eclipse-temurin:17-jre
+      # 运行时来源一（推荐）：独立构建的 core 可执行 jar
+      jar-path: /opt/datay/datay-core-1.0.1-SNAPSHOT-jar-with-dependencies.jar
+      # 运行时来源二：直接引用 worker fat jar 内嵌的 core（不配 jar-path 时生效，留空自动探测）
+      # worker-jar-path: /opt/datay/datay-web-1.0.1-SNAPSHOT.jar
+      network: host         # 一般无需配置：默认网络可访问局域网/公网数据源
+      # 访问宿主机服务（本地数据库/模型服务）：默认开启，无需配置
+      # host-access: true
+      # host-access-alias: host.docker.internal
+      memory: 2g
+      host-log-dir: /opt/datay/log       # 缺省 <工作目录>/log
+      driver-dir: /opt/datay/drivers     # 缺省 <工作目录>/drivers
+      data-dir: /opt/datay/data          # 缺省 <工作目录>/data（DuckDB 等相对路径数据文件）
+      # 附加驱动 / 组件 jar 目录，挂载到容器 /app/lib 并加入 classpath
+      # lib-dirs:
+      #   - /opt/datay/lib
+```
+
+也可通过环境变量覆盖：`DATAY_ETL_MODE`、`DATAY_ETL_DOCKER_IMAGE`、`DATAY_ETL_DOCKER_JAR_PATH`、
+`DATAY_ETL_DOCKER_WORKER_JAR_PATH`、`DATAY_ETL_DOCKER_NETWORK`、`DATAY_ETL_DOCKER_HOST_ACCESS`、
+`DATAY_ETL_DOCKER_HOST_LOG_DIR`、`DATAY_ETL_DOCKER_DRIVER_DIR`、`DATAY_ETL_DOCKER_DATA_DIR`。
+
+### 运行时来源
+
+docker 模式按以下优先级自动选择 ETL 运行时，**开发模式下通常只需把 `mode` 改成 `docker` 即可**，
+无需手动配置 jar 路径：
+
+1. **独立 core jar（生产推荐）**：配置 `jar-path` 指向单独构建的
+   `datay-core-<version>-jar-with-dependencies.jar`。容器以
+   `java -cp /app/datay-core.jar com.data.DataY` 执行，体积小、依赖可控。
+2. **worker 内嵌 core**：`worker-jar-path` 指定 worker 的 Spring Boot fat jar，或留空自动探测当前运行的
+   worker jar；通过 `PropertiesLauncher` 加载其内嵌的 `BOOT-INF/lib` 运行时执行 `com.data.DataY`。
+3. **工程内自动探测 core jar**：开发态（IDE / 展开目录启动）自动向上查找
+   `datay-core/target/*-jar-with-dependencies.jar`。
+4. **开发态 classpath（兜底）**：以上都没有时，直接挂载当前进程的 classpath
+   （`target/classes` + Maven 依赖目录）在容器内以相同绝对路径运行，因此 IDE 直接启动 worker 也能跑，
+   无需先构建任何 jar。生产环境建议使用方式 1，避免挂载 Maven 仓库。
+
+### 工作原理
+
+1. worker 把任务 JSON 写入宿主机日志目录（`<host-log-dir>/<jobCode>/<instanceCode>.job.json`）
+2. 执行 `docker run` 启动容器：容器工作目录为 `/app`，宿主日志目录挂载为 `/app/log`，
+   驱动目录挂载为 `/app/drivers`，数据目录挂载为 `/app/data`；运行时 jar 挂载为 `/app/datay-core.jar`（core jar 模式）
+   或 `/app/datay-web.jar`（worker 内嵌模式）
+3. 容器内执行任务并直接写宿主机日志目录：core jar 模式为
+   `java -cp /app/datay-core.jar:/app/lib/* com.data.DataY <jobFile>`；worker 内嵌模式为
+   `java -cp /app/datay-web.jar -Dloader.main=com.data.DataY org.springframework.boot.loader.launch.PropertiesLauncher <jobFile>`
+4. 以容器退出码判定任务状态：0 为成功，非 0 为失败；停止任务时 `docker rm -f` 清理容器
+
+### 前置条件
+
+- worker 主机已安装并可执行 `docker`，且启动进程的用户有权限访问 docker
+- 运行时来源二选一：配置 `jar-path` 指向独立构建的 core jar
+  （`mvn -pl datay-core -am package -DskipTests`，产物为
+  `datay-core/target/datay-core-<version>-jar-with-dependencies.jar`）；
+  或使用 worker 内嵌模式（不配 `jar-path`，由 `worker-jar-path` 指定或自动探测运行的 worker jar）
+- 数据源访问默认开箱可用：
+  - 数据源在**局域网 / 公网**（如 `10.x`、域名）时无需任何配置，docker 默认网络即可访问；
+  - 数据源在**宿主机本机**（`localhost` / `127.0.0.1`）时，默认启用 `host-access`：容器注入
+    `--add-host host.docker.internal:host-gateway`，并把任务 JSON 中的回环地址改写为
+    `host.docker.internal`，从而连上宿主机数据库/服务。如需关闭，设置 `host-access: false`；
+    自定义别名用 `host-access-alias`。
+  - 需要特殊网络模式（如 `host`）时再配置 `network`
+- 未随 jar 内置的 JDBC 驱动（如达梦、Elasticsearch）放在宿主 `driver-dir`，容器可直接加载；
+  如需在容器内按需下载驱动，`driver-dir` 需可写，并可通过 `driver-repos` 指定 Maven 仓库
+
+### 状态存储
+
+增量同步状态通过挂载目录或对象存储与宿主共享：
+
+- `local`（默认）：容器内写入 `/app/log`，与宿主 `host-log-dir` 共享
+- `minio`：worker 把状态存储配置（endpoint / access-key / secret-key / bucket）透传给容器，
+  容器直接读写 MinIO，多节点共享状态
+
 ## 任务实例监控
 
 导航：**任务实例**。

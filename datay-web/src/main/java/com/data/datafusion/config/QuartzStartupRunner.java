@@ -1,6 +1,7 @@
 package com.data.datafusion.config;
 
 import com.data.datafusion.service.cluster.LeaderElection;
+import com.data.datafusion.service.jobevent.EventServiceFactory;
 import com.data.datafusion.service.scheduler.QuartzService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,11 @@ public class QuartzStartupRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
         DeploymentProperties deployment = DeploymentProperties.get();
         log.info("########################使用 {} 模式：{}", deployment.getMode(), deployment.describe());
+
+        if (deployment.isClusterMode()) {
+            // 初始化集群事件通道：master 启动调度事件处理器，worker 启动任务执行处理器（消费 startJobQueue）
+            EventServiceFactory.getEventService();
+        }
 
         if (!deployment.isSchedulerEnabled()) {
             log.info("当前节点为 worker，不参与调度，等待接收 master 分发的任务");

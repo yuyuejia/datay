@@ -272,6 +272,49 @@ datay:
       # 默认开启，因为该端点面向平台管理；生产环境如需只读，可设为 false 或注入 DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS=false。
       allow-mutating-tools: ${DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS:true}
 
+# ===================================================================
+# 部署与执行配置（development.*）
+# ===================================================================
+development:
+  # ETL 任务执行方式：local 在当前 worker 进程内执行，docker 在独立容器中执行
+  etl:
+    mode: ${DATAY_ETL_MODE:local}
+    docker:
+      # 镜像需提供 Java 运行环境；任务 jar 通过挂载共享，无需打进镜像
+      image: ${DATAY_ETL_DOCKER_IMAGE:eclipse-temurin:17-jre}
+      # 运行时来源一：datay-core 可执行 jar（jar-with-dependencies）宿主机路径；配置后优先使用
+      jar-path: ${DATAY_ETL_DOCKER_JAR_PATH:}
+      # 运行时来源二：不配置 jar-path 时，直接引用 worker fat jar 内嵌的 core 运行时
+      #（通过 Spring Boot PropertiesLauncher 加载 BOOT-INF/lib，无需单独构建/挂载 core jar）
+      # 留空则自动探测当前运行的 worker jar；IDE/展开目录启动时需显式配置
+      worker-jar-path: ${DATAY_ETL_DOCKER_WORKER_JAR_PATH:}
+      # docker 网络模式，一般无需配置：默认网络已可访问局域网/公网数据源
+      network: ${DATAY_ETL_DOCKER_NETWORK:}
+      # 是否允许容器访问宿主机服务（默认开启，通常无需配置）：
+      # 注入 --add-host host.docker.internal:host-gateway，并把任务中 localhost/127.0.0.1 地址
+      # 改写为下方别名，使容器内 ETL 能直接连接跑在本机的数据库/模型服务
+      host-access: ${DATAY_ETL_DOCKER_HOST_ACCESS:true}
+      host-access-alias: ${DATAY_ETL_DOCKER_HOST_ACCESS_ALIAS:host.docker.internal}
+      # 是否注入 host-gateway 映射（Linux 需要；Docker Desktop 可关闭）
+      add-host-gateway: ${DATAY_ETL_DOCKER_ADD_HOST_GATEWAY:true}
+      # 容器资源限制
+      memory: ${DATAY_ETL_DOCKER_MEMORY:}
+      cpus: ${DATAY_ETL_DOCKER_CPUS:}
+      # 宿主机日志目录，缺省 <工作目录>/log；须与 worker 读取日志的目录一致，否则前端看不到日志
+      host-log-dir: ${DATAY_ETL_DOCKER_HOST_LOG_DIR:}
+      # 宿主机驱动目录，缺省 <工作目录>/drivers；挂载后容器可直接加载未内置的 JDBC 驱动
+      driver-dir: ${DATAY_ETL_DOCKER_DRIVER_DIR:}
+      # 宿主机数据目录，缺省 <工作目录>/data；挂载后容器可读写相对路径数据文件（如 ./data/xxx.duckdb）
+      data-dir: ${DATAY_ETL_DOCKER_DATA_DIR:}
+      # Maven 驱动仓库，透传给容器用于按需下载驱动
+      driver-repos: ${DATAY_DRIVER_REPOS:}
+      # 附加 lib 目录（宿主路径），逐个挂载到容器 <workDir>/lib 下并加入 classpath
+      # lib-dirs:
+      #   - /opt/datay/lib
+      # 附加挂载，格式 hostPath:containerPath[:ro|rw]
+      # extra-mounts:
+      #   - /data/driver-jars:/data/driver-jars:ro
+
 # jhipster-needle-add-application-yaml-document
 ---
 # ===================================================================

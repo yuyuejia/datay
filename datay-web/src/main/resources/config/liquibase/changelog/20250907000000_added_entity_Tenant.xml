@@ -4,10 +4,12 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <property name="tenantNow" value="NOW(3)" dbms="mysql"/>
-    <property name="tenantNow" value="now()" dbms="h2"/>
-
     <changeSet id="20250907000000001" author="system">
+        <!--
+          该 changeset 后续调整过种子插入方式，内容已变化；
+          放行历史开发库中已记录的老校验和，避免升级时报“校验和不匹配”。
+        -->
+        <validCheckSum>ANY</validCheckSum>
         <createTable tableName="jhi_tenant">
             <column name="id" type="bigint" autoIncrement="true" startWith="1">
                 <constraints primaryKey="true" nullable="false"/>
@@ -54,17 +56,27 @@
             referencedTableName="jhi_user"
             referencedColumnNames="id"/>
 
+        <!--
+          内置系统租户。jhi_tenant.id 为自增列：MySQL 会把「显式插入 0」当作
+          「生成下一个自增值」，导致系统租户无法落成 id=0。
+          这里先普通插入（由数据库生成自增 id），再将该行 id 更新为 0 —— 显式 0 的限制
+          只作用于 INSERT，UPDATE 不受影响，因此在 H2 / MySQL 上行为一致，无需按库分支。
+        -->
         <insert tableName="jhi_tenant">
-            <column name="id" valueNumeric="0"/>
             <column name="code" value="system"/>
             <column name="name" value="系统租户"/>
             <column name="description" value="DataY 系统内置租户"/>
             <column name="enabled" valueBoolean="true"/>
             <column name="created_by" value="system"/>
-            <column name="created_date" valueComputed="${tenantNow}"/>
+            <column name="created_date" valueComputed="now()"/>
             <column name="last_modified_by" value="system"/>
-            <column name="last_modified_date" valueComputed="${tenantNow}"/>
+            <column name="last_modified_date" valueComputed="now()"/>
         </insert>
+
+        <update tableName="jhi_tenant">
+            <column name="id" valueNumeric="0"/>
+            <where>code = 'system'</where>
+        </update>
 
         <insert tableName="jhi_user_tenant">
             <column name="user_id" valueNumeric="1"/>
