@@ -34,11 +34,9 @@
         <m2e.apt.activation>jdt_apt</m2e.apt.activation>
         <run.addResources>false</run.addResources>
         <maven.test.skip>false</maven.test.skip>
-        <spring-boot.version>3.4.5</spring-boot.version>
         <liquibase.version>4.29.2</liquibase.version>
         <h2.version>2.3.232</h2.version>
         <jakarta-validation.version>3.0.2</jakarta-validation.version>
-        <archunit-junit5.version>1.4.0</archunit-junit5.version>
         <checkstyle.version>10.23.1</checkstyle.version>
         <checksum-maven-plugin.version>1.11</checksum-maven-plugin.version>
         <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
@@ -190,7 +188,6 @@
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5-api</artifactId>
-            <version>${archunit-junit5.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -198,7 +195,6 @@
             <!-- https://www.archunit.org/userguide/html/000_Index.html#_junit_5 -->
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5-engine</artifactId>
-            <version>${archunit-junit5.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -209,7 +205,6 @@
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.5.7</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
@@ -316,71 +311,58 @@
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-exec</artifactId>
-        <version>1.3</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>31.1-jre</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/com.alibaba/druid -->
       <dependency>
         <groupId>com.alibaba</groupId>
         <artifactId>druid</artifactId>
-        <version>1.2.18</version>
       </dependency>
       <dependency>
         <groupId>com.alibaba.fastjson2</groupId>
         <artifactId>fastjson2</artifactId>
-        <version>2.0.19</version> <!-- 请根据实际需要选择最新版本 -->
       </dependency>
       <dependency>
         <groupId>commons-dbutils</groupId>
         <artifactId>commons-dbutils</artifactId>
-        <version>1.6</version>
       </dependency>
       <dependency>
         <groupId>org.mybatis</groupId>
         <artifactId>mybatis</artifactId>
-        <version>3.5.6</version>
       </dependency>
       <dependency>
         <groupId>com.oracle.database.jdbc</groupId>
         <artifactId>ojdbc8</artifactId>
-        <version>21.1.0.0</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
       <dependency>
         <groupId>mysql</groupId>
         <artifactId>mysql-connector-java</artifactId>
-        <version>8.0.33</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
       <dependency>
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
-        <version>42.7.3</version>
       </dependency>
       <dependency>
         <groupId>org.duckdb</groupId>
         <artifactId>duckdb_jdbc</artifactId>
-        <version>1.5.3.0</version>
       </dependency>
       <dependency>
         <groupId>cn.hutool</groupId>
         <artifactId>hutool-all</artifactId>
-        <version>5.8.21</version>
       </dependency>
       <dependency>
         <groupId>org.apache.avro</groupId>
         <artifactId>avro</artifactId>
-        <version>1.11.3</version>
       </dependency>
       <dependency>
         <groupId>com.zendesk</groupId>
         <artifactId>mysql-binlog-connector-java</artifactId>
-        <version>0.25.0</version>
       </dependency>
 <!--      <dependency>-->
 <!--        <groupId>net.sourceforge.jmatio</groupId>-->
@@ -410,18 +392,6 @@
             <version>2.0.1</version>
         </dependency>
     </dependencies>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <build>
         <defaultGoal>spring-boot:run</defaultGoal>

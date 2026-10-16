@@ -23,66 +23,54 @@
       <dependency>
           <groupId>com.alibaba.fastjson2</groupId>
           <artifactId>fastjson2</artifactId>
-          <version>2.0.19</version> <!-- 请根据实际需要选择最新版本 -->
       </dependency>
       <dependency>
           <groupId>commons-dbutils</groupId>
           <artifactId>commons-dbutils</artifactId>
-          <version>1.6</version>
       </dependency>
       <dependency>
           <groupId>org.mybatis</groupId>
           <artifactId>mybatis</artifactId>
-          <version>3.5.6</version>
       </dependency>
       <dependency>
           <groupId>com.oracle.database.jdbc</groupId>
           <artifactId>ojdbc8</artifactId>
-          <version>21.1.0.0</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
       <dependency>
           <groupId>mysql</groupId>
           <artifactId>mysql-connector-java</artifactId>
-          <version>8.0.33</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
       <dependency>
           <groupId>org.postgresql</groupId>
           <artifactId>postgresql</artifactId>
-          <version>42.7.3</version>
       </dependency>
       <dependency>
           <groupId>org.duckdb</groupId>
           <artifactId>duckdb_jdbc</artifactId>
-          <version>1.5.3.0</version>
       </dependency>
       <!-- MongoDB 官方同步驱动（非 JDBC 数据源，含 mongodb-driver-core 与 bson） -->
       <dependency>
           <groupId>org.mongodb</groupId>
           <artifactId>mongodb-driver-sync</artifactId>
-          <version>5.6.1</version>
       </dependency>
       <!-- SQLite JDBC 驱动（嵌入式文件数据库） -->
       <dependency>
           <groupId>org.xerial</groupId>
           <artifactId>sqlite-jdbc</artifactId>
-          <version>3.47.1.0</version>
       </dependency>
       <dependency>
           <groupId>cn.hutool</groupId>
           <artifactId>hutool-all</artifactId>
-          <version>5.8.40</version>
       </dependency>
       <dependency>
           <groupId>org.apache.avro</groupId>
           <artifactId>avro</artifactId>
-          <version>1.12.1</version>
       </dependency>
       <dependency>
           <groupId>com.zendesk</groupId>
           <artifactId>mysql-binlog-connector-java</artifactId>
-          <version>0.30.1</version>
       </dependency>
       <dependency>
           <groupId>org.antlr</groupId>
@@ -92,7 +80,6 @@
       <dependency>
           <groupId>com.tngtech.archunit</groupId>
           <artifactId>archunit-junit5-api</artifactId>
-          <version>1.4.0</version>
           <scope>test</scope>
       </dependency>
       <dependency>
@@ -100,29 +87,24 @@
           <!-- https://www.archunit.org/userguide/html/000_Index.html#_junit_5 -->
           <groupId>com.tngtech.archunit</groupId>
           <artifactId>archunit-junit5-engine</artifactId>
-          <version>1.4.0</version>
           <scope>test</scope>
       </dependency>
       <dependency>
           <groupId>com.zaxxer</groupId>
           <artifactId>HikariCP</artifactId>
-          <version>5.1.0</version>
       </dependency>
       <!-- 在dependencies部分添加 -->
       <dependency>
           <groupId>org.apache.commons</groupId>
           <artifactId>commons-exec</artifactId>
-          <version>1.3</version>
       </dependency>
       <dependency>
           <groupId>com.alibaba</groupId>
           <artifactId>druid</artifactId>
-          <version>1.2.16</version> <!-- 最新稳定版 -->
       </dependency>
       <dependency>
           <groupId>io.minio</groupId>
           <artifactId>minio</artifactId>
-          <version>8.6.0</version>
       </dependency>
       <dependency>
           <groupId>com.amazonaws</groupId>
@@ -132,13 +114,11 @@
       <dependency>
           <groupId>org.junit.jupiter</groupId>
           <artifactId>junit-jupiter</artifactId>
-          <version>5.10.0</version>
           <scope>test</scope>
       </dependency>
       <dependency>
           <groupId>org.junit.platform</groupId>
           <artifactId>junit-platform-engine</artifactId>
-          <version>1.10.0</version>
           <scope>test</scope>
       </dependency>
       <!-- 测试期启用 SLF4J 输出，便于查看 CDC 采集日志 -->
@@ -152,13 +132,11 @@
       <dependency>
           <groupId>com.squareup.okhttp3</groupId>
           <artifactId>okhttp</artifactId>
-          <version>4.12.0</version>
       </dependency>
       <!-- Apache Kafka 客户端 -->
       <dependency>
           <groupId>org.apache.kafka</groupId>
           <artifactId>kafka-clients</artifactId>
-          <version>3.6.1</version>
       </dependency>
       <dependency>
           <groupId>org.apache.httpcomponents</groupId>
