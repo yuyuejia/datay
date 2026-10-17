@@ -57,6 +57,8 @@ export interface DbType {
   clearCredentialsOnSave?: boolean;
   /** 保存时清空数据库名与 Schema */
   clearDatabaseOnSave?: boolean;
+  /** 保存时清空默认 Schema */
+  clearSchemaOnSave?: boolean;
   /** 未启用 Schema 时，用用户名（大写）作为默认 Schema（Oracle 习惯） */
   schemaFromUsername?: boolean;
 
@@ -79,6 +81,7 @@ export interface DbFormConfig {
   identifierTypes: IdentifierTypeDef[];
   clearCredentialsOnSave: boolean;
   clearDatabaseOnSave: boolean;
+  clearSchemaOnSave: boolean;
   schemaFromUsername: boolean;
   connectionModes: ConnectionModeDef[];
   defaultConnectionMode?: string;
@@ -93,6 +96,7 @@ const DEFAULT_FORM_CONFIG: DbFormConfig = {
   identifierTypes: [],
   clearCredentialsOnSave: false,
   clearDatabaseOnSave: false,
+  clearSchemaOnSave: false,
   schemaFromUsername: false,
   connectionModes: [],
 };
@@ -119,6 +123,7 @@ export function resolveDbFormConfig(dbType?: DbType | null): DbFormConfig {
     identifierTypes: dbType.identifierTypes ?? DEFAULT_FORM_CONFIG.identifierTypes,
     clearCredentialsOnSave: dbType.clearCredentialsOnSave ?? DEFAULT_FORM_CONFIG.clearCredentialsOnSave,
     clearDatabaseOnSave: dbType.clearDatabaseOnSave ?? DEFAULT_FORM_CONFIG.clearDatabaseOnSave,
+    clearSchemaOnSave: dbType.clearSchemaOnSave ?? DEFAULT_FORM_CONFIG.clearSchemaOnSave,
     schemaFromUsername: dbType.schemaFromUsername ?? DEFAULT_FORM_CONFIG.schemaFromUsername,
     connectionModes: dbType.connectionModes ?? DEFAULT_FORM_CONFIG.connectionModes,
     defaultConnectionMode: dbType.defaultConnectionMode,
@@ -186,6 +191,16 @@ export const dbTypes: DbType[] = [
       { value: 'sid', label: 'SID' },
     ],
     schemaFromUsername: true,
+  },
+  {
+    name: 'HANA',
+    displayName: 'SAP HANA',
+    jdbcUrlTemplate: 'jdbc:sap://{host}:{port}/?databaseName={database}',
+    supportedVersions: ['2.22.12', '2.23.10', '2.24.8', '2.25.9'],
+    defaultPort: '30015',
+    image: '/content/images/hana.svg',
+    clearSchemaOnSave: true,
+    downloadable: true,
   },
   {
     name: 'POSTGRESQL',

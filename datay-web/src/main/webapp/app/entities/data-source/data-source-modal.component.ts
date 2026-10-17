@@ -379,7 +379,11 @@ export default defineComponent({
         }
       }
       if (!cfg.schemaEnabled) {
-        dataSource.value.schemaName = cfg.schemaFromUsername ? (dataSource.value.username || '').toUpperCase() : dataSource.value.database;
+        dataSource.value.schemaName = cfg.clearSchemaOnSave
+          ? null
+          : cfg.schemaFromUsername
+            ? (dataSource.value.username || '').toUpperCase()
+            : dataSource.value.database;
       }
     };
 

@@ -43,6 +43,19 @@ class DriverDownloaderTest {
     }
 
     @Test
+    void hanaIsDownloadableWithMavenCoordinates() {
+        assertTrue(DBType.HANA.isDownloadable());
+        assertEquals("com.sap.cloud.db.jdbc", DBType.HANA.getMavenGroupId());
+        assertEquals("ngdbc", DBType.HANA.getMavenArtifactId());
+        assertEquals("com.sap.db.jdbc.Driver", DBType.HANA.getDriverClassName());
+        assertEquals("2.25.9", DBType.HANA.getDefaultVersion());
+        assertEquals(
+            "com/sap/cloud/db/jdbc/ngdbc/2.25.9/ngdbc-2.25.9.jar",
+            DBType.HANA.getMavenDriverRelativePath("default")
+        );
+    }
+
+    @Test
     void nonMavenTypeIsNotDownloadable() {
         assertFalse(DBType.MYSQL.isDownloadable());
         assertNotNull(DriverDownloader.getRepoUrls());

@@ -15,6 +15,8 @@ const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9]+:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*)
 const SQLSERVER_URL_PATTERN = /^jdbc:sqlserver:\/\/([^:;]+)(?::(\d+))?.*?databaseName=([^;]+)/i;
 const ORACLE_SERVICE_PATTERN = /^jdbc:oracle:thin:@\/\/([^:/]+)(?::(\d+))?\/(.+)$/i;
 const ORACLE_SID_PATTERN = /^jdbc:oracle:thin:@([^:/]+)(?::(\d+))?:(.+)$/i;
+const HANA_URL_PATTERN = /^jdbc:sap:\/\/([^:/;]+)(?::(\d+))?/i;
+const HANA_DATABASE_PATTERN = /[?&]databaseName=([^&;]*)/i;
 const HTTP_URL_PATTERN = /^(https?):\/\/([^:/]+)(?::(\d+))?/i;
 const MONGO_URL_PATTERN = /^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^:/?]+)(?::(\d+))?(?:\/([^?]*))?/i;
 
@@ -72,6 +74,17 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
   if (!url || !isNetworkType(type)) return null;
 
   const normalizedType = (type ?? '').toUpperCase();
+
+  if (normalizedType === 'HANA') {
+    const match = HANA_URL_PATTERN.exec(url);
+    if (!match) return null;
+    const databaseMatch = HANA_DATABASE_PATTERN.exec(url);
+    return {
+      hostname: match[1],
+      port: match[2] ?? '',
+      database: databaseMatch ? decodeURIComponent(databaseMatch[1]) : '',
+    };
+  }
 
   if (normalizedType === 'ORACLE') {
     const serviceMatch = ORACLE_SERVICE_PATTERN.exec(url);

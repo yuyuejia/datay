@@ -283,6 +283,31 @@ public enum DBType {
         ),
         "com.dameng",
         "DmJdbcDriver18"
+    ),
+
+    /**
+     * SAP HANA 数据库。
+     * <p>JDBC 驱动（ngdbc）未随平台打包，按需从 Maven 仓库下载到驱动目录
+     * （见 {@link com.data.metadata.util.DriverDownloader}）。
+     * <p>JDBC URL 形如 {@code jdbc:sap://host:30015/?databaseName=HXE}，SQL 端口为 {@code 3<instance>15}。
+     */
+    HANA(
+        "SAP HANA",
+        Arrays.asList("2.22.12", "2.23.10", "2.24.8", "2.25.9"),
+        "com.sap.db.jdbc.Driver",
+        "jdbc:sap://{host}:{port}/?databaseName={database}",
+        Map.of(
+            "2.22.12",
+            "ngdbc-2.22.12.jar",
+            "2.23.10",
+            "ngdbc-2.23.10.jar",
+            "2.24.8",
+            "ngdbc-2.24.8.jar",
+            "2.25.9",
+            "ngdbc-2.25.9.jar"
+        ),
+        "com.sap.cloud.db.jdbc",
+        "ngdbc"
     );
 
     private final String displayName;
@@ -433,7 +458,8 @@ public enum DBType {
             CLICKHOUSE,
             GREENPLUM,
             DORIS,
-            DM
+            DM,
+            HANA
         );
     }
 

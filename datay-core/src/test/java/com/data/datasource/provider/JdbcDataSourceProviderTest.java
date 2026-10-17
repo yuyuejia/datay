@@ -1,5 +1,6 @@
 package com.data.datasource.provider;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,5 +51,13 @@ class JdbcDataSourceProviderTest {
     void exposesTypeConverterByName() {
         TypeConverter converter = new MysqlDataSourceProvider().typeConverter("mysql");
         assertNotNull(converter);
+    }
+
+    @Test
+    void hanaUsesDummyTestQueryAndUrlPrefix() {
+        HanaDataSourceProvider provider = new HanaDataSourceProvider();
+        assertEquals("SELECT 1 FROM DUMMY", provider.getTestQuery());
+        assertTrue(provider.supportsUrl("jdbc:sap://localhost:30015/?databaseName=HXE"));
+        assertFalse(provider.supportsUrl("jdbc:mysql://localhost:3306/test"));
     }
 }

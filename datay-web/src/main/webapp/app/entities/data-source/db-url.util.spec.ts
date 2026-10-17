@@ -39,8 +39,12 @@ describe('db-url.util', () => {
     });
 
     it('builds dm url without database', () => {
-      expect(buildSimpleUrl('DM', { hostname: 'localhost', port: '5236', database: 'SYSDBA' })).toBe(
-        'jdbc:dm://localhost:5236',
+      expect(buildSimpleUrl('DM', { hostname: 'localhost', port: '5236', database: 'SYSDBA' })).toBe('jdbc:dm://localhost:5236');
+    });
+
+    it('builds hana url with databaseName', () => {
+      expect(buildSimpleUrl('HANA', { hostname: 'localhost', port: '39015', database: 'HXE' })).toBe(
+        'jdbc:sap://localhost:39015/?databaseName=HXE',
       );
     });
   });
@@ -85,6 +89,14 @@ describe('db-url.util', () => {
         hostname: 'localhost',
         port: '5236',
         database: '',
+      });
+    });
+
+    it('parses hana url with databaseName', () => {
+      expect(parseSimpleUrl('HANA', 'jdbc:sap://localhost:39015/?databaseName=HXE')).toEqual({
+        hostname: 'localhost',
+        port: '39015',
+        database: 'HXE',
       });
     });
 

@@ -28,6 +28,7 @@ public class DatabaseConverter {
         converters.put("doris", new DorisConverter());
         converters.put("avro", new AVROConverter());
         converters.put("dm", new DmConverter());
+        converters.put("hana", new HanaConverter());
         // 协议兼容别名：MariaDB/StarRocks/OceanBase/PolarDB 复用 MySQL 方言；GaussDB 复用 PostgreSQL 方言
         converters.put("mariadb", converters.get("mysql"));
         converters.put("starrocks", converters.get("mysql"));

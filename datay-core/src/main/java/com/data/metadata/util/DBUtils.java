@@ -745,6 +745,8 @@ public class DBUtils {
             return DBType.SQLSERVER.toString();
         } else if (jdbcUrl.startsWith("jdbc:dm:")) {
             return DBType.DM.toString();
+        } else if (jdbcUrl.startsWith("jdbc:sap:")) {
+            return DBType.HANA.toString();
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
@@ -769,6 +771,8 @@ public class DBUtils {
             return DBType.SQLSERVER;
         } else if (jdbcUrl.startsWith("jdbc:dm:")) {
             return DBType.DM;
+        } else if (jdbcUrl.startsWith("jdbc:sap:")) {
+            return DBType.HANA;
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
             return DBType.DUCKDB;
         } else if (jdbcUrl.startsWith("jdbc:clickhouse:")) {

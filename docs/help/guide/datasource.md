@@ -39,7 +39,7 @@
 
 | 分类 | 数据源 |
 | --- | --- |
-| 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB |
+| 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、SAP HANA |
 | 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum |
 | 文件系统 | 本地文件、MinIO 对象存储 |
 | CDC | MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput） |

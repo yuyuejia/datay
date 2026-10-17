@@ -84,7 +84,8 @@ public class DriverClassLoader extends URLClassLoader {
                 name.startsWith("org.postgresql.") ||
                 name.startsWith("com.microsoft.sqlserver.") ||
                 name.startsWith("org.duckdb.") ||
-                name.startsWith("dm.jdbc.")
+                name.startsWith("dm.jdbc.") ||
+                name.startsWith("com.sap.db.")
             ) {
                 // 首先尝试在当前类加载器中查找
                 try {
