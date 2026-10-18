@@ -289,7 +289,7 @@ export const dbTypes: DbType[] = [
     jdbcUrlTemplate: 'ducklake:metadata.ducklake',
     supportedVersions: ['0.4'],
     defaultPort: '',
-    image: '/content/images/DuckDB.svg',
+    image: '/content/images/DuckLake.svg',
     network: false,
     credentials: false,
     databaseEnabled: false,

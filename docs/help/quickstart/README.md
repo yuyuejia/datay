@@ -62,7 +62,12 @@ java -jar target/*.jar
 | 场景 | 内容 |
 | --- | --- |
 | **电商销售分析应用**（零售电商） | 业务源库 + 数仓 2 个数据源；6 个维度（时间维度、区域与品类 2 个三级层级维度、门店/商品/客户 3 个普通维度）、DWD 事实表、DWS 汇总、ADS 应用；12 个指标（7 原子 + 5 衍生）；7 个 ETL、3 个 SQL 任务，1 个统一编排任务 |
-| **DataY 快速入门应用**（快速入门） | 业务源库 + 数仓 2 个数据源；时间维度 / 层级维度 / 普通维度 / DWD 事实 / ADS 共 5 个模型；9 个 ETL（4 个同步 + 属性路由分流 + 清洗转换 / 多表关联 / SQL 聚合 / 增量同步）、2 个 SQL 任务，1 个编排任务；适合先跑通「数据源 → ETL → 建模 → 指标 → 汇总」全链路 |
+| **DataY 快速入门应用**（快速入门） | 业务源库 + 数仓 2 个开箱即用的 DuckDB 数据源，另含可绑定的 MySQL / PostgreSQL CDC 演示数据源与 1 个本地 DuckLake 数据源；时间维度 / 层级维度 / 普通维度 / DWD 事实 / ADS 共 5 个模型；12 个 ETL（4 个同步 + 属性路由分流 + 清洗转换 / 多表关联 / SQL 聚合 / 增量同步 + MySQL Binlog CDC 实时同步 + PostgreSQL CDC 实时入湖 + 决策模型工单分派）、2 个 SQL 任务，1 个编排任务；适合先跑通「数据源 → ETL → 建模 → 指标 → 汇总」全链路 |
+
+> 快速入门应用中的 **MySQL Binlog CDC**、**PostgreSQL CDC 入湖** 与 **决策模型** 三个演示 ETL 任务独立运行，未纳入每日编排：
+> MySQL CDC 演示需要本地 MySQL 开启 `binlog_format=ROW` 并具备复制权限（可在初始化时将「入门MySQL(CDC演示)」绑定到已有数据源）；
+> PostgreSQL CDC 入湖演示需要本地 PostgreSQL 开启 `wal_level=logical`、账号具备 `REPLICATION` 权限，且源表设置 `REPLICA IDENTITY FULL`（可绑定「入门PostgreSQL(CDC演示)」）；
+> 决策模型演示需要先到「服务配置 · 决策模型」连通 Ollama（默认 `http://localhost:11434/v1`，模型 `nimble`）。
 
 ## 第一次登录建议这样走
 
@@ -74,6 +79,9 @@ java -jar target/*.jar
 4. **看数据模型**：进入「数据模型 → 维度建模」，查看维度与事实模型（含时间/层级/普通三种维度类型）。
 5. **拿一个数**：进入「数据模型 → 智能问数」，重建知识索引后问一句
    「各品类的销售额和毛利率」。
+6. **（可选）跑进阶演示**：在「数据开发 → ETL 任务」中找到快速入门应用的
+   「MySQL Binlog CDC 实时同步演示」「PostgreSQL CDC 实时入湖演示」与「决策模型工单分派演示」，
+   补齐 MySQL / PostgreSQL / Ollama 环境后单跑，分别体验实时变更捕获、CDC 入湖与本地决策模型算子。
 
 每一步的详细操作见 [使用指南](guide/README.md)，完整实战见
 [电商指标问数闭环](cases/ecommerce.md)。

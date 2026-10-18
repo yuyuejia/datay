@@ -49,7 +49,57 @@ class AppPackagePresetTest {
             assertThat(content.rebuildSummary().get("total")).as(file).isPositive();
             assertReferences(file, content);
             assertEtlNodeTypesAreRegistered(file, content);
+            assertEtlFieldLengths(file, content);
+            assertDataSourceFieldLengths(file, content);
         }
+    }
+
+    @Test
+    void quickstartIncludesCdcAndDecisionDemos() throws IOException {
+        AppPackageContent content = load("app-packages/datay-quickstart-app.json");
+
+        AppPackageEtlTask cdc = content.getEtlTasks().stream().filter(task -> "qs_etl_mysql_cdc".equals(task.taskCode)).findFirst().orElseThrow();
+        assertThat(cdc.nodes).extracting(node -> node.type).contains("MySQLBinlogInput", "StreamJdbcOutput");
+
+        AppPackageEtlTask decision = content.getEtlTasks().stream().filter(task -> "qs_etl_decision_demo".equals(task.taskCode)).findFirst().orElseThrow();
+        assertThat(decision.nodes).extracting(node -> node.type).contains("GenerateFlowFile", "DecisionComponent", "StreamJdbcOutput");
+
+        AppPackageEtlTask postgresLake = content.getEtlTasks().stream().filter(task -> "qs_etl_pg_cdc_ducklake".equals(task.taskCode)).findFirst().orElseThrow();
+        assertThat(postgresLake.nodes).extracting(node -> node.type).contains("PostgresCDCInput", "DuckLakeWrite");
+    }
+
+    /**
+     * ETL 任务与节点上的文本字段最终写入 varchar(255) 列，超长会在初始化时触发数据库截断错误。
+     */
+    private void assertEtlFieldLengths(String file, AppPackageContent content) {
+        for (AppPackageEtlTask task : content.getEtlTasks()) {
+            assertLength(file, task.taskCode, "taskCode", task.taskCode);
+            assertLength(file, task.taskName, "taskName", task.taskCode);
+            assertLength(file, task.taskDesc, "taskDesc", task.taskCode);
+            assertLength(file, task.dir, "dir", task.taskCode);
+            assertLength(file, task.type, "type", task.taskCode);
+            assertLength(file, task.cron, "cron", task.taskCode);
+            for (AppPackageEtlTask.AppPackageEtlNode node : task.nodes) {
+                assertLength(file, node.label, "node.label", task.taskCode + "." + node.code);
+                assertLength(file, node.desc, "node.desc", task.taskCode + "." + node.code);
+                assertLength(file, node.type, "node.type", task.taskCode + "." + node.code);
+            }
+        }
+    }
+
+    private void assertDataSourceFieldLengths(String file, AppPackageContent content) {
+        for (var dataSource : content.getDataSources()) {
+            assertLength(file, dataSource.name, "dataSource.name", dataSource.name);
+            assertLength(file, dataSource.description, "dataSource.description", dataSource.name);
+            assertLength(file, dataSource.type, "dataSource.type", dataSource.name);
+            assertLength(file, dataSource.url, "dataSource.url", dataSource.name);
+        }
+    }
+
+    private void assertLength(String file, String value, String field, String owner) {
+        assertThat(value == null ? 0 : value.length())
+            .as("%s: %s 的 %s 超过 varchar(255)", file, owner, field)
+            .isLessThanOrEqualTo(255);
     }
 
     /**

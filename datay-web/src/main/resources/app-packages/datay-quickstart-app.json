@@ -4,9 +4,9 @@
   "meta": {
     "name": "DataY 快速入门应用",
     "code": "datay_quickstart_app",
-    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排」的完整链路。",
+    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、可绑定的 MySQL / PostgreSQL CDC 演示数据源与本地 DuckLake 数据源、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、1 个 MySQL Binlog CDC 实时同步演示 ETL、1 个 PostgreSQL CDC 实时入湖（DuckLake）演示 ETL、1 个决策模型工单分派演示 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排」的完整链路；CDC、DuckLake 入湖与决策模型演示任务独立运行，分别依赖本地 MySQL / PostgreSQL / Ollama。",
     "category": "快速入门",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "source": "SYSTEM"
   },
   "dataSources": [
@@ -41,6 +41,56 @@
       "password": "",
       "connectionMode": null,
       "extraParams": {}
+    },
+    {
+      "oldId": 9002,
+      "key": "入门MySQL(CDC演示)|MYSQL|jdbc:mysql://127.0.0.1:3306/quickstart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+      "name": "入门MySQL(CDC演示)",
+      "description": "MySQL Binlog CDC 演示用数据源，默认指向本地 127.0.0.1:3306/quickstart；初始化时可绑定到已有 MySQL。要求 log_bin=ON、binlog_format=ROW，且账号具备 REPLICATION SLAVE / REPLICATION CLIENT 权限。",
+      "type": "MYSQL",
+      "url": "jdbc:mysql://127.0.0.1:3306/quickstart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+      "hostname": "127.0.0.1",
+      "port": "3306",
+      "schemaName": "quickstart",
+      "database": null,
+      "username": "root",
+      "password": "",
+      "connectionMode": null,
+      "extraParams": {}
+    },
+    {
+      "oldId": 9003,
+      "key": "入门PostgreSQL(CDC演示)|POSTGRESQL|jdbc:postgresql://127.0.0.1:5432/quickstart",
+      "name": "入门PostgreSQL(CDC演示)",
+      "description": "PostgreSQL 逻辑复制 CDC 演示用数据源，默认指向本地 127.0.0.1:5432/quickstart；初始化时可绑定到已有 PostgreSQL。要求 wal_level=logical，采集账号具备 REPLICATION 权限，源表设置 REPLICA IDENTITY FULL。",
+      "type": "POSTGRESQL",
+      "url": "jdbc:postgresql://127.0.0.1:5432/quickstart",
+      "hostname": "127.0.0.1",
+      "port": "5432",
+      "schemaName": "public",
+      "database": null,
+      "username": "postgres",
+      "password": "",
+      "connectionMode": null,
+      "extraParams": {}
+    },
+    {
+      "oldId": 9004,
+      "key": "入门DuckLake|DUCKLAKE|ducklake:./data/quickstart_lake.ducklake",
+      "name": "入门DuckLake",
+      "description": "快速入门场景的本地 DuckLake 数据湖：元数据存于 ./data/quickstart_lake.ducklake，Parquet 数据写入 ./data/quickstart_lake_data，由 PostgreSQL CDC 演示 ETL 自动建表。",
+      "type": "DUCKLAKE",
+      "url": "ducklake:./data/quickstart_lake.ducklake",
+      "hostname": "",
+      "port": "",
+      "schemaName": "main",
+      "database": null,
+      "username": "",
+      "password": "",
+      "connectionMode": null,
+      "extraParams": {
+        "s3.data_path": "./data/quickstart_lake_data"
+      }
     }
   ],
   "modelDirectories": [
@@ -1214,6 +1264,205 @@
           "status": "0"
         }
       ]
+    },
+    {
+      "oldId": 6010,
+      "jobOldId": 7012,
+      "taskName": "MySQL Binlog CDC 实时同步演示",
+      "taskCode": "qs_etl_mysql_cdc",
+      "taskDesc": "MySQLBinlogInput 读取 MySQL Binlog（首次 snapshot 全量 + 后续增量），StreamJdbcOutput 以 auto 模式同步到入门数仓 main.ods_order_cdc。需本地 MySQL 开启 binlog ROW 并创建 quickstart.ods_order；初始化时可将「入门MySQL(CDC演示)」绑定到已有 MySQL 数据源。独立演示任务，未纳入每日编排。",
+      "dir": "/快速入门/CDC演示",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5191,
+          "label": "采集 MySQL Binlog",
+          "code": "n1",
+          "desc": "从入门 MySQL 的 quickstart.ods_order 采集变更；首次运行先做全量快照，之后从断点增量同步",
+          "type": "MySQLBinlogInput",
+          "config": {
+            "sourceId": 9002,
+            "schema": "quickstart",
+            "databaseNamePattern": "quickstart",
+            "tableNamePattern": "ods_order",
+            "serverId": 1001,
+            "snapshot": true,
+            "snapshotFetchSize": 10000
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5192,
+          "label": "同步变更到 DuckDB",
+          "code": "n2",
+          "desc": "按事件类型自动处理 INSERT / UPDATE / DELETE，写入数仓 main.ods_order_cdc",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "ods_order_cdc",
+            "model": "auto"
+          },
+          "xAxis": "520",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5291,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6011,
+      "jobOldId": 7013,
+      "taskName": "决策模型工单分派演示",
+      "taskCode": "qs_etl_decision_demo",
+      "taskDesc": "GenerateFlowFile 生成 3 条客服工单，DecisionComponent 一次请求同时给出 category（单选）、refund（是否）与 urgency（打分）决策，StreamJdbcOutput 写入入门数仓 main.ads_ticket_decision。需先在「服务配置 · 决策模型」连通 Ollama（默认 http://localhost:11434/v1，模型 nimble）。独立演示任务，未纳入每日编排。",
+      "dir": "/快速入门/AI演示",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5301,
+          "label": "生成客服工单样例",
+          "code": "n1",
+          "desc": "生成 3 条含 ticket_id / content 的 JSON 数组样例数据",
+          "type": "GenerateFlowFile",
+          "config": {
+            "dataFormat": "JSON_ARRAY",
+            "inputData": "[{\"ticket_id\":\"T001\",\"content\":\"订单扣了两次钱，请把多扣的那笔退给我，急！\"},{\"ticket_id\":\"T002\",\"content\":\"登录一直失败，验证码怎么都收不到\"},{\"ticket_id\":\"T003\",\"content\":\"账号好像被盗了，有人用我的账号下单，赶紧帮我冻结\"}]",
+            "loopCount": "1"
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5302,
+          "label": "决策模型分派",
+          "code": "n2",
+          "desc": "按 content 构造 state，一次请求给出 category / refund / urgency，答案以 decision_ 前缀合并回行数据",
+          "type": "DecisionComponent",
+          "config": {
+            "stateFields": "content",
+            "answerPrefix": "decision_",
+            "includeConfidence": true,
+            "includeProbabilities": false,
+            "questions": "{\"category\":{\"type\":\"choice\",\"instructions\":\"这条工单该由哪个团队处理？\",\"criteria\":{\"refund\":\"退款与扣款\",\"tech\":\"技术故障\",\"logistics\":\"物流问题\",\"account\":\"账号安全\",\"other\":\"其他\"}},\"refund\":{\"type\":\"noul\",\"instructions\":\"客户是否明确要求退款？\"},\"urgency\":{\"type\":\"score\",\"instructions\":\"这条工单有多紧急？\",\"criteria\":[\"低\",\"中\",\"高\"]}}"
+          },
+          "xAxis": "500",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5303,
+          "label": "写入决策结果表",
+          "code": "n3",
+          "desc": "写入数仓 main.ads_ticket_decision，每次运行前清空",
+          "type": "StreamJdbcOutput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "ads_ticket_decision",
+            "model": "overwrite"
+          },
+          "xAxis": "880",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5311,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        },
+        {
+          "oldId": 5312,
+          "name": "",
+          "code": "e2",
+          "source": "n2",
+          "target": "n3",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6012,
+      "jobOldId": 7014,
+      "taskName": "PostgreSQL CDC 实时入湖演示",
+      "taskCode": "qs_etl_pg_cdc_ducklake",
+      "taskDesc": "PostgresCDCInput 读取 PostgreSQL 逻辑复制变更（snapshot + 增量），DuckLakeWrite(auto) 写入入门 DuckLake main.ods_order_cdc_lake。需 wal_level=logical、REPLICATION 权限，源表设置 REPLICA IDENTITY FULL；独立演示任务，未纳入每日编排。",
+      "dir": "/快速入门/CDC演示",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5321,
+          "label": "采集 PostgreSQL 变更",
+          "code": "n1",
+          "desc": "基于逻辑复制读取 public.ods_order 的 INSERT / UPDATE / DELETE；首次运行先做全量快照，之后从复制槽位点增量同步",
+          "type": "PostgresCDCInput",
+          "config": {
+            "sourceId": 9003,
+            "schema": "public",
+            "tableNamePattern": "ods_order",
+            "publicationName": "datay_pub_qs_pg_order",
+            "slotName": "datay_slot_qs_pg_order",
+            "snapshot": true,
+            "snapshotFetchSize": 10000
+          },
+          "xAxis": "120",
+          "yAxis": "160",
+          "status": "0"
+        },
+        {
+          "oldId": 5322,
+          "label": "写入 DuckLake",
+          "code": "n2",
+          "desc": "按事件类型自动处理 INSERT / UPDATE / DELETE，写入入门 DuckLake 的 main.ods_order_cdc_lake",
+          "type": "DuckLakeWrite",
+          "config": {
+            "sourceId": 9004,
+            "schema": "main",
+            "table": "ods_order_cdc_lake",
+            "model": "auto"
+          },
+          "xAxis": "520",
+          "yAxis": "160",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5331,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
     }
   ],
   "sqlJobs": [
@@ -1432,17 +1681,17 @@
   "otherJobs": [],
   "jobDepends": [],
   "summary": {
-    "dataSources": 2,
+    "dataSources": 5,
     "modelDirectories": 2,
     "models": 5,
     "modelFields": 33,
     "metricDirectories": 1,
     "metrics": 4,
-    "etlTasks": 9,
+    "etlTasks": 12,
     "sqlJobs": 2,
     "dagJobs": 1,
     "otherJobs": 0,
     "jobDepends": 0,
-    "total": 59
+    "total": 65
   }
 }
