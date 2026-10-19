@@ -2,55 +2,227 @@
 
 本页帮助你在 10 分钟内把 DataY 跑起来。平台不再预置业务数据，登录后到**应用市场**一键初始化一个业务场景即可。
 
+> 以下命令均在仓库根目录执行；示例使用 macOS / Linux 的 bash、zsh，Windows 请在 PowerShell 或 Git Bash 中执行，并自行调整路径分隔符。
+
 ## 环境要求
 
-- Java 17+
-- Maven 3.6+
-- Node 22+（构建 DataY Web 前端）
+| 依赖 | 版本 | 说明 |
+| --- | --- | --- |
+| JDK | 17、21、24 | 推荐 17；Maven Enforcer 只允许这三个大版本 |
+| Maven | 3.6+ | 仓库未内置可用的 Maven Wrapper，请使用系统 `mvn` |
+| Node.js | 22.x（默认 22.15.0） | Maven 构建时会自动下载，前端开发时可使用系统 Node |
+| npm | 11.x（默认 11.3.0） | 与 Node 一起自动下载 |
+| 网络 | 首次构建需要 | 需访问 Maven 中央仓库与 npm 源，用于下载依赖和前端 Node |
+| 机器配置 | 2 核 4G 起 | 本地演示足够 |
 
-最低配置：**2 核 4G** 的服务器或笔记本即可。
+首次完整构建会下载约 1 GB 依赖，耗时取决于网络；构建完成后再次编译会快很多。
 
-## 一键部署
+## 一键部署（本地单机，H2）
+
+本地体验推荐使用默认的 `dev` 配置：数据库为内嵌 H2，调度与执行合一，不需要额外安装 MySQL、Redis。
 
 ```bash
 # 1. 克隆仓库
 git clone https://cnb.cool/yuyuejia/datay
-
-# 2. 构建项目
 cd datay
+
+# 2. 检查环境
+java -version
+mvn -version
+
+# 3. 完整构建：后端 + 前端静态资源（首次会自动下载 Node 22.15.0 与 npm 依赖）
 mvn clean package -DskipTests
 
-# 3. 启动（单机模式，调度 + 执行合一）
-#    AI 能力需要提供 AI API Key，默认为 Deepseek 原厂 Key
-java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
+# 4. 启动（建议进入 datay-web 启动，工作目录决定 H2、data、log 的位置）
+cd datay-web
+export DATAY_AI_API_KEY=sk-xxxxxxxxx   # 可不配，未配置时 AI 助手自动降级
+java -jar target/datay-web-*.jar
 
-# 4. 浏览器打开 http://localhost:8080，默认账号 admin/admin
+# 5. 验证服务并打开浏览器
+curl -s http://localhost:8080/management/health
+# 浏览器访问 http://localhost:8080，默认账号 admin/admin
 ```
 
-在线演示地址：[http://datay-demo.yuyuejia.com.cn/](http://datay-demo.yuyuejia.com.cn/)
+构建产物：
 
-## 开发模式
+| 产物 | 用途 |
+| --- | --- |
+| `datay-web/target/datay-web-<version>.jar` | 平台主程序，启动这个 JAR |
+| `datay-core/target/datay-core-<version>-jar-with-dependencies.jar` | DataY Core 独立运行包，可执行单任务 JSON |
 
-后端与前端分别启动（两个终端），适合二次开发：
+## 编译命令详解
+
+### 默认构建（本地开发 / 演示）
 
 ```bash
-# 终端一：后端
-./mvnw
+# 完整构建，跳过测试
+mvn clean package -DskipTests
 
-# 终端二：前端
-./npmw start
+# 增量构建，不清理 target，适合改完代码后快速重打包
+mvn package -DskipTests
+
+# 只构建 datay-web 及其依赖的 datay-core
+mvn -pl datay-web -am clean package -DskipTests
 ```
 
-- 后端：`http://localhost:8080`
-- 前端 Vite 开发服务器：`http://localhost:9000`（已代理到后端，改动自动刷新）
+默认会激活 `dev`、`webapp`、`docker-compose` 三个 Profile：
 
-## 生产构建
+- `dev`：运行时使用 H2 数据库；
+- `webapp`：调用前端构建，把静态资源打进 JAR；
+- 前端构建使用 `frontend-maven-plugin`，会把 Node 22.15.0 下载到 `datay-web/target/node`，**不需要预先安装 Node**。
+
+可随时确认当前激活的 Profile：
+
+```bash
+mvn -pl datay-web help:active-profiles
+```
+
+### 只构建后端（不构建前端）
+
+```bash
+mvn clean package -DskipTests -Dskip.installnodenpm -Dskip.npm
+```
+
+注意：这样打出的 JAR 不包含前端静态资源，直接访问 8080 只能使用接口；本地开发时请配合 Vite 前端（见下文「开发模式」）。
+
+### 生产构建（prod + MySQL）
+
+```bash
+mvn -Pprod clean package -DskipTests
+```
+
+`-Pprod` 会关闭默认的 `dev` / `webapp` Profile，改用生产配置并构建生产版前端。生产包**默认使用 MySQL**，运行前需准备好数据库，具体启动方式见下文。
+
+### 单独构建 DataY Core
+
+```bash
+# 构建并安装到本地 Maven 仓库，供 datay-web 依赖
+mvn -pl datay-core -am clean install -DskipTests
+
+# 只打可执行包
+mvn -pl datay-core -am clean package -DskipTests
+```
+
+### 测试
+
+```bash
+# 单元测试
+mvn test
+
+# 单元测试 + 集成测试（部分用例依赖 Docker / Testcontainers）
+mvn verify
+```
+
+## 启动命令详解
+
+### 1. 本地单机启动（H2，推荐）
 
 ```bash
 cd datay-web
-./mvnw -Pprod clean verify
-java -jar target/*.jar
+java -jar target/datay-web-*.jar
 ```
+
+常用启动参数：
+
+```bash
+java -jar target/datay-web-*.jar \
+  --server.port=8080 \
+  --DATAY_AI_API_KEY=sk-xxxxxxxxx \
+  --DATAY_AI_BASE_URL=https://api.deepseek.com \
+  --DATAY_AI_MODEL=deepseek-flash
+```
+
+等价的配置文件位于 `datay-web/src/main/resources/config/application.yml` 的 `datay.ai` 节点；也可以使用环境变量 `DATAY_AI_API_KEY`、`DATAY_AI_BASE_URL`、`DATAY_AI_MODEL`。
+
+后台启动并查看日志：
+
+```bash
+cd datay-web
+nohup java -jar target/datay-web-*.jar > datay.log 2>&1 &
+tail -f datay.log
+```
+
+启动成功后，健康检查返回 `{"status":"UP",...}`：
+
+```bash
+curl -s http://localhost:8080/management/health
+```
+
+### 2. 生产模式启动（MySQL）
+
+先按上文执行 `mvn -Pprod clean package -DskipTests`，再启动：
+
+```bash
+cd datay-web
+
+export SPRING_PROFILES_ACTIVE=prod
+export SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:3306/datafusion?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai'
+export SPRING_DATASOURCE_USERNAME=root
+export SPRING_DATASOURCE_PASSWORD='change-me'
+export JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET="$(openssl rand -base64 64 | tr -d '\n')"
+
+java -jar target/datay-web-*.jar
+```
+
+说明：
+
+- 数据库不存在时，连接串中的 `createDatabaseIfNotExist=true` 会尝试自动创建；
+- 表结构由 Liquibase 自动初始化；
+- 生产环境务必替换默认 JWT 密钥与数据库密码；
+- `application-prod.yml` 默认连接 `localhost:3306/datafusion`（`root` / 空密码），可用上面的环境变量覆盖。
+
+### 3. 调度 master / worker 分离部署
+
+单机默认即可运行。需要水平扩展时，通过 `development.mode` 指定角色，并配置 Redis：
+
+```bash
+export SPRING_PROFILES_ACTIVE=prod
+export DEVELOPMENT_MODE=master          # 仅调度；worker 节点改为 worker
+export SPRING_DATA_REDIS_HOST=127.0.0.1
+export SPRING_DATA_REDIS_PORT=6379
+
+java -jar target/datay-web-*.jar
+```
+
+详细角色说明与 `docker compose` 示例见[任务调度与实例](guide/scheduler.md)。
+
+## 开发模式
+
+前后端分离启动，适合二次开发。前端 Vite 开发服务器监听 **9000**，并把 `/api`、`/management` 等请求代理到后端 **8080**。
+
+```bash
+# 0. 首次开发前，把 datay-core 安装到本地 Maven 仓库
+mvn -pl datay-core -am install -DskipTests
+
+# 终端一：启动后端（H2，8080）
+cd datay-web
+mvn spring-boot:run -Dskip.installnodenpm -Dskip.npm
+
+# 终端二：启动前端（9000，支持热更新）
+cd datay-web
+npm install        # 首次执行；已有 node_modules 可跳过
+npm start
+```
+
+- 后端：`http://localhost:8080`
+- 前端：`http://localhost:9000`（页面从这里打开，接口自动代理到后端）
+- 前端 Node 版本建议 22.x；也可以直接使用 Maven 已下载的版本：`export PATH="$PWD/target/node:$PATH"`
+
+## 数据目录与重置
+
+从 `datay-web` 目录启动时，运行数据都相对于该目录：
+
+| 路径 | 内容 |
+| --- | --- |
+| `datay-web/target/h2db/db/datafusion` | 本地 H2 数据库（账号、租户、任务等） |
+| `datay-web/data` | DuckDB、DuckLake、智能问数索引、上传文件等 |
+| `datay-web/log` | 任务运行日志 |
+| `datay-web/drivers` | 外部 JDBC 驱动 |
+
+> `mvn clean` 会删除整个 `target`，包括本地 H2 数据库。需要保留演示数据时，请先备份
+> `datay-web/target/h2db`，或改用 MySQL 作为元数据库。
+>
+> 重置本地环境：停止服务后删除 `datay-web/target/h2db`，重新启动即可得到全新平台。
 
 ## 一键初始化：数据应用资产包
 
@@ -88,9 +260,14 @@ java -jar target/*.jar
 
 ## 常见问题
 
+- **提示 Java 版本不兼容**：Maven Enforcer 只接受 JDK 17、21、24。执行 `java -version`、`mvn -version` 确认两者使用同一个 JDK，必要时设置 `JAVA_HOME`。
+- **`./mvnw: No such file or directory` 或 Wrapper 报错**：仓库未包含可用的 Maven Wrapper，请直接使用系统 `mvn`。
+- **`./npmw: Permission denied`**：`npmw` 默认没有执行权限，可执行 `chmod +x npmw`，或直接使用 `npm install && npm start`。
+- **前端构建失败或长时间卡住**：多为下载 Node / npm 依赖失败。可先只构建后端：`mvn clean package -DskipTests -Dskip.installnodenpm -Dskip.npm`，此时页面资源需另用 Vite 启动。
+- **启动报数据库连接失败**：确认没有误用 `prod` Profile。本地体验请使用默认包直接启动（H2）；生产模式必须先准备 MySQL。
 - **AI 问数不可用**：检查是否配置了 `DATAY_AI_API_KEY`，未配置时助手会自动降级，不影响查询功能。
-- **端口冲突**：默认端口 8080，可通过 `--server.port=xxxx` 覆盖。
-- **离线环境**：前端构建需要 Node，若只需后端可跳过前端构建。
+- **端口冲突**：默认端口 8080，可通过 `--server.port=xxxx` 覆盖；前端开发端口 9000 可在 `datay-web/vite.config.mts` 中修改。
+- **本地数据丢失**：`mvn clean` 会删除 `datay-web/target/h2db`，请先备份或改用 MySQL。
 
 ## 下一步
 
