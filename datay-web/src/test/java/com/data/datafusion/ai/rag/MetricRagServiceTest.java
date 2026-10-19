@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -53,8 +54,9 @@ class MetricRagServiceTest {
 
         when(metricService.findAllSimple()).thenReturn(List.of(metric("销售金额", "sales_amount"), metric("订单数", "order_count")));
 
+        String dimensionId = UUID.randomUUID().toString();
         DataModel dimStore = new DataModel();
-        dimStore.setId("3002");
+        dimStore.setId(dimensionId);
         dimStore.setCode("dim_store");
         dimStore.setName("门店维度");
         dimStore.setModelType("DIMENSION");
@@ -68,7 +70,7 @@ class MetricRagServiceTest {
         city.setDescription("城市");
 
         when(dataModelRepository.findByModelType("DIMENSION")).thenReturn(List.of(dimStore));
-        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3002")).thenReturn(List.of(city));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionId)).thenReturn(List.of(city));
 
         DataSourceDTO dataSource = new DataSourceDTO();
         dataSource.setId("1600");
@@ -123,6 +125,7 @@ class MetricRagServiceTest {
 
     private MetricDTO metric(String name, String code) {
         MetricDTO dto = new MetricDTO();
+        dto.setId(UUID.randomUUID().toString());
         dto.setName(name);
         dto.setCode(code);
         dto.setStatus(Metric.STATUS_ENABLED);

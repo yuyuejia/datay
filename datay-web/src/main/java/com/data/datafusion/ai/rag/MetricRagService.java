@@ -254,15 +254,15 @@ public class MetricRagService {
             for (int i = 0; i < metrics.size(); i++) {
                 MetricDTO metric = metrics.get(i);
                 ps.setString(1, tenantId);
-                ps.setObject(2, metric.getId());
+                ps.setString(2, metric.getId());
                 ps.setString(3, metric.getCode());
                 ps.setString(4, metric.getName());
                 ps.setString(5, contents.get(i));
                 ps.setString(6, toVectorString(vectors.get(i)));
                 ps.addBatch();
-                count++;
             }
             ps.executeBatch();
+            count = metrics.size();
         } catch (SQLException e) {
             LOG.warn("写入指标向量失败: {}", e.getMessage());
         }
@@ -293,7 +293,7 @@ public class MetricRagService {
                 DataModel dimension = (DataModel) rows.get(i)[0];
                 ModelField field = (ModelField) rows.get(i)[1];
                 ps.setString(1, tenantId);
-                ps.setObject(2, dimension.getId());
+                ps.setString(2, dimension.getId());
                 ps.setString(3, dimension.getCode());
                 ps.setString(4, dimension.getName());
                 ps.setString(5, field.getFieldName());
@@ -302,9 +302,9 @@ public class MetricRagService {
                 ps.setString(8, contents.get(i));
                 ps.setString(9, toVectorString(vectors.get(i)));
                 ps.addBatch();
-                count++;
             }
             ps.executeBatch();
+            count = rows.size();
         } catch (SQLException e) {
             LOG.warn("写入维度字段向量失败: {}", e.getMessage());
         }
@@ -344,15 +344,15 @@ public class MetricRagService {
                 DataModel dimension = (DataModel) members.get(i)[0];
                 ModelField field = (ModelField) members.get(i)[1];
                 ps.setString(1, tenantId);
-                ps.setObject(2, dimension.getId());
+                ps.setString(2, dimension.getId());
                 ps.setString(3, dimension.getCode());
                 ps.setString(4, field.getFieldName());
                 ps.setString(5, String.valueOf(members.get(i)[2]));
                 ps.setString(6, toVectorString(vectors.get(i)));
                 ps.addBatch();
-                count++;
             }
             ps.executeBatch();
+            count = members.size();
         } catch (SQLException e) {
             LOG.warn("写入维度成员向量失败: {}", e.getMessage());
         }
@@ -464,7 +464,7 @@ public class MetricRagService {
             }
             if (dimensionIds != null && !dimensionIds.isEmpty()) {
                 for (String id : dimensionIds) {
-                    ps.setObject(index++, id);
+                    ps.setString(index++, id);
                 }
             }
             ps.setInt(index, limit);
@@ -528,7 +528,7 @@ public class MetricRagService {
         }
         if (dimensionIds != null && !dimensionIds.isEmpty()) {
             for (String id : dimensionIds) {
-                ps.setObject(index++, id);
+                ps.setString(index++, id);
             }
         }
     }
@@ -593,17 +593,17 @@ public class MetricRagService {
                 stmt.execute(
                     "CREATE TABLE IF NOT EXISTS " +
                     TABLE_METRIC +
-                    "(tenant_id VARCHAR, metric_id BIGINT, code VARCHAR, name VARCHAR, content VARCHAR, embedding VARCHAR)"
+                    "(tenant_id VARCHAR, metric_id VARCHAR, code VARCHAR, name VARCHAR, content VARCHAR, embedding VARCHAR)"
                 );
                 stmt.execute(
                     "CREATE TABLE IF NOT EXISTS " +
                     TABLE_DIMENSION +
-                    "(tenant_id VARCHAR, dimension_model_id BIGINT, dimension_code VARCHAR, dimension_name VARCHAR, field_name VARCHAR, field_desc VARCHAR, hierarchy BOOLEAN, content VARCHAR, embedding VARCHAR)"
+                    "(tenant_id VARCHAR, dimension_model_id VARCHAR, dimension_code VARCHAR, dimension_name VARCHAR, field_name VARCHAR, field_desc VARCHAR, hierarchy BOOLEAN, content VARCHAR, embedding VARCHAR)"
                 );
                 stmt.execute(
                     "CREATE TABLE IF NOT EXISTS " +
                     TABLE_MEMBER +
-                    "(tenant_id VARCHAR, dimension_model_id BIGINT, dimension_code VARCHAR, field_name VARCHAR, member_value VARCHAR, embedding VARCHAR)"
+                    "(tenant_id VARCHAR, dimension_model_id VARCHAR, dimension_code VARCHAR, field_name VARCHAR, member_value VARCHAR, embedding VARCHAR)"
                 );
             }
             schemaReady = true;
