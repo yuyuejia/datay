@@ -138,6 +138,11 @@
           <groupId>org.apache.kafka</groupId>
           <artifactId>kafka-clients</artifactId>
       </dependency>
+      <!-- Eclipse Paho MQTT 客户端 -->
+      <dependency>
+          <groupId>org.eclipse.paho</groupId>
+          <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+      </dependency>
       <dependency>
           <groupId>org.apache.httpcomponents</groupId>
           <artifactId>httpclient</artifactId>

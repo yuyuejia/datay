@@ -107,7 +107,7 @@ public class Example {
 
 篇幅较长，已单独整理成 [ETL 组件介绍](components/README.md)，按输入、处理、输出、路由、其他分组介绍。
 
-- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`
+- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`MqttConsumer`
 - **处理组件**：`DuckDBSql`、`StreamSqlUnit`、`SqlTask`、`JavaScriptComponent`
 - **输出组件**：`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
 - **路由组件**：`HashRouter`、`RandomRouter`

@@ -94,6 +94,22 @@ public class DebugModeTest {
         assertEquals(1, kafka.getRows().size());
         assertEquals("test-topic", kafka.getAttributes().get("_kafkaTopic"));
 
+        String mqttJob = """
+            {
+              "units": [
+                {".id": "mqtt", ".name": "MqttConsumer", "topic": "device/+/telemetry", "qos": "1"}
+              ],
+              "connections": [],
+              "version": "1.0.0"
+            }
+            """;
+        ETLFlowTask mqttRunner = newDebugTask(10, null);
+        mqttRunner.runJob(mqttJob);
+        DebugResult mqtt = mqttRunner.getContext().getDebugResults().get("mqtt");
+        assertNotNull(mqtt, "MQTT 组件应生成模拟数据");
+        assertEquals(1, mqtt.getRows().size());
+        assertEquals("device/+/telemetry", mqtt.getAttributes().get("_mqttTopic"));
+
         String httpJob = """
             {
               "units": [

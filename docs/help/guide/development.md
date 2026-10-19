@@ -25,7 +25,7 @@ DataY 提供可视化的任务设计能力，覆盖数据集成、SQL、Shell �
 
 组件继承自 DataY Core，完整参数见 [ETL 组件介绍](components/README.md)：
 
-- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`
+- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`MqttConsumer`
 - **处理组件**：`DuckDBSql`、`StreamSqlUnit`、`Join`、`DataTransform`、`JavaScriptComponent`
 - **输出组件**：`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**：`GenerateFlowFile`、`LogFlowFile`、`HttpListener`

@@ -49,6 +49,7 @@
         <commons-compress.version>1.28.0</commons-compress.version>
         <jetbrains-annotations.version>17.0.0</jetbrains-annotations.version>
         <mongodb.version>5.6.1</mongodb.version>
+        <paho.mqtt.version>1.2.5</paho.mqtt.version>
     </properties>
 
     <dependencyManagement>
@@ -184,6 +185,11 @@
                 <groupId>org.mongodb</groupId>
                 <artifactId>bson-record-codec</artifactId>
                 <version>${mongodb.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.paho</groupId>
+                <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                <version>${paho.mqtt.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
