@@ -30,11 +30,6 @@
           </el-select>
     </el-form-item>
 
-      <!-- 更新字段 -->
-      <el-form-item label="更新字段">
-      <el-input type="textarea" id="updateColumn" name="updateColumn" v-model="formData.updateColumn" />
-    </el-form-item>
-
       <!-- 批处理数 -->
       <el-form-item label="批处理数">
       <el-input-number :controls="false" v-model="formData.maxRows" controls-position="right" />
