@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONPath;
 import com.data.expression.ParameterUtil;
 import com.data.job.ComponentRegister;
+import com.data.job.DebugLimitReachedException;
 import com.data.job.ExceptionUtils;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -59,6 +60,30 @@ public class HttpInvoke extends FlowComponent {
     // 是否启用SSL证书验证
     private boolean sslVerify = true;
 
+    // 是否启用分页循环拉取
+    private boolean paginationEnabled = false;
+
+    // 分页起始页码
+    private int startPage = 1;
+
+    // 每页条数（同时通过 ${pageSize} 注入请求体）
+    private int pageSize = 100;
+
+    // 最大分页数，防止接口忽略分页参数导致死循环
+    private int maxPages = 1000;
+
+    // 分页请求间隔（毫秒）
+    private long requestInterval = 0L;
+
+    // 分页数据路径，为空时回退到 jsonPath
+    private String dataPath;
+
+    // 请求体中页码字段路径（静态 JSON 请求体时使用），如 std_data.parameter.page_no
+    private String pageNoPath;
+
+    // 请求体中每页条数字段路径（静态 JSON 请求体时使用），如 std_data.parameter.page_size
+    private String pageSizePath;
+
     // HTTP客户端实例
     private OkHttpClient httpClient;
 
@@ -76,28 +101,114 @@ public class HttpInvoke extends FlowComponent {
         initHttpClient();
 
         try {
-            // 处理上游传递的结束信号
-            if (flowFile.getAttribute("_end") != null) {
-                writeRecords(flowFile);
-                return;
+            if (paginationEnabled) {
+                executePaginated(flowFile);
+            } else {
+                executeSingle(flowFile);
             }
-
-            // 构建HTTP请求
-            Request request = buildHttpRequest(flowFile);
-
-            // 执行HTTP请求
-            Response response = executeHttpRequest(request);
-
-            // 处理HTTP响应
-            FlowFile resultFlowFile = processHttpResponse(response, flowFile);
-
-            // 向下游传递数据
-            writeRecords(resultFlowFile);
-
+        } catch (DebugLimitReachedException e) {
+            // 调试模式达到采样上限，交由引擎按正常结束处理
+            throw e;
         } catch (Exception e) {
             logError("HttpInvoke组件执行失败: " + ExceptionUtils.describe(e));
             throw new RuntimeException("HttpInvoke组件执行失败: " + ExceptionUtils.describe(e), e);
         }
+    }
+
+    /**
+     * 单次请求模式：调用一次接口并向下游传递响应数据。
+     */
+    private void executeSingle(FlowFile flowFile) throws IOException {
+        Request request = buildHttpRequest(flowFile);
+        FlowFile resultFlowFile;
+        try (Response response = executeHttpRequest(request)) {
+            resultFlowFile = processHttpResponse(response, flowFile);
+        }
+        writeRecords(resultFlowFile);
+    }
+
+    /**
+     * 分页循环模式：按页码递增反复调用接口，直到没有下一页或返回空数据。
+     *
+     * <p>每页响应会作为独立的 FlowFile 向下游发送，避免全量数据一次性堆积在内存中。
+     * 请求体支持 {@code ${pageNo}} 与 {@code ${pageSize}} 占位符，可在每次请求时替换为当前页码和每页条数。</p>
+     */
+    private void executePaginated(FlowFile flowFile) throws IOException {
+        int pageNo = startPage > 0 ? startPage : 1;
+        int currentPageSize = pageSize > 0 ? pageSize : 100;
+        int maxPageCount = maxPages > 0 ? maxPages : 1000;
+        int fetchedPages = 0;
+        long fetchedRows = 0L;
+        // 时间等非分页参数在本次任务开始时统一求值，保证所有分页使用同一时间范围
+        String baseBody = ParameterUtil.replaceParameters(this.body, flowFile);
+
+        while (fetchedPages < maxPageCount) {
+            if (fetchedPages > 0 && requestInterval > 0) {
+                sleepQuietly(requestInterval);
+            }
+
+            FlowFile pageFlowFile = new FlowFile();
+            pageFlowFile.getAttributeMap().putAll(flowFile.getAttributeMap());
+            pageFlowFile.setAttribute("pageNo", pageNo);
+            pageFlowFile.setAttribute("pageSize", currentPageSize);
+            pageFlowFile.setAttribute("_pageNo", pageNo);
+            pageFlowFile.setAttribute("_pageSize", currentPageSize);
+
+            String pageBody = buildPageBody(baseBody, pageNo, currentPageSize);
+            Request request = buildHttpRequest(pageFlowFile, pageBody);
+            String responseBody;
+            try (Response response = executeHttpRequest(request)) {
+                responseBody = response.body() != null ? response.body().string() : null;
+            }
+
+            FlowFile resultFlowFile = processHttpResponse(responseBody, pageFlowFile);
+            JSONArray rows = resultFlowFile.getJsonArray();
+            if (rows == null) {
+                logWarn("分页模式未从响应中解析到数据数组，请检查 dataPath / jsonPath 配置，已停止分页；响应内容: " + abbreviate(responseBody));
+                break;
+            }
+            if (rows.isEmpty()) {
+                logInfo("第 " + pageNo + " 页返回空数据，分页结束");
+                break;
+            }
+
+            writeRecords(resultFlowFile);
+            fetchedPages++;
+            fetchedRows += rows.size();
+            logInfo("分页拉取第 " + pageNo + " 页，记录数: " + rows.size() + "，累计: " + fetchedRows);
+
+            if (rows.size() < currentPageSize) {
+                break;
+            }
+            pageNo++;
+        }
+
+        if (fetchedPages >= maxPageCount) {
+            logWarn("已达到分页上限 maxPages=" + maxPageCount + "，停止拉取");
+        }
+        logInfo("分页拉取完成，共 " + fetchedPages + " 页，" + fetchedRows + " 条记录");
+    }
+
+    private String normalizeJsonPath(String path) {
+        String trimmed = path.trim();
+        return trimmed.startsWith("$") ? trimmed : "$." + trimmed;
+    }
+
+    private void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("分页请求等待被中断", e);
+        }
+    }
+
+    private String abbreviate(String text) {
+        if (text == null) {
+            return "null";
+        }
+        String trimmed = text.trim();
+        return trimmed.length() > 300 ? trimmed.substring(0, 300) + "...(已截断)" : trimmed;
     }
 
     /**
@@ -124,6 +235,13 @@ public class HttpInvoke extends FlowComponent {
      * 构建HTTP请求
      */
     private Request buildHttpRequest(FlowFile flowFile) {
+        return buildHttpRequest(flowFile, this.body);
+    }
+
+    /**
+     * 构建HTTP请求，允许分页模式下传入当前页的请求体。
+     */
+    private Request buildHttpRequest(FlowFile flowFile, String bodyTemplate) {
         Request.Builder requestBuilder = new Request.Builder();
 
         // 设置URL（支持从上游FlowFile动态获取参数）
@@ -139,10 +257,63 @@ public class HttpInvoke extends FlowComponent {
         if ("GET".equals(normalizedMethod) || "HEAD".equals(normalizedMethod)) {
             requestBuilder.method(normalizedMethod, null);
         } else {
-            setRequestBody(requestBuilder, flowFile, normalizedMethod);
+            setRequestBody(requestBuilder, flowFile, normalizedMethod, bodyTemplate);
         }
 
         return requestBuilder.build();
+    }
+
+    /**
+     * 生成当前页的请求体。
+     * <p>优先使用 {@code ${pageNo}} / {@code ${pageSize}} 占位符；也可以通过 pageNoPath / pageSizePath
+     * 直接修改 JSON 请求体中的页码和每页条数字段。</p>
+     * <p>{@code bodyTemplate} 已经过首次参数求值（例如时间表达式），分页循环中复用该结果，
+     * 避免跨页时时间范围发生变化。</p>
+     */
+    private String buildPageBody(String bodyTemplate, int pageNo, int pageSize) {
+        if (bodyTemplate == null || bodyTemplate.trim().isEmpty()) {
+            return bodyTemplate;
+        }
+        if (bodyTemplate.contains("${pageNo}") || bodyTemplate.contains("${pageSize}")) {
+            return bodyTemplate;
+        }
+        if ((pageNoPath == null || pageNoPath.trim().isEmpty()) && (pageSizePath == null || pageSizePath.trim().isEmpty())) {
+            return bodyTemplate;
+        }
+
+        try {
+            JSONObject jsonObject = JSONObject.parseObject(bodyTemplate);
+            setJsonPathValue(jsonObject, pageNoPath, pageNo);
+            setJsonPathValue(jsonObject, pageSizePath, pageSize);
+            return jsonObject.toJSONString();
+        } catch (Exception e) {
+            logWarn("按字段路径更新分页请求体失败，将使用原始请求体: " + e.getMessage());
+            return bodyTemplate;
+        }
+    }
+
+    /**
+     * 按点号路径设置 JSON 字段值，例如 std_data.parameter.page_no。
+     */
+    private void setJsonPathValue(JSONObject root, String path, Object value) {
+        if (path == null || path.trim().isEmpty()) {
+            return;
+        }
+        String normalized = path.trim();
+        if (normalized.startsWith("$.")) {
+            normalized = normalized.substring(2);
+        }
+        String[] segments = normalized.split("\\.");
+        JSONObject current = root;
+        for (int i = 0; i < segments.length - 1; i++) {
+            Object child = current.get(segments[i]);
+            if (!(child instanceof JSONObject)) {
+                child = new JSONObject();
+                current.put(segments[i], child);
+            }
+            current = (JSONObject) child;
+        }
+        current.put(segments[segments.length - 1], value);
     }
 
     /**
@@ -170,8 +341,8 @@ public class HttpInvoke extends FlowComponent {
     /**
      * 设置请求体
      */
-    private void setRequestBody(Request.Builder requestBuilder, FlowFile flowFile, String method) {
-        String requestBody = ParameterUtil.replaceParameters(this.body, flowFile);
+    private void setRequestBody(Request.Builder requestBuilder, FlowFile flowFile, String method, String bodyTemplate) {
+        String requestBody = ParameterUtil.replaceParameters(bodyTemplate, flowFile);
         if (requestBody != null && !requestBody.trim().isEmpty()) {
             RequestBody body = RequestBody.create(requestBody.getBytes(StandardCharsets.UTF_8));
             requestBuilder.method(method, body);
@@ -257,6 +428,14 @@ public class HttpInvoke extends FlowComponent {
      * 处理HTTP响应
      */
     private FlowFile processHttpResponse(Response response, FlowFile originalFlowFile) throws IOException {
+        String responseBody = response.body() != null ? response.body().string() : null;
+        return processHttpResponse(responseBody, originalFlowFile);
+    }
+
+    /**
+     * 处理HTTP响应体
+     */
+    private FlowFile processHttpResponse(String responseBody, FlowFile originalFlowFile) {
         FlowFile resultFlowFile = new FlowFile();
 
         // 复制原始FlowFile的属性
@@ -266,12 +445,7 @@ public class HttpInvoke extends FlowComponent {
         resultFlowFile.setAttribute("_httpUrl", url);
         resultFlowFile.setAttribute("_httpMethod", method);
 
-        // 读取响应体
-        String responseBody = null;
-        if (response.body() != null) {
-            responseBody = response.body().string();
-        }
-
+        String effectiveJsonPath = resolveDataPath();
         try {
             // 尝试解析JSON响应
             if (responseBody != null && responseBody.trim().startsWith("{")) {
@@ -280,8 +454,8 @@ public class HttpInvoke extends FlowComponent {
                 resultFlowFile.setAttribute("_dataFormat", "JSON_OBJECT");
 
                 // 如果配置了JSON路径，提取特定字段
-                if (jsonPath != null && !jsonPath.trim().isEmpty()) {
-                    extractJsonPathData(resultFlowFile, jsonObject, jsonPath);
+                if (effectiveJsonPath != null && !effectiveJsonPath.trim().isEmpty()) {
+                    extractJsonPathData(resultFlowFile, jsonObject, normalizeJsonPath(effectiveJsonPath));
                 }
 
             } else if (responseBody != null && responseBody.trim().startsWith("[")) {
@@ -291,8 +465,8 @@ public class HttpInvoke extends FlowComponent {
                 resultFlowFile.setAttribute("_dataFormat", "JSON_ARRAY");
 
                 // 如果配置了JSON路径，提取特定字段
-                if (jsonPath != null && !jsonPath.trim().isEmpty()) {
-                    extractJsonPathData(resultFlowFile, jsonArray, jsonPath);
+                if (effectiveJsonPath != null && !effectiveJsonPath.trim().isEmpty()) {
+                    extractJsonPathData(resultFlowFile, jsonArray, normalizeJsonPath(effectiveJsonPath));
                 }
 
             } else {
@@ -310,6 +484,10 @@ public class HttpInvoke extends FlowComponent {
         }
 
         return resultFlowFile;
+    }
+
+    private String resolveDataPath() {
+        return dataPath != null && !dataPath.trim().isEmpty() ? dataPath.trim() : jsonPath;
     }
 
     /**
@@ -491,5 +669,115 @@ public class HttpInvoke extends FlowComponent {
         if (sslVerify != null) {
             this.sslVerify = Boolean.parseBoolean(sslVerify.trim());
         }
+    }
+
+    public boolean isPaginationEnabled() {
+        return paginationEnabled;
+    }
+
+    public void setPaginationEnabled(boolean paginationEnabled) {
+        this.paginationEnabled = paginationEnabled;
+    }
+
+    public void setPaginationEnabled(String paginationEnabled) {
+        if (paginationEnabled != null && !paginationEnabled.trim().isEmpty()) {
+            this.paginationEnabled = Boolean.parseBoolean(paginationEnabled.trim());
+        }
+    }
+
+    public int getStartPage() {
+        return startPage;
+    }
+
+    public void setStartPage(int startPage) {
+        this.startPage = startPage;
+    }
+
+    public void setStartPage(String startPage) {
+        if (startPage != null && !startPage.trim().isEmpty()) {
+            try {
+                this.startPage = Integer.parseInt(startPage.trim());
+            } catch (NumberFormatException e) {
+                this.startPage = 1;
+            }
+        }
+    }
+
+    public int getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(int pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    public void setPageSize(String pageSize) {
+        if (pageSize != null && !pageSize.trim().isEmpty()) {
+            try {
+                this.pageSize = Integer.parseInt(pageSize.trim());
+            } catch (NumberFormatException e) {
+                this.pageSize = 100;
+            }
+        }
+    }
+
+    public int getMaxPages() {
+        return maxPages;
+    }
+
+    public void setMaxPages(int maxPages) {
+        this.maxPages = maxPages;
+    }
+
+    public void setMaxPages(String maxPages) {
+        if (maxPages != null && !maxPages.trim().isEmpty()) {
+            try {
+                this.maxPages = Integer.parseInt(maxPages.trim());
+            } catch (NumberFormatException e) {
+                this.maxPages = 1000;
+            }
+        }
+    }
+
+    public long getRequestInterval() {
+        return requestInterval;
+    }
+
+    public void setRequestInterval(long requestInterval) {
+        this.requestInterval = requestInterval;
+    }
+
+    public void setRequestInterval(String requestInterval) {
+        if (requestInterval != null && !requestInterval.trim().isEmpty()) {
+            try {
+                this.requestInterval = Long.parseLong(requestInterval.trim());
+            } catch (NumberFormatException e) {
+                this.requestInterval = 0L;
+            }
+        }
+    }
+
+    public String getDataPath() {
+        return dataPath;
+    }
+
+    public void setDataPath(String dataPath) {
+        this.dataPath = dataPath;
+    }
+
+    public String getPageNoPath() {
+        return pageNoPath;
+    }
+
+    public void setPageNoPath(String pageNoPath) {
+        this.pageNoPath = pageNoPath;
+    }
+
+    public String getPageSizePath() {
+        return pageSizePath;
+    }
+
+    public void setPageSizePath(String pageSizePath) {
+        this.pageSizePath = pageSizePath;
     }
 }

@@ -25,8 +25,8 @@ export default defineComponent({
     const itemsPerPage = ref(20);
     const queryCount: Ref<number> = ref(null);
     const page: Ref<number> = ref(1);
-    const propOrder = ref('id');
-    const reverse = ref(false);
+    const propOrder = ref('updateTime');
+    const reverse = ref(true);
     const totalItems = ref(0);
     const search = ref('');
 

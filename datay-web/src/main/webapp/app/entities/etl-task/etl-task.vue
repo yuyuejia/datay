@@ -3,7 +3,7 @@
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="etl-task-heading">ETL 任务列表</span>
       <div class="d-flex align-items-center">
-        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按任务名称 / 描述搜索" clearable/>
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按任务名称 / 描述搜索" clearable />
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新</span>
         </el-button>
@@ -13,7 +13,13 @@
         </el-button>
         <input ref="fileInput" type="file" accept=".json,application/json" style="display: none" @change="onFileSelected" />
         <router-link :to="{ name: 'ETLTaskDesignNew' }" custom v-slot="{ navigate }">
-          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-etl-task">
+          <el-button
+            type="primary"
+            @click="navigate"
+            id="jh-create-entity"
+            data-cy="entityCreateButton"
+            class="jh-create-entity create-etl-task"
+          >
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建 ETL 任务</span>
           </el-button>
@@ -24,7 +30,12 @@
       <span>未找到 ETL 任务</span>
     </div>
     <div v-if="eTLTasks && eTLTasks.length > 0">
-      <el-table :data="eTLTasks" style="width: 100%" @sort-change="handleSortChange">
+      <el-table
+        :data="eTLTasks"
+        style="width: 100%"
+        :default-sort="{ prop: 'updateTime', order: 'descending' }"
+        @sort-change="handleSortChange"
+      >
         <el-table-column prop="taskName" label="任务名称" sortable="custom" width="300"></el-table-column>
         <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip></el-table-column>
         <el-table-column prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
@@ -56,10 +67,23 @@
               <el-button type="success" size="small" @click="runETLTask(scope.row.id)" class="run" data-cy="entityRunButton">
                 <span class="d-none d-md-inline">立即执行</span>
               </el-button>
-              <el-button type="warning" size="small" v-if="scope.row.status === 'OFFLINE'" @click="onlineETLTask(scope.row.id)" class="online" data-cy="entityOnlineButton">
+              <el-button
+                type="warning"
+                size="small"
+                v-if="scope.row.status === 'OFFLINE'"
+                @click="onlineETLTask(scope.row.id)"
+                class="online"
+                data-cy="entityOnlineButton"
+              >
                 <span class="d-none d-md-inline">上线</span>
               </el-button>
-              <el-button size="small" v-if="scope.row.status != 'OFFLINE'" @click="offlineETLTask(scope.row.id)" class="offline" data-cy="entityOfflineButton">
+              <el-button
+                size="small"
+                v-if="scope.row.status != 'OFFLINE'"
+                @click="offlineETLTask(scope.row.id)"
+                class="offline"
+                data-cy="entityOfflineButton"
+              >
                 <span class="d-none d-md-inline">下线</span>
               </el-button>
               <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
@@ -197,11 +221,7 @@
           >
             <div style="padding: 8px 12px; background-color: #f5f7fa; font-weight: 600; word-break: break-all">
               节点：{{ nodeDisplayName(group.nodeId) }}
-              <span
-                v-if="nodeDisplayName(group.nodeId) !== group.nodeId"
-                class="text-muted"
-                style="font-weight: normal; font-size: 12px"
-              >
+              <span v-if="nodeDisplayName(group.nodeId) !== group.nodeId" class="text-muted" style="font-weight: normal; font-size: 12px">
                 ({{ group.nodeId }})
               </span>
             </div>

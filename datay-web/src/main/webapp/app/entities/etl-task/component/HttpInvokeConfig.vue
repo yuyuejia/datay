@@ -6,7 +6,12 @@
       </el-button>
       <span class="curl-import-tip">粘贴 cURL 命令，自动填充请求地址、方法、请求头和请求体</span>
       <div v-if="showCurlImport" class="curl-import-panel">
-        <el-input type="textarea" v-model="curlText" :rows="4" placeholder="例如: curl -X POST 'https://api.example.com/users' -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;tom&quot;}'" />
+        <el-input
+          type="textarea"
+          v-model="curlText"
+          :rows="4"
+          placeholder="例如: curl -X POST 'https://api.example.com/users' -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;tom&quot;}'"
+        />
         <div class="curl-import-actions">
           <el-button type="primary" size="small" @click="applyCurl">解析并填充</el-button>
           <el-button size="small" @click="clearCurlImport">取消</el-button>
@@ -18,36 +23,79 @@
     </el-form-item>
     <el-form-item label="请求方法">
       <el-select v-model="formData.method">
-            <el-option value="GET" label="GET" />
-            <el-option value="POST" label="POST" />
-            <el-option value="PUT" label="PUT" />
-            <el-option value="PATCH" label="PATCH" />
-            <el-option value="DELETE" label="DELETE" />
-            <el-option value="HEAD" label="HEAD" />
-          </el-select>
-    </el-form-item>
-    <el-form-item v-if="hasBody" label="请求体">
-      <el-input type="textarea" id="body" name="body" v-model="formData.body" :rows="4" placeholder='请输入JSON格式的请求体' />
-    </el-form-item>
-    <el-form-item label="请求头">
-      <el-input type="textarea" id="headers" name="headers" v-model="formData.headersText" :rows="3" placeholder='JSON格式，如: {"Authorization": "Bearer token"}' />
-    </el-form-item>
-    <el-form-item label="JSON路径提取">
-      <el-input id="jsonPath" name="jsonPath" v-model="formData.jsonPath" placeholder="从JSON响应中提取字段路径，如 $.data.items" />
-      <small class="form-text text-muted"> 用于从JSON响应中提取特定字段 </small>
+        <el-option value="GET" label="GET" />
+        <el-option value="POST" label="POST" />
+        <el-option value="PUT" label="PUT" />
+        <el-option value="PATCH" label="PATCH" />
+        <el-option value="DELETE" label="DELETE" />
+        <el-option value="HEAD" label="HEAD" />
+      </el-select>
     </el-form-item>
     <el-form-item label="超时时间 (ms)">
-      <el-input-number :controls="false"  id="timeout" name="timeout" v-model="formData.timeout" ::min="1000" />
+      <el-input-number :controls="false" id="timeout" name="timeout" v-model="formData.timeout" :min="1000" />
     </el-form-item>
-    <el-form-item label="重试次数">
-      <el-input-number :controls="false"  id="retryCount" name="retryCount" v-model="formData.retryCount" ::min="0" ::max="10" />
+    <el-form-item v-if="hasBody" label="请求体">
+      <el-input type="textarea" id="body" name="body" v-model="formData.body" :rows="4" placeholder="请输入JSON格式的请求体" />
     </el-form-item>
-    <el-form-item label="重试间隔 (ms)">
-      <el-input-number :controls="false"  id="retryInterval" name="retryInterval" v-model="formData.retryInterval" ::min="100" />
+    <el-form-item label="请求头">
+      <el-input
+        type="textarea"
+        id="headers"
+        name="headers"
+        v-model="formData.headersText"
+        :rows="3"
+        placeholder='JSON格式，如: {"Authorization": "Bearer token"}'
+      />
     </el-form-item>
-    <el-form-item label="启用SSL证书验证">
-      <el-switch v-model="formData.sslVerify" />
+    <el-form-item label="数据路径">
+      <el-input id="dataPath" name="dataPath" v-model="formData.dataPath" placeholder="从JSON响应中提取数据，如 $.std_data.result.rows" />
     </el-form-item>
+
+    <el-divider content-position="left">分页拉取</el-divider>
+    <el-form-item label="启用分页循环">
+      <el-switch v-model="formData.paginationEnabled" />
+    </el-form-item>
+    <template v-if="formData.paginationEnabled">
+      <div class="pagination-section">
+        <div class="pagination-tip">请求体中使用 ${pageNo} 和 ${pageSize} 占位符，按页循环拉取；返回条数小于每页条数时停止。</div>
+        <el-row :gutter="12">
+          <el-col :span="6">
+            <el-form-item label="起始页码">
+              <el-input-number
+                :controls="false"
+                id="startPage"
+                name="startPage"
+                v-model="formData.startPage"
+                :min="1"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="每页条数">
+              <el-input-number :controls="false" id="pageSize" name="pageSize" v-model="formData.pageSize" :min="1" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="最大页数">
+              <el-input-number :controls="false" id="maxPages" name="maxPages" v-model="formData.maxPages" :min="1" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="间隔(ms)">
+              <el-input-number
+                :controls="false"
+                id="requestInterval"
+                name="requestInterval"
+                v-model="formData.requestInterval"
+                :min="0"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </div>
+    </template>
   </el-form>
 </template>
 
@@ -74,8 +122,13 @@ const formData = reactive({
   timeout: props.node?.data?.config?.timeout || 30000,
   retryCount: props.node?.data?.config?.retryCount || 1,
   retryInterval: props.node?.data?.config?.retryInterval || 1000,
-  jsonPath: props.node?.data?.config?.jsonPath || '',
   sslVerify: props.node?.data?.config?.sslVerify !== false,
+  paginationEnabled: props.node?.data?.config?.paginationEnabled === true,
+  startPage: props.node?.data?.config?.startPage || 1,
+  pageSize: props.node?.data?.config?.pageSize || 100,
+  maxPages: props.node?.data?.config?.maxPages || 1000,
+  dataPath: props.node?.data?.config?.dataPath || props.node?.data?.config?.jsonPath || '',
+  requestInterval: props.node?.data?.config?.requestInterval || 0,
 });
 
 const showCurlImport = ref(false);
@@ -154,6 +207,14 @@ defineExpose({ saveConfig });
 </script>
 
 <style scoped>
+.pagination-section :deep(.el-form-item) {
+  margin-bottom: 10px;
+}
+.pagination-tip {
+  margin-bottom: 8px;
+  color: #909399;
+  font-size: 12px;
+}
 .curl-import {
   margin-bottom: 20px;
   padding: 12px;

@@ -1,0 +1,75 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "HTTP接口同步到MySQL示例",
+    "taskCode": "yz_delivery_http_to_mysql",
+    "taskDesc": "调用用友 digi-service 外包交付查询接口，将返回的 rows 写入 MySQL source.yz_outsourcing_delivery",
+    "dir": "/示例",
+    "type": "ETL",
+    "cron": "0 0 2 * * ?",
+    "project": "quickstart",
+    "nodes": [
+      {
+        "label": "调用外包交付查询接口",
+        "code": "n1",
+        "type": "HttpInvoke",
+        "config": {
+          "url": "https://your-api-gateway.example.com",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json",
+            "digi-service": "{\"name\": \"yz.oapi.outsourcing.delivery.query\"}",
+            "digi-user-token": "<DIGI_USER_TOKEN>"
+          },
+          "body": "{\n  \"std_data\": {\n    \"parameter\": {\n      \"page_no\": ${pageNo},\n      \"use_has_next\": true,\n      \"page_size\": ${pageSize},\n      \"conditions\": [\n        {\n          \"groups\": [\n            {\n              \"fields\": [\n                {\n                  \"field_name\": \"entry_time\",\n                  \"operator\": \">=\",\n                  \"value\": \"#{NOW - 1d, yyyy-MM-dd} 00:00:00\"\n                },\n                {\n                  \"field_name\": \"entry_time\",\n                  \"operator\": \"<=\",\n                  \"value\": \"#{NOW - 1d, yyyy-MM-dd} 23:59:59\"\n                }\n              ]\n            }\n          ]\n        }\n      ],\n      \"orders\": [\n        {\n          \"field_name\": \"docNo\",\n          \"order_type\": \"ASC\"\n        }\n      ]\n    }\n  }\n}",
+          "timeout": 30000,
+          "retryCount": 1,
+          "retryInterval": 1000,
+          "sslVerify": true,
+          "paginationEnabled": true,
+          "startPage": 1,
+          "pageSize": 10,
+          "maxPages": 1000,
+          "dataPath": "$.std_data.result.rows",
+          "requestInterval": 100
+        },
+        "xAxis": "120",
+        "yAxis": "200"
+      },
+      {
+        "label": "写入MySQL",
+        "code": "n2",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "01a15240-0b22-7523-ae2c-e7c585d496b1",
+          "schema": "source",
+          "table": "yz_outsourcing_delivery",
+          "model": "append",
+          "maxRows": 20000
+        },
+        "xAxis": "520",
+        "yAxis": "200"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "01a15240-0b22-7523-ae2c-e7c585d496b1",
+        "name": "HTTP示例-MySQL(source)",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/source?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}
