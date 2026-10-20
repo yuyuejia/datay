@@ -1,10 +1,12 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.domain.Metric;
+import com.data.datafusion.service.MetricLineageService;
 import com.data.datafusion.service.MetricQueryService;
 import com.data.datafusion.service.MetricService;
 import com.data.datafusion.service.MetricSqlService;
 import com.data.datafusion.service.dto.MetricDTO;
+import com.data.datafusion.service.dto.MetricLineageDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
@@ -42,11 +44,18 @@ public class MetricResource {
     private final MetricService metricService;
     private final MetricSqlService metricSqlService;
     private final MetricQueryService metricQueryService;
+    private final MetricLineageService metricLineageService;
 
-    public MetricResource(MetricService metricService, MetricSqlService metricSqlService, MetricQueryService metricQueryService) {
+    public MetricResource(
+        MetricService metricService,
+        MetricSqlService metricSqlService,
+        MetricQueryService metricQueryService,
+        MetricLineageService metricLineageService
+    ) {
         this.metricService = metricService;
         this.metricSqlService = metricSqlService;
         this.metricQueryService = metricQueryService;
+        this.metricLineageService = metricLineageService;
     }
 
     @PostMapping("")
@@ -135,6 +144,16 @@ public class MetricResource {
             return ResponseEntity.ok().body(Map.of("sql", sql));
         } catch (IllegalArgumentException e) {
             throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "sqlGenerateError");
+        }
+    }
+
+    @GetMapping("/{id}/lineage")
+    public ResponseEntity<MetricLineageDTO> getMetricLineage(@PathVariable("id") String id) {
+        LOG.debug("REST request to get Metric lineage : {}", id);
+        try {
+            return ResponseEntity.ok().body(metricLineageService.build(id));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "lineageError");
         }
     }
 

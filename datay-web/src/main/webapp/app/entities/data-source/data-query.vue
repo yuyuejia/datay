@@ -263,6 +263,17 @@
                     <el-empty v-else-if="!tab.loading" :description="tab.error ? '数据加载失败' : '暂无数据'" />
                   </div>
                 </el-tab-pane>
+
+                <el-tab-pane label="数据血缘" name="lineage" lazy>
+                  <div class="preview-section table-lineage-section">
+                    <TableLineage
+                      v-if="tab.subTab === 'lineage'"
+                      :data-source-id="dataSourceId"
+                      :schema="tab.schema || ''"
+                      :table="tab.table"
+                    />
+                  </div>
+                </el-tab-pane>
               </el-tabs>
             </div>
           </el-tab-pane>
@@ -746,6 +757,10 @@
   overflow: auto;
   padding: 12px;
   box-sizing: border-box;
+}
+
+.table-lineage-section {
+  background: var(--el-bg-color, #fff);
 }
 
 .preview-data {

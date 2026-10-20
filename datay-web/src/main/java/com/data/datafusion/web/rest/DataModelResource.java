@@ -1,7 +1,9 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.service.DataModelLineageService;
 import com.data.datafusion.service.DataModelMaterializeService;
+import com.data.datafusion.service.DataModelPreviewService;
 import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DimensionValueService;
@@ -13,6 +15,8 @@ import com.data.datafusion.service.dto.MaterializeFieldDTO;
 import com.data.datafusion.service.dto.MaterializeRequestDTO;
 import com.data.datafusion.service.dto.MaterializeResponseDTO;
 import com.data.datafusion.service.dto.ModelFieldDTO;
+import com.data.datafusion.service.dto.ModelLineageDTO;
+import com.data.datafusion.service.dto.ModelPreviewDTO;
 import com.data.datafusion.service.dto.TimeDataRequestDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.metadata.DatabaseConverter;
@@ -52,6 +56,8 @@ public class DataModelResource {
     private final DataSourceService dataSourceService;
     private final TimeDimensionDataService timeDimensionDataService;
     private final DimensionValueService dimensionValueService;
+    private final DataModelPreviewService dataModelPreviewService;
+    private final DataModelLineageService dataModelLineageService;
 
     public DataModelResource(
         DataModelService dataModelService,
@@ -60,7 +66,9 @@ public class DataModelResource {
         DataModelMaterializeService materializeService,
         DataSourceService dataSourceService,
         TimeDimensionDataService timeDimensionDataService,
-        DimensionValueService dimensionValueService
+        DimensionValueService dimensionValueService,
+        DataModelPreviewService dataModelPreviewService,
+        DataModelLineageService dataModelLineageService
     ) {
         this.dataModelService = dataModelService;
         this.dataModelRepository = dataModelRepository;
@@ -69,6 +77,8 @@ public class DataModelResource {
         this.dataSourceService = dataSourceService;
         this.timeDimensionDataService = timeDimensionDataService;
         this.dimensionValueService = dimensionValueService;
+        this.dataModelPreviewService = dataModelPreviewService;
+        this.dataModelLineageService = dataModelLineageService;
     }
 
     @PostMapping("")
@@ -184,6 +194,29 @@ public class DataModelResource {
             return ResponseEntity.ok().body(dimensionValueService.pageValues(id, fieldName, keyword, page, size));
         } catch (IllegalArgumentException e) {
             throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "dimensionValueError");
+        }
+    }
+
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<ModelPreviewDTO> previewModelData(
+        @PathVariable("id") String id,
+        @RequestParam(value = "limit", required = false, defaultValue = "100") Integer limit
+    ) {
+        LOG.debug("REST request to preview DataModel data : {}, limit : {}", id, limit);
+        try {
+            return ResponseEntity.ok().body(dataModelPreviewService.preview(id, limit));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "previewError");
+        }
+    }
+
+    @GetMapping("/{id}/lineage")
+    public ResponseEntity<ModelLineageDTO> getModelLineage(@PathVariable("id") String id) {
+        LOG.debug("REST request to get DataModel lineage : {}", id);
+        try {
+            return ResponseEntity.ok().body(dataModelLineageService.build(id));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "lineageError");
         }
     }
 

@@ -12,6 +12,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import MetricService from "./metric.service";
 import MetricDirectoryService from "./metric-directory.service";
+import MetricLineage from "./MetricLineage.vue";
 import {
   type IMetric,
   type IMetricFilterCondition,
@@ -56,6 +57,9 @@ interface TreeNode {
 
 export default defineComponent({
   name: "Metric",
+  components: {
+    MetricLineage,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const metricService = inject("metricService", () => new MetricService());
@@ -96,6 +100,7 @@ export default defineComponent({
 
     const selectedMetric: Ref<IMetric | null> = ref(null);
     const selectedDirectoryId = ref<string | null>(null);
+    const activeDetailTab = ref("info");
 
     const directoryDialogVisible = ref(false);
     const directoryDialogTitle = ref("新增目录");
@@ -182,12 +187,36 @@ export default defineComponent({
 
     const handleNodeClick = (data: TreeNode) => {
       queryMode.value = false;
+      activeDetailTab.value = "info";
       if (data.type === "metric") {
         selectedMetric.value = data.data;
         selectedDirectoryId.value = data.data.directoryId ?? null;
       } else {
         selectedMetric.value = null;
         selectedDirectoryId.value = data.id;
+      }
+    };
+
+    const handleLineageNodeClick = (node: any) => {
+      if (!node?.type) {
+        return;
+      }
+      const entityId = String(node.id || "").replace(/^[^:]+:/, "");
+      if (!entityId) {
+        return;
+      }
+      if (node.type === "METRIC") {
+        if (entityId !== selectedMetric.value?.id) {
+          selectMetricId(entityId);
+        }
+        return;
+      }
+      if (node.type === "MODEL") {
+        router.push({ name: "DataModel", query: { modelId: entityId } });
+        return;
+      }
+      if (node.type === "DASHBOARD") {
+        window.open(`/dashboard.html?id=${entityId}`, "_blank", "noopener");
       }
     };
 
@@ -696,6 +725,7 @@ export default defineComponent({
       selectedMetric,
       selectedDirectoryId,
       selectedConditions,
+      activeDetailTab,
       directoryDialogVisible,
       directoryDialogTitle,
       directoryForm,
@@ -705,6 +735,7 @@ export default defineComponent({
       sqlLoading,
       sqlContent,
       handleNodeClick,
+      handleLineageNodeClick,
       showAddDirectoryDialog,
       saveDirectory,
       showAddMetricDialog,

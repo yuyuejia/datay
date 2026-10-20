@@ -1,10 +1,12 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.repository.DataSourceRepository;
+import com.data.datafusion.service.DataModelLineageService;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.TableLineageDTO;
 import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProviderFactory;
 import com.data.datasource.DataSourceTypeDescriptor;
@@ -51,16 +53,20 @@ public class DataSourceResource {
 
     private final DefaultWarehouseConfigService defaultWarehouseConfigService;
 
+    private final DataModelLineageService dataModelLineageService;
+
     public DataSourceResource(
         DataSourceService dataSourceService,
         DataSourceRepository dataSourceRepository,
         DataSourceQueryService dataSourceQueryService,
-        DefaultWarehouseConfigService defaultWarehouseConfigService
+        DefaultWarehouseConfigService defaultWarehouseConfigService,
+        DataModelLineageService dataModelLineageService
     ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
         this.dataSourceQueryService = dataSourceQueryService;
         this.defaultWarehouseConfigService = defaultWarehouseConfigService;
+        this.dataModelLineageService = dataModelLineageService;
     }
 
     /**
@@ -297,6 +303,21 @@ public class DataSourceResource {
             }
         }
         return ResponseEntity.ok().body(columns);
+    }
+
+    //获取物理表血缘
+    @GetMapping("/{id}/schemas/{schema}/tables/{table}/lineage")
+    public ResponseEntity<TableLineageDTO> getTableLineage(
+        @PathVariable("id") String id,
+        @PathVariable("schema") String schema,
+        @PathVariable("table") String table
+    ) {
+        LOG.debug("REST request to get table lineage : {} {}.{}", id, schema, table);
+        try {
+            return ResponseEntity.ok().body(dataModelLineageService.buildTable(id, schema, table));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "lineageError");
+        }
     }
 
     //根据数据源id、schema和表名获取表详细信息（字段、索引、注释等）

@@ -154,6 +154,19 @@ export default class DataSourceService {
     });
   }
 
+  getTableLineage(dataSourceId: string, schema: string, table: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/lineage`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   getTableDetail(dataSourceId: string, schema: string, table: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

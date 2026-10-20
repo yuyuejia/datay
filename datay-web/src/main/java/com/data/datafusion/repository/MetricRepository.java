@@ -18,4 +18,5 @@ public interface MetricRepository extends JpaRepository<Metric, String>, JpaSpec
     Optional<Metric> findByCodeAndIdNot(String code, String id);
     List<Metric> findByDirectoryId(String directoryId);
     List<Metric> findByMetricType(String metricType);
+    List<Metric> findByFactModelId(String factModelId);
 }

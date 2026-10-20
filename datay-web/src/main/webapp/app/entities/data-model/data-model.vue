@@ -224,69 +224,80 @@
               </el-row>
             </el-form>
           </div>
-          <div class="detail-fields">
-            <h5>模型字段</h5>
-            <el-table
-              :data="modelFields"
-              border
-              style="width: 100%"
-              v-loading="fieldsLoading"
-            >
-              <el-table-column prop="fieldName" label="字段名称" width="180" />
-              <el-table-column prop="fieldType" label="字段类型" width="120">
-                <template #default="{ row }">
-                  <el-tag size="small">{{
-                    getFieldTypeLabel(row.fieldType)
-                  }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="长度" width="80">
-                <template #default="{ row }">
-                  <span v-if="needsLength(row.fieldType)">{{
-                    row.fieldLength ?? "-"
-                  }}</span>
-                  <span v-else class="muted">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="精度" width="80">
-                <template #default="{ row }">
-                  <span v-if="needsPrecision(row.fieldType)">{{
-                    row.fieldPrecision ?? "-"
-                  }}</span>
-                  <span v-else class="muted">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="小数位" width="80">
-                <template #default="{ row }">
-                  <span v-if="needsScale(row.fieldType)">{{
-                    row.fieldScale ?? "-"
-                  }}</span>
-                  <span v-else class="muted">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="description"
-                label="描述"
-                min-width="200"
+          <el-tabs v-model="activeDetailTab" class="detail-tabs">
+            <el-tab-pane label="字段信息" name="fields">
+              <el-table
+                :data="modelFields"
+                border
+                style="width: 100%"
+                v-loading="fieldsLoading"
+              >
+                <el-table-column prop="fieldName" label="字段名称" width="180" />
+                <el-table-column prop="fieldType" label="字段类型" width="120">
+                  <template #default="{ row }">
+                    <el-tag size="small">{{
+                      getFieldTypeLabel(row.fieldType)
+                    }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="长度" width="80">
+                  <template #default="{ row }">
+                    <span v-if="needsLength(row.fieldType)">{{
+                      row.fieldLength ?? "-"
+                    }}</span>
+                    <span v-else class="muted">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="精度" width="80">
+                  <template #default="{ row }">
+                    <span v-if="needsPrecision(row.fieldType)">{{
+                      row.fieldPrecision ?? "-"
+                    }}</span>
+                    <span v-else class="muted">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="小数位" width="80">
+                  <template #default="{ row }">
+                    <span v-if="needsScale(row.fieldType)">{{
+                      row.fieldScale ?? "-"
+                    }}</span>
+                    <span v-else class="muted">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  prop="description"
+                  label="描述"
+                  min-width="200"
+                />
+                <el-table-column label="主键" width="80">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.isPrimaryKey" type="success" size="small"
+                      >是</el-tag
+                    >
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="关联维度" width="180">
+                  <template #default="{ row }">
+                    <span v-if="row.dimensionModelId">{{
+                      row._dimensionModelName || row.dimensionModelId
+                    }}</span>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
+            <el-tab-pane label="数据预览" name="preview" lazy>
+              <ModelDataPreview v-if="selectedModel" :model="selectedModel" />
+            </el-tab-pane>
+            <el-tab-pane label="数据血缘" name="lineage" lazy>
+              <ModelLineage
+                v-if="selectedModel && activeDetailTab === 'lineage'"
+                :model-id="selectedModel.id"
+                @select-model="handleLineageModelSelect"
               />
-              <el-table-column label="主键" width="80">
-                <template #default="{ row }">
-                  <el-tag v-if="row.isPrimaryKey" type="success" size="small"
-                    >是</el-tag
-                  >
-                  <span v-else>-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="关联维度" width="180">
-                <template #default="{ row }">
-                  <span v-if="row.dimensionModelId">{{
-                    row._dimensionModelName || row.dimensionModelId
-                  }}</span>
-                  <span v-else>-</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </div>
     </div>
@@ -703,10 +714,12 @@
   margin-bottom: 24px;
 }
 
-.detail-fields h5 {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 12px;
+.detail-tabs {
+  margin-top: 4px;
+}
+
+.detail-tabs :deep(.el-tabs__content) {
+  padding-top: 8px;
 }
 
 .muted {

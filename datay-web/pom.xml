@@ -340,6 +340,10 @@
             <artifactId>datay-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+        </dependency>
         <!-- MCP (Model Context Protocol) Java SDK (Jackson 2 flavour to align with Spring Boot) -->
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>

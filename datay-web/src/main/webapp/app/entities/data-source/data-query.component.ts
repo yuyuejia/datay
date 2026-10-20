@@ -12,6 +12,7 @@ import { autocompletion, completionKeymap, startCompletion } from '@codemirror/a
 import { oneDark } from '@codemirror/theme-one-dark';
 import { format } from 'sql-formatter';
 import DataQueryAi from './data-query-ai.vue';
+import TableLineage from './TableLineage.vue';
 
 interface TableNode {
   id: string;
@@ -71,7 +72,7 @@ interface PreviewTab {
 
 export default defineComponent({
   name: 'DataQuery',
-  components: { DataQueryAi },
+  components: { DataQueryAi, TableLineage },
   setup() {
     const route = useRoute();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());

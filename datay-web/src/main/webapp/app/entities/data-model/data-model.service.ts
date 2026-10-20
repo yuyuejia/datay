@@ -122,6 +122,32 @@ export default class DataModelService {
     });
   }
 
+  preview(modelId: string, limit: number): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${modelId}/preview`, { params: { limit } })
+        .then((res) => {
+          resolve(res.data);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    });
+  }
+
+  lineage(modelId: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${modelId}/lineage`)
+        .then((res) => {
+          resolve(res.data);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    });
+  }
+
   getMaterializeFields(modelId: string, dataSourceId: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

@@ -9,5 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ModelFieldRepository extends JpaRepository<ModelField, String> {
     List<ModelField> findByModelIdOrderBySortOrderAsc(String modelId);
+    List<ModelField> findByDimensionModelId(String dimensionModelId);
     void deleteByModelId(String modelId);
 }

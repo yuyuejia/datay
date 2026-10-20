@@ -12,6 +12,8 @@ import { useRoute, useRouter } from "vue-router";
 import DataModelService from "./data-model.service";
 import DataSourceService from "../data-source/data-source.service";
 import ModelDirectoryService from "./model-directory.service";
+import ModelDataPreview from "./ModelDataPreview.vue";
+import ModelLineage from "./ModelLineage.vue";
 import { type IDataModel } from "@/shared/model/data-model.model";
 import {
   type IModelDirectory,
@@ -64,6 +66,10 @@ const FIELD_TYPES_WITH_PRECISION_AND_SCALE = ["DECIMAL", "DOUBLE"];
 
 export default defineComponent({
   name: "DataModel",
+  components: {
+    ModelDataPreview,
+    ModelLineage,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const dataModelService = inject(
@@ -90,6 +96,7 @@ export default defineComponent({
     const selectedModel: Ref<IDataModel | null> = ref(null);
     const modelFields: Ref<IModelField[]> = ref([]);
     const fieldsLoading = ref(false);
+    const activeDetailTab = ref("fields");
 
     const directoryDialogVisible = ref(false);
     const directoryDialogTitle = ref("新增目录");
@@ -503,12 +510,34 @@ export default defineComponent({
     };
 
     const handleNodeClick = async (data: TreeNode) => {
+      activeDetailTab.value = "fields";
       if (data.type === "model") {
         selectedModel.value = data.data;
         await loadModelFields(data.data.id!);
       } else {
         selectedModel.value = null;
         modelFields.value = [];
+      }
+    };
+
+    const findModelNode = (nodes: TreeNode[], modelId: string): TreeNode | null => {
+      for (const node of nodes) {
+        if (node.type === "model" && node.id === modelId) {
+          return node;
+        }
+        if (node.children) {
+          const found = findModelNode(node.children, modelId);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const handleLineageModelSelect = async (modelId: string) => {
+      const targetNode = findModelNode(treeData.value, modelId);
+      if (targetNode) {
+        await handleNodeClick(targetNode);
+        (treeRef.value as any)?.setCurrentKey(targetNode.id);
       }
     };
 
@@ -669,6 +698,7 @@ export default defineComponent({
       selectedModel,
       modelFields,
       fieldsLoading,
+      activeDetailTab,
       directoryDialogVisible,
       directoryDialogTitle,
       directoryForm,
@@ -694,6 +724,7 @@ export default defineComponent({
       needsMaterializePrecision,
       needsMaterializeScale,
       handleNodeClick,
+      handleLineageModelSelect,
       showAddDirectoryDialog,
       saveDirectory,
       showAddModelDialog,

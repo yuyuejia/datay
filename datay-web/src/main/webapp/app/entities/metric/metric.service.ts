@@ -135,6 +135,19 @@ export default class MetricService {
     });
   }
 
+  lineage(metricId: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${metricId}/lineage`)
+        .then((res) => {
+          resolve(res.data);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    });
+  }
+
   getQueryMeta(payload: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

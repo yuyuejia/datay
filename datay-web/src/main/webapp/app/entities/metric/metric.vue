@@ -483,7 +483,9 @@
             </div>
           </div>
 
-          <div v-if="!queryMode" class="detail-info">
+          <el-tabs v-if="!queryMode" v-model="activeDetailTab" class="detail-tabs">
+            <el-tab-pane label="指标信息" name="info">
+          <div class="detail-info">
             <el-form
               :model="selectedMetric"
               label-width="100px"
@@ -632,7 +634,7 @@
           </div>
 
           <div
-            v-if="!queryMode && selectedMetric.metricType === 'ATOMIC'"
+            v-if="selectedMetric.metricType === 'ATOMIC'"
             class="detail-conditions"
           >
             <h5>业务限定</h5>
@@ -671,6 +673,15 @@
               </el-table-column>
             </el-table>
           </div>
+            </el-tab-pane>
+            <el-tab-pane label="数据血缘" name="lineage" lazy>
+              <MetricLineage
+                v-if="selectedMetric && activeDetailTab === 'lineage'"
+                :metric-id="selectedMetric.id"
+                @node-click="handleLineageNodeClick"
+              />
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </div>
     </div>
@@ -878,6 +889,14 @@
 
 .detail-info {
   margin-bottom: 24px;
+}
+
+.detail-tabs {
+  margin-top: 4px;
+}
+
+.detail-tabs :deep(.el-tabs__content) {
+  padding-top: 8px;
 }
 
 .metric-detail-form :deep(.el-form-item__content) {
