@@ -92,9 +92,13 @@ datay/
 # 1. 克隆仓库
 git clone https://cnb.cool/yuyuejia/datay
 
-# 2. 构建项目
+# 2. 构建项目（默认包含全平台原生库）
 cd datay
 mvn clean package -DskipTests
+
+# 仅构建指定平台的精简包（jar 小于 150MB）：
+# mvn clean package -DskipTests -Dslim.jar.platform=linux-amd64
+# 可选平台：linux-amd64 / linux-arm64 / macos / windows
 
 # 3. 启动（单机模式，调度+执行合一），AI 能力需要提供 AI API Key，默认为 Deepseek 原厂Key
 java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx

@@ -29,10 +29,6 @@
           <artifactId>commons-dbutils</artifactId>
       </dependency>
       <dependency>
-          <groupId>org.mybatis</groupId>
-          <artifactId>mybatis</artifactId>
-      </dependency>
-      <dependency>
           <groupId>com.oracle.database.jdbc</groupId>
           <artifactId>ojdbc8</artifactId>
       </dependency>
@@ -65,10 +61,6 @@
           <artifactId>hutool-all</artifactId>
       </dependency>
       <dependency>
-          <groupId>org.apache.avro</groupId>
-          <artifactId>avro</artifactId>
-      </dependency>
-      <dependency>
           <groupId>com.zendesk</groupId>
           <artifactId>mysql-binlog-connector-java</artifactId>
       </dependency>
@@ -99,17 +91,20 @@
           <artifactId>commons-exec</artifactId>
       </dependency>
       <dependency>
-          <groupId>com.alibaba</groupId>
-          <artifactId>druid</artifactId>
-      </dependency>
-      <dependency>
           <groupId>io.minio</groupId>
           <artifactId>minio</artifactId>
+          <exclusions>
+              <exclusion>
+                  <groupId>org.bouncycastle</groupId>
+                  <artifactId>bcprov-jdk18on</artifactId>
+              </exclusion>
+          </exclusions>
       </dependency>
       <dependency>
           <groupId>com.amazonaws</groupId>
           <artifactId>aws-java-sdk-s3</artifactId>
           <version>1.12.261</version>
+          <scope>test</scope>
       </dependency>
       <dependency>
           <groupId>org.junit.jupiter</groupId>
@@ -213,6 +208,30 @@
                         <goals>
                             <goal>single</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>slim-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <arguments>
+                                <argument>${project.basedir}/../tools/SlimJar.java</argument>
+                                <argument>core</argument>
+                                <argument>${project.build.directory}/${project.build.finalName}-jar-with-dependencies.jar</argument>
+                                <argument>${slim.jar.platform}</argument>
+                            </arguments>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

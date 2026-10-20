@@ -50,6 +50,8 @@
         <jetbrains-annotations.version>17.0.0</jetbrains-annotations.version>
         <mongodb.version>5.6.1</mongodb.version>
         <paho.mqtt.version>1.2.5</paho.mqtt.version>
+        <exec-maven-plugin.version>3.6.2</exec-maven-plugin.version>
+        <slim.jar.platform>all</slim.jar.platform>
     </properties>
 
     <dependencyManagement>
