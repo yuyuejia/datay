@@ -6,7 +6,7 @@
 
     <groupId>com.datay</groupId>
     <artifactId>datay</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
     <packaging>pom</packaging>
 
     <name>datay</name>
