@@ -54,8 +54,9 @@
               一个 JAR，内嵌 DuckDB，拒绝 Hadoop / Spark / Flink / ClickHouse 组件地狱。
             </p>
             <div class="hero-actions">
-              <a class="btn btn-primary btn-lg" href="help">阅读文档</a>
-              <a class="btn btn-outline btn-lg" href="#quickstart">快速开始</a>
+              <a class="btn btn-primary btn-lg" href="https://datay.yuyuejia.com.cn/download/datay-web-1.0.2.jar">下载 JAR</a>
+              <a class="btn btn-outline btn-lg" href="help">阅读文档</a>
+              <a class="btn btn-ghost btn-lg" href="#quickstart">快速开始</a>
             </div>
             <ul class="hero-badges">
               <li>Java 17 · 零依赖启动</li>
@@ -277,7 +278,7 @@
         <div class="container quickstart">
           <div class="qs-copy">
             <h2>快速开始</h2>
-            <p>克隆、构建、启动，10 分钟见到完整平台。启动时自动预置一整套电商示例，登录即用。</p>
+            <p>下载运行包或从源码构建，10 分钟见到完整平台。启动时自动预置一整套电商示例，登录即用。</p>
             <ul class="check">
               <li>数据源：电商数仓（DuckDB）</li>
               <li>维度表：日期 / 客户 / 门店 / 商品 / 品牌 / 品类 / 时间</li>
@@ -290,19 +291,22 @@
             </div>
           </div>
           <div class="qs-code">
-            <pre><code># 1. 克隆仓库
-git clone https://cnb.cool/yuyuejia/datay
+            <pre><code># 方式一：下载运行包（推荐）
+wget https://datay.yuyuejia.com.cn/download/datay-web-1.0.2.jar
 
-# 2. 构建项目
+# 启动（单机模式，调度 + 执行合一）
+java -jar datay-web-1.0.2.jar \
+  --DATAY_AI_API_KEY=sk-xxxxxxxxx
+
+# 方式二：从源码构建
+git clone https://gitee.com/yuyuejia/datay.git
 cd datay
 mvn clean package -DskipTests
-
-# 3. 启动（单机模式，调度 + 执行合一）
 java -jar datay-web/target/*.jar \
   --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
-# 4. 打开 http://localhost:8080
-#    默认账号 admin / admin</code></pre>
+# 打开 http://localhost:8080
+# 默认账号 admin / admin</code></pre>
           </div>
         </div>
       </section>
