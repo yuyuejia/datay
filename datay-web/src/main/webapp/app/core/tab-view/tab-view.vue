@@ -9,12 +9,9 @@
         @click="handleTabClick(tab.name)"
       >
         <span class="tab-item-title">{{ tab.title }}</span>
-        <font-awesome-icon
-          v-if="tab.closable"
-          icon="times"
-          class="tab-item-close"
-          @click.stop="handleTabRemove(tab.name)"
-        />
+        <span v-if="tab.closable" class="tab-item-close" @click.stop="handleTabRemove(tab.name)">
+          <font-awesome-icon icon="times" />
+        </span>
       </div>
     </div>
     <el-dropdown class="tab-actions" trigger="click" @command="handleCommand">
@@ -109,13 +106,21 @@
 }
 
 .tab-item-close {
-  font-size: 11px;
-  color: #a9aeb8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  padding: 2px;
+  color: #a9aeb8;
+  font-size: 11px;
   transition:
     color 0.2s ease,
     background 0.2s ease;
+}
+
+.tab-item-close :deep(.svg-inline--fa) {
+  padding: 0;
 }
 
 .tab-item-close:hover {
