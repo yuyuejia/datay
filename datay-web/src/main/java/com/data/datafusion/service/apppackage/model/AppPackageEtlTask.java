@@ -34,6 +34,10 @@ public class AppPackageEtlTask {
 
     public String cron;
 
+    public Integer retryCount;
+
+    public Integer timeoutSeconds;
+
     public String project;
 
     public List<AppPackageEtlNode> nodes = new ArrayList<>();

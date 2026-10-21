@@ -10,7 +10,10 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringReader;
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +31,12 @@ import org.slf4j.LoggerFactory;
 public class SqlTask extends AbstractTask {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    private volatile Connection connection;
+
+    private volatile Statement currentStatement;
 
     public SqlTask(JobInstance taskInstance) {
         super(taskInstance);
@@ -63,26 +72,71 @@ public class SqlTask extends AbstractTask {
             script = script + ";";
         }
 
+        if (cancelled.get()) {
+            throw new InterruptedException("SQL task was cancelled before execution");
+        }
+
         this.log("SQL task [" + getJobInstance().getJobName() + "] is executing...");
-        try (Connection connection = DBUtils.getConnection(datasourceInfo)) {
-            ScriptRunner scriptRunner = new ScriptRunner(connection);
-            scriptRunner.setStopOnError(true);
-            // 将 ScriptRunner 的执行日志输出到 TaskLogger 的日志文件中
-            OutputStream taskLogStream = this.getTaskLogger().getLogWriter();
-            PrintWriter writer = new PrintWriter(taskLogStream, true);
-            scriptRunner.setLogWriter(writer);
-            scriptRunner.setErrorLogWriter(writer);
-            Reader reader = new StringReader(script);
-            scriptRunner.runScript(reader);
-            reader.close();
+        try {
+            Connection dbConnection = DBUtils.getConnection(datasourceInfo);
+            this.connection = dbConnection;
+            if (cancelled.get()) {
+                throw new InterruptedException("SQL task was cancelled before execution");
+            }
+            try (Connection ignored = dbConnection) {
+                ScriptRunner scriptRunner = new ScriptRunner(dbConnection);
+                scriptRunner.setStopOnError(true);
+                scriptRunner.setStatementListener(statement -> this.currentStatement = statement);
+                // 将 ScriptRunner 的执行日志输出到 TaskLogger 的日志文件中
+                OutputStream taskLogStream = this.getTaskLogger().getLogWriter();
+                PrintWriter writer = new PrintWriter(taskLogStream, true);
+                scriptRunner.setLogWriter(writer);
+                scriptRunner.setErrorLogWriter(writer);
+                Reader reader = new StringReader(script);
+                scriptRunner.runScript(reader);
+                reader.close();
+            }
         } catch (Exception e) {
+            if (cancelled.get() || e instanceof InterruptedException) {
+                throw new InterruptedException("SQL task was cancelled manually");
+            }
             String hint = missingObjectHint(e.getMessage());
             String errorMsg = "SQL task [" + getJobInstance().getJobName() + "] execution failed: " + e.getMessage() + hint;
             this.log(errorMsg);
             throw new Exception("SQL 任务执行失败: " + e.getMessage() + hint, e);
+        } finally {
+            this.currentStatement = null;
+            this.connection = null;
         }
         this.log("SQL task [" + getJobInstance().getJobName() + "] executed successfully");
         return "0";
+    }
+
+    @Override
+    public boolean cancel() {
+        cancelled.set(true);
+        Statement statement = this.currentStatement;
+        if (statement != null) {
+            try {
+                statement.cancel();
+            } catch (SQLException e) {
+                logger.warn("取消 SQL 语句执行失败: {}", e.getMessage());
+            }
+        }
+        Connection currentConnection = this.connection;
+        if (currentConnection != null) {
+            try {
+                currentConnection.abort(Runnable::run);
+            } catch (Exception e) {
+                logger.warn("中断 SQL 连接失败，尝试关闭连接: {}", e.getMessage());
+                try {
+                    currentConnection.close();
+                } catch (SQLException closeError) {
+                    logger.warn("关闭 SQL 连接失败: {}", closeError.getMessage());
+                }
+            }
+        }
+        return true;
     }
 
     /**

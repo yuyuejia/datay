@@ -6,6 +6,7 @@ import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.sql.*;
+import java.util.function.Consumer;
 
 public class ScriptRunner {
 
@@ -27,6 +28,8 @@ public class ScriptRunner {
     private String delimiter = DEFAULT_DELIMITER;
     private boolean fullLineDelimiter = false;
     private String characterSetName;
+
+    private Consumer<Statement> statementListener;
 
     public ScriptRunner(Connection connection) {
         this.connection = connection;
@@ -62,6 +65,13 @@ public class ScriptRunner {
 
     public void setFullLineDelimiter(boolean fullLineDelimiter) {
         this.fullLineDelimiter = fullLineDelimiter;
+    }
+
+    /**
+     * 监听当前正在执行的 Statement，供任务取消/超时时中断 SQL。
+     */
+    public void setStatementListener(Consumer<Statement> statementListener) {
+        this.statementListener = statementListener;
     }
 
     public void runScript(Reader reader) {
@@ -188,21 +198,30 @@ public class ScriptRunner {
         }
         boolean hasResults = false;
         Statement statement = connection.createStatement();
-        if (stopOnError) {
-            hasResults = statement.execute(command);
-        } else {
-            try {
-                hasResults = statement.execute(command);
-            } catch (SQLException e) {
-                String message = "Error executing: " + command + ".  Cause: " + e;
-                printlnError(message);
-            }
+        if (statementListener != null) {
+            statementListener.accept(statement);
         }
-        printResults(statement, hasResults);
         try {
-            statement.close();
-        } catch (Exception e) {
-            // Ignore to workaround a bug in some connection pools
+            if (stopOnError) {
+                hasResults = statement.execute(command);
+            } else {
+                try {
+                    hasResults = statement.execute(command);
+                } catch (SQLException e) {
+                    String message = "Error executing: " + command + ".  Cause: " + e;
+                    printlnError(message);
+                }
+            }
+            printResults(statement, hasResults);
+        } finally {
+            try {
+                statement.close();
+            } catch (Exception e) {
+                // Ignore to workaround a bug in some connection pools
+            }
+            if (statementListener != null) {
+                statementListener.accept(null);
+            }
         }
         commitConnection();
     }

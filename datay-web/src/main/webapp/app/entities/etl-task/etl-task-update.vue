@@ -13,9 +13,6 @@
           <el-form-item label="Task Desc">
             <el-input name="taskDesc" id="etl-task-taskDesc" data-cy="taskDesc" v-model="v$.taskDesc.$model" />
           </el-form-item>
-          <el-form-item label="Cron">
-            <CronExpressionSelector :value="v$.cron.$model" @change="onCronChange" />
-          </el-form-item>
         </div>
         <div>
           <el-button id="cancel-save" data-cy="entityCreateCancelButton" @click="previousState()">

@@ -28,6 +28,10 @@ public class ETLTaskDTO implements Serializable {
 
     private String cron;
 
+    private Integer retryCount;
+
+    private Integer timeoutSeconds;
+
     private String jobContext;
 
     private String status;
@@ -112,6 +116,22 @@ public class ETLTaskDTO implements Serializable {
 
     public void setCron(String cron) {
         this.cron = cron;
+    }
+
+    public Integer getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -219,6 +239,8 @@ public class ETLTaskDTO implements Serializable {
             ", dir='" + getDir() + "'" +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", lastStatus='" + getLastStatus() + "'" +

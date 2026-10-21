@@ -104,7 +104,9 @@ public class ETLTaskService {
      */
     public ETLTaskDTO save(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to save ETLTask : {}", eTLTaskDTO);
+        normalizeScheduling(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
+        normalizeScheduling(eTLTask);
         Job job = saveETLJob(eTLTaskDTO);
         eTLTask.setJobId(job.getId());
         eTLTask = eTLTaskRepository.save(eTLTask);
@@ -124,7 +126,9 @@ public class ETLTaskService {
      */
     public ETLTaskDTO saveWithoutJob(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to save ETLTask without job : {}", eTLTaskDTO);
+        normalizeScheduling(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
+        normalizeScheduling(eTLTask);
         eTLTask.setJobId(eTLTaskDTO.getJobId());
         eTLTask = eTLTaskRepository.save(eTLTask);
         eTLTaskDTO.setId(eTLTask.getId());
@@ -140,7 +144,10 @@ public class ETLTaskService {
      */
     public ETLTaskDTO update(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to update ETLTask : {}", eTLTaskDTO);
+        preserveSchedulingFromExisting(eTLTaskDTO);
+        normalizeScheduling(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
+        normalizeScheduling(eTLTask);
         updateNodesAndEdges(eTLTaskDTO);
         Job job = saveETLJob(eTLTaskDTO);
         eTLTask.setJobId(job.getId());
@@ -171,6 +178,8 @@ public class ETLTaskService {
         job.setJobName(eTLTaskDTO.getTaskName());
         job.setType(TaskConstants.TASK_TYPE_ETL);
         job.setCron(eTLTaskDTO.getCron());
+        job.setRetryCount(eTLTaskDTO.getRetryCount() == null ? 0 : eTLTaskDTO.getRetryCount());
+        job.setTimeoutSeconds(eTLTaskDTO.getTimeoutSeconds() == null ? 0 : eTLTaskDTO.getTimeoutSeconds());
         job.setStatus(eTLTaskDTO.getStatus());
         job.setJobContext(generateETLJobJson(eTLTaskDTO));
         job.setCreateTime(eTLTaskDTO.getCreateTime());
@@ -357,21 +366,27 @@ public class ETLTaskService {
      * @return 更新后的ETLTaskDTO
      */
     public ETLTaskDTO online(String id) {
-        return online(id, null);
+        return online(id, null, null, null);
+    }
+
+    public ETLTaskDTO online(String id, String cron) {
+        return online(id, cron, null, null);
     }
 
     /**
-     * 将ETLTask设置为在线状态，并按指定（或任务已有的）调度周期加入调度。
+     * 将ETLTask设置为在线状态，并按指定（或任务已有的）调度配置加入调度。
      *
-     * <p>上线时允许同时更新任务的 Cron 表达式：任务与对应 Job 会一并保存，
-     * 避免只改了任务定义、Job 仍使用旧周期的情况。
+     * <p>上线时允许同时更新任务的 Cron、重试次数和超时时间：任务与对应 Job 会一并保存，
+     * 避免只改了任务定义、Job 仍使用旧配置的情况。
      *
-     * @param id   ETLTask的ID
-     * @param cron 新的 Cron 表达式，为空时沿用任务已有配置
+     * @param id             ETLTask的ID
+     * @param cron           新的 Cron 表达式，为空时沿用任务已有配置
+     * @param retryCount     新的重试次数，为 null 时沿用任务已有配置
+     * @param timeoutSeconds 新的超时时间（秒），为 null 时沿用任务已有配置
      * @return 更新后的ETLTaskDTO
      */
-    public ETLTaskDTO online(String id, String cron) {
-        LOG.debug("Request to online ETLTask : {}, cron : {}", id, cron);
+    public ETLTaskDTO online(String id, String cron, Integer retryCount, Integer timeoutSeconds) {
+        LOG.debug("Request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}", id, cron, retryCount, timeoutSeconds);
         return eTLTaskRepository
             .findById(id)
             .map(etlTask -> {
@@ -379,6 +394,13 @@ public class ETLTaskService {
                 if (StringUtils.hasText(cron)) {
                     etlTask.setCron(effectiveCron);
                 }
+
+                int effectiveRetryCount = retryCount != null ? retryCount : (etlTask.getRetryCount() == null ? 0 : etlTask.getRetryCount());
+                int effectiveTimeoutSeconds = timeoutSeconds != null
+                    ? timeoutSeconds
+                    : (etlTask.getTimeoutSeconds() == null ? 0 : etlTask.getTimeoutSeconds());
+                etlTask.setRetryCount(effectiveRetryCount);
+                etlTask.setTimeoutSeconds(effectiveTimeoutSeconds);
 
                 // 更新状态与更新时间
                 etlTask.setStatus(TASK_STATUS_ONLINE);
@@ -392,6 +414,8 @@ public class ETLTaskService {
                 if (StringUtils.hasText(effectiveCron)) {
                     job.setCron(effectiveCron);
                 }
+                job.setRetryCount(effectiveRetryCount);
+                job.setTimeoutSeconds(effectiveTimeoutSeconds);
                 job.setStatus(TASK_STATUS_ONLINE);
                 job.setUpdateTime(ZonedDateTime.now());
                 jobService.save(job);
@@ -570,5 +594,46 @@ public class ETLTaskService {
             result.setElapsedMs(System.currentTimeMillis() - startTime);
         }
         return result;
+    }
+
+    /**
+     * 更新 ETL 任务时，编辑页不再提交调度设置。对于未提交的字段沿用数据库中的
+     * 现有配置，避免仅修改任务内容时把已配置的 Cron、重试次数或超时时间清空。
+     */
+    private void preserveSchedulingFromExisting(ETLTaskDTO dto) {
+        if (dto.getId() == null) {
+            return;
+        }
+        eTLTaskRepository
+            .findById(dto.getId())
+            .ifPresent(existing -> {
+                if (dto.getRetryCount() == null) {
+                    dto.setRetryCount(existing.getRetryCount());
+                }
+                if (dto.getTimeoutSeconds() == null) {
+                    dto.setTimeoutSeconds(existing.getTimeoutSeconds());
+                }
+                if (!StringUtils.hasText(dto.getCron())) {
+                    dto.setCron(existing.getCron());
+                }
+            });
+    }
+
+    private void normalizeScheduling(ETLTaskDTO dto) {
+        if (dto.getRetryCount() == null) {
+            dto.setRetryCount(0);
+        }
+        if (dto.getTimeoutSeconds() == null) {
+            dto.setTimeoutSeconds(0);
+        }
+    }
+
+    private void normalizeScheduling(ETLTask etlTask) {
+        if (etlTask.getRetryCount() == null) {
+            etlTask.setRetryCount(0);
+        }
+        if (etlTask.getTimeoutSeconds() == null) {
+            etlTask.setTimeoutSeconds(0);
+        }
     }
 }

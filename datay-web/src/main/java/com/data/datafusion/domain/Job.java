@@ -36,6 +36,12 @@ public class Job implements Serializable, TenantAware {
     @Column(name = "cron")
     private String cron;
 
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount = 0;
+
+    @Column(name = "timeout_seconds", nullable = false)
+    private Integer timeoutSeconds = 0;
+
     @Column(name = "job_context")
     private String jobContext;
 
@@ -119,6 +125,32 @@ public class Job implements Serializable, TenantAware {
 
     public void setCron(String cron) {
         this.cron = cron;
+    }
+
+    public Integer getRetryCount() {
+        return this.retryCount;
+    }
+
+    public Job retryCount(Integer retryCount) {
+        this.setRetryCount(retryCount);
+        return this;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return this.timeoutSeconds;
+    }
+
+    public Job timeoutSeconds(Integer timeoutSeconds) {
+        this.setTimeoutSeconds(timeoutSeconds);
+        return this;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -227,6 +259,8 @@ public class Job implements Serializable, TenantAware {
             ", jobGroup='" + getJobGroup() + "'" +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", updateTime='" + getUpdateTime() + "'" +

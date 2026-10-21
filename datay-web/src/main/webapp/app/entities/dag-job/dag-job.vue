@@ -146,6 +146,8 @@
       title="任务编排上线"
       :task-name="onlineTask?.jobName"
       :cron="onlineTask?.cron"
+      :retry-count="onlineTask?.retryCount ?? 0"
+      :timeout-seconds="onlineTask?.timeoutSeconds ?? 0"
       :loading="isOnlineSubmitting"
       @confirm="confirmOnline"
     />

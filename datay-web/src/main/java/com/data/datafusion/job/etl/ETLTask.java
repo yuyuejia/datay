@@ -6,12 +6,17 @@ import com.data.datafusion.job.AbstractTask;
 import com.data.datafusion.service.StatusStorageConfigService;
 import com.data.job.ETLFlowTask;
 import com.data.job.TaskInstance;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ETLTask extends AbstractTask {
 
     private static final Logger LOG = LoggerFactory.getLogger(ETLTask.class);
+
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    private volatile ETLFlowTask etlFlowTask;
 
     public ETLTask(JobInstance jobInstance) {
         super(jobInstance);
@@ -26,10 +31,29 @@ public class ETLTask extends AbstractTask {
         taskInstance.setJobContext(getJobInstance().getJobContext());
         taskInstance.setType(getJobInstance().getType());
         taskInstance.setParentInstanceCode(getJobInstance().getParentInstanceCode());
-        ETLFlowTask etlFlowTask = new ETLFlowTask(taskInstance, getTaskLogger());
-        applyStatusStorageStrategy(etlFlowTask);
-        etlFlowTask.runJob(taskInstance.getJobContext());
-        return "";
+        ETLFlowTask flowTask = new ETLFlowTask(taskInstance, getTaskLogger());
+        this.etlFlowTask = flowTask;
+        applyStatusStorageStrategy(flowTask);
+        if (cancelled.get()) {
+            flowTask.cancel();
+            throw new InterruptedException("ETL task was cancelled before execution");
+        }
+        try {
+            flowTask.runJob(taskInstance.getJobContext());
+            return "";
+        } finally {
+            this.etlFlowTask = null;
+        }
+    }
+
+    @Override
+    public boolean cancel() {
+        cancelled.set(true);
+        ETLFlowTask flowTask = this.etlFlowTask;
+        if (flowTask != null) {
+            flowTask.cancel();
+        }
+        return true;
     }
 
     /**

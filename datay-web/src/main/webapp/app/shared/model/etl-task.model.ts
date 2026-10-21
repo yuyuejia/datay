@@ -7,6 +7,8 @@ export interface IETLTask {
   dir?: string | null;
   type?: string | null;
   cron?: string | null;
+  retryCount?: number | null;
+  timeoutSeconds?: number | null;
   jobContext?: string | null;
   status?: string | null;
   lastStatus?: string | null;
@@ -39,6 +41,8 @@ export class ETLTask implements IETLTask {
     public dr?: number | null,
     public nodes?: any[] | null,
     public edges?: any[] | null,
+    public retryCount?: number | null,
+    public timeoutSeconds?: number | null,
   ) {}
 }
 
@@ -53,6 +57,8 @@ export interface IETLTaskTransfer {
     dir?: string | null;
     type?: string | null;
     cron?: string | null;
+    retryCount?: number | null;
+    timeoutSeconds?: number | null;
     project?: string | null;
     nodes?: any[];
     edges?: any[];

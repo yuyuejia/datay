@@ -797,6 +797,8 @@ public class AppPackageImportService {
             dto.setDir(item.dir);
             dto.setType(item.type == null ? TaskConstants.TASK_TYPE_ETL : item.type);
             dto.setCron(item.cron);
+            dto.setRetryCount(item.retryCount);
+            dto.setTimeoutSeconds(item.timeoutSeconds);
             dto.setProject(item.project);
             dto.setDr(0);
             dto.setNodes(nonNull(item.nodes).stream().map(node -> toNodeDto(node, dataSourceMap, modelMap, result)).toList());
@@ -949,6 +951,8 @@ public class AppPackageImportService {
             job.setJobGroup(item.jobGroup == null ? "datafusion" : item.jobGroup);
             job.setType(jobType);
             job.setCron(item.cron);
+            job.setRetryCount(item.retryCount == null ? 0 : item.retryCount);
+            job.setTimeoutSeconds(item.timeoutSeconds == null ? 0 : item.timeoutSeconds);
             job.setJobContext(context == null ? null : context.toString());
             job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
             job.setProject(item.project);
@@ -1080,6 +1084,8 @@ public class AppPackageImportService {
         job.setJobGroup(item.jobGroup == null ? "datafusion" : item.jobGroup);
         job.setType(TaskConstants.TASK_TYPE_DAG);
         job.setCron(item.cron);
+        job.setRetryCount(item.retryCount == null ? 0 : item.retryCount);
+        job.setTimeoutSeconds(item.timeoutSeconds == null ? 0 : item.timeoutSeconds);
         job.setJobContext(context == null ? null : context.toString());
         job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
         job.setProject(item.project);

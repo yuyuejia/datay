@@ -426,6 +426,8 @@ public class AppPackageExportService {
                     item.dir = task.getDir();
                     item.type = task.getType();
                     item.cron = task.getCron();
+                    item.retryCount = task.getRetryCount();
+                    item.timeoutSeconds = task.getTimeoutSeconds();
                     item.project = task.getProject();
                     item.nodes =
                         etlNodeRepository
@@ -501,6 +503,8 @@ public class AppPackageExportService {
         item.jobGroup = job.getJobGroup();
         item.type = job.getType();
         item.cron = job.getCron();
+        item.retryCount = job.getRetryCount();
+        item.timeoutSeconds = job.getTimeoutSeconds();
         item.jobContext = AppPackageJson.readTreeQuietly(job.getJobContext());
         item.status = job.getStatus();
         item.project = job.getProject();

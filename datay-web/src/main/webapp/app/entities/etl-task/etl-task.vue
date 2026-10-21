@@ -142,6 +142,18 @@
           <label class="online-cron-label">调度周期（Cron 表达式）</label>
           <CronExpressionSelector v-model:value="onlineCron" />
         </div>
+        <div class="online-policy-row">
+          <div class="online-policy-field">
+            <label class="online-cron-label">重试次数</label>
+            <el-input-number v-model="onlineRetryCount" :min="0" :max="10" :step="1" controls-position="right" />
+            <span class="online-policy-tip">0 表示不重试，任务失败或超时后自动重试</span>
+          </div>
+          <div class="online-policy-field">
+            <label class="online-cron-label">超时时间（秒）</label>
+            <el-input-number v-model="onlineTimeoutSeconds" :min="0" :max="604800" :step="60" controls-position="right" />
+            <span class="online-policy-tip">0 表示不限制，每次尝试单独计时</span>
+          </div>
+        </div>
         <p class="text-muted online-cron-tip">任务上线后将按该 Cron 表达式自动调度，如需调整可在此修改。</p>
       </div>
       <template #modal-footer>
@@ -150,7 +162,7 @@
           <el-button
             type="primary"
             :loading="isOnlineSubmitting"
-            :disabled="!onlineCronValid"
+            :disabled="!onlineCronValid || !onlinePolicyValid"
             @click="confirmOnline"
             data-cy="entityConfirmOnlineButton"
           >
@@ -411,6 +423,25 @@
 .online-cron-label {
   font-size: 13px;
   color: #606266;
+}
+
+.online-policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.online-policy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.online-policy-tip {
+  font-size: 12px;
+  color: #909399;
 }
 
 .online-cron-tip {

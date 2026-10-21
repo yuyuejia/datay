@@ -20,6 +20,10 @@ public class JobDTO implements Serializable {
 
     private String cron;
 
+    private Integer retryCount;
+
+    private Integer timeoutSeconds;
+
     private String jobContext;
 
     private String status;
@@ -70,6 +74,22 @@ public class JobDTO implements Serializable {
 
     public void setCron(String cron) {
         this.cron = cron;
+    }
+
+    public Integer getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -150,6 +170,8 @@ public class JobDTO implements Serializable {
             ", jobGroup='" + getJobGroup() + "'" +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", updateTime='" + getUpdateTime() + "'" +

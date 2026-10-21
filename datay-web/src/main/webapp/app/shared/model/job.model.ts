@@ -4,6 +4,8 @@ export interface IJob {
   jobGroup?: string | null;
   type?: string | null;
   cron?: string | null;
+  retryCount?: number | null;
+  timeoutSeconds?: number | null;
   jobContext?: string | null;
   status?: string | null;
   updateTime?: Date | null;
@@ -25,5 +27,7 @@ export class Job implements IJob {
     public createTime?: Date | null,
     public project?: string | null,
     public tenantId?: string | null,
+    public retryCount?: number | null,
+    public timeoutSeconds?: number | null,
   ) {}
 }

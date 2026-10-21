@@ -6,6 +6,7 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
 import com.data.datafusion.job.ITask;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.job.TaskExecutionSupport;
 import com.data.datafusion.job.TaskFactory;
 import com.data.datafusion.security.TenantContext;
 import java.util.Map;
@@ -66,15 +67,12 @@ public class StartJobEventHandler implements Runnable {
                 JobStatusEvent event = EventServiceFactory.getEventService().takeStartJobEvent();
                 event.getJobInstance().setExecNode(EXECNODE);
 
-                // 创建任务处理器
-                ITask task = TaskFactory.getTaskProcessor(event.getJobInstance());
-
                 // 提交任务到线程池
                 String instanceCode = event.getJobInstance().getInstanceCode();
-                // 记录任务执行信息
-                TaskExecutionInfo taskInfo = new TaskExecutionInfo(event.getJobInstance(), task);
+                // 记录任务执行信息。真正的任务执行器在每次重试时创建，便于超时/停止时操作当前尝试。
+                TaskExecutionInfo taskInfo = new TaskExecutionInfo(event.getJobInstance());
                 runningTasks.put(instanceCode, taskInfo);
-                Future<String> future = jobExecutor.submit(new TaskCallable(task, event));
+                Future<String> future = jobExecutor.submit(new TaskCallable(event, taskInfo));
                 taskInfo.setFuture(future);
 
                 log.info(
@@ -117,7 +115,8 @@ public class StartJobEventHandler implements Runnable {
                     task.cancel();
                 }
                 // 尝试取消任务执行（中断线程）
-                boolean cancelled = taskInfo.getFuture().cancel(true);
+                Future<String> future = taskInfo.getFuture();
+                boolean cancelled = future == null || future.cancel(true);
 
                 if (cancelled) {
                     log.info("任务已成功停止: instanceCode={}", instanceCode);
@@ -157,18 +156,17 @@ public class StartJobEventHandler implements Runnable {
      */
     private class TaskCallable implements Callable<String> {
 
-        private final ITask task;
         private final JobStatusEvent event;
+        private final TaskExecutionInfo taskInfo;
 
-        public TaskCallable(ITask task, JobStatusEvent event) {
-            this.task = task;
+        public TaskCallable(JobStatusEvent event, TaskExecutionInfo taskInfo) {
             this.event = event;
+            this.taskInfo = taskInfo;
         }
 
         @Override
         public String call() throws Exception {
             String instanceCode = event.getJobInstance().getInstanceCode();
-            TaskExecutionInfo taskInfo = runningTasks.get(instanceCode);
             // 工作线程池没有请求上下文，需按任务所属租户设置租户上下文，
             // 否则租户过滤器会以 dummy 租户拦截，导致读取不到该租户的状态存储等配置。
             Long tenantId = parseTenantId(event.getJobInstance().getTenantId());
@@ -199,8 +197,13 @@ public class StartJobEventHandler implements Runnable {
                 beforeEvent.setStartTime(System.currentTimeMillis());
                 EventServiceFactory.getEventService().pushJobStatusEvent(beforeEvent);
 
-                //正式执行任务
-                String status = task.execute();
+                //正式执行任务。重试/超时由 TaskExecutionSupport 统一处理，每次尝试创建独立执行器。
+                String status = TaskExecutionSupport.execute(
+                    event.getJobInstance(),
+                    () -> TaskFactory.getTaskProcessor(event.getJobInstance()),
+                    taskInfo::setTask,
+                    taskInfo::isStopped
+                );
 
                 // 任务执行后，变更任务为完成状态
                 JobStatusEvent afterEvent = new JobStatusEvent();
@@ -258,17 +261,16 @@ public class StartJobEventHandler implements Runnable {
      */
     public static class TaskExecutionInfo {
 
-        private Future<String> future;
+        private volatile Future<String> future;
         private final JobInstance jobInstance;
         private final AtomicBoolean stopped;
         private volatile boolean completed;
-        private ITask task; // 新增：保存ITask实例引用
+        private volatile ITask task; // 新增：保存ITask实例引用
 
-        public TaskExecutionInfo(JobInstance jobInstance, ITask task) {
+        public TaskExecutionInfo(JobInstance jobInstance) {
             this.jobInstance = jobInstance;
             this.stopped = new AtomicBoolean(false);
             this.completed = false;
-            this.task = task; // 新增：保存ITask实例
         }
 
         public Future<String> getFuture() {
@@ -288,7 +290,7 @@ public class StartJobEventHandler implements Runnable {
         }
 
         public boolean isCompleted() {
-            return completed || future.isDone();
+            return completed || (future != null && future.isDone());
         }
 
         public void setCompleted(boolean completed) {
@@ -329,6 +331,10 @@ public class StartJobEventHandler implements Runnable {
 
         public ITask getTask() {
             return task;
+        }
+
+        public void setTask(ITask task) {
+            this.task = task;
         }
 
         public void setFuture(Future<String> future) {

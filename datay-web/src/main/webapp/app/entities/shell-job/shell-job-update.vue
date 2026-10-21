@@ -15,12 +15,6 @@
           <label class="field-label">任务名称</label>
           <el-input v-model="shellJob.jobName" placeholder="请输入任务名称" />
         </div>
-        <div class="form-item">
-          <label class="field-label">调度设置</label>
-          <div class="cron-field">
-            <CronExpressionSelector v-model:value="shellJob.cron" compact />
-          </div>
-        </div>
       </div>
       <div class="header-right">
         <el-button type="primary" :loading="isSaving" @click="save"
@@ -110,10 +104,6 @@
   color: var(--el-text-color-regular, #606266);
   white-space: nowrap;
   margin: 0;
-}
-
-.cron-field {
-  width: 320px;
 }
 
 .header-right {

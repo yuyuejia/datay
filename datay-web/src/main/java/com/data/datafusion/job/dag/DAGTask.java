@@ -15,6 +15,7 @@ import com.google.common.collect.Queues;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,18 +23,29 @@ public class DAGTask extends AbstractTask {
 
     private final Logger log = LoggerFactory.getLogger(DAGTask.class);
 
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    private volatile ITask currentTask;
+
     public DAGTask(JobInstance jobInstance) {
         super(jobInstance);
     }
 
     @Override
     public String doExecute() throws Exception {
+        // 重试由 TaskExecutionSupport 整体触发，每次尝试都会重新执行全部子任务。
+        // 这里不查询子任务历史状态，避免重试过程中依赖数据库状态。
         FlowInstance flowInstance = JSONObject.parseObject(getJobInstance().getJobContext(), FlowInstance.class);
         List<JobInstance> jobInstances = getJobInstanceByOrder(flowInstance);
         //TODO 根据深度，可以调整成并行执行
         int index = 0;
+        boolean currentChildFinished = false;
         try {
             for (; index < jobInstances.size(); index++) {
+                currentChildFinished = false;
+                if (cancelled.get() || Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("DAG task was cancelled");
+                }
                 JobInstance jobInstance = jobInstances.get(index);
                 // 执行任务前，变更任务为运行中状态
                 JobStatusEvent beforeEvent = new JobStatusEvent();
@@ -46,7 +58,26 @@ public class DAGTask extends AbstractTask {
                 EventServiceFactory.getEventService().pushJobStatusEvent(beforeEvent);
 
                 ITask task = TaskFactory.getTaskProcessor(jobInstance);
-                String result = task.execute();
+                currentTask = task;
+                if (cancelled.get() || Thread.currentThread().isInterrupted()) {
+                    task.cancel();
+                    throw new InterruptedException("DAG task was cancelled");
+                }
+                String result;
+                try {
+                    result = task.execute();
+                } finally {
+                    currentTask = null;
+                }
+
+                // 超时/停止时执行线程会被中断。此时当前子任务已被取消，状态应落为中断，
+                // 而不是 FAILED；同时先清理中断标记，保证子任务终态事件能够写入队列。
+                if (cancelled.get() || Thread.currentThread().isInterrupted()) {
+                    Thread.interrupted();
+                    if (!TaskConstants.TASK_STATUS_SUCCESSFUL.equals(result)) {
+                        result = TaskConstants.TASK_STATUS_INTERRUPTED;
+                    }
+                }
 
                 // 任务执行后，变更任务为完成状态
                 JobStatusEvent afterEvent = new JobStatusEvent();
@@ -56,6 +87,10 @@ public class DAGTask extends AbstractTask {
                 afterEvent.setJobInstance(jobInstance);
                 afterEvent.setEndTime(System.currentTimeMillis());
                 EventServiceFactory.getEventService().pushJobStatusEvent(afterEvent);
+                currentChildFinished = true;
+                if (TaskConstants.TASK_STATUS_INTERRUPTED.equals(result) && cancelled.get()) {
+                    throw new InterruptedException("DAG task was cancelled");
+                }
                 if (!"SUCCESSFUL".equals(result)) {
                     throw new RuntimeException(
                         "DAG子任务执行失败: 子任务ID:" +
@@ -70,15 +105,37 @@ public class DAGTask extends AbstractTask {
             }
             return "SUCCESSFUL";
         } catch (Exception e) {
-            log.error("DAG子任务执行异常 ：", e);
-            // 任务失败时，将尚未执行的后续子任务状态更新为中断
+            boolean cancelledTask = cancelled.get() || Thread.currentThread().isInterrupted() || e instanceof InterruptedException;
+            if (cancelledTask) {
+                log.warn("DAG任务已取消，正在中断当前及剩余子任务");
+                // 清理中断标记，确保当前及剩余子任务的中断状态能够正常写入队列。
+                Thread.interrupted();
+            } else {
+                log.error("DAG子任务执行异常 ：", e);
+            }
+            // 任务失败/取消时，将当前未完成及尚未执行的子任务状态更新为中断。
+            // currentChildFinished 为 true 表示当前子任务终态事件已提交，只需处理后续子任务。
+            int interruptFromIndex = currentChildFinished ? index + 1 : index;
             try {
-                interruptRemainingTasks(jobInstances, index + 1);
+                interruptRemainingTasks(jobInstances, interruptFromIndex);
             } catch (Exception interruptError) {
                 log.error("更新剩余子任务状态为中断失败 ：", interruptError);
             }
+            if (cancelledTask) {
+                throw new InterruptedException("DAG task was cancelled");
+            }
             throw e;
         }
+    }
+
+    @Override
+    public boolean cancel() {
+        cancelled.set(true);
+        ITask task = this.currentTask;
+        if (task != null) {
+            task.cancel();
+        }
+        return true;
     }
 
     /**

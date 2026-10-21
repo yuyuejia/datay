@@ -36,6 +36,12 @@ public class JobInstance implements Serializable, TenantAware {
     @Column(name = "type")
     private String type;
 
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount = 0;
+
+    @Column(name = "timeout_seconds", nullable = false)
+    private Integer timeoutSeconds = 0;
+
     @Column(name = "job_context")
     private String jobContext;
 
@@ -133,6 +139,32 @@ public class JobInstance implements Serializable, TenantAware {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public Integer getRetryCount() {
+        return this.retryCount;
+    }
+
+    public JobInstance retryCount(Integer retryCount) {
+        this.setRetryCount(retryCount);
+        return this;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return this.timeoutSeconds;
+    }
+
+    public JobInstance timeoutSeconds(Integer timeoutSeconds) {
+        this.setTimeoutSeconds(timeoutSeconds);
+        return this;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -280,6 +312,8 @@ public class JobInstance implements Serializable, TenantAware {
             ", jobName='" + getJobName() + "'" +
             ", jobCode='" + getJobCode() + "'" +
             ", type='" + getType() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", jobMessage='" + getJobMessage() + "'" +

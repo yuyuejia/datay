@@ -8,14 +8,8 @@ import { useAlertService } from '@/shared/alert/alert.service';
 
 import { ETLTask, type IETLTask } from '@/shared/model/etl-task.model';
 
-import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
-import etlComponentComponent from '../etl-component/etl-component.component';
-
 export default defineComponent({
   name: 'ETLTaskUpdate',
-  components: {
-    CronExpressionSelector,
-  },
   setup() {
     const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
     const alertService = inject('alertService', () => useAlertService(), true);
@@ -28,11 +22,6 @@ export default defineComponent({
     const router = useRouter();
 
     const previousState = () => router.go(-1);
-
-    const onCronChange = (value: string) => {
-      eTLTask.value.cron = value;
-      console.log('Cron表达式已更新:', value);
-    };
 
     const retrieveETLTask = async (eTLTaskId: string) => {
       try {
@@ -57,7 +46,6 @@ export default defineComponent({
       taskDesc: {},
       dir: {},
       type: {},
-      cron: {},
       jobContext: {},
       status: {},
       lastStatus: {},
@@ -76,7 +64,6 @@ export default defineComponent({
       alertService,
       eTLTask,
       previousState,
-      onCronChange,
       isSaving,
       currentLanguage,
       v$,

@@ -20,6 +20,10 @@ public class JobInstanceDTO implements Serializable {
 
     private String type;
 
+    private Integer retryCount;
+
+    private Integer timeoutSeconds;
+
     private String jobContext;
 
     private String status;
@@ -80,6 +84,22 @@ public class JobInstanceDTO implements Serializable {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public Integer getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -200,6 +220,8 @@ public class JobInstanceDTO implements Serializable {
             ", jobName='" + getJobName() + "'" +
             ", jobCode='" + getJobCode() + "'" +
             ", type='" + getType() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", jobMessage='" + getJobMessage() + "'" +

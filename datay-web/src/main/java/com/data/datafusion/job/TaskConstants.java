@@ -32,5 +32,11 @@ public final class TaskConstants {
     public static final String TASK_STATUS_OFFLINE = "OFFLINE";
     public static final String TASK_STATUS_INTERRUPTED = "INTERRUPTED";
 
+    /** 任务最大自动重试次数（首次执行之外）。 */
+    public static final int MAX_RETRY_COUNT = 10;
+
+    /** 任务超时时间上限：7 天（秒）。 */
+    public static final int MAX_TIMEOUT_SECONDS = 7 * 24 * 60 * 60;
+
     private TaskConstants() {}
 }

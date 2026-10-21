@@ -27,6 +27,10 @@ public class AppPackageJob {
 
     public String cron;
 
+    public Integer retryCount;
+
+    public Integer timeoutSeconds;
+
     public JsonNode jobContext;
 
     public String status;

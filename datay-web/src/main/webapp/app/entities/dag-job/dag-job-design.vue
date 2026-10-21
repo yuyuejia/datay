@@ -6,7 +6,6 @@ import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import { MarkerType, VueFlow, useVueFlow } from "@vue-flow/core";
 import { useAlertService } from "@/shared/alert/alert.service";
-import CronExpressionSelector from "@/components/CronExpressionSelector.vue";
 import DagJobService from "./dag-job.service";
 import JobNode from "./dag-job-node.vue";
 
@@ -435,12 +434,6 @@ const saveDagJob = async () => {
             placeholder="请输入编排名称"
           />
         </div>
-        <div class="form-item">
-          <label class="field-label">调度设置</label>
-          <div class="cron-field">
-            <CronExpressionSelector v-model:value="dagJob.cron" compact />
-          </div>
-        </div>
       </div>
       <div class="header-actions">
         <span class="design-tip"
@@ -651,10 +644,6 @@ const saveDagJob = async () => {
 
 .form-control:focus {
   border-color: var(--el-color-primary, #409eff);
-}
-
-.cron-field {
-  width: 320px;
 }
 
 .cron-display {

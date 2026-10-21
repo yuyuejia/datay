@@ -114,11 +114,10 @@ export default class DagJobService {
     });
   }
 
-  online(id: string, cron?: string): Promise<IJob> {
+  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
-      const query = cron ? `?cron=${encodeURIComponent(cron)}` : "";
       axios
-        .post(`${baseApiUrl}/${id}/online${query}`)
+        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds } })
         .then((res) => {
           resolve(res.data);
         })

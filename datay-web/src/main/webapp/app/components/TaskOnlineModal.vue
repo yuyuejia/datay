@@ -22,12 +22,30 @@
         <label class="online-cron-label">调度周期（Cron 表达式）</label>
         <CronExpressionSelector v-model:value="cronValue" />
       </div>
+      <div class="online-policy-row">
+        <div class="online-policy-field">
+          <label class="online-cron-label">重试次数</label>
+          <el-input-number v-model="retryCountValue" :min="0" :max="10" :step="1" controls-position="right" />
+          <span class="online-policy-tip">0 表示不重试，任务失败或超时后自动重试</span>
+        </div>
+        <div class="online-policy-field">
+          <label class="online-cron-label">超时时间（秒）</label>
+          <el-input-number v-model="timeoutSecondsValue" :min="0" :max="604800" :step="60" controls-position="right" />
+          <span class="online-policy-tip">0 表示不限制，每次尝试单独计时</span>
+        </div>
+      </div>
       <p class="text-muted online-cron-tip">{{ tip }}</p>
     </div>
     <template #modal-footer>
       <div>
         <el-button @click="hide" :disabled="loading">取消</el-button>
-        <el-button type="primary" :loading="loading" :disabled="!cronValid" @click="onConfirm" data-cy="entityConfirmOnlineButton">
+        <el-button
+          type="primary"
+          :loading="loading"
+          :disabled="!cronValid || !policyValid"
+          @click="onConfirm"
+          data-cy="entityConfirmOnlineButton"
+        >
           确认上线
         </el-button>
       </div>
@@ -53,6 +71,14 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  retryCount: {
+    type: Number,
+    default: 0,
+  },
+  timeoutSeconds: {
+    type: Number,
+    default: 0,
+  },
   loading: {
     type: Boolean,
     default: false,
@@ -67,6 +93,8 @@ const emit = defineEmits(['confirm']);
 
 const modal = ref<any>(null);
 const cronValue = ref('');
+const retryCountValue = ref(0);
+const timeoutSecondsValue = ref(0);
 
 /** Cron 表达式基础校验：6 段或 7 段。 */
 const cronValid = computed(() => {
@@ -74,8 +102,20 @@ const cronValid = computed(() => {
   return parts.length === 6 || parts.length === 7;
 });
 
-const show = (initialCron?: string) => {
+const policyValid = computed(
+  () =>
+    Number.isInteger(retryCountValue.value) &&
+    retryCountValue.value >= 0 &&
+    retryCountValue.value <= 10 &&
+    Number.isInteger(timeoutSecondsValue.value) &&
+    timeoutSecondsValue.value >= 0 &&
+    timeoutSecondsValue.value <= 604800,
+);
+
+const show = (initialCron?: string, initialRetryCount?: number, initialTimeoutSeconds?: number) => {
   cronValue.value = initialCron ?? props.cron ?? '';
+  retryCountValue.value = initialRetryCount ?? props.retryCount ?? 0;
+  timeoutSecondsValue.value = initialTimeoutSeconds ?? props.timeoutSeconds ?? 0;
   modal.value?.show();
 };
 
@@ -84,10 +124,14 @@ const hide = () => {
 };
 
 const onConfirm = () => {
-  if (!cronValid.value) {
+  if (!cronValid.value || !policyValid.value) {
     return;
   }
-  emit('confirm', cronValue.value.trim());
+  emit('confirm', {
+    cron: cronValue.value.trim(),
+    retryCount: retryCountValue.value,
+    timeoutSeconds: timeoutSecondsValue.value,
+  });
 };
 
 defineExpose({ show, hide });
@@ -115,6 +159,25 @@ defineExpose({ show, hide });
 .online-cron-label {
   font-size: 13px;
   color: #606266;
+}
+
+.online-policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.online-policy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.online-policy-tip {
+  font-size: 12px;
+  color: #909399;
 }
 
 .online-cron-tip {

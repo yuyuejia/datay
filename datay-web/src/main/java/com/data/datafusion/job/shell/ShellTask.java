@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteException;
-import org.apache.commons.exec.ExecuteWatchdog;
 import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +23,6 @@ public class ShellTask extends AbstractTask {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
     private volatile Process process;
-
-    private volatile ExecuteWatchdog watchdog;
 
     public ShellTask(JobInstance jobInstance) {
         super(jobInstance);
@@ -80,8 +77,6 @@ public class ShellTask extends AbstractTask {
                 }
             };
 
-            watchdog = new ExecuteWatchdog(60 * 1000);
-            exec.setWatchdog(watchdog);
             CollectingLogOutputStream collectingLogOutputStream = new CollectingLogOutputStream(this.getTaskLogger().getLogWriter());
             exec.setStreamHandler(collectingLogOutputStream);
             int code = 0;
@@ -90,9 +85,6 @@ public class ShellTask extends AbstractTask {
                 code = exec.execute(commandLine);
                 log.info("ShellTask组件执行完成，返回码：" + code);
             } catch (ExecuteException e) {
-                if (watchdog != null && watchdog.killedProcess()) {
-                    log.error("超时了");
-                }
                 if (cancelled.get()) {
                     throw new InterruptedException("Task was cancelled manually");
                 }
@@ -125,11 +117,11 @@ public class ShellTask extends AbstractTask {
     @Override
     public boolean cancel() {
         cancelled.set(true);
-        if (process != null) {
-            process.destroyForcibly();
-        }
-        if (watchdog != null) {
-            watchdog.destroyProcess();
+        Process currentProcess = process;
+        if (currentProcess != null) {
+            // 先停止子进程，再停止主进程，避免 shell 被停止后子进程继续运行。
+            currentProcess.descendants().forEach(ProcessHandle::destroyForcibly);
+            currentProcess.destroyForcibly();
         }
         return true;
     }

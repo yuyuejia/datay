@@ -47,18 +47,22 @@ public class JobService {
      */
     public JobDTO save(JobDTO jobDTO) {
         LOG.debug("Request to save Job : {}", jobDTO);
+        normalizeScheduling(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
+        normalizeScheduling(job);
         job = jobRepository.save(job);
         return jobMapper.toDto(job);
     }
 
     public Job save(Job job) {
         LOG.debug("Request to save Job : {}", job);
+        normalizeScheduling(job);
         job = jobRepository.save(job);
         return job;
     }
 
     public void online(Job job, boolean executeOnce) {
+        normalizeScheduling(job);
         job.setStatus(TaskConstants.TASK_STATUS_ONLINE);
         job.setUpdateTime(ZonedDateTime.now());
         jobRepository.save(job);
@@ -83,6 +87,8 @@ public class JobService {
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
         jobInstance.setTenantId(job.getTenantId());
+        jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
+        jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {
@@ -101,7 +107,10 @@ public class JobService {
      */
     public JobDTO update(JobDTO jobDTO) {
         LOG.debug("Request to update Job : {}", jobDTO);
+        preserveSchedulingFromExisting(jobDTO);
+        normalizeScheduling(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
+        normalizeScheduling(job);
         job = jobRepository.save(job);
         return jobMapper.toDto(job);
     }
@@ -197,5 +206,46 @@ public class JobService {
     public Optional<Job> findOneJob(String id) {
         LOG.debug("Request to get Job : {}", id);
         return jobRepository.findById(id);
+    }
+
+    /**
+     * 更新任务时，编辑页不再提交调度设置。对于未提交的字段沿用数据库中的现有配置，
+     * 避免仅修改任务内容时把已配置的 Cron、重试次数或超时时间清空。
+     */
+    private void preserveSchedulingFromExisting(JobDTO jobDTO) {
+        if (jobDTO.getId() == null) {
+            return;
+        }
+        jobRepository
+            .findById(jobDTO.getId())
+            .ifPresent(existing -> {
+                if (jobDTO.getRetryCount() == null) {
+                    jobDTO.setRetryCount(existing.getRetryCount());
+                }
+                if (jobDTO.getTimeoutSeconds() == null) {
+                    jobDTO.setTimeoutSeconds(existing.getTimeoutSeconds());
+                }
+                if (!StringUtils.hasText(jobDTO.getCron())) {
+                    jobDTO.setCron(existing.getCron());
+                }
+            });
+    }
+
+    private void normalizeScheduling(JobDTO jobDTO) {
+        if (jobDTO.getRetryCount() == null) {
+            jobDTO.setRetryCount(0);
+        }
+        if (jobDTO.getTimeoutSeconds() == null) {
+            jobDTO.setTimeoutSeconds(0);
+        }
+    }
+
+    private void normalizeScheduling(Job job) {
+        if (job.getRetryCount() == null) {
+            job.setRetryCount(0);
+        }
+        if (job.getTimeoutSeconds() == null) {
+            job.setTimeoutSeconds(0);
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.data.datafusion.web.rest;
 
 import static com.data.datafusion.job.TaskConstants.TASK_STATUS_OFFLINE;
 
+import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.JobInstanceService;
@@ -273,19 +274,30 @@ public class ETLTaskResource {
      *
      * @param id the id of the ETLTaskDTO to set online.
      * @param cron optional schedule cycle (Cron expression) applied before going online.
+     * @param retryCount optional retry count applied before going online.
+     * @param timeoutSeconds optional timeout seconds applied before going online.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated ETLTaskDTO.
      */
     @PostMapping("/{id}/online")
     public ResponseEntity<ETLTaskDTO> onlineETLTask(
         @PathVariable("id") String id,
-        @RequestParam(value = "cron", required = false) String cron
+        @RequestParam(value = "cron", required = false) String cron,
+        @RequestParam(value = "retryCount", required = false) Integer retryCount,
+        @RequestParam(value = "timeoutSeconds", required = false) Integer timeoutSeconds
     ) {
-        LOG.debug("REST request to online ETLTask : {}, cron : {}", id, cron);
+        LOG.debug(
+            "REST request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}",
+            id,
+            cron,
+            retryCount,
+            timeoutSeconds
+        );
         String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
         if (normalizedCron != null && !CronExpression.isValidExpression(normalizedCron)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "调度周期（Cron 表达式）不合法: " + normalizedCron);
         }
-        ETLTaskDTO result = eTLTaskService.online(id, normalizedCron);
+        validateScheduling(retryCount, timeoutSeconds);
+        ETLTaskDTO result = eTLTaskService.online(id, normalizedCron, retryCount, timeoutSeconds);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .body(result);
@@ -333,5 +345,14 @@ public class ETLTaskResource {
         Page<JobInstanceDTO> page = jobInstanceService.findAllByJobCode(jobCode, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    private void validateScheduling(Integer retryCount, Integer timeoutSeconds) {
+        if (retryCount != null && (retryCount < 0 || retryCount > TaskConstants.MAX_RETRY_COUNT)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "重试次数必须在 0-" + TaskConstants.MAX_RETRY_COUNT + " 之间");
+        }
+        if (timeoutSeconds != null && (timeoutSeconds < 0 || timeoutSeconds > TaskConstants.MAX_TIMEOUT_SECONDS)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "超时时间必须在 0-" + TaskConstants.MAX_TIMEOUT_SECONDS + " 秒之间");
+        }
     }
 }

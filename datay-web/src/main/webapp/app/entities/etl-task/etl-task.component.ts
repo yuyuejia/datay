@@ -227,6 +227,8 @@ export default defineComponent({
     const onlineModal = ref<any>(null);
     const onlineTask: Ref<IETLTask | null> = ref(null);
     const onlineCron = ref('');
+    const onlineRetryCount = ref(0);
+    const onlineTimeoutSeconds = ref(0);
     const isOnlineSubmitting = ref(false);
 
     /** Cron 表达式的基础校验：至少包含 6 段（秒 分 时 日 月 周）或 7 段。 */
@@ -235,9 +237,21 @@ export default defineComponent({
       return parts.length === 6 || parts.length === 7;
     });
 
+    const onlinePolicyValid = computed(
+      () =>
+        Number.isInteger(onlineRetryCount.value) &&
+        onlineRetryCount.value >= 0 &&
+        onlineRetryCount.value <= 10 &&
+        Number.isInteger(onlineTimeoutSeconds.value) &&
+        onlineTimeoutSeconds.value >= 0 &&
+        onlineTimeoutSeconds.value <= 604800,
+    );
+
     const onlineETLTask = (task: IETLTask) => {
       onlineTask.value = task;
       onlineCron.value = task.cron || '';
+      onlineRetryCount.value = task.retryCount ?? 0;
+      onlineTimeoutSeconds.value = task.timeoutSeconds ?? 0;
       onlineModal.value?.show();
     };
 
@@ -245,6 +259,8 @@ export default defineComponent({
       onlineModal.value?.hide();
       onlineTask.value = null;
       onlineCron.value = '';
+      onlineRetryCount.value = 0;
+      onlineTimeoutSeconds.value = 0;
     };
 
     const confirmOnline = async () => {
@@ -259,9 +275,13 @@ export default defineComponent({
         alertService.showError('调度周期格式不正确，请填写 6 段或 7 段 Cron 表达式');
         return;
       }
+      if (!onlinePolicyValid.value) {
+        alertService.showError('重试次数需在 0-10 之间，超时时间需在 0-604800 秒之间');
+        return;
+      }
       isOnlineSubmitting.value = true;
       try {
-        await eTLTaskService().online(onlineTask.value.id, onlineCron.value.trim());
+        await eTLTaskService().online(onlineTask.value.id, onlineCron.value.trim(), onlineRetryCount.value, onlineTimeoutSeconds.value);
         alertService.showInfo(`ETL 任务 ${onlineTask.value.taskName || ''} 已上线调度`, { variant: 'success' });
         closeOnlineModal();
         await retrieveETLTasks();
@@ -562,7 +582,10 @@ export default defineComponent({
       onlineModal,
       onlineTask,
       onlineCron,
+      onlineRetryCount,
+      onlineTimeoutSeconds,
       onlineCronValid,
+      onlinePolicyValid,
       isOnlineSubmitting,
       closeOnlineModal,
       confirmOnline,

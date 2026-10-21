@@ -45,6 +45,12 @@ public class ETLTask implements Serializable, TenantAware {
     @Column(name = "cron")
     private String cron;
 
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount = 0;
+
+    @Column(name = "timeout_seconds", nullable = false)
+    private Integer timeoutSeconds = 0;
+
     @Column(name = "job_context")
     private String jobContext;
 
@@ -176,6 +182,32 @@ public class ETLTask implements Serializable, TenantAware {
 
     public void setCron(String cron) {
         this.cron = cron;
+    }
+
+    public Integer getRetryCount() {
+        return this.retryCount;
+    }
+
+    public ETLTask retryCount(Integer retryCount) {
+        this.setRetryCount(retryCount);
+        return this;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getTimeoutSeconds() {
+        return this.timeoutSeconds;
+    }
+
+    public ETLTask timeoutSeconds(Integer timeoutSeconds) {
+        this.setTimeoutSeconds(timeoutSeconds);
+        return this;
+    }
+
+    public void setTimeoutSeconds(Integer timeoutSeconds) {
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     public String getJobContext() {
@@ -326,6 +358,8 @@ public class ETLTask implements Serializable, TenantAware {
             ", dir='" + getDir() + "'" +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
+            ", retryCount=" + getRetryCount() +
+            ", timeoutSeconds=" + getTimeoutSeconds() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", lastStatus='" + getLastStatus() + "'" +

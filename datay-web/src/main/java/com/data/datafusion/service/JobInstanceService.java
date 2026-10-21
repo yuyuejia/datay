@@ -70,11 +70,13 @@ public class JobInstanceService {
     public JobInstanceDTO save(JobInstanceDTO jobInstanceDTO) {
         LOG.debug("Request to save JobInstance : {}", jobInstanceDTO);
         JobInstance jobInstance = jobInstanceMapper.toEntity(jobInstanceDTO);
+        normalizeScheduling(jobInstance);
         jobInstance = jobInstanceRepository.save(jobInstance);
         return jobInstanceMapper.toDto(jobInstance);
     }
 
     public JobInstance save(JobInstance jobInstance) {
+        normalizeScheduling(jobInstance);
         jobInstance = jobInstanceRepository.save(jobInstance);
         return jobInstance;
     }
@@ -88,6 +90,7 @@ public class JobInstanceService {
     public JobInstanceDTO update(JobInstanceDTO jobInstanceDTO) {
         LOG.debug("Request to update JobInstance : {}", jobInstanceDTO);
         JobInstance jobInstance = jobInstanceMapper.toEntity(jobInstanceDTO);
+        normalizeScheduling(jobInstance);
         jobInstance = jobInstanceRepository.save(jobInstance);
         return jobInstanceMapper.toDto(jobInstance);
     }
@@ -319,6 +322,8 @@ public class JobInstanceService {
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
         jobInstance.setTenantId(job.getTenantId());
+        jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
+        jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {
@@ -326,5 +331,14 @@ public class JobInstanceService {
         }
         //        jobInstance.setParameter();
         return jobInstance;
+    }
+
+    private void normalizeScheduling(JobInstance jobInstance) {
+        if (jobInstance.getRetryCount() == null) {
+            jobInstance.setRetryCount(0);
+        }
+        if (jobInstance.getTimeoutSeconds() == null) {
+            jobInstance.setTimeoutSeconds(0);
+        }
     }
 }

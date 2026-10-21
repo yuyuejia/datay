@@ -40,9 +40,18 @@ export interface IAppPackageContent {
   models?: Array<{ oldId?: string; name?: string; code?: string; modelType?: string; fields?: unknown[] }>;
   metricDirectories?: Array<{ oldId?: string; name?: string }>;
   metrics?: Array<{ oldId?: string; name?: string; code?: string; metricType?: string; unit?: string }>;
-  etlTasks?: Array<{ oldId?: string; taskName?: string; taskCode?: string; nodes?: unknown[]; edges?: unknown[] }>;
-  sqlJobs?: Array<{ oldId?: string; jobName?: string; cron?: string }>;
-  dagJobs?: Array<{ oldId?: string; jobName?: string; cron?: string }>;
+  etlTasks?: Array<{
+    oldId?: string;
+    taskName?: string;
+    taskCode?: string;
+    cron?: string | null;
+    retryCount?: number | null;
+    timeoutSeconds?: number | null;
+    nodes?: unknown[];
+    edges?: unknown[];
+  }>;
+  sqlJobs?: Array<{ oldId?: string; jobName?: string; cron?: string; retryCount?: number | null; timeoutSeconds?: number | null }>;
+  dagJobs?: Array<{ oldId?: string; jobName?: string; cron?: string; retryCount?: number | null; timeoutSeconds?: number | null }>;
   otherJobs?: Array<{ oldId?: string; jobName?: string; type?: string }>;
   jobDepends?: unknown[];
   summary?: Record<string, number>;

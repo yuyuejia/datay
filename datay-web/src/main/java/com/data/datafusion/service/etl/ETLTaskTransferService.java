@@ -91,6 +91,8 @@ public class ETLTaskTransferService {
         task.dir = dto.getDir();
         task.type = dto.getType();
         task.cron = dto.getCron();
+        task.retryCount = dto.getRetryCount();
+        task.timeoutSeconds = dto.getTimeoutSeconds();
         task.project = dto.getProject();
         task.nodes =
             dto.getNodes() == null
@@ -144,6 +146,8 @@ public class ETLTaskTransferService {
         dto.setDir(item.dir);
         dto.setType(item.type == null || item.type.isBlank() ? TaskConstants.TASK_TYPE_ETL : item.type);
         dto.setCron(item.cron);
+        dto.setRetryCount(item.retryCount);
+        dto.setTimeoutSeconds(item.timeoutSeconds);
         dto.setProject(item.project);
         dto.setDr(0);
         dto.setStatus(TaskConstants.TASK_STATUS_OFFLINE);

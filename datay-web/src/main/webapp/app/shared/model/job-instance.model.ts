@@ -4,6 +4,8 @@ export interface IJobInstance {
   jobName?: string | null;
   jobCode?: string | null;
   type?: string | null;
+  retryCount?: number | null;
+  timeoutSeconds?: number | null;
   jobContext?: string | null;
   status?: string | null;
   jobMessage?: string | null;
@@ -35,5 +37,7 @@ export class JobInstance implements IJobInstance {
     public tenantId?: string | null,
     public parentInstanceCode?: string | null,
     public parentJobName?: string | null,
+    public retryCount?: number | null,
+    public timeoutSeconds?: number | null,
   ) {}
 }

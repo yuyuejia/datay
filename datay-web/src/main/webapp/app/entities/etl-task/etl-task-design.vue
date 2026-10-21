@@ -19,8 +19,6 @@ import '@vue-flow/controls/dist/style.css';
 import '@vue-flow/minimap/dist/style.css';
 import '@vue-flow/node-resizer/dist/style.css';
 
-import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
-
 const {
   onInit,
   onNodeDragStop,
@@ -851,12 +849,6 @@ const cancelTask = () => {
           <label class="field-label">任务描述</label>
           <el-input v-model="eTLTask.taskDesc" size="small" placeholder="请输入任务描述" class="header-input" />
         </div>
-        <div class="form-item">
-          <label class="field-label">调度设置</label>
-          <div class="cron-field">
-            <CronExpressionSelector v-model:value="eTLTask.cron" compact />
-          </div>
-        </div>
       </div>
       <div class="header-actions">
         <DynamicParameterHelp />
@@ -1119,10 +1111,6 @@ const cancelTask = () => {
 
 .header-input {
   width: 200px;
-}
-
-.cron-field {
-  width: 320px;
 }
 
 .cron-display {
