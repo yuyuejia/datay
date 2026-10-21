@@ -40,6 +40,8 @@ public class JobInstanceDTO implements Serializable {
 
     private String parentInstanceCode;
 
+    private String parentJobName;
+
     public String getId() {
         return id;
     }
@@ -160,6 +162,14 @@ public class JobInstanceDTO implements Serializable {
         this.parentInstanceCode = parentInstanceCode;
     }
 
+    public String getParentJobName() {
+        return parentJobName;
+    }
+
+    public void setParentJobName(String parentJobName) {
+        this.parentJobName = parentJobName;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -200,6 +210,7 @@ public class JobInstanceDTO implements Serializable {
             ", project='" + getProject() + "'" +
             ", tenantId='" + getTenantId() + "'" +
             ", parentInstanceCode='" + getParentInstanceCode() + "'" +
+            ", parentJobName='" + getParentJobName() + "'" +
             "}";
     }
 }

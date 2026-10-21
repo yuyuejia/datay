@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
-      <span id="etl-task-heading">ETL 任务列表</span>
+      <span id="etl-task-heading">数据集成</span>
       <div class="d-flex align-items-center">
         <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按任务名称 / 描述搜索" clearable />
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
@@ -170,8 +170,12 @@
         </div>
         <div v-else-if="taskInstances.length === 0" class="text-center text-muted">暂无执行实例</div>
         <el-table v-else :data="taskInstances" style="width: 100%" size="small" max-height="400">
-          <el-table-column prop="id" label="ID" width="70"></el-table-column>
-          <el-table-column prop="instanceCode" label="实例编码" width="180"></el-table-column>
+          <el-table-column prop="jobName" label="实例名称" min-width="200" show-overflow-tooltip></el-table-column>
+          <el-table-column prop="parentJobName" label="父任务" min-width="180" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.parentJobName || '-' }}
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" width="100">
             <template #default="scope">
               <span :class="'status-badge status-' + (scope.row.status?.toLowerCase() || '')">
@@ -179,7 +183,6 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="jobMessage" label="消息" show-overflow-tooltip></el-table-column>
           <el-table-column prop="startTime" label="开始时间" width="160">
             <template #default="scope">
               {{ formatDateTime(scope.row.startTime) }}
@@ -345,6 +348,48 @@
 <script lang="ts" src="./etl-task.component.ts"></script>
 
 <style scoped>
+.status-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  background: #f2f3f5;
+  color: #4e5969;
+}
+
+.status-online,
+.status-successful {
+  background: #e6f9ec;
+  color: #00b42a;
+}
+
+.status-running,
+.status-appending,
+.status-starting {
+  background: #e8f0fe;
+  color: #2f6fed;
+}
+
+.status-waiting,
+.status-interrupted {
+  background: #fff1e3;
+  color: #ff7d00;
+}
+
+.status-failed,
+.status-timeout {
+  background: #fdecec;
+  color: #f53f3f;
+}
+
+.status-offline {
+  background: #f2f3f5;
+  color: #4e5969;
+}
+
 .online-modal-body p {
   margin-bottom: 12px;
 }

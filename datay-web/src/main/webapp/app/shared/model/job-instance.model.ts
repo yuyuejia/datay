@@ -14,6 +14,7 @@ export interface IJobInstance {
   project?: string | null;
   tenantId?: string | null;
   parentInstanceCode?: string | null;
+  parentJobName?: string | null;
 }
 
 export class JobInstance implements IJobInstance {
@@ -33,5 +34,6 @@ export class JobInstance implements IJobInstance {
     public project?: string | null,
     public tenantId?: string | null,
     public parentInstanceCode?: string | null,
+    public parentJobName?: string | null,
   ) {}
 }

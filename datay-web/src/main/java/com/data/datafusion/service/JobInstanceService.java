@@ -161,7 +161,20 @@ public class JobInstanceService {
     @Transactional(readOnly = true)
     public Page<JobInstanceDTO> findAllByJobCode(String jobCode, Pageable pageable) {
         LOG.debug("Request to get JobInstances by jobCode: {}", jobCode);
-        return jobInstanceRepository.findAllByJobCode(jobCode, pageable).map(jobInstanceMapper::toDto);
+        return jobInstanceRepository.findAllByJobCode(jobCode, pageable).map(this::toDtoWithParentJobName);
+    }
+
+    /**
+     * 转换为 DTO，并补充父任务名称（DAG 编排产生的子任务实例）。
+     */
+    private JobInstanceDTO toDtoWithParentJobName(JobInstance jobInstance) {
+        JobInstanceDTO dto = jobInstanceMapper.toDto(jobInstance);
+        if (StringUtils.hasText(jobInstance.getParentInstanceCode())) {
+            jobInstanceRepository
+                .findByInstanceCode(jobInstance.getParentInstanceCode())
+                .ifPresent(parent -> dto.setParentJobName(parent.getJobName()));
+        }
+        return dto;
     }
 
     /**
