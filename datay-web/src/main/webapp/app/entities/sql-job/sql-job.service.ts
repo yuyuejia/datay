@@ -107,10 +107,11 @@ export default class SqlJobService {
     });
   }
 
-  online(id: string): Promise<IJob> {
+  online(id: string, cron?: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
+      const query = cron ? `?cron=${encodeURIComponent(cron)}` : "";
       axios
-        .post(`${baseApiUrl}/${id}/online`)
+        .post(`${baseApiUrl}/${id}/online${query}`)
         .then((res) => {
           resolve(res.data);
         })

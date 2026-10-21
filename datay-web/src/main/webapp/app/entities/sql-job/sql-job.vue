@@ -142,6 +142,14 @@
         </el-table-column>
       </el-table>
     </div>
+    <TaskOnlineModal
+      ref="onlineModal"
+      title="SQL 任务上线"
+      :task-name="onlineTask?.jobName"
+      :cron="onlineTask?.cron"
+      :loading="isOnlineSubmitting"
+      @confirm="confirmOnline"
+    />
     <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span data-cy="sqlJobDeleteDialogHeading">确认删除</span>

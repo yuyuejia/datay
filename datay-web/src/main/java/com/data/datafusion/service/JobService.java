@@ -60,6 +60,7 @@ public class JobService {
 
     public void online(Job job, boolean executeOnce) {
         job.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+        job.setUpdateTime(ZonedDateTime.now());
         jobRepository.save(job);
         EventServiceFactory.getEventService().addJob(job);
         if (executeOnce) {
@@ -69,6 +70,7 @@ public class JobService {
 
     public void offline(Job job) {
         job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
+        job.setUpdateTime(ZonedDateTime.now());
         jobRepository.save(job);
         EventServiceFactory.getEventService().deleteJob(job);
     }

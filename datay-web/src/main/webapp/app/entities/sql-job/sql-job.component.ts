@@ -7,14 +7,19 @@ import {
   ref,
   watch,
 } from "vue";
+import { ElMessageBox } from "element-plus";
 
 import SqlJobService from "./sql-job.service";
+import TaskOnlineModal from "@/components/TaskOnlineModal.vue";
 import { type IJob } from "@/shared/model/job.model";
 import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
 
 export default defineComponent({
   name: "SqlJob",
+  components: {
+    TaskOnlineModal,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const sqlJobService = inject("sqlJobService", () => new SqlJobService());
@@ -121,17 +126,50 @@ export default defineComponent({
       }
     };
 
-    const handleOnline = async (job: IJob) => {
+    const onlineModal = ref<any>(null);
+    const onlineTask: Ref<IJob | null> = ref(null);
+    const isOnlineSubmitting = ref(false);
+
+    const handleOnline = (job: IJob) => {
+      onlineTask.value = job;
+      onlineModal.value?.show(job.cron || "");
+    };
+
+    const confirmOnline = async (cron: string) => {
+      if (!onlineTask.value?.id) {
+        return;
+      }
+      isOnlineSubmitting.value = true;
       try {
-        await sqlJobService().online(job.id);
-        alertService.showInfo(`SQL 任务 ${job.jobName} 已上线调度`);
+        await sqlJobService().online(onlineTask.value.id, cron);
+        alertService.showInfo(`SQL 任务 ${onlineTask.value.jobName} 已上线调度`);
+        onlineModal.value?.hide();
         await retrieveSqlJobs();
       } catch (error) {
         alertService.showHttpError(error.response);
+      } finally {
+        isOnlineSubmitting.value = false;
       }
     };
 
     const handleOffline = async (job: IJob) => {
+      if (!job?.id) {
+        return;
+      }
+      try {
+        await ElMessageBox.confirm(
+          `确定要将 SQL 任务「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`,
+          "下线确认",
+          {
+            confirmButtonText: "确认下线",
+            cancelButtonText: "取消",
+            type: "warning",
+          },
+        );
+      } catch {
+        // 用户取消下线
+        return;
+      }
       try {
         await sqlJobService().offline(job.id);
         alertService.showInfo(`SQL 任务 ${job.jobName} 已下线`);
@@ -178,6 +216,10 @@ export default defineComponent({
       removeSqlJob,
       handleExecuteOnce,
       handleOnline,
+      onlineModal,
+      onlineTask,
+      isOnlineSubmitting,
+      confirmOnline,
       handleOffline,
       itemsPerPage,
       queryCount,

@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -270,12 +272,20 @@ public class ETLTaskResource {
      * {@code POST  /etl-tasks/:id/online} : Set ETLTask to online status.
      *
      * @param id the id of the ETLTaskDTO to set online.
+     * @param cron optional schedule cycle (Cron expression) applied before going online.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated ETLTaskDTO.
      */
     @PostMapping("/{id}/online")
-    public ResponseEntity<ETLTaskDTO> onlineETLTask(@PathVariable("id") String id) {
-        LOG.debug("REST request to online ETLTask : {}", id);
-        ETLTaskDTO result = eTLTaskService.online(id);
+    public ResponseEntity<ETLTaskDTO> onlineETLTask(
+        @PathVariable("id") String id,
+        @RequestParam(value = "cron", required = false) String cron
+    ) {
+        LOG.debug("REST request to online ETLTask : {}, cron : {}", id, cron);
+        String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
+        if (normalizedCron != null && !CronExpression.isValidExpression(normalizedCron)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "调度周期（Cron 表达式）不合法: " + normalizedCron);
+        }
+        ETLTaskDTO result = eTLTaskService.online(id, normalizedCron);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .body(result);

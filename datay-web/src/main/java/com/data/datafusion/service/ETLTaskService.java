@@ -42,6 +42,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * Service Implementation for managing {@link com.data.datafusion.domain.ETLTask}.
@@ -356,22 +357,49 @@ public class ETLTaskService {
      * @return 更新后的ETLTaskDTO
      */
     public ETLTaskDTO online(String id) {
-        LOG.debug("Request to online ETLTask : {}", id);
+        return online(id, null);
+    }
+
+    /**
+     * 将ETLTask设置为在线状态，并按指定（或任务已有的）调度周期加入调度。
+     *
+     * <p>上线时允许同时更新任务的 Cron 表达式：任务与对应 Job 会一并保存，
+     * 避免只改了任务定义、Job 仍使用旧周期的情况。
+     *
+     * @param id   ETLTask的ID
+     * @param cron 新的 Cron 表达式，为空时沿用任务已有配置
+     * @return 更新后的ETLTaskDTO
+     */
+    public ETLTaskDTO online(String id, String cron) {
+        LOG.debug("Request to online ETLTask : {}, cron : {}", id, cron);
         return eTLTaskRepository
             .findById(id)
             .map(etlTask -> {
-                // 更新状态为ONLINE
+                String effectiveCron = StringUtils.hasText(cron) ? cron.trim() : etlTask.getCron();
+                if (StringUtils.hasText(cron)) {
+                    etlTask.setCron(effectiveCron);
+                }
+
+                // 更新状态与更新时间
                 etlTask.setStatus(TASK_STATUS_ONLINE);
+                etlTask.setUpdateTime(ZonedDateTime.now());
 
                 // 重新生成job并加入调度
-                Job job = jobService.findOneJob(etlTask.getJobId()).get();
+                String jobId = etlTask.getJobId();
+                Job job = jobService
+                    .findOneJob(jobId)
+                    .orElseThrow(() -> new RuntimeException("Job not found with id: " + jobId));
+                if (StringUtils.hasText(effectiveCron)) {
+                    job.setCron(effectiveCron);
+                }
                 job.setStatus(TASK_STATUS_ONLINE);
+                job.setUpdateTime(ZonedDateTime.now());
                 jobService.save(job);
                 jobService.online(job, false);
 
                 // 保存更新后的ETLTask
-                etlTask = eTLTaskRepository.save(etlTask);
-                return eTLTaskMapper.toDto(etlTask);
+                ETLTask saved = eTLTaskRepository.save(etlTask);
+                return eTLTaskMapper.toDto(saved);
             })
             .orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
     }
@@ -387,12 +415,14 @@ public class ETLTaskService {
         return eTLTaskRepository
             .findById(id)
             .map(etlTask -> {
-                // 更新状态为OFFLINE
+                // 更新状态与更新时间
                 etlTask.setStatus(TASK_STATUS_OFFLINE);
+                etlTask.setUpdateTime(ZonedDateTime.now());
 
                 // 取消任务调度
                 if (etlTask.getJobId() != null) {
                     Job job = jobService.findOneJob(etlTask.getJobId()).get();
+                    job.setUpdateTime(ZonedDateTime.now());
                     jobService.offline(job);
                 }
 

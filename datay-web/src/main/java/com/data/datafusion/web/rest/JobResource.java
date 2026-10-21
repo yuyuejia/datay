@@ -10,14 +10,18 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -197,14 +201,22 @@ public class JobResource {
      * {@code POST  /jobs/:id/online} : Set the "id" job to online status and schedule it.
      *
      * @param id the id of the jobDTO to set online.
+     * @param cron optional schedule cycle (Cron expression) applied before going online.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
      */
     @PostMapping("/{id}/online")
-    public ResponseEntity<JobDTO> onlineJob(@PathVariable("id") String id) {
-        LOG.debug("REST request to online Job : {}", id);
+    public ResponseEntity<JobDTO> onlineJob(@PathVariable("id") String id, @RequestParam(value = "cron", required = false) String cron) {
+        LOG.debug("REST request to online Job : {}, cron : {}", id, cron);
         Job job = jobService
             .findOneJob(id)
             .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+        String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
+        if (normalizedCron != null && !CronExpression.isValidExpression(normalizedCron)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "调度周期（Cron 表达式）不合法: " + normalizedCron);
+        }
+        if (normalizedCron != null) {
+            job.setCron(normalizedCron);
+        }
         jobService.online(job, false);
         JobDTO updated = jobService.findOne(id).get();
         return ResponseEntity.ok()

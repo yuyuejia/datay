@@ -1,12 +1,17 @@
 import { type Ref, defineComponent, inject, onMounted, ref, watch } from "vue";
+import { ElMessageBox } from "element-plus";
 
 import DagJobService from "./dag-job.service";
+import TaskOnlineModal from "@/components/TaskOnlineModal.vue";
 import { type IJob } from "@/shared/model/job.model";
 import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
 
 export default defineComponent({
   name: "DagJob",
+  components: {
+    TaskOnlineModal,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const dagJobService = inject("dagJobService", () => new DagJobService());
@@ -90,17 +95,50 @@ export default defineComponent({
       }
     };
 
-    const handleOnline = async (job: IJob) => {
+    const onlineModal = ref<any>(null);
+    const onlineTask: Ref<IJob | null> = ref(null);
+    const isOnlineSubmitting = ref(false);
+
+    const handleOnline = (job: IJob) => {
+      onlineTask.value = job;
+      onlineModal.value?.show(job.cron || "");
+    };
+
+    const confirmOnline = async (cron: string) => {
+      if (!onlineTask.value?.id) {
+        return;
+      }
+      isOnlineSubmitting.value = true;
       try {
-        await dagJobService().online(job.id);
-        alertService.showInfo(`编排 ${job.jobName} 已上线调度`);
+        await dagJobService().online(onlineTask.value.id, cron);
+        alertService.showInfo(`编排 ${onlineTask.value.jobName} 已上线调度`);
+        onlineModal.value?.hide();
         await retrieveDagJobs();
       } catch (error) {
         alertService.showHttpError(error.response);
+      } finally {
+        isOnlineSubmitting.value = false;
       }
     };
 
     const handleOffline = async (job: IJob) => {
+      if (!job?.id) {
+        return;
+      }
+      try {
+        await ElMessageBox.confirm(
+          `确定要将编排「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`,
+          "下线确认",
+          {
+            confirmButtonText: "确认下线",
+            cancelButtonText: "取消",
+            type: "warning",
+          },
+        );
+      } catch {
+        // 用户取消下线
+        return;
+      }
       try {
         await dagJobService().offline(job.id);
         alertService.showInfo(`编排 ${job.jobName} 已下线`);
@@ -150,6 +188,10 @@ export default defineComponent({
       removeDagJob,
       handleExecuteOnce,
       handleOnline,
+      onlineModal,
+      onlineTask,
+      isOnlineSubmitting,
+      confirmOnline,
       handleOffline,
       itemsPerPage,
       queryCount,

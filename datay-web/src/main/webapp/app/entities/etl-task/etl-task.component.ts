@@ -7,6 +7,7 @@ import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from 
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
 
 interface IStateRow {
   key: string;
@@ -16,6 +17,9 @@ interface IStateRow {
 
 export default defineComponent({
   name: 'ETLTask',
+  components: {
+    CronExpressionSelector,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
@@ -218,22 +222,73 @@ export default defineComponent({
       }
     };
 
-    const onlineETLTask = async (id: string) => {
+    // ---------------- 上线（确认调度周期） ----------------
+
+    const onlineModal = ref<any>(null);
+    const onlineTask: Ref<IETLTask | null> = ref(null);
+    const onlineCron = ref('');
+    const isOnlineSubmitting = ref(false);
+
+    /** Cron 表达式的基础校验：至少包含 6 段（秒 分 时 日 月 周）或 7 段。 */
+    const onlineCronValid = computed(() => {
+      const parts = (onlineCron.value || '').trim().split(/\s+/).filter(Boolean);
+      return parts.length === 6 || parts.length === 7;
+    });
+
+    const onlineETLTask = (task: IETLTask) => {
+      onlineTask.value = task;
+      onlineCron.value = task.cron || '';
+      onlineModal.value?.show();
+    };
+
+    const closeOnlineModal = () => {
+      onlineModal.value?.hide();
+      onlineTask.value = null;
+      onlineCron.value = '';
+    };
+
+    const confirmOnline = async () => {
+      if (!onlineTask.value?.id) {
+        return;
+      }
+      if (!onlineCron.value?.trim()) {
+        alertService.showError('当前任务尚未设置调度周期，请先设置 Cron 表达式');
+        return;
+      }
+      if (!onlineCronValid.value) {
+        alertService.showError('调度周期格式不正确，请填写 6 段或 7 段 Cron 表达式');
+        return;
+      }
+      isOnlineSubmitting.value = true;
       try {
-        await eTLTaskService().online(id);
-        const message = 'ETL Task has been set to online';
-        alertService.showInfo(message, { variant: 'success' });
+        await eTLTaskService().online(onlineTask.value.id, onlineCron.value.trim());
+        alertService.showInfo(`ETL 任务 ${onlineTask.value.taskName || ''} 已上线调度`, { variant: 'success' });
+        closeOnlineModal();
         await retrieveETLTasks();
       } catch (error) {
         alertService.showHttpError(error.response);
+      } finally {
+        isOnlineSubmitting.value = false;
       }
     };
 
-    const offlineETLTask = async (id: string) => {
+    const offlineETLTask = async (task: IETLTask) => {
+      if (!task?.id) {
+        return;
+      }
       try {
-        await eTLTaskService().offline(id);
-        const message = 'ETL Task has been set to offline';
-        alertService.showInfo(message, { variant: 'success' });
+        await ElMessageBox.confirm(`确定要将任务「${task.taskName || task.id}」下线吗？下线后将取消定时调度。`, '下线确认', {
+          confirmButtonText: '确认下线',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
+      } catch {
+        // 用户取消下线
+        return;
+      }
+      try {
+        await eTLTaskService().offline(task.id);
+        alertService.showInfo(`ETL 任务 ${task.taskName || ''} 已下线`, { variant: 'success' });
         await retrieveETLTasks();
       } catch (error) {
         alertService.showHttpError(error.response);
@@ -504,6 +559,13 @@ export default defineComponent({
       removeETLTask,
       runETLTask,
       onlineETLTask,
+      onlineModal,
+      onlineTask,
+      onlineCron,
+      onlineCronValid,
+      isOnlineSubmitting,
+      closeOnlineModal,
+      confirmOnline,
       offlineETLTask,
       fileInput,
       importResultVisible,
