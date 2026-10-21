@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 告警通知渠道：邮件、Webhook；站内信为内置能力，不落渠道表 -->
+    <changeSet id="20261021000000-1-alert-channel" author="datafusion">
+        <createTable tableName="dp_alert_channel">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="config" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="boolean">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_alert_channel" indexName="idx_alert_channel_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_alert_channel" indexName="idx_alert_channel_code">
+            <column name="tenant_id"/>
+            <column name="code"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- 告警规则 -->
+    <changeSet id="20261021000000-2-alert-rule" author="datafusion">
+        <createTable tableName="dp_alert_rule">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="source_type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_type" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="severity" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="project" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_type" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="silence_minutes" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="recipients" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="channel_ids" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_default" type="boolean">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="boolean">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_alert_rule" indexName="idx_alert_rule_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_alert_rule" indexName="idx_alert_rule_code">
+            <column name="tenant_id"/>
+            <column name="code"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- 告警事件：同一指纹在未恢复前只保留一条，重复触发累计 event_count -->
+    <changeSet id="20261021000000-3-alert-event" author="datafusion">
+        <createTable tableName="dp_alert_event">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="rule_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="fingerprint" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="source_type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="severity" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="title" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="content" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_instance_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="instance_code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="project" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_count" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="first_seen" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_seen" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ack_by" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ack_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="resolve_by" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="resolve_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="recipients" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="channel_ids" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_alert_event" indexName="idx_alert_event_tenant_status">
+            <column name="tenant_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="dp_alert_event" indexName="idx_alert_event_fingerprint">
+            <column name="tenant_id"/>
+            <column name="fingerprint"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="dp_alert_event" indexName="idx_alert_event_job">
+            <column name="tenant_id"/>
+            <column name="job_code"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="dp_alert_event" indexName="idx_alert_event_last_seen">
+            <column name="tenant_id"/>
+            <column name="last_seen"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- 告警投递记录 -->
+    <changeSet id="20261021000000-4-alert-delivery" author="datafusion">
+        <createTable tableName="dp_alert_delivery">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="channel_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="channel_type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="target" type="varchar(1000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="attempt" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="error_message" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="sent_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_alert_delivery" indexName="idx_alert_delivery_event">
+            <column name="event_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- 站内信 -->
+    <changeSet id="20261021000000-5-notification" author="datafusion">
+        <createTable tableName="dp_notification">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="event_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="title" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="content" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="read_flag" type="boolean">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="read_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_notification" indexName="idx_notification_user_read">
+            <column name="user_id"/>
+            <column name="read_flag"/>
+        </createIndex>
+        <createIndex tableName="dp_notification" indexName="idx_notification_event">
+            <column name="event_id"/>
+        </createIndex>
+        <createIndex tableName="dp_notification" indexName="idx_notification_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

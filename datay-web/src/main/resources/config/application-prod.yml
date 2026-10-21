@@ -48,10 +48,18 @@ spring:
   liquibase:
     contexts: prod
   mail:
-    host: localhost
-    port: 25
-    username:
+    host: smtp.qiye.aliyun.com
+    port: 465
+    username: datay@yuyuejia.com.cn
     password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          starttls:
+            enable: false
   thymeleaf:
     cache: true
 

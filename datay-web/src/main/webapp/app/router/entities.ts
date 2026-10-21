@@ -105,6 +105,8 @@ const AppPackageExportPage = () =>
 const AppPackageDetails = () =>
   import("@/entities/app-package/app-package-details.vue");
 
+const AlertCenter = () => import("@/entities/alert-center/alert-center.vue");
+
 // jhipster-needle-add-entity-to-router-import - JHipster will import entities to the router here
 
 export default {
@@ -572,6 +574,12 @@ export default {
       path: "app-package/:packageId/view",
       name: "AppPackageView",
       component: AppPackageDetails,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "alert-center",
+      name: "AlertCenter",
+      component: AlertCenter,
       meta: { authorities: [Authority.USER] },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here

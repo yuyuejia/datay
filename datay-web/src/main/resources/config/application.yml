@@ -198,7 +198,7 @@ jhipster:
   #   allow-credentials: true
   #   max-age: 1800
   mail:
-    from: datafusion@localhost
+    from: datay@yuyuejia.com.cn
   api-docs:
     default-include-pattern: /api/**
     management-include-pattern: /management/**

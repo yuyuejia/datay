@@ -12,6 +12,7 @@ import { useRouter } from "vue-router";
 import { useLoginModal } from "@/account/login-modal";
 import type AccountService from "@/account/account.service";
 import EntitiesMenu from "@/entities/entities-menu.vue";
+import NotificationBell from "@/core/notification/notification-bell.vue";
 
 import { useStore } from "@/store";
 import TenantSwitchService from "@/account/tenant-switch.service";
@@ -20,6 +21,7 @@ export default defineComponent({
   name: "JhiNavbar",
   components: {
     "entities-menu": EntitiesMenu,
+    "notification-bell": NotificationBell,
   },
   setup() {
     const { showLogin } = useLoginModal();

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      系统租户预置一条任务失败告警规则：
+      - 仅使用内置站内信，不绑定外部通知渠道（channel_ids 为空数组）
+      - 通知 admin 用户（user:admin）
+      - 事件类型为任务失败和任务超时
+    -->
+    <changeSet id="20261022000000-1-seed-system-alert-rule" author="datafusion">
+        <insert tableName="dp_alert_rule">
+            <column name="id" value="019a0f00-0000-7000-8000-000000000001"/>
+            <column name="tenant_id" value="0"/>
+            <column name="name" value="系统任务失败告警"/>
+            <column name="code" value="system_job_failure_alert"/>
+            <column name="source_type" value="JOB"/>
+            <column name="event_type" value="FAILED,TIMEOUT"/>
+            <column name="severity" value="P1"/>
+            <column name="silence_minutes" valueNumeric="30"/>
+            <column name="recipients" value='["user:admin"]'/>
+            <column name="channel_ids" value="[]"/>
+            <column name="is_default" valueBoolean="false"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

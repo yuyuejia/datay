@@ -12,4 +12,9 @@ public class AsyncSyncConfiguration {
     public Executor taskExecutor() {
         return new SyncTaskExecutor();
     }
+
+    @Bean(name = "alertTaskExecutor")
+    public Executor alertTaskExecutor() {
+        return new SyncTaskExecutor();
+    }
 }

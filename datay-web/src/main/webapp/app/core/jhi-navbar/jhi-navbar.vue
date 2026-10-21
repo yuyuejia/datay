@@ -121,6 +121,7 @@
             </template>
           </el-dropdown>
         </li>
+        <notification-bell />
         <li class="nav-item dropdown pointer">
           <el-dropdown trigger="click" id="account-menu" data-cy="accountMenu" @command="goToMenu" popper-class="jh-dropdown-menu">
             <a href="javascript:void(0)" class="nav-link dropdown-toggle">

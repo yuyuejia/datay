@@ -38,6 +38,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u JOIN u.tenants t WHERE t.id = :tenantId")
     Page<User> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
 
+    @Query("SELECT DISTINCT u FROM User u JOIN u.tenants t JOIN u.authorities a WHERE t.id = :tenantId AND a.name = :authority")
+    List<User> findAllByTenantIdAndAuthority(@Param("tenantId") Long tenantId, @Param("authority") String authority);
+
+    @Query("SELECT u FROM User u JOIN u.tenants t WHERE u.login = :login AND t.id = :tenantId")
+    Optional<User> findByLoginAndTenantId(@Param("login") String login, @Param("tenantId") Long tenantId);
+
     @Query("SELECT COUNT(u) FROM User u JOIN u.authorities a WHERE a.name = :name")
     long countByAuthoritiesName(@Param("name") String name);
 }

@@ -1,12 +1,10 @@
 package com.data.datafusion.service.jobevent;
 
-import com.data.datafusion.domain.JobDepend;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
-import com.data.datafusion.service.JobDependService;
 import com.data.datafusion.service.JobInstanceService;
+import com.data.datafusion.service.alert.AlertEventService;
 import com.data.datafusion.util.SpringUtils;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,11 +26,20 @@ public class JobStatusEventHandler implements Runnable {
                     latestJobInstance.setEndTime(String.valueOf(event.getEndTime()));
                 } else {
                     latestJobInstance.setExecNode(event.getJobInstance().getExecNode());
-                    latestJobInstance.setStatus(event.getJobInstance().getStatus());
+                    // 事件中的 JobInstance 会被执行线程复用并继续修改，状态必须以事件快照为准，
+                    // 否则 RUNNING 事件可能被读成 FAILED，导致告警重复累计。
+                    String eventStatus = event.getStatus() == null ? event.getJobInstance().getStatus() : event.getStatus();
+                    latestJobInstance.setStatus(eventStatus);
                     latestJobInstance.setStartTime(event.getJobInstance().getStartTime());
                     latestJobInstance.setEndTime(event.getJobInstance().getEndTime());
                 }
                 jobInstanceService.save(latestJobInstance);
+                try {
+                    SpringUtils.getBean(AlertEventService.class).onJobInstanceStatus(latestJobInstance);
+                } catch (Exception e) {
+                    // 告警是旁路能力，任何异常都不能影响任务状态事件循环。
+                    log.error("Failed to submit alert event for instance {}", latestJobInstance.getInstanceCode(), e);
+                }
             }
 
             log.info(

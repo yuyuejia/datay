@@ -11,6 +11,9 @@
   <el-dropdown-item command="/job-instance">
     <span>任务实例</span>
   </el-dropdown-item>
+  <el-dropdown-item command="/alert-center">
+    <span>告警中心</span>
+  </el-dropdown-item>
 
   <!-- jhipster-needle-add-entity-to-menu - JHipster will add entities to the menu here -->
 </template>

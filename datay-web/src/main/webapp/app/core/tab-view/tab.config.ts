@@ -40,6 +40,7 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   DagJob: { path: '/dag-job', title: '任务编排', componentName: 'DagJob', closable: true },
   ShellJob: { path: '/shell-job', title: 'Shell 任务', componentName: 'ShellJob', closable: true },
   JobInstance: { path: '/job-instance', title: '任务实例', componentName: 'JobInstance', closable: true },
+  AlertCenter: { path: '/alert-center', title: '告警中心', componentName: 'AlertCenter', closable: true },
   // 数据应用
   MetricAi: { path: '/metric-ai', title: '智能问数', componentName: 'MetricAi', closable: true },
   DataApi: { path: '/data-api', title: 'API 服务', componentName: 'DataApi', closable: true },
