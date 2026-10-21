@@ -99,6 +99,23 @@
           </el-dropdown>
         </li>
         <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="ops-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
+              <span class="no-bold">任务运维</span>
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/job-instance">
+                  <span>任务实例</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/alert-center">
+                  <span>告警中心</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
           <el-dropdown trigger="click" id="application-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
             <a href="javascript:void(0)" class="nav-link dropdown-toggle">
               <span class="no-bold">数据应用</span>
@@ -202,7 +219,7 @@
 }
 
 .jh-navbar .navbar-nav .nav-item {
-  margin-left: 1.5rem;
+  margin-left: 0.8rem;
 }
 
 .jh-navbar a.nav-link,

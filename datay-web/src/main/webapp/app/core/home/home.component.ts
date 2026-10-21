@@ -132,7 +132,7 @@ export default defineComponent({
       },
     );
 
-    /** 全新租户（既没有数据源也没有数据模型）时，引导去应用市场初始化数据应用。 */
+    /** 全新租户（既没有数据源也没有数据模型）时，在刷新按钮左侧显示应用市场入口。 */
     const showMarketCta = computed(() => stats.value.dataSourceCount === 0 && stats.value.dataModelCount === 0);
 
     const guideSteps = computed(() => [
