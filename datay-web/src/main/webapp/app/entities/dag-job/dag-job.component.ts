@@ -101,16 +101,22 @@ export default defineComponent({
 
     const handleOnline = (job: IJob) => {
       onlineTask.value = job;
-      onlineModal.value?.show(job.cron || "", job.retryCount ?? 0, job.timeoutSeconds ?? 0);
+      onlineModal.value?.show(job.cron || "", job.retryCount ?? 0, job.timeoutSeconds ?? 0, job.priority ?? 2);
     };
 
-    const confirmOnline = async (payload: { cron: string; retryCount: number; timeoutSeconds: number }) => {
+    const confirmOnline = async (payload: { cron: string; retryCount: number; timeoutSeconds: number; priority: number }) => {
       if (!onlineTask.value?.id) {
         return;
       }
       isOnlineSubmitting.value = true;
       try {
-        await dagJobService().online(onlineTask.value.id, payload.cron, payload.retryCount, payload.timeoutSeconds);
+        await dagJobService().online(
+          onlineTask.value.id,
+          payload.cron,
+          payload.retryCount,
+          payload.timeoutSeconds,
+          payload.priority,
+        );
         alertService.showInfo(`编排 ${onlineTask.value.jobName} 已上线调度`);
         onlineModal.value?.hide();
         await retrieveDagJobs();

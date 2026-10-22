@@ -32,6 +32,8 @@ public class ETLTaskDTO implements Serializable {
 
     private Integer timeoutSeconds;
 
+    private Integer priority;
+
     private String jobContext;
 
     private String status;
@@ -132,6 +134,14 @@ public class ETLTaskDTO implements Serializable {
 
     public void setTimeoutSeconds(Integer timeoutSeconds) {
         this.timeoutSeconds = timeoutSeconds;
+    }
+
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 
     public String getJobContext() {
@@ -241,6 +251,7 @@ public class ETLTaskDTO implements Serializable {
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +
             ", timeoutSeconds=" + getTimeoutSeconds() +
+            ", priority=" + getPriority() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", lastStatus='" + getLastStatus() + "'" +

@@ -33,6 +33,15 @@
           <el-input-number v-model="timeoutSecondsValue" :min="0" :max="604800" :step="60" controls-position="right" />
           <span class="online-policy-tip">0 表示不限制，每次尝试单独计时</span>
         </div>
+        <div class="online-policy-field">
+          <label class="online-cron-label">优先级</label>
+          <el-radio-group v-model="priorityValue">
+            <el-radio-button :value="3">高</el-radio-button>
+            <el-radio-button :value="2">中</el-radio-button>
+            <el-radio-button :value="1">低</el-radio-button>
+          </el-radio-group>
+          <span class="online-policy-tip">仅影响排队顺序，不抢占正在执行的任务</span>
+        </div>
       </div>
       <p class="text-muted online-cron-tip">{{ tip }}</p>
     </div>
@@ -79,6 +88,10 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  priority: {
+    type: Number,
+    default: 2,
+  },
   loading: {
     type: Boolean,
     default: false,
@@ -95,6 +108,7 @@ const modal = ref<any>(null);
 const cronValue = ref('');
 const retryCountValue = ref(0);
 const timeoutSecondsValue = ref(0);
+const priorityValue = ref(2);
 
 /** Cron 表达式基础校验：6 段或 7 段。 */
 const cronValid = computed(() => {
@@ -109,13 +123,17 @@ const policyValid = computed(
     retryCountValue.value <= 10 &&
     Number.isInteger(timeoutSecondsValue.value) &&
     timeoutSecondsValue.value >= 0 &&
-    timeoutSecondsValue.value <= 604800,
+    timeoutSecondsValue.value <= 604800 &&
+    Number.isInteger(priorityValue.value) &&
+    priorityValue.value >= 1 &&
+    priorityValue.value <= 3,
 );
 
-const show = (initialCron?: string, initialRetryCount?: number, initialTimeoutSeconds?: number) => {
+const show = (initialCron?: string, initialRetryCount?: number, initialTimeoutSeconds?: number, initialPriority?: number) => {
   cronValue.value = initialCron ?? props.cron ?? '';
   retryCountValue.value = initialRetryCount ?? props.retryCount ?? 0;
   timeoutSecondsValue.value = initialTimeoutSeconds ?? props.timeoutSeconds ?? 0;
+  priorityValue.value = initialPriority ?? props.priority ?? 2;
   modal.value?.show();
 };
 
@@ -131,6 +149,7 @@ const onConfirm = () => {
     cron: cronValue.value.trim(),
     retryCount: retryCountValue.value,
     timeoutSeconds: timeoutSecondsValue.value,
+    priority: priorityValue.value,
   });
 };
 

@@ -51,6 +51,9 @@ public class ETLTask implements Serializable, TenantAware {
     @Column(name = "timeout_seconds", nullable = false)
     private Integer timeoutSeconds = 0;
 
+    @Column(name = "priority", nullable = false)
+    private Integer priority = 2;
+
     @Column(name = "job_context")
     private String jobContext;
 
@@ -210,6 +213,19 @@ public class ETLTask implements Serializable, TenantAware {
         this.timeoutSeconds = timeoutSeconds;
     }
 
+    public Integer getPriority() {
+        return this.priority;
+    }
+
+    public ETLTask priority(Integer priority) {
+        this.setPriority(priority);
+        return this;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
+    }
+
     public String getJobContext() {
         return this.jobContext;
     }
@@ -360,6 +376,7 @@ public class ETLTask implements Serializable, TenantAware {
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +
             ", timeoutSeconds=" + getTimeoutSeconds() +
+            ", priority=" + getPriority() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", lastStatus='" + getLastStatus() + "'" +

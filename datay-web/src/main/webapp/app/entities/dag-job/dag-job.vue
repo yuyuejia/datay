@@ -68,6 +68,33 @@
           </template>
         </el-table-column>
         <el-table-column
+          prop="priority"
+          label="优先级"
+          sortable="custom"
+          width="90"
+        >
+          <template #default="scope">
+            <el-tag
+              size="small"
+              :type="
+                scope.row.priority === 3
+                  ? 'danger'
+                  : scope.row.priority === 1
+                    ? 'info'
+                    : 'primary'
+              "
+            >
+              {{
+                scope.row.priority === 3
+                  ? "高"
+                  : scope.row.priority === 1
+                    ? "低"
+                    : "中"
+              }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
           prop="updateTime"
           label="更新时间"
           sortable="custom"
@@ -148,6 +175,7 @@
       :cron="onlineTask?.cron"
       :retry-count="onlineTask?.retryCount ?? 0"
       :timeout-seconds="onlineTask?.timeoutSeconds ?? 0"
+      :priority="onlineTask?.priority ?? 2"
       :loading="isOnlineSubmitting"
       @confirm="confirmOnline"
     />

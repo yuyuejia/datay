@@ -61,6 +61,7 @@ class ETLTaskTransferServiceTest {
         dto.setTaskName("订单同步");
         dto.setTaskCode("order_sync");
         dto.setCron("0 0 * * * ?");
+        dto.setPriority(TaskConstants.PRIORITY_HIGH);
         dto.setNodes(List.of(node("n1", "SqlInput", "{\"sourceId\":\"ds-1\"}")));
         dto.setEdges(List.of());
         when(eTLTaskService.findOne("task-1")).thenReturn(Optional.of(dto));
@@ -76,6 +77,7 @@ class ETLTaskTransferServiceTest {
 
         assertThat(transfer.task.taskCode).isEqualTo("order_sync");
         assertThat(transfer.task.cron).isEqualTo("0 0 * * * ?");
+        assertThat(transfer.task.priority).isEqualTo(TaskConstants.PRIORITY_HIGH);
         assertThat(transfer.references.dataSources).hasSize(1);
         assertThat(transfer.references.dataSources.get(0).name).isEqualTo("生产库");
         assertThat(transfer.references.dataSources.get(0).url).isEqualTo("jdbc:mysql://localhost:3306/db");
@@ -88,6 +90,7 @@ class ETLTaskTransferServiceTest {
         task.taskName = "订单同步";
         task.taskCode = "order_sync";
         task.cron = "0 0 * * * ?";
+        task.priority = TaskConstants.PRIORITY_LOW;
         task.nodes = List.of(transferNode("n1", "SqlInput", "{\"sourceId\":\"ds-1\",\"modelId\":\"m-1\"}"));
         task.edges = List.of();
         transfer.task = task;
@@ -144,6 +147,7 @@ class ETLTaskTransferServiceTest {
         ETLTaskDTO saved = captor.getValue();
         assertThat(saved.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_OFFLINE);
         assertThat(saved.getCron()).isEqualTo("0 0 * * * ?");
+        assertThat(saved.getPriority()).isEqualTo(TaskConstants.PRIORITY_LOW);
         JsonNode config = AppPackageJson.mapper().readTree(saved.getNodes().get(0).getConfig());
         assertThat(config.get("sourceId").asText()).isEqualTo("ds-new");
         assertThat(config.get("modelId").asText()).isEqualTo("m-new");

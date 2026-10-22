@@ -46,6 +46,13 @@
             </span>
           </template>
         </el-table-column>
+        <el-table-column prop="priority" label="优先级" sortable="custom" width="90">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'">
+              {{ scope.row.priority === 3 ? '高' : scope.row.priority === 1 ? '低' : '中' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="160">
           <template #default="scope">
             {{ formatDateShort(scope.row.updateTime) || '' }}
@@ -152,6 +159,15 @@
             <label class="online-cron-label">超时时间（秒）</label>
             <el-input-number v-model="onlineTimeoutSeconds" :min="0" :max="604800" :step="60" controls-position="right" />
             <span class="online-policy-tip">0 表示不限制，每次尝试单独计时</span>
+          </div>
+          <div class="online-policy-field">
+            <label class="online-cron-label">优先级</label>
+            <el-radio-group v-model="onlinePriority">
+              <el-radio-button :value="3">高</el-radio-button>
+              <el-radio-button :value="2">中</el-radio-button>
+              <el-radio-button :value="1">低</el-radio-button>
+            </el-radio-group>
+            <span class="online-policy-tip">仅影响排队顺序，不抢占正在执行的任务</span>
           </div>
         </div>
         <p class="text-muted online-cron-tip">任务上线后将按该 Cron 表达式自动调度，如需调整可在此修改。</p>

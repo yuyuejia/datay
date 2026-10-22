@@ -89,6 +89,7 @@ public class JobService {
         jobInstance.setTenantId(job.getTenantId());
         jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
         jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
+        jobInstance.setPriority(TaskConstants.isValidPriority(job.getPriority()) ? job.getPriority() : TaskConstants.DEFAULT_PRIORITY);
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {
@@ -210,7 +211,7 @@ public class JobService {
 
     /**
      * 更新任务时，编辑页不再提交调度设置。对于未提交的字段沿用数据库中的现有配置，
-     * 避免仅修改任务内容时把已配置的 Cron、重试次数或超时时间清空。
+     * 避免仅修改任务内容时把已配置的 Cron、重试次数、超时时间或优先级清空。
      */
     private void preserveSchedulingFromExisting(JobDTO jobDTO) {
         if (jobDTO.getId() == null) {
@@ -225,6 +226,9 @@ public class JobService {
                 if (jobDTO.getTimeoutSeconds() == null) {
                     jobDTO.setTimeoutSeconds(existing.getTimeoutSeconds());
                 }
+                if (jobDTO.getPriority() == null) {
+                    jobDTO.setPriority(existing.getPriority());
+                }
                 if (!StringUtils.hasText(jobDTO.getCron())) {
                     jobDTO.setCron(existing.getCron());
                 }
@@ -238,6 +242,9 @@ public class JobService {
         if (jobDTO.getTimeoutSeconds() == null) {
             jobDTO.setTimeoutSeconds(0);
         }
+        if (!TaskConstants.isValidPriority(jobDTO.getPriority())) {
+            jobDTO.setPriority(TaskConstants.DEFAULT_PRIORITY);
+        }
     }
 
     private void normalizeScheduling(Job job) {
@@ -246,6 +253,9 @@ public class JobService {
         }
         if (job.getTimeoutSeconds() == null) {
             job.setTimeoutSeconds(0);
+        }
+        if (!TaskConstants.isValidPriority(job.getPriority())) {
+            job.setPriority(TaskConstants.DEFAULT_PRIORITY);
         }
     }
 }

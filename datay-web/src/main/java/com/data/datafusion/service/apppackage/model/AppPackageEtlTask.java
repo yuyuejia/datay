@@ -38,6 +38,8 @@ public class AppPackageEtlTask {
 
     public Integer timeoutSeconds;
 
+    public Integer priority;
+
     public String project;
 
     public List<AppPackageEtlNode> nodes = new ArrayList<>();

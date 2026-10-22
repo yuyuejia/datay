@@ -47,11 +47,26 @@ export interface IAppPackageContent {
     cron?: string | null;
     retryCount?: number | null;
     timeoutSeconds?: number | null;
+    priority?: number | null;
     nodes?: unknown[];
     edges?: unknown[];
   }>;
-  sqlJobs?: Array<{ oldId?: string; jobName?: string; cron?: string; retryCount?: number | null; timeoutSeconds?: number | null }>;
-  dagJobs?: Array<{ oldId?: string; jobName?: string; cron?: string; retryCount?: number | null; timeoutSeconds?: number | null }>;
+  sqlJobs?: Array<{
+    oldId?: string;
+    jobName?: string;
+    cron?: string;
+    retryCount?: number | null;
+    timeoutSeconds?: number | null;
+    priority?: number | null;
+  }>;
+  dagJobs?: Array<{
+    oldId?: string;
+    jobName?: string;
+    cron?: string;
+    retryCount?: number | null;
+    timeoutSeconds?: number | null;
+    priority?: number | null;
+  }>;
   otherJobs?: Array<{ oldId?: string; jobName?: string; type?: string }>;
   jobDepends?: unknown[];
   summary?: Record<string, number>;

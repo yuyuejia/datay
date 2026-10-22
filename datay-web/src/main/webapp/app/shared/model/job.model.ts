@@ -6,6 +6,7 @@ export interface IJob {
   cron?: string | null;
   retryCount?: number | null;
   timeoutSeconds?: number | null;
+  priority?: number | null;
   jobContext?: string | null;
   status?: string | null;
   updateTime?: Date | null;
@@ -29,5 +30,6 @@ export class Job implements IJob {
     public tenantId?: string | null,
     public retryCount?: number | null,
     public timeoutSeconds?: number | null,
+    public priority?: number | null,
   ) {}
 }

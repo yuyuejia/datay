@@ -139,10 +139,10 @@ export default class ETLTaskService {
     });
   }
 
-  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number): Promise<IETLTask> {
+  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number, priority?: number): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
-        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds } })
+        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
         .then(res => {
           resolve(res.data);
         })

@@ -31,6 +31,8 @@ public class AppPackageJob {
 
     public Integer timeoutSeconds;
 
+    public Integer priority;
+
     public JsonNode jobContext;
 
     public String status;

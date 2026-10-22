@@ -93,6 +93,7 @@ public class ETLTaskTransferService {
         task.cron = dto.getCron();
         task.retryCount = dto.getRetryCount();
         task.timeoutSeconds = dto.getTimeoutSeconds();
+        task.priority = dto.getPriority();
         task.project = dto.getProject();
         task.nodes =
             dto.getNodes() == null
@@ -148,6 +149,7 @@ public class ETLTaskTransferService {
         dto.setCron(item.cron);
         dto.setRetryCount(item.retryCount);
         dto.setTimeoutSeconds(item.timeoutSeconds);
+        dto.setPriority(TaskConstants.isValidPriority(item.priority) ? item.priority : TaskConstants.DEFAULT_PRIORITY);
         dto.setProject(item.project);
         dto.setDr(0);
         dto.setStatus(TaskConstants.TASK_STATUS_OFFLINE);

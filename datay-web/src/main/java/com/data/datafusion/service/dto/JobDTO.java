@@ -24,6 +24,8 @@ public class JobDTO implements Serializable {
 
     private Integer timeoutSeconds;
 
+    private Integer priority;
+
     private String jobContext;
 
     private String status;
@@ -90,6 +92,14 @@ public class JobDTO implements Serializable {
 
     public void setTimeoutSeconds(Integer timeoutSeconds) {
         this.timeoutSeconds = timeoutSeconds;
+    }
+
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 
     public String getJobContext() {
@@ -172,6 +182,7 @@ public class JobDTO implements Serializable {
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +
             ", timeoutSeconds=" + getTimeoutSeconds() +
+            ", priority=" + getPriority() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", updateTime='" + getUpdateTime() + "'" +

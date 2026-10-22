@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261024000000-1" author="datay">
+        <addColumn tableName="dp_job">
+            <column name="priority" type="int" defaultValueNumeric="2">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="dp_etl_task">
+            <column name="priority" type="int" defaultValueNumeric="2">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="dp_job_instance">
+            <column name="priority" type="int" defaultValueNumeric="2">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

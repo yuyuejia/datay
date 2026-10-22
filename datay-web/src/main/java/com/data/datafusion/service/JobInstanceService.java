@@ -262,10 +262,13 @@ public class JobInstanceService {
         Flow flow = JSONObject.parseObject(jobInstance.getJobContext(), Flow.class);
         FlowInstance flowInstance = new FlowInstance();
         flowInstance.setJobDepends(flow.getJobDepends());
+        int parentPriority = normalizePriority(jobInstance.getPriority());
         for (Job job : flow.getJobs()) {
             JobInstance subJobInstance = buildJobInstance(job.getId());
             subJobInstance.setSubJob(true);
             subJobInstance.setParentInstanceCode(jobInstance.getInstanceCode());
+            // DAG 以父任务优先级为准，子任务统一继承，避免节点优先级影响整体编排调度。
+            subJobInstance.setPriority(parentPriority);
             subJobInstance.setStatus(TaskConstants.TASK_STATUS_APPENDING);
             subJobInstance.setCreateTime(ZonedDateTime.now());
             save(subJobInstance);
@@ -324,6 +327,7 @@ public class JobInstanceService {
         jobInstance.setTenantId(job.getTenantId());
         jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
         jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
+        jobInstance.setPriority(normalizePriority(job.getPriority()));
         if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
         }else {
@@ -340,5 +344,10 @@ public class JobInstanceService {
         if (jobInstance.getTimeoutSeconds() == null) {
             jobInstance.setTimeoutSeconds(0);
         }
+        jobInstance.setPriority(normalizePriority(jobInstance.getPriority()));
+    }
+
+    private int normalizePriority(Integer priority) {
+        return TaskConstants.isValidPriority(priority) ? priority : TaskConstants.DEFAULT_PRIORITY;
     }
 }

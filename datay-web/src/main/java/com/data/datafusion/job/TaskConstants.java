@@ -38,5 +38,28 @@ public final class TaskConstants {
     /** 任务超时时间上限：7 天（秒）。 */
     public static final int MAX_TIMEOUT_SECONDS = 7 * 24 * 60 * 60;
 
+    /** 任务优先级：低。 */
+    public static final int PRIORITY_LOW = 1;
+
+    /** 任务优先级：中（默认）。 */
+    public static final int PRIORITY_NORMAL = 2;
+
+    /** 任务优先级：高。 */
+    public static final int PRIORITY_HIGH = 3;
+
+    /** 默认任务优先级。 */
+    public static final int DEFAULT_PRIORITY = PRIORITY_NORMAL;
+
+    /** 任务优先级最小值。 */
+    public static final int MIN_PRIORITY = PRIORITY_LOW;
+
+    /** 任务优先级最大值。 */
+    public static final int MAX_PRIORITY = PRIORITY_HIGH;
+
+    /** 判断优先级是否在合法范围内。 */
+    public static boolean isValidPriority(Integer priority) {
+        return priority != null && priority >= MIN_PRIORITY && priority <= MAX_PRIORITY;
+    }
+
     private TaskConstants() {}
 }

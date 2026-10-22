@@ -12,6 +12,7 @@ import com.data.datafusion.security.TenantContext;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,12 @@ public class StartJobEventHandler implements Runnable {
 
     public static int WORK_THREAD_COUNT = 100;
 
+    /** 待执行队列容量，避免一次性从事件队列取走过多任务。 */
+    public static final int JOB_QUEUE_CAPACITY = 1000;
+
+    /** 同优先级任务按提交顺序执行。 */
+    private final AtomicLong submitSequence = new AtomicLong();
+
     // 任务跟踪映射：instanceCode -> 任务执行信息
     public static final Map<String, TaskExecutionInfo> runningTasks = new ConcurrentHashMap<>();
 
@@ -34,7 +41,7 @@ public class StartJobEventHandler implements Runnable {
         // 创建可配置的线程池，支持任务停止和状态监控
         int corePoolSize = WORK_THREAD_COUNT;
         int maxPoolSize = WORK_THREAD_COUNT;
-        int queueCapacity = 1000;
+        int queueCapacity = JOB_QUEUE_CAPACITY;
         long keepAliveTime = 60L;
 
         this.jobExecutor = new ThreadPoolExecutor(
@@ -42,7 +49,7 @@ public class StartJobEventHandler implements Runnable {
             maxPoolSize,
             keepAliveTime,
             TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(queueCapacity),
+            new PriorityBlockingQueue<>(queueCapacity, PrioritizedFutureTask::compare),
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
     }
@@ -51,11 +58,10 @@ public class StartJobEventHandler implements Runnable {
     public void run() {
         while (true) {
             try {
-                // 检查线程池是否有空闲容量
+                // 队列未满时继续接收任务，使待执行任务进入优先级队列排序。
                 if (!hasAvailableCapacity()) {
-                    // 线程池已满，等待一段时间再检查
                     log.debug(
-                        "线程池已满，等待空闲容量... 当前活跃线程: {}, 队列大小: {}",
+                        "任务队列已满，等待空闲容量... 当前活跃线程: {}, 队列大小: {}",
                         jobExecutor.getActiveCount(),
                         jobExecutor.getQueue().size()
                     );
@@ -63,7 +69,7 @@ public class StartJobEventHandler implements Runnable {
                     continue;
                 }
 
-                // 线程池有空闲，获取任务
+                // 获取任务
                 JobStatusEvent event = EventServiceFactory.getEventService().takeStartJobEvent();
                 event.getJobInstance().setExecNode(EXECNODE);
 
@@ -72,13 +78,20 @@ public class StartJobEventHandler implements Runnable {
                 // 记录任务执行信息。真正的任务执行器在每次重试时创建，便于超时/停止时操作当前尝试。
                 TaskExecutionInfo taskInfo = new TaskExecutionInfo(event.getJobInstance());
                 runningTasks.put(instanceCode, taskInfo);
-                Future<String> future = jobExecutor.submit(new TaskCallable(event, taskInfo));
-                taskInfo.setFuture(future);
+                int priority = normalizePriority(event.getJobInstance().getPriority());
+                PrioritizedFutureTask futureTask = new PrioritizedFutureTask(
+                    new TaskCallable(event, taskInfo),
+                    priority,
+                    submitSequence.incrementAndGet()
+                );
+                jobExecutor.execute(futureTask);
+                taskInfo.setFuture(futureTask);
 
                 log.info(
-                    "任务已提交执行: instanceCode={}, jobCode={}, 当前活跃线程: {}, 队列大小: {}",
+                    "任务已提交执行: instanceCode={}, jobCode={}, priority={}, 当前活跃线程: {}, 队列大小: {}",
                     instanceCode,
                     event.getJobInstance().getJobCode(),
+                    priority,
                     jobExecutor.getActiveCount(),
                     jobExecutor.getQueue().size()
                 );
@@ -89,13 +102,15 @@ public class StartJobEventHandler implements Runnable {
     }
 
     /**
-     * 检查线程池是否有空闲容量
-     * @return true表示有空闲容量，可以接受新任务
+     * 检查执行队列是否还有容量。
+     * @return true表示可以继续接收新任务
      */
     private boolean hasAvailableCapacity() {
-        // 如果队列还有剩余容量，说明可以接受新任务
-        int activeCount = jobExecutor.getActiveCount();
-        return activeCount < WORK_THREAD_COUNT;
+        return jobExecutor.getQueue().size() < JOB_QUEUE_CAPACITY;
+    }
+
+    private static int normalizePriority(Integer priority) {
+        return TaskConstants.isValidPriority(priority) ? priority : TaskConstants.DEFAULT_PRIORITY;
     }
 
     /**

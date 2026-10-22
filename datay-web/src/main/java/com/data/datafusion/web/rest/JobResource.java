@@ -205,6 +205,7 @@ public class JobResource {
      * @param cron optional schedule cycle (Cron expression) applied before going online.
      * @param retryCount optional retry count applied before going online.
      * @param timeoutSeconds optional timeout seconds applied before going online.
+     * @param priority optional priority applied before going online.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated jobDTO.
      */
     @PostMapping("/{id}/online")
@@ -212,15 +213,23 @@ public class JobResource {
         @PathVariable("id") String id,
         @RequestParam(value = "cron", required = false) String cron,
         @RequestParam(value = "retryCount", required = false) Integer retryCount,
-        @RequestParam(value = "timeoutSeconds", required = false) Integer timeoutSeconds
+        @RequestParam(value = "timeoutSeconds", required = false) Integer timeoutSeconds,
+        @RequestParam(value = "priority", required = false) Integer priority
     ) {
-        LOG.debug("REST request to online Job : {}, cron : {}, retryCount : {}, timeoutSeconds : {}", id, cron, retryCount, timeoutSeconds);
+        LOG.debug(
+            "REST request to online Job : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}",
+            id,
+            cron,
+            retryCount,
+            timeoutSeconds,
+            priority
+        );
         Job job = jobService.findOneJob(id).orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
         String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
         if (normalizedCron != null && !CronExpression.isValidExpression(normalizedCron)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "调度周期（Cron 表达式）不合法: " + normalizedCron);
         }
-        validateScheduling(retryCount, timeoutSeconds);
+        validateScheduling(retryCount, timeoutSeconds, priority);
         if (normalizedCron != null) {
             job.setCron(normalizedCron);
         }
@@ -229,6 +238,9 @@ public class JobResource {
         }
         if (timeoutSeconds != null) {
             job.setTimeoutSeconds(timeoutSeconds);
+        }
+        if (priority != null) {
+            job.setPriority(priority);
         }
         jobService.online(job, false);
         JobDTO updated = jobService.findOne(id).get();
@@ -256,12 +268,18 @@ public class JobResource {
             .body(updated);
     }
 
-    private void validateScheduling(Integer retryCount, Integer timeoutSeconds) {
+    private void validateScheduling(Integer retryCount, Integer timeoutSeconds, Integer priority) {
         if (retryCount != null && (retryCount < 0 || retryCount > TaskConstants.MAX_RETRY_COUNT)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "重试次数必须在 0-" + TaskConstants.MAX_RETRY_COUNT + " 之间");
         }
         if (timeoutSeconds != null && (timeoutSeconds < 0 || timeoutSeconds > TaskConstants.MAX_TIMEOUT_SECONDS)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "超时时间必须在 0-" + TaskConstants.MAX_TIMEOUT_SECONDS + " 秒之间");
+        }
+        if (priority != null && !TaskConstants.isValidPriority(priority)) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "优先级必须在 " + TaskConstants.MIN_PRIORITY + "-" + TaskConstants.MAX_PRIORITY + " 之间"
+            );
         }
     }
 }

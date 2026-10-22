@@ -180,6 +180,9 @@ public class ETLTaskService {
         job.setCron(eTLTaskDTO.getCron());
         job.setRetryCount(eTLTaskDTO.getRetryCount() == null ? 0 : eTLTaskDTO.getRetryCount());
         job.setTimeoutSeconds(eTLTaskDTO.getTimeoutSeconds() == null ? 0 : eTLTaskDTO.getTimeoutSeconds());
+        job.setPriority(
+            TaskConstants.isValidPriority(eTLTaskDTO.getPriority()) ? eTLTaskDTO.getPriority() : TaskConstants.DEFAULT_PRIORITY
+        );
         job.setStatus(eTLTaskDTO.getStatus());
         job.setJobContext(generateETLJobJson(eTLTaskDTO));
         job.setCreateTime(eTLTaskDTO.getCreateTime());
@@ -366,27 +369,39 @@ public class ETLTaskService {
      * @return 更新后的ETLTaskDTO
      */
     public ETLTaskDTO online(String id) {
-        return online(id, null, null, null);
+        return online(id, null, null, null, null);
     }
 
     public ETLTaskDTO online(String id, String cron) {
-        return online(id, cron, null, null);
+        return online(id, cron, null, null, null);
+    }
+
+    public ETLTaskDTO online(String id, String cron, Integer retryCount, Integer timeoutSeconds) {
+        return online(id, cron, retryCount, timeoutSeconds, null);
     }
 
     /**
      * 将ETLTask设置为在线状态，并按指定（或任务已有的）调度配置加入调度。
      *
-     * <p>上线时允许同时更新任务的 Cron、重试次数和超时时间：任务与对应 Job 会一并保存，
+     * <p>上线时允许同时更新任务的 Cron、重试次数、超时时间和优先级：任务与对应 Job 会一并保存，
      * 避免只改了任务定义、Job 仍使用旧配置的情况。
      *
      * @param id             ETLTask的ID
      * @param cron           新的 Cron 表达式，为空时沿用任务已有配置
      * @param retryCount     新的重试次数，为 null 时沿用任务已有配置
      * @param timeoutSeconds 新的超时时间（秒），为 null 时沿用任务已有配置
+     * @param priority       新的优先级，为 null 时沿用任务已有配置
      * @return 更新后的ETLTaskDTO
      */
-    public ETLTaskDTO online(String id, String cron, Integer retryCount, Integer timeoutSeconds) {
-        LOG.debug("Request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}", id, cron, retryCount, timeoutSeconds);
+    public ETLTaskDTO online(String id, String cron, Integer retryCount, Integer timeoutSeconds, Integer priority) {
+        LOG.debug(
+            "Request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}",
+            id,
+            cron,
+            retryCount,
+            timeoutSeconds,
+            priority
+        );
         return eTLTaskRepository
             .findById(id)
             .map(etlTask -> {
@@ -399,8 +414,14 @@ public class ETLTaskService {
                 int effectiveTimeoutSeconds = timeoutSeconds != null
                     ? timeoutSeconds
                     : (etlTask.getTimeoutSeconds() == null ? 0 : etlTask.getTimeoutSeconds());
+                int effectivePriority = TaskConstants.isValidPriority(priority)
+                    ? priority
+                    : (TaskConstants.isValidPriority(etlTask.getPriority())
+                            ? etlTask.getPriority()
+                            : TaskConstants.DEFAULT_PRIORITY);
                 etlTask.setRetryCount(effectiveRetryCount);
                 etlTask.setTimeoutSeconds(effectiveTimeoutSeconds);
+                etlTask.setPriority(effectivePriority);
 
                 // 更新状态与更新时间
                 etlTask.setStatus(TASK_STATUS_ONLINE);
@@ -416,6 +437,7 @@ public class ETLTaskService {
                 }
                 job.setRetryCount(effectiveRetryCount);
                 job.setTimeoutSeconds(effectiveTimeoutSeconds);
+                job.setPriority(effectivePriority);
                 job.setStatus(TASK_STATUS_ONLINE);
                 job.setUpdateTime(ZonedDateTime.now());
                 jobService.save(job);
@@ -613,6 +635,9 @@ public class ETLTaskService {
                 if (dto.getTimeoutSeconds() == null) {
                     dto.setTimeoutSeconds(existing.getTimeoutSeconds());
                 }
+                if (dto.getPriority() == null) {
+                    dto.setPriority(existing.getPriority());
+                }
                 if (!StringUtils.hasText(dto.getCron())) {
                     dto.setCron(existing.getCron());
                 }
@@ -626,6 +651,9 @@ public class ETLTaskService {
         if (dto.getTimeoutSeconds() == null) {
             dto.setTimeoutSeconds(0);
         }
+        if (!TaskConstants.isValidPriority(dto.getPriority())) {
+            dto.setPriority(TaskConstants.DEFAULT_PRIORITY);
+        }
     }
 
     private void normalizeScheduling(ETLTask etlTask) {
@@ -634,6 +662,9 @@ public class ETLTaskService {
         }
         if (etlTask.getTimeoutSeconds() == null) {
             etlTask.setTimeoutSeconds(0);
+        }
+        if (!TaskConstants.isValidPriority(etlTask.getPriority())) {
+            etlTask.setPriority(TaskConstants.DEFAULT_PRIORITY);
         }
     }
 }

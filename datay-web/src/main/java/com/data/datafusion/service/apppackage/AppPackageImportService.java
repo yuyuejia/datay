@@ -799,6 +799,7 @@ public class AppPackageImportService {
             dto.setCron(item.cron);
             dto.setRetryCount(item.retryCount);
             dto.setTimeoutSeconds(item.timeoutSeconds);
+            dto.setPriority(TaskConstants.isValidPriority(item.priority) ? item.priority : TaskConstants.DEFAULT_PRIORITY);
             dto.setProject(item.project);
             dto.setDr(0);
             dto.setNodes(nonNull(item.nodes).stream().map(node -> toNodeDto(node, dataSourceMap, modelMap, result)).toList());
@@ -953,6 +954,7 @@ public class AppPackageImportService {
             job.setCron(item.cron);
             job.setRetryCount(item.retryCount == null ? 0 : item.retryCount);
             job.setTimeoutSeconds(item.timeoutSeconds == null ? 0 : item.timeoutSeconds);
+            job.setPriority(TaskConstants.isValidPriority(item.priority) ? item.priority : TaskConstants.DEFAULT_PRIORITY);
             job.setJobContext(context == null ? null : context.toString());
             job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
             job.setProject(item.project);
@@ -1086,6 +1088,7 @@ public class AppPackageImportService {
         job.setCron(item.cron);
         job.setRetryCount(item.retryCount == null ? 0 : item.retryCount);
         job.setTimeoutSeconds(item.timeoutSeconds == null ? 0 : item.timeoutSeconds);
+        job.setPriority(TaskConstants.isValidPriority(item.priority) ? item.priority : TaskConstants.DEFAULT_PRIORITY);
         job.setJobContext(context == null ? null : context.toString());
         job.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
         job.setProject(item.project);

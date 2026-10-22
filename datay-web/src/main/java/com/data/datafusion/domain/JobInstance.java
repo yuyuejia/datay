@@ -42,6 +42,9 @@ public class JobInstance implements Serializable, TenantAware {
     @Column(name = "timeout_seconds", nullable = false)
     private Integer timeoutSeconds = 0;
 
+    @Column(name = "priority", nullable = false)
+    private Integer priority = 2;
+
     @Column(name = "job_context")
     private String jobContext;
 
@@ -165,6 +168,19 @@ public class JobInstance implements Serializable, TenantAware {
 
     public void setTimeoutSeconds(Integer timeoutSeconds) {
         this.timeoutSeconds = timeoutSeconds;
+    }
+
+    public Integer getPriority() {
+        return this.priority;
+    }
+
+    public JobInstance priority(Integer priority) {
+        this.setPriority(priority);
+        return this;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 
     public String getJobContext() {
@@ -314,6 +330,7 @@ public class JobInstance implements Serializable, TenantAware {
             ", type='" + getType() + "'" +
             ", retryCount=" + getRetryCount() +
             ", timeoutSeconds=" + getTimeoutSeconds() +
+            ", priority=" + getPriority() +
             ", jobContext='" + getJobContext() + "'" +
             ", status='" + getStatus() + "'" +
             ", jobMessage='" + getJobMessage() + "'" +

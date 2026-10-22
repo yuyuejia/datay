@@ -6,6 +6,7 @@ export interface IJobInstance {
   type?: string | null;
   retryCount?: number | null;
   timeoutSeconds?: number | null;
+  priority?: number | null;
   jobContext?: string | null;
   status?: string | null;
   jobMessage?: string | null;
@@ -39,5 +40,6 @@ export class JobInstance implements IJobInstance {
     public parentJobName?: string | null,
     public retryCount?: number | null,
     public timeoutSeconds?: number | null,
+    public priority?: number | null,
   ) {}
 }
