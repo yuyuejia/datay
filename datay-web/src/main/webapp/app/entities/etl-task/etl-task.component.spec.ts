@@ -61,7 +61,7 @@ describe('Component Tests', () => {
         expect(comp.eTLTasks[0]).toEqual(expect.objectContaining({ id: 123 }));
       });
 
-      it('should calculate the sort attribute for an id', async () => {
+      it('should use the default update time descending sort', async () => {
         // WHEN
         const wrapper = shallowMount(ETLTask, { global: mountOptions });
         const comp = wrapper.vm;
@@ -69,7 +69,7 @@ describe('Component Tests', () => {
 
         // THEN
         expect(eTLTaskServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['id,asc'],
+          sort: ['updateTime,desc', 'id'],
         });
       });
     });
@@ -129,7 +129,7 @@ describe('Component Tests', () => {
 
         // THEN
         expect(eTLTaskServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['name,asc', 'id'],
+          sort: ['name,desc', 'id'],
         });
       });
 

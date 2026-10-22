@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobDTO;
 import com.data.datafusion.service.mapper.JobMapper;
@@ -98,6 +99,61 @@ class JobServiceTest {
         assertThat(update.getRetryCount()).isZero();
         assertThat(update.getTimeoutSeconds()).isZero();
         assertThat(update.getPriority()).isEqualTo(1);
+    }
+
+    @Test
+    void updateNormalizesInvalidPriorityToDefault() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, jobMapper, mock(JobInstanceService.class));
+
+        Job existing = new Job();
+        existing.setId("job-1");
+        existing.setPriority(3);
+        when(jobRepository.findById("job-1")).thenReturn(Optional.of(existing));
+
+        JobDTO update = new JobDTO();
+        update.setId("job-1");
+        update.setPriority(99);
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId(dto.getId());
+            entity.setPriority(dto.getPriority());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        jobService.update(update);
+
+        assertThat(update.getPriority()).isEqualTo(TaskConstants.DEFAULT_PRIORITY);
+    }
+
+    @Test
+    void saveNormalizesMissingPriorityToDefault() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, jobMapper, mock(JobInstanceService.class));
+
+        JobDTO create = new JobDTO();
+        create.setJobName("new-job");
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId("job-1");
+            entity.setPriority(dto.getPriority());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        jobService.save(create);
+
+        ArgumentCaptor<Job> captor = ArgumentCaptor.forClass(Job.class);
+        verify(jobRepository).save(captor.capture());
+        assertThat(create.getPriority()).isEqualTo(TaskConstants.DEFAULT_PRIORITY);
+        assertThat(captor.getValue().getPriority()).isEqualTo(TaskConstants.DEFAULT_PRIORITY);
     }
 
     @Test

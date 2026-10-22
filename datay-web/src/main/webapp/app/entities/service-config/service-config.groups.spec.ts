@@ -53,7 +53,7 @@ describe('service-config groups', () => {
   });
 
   it('declares the expected groups in order', () => {
-    expect(SERVICE_CONFIG_GROUPS.map(group => group.key)).toEqual(['data-warehouse', 'file-storage', 'status-storage', 'llm']);
+    expect(SERVICE_CONFIG_GROUPS.map(group => group.key)).toEqual(['data-warehouse', 'file-storage', 'status-storage', 'llm', 'decision']);
   });
 
   it('delegates file storage load/save/test', async () => {

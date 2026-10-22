@@ -79,10 +79,12 @@ describe('JhiNavbar', () => {
 
   it('logout should clear credentials', async () => {
     store.setAuthentication({ login: 'test' });
+    const pushSpy = vitest.spyOn(router, 'push').mockResolvedValue(undefined);
 
     await jhiNavbar.logout();
 
     expect(jhiNavbar.authenticated).toBeFalsy();
+    expect(pushSpy).toHaveBeenCalledWith('/login');
   });
 
   it('should determine active route', async () => {

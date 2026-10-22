@@ -136,4 +136,76 @@ class ETLTaskServiceTest {
         assertThat(job.getPriority()).isEqualTo(3);
         org.mockito.Mockito.verify(jobService).online(job, false);
     }
+
+    @Test
+    void onlineKeepsExistingPriorityWhenNotProvided() {
+        ETLTaskRepository etlTaskRepository = mock(ETLTaskRepository.class);
+        ETLTaskMapper etlTaskMapper = mock(ETLTaskMapper.class);
+        JobService jobService = mock(JobService.class);
+        ETLTaskService service = new ETLTaskService(
+            etlTaskRepository,
+            mock(ETLNodeRepository.class),
+            mock(ETLEdgeRepository.class),
+            etlTaskMapper,
+            mock(ETLNodeMapper.class),
+            mock(ETLEdgeMapper.class),
+            jobService,
+            mock(DataSourceService.class),
+            mock(ETLNodeTranslatorRegistry.class)
+        );
+
+        ETLTask existing = new ETLTask();
+        existing.setId("etl-1");
+        existing.setJobId("job-1");
+        existing.setPriority(1);
+        when(etlTaskRepository.findById("etl-1")).thenReturn(Optional.of(existing));
+
+        Job job = new Job();
+        job.setId("job-1");
+        job.setPriority(1);
+        when(jobService.findOneJob("job-1")).thenReturn(Optional.of(job));
+        when(etlTaskRepository.save(any(ETLTask.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(etlTaskMapper.toDto(any(ETLTask.class))).thenReturn(new ETLTaskDTO());
+
+        service.online("etl-1", null, null, null, null);
+
+        assertThat(existing.getPriority()).isEqualTo(1);
+        assertThat(job.getPriority()).isEqualTo(1);
+    }
+
+    @Test
+    void onlineDefaultsToNormalWhenCurrentPriorityIsMissing() {
+        ETLTaskRepository etlTaskRepository = mock(ETLTaskRepository.class);
+        ETLTaskMapper etlTaskMapper = mock(ETLTaskMapper.class);
+        JobService jobService = mock(JobService.class);
+        ETLTaskService service = new ETLTaskService(
+            etlTaskRepository,
+            mock(ETLNodeRepository.class),
+            mock(ETLEdgeRepository.class),
+            etlTaskMapper,
+            mock(ETLNodeMapper.class),
+            mock(ETLEdgeMapper.class),
+            jobService,
+            mock(DataSourceService.class),
+            mock(ETLNodeTranslatorRegistry.class)
+        );
+
+        ETLTask existing = new ETLTask();
+        existing.setId("etl-1");
+        existing.setJobId("job-1");
+        existing.setPriority(null);
+        when(etlTaskRepository.findById("etl-1")).thenReturn(Optional.of(existing));
+
+        Job job = new Job();
+        job.setId("job-1");
+        job.setPriority(null);
+        when(jobService.findOneJob("job-1")).thenReturn(Optional.of(job));
+        when(etlTaskRepository.save(any(ETLTask.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(etlTaskMapper.toDto(any(ETLTask.class))).thenReturn(new ETLTaskDTO());
+
+        service.online("etl-1", null, null, null, null);
+
+        assertThat(existing.getPriority()).isEqualTo(2);
+        assertThat(job.getPriority()).isEqualTo(2);
+    }
 }

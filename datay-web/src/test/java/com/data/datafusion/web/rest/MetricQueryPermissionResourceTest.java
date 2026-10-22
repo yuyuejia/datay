@@ -23,6 +23,7 @@ import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.repository.RoleDataScopeRepository;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
+import com.data.datafusion.service.MetricLineageService;
 import com.data.datafusion.service.MetricQueryService;
 import com.data.datafusion.service.MetricService;
 import com.data.datafusion.service.MetricSqlService;
@@ -64,6 +65,9 @@ class MetricQueryPermissionResourceTest {
 
     @MockitoBean
     private MetricSqlService metricSqlService;
+
+    @MockitoBean
+    private MetricLineageService metricLineageService;
 
     @MockitoBean
     private MetricRepository metricRepository;

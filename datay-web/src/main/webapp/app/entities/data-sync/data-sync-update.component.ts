@@ -46,7 +46,7 @@ export default defineComponent({
         targetDataSourceId.value = res.target;
         dataSync.value = res;
         // 初始化已选中的表
-        if (res.selectedTables) {
+        if (res.selectedTables?.length) {
           selectedTables.value = res.selectedTables;
           sourceSchema.value = res.selectedTables[0].srcSchemaName;
           targetSchema.value = res.selectedTables[0].desSchemaName;
