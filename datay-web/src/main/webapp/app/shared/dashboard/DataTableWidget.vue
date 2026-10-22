@@ -14,7 +14,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { resolveNameField } from "./spec-to-option";
+import { applyDataRefRows, resolveNameField } from "./spec-to-option";
 import type { DashboardWidget, DatasetResult } from "./types";
 
 const props = defineProps<{
@@ -33,7 +33,9 @@ const columns = computed(() => {
     return resolveNameField(column, cols) === column;
   });
 });
-const rows = computed(() => props.result?.rows ?? []);
+const rows = computed(() =>
+  applyDataRefRows(props.widget.dataRef, props.result?.rows ?? []),
+);
 
 // 列名优先显示字段描述，描述为空回退字段名
 const columnLabel = (column: string) =>

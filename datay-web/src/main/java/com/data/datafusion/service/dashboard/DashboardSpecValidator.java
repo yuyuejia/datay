@@ -51,9 +51,11 @@ public class DashboardSpecValidator {
     private static final String BINDING_SQL_PARAM = "sqlParam";
 
     private final ObjectMapper objectMapper;
+    private final AnalysisDatasetResolver datasetResolver;
 
-    public DashboardSpecValidator(ObjectMapper objectMapper) {
+    public DashboardSpecValidator(ObjectMapper objectMapper, AnalysisDatasetResolver datasetResolver) {
         this.objectMapper = objectMapper;
+        this.datasetResolver = datasetResolver;
     }
 
     /**
@@ -116,7 +118,33 @@ public class DashboardSpecValidator {
             }
             Map<String, Object> dataset = new LinkedHashMap<>(item);
             dataset.put("id", id);
-            dataset.putIfAbsent("name", id);
+
+            String refId = asString(dataset.get("refId"));
+            if (refId != null && !refId.isBlank()) {
+                datasetResolver.assertReferenceExists(refId);
+                Map<String, Object> resolved = datasetResolver.resolveDataset(dataset);
+                String type = asString(resolved.get("type"));
+                type = type == null ? DATASET_METRIC : type.trim().toUpperCase();
+                if (!DATASET_METRIC.equals(type) && !DATASET_SQL.equals(type)) {
+                    throw new IllegalArgumentException("不支持的数据集类型：" + type);
+                }
+                dataset.put("refId", refId);
+                if (asString(dataset.get("name")) == null || asString(dataset.get("name")).isBlank()) {
+                    String name = datasetResolver.findName(refId);
+                    if (name != null && !name.isBlank()) {
+                        dataset.put("name", name);
+                    }
+                }
+                dataset.putIfAbsent("name", id);
+                // 引用型数据集只保存别名与引用，定义始终以数据集库为准
+                dataset.remove("metricQuery");
+                dataset.remove("sql");
+                dataset.remove("params");
+                dataset.remove("dataSourceId");
+                datasetTypes.put(id, type);
+                result.add(dataset);
+                continue;
+            }
 
             String type = resolveDatasetType(dataset);
             dataset.put("type", type);
@@ -138,6 +166,7 @@ public class DashboardSpecValidator {
                 metricQuery.putIfAbsent("dimensions", new ArrayList<>());
                 dataset.put("metricQuery", metricQuery);
             }
+            dataset.putIfAbsent("name", id);
             result.add(dataset);
         }
         return result;
@@ -240,7 +269,24 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("不支持的筛选器类型：" + type);
             }
             filter.putIfAbsent("label", id);
-            filter.put("bindings", normalizeBindings(id, type, filter.get("bindings"), datasetIds, datasetTypes));
+            String datasetId = asString(filter.get("datasetId"));
+            String field = asString(filter.get("field"));
+            if (datasetId != null && !datasetId.isBlank()) {
+                if (!datasetIds.contains(datasetId)) {
+                    throw new IllegalArgumentException("筛选器 " + id + " 引用了不存在的数据集：" + datasetId);
+                }
+                if (field == null || field.isBlank()) {
+                    throw new IllegalArgumentException("筛选器 " + id + " 缺少字段");
+                }
+                filter.put("datasetId", datasetId);
+                filter.put("field", field.trim());
+                // 新配置直接使用数据集字段，不再保存旧的绑定关系
+                filter.remove("bindings");
+            } else {
+                filter.remove("datasetId");
+                filter.remove("field");
+                filter.put("bindings", normalizeBindings(id, type, filter.get("bindings"), datasetIds, datasetTypes));
+            }
             result.add(filter);
         }
         return result;

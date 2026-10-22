@@ -98,6 +98,13 @@ const AnalysisDashboardList = () =>
   import("@/entities/analysis-dashboard/analysis-dashboard.vue");
 const AnalysisDashboardDesign = () =>
   import("@/entities/analysis-dashboard/analysis-dashboard-design.vue");
+const AnalysisDashboardDesigner = () =>
+  import("@/entities/analysis-dashboard/analysis-dashboard-designer.vue");
+
+const AnalysisDatasetList = () =>
+  import("@/entities/analysis-dataset/analysis-dataset.vue");
+const AnalysisDatasetEdit = () =>
+  import("@/entities/analysis-dataset/analysis-dataset-edit.vue");
 
 const AppPackageList = () => import("@/entities/app-package/app-package.vue");
 const AppPackageExportPage = () =>
@@ -556,6 +563,24 @@ export default {
       path: "analysis-dashboard/design",
       name: "AnalysisDashboardDesign",
       component: AnalysisDashboardDesign,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "analysis-dashboard/designer",
+      name: "AnalysisDashboardDesigner",
+      component: AnalysisDashboardDesigner,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "analysis-dataset",
+      name: "AnalysisDataset",
+      component: AnalysisDatasetList,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "analysis-dataset/edit",
+      name: "AnalysisDatasetEdit",
+      component: AnalysisDatasetEdit,
       meta: { authorities: [Authority.USER] },
     },
     {

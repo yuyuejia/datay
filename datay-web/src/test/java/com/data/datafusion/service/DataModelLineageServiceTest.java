@@ -24,6 +24,7 @@ import com.data.datafusion.repository.ETLNodeRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dto.ModelLineageDTO;
 import com.data.datafusion.service.lineage.SqlLineageParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,6 +62,8 @@ class DataModelLineageServiceTest {
         analysisDashboardRepository = mock(AnalysisDashboardRepository.class);
         dataSourceRepository = mock(DataSourceRepository.class);
         objectMapper = new ObjectMapper();
+        AnalysisDatasetResolver datasetResolver = mock(AnalysisDatasetResolver.class);
+        when(datasetResolver.resolveSpecJson(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
         service = new DataModelLineageService(
             dataModelRepository,
             modelFieldRepository,
@@ -73,7 +76,8 @@ class DataModelLineageServiceTest {
             analysisDashboardRepository,
             dataSourceRepository,
             new SqlLineageParser(),
-            objectMapper
+            objectMapper,
+            datasetResolver
         );
     }
 

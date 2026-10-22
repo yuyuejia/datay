@@ -108,6 +108,18 @@ class DashboardDimensionValidatorTest {
     }
 
     @Test
+    void shouldKeepDatasetFieldFilterWithoutDimensionReference() {
+        when(dataModelRepository.findFirstByCode("dim_missing")).thenReturn(Optional.empty());
+        Map<String, Object> filter = filter("region", "dimension", "dim_missing", "region_name");
+        filter.put("datasetId", "ds1");
+        filter.put("field", "region");
+
+        Map<String, Object> spec = validator.sanitizeFilters(specWith(List.of(filter)));
+
+        assertThat((List<?>) spec.get("filters")).hasSize(1);
+    }
+
+    @Test
     void shouldKeepFilterWithoutDimensionReference() {
         Map<String, Object> dateRange = new LinkedHashMap<>();
         dateRange.put("id", "date_range");

@@ -96,6 +96,16 @@ class ExceptionTranslatorIT {
     }
 
     @Test
+    void testBadRequestAlertKeepsBusinessMessage() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/bad-request-alert"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").value("error.testError"))
+            .andExpect(jsonPath("$.errorMessage").value("test bad request"));
+    }
+
+    @Test
     void testExceptionWithResponseStatus() throws Exception {
         mockMvc
             .perform(get("/api/exception-translator-test/response-status"))

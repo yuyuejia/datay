@@ -1,34 +1,26 @@
-import {
-  type Ref,
-  defineComponent,
-  inject,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from "vue";
-import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
-import { useAlertService } from "@/shared/alert/alert.service";
-import DashboardService from "@/shared/dashboard/dashboard.service";
-import type { AnalysisDashboard } from "@/shared/dashboard/dashboard.service";
-import { useDateFormat } from "@/shared/composables";
+import { useAlertService } from '@/shared/alert/alert.service';
+import DashboardService from '@/shared/dashboard/dashboard.service';
+import type { AnalysisDashboard } from '@/shared/dashboard/dashboard.service';
+import { useDateFormat } from '@/shared/composables';
 
 /**
- * 分析看板列表：支持搜索、AI 创建、新页签打开、重命名与删除。
+ * 分析看板列表：支持搜索、新建看板、查看、设计、重命名与删除。
  */
 export default defineComponent({
-  name: "AnalysisDashboard",
+  name: 'AnalysisDashboard',
   setup() {
     const router = useRouter();
     const dateFormat = useDateFormat();
-    const alertService = inject("alertService", () => useAlertService(), true);
+    const alertService = inject('alertService', () => useAlertService(), true);
     const service = new DashboardService();
 
     const dashboards: Ref<AnalysisDashboard[]> = ref([]);
     const isFetching = ref(false);
-    const search = ref("");
+    const search = ref('');
     const removeEntity = ref<any>(null);
     const removeId: Ref<string | null> = ref(null);
 
@@ -64,36 +56,31 @@ export default defineComponent({
     onMounted(retrieveDashboards);
 
     const openInNewTab = (row: AnalysisDashboard) => {
-      window.open(`/dashboard.html?id=${row.id}`, "_blank");
+      window.open(`/dashboard.html?id=${row.id}`, '_blank');
     };
 
-    const design = (row?: AnalysisDashboard) => {
+    const designVisual = (row?: AnalysisDashboard) => {
       router.push({
-        name: "AnalysisDashboardDesign",
+        name: 'AnalysisDashboardDesigner',
         query: row?.id ? { id: String(row.id) } : {},
       });
     };
 
     const rename = async (row: AnalysisDashboard) => {
       try {
-        const { value } = await ElMessageBox.prompt(
-          "请输入新的看板名称",
-          "重命名看板",
-          {
-            inputValue: row.name,
-            inputValidator: (input: string) =>
-              !!input && input.trim().length > 0,
-          },
-        );
+        const { value } = await ElMessageBox.prompt('请输入新的看板名称', '重命名看板', {
+          inputValue: row.name,
+          inputValidator: (input: string) => !!input && input.trim().length > 0,
+        });
         const detail = await service.get(row.id as string);
         await service.update(row.id as string, {
           ...detail,
           name: value.trim(),
         });
-        ElMessage.success("已重命名");
+        ElMessage.success('已重命名');
         await retrieveDashboards();
       } catch (err: any) {
-        if (err !== "cancel") {
+        if (err !== 'cancel') {
           alertService.showHttpError(err?.response);
         }
       }
@@ -109,7 +96,7 @@ export default defineComponent({
     const removeDashboard = async () => {
       try {
         await service.remove(removeId.value as string);
-        ElMessage.success("看板已删除");
+        ElMessage.success('看板已删除');
         closeDialog();
         await retrieveDashboards();
       } catch (err: any) {
@@ -117,8 +104,7 @@ export default defineComponent({
       }
     };
 
-    const statusLabel = (status?: string) =>
-      status === "DISABLED" ? "停用" : "启用";
+    const statusLabel = (status?: string) => (status === 'DISABLED' ? '停用' : '启用');
 
     return {
       dashboards,
@@ -131,7 +117,7 @@ export default defineComponent({
       closeDialog,
       removeDashboard,
       openInNewTab,
-      design,
+      designVisual,
       rename,
       statusLabel,
       ...dateFormat,

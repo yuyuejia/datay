@@ -46,6 +46,32 @@ class DashboardDataServiceTest {
     }
 
     @Test
+    void shouldNeutralizeQuotedBetweenPredicateBothBounds() {
+        String result = DashboardDataService.neutralizeEmptyParams(
+            "WHERE order_date BETWEEN '${start}' AND '${end}'",
+            new LinkedHashMap<>()
+        );
+        assertThat(result).isEqualTo("WHERE 1=1");
+    }
+
+    @Test
+    void shouldNeutralizeQuotedBetweenPredicateWithOneMissingBound() {
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("start", "2026-09-01");
+        String result = DashboardDataService.neutralizeEmptyParams(
+            "WHERE order_date BETWEEN '${start}' AND '${end}'",
+            named
+        );
+        assertThat(result).isEqualTo("WHERE 1=1");
+    }
+
+    @Test
+    void shouldNeutralizeQuotedLikeWildcard() {
+        String result = DashboardDataService.neutralizeEmptyParams("WHERE name LIKE '%${kw}%'", new LinkedHashMap<>());
+        assertThat(result).isEqualTo("WHERE 1=1");
+    }
+
+    @Test
     void shouldKeepValuedPlaceholderUntouched() {
         Map<String, Object> named = new LinkedHashMap<>();
         named.put("region", List.of("华东", "华南"));

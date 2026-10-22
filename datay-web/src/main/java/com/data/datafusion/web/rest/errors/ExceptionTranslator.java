@@ -110,6 +110,11 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         // higher precedence to Custom/ResponseStatus types
         String title = extractTitle(err, problem.getStatus());
         String problemTitle = problem.getTitle();
+        // BadRequestAlertException 会把业务错误信息放在 title 中；覆盖成通用状态描述前先保留，
+        // 供前端展示具体原因（例如「数据集正被 N 个看板引用」）。
+        if (problemTitle != null && !problemTitle.isBlank() && !problemTitle.equals(title)) {
+            problem.setProperty("errorMessage", problemTitle);
+        }
         if (problemTitle == null || !problemTitle.equals(title)) {
             problem.setTitle(title);
         }

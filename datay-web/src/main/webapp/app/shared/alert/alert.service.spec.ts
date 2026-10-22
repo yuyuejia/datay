@@ -55,6 +55,24 @@ describe('Alert Service test suite', () => {
     );
   });
 
+  it('should show business error message when http status = 400 and errorMessage', () => {
+    alertService.showHttpError({
+      status: 400,
+      data: {
+        message: 'error.datasetInUse',
+        errorMessage: '数据集正被 1 个看板引用',
+      },
+    });
+
+    expect(ElMessage).toHaveBeenCalledTimes(1);
+    expect(ElMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '数据集正被 1 个看板引用',
+        type: 'error',
+      }),
+    );
+  });
+
   it('should show validation error message when http status = 400 and fieldErrors', () => {
     alertService.showHttpError({
       status: 400,

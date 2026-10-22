@@ -1,66 +1,41 @@
 <template>
   <div>
-    <h2
-      id="page-heading"
-      data-cy="AnalysisDashboardHeading"
-      class="d-flex align-items-center justify-content-between flex-wrap-nowrap"
-    >
+    <h2 id="page-heading" data-cy="AnalysisDashboardHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="analysis-dashboard-heading">分析看板</span>
       <div class="d-flex align-items-center">
-        <el-input class="mr-2" style="width: 260px" v-model="search" placeholder="按名称 / 编码 / 描述搜索" clearable/>
-        <el-button type="primary" @click="design()">
-          <font-awesome-icon
-            icon="wand-magic-sparkles"
-            class="mr-1"
-          ></font-awesome-icon>
-          AI 创建看板
+        <el-input class="mr-2" style="width: 260px" v-model="search" placeholder="按名称 / 编码 / 描述搜索" clearable />
+        <el-button type="success" @click="designVisual()">
+          <font-awesome-icon icon="chart-line" class="mr-1"></font-awesome-icon>
+          新建看板
         </el-button>
       </div>
     </h2>
-    <br />
-    <div
-      class="alert alert-warning"
-      v-if="!isFetching && dashboards && dashboards.length === 0"
-    >
-      <span>暂无分析看板，点击「AI 创建看板」开始设计</span>
+    <div class="alert alert-warning" v-if="!isFetching && dashboards && dashboards.length === 0">
+      <span>暂无分析看板，点击「新建看板」开始设计</span>
     </div>
     <div v-if="dashboards && dashboards.length > 0">
       <el-table :data="dashboards" style="width: 100%" v-loading="isFetching">
-        <el-table-column
-          prop="name"
-          label="名称"
-          min-width="160"
-        ></el-table-column>
+        <el-table-column prop="name" label="名称" min-width="160"></el-table-column>
         <el-table-column prop="code" label="编码" width="180"></el-table-column>
-        <el-table-column
-          prop="description"
-          label="描述"
-          min-width="200"
-          show-overflow-tooltip
-        ></el-table-column>
+        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip></el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="scope">
-            <el-tag
-              :type="scope.row.status === 'DISABLED' ? 'info' : 'success'"
-              size="small"
-            >
+            <el-tag :type="scope.row.status === 'DISABLED' ? 'info' : 'success'" size="small">
               {{ statusLabel(scope.row.status) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="160">
-          <template #default="scope">{{
-            formatDateShort(scope.row.createTime) || ""
-          }}</template>
+          <template #default="scope">{{ formatDateShort(scope.row.createTime) || '' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="340">
+        <el-table-column label="操作" fixed="right" width="330">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openInNewTab(scope.row)">
-                <span class="d-none d-md-inline">新页签打开</span>
+                <span class="d-none d-md-inline">查看</span>
               </el-button>
-              <el-button type="info" size="small" @click="design(scope.row)">
-                <span class="d-none d-md-inline">重新设计</span>
+              <el-button type="success" size="small" @click="designVisual(scope.row)">
+                <span class="d-none d-md-inline">设计</span>
               </el-button>
               <el-button type="warning" size="small" @click="rename(scope.row)">
                 <span class="d-none d-md-inline">重命名</span>
@@ -83,12 +58,8 @@
       </div>
       <template #modal-footer>
         <div>
-          <el-button @click="closeDialog()">
-            取消
-          </el-button>
-          <el-button type="primary" @click="removeDashboard()">
-            删除
-          </el-button>
+          <el-button @click="closeDialog()"> 取消 </el-button>
+          <el-button type="primary" @click="removeDashboard()"> 删除 </el-button>
         </div>
       </template>
     </app-modal>

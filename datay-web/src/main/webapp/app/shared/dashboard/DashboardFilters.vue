@@ -1,18 +1,9 @@
 <template>
   <div v-if="filters.length" class="dashboard-filters">
-    <div
-      v-for="filter in filters"
-      :key="filter.id"
-      class="dashboard-filter-item"
-    >
-      <span class="dashboard-filter-label">{{
-        filter.label || filter.id
-      }}</span>
+    <div v-for="filter in filters" :key="filter.id" class="dashboard-filter-item">
+      <span class="dashboard-filter-label">{{ filter.label || filter.id }}</span>
 
-      <div
-        v-if="filter.type === 'dateRange'"
-        class="dashboard-filter-date-range"
-      >
+      <div v-if="filter.type === 'dateRange'" class="dashboard-filter-date-range">
         <el-date-picker
           type="date"
           class="dashboard-filter-date"
@@ -21,7 +12,7 @@
           value-format="YYYY-MM-DD"
           placeholder="开始日期"
           clearable
-          @update:model-value="(value) => onDateChange(filter, 'start', value)"
+          @update:model-value="value => onDateChange(filter, 'start', value)"
         />
         <span class="dashboard-filter-range-sep">~</span>
         <el-date-picker
@@ -32,7 +23,7 @@
           value-format="YYYY-MM-DD"
           placeholder="结束日期"
           clearable
-          @update:model-value="(value) => onDateChange(filter, 'end', value)"
+          @update:model-value="value => onDateChange(filter, 'end', value)"
         />
       </div>
 
@@ -45,15 +36,10 @@
         collapse-tags
         placeholder="全部"
         :loading="loadingOptions[filter.id]"
-        @update:model-value="(value) => onSelectChange(filter, value)"
-        @visible-change="(visible) => visible && loadOptions(filter)"
+        @update:model-value="value => onSelectChange(filter, value)"
+        @visible-change="visible => visible && loadOptions(filter)"
       >
-        <el-option
-          v-for="option in optionsMap[filter.id] || []"
-          :key="option"
-          :label="option"
-          :value="option"
-        />
+        <el-option v-for="option in optionsMap[filter.id] || []" :key="option" :label="option" :value="option" />
       </el-select>
 
       <el-input
@@ -61,25 +47,22 @@
         :model-value="local[filter.id] ?? ''"
         clearable
         placeholder="请输入"
-        @update:model-value="(value) => onInputChange(filter, value)"
+        @update:model-value="value => onInputChange(filter, value)"
       />
 
-      <div
-        v-else-if="filter.type === 'numberRange'"
-        class="dashboard-filter-range"
-      >
+      <div v-else-if="filter.type === 'numberRange'" class="dashboard-filter-range">
         <el-input-number
           :model-value="numberValue(filter, 'min')"
           :controls="false"
           placeholder="最小值"
-          @update:model-value="(value) => onNumberChange(filter, 'min', value)"
+          @update:model-value="value => onNumberChange(filter, 'min', value)"
         />
         <span class="dashboard-filter-range-sep">~</span>
         <el-input-number
           :model-value="numberValue(filter, 'max')"
           :controls="false"
           placeholder="最大值"
-          @update:model-value="(value) => onNumberChange(filter, 'max', value)"
+          @update:model-value="value => onNumberChange(filter, 'max', value)"
         />
       </div>
     </div>
@@ -89,19 +72,22 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch } from 'vue';
 
-import DashboardService from "./dashboard.service";
-import type { DashboardFilter, DashboardSpec, FilterValues } from "./types";
+import DashboardService from './dashboard.service';
+import { distinctFieldValues } from './filter-utils';
+import type { DashboardFilter, DashboardSpec, DatasetResult, FilterValues } from './types';
 
 const props = defineProps<{
   filters: DashboardFilter[];
   modelValue: FilterValues;
   dashboardId?: string;
   spec?: DashboardSpec;
+  /** 未经筛选器裁剪的原始数据集结果，用于按数据集字段生成下拉选项。 */
+  sourceData?: Record<string, DatasetResult>;
 }>();
 
-const emit = defineEmits<{ "update:modelValue": [FilterValues] }>();
+const emit = defineEmits<{ 'update:modelValue': [FilterValues] }>();
 
 const service = new DashboardService();
 const local = ref<FilterValues>({ ...(props.modelValue || {}) });
@@ -117,51 +103,40 @@ const defaults = (): FilterValues => {
 };
 
 const defaultForType = (filter: DashboardFilter) => {
-  if (filter.type === "multiSelect") {
+  if (filter.type === 'multiSelect') {
     return [];
   }
-  if (filter.type === "dateRange" || filter.type === "numberRange") {
+  if (filter.type === 'dateRange' || filter.type === 'numberRange') {
     return null;
   }
   return undefined;
 };
 
-const emitChange = () => emit("update:modelValue", { ...local.value });
+const emitChange = () => emit('update:modelValue', { ...local.value });
 
-const dateValue = (filter: DashboardFilter, key: "start" | "end"): string => {
+const dateValue = (filter: DashboardFilter, key: 'start' | 'end'): string => {
   const value = local.value[filter.id];
   if (Array.isArray(value)) {
-    return (key === "start" ? value[0] : value[1]) || "";
+    return (key === 'start' ? value[0] : value[1]) || '';
   }
-  if (value && typeof value === "object") {
-    return value[key] || "";
+  if (value && typeof value === 'object') {
+    return value[key] || '';
   }
-  return "";
+  return '';
 };
 
-const onDateChange = (
-  filter: DashboardFilter,
-  key: "start" | "end",
-  value: string | null,
-) => {
+const onDateChange = (filter: DashboardFilter, key: 'start' | 'end', value: string | null) => {
   const current = local.value[filter.id];
-  const next =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? { ...current }
-      : { start: "", end: "" };
-  next[key] = value || "";
+  const next = current && typeof current === 'object' && !Array.isArray(current) ? { ...current } : { start: '', end: '' };
+  next[key] = value || '';
   local.value[filter.id] = next.start || next.end ? next : null;
   emitChange();
 };
 
-const selectValue = (filter: DashboardFilter): any =>
-  local.value[filter.id] ?? (filter.type === "multiSelect" ? [] : undefined);
-const numberValue = (
-  filter: DashboardFilter,
-  key: "min" | "max",
-): number | undefined => {
+const selectValue = (filter: DashboardFilter): any => local.value[filter.id] ?? (filter.type === 'multiSelect' ? [] : undefined);
+const numberValue = (filter: DashboardFilter, key: 'min' | 'max'): number | undefined => {
   const value = local.value[filter.id];
-  return value && typeof value === "object" ? value[key] : undefined;
+  return value && typeof value === 'object' ? value[key] : undefined;
 };
 
 const onSelectChange = (filter: DashboardFilter, value: any) => {
@@ -174,27 +149,25 @@ const onInputChange = (filter: DashboardFilter, value: string) => {
   emitChange();
 };
 
-const onNumberChange = (
-  filter: DashboardFilter,
-  key: "min" | "max",
-  value: number | undefined,
-) => {
+const onNumberChange = (filter: DashboardFilter, key: 'min' | 'max', value: number | undefined) => {
   const current = local.value[filter.id];
-  const next =
-    current && typeof current === "object"
-      ? { ...current }
-      : { min: undefined, max: undefined };
+  const next = current && typeof current === 'object' ? { ...current } : { min: undefined, max: undefined };
   next[key] = value;
   local.value[filter.id] = next;
   emitChange();
 };
 
 const loadOptions = async (filter: DashboardFilter) => {
-  if (filter.type !== "select" && filter.type !== "multiSelect") {
+  if (filter.type !== 'select' && filter.type !== 'multiSelect') {
     return;
   }
-  const mode = filter.options?.mode ?? "static";
-  if (mode !== "dimension" || (!props.dashboardId && !props.spec)) {
+  if (filter.datasetId && filter.field) {
+    const source = props.sourceData?.[filter.datasetId];
+    optionsMap.value[filter.id] = source ? distinctFieldValues(source, filter.field) : (filter.options?.values ?? []);
+    return;
+  }
+  const mode = filter.options?.mode ?? 'static';
+  if (mode !== 'dimension' || (!props.dashboardId && !props.spec)) {
     optionsMap.value[filter.id] = filter.options?.values ?? [];
     return;
   }
@@ -202,10 +175,7 @@ const loadOptions = async (filter: DashboardFilter) => {
   try {
     const result = props.dashboardId
       ? await service.loadFilterOptions(props.dashboardId, filter.id)
-      : await service.previewFilterOptions(
-          props.spec as DashboardSpec,
-          filter.id,
-        );
+      : await service.previewFilterOptions(props.spec as DashboardSpec, filter.id);
     optionsMap.value[filter.id] = result.values ?? [];
   } catch {
     optionsMap.value[filter.id] = filter.options?.values ?? [];
@@ -221,8 +191,34 @@ const reset = () => {
 
 watch(
   () => props.modelValue,
-  (value) => {
+  value => {
     local.value = { ...(value || {}) };
+  },
+  { deep: true },
+);
+
+// 设计器会动态增删筛选器，选项需要随定义变化重新加载。
+watch(
+  () =>
+    props.filters
+      .map(filter => `${filter.id}:${filter.datasetId ?? ''}:${filter.field ?? ''}:${JSON.stringify(filter.options ?? {})}`)
+      .join('|'),
+  () => {
+    for (const filter of props.filters) {
+      loadOptions(filter);
+    }
+  },
+);
+
+// 数据集结果更新后，基于字段的去重选项需要同步刷新。
+watch(
+  () => props.sourceData,
+  () => {
+    for (const filter of props.filters) {
+      if (filter.datasetId && filter.field) {
+        loadOptions(filter);
+      }
+    }
   },
   { deep: true },
 );

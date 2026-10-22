@@ -58,6 +58,12 @@ public class DashboardDimensionValidator {
     }
 
     private boolean isFilterUsable(Map<String, Object> filter, Map<String, Boolean> cache) {
+        // 新版筛选器直接绑定数据集字段，选项来自数据集结果，不再依赖维度模型。
+        String datasetId = asString(filter.get("datasetId"));
+        String field = asString(filter.get("field"));
+        if (datasetId != null && !datasetId.isBlank() && field != null && !field.isBlank()) {
+            return true;
+        }
         List<String[]> dimensions = referencedDimensions(filter);
         if (dimensions.isEmpty()) {
             return true;

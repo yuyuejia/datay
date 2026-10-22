@@ -4,6 +4,7 @@ import com.data.datafusion.domain.AnalysisDashboard;
 import com.data.datafusion.domain.Metric;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
 import com.data.datafusion.repository.MetricRepository;
+import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dto.LineageEdgeDTO;
 import com.data.datafusion.service.dto.LineageNodeDTO;
 import com.data.datafusion.service.dto.MetricLineageDTO;
@@ -48,19 +49,22 @@ public class MetricLineageService {
     private final DataModelLineageService dataModelLineageService;
     private final MetricService metricService;
     private final ObjectMapper objectMapper;
+    private final AnalysisDatasetResolver analysisDatasetResolver;
 
     public MetricLineageService(
         MetricRepository metricRepository,
         AnalysisDashboardRepository analysisDashboardRepository,
         DataModelLineageService dataModelLineageService,
         MetricService metricService,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        AnalysisDatasetResolver analysisDatasetResolver
     ) {
         this.metricRepository = metricRepository;
         this.analysisDashboardRepository = analysisDashboardRepository;
         this.dataModelLineageService = dataModelLineageService;
         this.metricService = metricService;
         this.objectMapper = objectMapper;
+        this.analysisDatasetResolver = analysisDatasetResolver;
     }
 
     public MetricLineageDTO build(String metricId) {
@@ -221,7 +225,7 @@ public class MetricLineageService {
 
     private void addDashboards(LineageAccumulator accumulator, Set<String> metricCodes, Map<String, Metric> metricsByCode) {
         for (AnalysisDashboard dashboard : analysisDashboardRepository.findAll()) {
-            JsonNode spec = readJson(dashboard.getSpec());
+            JsonNode spec = readResolvedDashboardSpec(dashboard);
             if (spec == null) {
                 continue;
             }
@@ -292,6 +296,19 @@ public class MetricLineageService {
 
     private LineageNodeDTO shiftLayer(LineageNodeDTO node, int offset) {
         return new LineageNodeDTO(node.id(), node.type(), node.name(), node.subType(), node.layer() + offset, node.meta());
+    }
+
+    private JsonNode readResolvedDashboardSpec(AnalysisDashboard dashboard) {
+        JsonNode spec = readJson(dashboard.getSpec());
+        if (spec == null) {
+            return null;
+        }
+        try {
+            return readJson(analysisDatasetResolver.resolveSpecJson(dashboard.getSpec()));
+        } catch (RuntimeException e) {
+            LOG.debug("解析看板 {} 引用数据集失败: {}", dashboard.getId(), e.getMessage());
+            return spec;
+        }
     }
 
     private JsonNode readJson(String value) {

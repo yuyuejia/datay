@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 分析数据集：可被多个看板复用的指标 / SQL 数据集定义 -->
+    <changeSet id="20261025000000-1-analysis-dataset" author="datafusion">
+        <createTable tableName="dp_analysis_dataset">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="code" type="varchar(128)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="description" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="type" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="data_source_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="definition" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="fields" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_analysis_dataset" indexName="idx_analysis_dataset_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_analysis_dataset" indexName="idx_analysis_dataset_code">
+            <column name="tenant_id"/>
+            <column name="code"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

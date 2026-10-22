@@ -2,6 +2,7 @@ package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -9,6 +10,7 @@ import com.data.datafusion.domain.AnalysisDashboard;
 import com.data.datafusion.domain.Metric;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
 import com.data.datafusion.repository.MetricRepository;
+import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dto.LineageEdgeDTO;
 import com.data.datafusion.service.dto.LineageNodeDTO;
 import com.data.datafusion.service.dto.MetricLineageDTO;
@@ -43,12 +45,15 @@ class MetricLineageServiceTest {
         metricService = mock(MetricService.class);
         objectMapper = new ObjectMapper();
         when(metricService.parseFormulaRefs(any())).thenAnswer(invocation -> formulaRefs(invocation.getArgument(0)));
+        AnalysisDatasetResolver datasetResolver = mock(AnalysisDatasetResolver.class);
+        when(datasetResolver.resolveSpecJson(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
         service = new MetricLineageService(
             metricRepository,
             analysisDashboardRepository,
             dataModelLineageService,
             metricService,
-            objectMapper
+            objectMapper,
+            datasetResolver
         );
     }
 

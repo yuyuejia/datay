@@ -199,7 +199,11 @@ public class AiAgent {
         AiResult result = new AiResult();
         result.setSql(assistant.extractSql(content));
         result.setExplanation(content);
-        result.setDashboardSpec(assistant.extractSpec(content));
+        Map<String, Object> spec = assistant.extractSpec(content);
+        if (spec != null) {
+            spec = assistant.postProcessSpec(spec, artifacts);
+        }
+        result.setDashboardSpec(spec);
         result.setRounds(rounds);
         result.setConverged(converged);
         result.setToolCalls(traces);

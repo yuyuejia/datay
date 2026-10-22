@@ -1,9 +1,9 @@
-import axios from "axios";
+import axios from 'axios';
 
-const baseApiUrl = "api/ai";
+const baseApiUrl = 'api/ai';
 
 export interface AiHistoryMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
 }
 
@@ -35,6 +35,8 @@ export interface AiGenerateResult {
   toolCalls?: AiToolTrace[];
   /** 指标问数产物：一次指标查询的列与数据行，供前端直接渲染数据表。 */
   data?: AiMetricQueryData;
+  /** 看板设计类助手生成的结构化看板定义。 */
+  dashboardSpec?: Record<string, any>;
   promptTokens?: number;
   completionTokens?: number;
 }
@@ -73,18 +75,18 @@ export interface AiAssistantInfo {
  */
 export default class AiAssistantService {
   getStatus(): Promise<AiStatus> {
-    return axios.get(`${baseApiUrl}/status`).then((res) => res.data);
+    return axios.get(`${baseApiUrl}/status`).then(res => res.data);
   }
 
   listAssistants(): Promise<AiAssistantInfo[]> {
-    return axios.get(`${baseApiUrl}/assistants`).then((res) => res.data);
+    return axios.get(`${baseApiUrl}/assistants`).then(res => res.data);
   }
 
   generate(
     message: string,
     dataSourceId: string | undefined,
     history: AiHistoryMessage[] = [],
-    assistantId = "query",
+    assistantId = 'query',
     contextData?: Record<string, any>,
   ): Promise<AiGenerateResult> {
     return axios
@@ -95,6 +97,6 @@ export default class AiAssistantService {
         assistantId,
         contextData,
       })
-      .then((res) => res.data);
+      .then(res => res.data);
   }
 }

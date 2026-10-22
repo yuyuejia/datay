@@ -1,4 +1,4 @@
-import type { DataRef, DashboardWidget, DatasetResult } from "./types";
+import type { DataRef, DashboardWidget, DatasetResult } from './types';
 
 /**
  * 把 AI 生成的 ECharts option 与查询返回的数据结合。
@@ -8,22 +8,18 @@ import type { DataRef, DashboardWidget, DatasetResult } from "./types";
  */
 
 function toNumber(value: any): number | null {
-  if (value === null || value === undefined || value === "") {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function sortRows(
-  rows: Record<string, any>[],
-  field: string,
-  order?: "asc" | "desc",
-): Record<string, any>[] {
-  const direction = order === "desc" ? -1 : 1;
+function sortRows(rows: Record<string, any>[], field: string, order?: 'asc' | 'desc'): Record<string, any>[] {
+  const direction = order === 'desc' ? -1 : 1;
   return [...rows].sort((a, b) => {
     const left = a[field];
     const right = b[field];
@@ -32,7 +28,7 @@ function sortRows(
     if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
       return (leftNumber - rightNumber) * direction;
     }
-    return String(left ?? "").localeCompare(String(right ?? "")) * direction;
+    return String(left ?? '').localeCompare(String(right ?? '')) * direction;
   });
 }
 
@@ -41,7 +37,7 @@ function firstSeriesType(option: Record<string, any>): string | undefined {
   if (Array.isArray(series) && series.length > 0) {
     return series[0]?.type;
   }
-  if (series && typeof series === "object") {
+  if (series && typeof series === 'object') {
     return series.type;
   }
   return undefined;
@@ -51,26 +47,20 @@ function baseSeries(option: Record<string, any>): Record<string, any>[] {
   if (Array.isArray(option.series)) {
     return option.series;
   }
-  if (option.series && typeof option.series === "object") {
+  if (option.series && typeof option.series === 'object') {
     return [option.series];
   }
   return [];
 }
 
-function setAxisData(
-  option: Record<string, any>,
-  axisKey: "xAxis" | "yAxis",
-  categories: any[],
-): void {
+function setAxisData(option: Record<string, any>, axisKey: 'xAxis' | 'yAxis', categories: any[]): void {
   const axis = option[axisKey];
   if (Array.isArray(axis)) {
-    option[axisKey] = axis.map((item, index) =>
-      index === 0 ? { ...item, data: categories } : item,
-    );
-  } else if (axis && typeof axis === "object") {
+    option[axisKey] = axis.map((item, index) => (index === 0 ? { ...item, data: categories } : item));
+  } else if (axis && typeof axis === 'object') {
     option[axisKey] = { ...axis, data: categories };
   } else {
-    option[axisKey] = { type: "category", data: categories };
+    option[axisKey] = { type: 'category', data: categories };
   }
 }
 
@@ -80,43 +70,90 @@ function setAxisData(
  */
 function setCategoryAxis(option: Record<string, any>, categories: any[]): void {
   const yAxis = Array.isArray(option.yAxis) ? option.yAxis[0] : option.yAxis;
-  const axisKey = yAxis && yAxis.type === "category" ? "yAxis" : "xAxis";
+  const axisKey = yAxis && yAxis.type === 'category' ? 'yAxis' : 'xAxis';
   setAxisData(option, axisKey, categories);
 }
 
-function resolveSeriesDefs(
-  ref: DataRef,
-  columns: string[],
-  categoryField?: string,
-) {
+function resolveSeriesDefs(ref: DataRef, columns: string[], categoryField?: string) {
   if (ref.series && ref.series.length > 0) {
     return ref.series;
   }
-  return columns
-    .filter((column) => column !== categoryField)
-    .map((column) => ({ name: column, field: column }));
+  if (ref.valueField) {
+    return [{ name: ref.valueField, field: ref.valueField }];
+  }
+  return columns.filter(column => column !== categoryField).map(column => ({ name: column, field: column }));
+}
+
+/**
+ * 按 dataRef 对行做排序与 limit 截断。
+ *
+ * 图表和明细表共用同一套数据裁剪规则，避免配置项只对部分组件生效。
+ */
+export function applyDataRefRows(ref: DataRef | undefined, rows: Record<string, any>[]): Record<string, any>[] {
+  let result = [...rows];
+  if (ref?.sortField) {
+    result = sortRows(result, ref.sortField, ref.sortOrder);
+  }
+  if (ref?.limit && result.length > ref.limit) {
+    result = result.slice(0, ref.limit);
+  }
+  return result;
+}
+
+/**
+ * 按分类字段聚合图表数据。
+ *
+ * <p>柱/折/面积图按「分类 + 系列」求和，饼图只按分类求和；
+ * 聚合后再执行排序与 limit，避免明细行数上限截断同一分类的数据。
+ */
+export function aggregateChartRows(ref: DataRef | undefined, rows: Record<string, any>[], chartType?: string): Record<string, any>[] {
+  const valueFields = Array.from(
+    new Set([ref?.valueField, ...(ref?.series?.map(series => series.field) ?? [])].filter((field): field is string => !!field)),
+  );
+  if (!ref?.groupBy || !ref.categoryField || valueFields.length === 0) {
+    return rows;
+  }
+  const categoryField = ref.categoryField;
+  const seriesField = chartType === 'pie' ? undefined : ref.seriesField || undefined;
+  const groups = new Map<string, Record<string, any>>();
+  for (const row of rows) {
+    const category = row[categoryField];
+    const series = seriesField ? row[seriesField] : undefined;
+    const key = JSON.stringify([category, series]);
+    const grouped = groups.get(key);
+    if (!grouped) {
+      const initial = { ...row };
+      for (const field of valueFields) {
+        initial[field] = toNumber(row[field]);
+      }
+      groups.set(key, initial);
+      continue;
+    }
+    for (const field of valueFields) {
+      const value = toNumber(row[field]);
+      if (value !== null) {
+        grouped[field] = (toNumber(grouped[field]) ?? 0) + value;
+      }
+    }
+  }
+  return Array.from(groups.values());
 }
 
 /**
  * 展示字段优先取业务名称：当字段为 id/sk 代理键且存在对应的 name 字段时返回 name，否则原样返回。
  */
-export function resolveNameField(
-  field: string | undefined,
-  columns: string[],
-): string | undefined {
+export function resolveNameField(field: string | undefined, columns: string[]): string | undefined {
   if (!field) {
     return field;
   }
   const lower = field.toLowerCase();
-  if (!(lower.endsWith("_id") || lower.endsWith("_sk"))) {
+  if (!(lower.endsWith('_id') || lower.endsWith('_sk'))) {
     return field;
   }
-  const prefix = field.replace(/_(id|sk)$/i, "");
-  const candidates = [`${prefix}_name`, "name"];
+  const prefix = field.replace(/_(id|sk)$/i, '');
+  const candidates = [`${prefix}_name`, 'name'];
   for (const candidate of candidates) {
-    const hit = columns.find(
-      (column) => column.toLowerCase() === candidate.toLowerCase(),
-    );
+    const hit = columns.find(column => column.toLowerCase() === candidate.toLowerCase());
     if (hit) {
       return hit;
     }
@@ -127,52 +164,56 @@ export function resolveNameField(
 /**
  * 构建最终 ECharts option；无数据或未声明 dataRef 时原样返回 AI option。
  */
-export function buildEchartsOption(
-  widget: DashboardWidget,
-  result?: DatasetResult,
-): Record<string, any> {
-  const option: Record<string, any> = JSON.parse(
-    JSON.stringify(widget.echartsOption || {}),
-  );
+export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResult): Record<string, any> {
+  const option: Record<string, any> = JSON.parse(JSON.stringify(widget.echartsOption || {}));
   // 组件卡片已展示标题，移除图表内 title 避免重复（默认保留 dashboard-widget-title）
   delete option.title;
+  const chartType = firstSeriesType(option);
+  if (chartType !== 'pie' && chartType !== 'gauge') {
+    if (!option.xAxis) {
+      option.xAxis = { type: 'category' };
+    }
+    if (!option.yAxis) {
+      option.yAxis = { type: 'value' };
+    }
+  }
   const ref = widget.dataRef;
-  if (
-    !ref ||
-    !result ||
-    !Array.isArray(result.rows) ||
-    result.rows.length === 0
-  ) {
+  if (!ref || !result || !Array.isArray(result.rows) || result.rows.length === 0) {
     return option;
   }
 
-  let rows = [...result.rows];
-  if (ref.sortField) {
-    rows = sortRows(rows, ref.sortField, ref.sortOrder);
-  }
-  if (ref.limit && rows.length > ref.limit) {
-    rows = rows.slice(0, ref.limit);
-  }
-
   const columns = result.columns ?? [];
-  const categoryField = resolveNameField(
-    ref.categoryField ?? columns[0],
-    columns,
-  );
-  const chartType = firstSeriesType(option);
+  const categoryField = resolveNameField(ref.categoryField ?? columns[0], columns);
   const valueField = resolveNameField(
-    ref.series?.[0]?.field ??
-      ref.valueField ??
-      columns.find((column) => column !== categoryField),
+    ref.valueField ?? ref.series?.[0]?.field ?? columns.find(column => column !== categoryField),
     columns,
   );
+  const seriesField = resolveNameField(ref.seriesField ?? undefined, columns);
+  const resolvedSeries = ref.series?.map(series => ({
+    ...series,
+    field: resolveNameField(series.field, columns) ?? series.field,
+  }));
+  const groupedRows = ref.groupBy
+    ? aggregateChartRows(
+        {
+          ...ref,
+          categoryField,
+          valueField,
+          seriesField,
+          series: chartType === 'pie' ? undefined : resolvedSeries,
+        },
+        result.rows,
+        chartType,
+      )
+    : result.rows;
+  const rows = applyDataRefRows(ref, groupedRows);
 
-  if (chartType === "pie") {
+  if (chartType === 'pie') {
     option.series = [
       {
         ...(baseSeries(option)[0] || {}),
-        type: "pie",
-        data: rows.map((row) => ({
+        type: 'pie',
+        data: rows.map(row => ({
           name: row[categoryField],
           value: toNumber(row[valueField as string]),
         })),
@@ -181,12 +222,12 @@ export function buildEchartsOption(
     return option;
   }
 
-  if (chartType === "gauge") {
+  if (chartType === 'gauge') {
     const first = rows[0];
     option.series = [
       {
         ...(baseSeries(option)[0] || {}),
-        type: "gauge",
+        type: 'gauge',
         data: [
           {
             value: toNumber(first[valueField as string]),
@@ -201,29 +242,23 @@ export function buildEchartsOption(
   if (categoryField) {
     setCategoryAxis(
       option,
-      rows.map((row) => row[categoryField]),
+      rows.map(row => row[categoryField]),
     );
   }
 
   const base = baseSeries(option);
 
-  if (ref.seriesField) {
-    const seriesField = resolveNameField(ref.seriesField, columns) as string;
+  if (seriesField) {
     const valueFieldName = valueField as string;
-    const categories = Array.from(
-      new Set(rows.map((row) => row[categoryField])),
-    );
+    const categories = Array.from(new Set(rows.map(row => row[categoryField])));
     if (categoryField) {
       setCategoryAxis(option, categories);
     }
-    const groups = Array.from(new Set(rows.map((row) => row[seriesField])));
+    const groups = Array.from(new Set(rows.map(row => row[seriesField])));
     option.series = groups.map((group, index) => {
       const template = base[index] || base[0] || {};
-      const data = categories.map((category) => {
-        const row = rows.find(
-          (item) =>
-            item[categoryField] === category && item[seriesField] === group,
-        );
+      const data = categories.map(category => {
+        const row = rows.find(item => item[categoryField] === category && item[seriesField] === group);
         return row ? toNumber(row[valueFieldName]) : null;
       });
       return { ...template, name: String(group), data };
@@ -231,18 +266,16 @@ export function buildEchartsOption(
     return option;
   }
 
-  const seriesDefs = resolveSeriesDefs(ref, columns, categoryField).map(
-    (series) => ({
-      ...series,
-      field: resolveNameField(series.field, columns) ?? series.field,
-    }),
-  );
+  const seriesDefs = resolveSeriesDefs(ref, columns, categoryField).map(series => ({
+    ...series,
+    field: resolveNameField(series.field, columns) ?? series.field,
+  }));
   option.series = seriesDefs.map((series, index) => {
     const template = base[index] || base[0] || {};
     return {
       ...template,
       name: series.name || series.field,
-      data: rows.map((row) => toNumber(row[series.field])),
+      data: rows.map(row => toNumber(row[series.field])),
     };
   });
   return option;
@@ -251,10 +284,7 @@ export function buildEchartsOption(
 /**
  * 计算 KPI 单值：优先取显式 valueField，否则取首个数值列并按行求和。
  */
-export function resolveKpiValue(
-  widget: DashboardWidget,
-  result?: DatasetResult,
-): { value: number | null; label?: string } {
+export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult): { value: number | null; label?: string } {
   if (!result || !Array.isArray(result.rows) || result.rows.length === 0) {
     return { value: null };
   }
@@ -262,20 +292,14 @@ export function resolveKpiValue(
   const columns = result.columns ?? [];
   const field = ref?.valueField ?? ref?.series?.[0]?.field;
   if (field) {
-    const values = result.rows
-      .map((row) => toNumber(row[field]))
-      .filter((value): value is number => value !== null);
+    const values = result.rows.map(row => toNumber(row[field])).filter((value): value is number => value !== null);
     return { value: values.reduce((sum, value) => sum + value, 0) };
   }
-  const numericColumn = columns.find((column) =>
-    result.rows.some((row) => toNumber(row[column]) !== null),
-  );
+  const numericColumn = columns.find(column => result.rows.some(row => toNumber(row[column]) !== null));
   if (!numericColumn) {
     return { value: null };
   }
-  const values = result.rows
-    .map((row) => toNumber(row[numericColumn]))
-    .filter((value): value is number => value !== null);
+  const values = result.rows.map(row => toNumber(row[numericColumn])).filter((value): value is number => value !== null);
   return {
     value: values.reduce((sum, value) => sum + value, 0),
     label: numericColumn,

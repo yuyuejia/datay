@@ -2,7 +2,9 @@ package com.data.datafusion.service.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
+import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -12,7 +14,9 @@ import org.junit.jupiter.api.Test;
  */
 class DashboardSpecValidatorTest {
 
-    private final DashboardSpecValidator validator = new DashboardSpecValidator(new ObjectMapper());
+    private final AnalysisDatasetResolver resolver = new AnalysisDatasetResolver(mock(AnalysisDatasetRepository.class), new ObjectMapper());
+
+    private final DashboardSpecValidator validator = new DashboardSpecValidator(new ObjectMapper(), resolver);
 
     private static final String METRIC_SPEC = """
         {
@@ -66,6 +70,37 @@ class DashboardSpecValidatorTest {
         @SuppressWarnings("unchecked")
         var bindings = (java.util.List<Map<String, Object>>) filters.get(0).get("bindings");
         assertThat(bindings.get(0)).containsEntry("kind", "metricTime");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeDatasetFieldFilterWithoutBindings() {
+        String spec = """
+            {
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [ { "id": "region", "type": "select", "datasetId": "ds1", "field": "region" } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        var filters = (java.util.List<Map<String, Object>>) normalized.get("filters");
+        Map<String, Object> filter = filters.get(0);
+        assertThat(filter).containsEntry("datasetId", "ds1").containsEntry("field", "region");
+        assertThat(filter).doesNotContainKey("bindings");
+    }
+
+    @Test
+    void shouldRejectFilterWithUnknownDataset() {
+        String spec = """
+            {
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [ { "id": "region", "type": "select", "datasetId": "missing", "field": "region" } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的数据集");
     }
 
     @Test

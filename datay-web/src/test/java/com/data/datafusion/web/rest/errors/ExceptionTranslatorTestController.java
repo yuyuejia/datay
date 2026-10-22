@@ -47,6 +47,11 @@ public class ExceptionTranslatorTestController {
         throw new TestResponseStatusException();
     }
 
+    @GetMapping("/bad-request-alert")
+    public void badRequestAlert() {
+        throw new BadRequestAlertException("test bad request", "testEntity", "testError");
+    }
+
     @GetMapping("/internal-server-error")
     public void internalServerError() {
         throw new RuntimeException();

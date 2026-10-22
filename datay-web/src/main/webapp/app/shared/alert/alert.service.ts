@@ -57,6 +57,9 @@ export default class AlertService {
             errorMessage = httpErrorResponse.headers[entry];
           }
         }
+        if (!errorMessage) {
+          errorMessage = httpErrorResponse.data?.errorMessage;
+        }
         if (!errorMessage && httpErrorResponse.data?.fieldErrors) {
           errorMessage = 'Validation error';
         } else if (!errorMessage) {

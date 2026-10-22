@@ -20,6 +20,7 @@ import com.data.datafusion.repository.ETLNodeRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dto.LineageEdgeDTO;
 import com.data.datafusion.service.dto.LineageNodeDTO;
 import com.data.datafusion.service.dto.ModelLineageDTO;
@@ -96,6 +97,7 @@ public class DataModelLineageService {
     private final DataSourceRepository dataSourceRepository;
     private final SqlLineageParser sqlLineageParser;
     private final ObjectMapper objectMapper;
+    private final AnalysisDatasetResolver analysisDatasetResolver;
 
     public DataModelLineageService(
         DataModelRepository dataModelRepository,
@@ -109,7 +111,8 @@ public class DataModelLineageService {
         AnalysisDashboardRepository analysisDashboardRepository,
         DataSourceRepository dataSourceRepository,
         SqlLineageParser sqlLineageParser,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        AnalysisDatasetResolver analysisDatasetResolver
     ) {
         this.dataModelRepository = dataModelRepository;
         this.modelFieldRepository = modelFieldRepository;
@@ -123,6 +126,7 @@ public class DataModelLineageService {
         this.dataSourceRepository = dataSourceRepository;
         this.sqlLineageParser = sqlLineageParser;
         this.objectMapper = objectMapper;
+        this.analysisDatasetResolver = analysisDatasetResolver;
     }
 
     public ModelLineageDTO build(String modelId) {
@@ -835,7 +839,7 @@ public class DataModelLineageService {
 
     private void addDashboards(LineageContext context) {
         for (AnalysisDashboard dashboard : analysisDashboardRepository.findAll()) {
-            JsonNode spec = readJson(dashboard.getSpec());
+            JsonNode spec = readResolvedDashboardSpec(dashboard);
             if (spec == null) {
                 continue;
             }
@@ -1105,6 +1109,23 @@ public class DataModelLineageService {
             codes.add(matcher.group(1));
         }
         return codes;
+    }
+
+    /**
+     * 解析看板 spec，并把引用的数据集解析为最新定义，保证血缘不受数据集引用影响。
+     */
+    private JsonNode readResolvedDashboardSpec(AnalysisDashboard dashboard) {
+        JsonNode spec = readJson(dashboard.getSpec());
+        if (spec == null) {
+            return null;
+        }
+        try {
+            String resolved = analysisDatasetResolver.resolveSpecJson(dashboard.getSpec());
+            return readJson(resolved);
+        } catch (RuntimeException e) {
+            LOG.debug("解析看板 {} 引用数据集失败: {}", dashboard.getId(), e.getMessage());
+            return spec;
+        }
     }
 
     private JsonNode readJson(String value) {

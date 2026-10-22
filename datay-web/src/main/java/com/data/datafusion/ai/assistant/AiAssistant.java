@@ -86,6 +86,19 @@ public interface AiAssistant {
     }
 
     /**
+     * 对抽取出的结构化产物做落库前的后处理。
+     *
+     * <p>例如看板助手可把工具阶段准备好的数据集草稿落库，并把看板中的临时引用替换为真实 refId。
+     *
+     * @param spec      模型输出的结构化产物
+     * @param artifacts 本轮工具调用产生的结构化产物
+     * @return 处理后的产物
+     */
+    default Map<String, Object> postProcessSpec(Map<String, Object> spec, Map<String, Object> artifacts) {
+        return spec;
+    }
+
+    /**
      * 该助手可使用的工具名集合。
      *
      * <p>必须显式声明，作为该助手工具能力的唯一来源：只有出现在此集合中的工具，
