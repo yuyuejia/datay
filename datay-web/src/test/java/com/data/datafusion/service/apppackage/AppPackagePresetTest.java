@@ -1,19 +1,28 @@
 package com.data.datafusion.service.apppackage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.service.apppackage.model.AppPackageContent;
 import com.data.datafusion.service.apppackage.model.AppPackageEtlTask;
 import com.data.datafusion.service.apppackage.model.AppPackageMetric;
 import com.data.datafusion.service.apppackage.model.AppPackageModel;
+import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
+import com.data.datafusion.service.dashboard.DashboardSpecValidator;
 import com.data.job.ComponentDescriptor;
 import com.data.job.ComponentFactory;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,6 +75,29 @@ class AppPackagePresetTest {
 
         AppPackageEtlTask postgresLake = content.getEtlTasks().stream().filter(task -> "qs_etl_pg_cdc_ducklake".equals(task.taskCode)).findFirst().orElseThrow();
         assertThat(postgresLake.nodes).extracting(node -> node.type).contains("PostgresCDCInput", "DuckLakeWrite");
+    }
+
+    @Test
+    void presetDashboardsMatchSpecStructure() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        AnalysisDatasetRepository repository = mock(AnalysisDatasetRepository.class);
+        AnalysisDataset dataset = new AnalysisDataset();
+        dataset.setId("dataset-id");
+        dataset.setName("演示数据集");
+        dataset.setType(AnalysisDataset.TYPE_SQL);
+        dataset.setDefinition("{\"sql\":\"SELECT 1 AS value\"}");
+        when(repository.existsById(anyString())).thenReturn(true);
+        when(repository.findById(anyString())).thenReturn(Optional.of(dataset));
+        DashboardSpecValidator validator = new DashboardSpecValidator(objectMapper, new AnalysisDatasetResolver(repository, objectMapper));
+
+        for (String file : PRESET_FILES) {
+            AppPackageContent content = load(file);
+            for (var dashboard : content.getDashboards()) {
+                assertThat(validator.validateAndNormalize(dashboard.spec.toString()))
+                    .as("%s: dashboard %s spec", file, dashboard.code)
+                    .containsKeys("datasets", "widgets", "filters", "layout");
+            }
+        }
     }
 
     /**
@@ -131,6 +163,7 @@ class AppPackagePresetTest {
         Set<String> modelIds = ids(content.getModels().stream().map(item -> item.oldId).collect(Collectors.toSet()));
         Set<String> modelDirectoryIds = ids(content.getModelDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
         Set<String> metricDirectoryIds = ids(content.getMetricDirectories().stream().map(item -> item.oldId).collect(Collectors.toSet()));
+        Set<String> datasetIds = ids(content.getDatasets().stream().map(item -> item.oldId).collect(Collectors.toSet()));
         Set<String> modelFieldIds = new LinkedHashSet<>();
         content.getModels().forEach(model -> model.fields.forEach(field -> modelFieldIds.add(field.oldId)));
         Set<String> metricCodes = content.getMetrics().stream().map(metric -> metric.oldId).collect(Collectors.toSet());
@@ -180,6 +213,45 @@ class AppPackagePresetTest {
                     assertThat(metricCodeNames).as("%s: metric %s references %s", file, metric.code, matcher.group(1)).contains(matcher.group(1));
                 }
             }
+        }
+
+        // 分析数据集：数据源、指标编码、维度模型编码引用
+        for (var dataset : content.getDatasets()) {
+            if (dataset.dataSourceOldId != null) {
+                assertThat(dataSourceIds).as("%s: dataset %s dataSourceOldId", file, dataset.code).contains(dataset.dataSourceOldId);
+            }
+            JsonNode definition = dataset.definition;
+            if (definition == null) {
+                continue;
+            }
+            JsonNode definitionDataSourceId = definition.get("dataSourceId");
+            if (definitionDataSourceId != null && definitionDataSourceId.canConvertToLong()) {
+                assertThat(dataSourceIds).as("%s: dataset %s definition.dataSourceId", file, dataset.code).contains(definitionDataSourceId.asText());
+            }
+            JsonNode metricQuery = definition.get("metricQuery");
+            if (metricQuery != null && metricQuery.get("metricCodes") != null) {
+                metricQuery
+                    .get("metricCodes")
+                    .forEach(code -> assertThat(metricCodeNames).as("%s: dataset %s metricCode", file, dataset.code).contains(code.asText()));
+            }
+        }
+
+        // 分析看板：数据源与通过 refId 引用的数据集
+        for (var dashboard : content.getDashboards()) {
+            if (dashboard.dataSourceOldId != null) {
+                assertThat(dataSourceIds).as("%s: dashboard %s dataSourceOldId", file, dashboard.code).contains(dashboard.dataSourceOldId);
+            }
+            JsonNode datasets = dashboard.spec == null ? null : dashboard.spec.get("datasets");
+            assertThat(datasets).as("%s: dashboard %s datasets", file, dashboard.code).isNotNull();
+            datasets.forEach(dataset -> {
+                JsonNode refId = dataset.get("refId");
+                if (refId != null && !refId.isNull()) {
+                    assertThat(datasetIds).as("%s: dashboard %s refId", file, dashboard.code).contains(refId.asText());
+                }
+            });
+            JsonNode widgets = dashboard.spec.get("widgets");
+            assertThat(widgets).as("%s: dashboard %s widgets", file, dashboard.code).isNotNull();
+            assertThat(widgets.size()).as("%s: dashboard %s widget count", file, dashboard.code).isPositive();
         }
 
         // ETL 节点里的数据源与模型引用

@@ -71,6 +71,28 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="`分析数据集（${content?.datasets?.length || 0}）`">
+          <el-table :data="content?.datasets || []" size="small" border>
+            <el-table-column prop="name" label="名称" min-width="180" />
+            <el-table-column prop="code" label="编码" min-width="170" />
+            <el-table-column prop="type" label="类型" width="100" />
+            <el-table-column prop="description" label="说明" min-width="260" show-overflow-tooltip />
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :label="`分析看板（${content?.dashboards?.length || 0}）`">
+          <el-table :data="content?.dashboards || []" size="small" border>
+            <el-table-column prop="name" label="名称" min-width="180" />
+            <el-table-column prop="code" label="编码" min-width="170" />
+            <el-table-column label="数据集 / 组件" width="130" align="center">
+              <template #default="scope">
+                {{ (scope.row.spec?.datasets || []).length }} / {{ (scope.row.spec?.widgets || []).length }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="说明" min-width="260" show-overflow-tooltip />
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="`ETL 任务（${content?.etlTasks?.length || 0}）`">
           <el-table :data="content?.etlTasks || []" size="small" border>
             <el-table-column prop="taskName" label="任务名称" min-width="160" />

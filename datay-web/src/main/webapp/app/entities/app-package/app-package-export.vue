@@ -8,9 +8,9 @@
     <el-alert type="info" :closable="false" class="mb-3">
       <template #title>把已经开发完成的数据资产打包成一个可移植的资产包</template>
       <div class="mt-1 small">
-        勾选要打包的数据源、数据模型、指标、ETL 任务、SQL 任务与编排任务；开启「自动补齐被引用资产」后，
-        指标引用的事实表、模型引用的维度与数据源、编排引用的子任务都会自动一并打包，避免导出半截资产包。 资产包内部使用逻辑 ID
-        引用，导入到其它租户时会自动完成 ID 替换。
+        勾选要打包的数据源、数据模型、指标、分析数据集、分析看板、ETL 任务、SQL 任务与编排任务；开启「自动补齐被引用资产」后，
+        指标引用的事实表、模型引用的维度与数据源、看板引用的数据集、编排引用的子任务都会自动一并打包，避免导出半截资产包。
+        资产包内部使用逻辑 ID 引用，导入到其它租户时会自动完成 ID 替换。
       </div>
     </el-alert>
 
@@ -96,6 +96,44 @@
             v-for="item in options.metrics"
             :key="item.id"
             :label="`${item.name} / ${item.code}（${item.subtitle}）`"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item :label="`分析数据集（${form.datasetIds.length}）`">
+        <el-select
+          v-model="form.datasetIds"
+          multiple
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="选择分析数据集"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="item in options.datasets"
+            :key="item.id"
+            :label="`${item.name} / ${item.code}（${item.subtitle}）`"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item :label="`分析看板（${form.dashboardIds.length}）`">
+        <el-select
+          v-model="form.dashboardIds"
+          multiple
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="选择分析看板"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="item in options.dashboards"
+            :key="item.id"
+            :label="`${item.name} / ${item.code}（${item.subtitle || 'ENABLED'}）`"
             :value="item.id"
           />
         </el-select>

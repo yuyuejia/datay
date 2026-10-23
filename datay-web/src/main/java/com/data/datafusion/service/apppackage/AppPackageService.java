@@ -49,6 +49,10 @@ public class AppPackageService {
 
     private final MetricRepository metricRepository;
 
+    private final AnalysisDatasetRepository analysisDatasetRepository;
+
+    private final AnalysisDashboardRepository analysisDashboardRepository;
+
     private final ETLTaskRepository etlTaskRepository;
 
     private final JobRepository jobRepository;
@@ -64,6 +68,8 @@ public class AppPackageService {
         DataSourceRepository dataSourceRepository,
         DataModelRepository dataModelRepository,
         MetricRepository metricRepository,
+        AnalysisDatasetRepository analysisDatasetRepository,
+        AnalysisDashboardRepository analysisDashboardRepository,
         ETLTaskRepository etlTaskRepository,
         JobRepository jobRepository,
         AppPackageExportService exportService,
@@ -74,6 +80,8 @@ public class AppPackageService {
         this.dataSourceRepository = dataSourceRepository;
         this.dataModelRepository = dataModelRepository;
         this.metricRepository = metricRepository;
+        this.analysisDatasetRepository = analysisDatasetRepository;
+        this.analysisDashboardRepository = analysisDashboardRepository;
         this.etlTaskRepository = etlTaskRepository;
         this.jobRepository = jobRepository;
         this.exportService = exportService;
@@ -348,6 +356,28 @@ public class AppPackageService {
                 option.subtitle = metric.getMetricType();
                 option.owner = metric.getUnit();
                 options.metrics.add(option);
+            });
+        analysisDatasetRepository
+            .findAll()
+            .forEach(dataset -> {
+                AppPackageExportOptionsDTO.Option option = new AppPackageExportOptionsDTO.Option();
+                option.id = dataset.getId();
+                option.name = dataset.getName();
+                option.code = dataset.getCode();
+                option.subtitle = dataset.getType();
+                option.owner = dataset.getDataSourceId();
+                options.datasets.add(option);
+            });
+        analysisDashboardRepository
+            .findAll()
+            .forEach(dashboard -> {
+                AppPackageExportOptionsDTO.Option option = new AppPackageExportOptionsDTO.Option();
+                option.id = dashboard.getId();
+                option.name = dashboard.getName();
+                option.code = dashboard.getCode();
+                option.subtitle = dashboard.getStatus();
+                option.owner = dashboard.getDataSourceId();
+                options.dashboards.add(option);
             });
         etlTaskRepository
             .findAll()

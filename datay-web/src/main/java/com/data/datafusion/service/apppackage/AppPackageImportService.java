@@ -3,6 +3,8 @@ package com.data.datafusion.service.apppackage;
 import com.data.datafusion.domain.*;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.*;
+import com.data.datafusion.service.AnalysisDashboardService;
+import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.JobService;
 import com.data.datafusion.service.MetricService;
@@ -11,6 +13,7 @@ import com.data.datafusion.service.dto.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -72,6 +75,10 @@ public class AppPackageImportService {
 
     private final MetricDirectoryRepository metricDirectoryRepository;
 
+    private final AnalysisDatasetRepository analysisDatasetRepository;
+
+    private final AnalysisDashboardRepository analysisDashboardRepository;
+
     private final ETLTaskRepository etlTaskRepository;
 
     private final JobRepository jobRepository;
@@ -79,6 +86,10 @@ public class AppPackageImportService {
     private final JobDependRepository jobDependRepository;
 
     private final MetricService metricService;
+
+    private final AnalysisDatasetService analysisDatasetService;
+
+    private final AnalysisDashboardService analysisDashboardService;
 
     private final ETLTaskService etlTaskService;
 
@@ -91,10 +102,14 @@ public class AppPackageImportService {
         ModelDirectoryRepository modelDirectoryRepository,
         MetricRepository metricRepository,
         MetricDirectoryRepository metricDirectoryRepository,
+        AnalysisDatasetRepository analysisDatasetRepository,
+        AnalysisDashboardRepository analysisDashboardRepository,
         ETLTaskRepository etlTaskRepository,
         JobRepository jobRepository,
         JobDependRepository jobDependRepository,
         MetricService metricService,
+        AnalysisDatasetService analysisDatasetService,
+        AnalysisDashboardService analysisDashboardService,
         ETLTaskService etlTaskService,
         JobService jobService
     ) {
@@ -104,10 +119,14 @@ public class AppPackageImportService {
         this.modelDirectoryRepository = modelDirectoryRepository;
         this.metricRepository = metricRepository;
         this.metricDirectoryRepository = metricDirectoryRepository;
+        this.analysisDatasetRepository = analysisDatasetRepository;
+        this.analysisDashboardRepository = analysisDashboardRepository;
         this.etlTaskRepository = etlTaskRepository;
         this.jobRepository = jobRepository;
         this.jobDependRepository = jobDependRepository;
         this.metricService = metricService;
+        this.analysisDatasetService = analysisDatasetService;
+        this.analysisDashboardService = analysisDashboardService;
         this.etlTaskService = etlTaskService;
         this.jobService = jobService;
     }
@@ -141,30 +160,39 @@ public class AppPackageImportService {
         // 3. 指标目录与指标
         Map<String, String> metricDirectoryMap = importMetricDirectories(content, result);
         Map<String, String> metricMap = new LinkedHashMap<>();
-        importMetrics(content, strategy, modelMap, metricDirectoryMap, modelCodeRename, metricMap, result);
+        Map<String, String> metricCodeRename = new LinkedHashMap<>();
+        importMetrics(content, strategy, modelMap, metricDirectoryMap, modelCodeRename, metricCodeRename, metricMap, result);
 
-        // 4. ETL 任务（会同步生成调度 Job）
+        // 4. 分析数据集与分析看板（看板的 refId 依赖数据集映射）
+        Map<String, String> datasetMap = new LinkedHashMap<>();
+        importDatasets(content, strategy, dataSourceMap, metricCodeRename, modelCodeRename, datasetMap, result);
+        Map<String, String> dashboardMap = new LinkedHashMap<>();
+        importDashboards(content, strategy, dataSourceMap, datasetMap, metricCodeRename, modelCodeRename, dashboardMap, result);
+
+        // 5. ETL 任务（会同步生成调度 Job）
         Map<String, String> etlTaskMap = new LinkedHashMap<>();
         Map<String, String> jobMap = new LinkedHashMap<>();
         importEtlTasks(content, strategy, dataSourceMap, modelMap, request, etlTaskMap, jobMap, result);
 
-        // 5. SQL 任务与其它任务
+        // 6. SQL 任务与其它任务
         importJobs(content.getSqlJobs(), TaskConstants.TASK_TYPE_SQL, strategy, dataSourceMap, request, jobMap, result);
         for (Map.Entry<String, List<AppPackageJob>> entry : groupOtherJobs(content.getOtherJobs()).entrySet()) {
             importJobs(entry.getValue(), entry.getKey(), strategy, dataSourceMap, request, jobMap, result);
         }
 
-        // 6. 编排任务（依赖前面的 Job 映射，按依赖顺序多轮创建）
+        // 7. 编排任务（依赖前面的 Job 映射，按依赖顺序多轮创建）
         Map<String, String> dagJobMap = new LinkedHashMap<>();
         importDagJobs(content, strategy, Boolean.TRUE.equals(request == null ? null : request.onlineJobs), jobMap, dagJobMap, result);
 
-        // 7. 任务依赖
+        // 8. 任务依赖
         importJobDepends(content, jobMap, result);
 
         result.idMapping.put("dataSources", toStringKeyMap(dataSourceMap));
         result.idMapping.put("models", toStringKeyMap(modelMap));
         result.idMapping.put("modelFields", toStringKeyMap(modelFieldMap));
         result.idMapping.put("metrics", toStringKeyMap(metricMap));
+        result.idMapping.put("datasets", toStringKeyMap(datasetMap));
+        result.idMapping.put("dashboards", toStringKeyMap(dashboardMap));
         result.idMapping.put("etlTasks", toStringKeyMap(etlTaskMap));
         result.idMapping.put("jobs", toStringKeyMap(jobMap));
         result.idMapping.put("dagJobs", toStringKeyMap(dagJobMap));
@@ -197,6 +225,15 @@ public class AppPackageImportService {
             );
         } else if (!jobMap.isEmpty()) {
             steps.add("本资产包包含 ETL / SQL 任务，请按依赖顺序先执行上游任务，再执行下游任务");
+        }
+        List<String> dashboardNames = new ArrayList<>();
+        for (AppPackageDashboard item : nonNull(content.getDashboards())) {
+            if (item.name != null && !item.name.isBlank()) {
+                dashboardNames.add(item.name);
+            }
+        }
+        if (!dashboardNames.isEmpty()) {
+            steps.add("本资产包预置了分析看板：" + String.join("、", dashboardNames) + "，可到「分析看板」中查看");
         }
         return steps;
     }
@@ -580,6 +617,7 @@ public class AppPackageImportService {
         Map<String, String> modelMap,
         Map<String, String> directoryMap,
         Map<String, String> modelCodeRename,
+        Map<String, String> metricCodeRename,
         Map<String, String> metricMap,
         AppPackageInitResultDTO result
     ) {
@@ -617,6 +655,7 @@ public class AppPackageImportService {
                 plannedCodes.add(newCode);
             }
         }
+        metricCodeRename.putAll(codeRename);
 
         // 按依赖顺序导入：衍生指标必须等它引用的指标就位后再导入
         List<AppPackageMetric> pending = new ArrayList<>();
@@ -651,6 +690,10 @@ public class AppPackageImportService {
                 dto.setMetricType(item.metricType);
                 dto.setStatus(item.status == null || item.status.isBlank() ? Metric.STATUS_ENABLED : item.status);
                 dto.setFactModelId(item.factModelOldId == null ? null : modelMap.get(item.factModelOldId));
+                if (item.directoryOldId != null && !directoryMap.containsKey(item.directoryOldId)) {
+                    result.warnings.add("指标引用的目录不在资产包内，指标将挂到根目录：" + item.code + " -> directoryId=" + item.directoryOldId);
+                }
+                dto.setDirectoryId(item.directoryOldId == null ? null : directoryMap.get(item.directoryOldId));
                 dto.setFilterConfig(remapFilterConfig(item.filterConfig, modelMap, modelCodeRename));
                 dto.setUnit(item.unit);
                 dto.setDataType(item.dataType);
@@ -684,6 +727,324 @@ public class AppPackageImportService {
         result.counts.put("metrics", created);
         result.counts.put("metricsSkipped", skippedIds.size());
         result.counts.put("metricsOverwritten", overwritten);
+    }
+
+    // ------------------------------------------------------------------ 分析数据集与分析看板
+
+    private void importDatasets(
+        AppPackageContent content,
+        String strategy,
+        Map<String, String> dataSourceMap,
+        Map<String, String> metricCodeRename,
+        Map<String, String> modelCodeRename,
+        Map<String, String> datasetMap,
+        AppPackageInitResultDTO result
+    ) {
+        List<AppPackageDataset> items = new ArrayList<>(nonNull(content.getDatasets()));
+
+        Set<String> tenantCodes = new LinkedHashSet<>();
+        Map<String, String> existingIds = new LinkedHashMap<>();
+        analysisDatasetRepository.findAll().forEach(dataset -> {
+            tenantCodes.add(dataset.getCode());
+            existingIds.put(dataset.getCode(), dataset.getId());
+        });
+        Set<String> plannedCodes = new LinkedHashSet<>(tenantCodes);
+        Set<String> skippedIds = new LinkedHashSet<>();
+        Set<String> overwriteCodes = new LinkedHashSet<>();
+        for (AppPackageDataset item : items) {
+            if (item.oldId == null || item.code == null) {
+                continue;
+            }
+            if (!plannedCodes.add(item.code)) {
+                if (STRATEGY_OVERWRITE.equals(strategy) && tenantCodes.contains(item.code) && overwriteCodes.add(item.code)) {
+                    continue;
+                }
+                if (STRATEGY_SKIP.equals(strategy)) {
+                    result.warnings.add("分析数据集编码已存在，按策略跳过：" + item.code);
+                    skippedIds.add(item.oldId);
+                    continue;
+                }
+                String newCode = uniqueDatasetCode(item.code, plannedCodes);
+                result.warnings.add("分析数据集编码已存在，已重命名为：" + item.code + " -> " + newCode);
+                item.code = newCode;
+                plannedCodes.add(newCode);
+            }
+        }
+
+        int created = 0;
+        int overwritten = 0;
+        for (AppPackageDataset item : items) {
+            if (item.oldId == null || skippedIds.contains(item.oldId)) {
+                continue;
+            }
+            String dataSourceId = null;
+            if (item.dataSourceOldId != null) {
+                dataSourceId = dataSourceMap.get(item.dataSourceOldId);
+                if (dataSourceId == null) {
+                    result.warnings.add("分析数据集引用的数据源不在资产包内：" + item.code + " -> dataSourceId=" + item.dataSourceOldId);
+                }
+            }
+            JsonNode definition = rewriteDatasetDefinition(item.definition, dataSourceMap, metricCodeRename, modelCodeRename, result, item.code);
+            if (dataSourceId == null && definition != null && definition.isObject()) {
+                JsonNode definitionDataSourceId = definition.get("dataSourceId");
+                if (definitionDataSourceId != null && !definitionDataSourceId.isContainerNode()) {
+                    dataSourceId = dataSourceMap.get(definitionDataSourceId.asText());
+                }
+            }
+            AnalysisDatasetDTO dto = new AnalysisDatasetDTO();
+            dto.setName(item.name);
+            dto.setCode(item.code);
+            dto.setDescription(item.description);
+            dto.setType(item.type);
+            dto.setStatus(item.status);
+            dto.setDataSourceId(dataSourceId);
+            dto.setDefinition(definition == null ? null : definition.toString());
+            dto.setFields(item.fields == null ? null : item.fields.toString());
+            String existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingIds.get(item.code) : null;
+            AnalysisDatasetDTO saved;
+            if (existingId != null) {
+                saved = analysisDatasetService
+                    .update(existingId, dto)
+                    .orElseThrow(() -> new IllegalArgumentException("分析数据集不存在，无法覆盖：" + dto.getCode()));
+                overwritten++;
+            } else {
+                saved = analysisDatasetService.save(dto);
+                created++;
+            }
+            datasetMap.put(item.oldId, saved.getId());
+        }
+        result.counts.put("datasets", created);
+        result.counts.put("datasetsOverwritten", overwritten);
+        result.counts.put("datasetsSkipped", skippedIds.size());
+    }
+
+    private String uniqueDatasetCode(String code, Set<String> usedCodes) {
+        String candidate = code + "_copy";
+        int index = 2;
+        while (usedCodes.contains(candidate)) {
+            candidate = code + "_copy" + index;
+            index++;
+        }
+        return candidate;
+    }
+
+    /**
+     * 重写分析数据集定义中的包内引用：数据源 ID、指标编码、维度模型编码。
+     */
+    private JsonNode rewriteDatasetDefinition(
+        JsonNode definition,
+        Map<String, String> dataSourceMap,
+        Map<String, String> metricCodeRename,
+        Map<String, String> modelCodeRename,
+        AppPackageInitResultDTO result,
+        String datasetCode
+    ) {
+        if (definition == null || definition.isNull()) {
+            return null;
+        }
+        JsonNode root = definition.deepCopy();
+        if (root.isObject()) {
+            JsonNode dataSourceId = root.get("dataSourceId");
+            if (dataSourceId != null && !dataSourceId.isContainerNode()) {
+                String mapped = dataSourceMap.get(dataSourceId.asText());
+                if (mapped == null) {
+                    result.warnings.add("分析数据集定义引用的数据源不在资产包内：" + datasetCode + " -> dataSourceId=" + dataSourceId.asText());
+                    ((ObjectNode) root).remove("dataSourceId");
+                } else {
+                    ((ObjectNode) root).put("dataSourceId", mapped);
+                }
+            }
+            rewriteMetricQuery(root.get("metricQuery"), metricCodeRename, modelCodeRename);
+        }
+        return root;
+    }
+
+    /**
+     * 重写指标查询中的指标编码与维度模型编码（看板内联数据集与指标数据集共用）。
+     */
+    private void rewriteMetricQuery(JsonNode metricQuery, Map<String, String> metricCodeRename, Map<String, String> modelCodeRename) {
+        if (metricQuery == null || !metricQuery.isObject()) {
+            return;
+        }
+        JsonNode metricCodes = metricQuery.get("metricCodes");
+        if (metricCodes != null && metricCodes.isArray()) {
+            for (int i = 0; i < metricCodes.size(); i++) {
+                String renamed = metricCodeRename.get(metricCodes.get(i).asText());
+                if (renamed != null) {
+                    ((ArrayNode) metricCodes).set(i, TextNode.valueOf(renamed));
+                }
+            }
+        }
+        JsonNode dimensions = metricQuery.get("dimensions");
+        if (dimensions != null && dimensions.isArray()) {
+            for (JsonNode dimension : dimensions) {
+                rewriteDimensionModelCode(dimension, modelCodeRename);
+            }
+        }
+        JsonNode filterConfig = metricQuery.get("filterConfig");
+        JsonNode conditions = filterConfig == null || !filterConfig.isObject() ? null : filterConfig.get("conditions");
+        if (conditions != null && conditions.isArray()) {
+            for (JsonNode condition : conditions) {
+                rewriteDimensionModelCode(condition, modelCodeRename);
+            }
+        }
+    }
+
+    private void rewriteDimensionModelCode(JsonNode node, Map<String, String> modelCodeRename) {
+        if (node == null || !node.isObject()) {
+            return;
+        }
+        JsonNode modelCode = node.get("dimensionModelCode");
+        if (modelCode == null || modelCode.isNull()) {
+            return;
+        }
+        String renamed = modelCodeRename.get(modelCode.asText());
+        if (renamed != null) {
+            ((ObjectNode) node).put("dimensionModelCode", renamed);
+        }
+    }
+
+    private void importDashboards(
+        AppPackageContent content,
+        String strategy,
+        Map<String, String> dataSourceMap,
+        Map<String, String> datasetMap,
+        Map<String, String> metricCodeRename,
+        Map<String, String> modelCodeRename,
+        Map<String, String> dashboardMap,
+        AppPackageInitResultDTO result
+    ) {
+        List<AppPackageDashboard> items = new ArrayList<>(nonNull(content.getDashboards()));
+
+        Set<String> tenantCodes = new LinkedHashSet<>();
+        Map<String, String> existingIds = new LinkedHashMap<>();
+        analysisDashboardRepository.findAll().forEach(dashboard -> {
+            tenantCodes.add(dashboard.getCode());
+            existingIds.put(dashboard.getCode(), dashboard.getId());
+        });
+        Set<String> plannedCodes = new LinkedHashSet<>(tenantCodes);
+        Set<String> skippedIds = new LinkedHashSet<>();
+        Set<String> overwriteCodes = new LinkedHashSet<>();
+        for (AppPackageDashboard item : items) {
+            if (item.oldId == null || item.code == null) {
+                continue;
+            }
+            if (!plannedCodes.add(item.code)) {
+                if (STRATEGY_OVERWRITE.equals(strategy) && tenantCodes.contains(item.code) && overwriteCodes.add(item.code)) {
+                    continue;
+                }
+                if (STRATEGY_SKIP.equals(strategy)) {
+                    result.warnings.add("分析看板编码已存在，按策略跳过：" + item.code);
+                    skippedIds.add(item.oldId);
+                    continue;
+                }
+                String newCode = uniqueDashboardCode(item.code, plannedCodes);
+                result.warnings.add("分析看板编码已存在，已重命名为：" + item.code + " -> " + newCode);
+                item.code = newCode;
+                plannedCodes.add(newCode);
+            }
+        }
+
+        int created = 0;
+        int overwritten = 0;
+        for (AppPackageDashboard item : items) {
+            if (item.oldId == null || skippedIds.contains(item.oldId)) {
+                continue;
+            }
+            JsonNode spec = rewriteDashboardSpec(item.spec, datasetMap, dataSourceMap, metricCodeRename, modelCodeRename, content, item.code, result);
+            if (spec == null) {
+                skippedIds.add(item.oldId);
+                continue;
+            }
+            String dataSourceId = null;
+            if (item.dataSourceOldId != null) {
+                dataSourceId = dataSourceMap.get(item.dataSourceOldId);
+                if (dataSourceId == null) {
+                    result.warnings.add("分析看板引用的数据源不在资产包内：" + item.code + " -> dataSourceId=" + item.dataSourceOldId);
+                }
+            }
+            AnalysisDashboardDTO dto = new AnalysisDashboardDTO();
+            dto.setName(item.name);
+            dto.setCode(item.code);
+            dto.setDescription(item.description);
+            dto.setStatus(item.status);
+            dto.setDataSourceId(dataSourceId);
+            dto.setSpec(spec.toString());
+            String existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingIds.get(item.code) : null;
+            AnalysisDashboardDTO saved;
+            if (existingId != null) {
+                saved = analysisDashboardService
+                    .update(existingId, dto)
+                    .orElseThrow(() -> new IllegalArgumentException("分析看板不存在，无法覆盖：" + dto.getCode()));
+                overwritten++;
+            } else {
+                saved = analysisDashboardService.save(dto);
+                created++;
+            }
+            dashboardMap.put(item.oldId, saved.getId());
+        }
+        result.counts.put("dashboards", created);
+        result.counts.put("dashboardsOverwritten", overwritten);
+        result.counts.put("dashboardsSkipped", skippedIds.size());
+    }
+
+    private String uniqueDashboardCode(String code, Set<String> usedCodes) {
+        String candidate = code + "_copy";
+        int index = 2;
+        while (usedCodes.contains(candidate)) {
+            candidate = code + "_copy" + index;
+            index++;
+        }
+        return candidate;
+    }
+
+    /**
+     * 重写看板定义中的数据集引用与数据源 ID；引用的数据集被跳过时返回 null，由调用方跳过该看板。
+     */
+    private JsonNode rewriteDashboardSpec(
+        JsonNode spec,
+        Map<String, String> datasetMap,
+        Map<String, String> dataSourceMap,
+        Map<String, String> metricCodeRename,
+        Map<String, String> modelCodeRename,
+        AppPackageContent content,
+        String dashboardCode,
+        AppPackageInitResultDTO result
+    ) {
+        if (spec == null || spec.isNull()) {
+            return null;
+        }
+        JsonNode root = spec.deepCopy();
+        JsonNode datasets = root.get("datasets");
+        if (datasets != null && datasets.isArray()) {
+            for (JsonNode dataset : datasets) {
+                if (!dataset.isObject()) {
+                    continue;
+                }
+                rewriteMetricQuery(dataset.get("metricQuery"), metricCodeRename, modelCodeRename);
+                JsonNode refId = dataset.get("refId");
+                if (refId == null || refId.isNull() || refId.asText().isBlank()) {
+                    continue;
+                }
+                String oldRefId = refId.asText();
+                if (datasetMap.containsKey(oldRefId)) {
+                    ((ObjectNode) dataset).put("refId", datasetMap.get(oldRefId));
+                } else if (isPackageDatasetOldId(content, oldRefId)) {
+                    result.warnings.add("分析看板引用的数据集未导入，已跳过该看板：" + dashboardCode + " -> refId=" + oldRefId);
+                    return null;
+                }
+            }
+        }
+        return AppPackageIdRemapper.remapIds(root, Map.of("dataSourceId", dataSourceMap));
+    }
+
+    private boolean isPackageDatasetOldId(AppPackageContent content, String oldId) {
+        for (AppPackageDataset dataset : nonNull(content.getDatasets())) {
+            if (oldId.equals(dataset.oldId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String uniqueMetricCode(String code, Set<String> usedCodes) {

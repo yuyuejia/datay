@@ -18,6 +18,10 @@ public class AppPackageExportOptionsDTO implements Serializable {
 
     public List<Option> metrics = new ArrayList<>();
 
+    public List<Option> datasets = new ArrayList<>();
+
+    public List<Option> dashboards = new ArrayList<>();
+
     public List<Option> etlTasks = new ArrayList<>();
 
     public List<Option> sqlJobs = new ArrayList<>();

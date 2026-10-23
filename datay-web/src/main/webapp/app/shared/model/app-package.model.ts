@@ -40,6 +40,23 @@ export interface IAppPackageContent {
   models?: Array<{ oldId?: string; name?: string; code?: string; modelType?: string; fields?: unknown[] }>;
   metricDirectories?: Array<{ oldId?: string; name?: string }>;
   metrics?: Array<{ oldId?: string; name?: string; code?: string; metricType?: string; unit?: string }>;
+  datasets?: Array<{
+    oldId?: string;
+    name?: string;
+    code?: string;
+    type?: string;
+    description?: string;
+    dataSourceOldId?: string;
+    definition?: unknown;
+  }>;
+  dashboards?: Array<{
+    oldId?: string;
+    name?: string;
+    code?: string;
+    description?: string;
+    dataSourceOldId?: string;
+    spec?: { datasets?: unknown[]; widgets?: unknown[]; filters?: unknown[] };
+  }>;
   etlTasks?: Array<{
     oldId?: string;
     taskName?: string;
@@ -85,6 +102,8 @@ export interface IAppPackageExportOptions {
   dataSources: IAppPackageOption[];
   models: IAppPackageOption[];
   metrics: IAppPackageOption[];
+  datasets: IAppPackageOption[];
+  dashboards: IAppPackageOption[];
   etlTasks: IAppPackageOption[];
   sqlJobs: IAppPackageOption[];
   dagJobs: IAppPackageOption[];
@@ -101,6 +120,8 @@ export interface IAppPackageExportRequest {
   dataSourceIds: string[];
   modelIds: string[];
   metricIds: string[];
+  datasetIds: string[];
+  dashboardIds: string[];
   etlTaskIds: string[];
   sqlJobIds: string[];
   dagJobIds: string[];
@@ -164,6 +185,8 @@ export const APP_PACKAGE_SUMMARY_LABELS: Array<{ key: string; label: string }> =
   { key: 'modelFields', label: '模型字段' },
   { key: 'metricDirectories', label: '指标目录' },
   { key: 'metrics', label: '指标' },
+  { key: 'datasets', label: '分析数据集' },
+  { key: 'dashboards', label: '分析看板' },
   { key: 'etlTasks', label: 'ETL 任务' },
   { key: 'sqlJobs', label: 'SQL 任务' },
   { key: 'dagJobs', label: '编排任务' },
@@ -188,7 +211,7 @@ export function summaryEntries(summary?: Record<string, number> | null): Array<{
   if (!summary) {
     return [];
   }
-  return APP_PACKAGE_SUMMARY_LABELS.filter((item) => (summary[item.key] || 0) > 0).map((item) => ({
+  return APP_PACKAGE_SUMMARY_LABELS.filter(item => (summary[item.key] || 0) > 0).map(item => ({
     label: item.label,
     value: summary[item.key],
   }));

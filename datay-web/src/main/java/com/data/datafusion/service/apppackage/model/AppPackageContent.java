@@ -46,6 +46,12 @@ public class AppPackageContent {
     /** 指标。 */
     private List<AppPackageMetric> metrics = new ArrayList<>();
 
+    /** 分析数据集（指标数据集 / SQL 数据集）。 */
+    private List<AppPackageDataset> datasets = new ArrayList<>();
+
+    /** 分析看板。 */
+    private List<AppPackageDashboard> dashboards = new ArrayList<>();
+
     /** ETL 任务。 */
     private List<AppPackageEtlTask> etlTasks = new ArrayList<>();
 
@@ -128,6 +134,22 @@ public class AppPackageContent {
         this.metrics = metrics == null ? new ArrayList<>() : metrics;
     }
 
+    public List<AppPackageDataset> getDatasets() {
+        return datasets;
+    }
+
+    public void setDatasets(List<AppPackageDataset> datasets) {
+        this.datasets = datasets == null ? new ArrayList<>() : datasets;
+    }
+
+    public List<AppPackageDashboard> getDashboards() {
+        return dashboards;
+    }
+
+    public void setDashboards(List<AppPackageDashboard> dashboards) {
+        this.dashboards = dashboards == null ? new ArrayList<>() : dashboards;
+    }
+
     public List<AppPackageEtlTask> getEtlTasks() {
         return etlTasks;
     }
@@ -186,6 +208,8 @@ public class AppPackageContent {
         result.put("modelFields", fieldCount);
         result.put("metricDirectories", metricDirectories.size());
         result.put("metrics", metrics.size());
+        result.put("datasets", datasets.size());
+        result.put("dashboards", dashboards.size());
         result.put("etlTasks", etlTasks.size());
         result.put("sqlJobs", sqlJobs.size());
         result.put("dagJobs", dagJobs.size());

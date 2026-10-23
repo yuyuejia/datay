@@ -37,6 +37,12 @@ public class AppPackageExportRequestDTO implements Serializable {
     /** 选中的指标 ID。 */
     public List<String> metricIds = new ArrayList<>();
 
+    /** 选中的分析数据集 ID。 */
+    public List<String> datasetIds = new ArrayList<>();
+
+    /** 选中的分析看板 ID。 */
+    public List<String> dashboardIds = new ArrayList<>();
+
     /** 选中的 ETL 任务 ID。 */
     public List<String> etlTaskIds = new ArrayList<>();
 

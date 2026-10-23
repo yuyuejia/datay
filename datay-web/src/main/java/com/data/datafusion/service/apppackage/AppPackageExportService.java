@@ -43,6 +43,10 @@ public class AppPackageExportService {
 
     private final MetricDirectoryRepository metricDirectoryRepository;
 
+    private final AnalysisDatasetRepository analysisDatasetRepository;
+
+    private final AnalysisDashboardRepository analysisDashboardRepository;
+
     private final ETLTaskRepository etlTaskRepository;
 
     private final ETLNodeRepository etlNodeRepository;
@@ -60,6 +64,8 @@ public class AppPackageExportService {
         ModelDirectoryRepository modelDirectoryRepository,
         MetricRepository metricRepository,
         MetricDirectoryRepository metricDirectoryRepository,
+        AnalysisDatasetRepository analysisDatasetRepository,
+        AnalysisDashboardRepository analysisDashboardRepository,
         ETLTaskRepository etlTaskRepository,
         ETLNodeRepository etlNodeRepository,
         ETLEdgeRepository etlEdgeRepository,
@@ -72,6 +78,8 @@ public class AppPackageExportService {
         this.modelDirectoryRepository = modelDirectoryRepository;
         this.metricRepository = metricRepository;
         this.metricDirectoryRepository = metricDirectoryRepository;
+        this.analysisDatasetRepository = analysisDatasetRepository;
+        this.analysisDashboardRepository = analysisDashboardRepository;
         this.etlTaskRepository = etlTaskRepository;
         this.etlNodeRepository = etlNodeRepository;
         this.etlEdgeRepository = etlEdgeRepository;
@@ -89,6 +97,8 @@ public class AppPackageExportService {
         Collection<String> initialDataSources = toIdSet(request.dataSourceIds);
         Collection<String> initialModels = toIdSet(request.modelIds);
         Collection<String> initialMetrics = toIdSet(request.metricIds);
+        Collection<String> initialDatasets = toIdSet(request.datasetIds);
+        Collection<String> initialDashboards = toIdSet(request.dashboardIds);
         Collection<String> initialEtlTasks = toIdSet(request.etlTaskIds);
         Collection<String> initialSqlJobs = toIdSet(request.sqlJobIds);
         Collection<String> initialDagJobs = toIdSet(request.dagJobIds);
@@ -97,6 +107,8 @@ public class AppPackageExportService {
         selection.dataSourceIds.addAll(initialDataSources);
         selection.modelIds.addAll(initialModels);
         selection.metricIds.addAll(initialMetrics);
+        selection.datasetIds.addAll(initialDatasets);
+        selection.dashboardIds.addAll(initialDashboards);
         selection.etlTaskIds.addAll(initialEtlTasks);
         selection.jobIdsByType(TaskConstants.TASK_TYPE_SQL).addAll(initialSqlJobs);
         selection.jobIdsByType(TaskConstants.TASK_TYPE_DAG).addAll(initialDagJobs);
@@ -119,6 +131,8 @@ public class AppPackageExportService {
         content.setModelDirectories(buildModelDirectories(selection));
         content.setMetrics(buildMetrics(selection));
         content.setMetricDirectories(buildMetricDirectories(selection));
+        content.setDatasets(buildDatasets(selection));
+        content.setDashboards(buildDashboards(selection));
         content.setEtlTasks(buildEtlTasks(selection));
         content.setSqlJobs(buildJobs(selection, TaskConstants.TASK_TYPE_SQL));
         content.setDagJobs(buildJobs(selection, TaskConstants.TASK_TYPE_DAG));
@@ -163,6 +177,38 @@ public class AppPackageExportService {
                 }
                 for (String modelCode : extractDimensionModelCodes(metric.getFilterConfig())) {
                     dataModelRepository.findFirstByCode(modelCode).ifPresent(model -> selection.modelIds.add(model.getId()));
+                }
+            }
+
+            // 分析数据集：绑定的数据源 + 指标数据集引用的指标
+            for (String datasetId : new ArrayList<>(selection.datasetIds)) {
+                AnalysisDataset dataset = analysisDatasetRepository.findById(datasetId).orElse(null);
+                if (dataset == null) {
+                    continue;
+                }
+                if (dataset.getDataSourceId() != null) {
+                    selection.dataSourceIds.add(dataset.getDataSourceId());
+                }
+                if (AnalysisDataset.TYPE_METRIC.equals(dataset.getType())) {
+                    for (String metricCode : extractDatasetMetricCodes(dataset.getDefinition())) {
+                        metricRepository.findByCode(metricCode).ifPresent(metric -> selection.metricIds.add(metric.getId()));
+                    }
+                }
+            }
+
+            // 分析看板：默认数据源 + spec 中通过 refId 引用的数据集
+            for (String dashboardId : new ArrayList<>(selection.dashboardIds)) {
+                AnalysisDashboard dashboard = analysisDashboardRepository.findById(dashboardId).orElse(null);
+                if (dashboard == null) {
+                    continue;
+                }
+                if (dashboard.getDataSourceId() != null) {
+                    selection.dataSourceIds.add(dashboard.getDataSourceId());
+                }
+                selection.datasetIds.addAll(extractDashboardDatasetIds(dashboard.getSpec()));
+                selection.dataSourceIds.addAll(extractDashboardInlineDataSourceIds(dashboard.getSpec()));
+                for (String metricCode : extractDashboardMetricCodes(dashboard.getSpec())) {
+                    metricRepository.findByCode(metricCode).ifPresent(metric -> selection.metricIds.add(metric.getId()));
                 }
             }
 
@@ -411,6 +457,127 @@ public class AppPackageExportService {
         return items;
     }
 
+    private List<AppPackageDataset> buildDatasets(Selection selection) {
+        List<AppPackageDataset> items = new ArrayList<>();
+        for (String id : selection.datasetIds) {
+            analysisDatasetRepository
+                .findById(id)
+                .ifPresent(dataset -> {
+                    AppPackageDataset item = new AppPackageDataset();
+                    item.oldId = dataset.getId();
+                    item.dataSourceOldId = dataset.getDataSourceId();
+                    item.name = dataset.getName();
+                    item.code = dataset.getCode();
+                    item.description = dataset.getDescription();
+                    item.type = dataset.getType();
+                    item.status = dataset.getStatus();
+                    item.definition = AppPackageJson.readTreeQuietly(dataset.getDefinition());
+                    item.fields = AppPackageJson.readTreeQuietly(dataset.getFields());
+                    items.add(item);
+                });
+        }
+        return items;
+    }
+
+    private List<AppPackageDashboard> buildDashboards(Selection selection) {
+        List<AppPackageDashboard> items = new ArrayList<>();
+        for (String id : selection.dashboardIds) {
+            analysisDashboardRepository
+                .findById(id)
+                .ifPresent(dashboard -> {
+                    AppPackageDashboard item = new AppPackageDashboard();
+                    item.oldId = dashboard.getId();
+                    item.dataSourceOldId = dashboard.getDataSourceId();
+                    item.name = dashboard.getName();
+                    item.code = dashboard.getCode();
+                    item.description = dashboard.getDescription();
+                    item.status = dashboard.getStatus();
+                    item.spec = AppPackageJson.readTreeQuietly(dashboard.getSpec());
+                    items.add(item);
+                });
+        }
+        return items;
+    }
+
+    /**
+     * 从指标数据集定义中取出引用的指标编码。
+     */
+    private Set<String> extractDatasetMetricCodes(String definition) {
+        Set<String> codes = new LinkedHashSet<>();
+        JsonNode root = AppPackageJson.readTreeQuietly(definition);
+        if (root == null) {
+            return codes;
+        }
+        JsonNode metricQuery = root.get("metricQuery");
+        JsonNode metricCodes = metricQuery == null ? null : metricQuery.get("metricCodes");
+        if (metricCodes != null && metricCodes.isArray()) {
+            for (JsonNode code : metricCodes) {
+                if (code != null && !code.isNull() && !code.asText().isBlank()) {
+                    codes.add(code.asText());
+                }
+            }
+        }
+        return codes;
+    }
+
+    /**
+     * 从看板 spec 中取出通过 refId 引用的分析数据集 ID。
+     */
+    private Set<String> extractDashboardDatasetIds(String spec) {
+        Set<String> ids = new LinkedHashSet<>();
+        JsonNode root = AppPackageJson.readTreeQuietly(spec);
+        JsonNode datasets = root == null ? null : root.get("datasets");
+        if (datasets != null && datasets.isArray()) {
+            for (JsonNode dataset : datasets) {
+                addIfPresent(ids, dataset.get("refId"));
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 从看板 spec 中取出内联数据集绑定的数据源 ID（仅无 refId 的内联定义需要）。
+     */
+    private Set<String> extractDashboardInlineDataSourceIds(String spec) {
+        Set<String> ids = new LinkedHashSet<>();
+        JsonNode root = AppPackageJson.readTreeQuietly(spec);
+        JsonNode datasets = root == null ? null : root.get("datasets");
+        if (datasets != null && datasets.isArray()) {
+            for (JsonNode dataset : datasets) {
+                if (dataset.get("refId") == null || dataset.get("refId").isNull() || dataset.get("refId").asText().isBlank()) {
+                    addIfPresent(ids, dataset.get("dataSourceId"));
+                }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 从看板 spec 的内联指标数据集中取出引用的指标编码。
+     */
+    private Set<String> extractDashboardMetricCodes(String spec) {
+        Set<String> codes = new LinkedHashSet<>();
+        JsonNode root = AppPackageJson.readTreeQuietly(spec);
+        JsonNode datasets = root == null ? null : root.get("datasets");
+        if (datasets != null && datasets.isArray()) {
+            for (JsonNode dataset : datasets) {
+                if (dataset.get("refId") != null && !dataset.get("refId").isNull() && !dataset.get("refId").asText().isBlank()) {
+                    continue;
+                }
+                JsonNode metricQuery = dataset.get("metricQuery");
+                JsonNode metricCodes = metricQuery == null ? null : metricQuery.get("metricCodes");
+                if (metricCodes != null && metricCodes.isArray()) {
+                    for (JsonNode code : metricCodes) {
+                        if (code != null && !code.isNull() && !code.asText().isBlank()) {
+                            codes.add(code.asText());
+                        }
+                    }
+                }
+            }
+        }
+        return codes;
+    }
+
     private List<AppPackageEtlTask> buildEtlTasks(Selection selection) {
         List<AppPackageEtlTask> items = new ArrayList<>();
         for (String id : selection.etlTaskIds) {
@@ -621,6 +788,10 @@ public class AppPackageExportService {
 
         private final Set<String> metricIds = new LinkedHashSet<>();
 
+        private final Set<String> datasetIds = new LinkedHashSet<>();
+
+        private final Set<String> dashboardIds = new LinkedHashSet<>();
+
         private final Set<String> etlTaskIds = new LinkedHashSet<>();
 
         /** ETL 任务对应的调度 Job ID，供编排任务引用映射使用。 */
@@ -643,6 +814,8 @@ public class AppPackageExportService {
                 dataSourceIds.size() +
                 modelIds.size() +
                 metricIds.size() +
+                datasetIds.size() +
+                dashboardIds.size() +
                 etlTaskIds.size() +
                 etlJobIds.size() +
                 jobIdsByType.values().stream().mapToInt(Set::size).sum()

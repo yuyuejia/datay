@@ -29,6 +29,8 @@ export default defineComponent({
       dataSources: [],
       models: [],
       metrics: [],
+      datasets: [],
+      dashboards: [],
       etlTasks: [],
       sqlJobs: [],
       dagJobs: [],
@@ -44,6 +46,8 @@ export default defineComponent({
       dataSourceIds: [],
       modelIds: [],
       metricIds: [],
+      datasetIds: [],
+      dashboardIds: [],
       etlTaskIds: [],
       sqlJobIds: [],
       dagJobIds: [],
@@ -69,6 +73,8 @@ export default defineComponent({
       form.dataSourceIds.length +
       form.modelIds.length +
       form.metricIds.length +
+      form.datasetIds.length +
+      form.dashboardIds.length +
       form.etlTaskIds.length +
       form.sqlJobIds.length +
       form.dagJobIds.length;
