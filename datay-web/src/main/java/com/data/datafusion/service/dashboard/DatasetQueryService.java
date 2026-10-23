@@ -170,7 +170,12 @@ public class DatasetQueryService {
             dataSource,
             DatasetFieldValueSqlBuilder.buildValueQuery(baseSql, fieldName, keyword, pageSize, offset)
         );
-        long total = countFieldValues(dataSource, baseSql, fieldName, keyword, offset + values.size());
+        // 总数查询失败时退化为「当前页之前 + 当前页」；当前页已满则至少还有下一页
+        long fallbackTotal = offset + values.size();
+        if (values.size() >= pageSize) {
+            fallbackTotal += 1;
+        }
+        long total = countFieldValues(dataSource, baseSql, fieldName, keyword, fallbackTotal);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("values", values);
         result.put("total", total);

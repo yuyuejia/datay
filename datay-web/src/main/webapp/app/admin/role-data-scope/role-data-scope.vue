@@ -170,22 +170,30 @@
               <el-option v-for="operator in operators" :key="operator.value" :value="operator.value" :label="operator.label" />
             </el-select>
             <div class="value-cell">
-              <DatasetFieldValueSelect
-                :dataset-id="datasetForm.datasetId"
+              <DimensionValueSelect
+                :dimension-model-id="datasetForm.datasetId"
                 :field-name="condition.fieldName"
                 :model-value="datasetConditionValue(condition)"
                 :multiple="isMulti(condition.operator)"
                 :disabled="isUnary(condition.operator)"
                 :placeholder="valuePlaceholder(condition.operator)"
+                :value-loader="(keyword, page, size) => loadDatasetFieldValues(condition, keyword, page, size)"
+                source-label="数据集"
+                field-label="字段"
+                allow-create
                 @update:model-value="value => setDatasetConditionValue(condition, value)"
               />
             </div>
             <div v-if="condition.operator === 'BETWEEN'" class="value-cell">
-              <DatasetFieldValueSelect
-                :dataset-id="datasetForm.datasetId"
+              <DimensionValueSelect
+                :dimension-model-id="datasetForm.datasetId"
                 :field-name="condition.fieldName"
                 :model-value="condition.valueEnd ?? ''"
+                :value-loader="(keyword, page, size) => loadDatasetFieldValues(condition, keyword, page, size)"
+                source-label="数据集"
+                field-label="字段"
                 placeholder="结束值"
+                allow-create
                 @update:model-value="value => setDatasetConditionValueEnd(condition, value)"
               />
             </div>
@@ -212,7 +220,6 @@ import { onMounted, ref } from 'vue';
 
 import RoleDataScopeService from './role-data-scope.service';
 import RoleDatasetScopeService from './role-dataset-scope.service';
-import DatasetFieldValueSelect from './dataset-field-value-select.vue';
 import DimensionValueSelect from '@/components/DimensionValueSelect.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
 import DatasetService from '@/shared/dataset/dataset.service';
@@ -490,6 +497,19 @@ const setDatasetConditionValueEnd = (condition: IRoleDatasetScopeCondition, valu
 const onDatasetFieldChange = (condition: IRoleDatasetScopeCondition) => {
   condition.value = '';
   condition.valueEnd = '';
+};
+
+/** 从数据集字段中分页加载去重取值，供条件值选择。 */
+const loadDatasetFieldValues = (
+  condition: IRoleDatasetScopeCondition,
+  keyword: string,
+  page: number,
+  size: number,
+): Promise<{ values: string[]; total: number }> => {
+  if (!datasetForm.value.datasetId || !condition.fieldName) {
+    return Promise.resolve({ values: [], total: 0 });
+  }
+  return datasetService.pageFieldValues(datasetForm.value.datasetId, condition.fieldName, keyword, page, size);
 };
 
 const openCreate = () => {
