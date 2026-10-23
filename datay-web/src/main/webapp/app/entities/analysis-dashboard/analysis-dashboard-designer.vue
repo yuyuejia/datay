@@ -112,7 +112,7 @@
               >
                 <div class="designer-list-main">
                   <div class="designer-list-title">{{ widget.title || widget.id }}</div>
-                  <div class="designer-list-sub">{{ widgetTypeLabel(widget.type) }} · {{ widget.datasetId || '未绑定数据集' }}</div>
+                  <div class="designer-list-sub">{{ widget.type }} · {{ widget.datasetId || '未绑定数据集' }}</div>
                 </div>
                 <el-button text size="small" type="danger" @click.stop="removeWidget(widget.id)">删除</el-button>
               </div>
@@ -176,8 +176,8 @@
           </div>
         </section>
         <div class="designer-tip">
-          从左侧组件库拖拽图表、指标卡或表格到画布；拖动组件标题栏移动位置，拖动右下角调整大小。筛选结果会实时作用到相关组件。支持
-          Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z 重做。点击「预览」可在新页签查看当前设计，无需先保存。
+          从左侧组件库拖拽图表、KPI 或表格到画布；拖动组件标题栏移动位置，拖动右下角调整大小。筛选结果会实时作用到相关组件。支持 Ctrl/Cmd+Z
+          撤销、Ctrl/Cmd+Shift+Z 重做。点击「预览」可在新页签查看当前设计，无需先保存。
         </div>
         <DesignerCanvas
           :spec="spec"
@@ -368,7 +368,7 @@
                       />
                     </el-select>
                   </template>
-                  <div class="designer-hint">指标卡展示所选数值字段的汇总值；留空时自动取首个数值列。</div>
+                  <div class="designer-hint">KPI 对所选数值字段求和；留空时自动取首个数值列。</div>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'html'">

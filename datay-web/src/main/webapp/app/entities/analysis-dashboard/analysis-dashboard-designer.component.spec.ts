@@ -73,7 +73,6 @@ type DesignerVm = {
   customOptionText: string;
   customOptionError: string;
   widgetValueFields: string[];
-  widgetTypeLabel: (type: string) => string;
   addWidget: (type: string, chartType?: string) => void;
   applyCustomOption: () => void;
   resetCustomOption: () => void;
@@ -131,8 +130,6 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(pie.echartsOption.xAxis).toBeUndefined();
     expect(pie.echartsOption.yAxis).toBeUndefined();
 
-    expect(kpi.title).toBe('指标卡');
-    expect(vm.widgetTypeLabel('kpi')).toBe('指标卡');
     expect(kpi.datasetId).toBe('ds1');
     expect(kpi.layout.w).toBe(3);
     expect(kpi.layout.h).toBe(2);
@@ -192,7 +189,7 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(vm.spec.widgets[0].dataRef).toMatchObject({ categoryField: 'region', valueField: 'amount' });
   });
 
-  it('指标卡使用默认数值字段，表格不强加分类字段', async () => {
+  it('KPI 使用默认数值字段，表格不强加分类字段', async () => {
     vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
     (vm as any).datasetData = {
       ds1: {

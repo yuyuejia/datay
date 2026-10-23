@@ -74,18 +74,9 @@ const CHART_LABELS: Record<ChartType, string> = {
   area: '面积图',
 };
 
-const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
-  echarts: '图表',
-  kpi: '指标卡',
-  table: '明细表',
-  html: '说明文本',
-};
-
-const widgetTypeLabel = (type: WidgetType): string => WIDGET_TYPE_LABELS[type] || type;
-
 const PALETTE_CATEGORIES: Array<{ key: PaletteCategory; label: string; icon: string }> = [
   { key: 'charts', label: '图表', icon: 'bar' },
-  { key: 'kpi', label: '指标卡', icon: 'kpi' },
+  { key: 'kpi', label: 'KPI', icon: 'kpi' },
   { key: 'table', label: '表格', icon: 'table' },
   { key: 'text', label: '文本', icon: 'text' },
 ];
@@ -95,7 +86,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'line', label: '折线图', icon: 'line', category: 'charts', type: 'echarts', chartType: 'line', w: 6, h: 4 },
   { key: 'pie', label: '饼图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'pie', w: 4, h: 4 },
   { key: 'area', label: '面积图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'area', w: 6, h: 4 },
-  { key: 'kpi', label: '指标卡', icon: 'kpi', category: 'kpi', type: 'kpi', w: 3, h: 2 },
+  { key: 'kpi', label: 'KPI 指标', icon: 'kpi', category: 'kpi', type: 'kpi', w: 3, h: 2 },
   { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 6, h: 4 },
   { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 6, h: 3 },
 ];
@@ -854,7 +845,7 @@ export default defineComponent({
     const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout) => {
       const id = nextWidgetId(type);
       const title =
-        type === 'kpi' ? '指标卡' : type === 'table' ? '明细表' : type === 'html' ? '说明文本' : CHART_LABELS[chartType] || '图表';
+        type === 'kpi' ? 'KPI 指标' : type === 'table' ? '明细表' : type === 'html' ? '说明文本' : CHART_LABELS[chartType] || '图表';
       const defaultWidth = type === 'kpi' ? 3 : type === 'echarts' && chartType === 'pie' ? 4 : 6;
       const defaultHeight = type === 'kpi' ? 2 : type === 'html' ? 3 : 4;
       const widget: DashboardWidget = {
@@ -1270,7 +1261,6 @@ export default defineComponent({
       loadingData,
       selectedWidget,
       selectedFilter,
-      widgetTypeLabel,
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,
