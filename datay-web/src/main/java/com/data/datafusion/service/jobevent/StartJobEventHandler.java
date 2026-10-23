@@ -9,6 +9,7 @@ import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.TaskExecutionSupport;
 import com.data.datafusion.job.TaskFactory;
 import com.data.datafusion.security.TenantContext;
+import com.data.datafusion.web.rest.WorkerResource;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -219,6 +220,19 @@ public class StartJobEventHandler implements Runnable {
                     taskInfo::setTask,
                     taskInfo::isStopped
                 );
+
+                // 失败/超时任务把错误日志写入实例消息，状态事件会把它带到告警中心。
+                // 日志在任务执行节点读取，集群模式下 master 无需访问 worker 的本地日志文件。
+                if (
+                    TaskConstants.TASK_STATUS_FAILED.equals(status) || TaskConstants.TASK_STATUS_TIMEOUT.equals(status)
+                ) {
+                    try {
+                        String failureLog = SpringUtil.getBean(WorkerResource.class).readFailureLog(event.getJobInstance());
+                        event.getJobInstance().setJobMessage(failureLog);
+                    } catch (Exception e) {
+                        log.warn("读取任务失败日志失败: instanceCode={}", instanceCode, e);
+                    }
+                }
 
                 // 任务执行后，变更任务为完成状态
                 JobStatusEvent afterEvent = new JobStatusEvent();

@@ -70,7 +70,30 @@ class AlertEventServiceTest {
         assertThat(saved.getEventCount()).isEqualTo(1);
         assertThat(saved.getFingerprint()).hasSize(64);
         assertThat(saved.getContent()).contains("任务名称：任务一").doesNotContain("项目：");
+        assertThat(saved.getContent()).contains("错误日志：");
         verify(alertDispatchService).dispatch("1", "event-1");
+    }
+
+    @Test
+    void includesFailureLogInContent() {
+        AlertRule rule = rule();
+        JobInstance instance = instance(TaskConstants.TASK_STATUS_FAILED, null);
+        instance.setJobMessage("2026-10-23 10:00:00 - [Component] - [ERROR] 组件执行失败：数据库连接超时");
+        when(alertRuleService.findMatching(instance)).thenReturn(List.of(rule));
+        when(alertEventRepository.findFirstByFingerprintAndStatusInOrderByLastSeenDesc(anyString(), anyCollection())).thenReturn(
+            Optional.empty()
+        );
+        when(alertEventRepository.save(any(AlertEvent.class))).thenAnswer(invocation -> {
+            AlertEvent event = invocation.getArgument(0);
+            event.setId("event-1");
+            return event;
+        });
+
+        alertEventService.onJobInstanceStatus(instance);
+
+        ArgumentCaptor<AlertEvent> captor = ArgumentCaptor.forClass(AlertEvent.class);
+        verify(alertEventRepository).save(captor.capture());
+        assertThat(captor.getValue().getContent()).contains("错误日志：").contains("数据库连接超时");
     }
 
     @Test

@@ -33,6 +33,10 @@ public class JobStatusEventHandler implements Runnable {
                     latestJobInstance.setStartTime(event.getJobInstance().getStartTime());
                     latestJobInstance.setEndTime(event.getJobInstance().getEndTime());
                 }
+                // 失败日志由执行节点写入事件，需要同步落库，供告警内容使用。
+                if (event.getJobInstance().getJobMessage() != null && !event.getJobInstance().getJobMessage().isBlank()) {
+                    latestJobInstance.setJobMessage(event.getJobInstance().getJobMessage());
+                }
                 jobInstanceService.save(latestJobInstance);
                 try {
                     SpringUtils.getBean(AlertEventService.class).onJobInstanceStatus(latestJobInstance);

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,15 @@ public class WorkerResource {
 
     // 每次最大读取大小（10MB）
     private static final long MAX_READ_SIZE = 10 * 1024 * 1024;
+
+    /** 读取失败日志时，单个文件只读取末尾 128KB。 */
+    private static final long MAX_FAILURE_LOG_READ_BYTES = 128 * 1024L;
+
+    /** 告警内容中错误日志的最大字符数。 */
+    private static final int MAX_FAILURE_LOG_CHARS = 8000;
+
+    /** 读取失败日志时最多检查的文件数，避免 DAG 子任务过多时读取过量文件。 */
+    private static final int MAX_FAILURE_LOG_FILES = 100;
 
     // 存储每个任务的最后读取位置
     private static Map<String, Long> lastReadPositions = new HashMap<>();
@@ -106,17 +116,7 @@ public class WorkerResource {
             JobInstance jobInstance = jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
             String parentInstanceCode = jobInstance == null ? null : jobInstance.getParentInstanceCode();
 
-            List<File> logFiles;
-            if (parentInstanceCode != null && !parentInstanceCode.isBlank()) {
-                File subJobLogFile = new File(getLogFileName(jobCode, parentInstanceCode));
-                logFiles = new ArrayList<>();
-                if (subJobLogFile.exists()) {
-                    logFiles.add(subJobLogFile);
-                }
-            } else {
-                logFiles = collectLogFiles(jobInstanceCode);
-                logFiles.sort(Comparator.comparingLong(File::lastModified).thenComparing(File::getAbsolutePath));
-            }
+            List<File> logFiles = resolveLogFiles(jobCode, jobInstanceCode, parentInstanceCode);
 
             if (logFiles.isEmpty()) {
                 result.put("success", false);
@@ -189,6 +189,119 @@ public class WorkerResource {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 读取任务失败日志，供任务执行节点在失败状态事件中携带到告警中心使用。
+     *
+     * <p>日志文件只在执行节点本地读取；集群模式下由状态事件把日志带到 master，
+     * 避免 master 直接读取 worker 节点上的日志文件。</p>
+     */
+    public String readFailureLog(JobInstance jobInstance) {
+        if (jobInstance == null) {
+            return "";
+        }
+        try {
+            List<File> logFiles = resolveLogFiles(
+                jobInstance.getJobCode(),
+                jobInstance.getInstanceCode(),
+                jobInstance.getParentInstanceCode()
+            );
+            if (logFiles.isEmpty()) {
+                return "";
+            }
+            if (logFiles.size() > MAX_FAILURE_LOG_FILES) {
+                logFiles = new ArrayList<>(logFiles.subList(logFiles.size() - MAX_FAILURE_LOG_FILES, logFiles.size()));
+            }
+
+            StringBuilder errorLines = new StringBuilder();
+            for (File logFile : logFiles) {
+                String tail = readLastContent(logFile, MAX_FAILURE_LOG_READ_BYTES);
+                appendWithLimit(errorLines, extractErrorLines(tail));
+            }
+
+            String content = errorLines.toString().trim();
+            if (content.isEmpty()) {
+                // 没有匹配到 ERROR/异常关键字时，退化为展示最后一个日志文件的末尾内容。
+                content = readLastContent(logFiles.get(logFiles.size() - 1), MAX_FAILURE_LOG_READ_BYTES).trim();
+            }
+            return truncateFailureLog(content);
+        } catch (Exception e) {
+            LOG.warn("读取任务失败日志失败: jobCode={}, instanceCode={}", jobInstance.getJobCode(), jobInstance.getInstanceCode(), e);
+            return "";
+        }
+    }
+
+    /**
+     * 定位任务实例对应的日志文件。子任务日志以父实例代码命名；DAG 编排则按编排实例代码聚合。
+     */
+    private List<File> resolveLogFiles(String jobCode, String jobInstanceCode, String parentInstanceCode) {
+        if (parentInstanceCode != null && !parentInstanceCode.isBlank()) {
+            File subJobLogFile = new File(getLogFileName(jobCode, parentInstanceCode));
+            return subJobLogFile.exists() ? List.of(subJobLogFile) : List.of();
+        }
+        List<File> logFiles = collectLogFiles(jobInstanceCode);
+        logFiles.sort(Comparator.comparingLong(File::lastModified).thenComparing(File::getAbsolutePath));
+        return logFiles;
+    }
+
+    /**
+     * 提取错误相关行，优先保留异常、失败原因和堆栈信息。
+     */
+    private String extractErrorLines(String content) {
+        List<String> matched = new ArrayList<>();
+        for (String line : content.split("\\R")) {
+            if (!isErrorLine(line)) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty() && (matched.isEmpty() || !trimmed.equals(matched.get(matched.size() - 1)))) {
+                matched.add(trimmed);
+            }
+        }
+        return String.join("\n", matched);
+    }
+
+    private boolean isErrorLine(String line) {
+        if (line == null || line.isBlank()) {
+            return false;
+        }
+        String upper = line.toUpperCase(Locale.ROOT);
+        return (
+            upper.contains("ERROR") ||
+            upper.contains("EXCEPTION") ||
+            upper.contains("CAUSED BY") ||
+            upper.contains("FATAL") ||
+            line.contains("失败") ||
+            line.contains("异常") ||
+            line.contains("错误")
+        );
+    }
+
+    private void appendWithLimit(StringBuilder target, String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        if (target.length() > 0) {
+            target.append('\n');
+        }
+        target.append(text);
+        int maxBufferedChars = MAX_FAILURE_LOG_CHARS * 2;
+        if (target.length() > maxBufferedChars) {
+            target.delete(0, target.length() - maxBufferedChars);
+        }
+    }
+
+    private String truncateFailureLog(String content) {
+        if (content.length() <= MAX_FAILURE_LOG_CHARS) {
+            return content;
+        }
+        String tail = content.substring(content.length() - MAX_FAILURE_LOG_CHARS);
+        int firstNewline = tail.indexOf('\n');
+        if (firstNewline >= 0 && firstNewline + 1 < tail.length()) {
+            tail = tail.substring(firstNewline + 1);
+        }
+        return "（日志过长，仅展示末尾内容）\n" + tail;
     }
 
     /**
@@ -397,7 +510,15 @@ public class WorkerResource {
             int bytesRead = raf.read(buffer);
 
             if (bytesRead > 0) {
-                return new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+                String content = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+                if (startPos > 0) {
+                    // 从文件中间开始读取时，首行可能不完整，直接丢弃。
+                    int firstNewline = content.indexOf('\n');
+                    if (firstNewline >= 0 && firstNewline + 1 < content.length()) {
+                        content = content.substring(firstNewline + 1);
+                    }
+                }
+                return content;
             }
 
             return "";

@@ -43,6 +43,9 @@ public class AlertEventService {
 
     private static final List<String> OPEN_STATUSES = List.of(AlertEvent.STATUS_FIRING, AlertEvent.STATUS_ACKNOWLEDGED);
 
+    /** 告警内容中错误日志的最大字符数，避免消息过大。 */
+    private static final int MAX_FAILURE_LOG_CHARS = 8000;
+
     private final AlertEventRepository alertEventRepository;
 
     private final AlertDeliveryRepository alertDeliveryRepository;
@@ -96,8 +99,9 @@ public class AlertEventService {
                 LOG.debug("No alert rule matched job failure: tenant={}, job={}", instance.getTenantId(), instance.getJobCode());
                 return;
             }
+            String content = buildContent(instance);
             for (AlertRule rule : rules) {
-                upsertEvent(instance, rule);
+                upsertEvent(instance, rule, content);
             }
         } catch (Exception e) {
             LOG.error("Failed to handle job alert, tenant={}, instance={}", instance.getTenantId(), instance.getInstanceCode(), e);
@@ -106,7 +110,7 @@ public class AlertEventService {
         }
     }
 
-    private void upsertEvent(JobInstance instance, AlertRule rule) {
+    private void upsertEvent(JobInstance instance, AlertRule rule, String content) {
         ZonedDateTime now = ZonedDateTime.now();
         String fingerprint = fingerprint(instance.getTenantId(), rule.getId(), instance.getJobCode(), instance.getStatus());
         Optional<AlertEvent> existing = alertEventRepository.findFirstByFingerprintAndStatusInOrderByLastSeenDesc(
@@ -133,7 +137,7 @@ public class AlertEventService {
             event.setLastSeen(now);
             event.setUpdateTime(now);
             event.setTitle(buildTitle(instance, rule));
-            event.setContent(buildContent(instance));
+            event.setContent(content);
             event.setJobInstanceId(instance.getId());
             event.setInstanceCode(instance.getInstanceCode());
             event.setProject(instance.getProject());
@@ -152,7 +156,7 @@ public class AlertEventService {
         event.setEventType(instance.getStatus());
         event.setSeverity(rule.getSeverity());
         event.setTitle(buildTitle(instance, rule));
-        event.setContent(buildContent(instance));
+        event.setContent(content);
         event.setJobCode(instance.getJobCode());
         event.setJobName(instance.getJobName());
         event.setJobInstanceId(instance.getId());
@@ -186,7 +190,23 @@ public class AlertEventService {
         content.append("开始时间：").append(value(instance.getStartTime())).append('\n');
         content.append("结束时间：").append(value(instance.getEndTime())).append('\n');
         content.append("状态：").append(value(instance.getStatus())).append('\n');
-        content.append("信息：").append(truncate(value(instance.getJobMessage()), 4000));
+
+        String jobMessage = value(instance.getJobMessage()).trim();
+        boolean failure =
+            TaskConstants.TASK_STATUS_FAILED.equals(instance.getStatus()) ||
+            TaskConstants.TASK_STATUS_TIMEOUT.equals(instance.getStatus());
+        if (failure) {
+            // 日志由执行节点通过 WorkerResource 读取后写入 jobMessage，
+            // 告警处理节点（可能是 master）不再访问 worker 本地日志文件。
+            content.append("错误日志：");
+            if (jobMessage.isBlank()) {
+                content.append("未获取到任务日志");
+            } else {
+                content.append('\n').append(truncateTail(jobMessage, MAX_FAILURE_LOG_CHARS));
+            }
+        } else if (!jobMessage.isBlank()) {
+            content.append("信息：").append(truncate(jobMessage, 4000));
+        }
         return content.toString();
     }
 
@@ -382,5 +402,17 @@ public class AlertEventService {
 
     private String truncate(String value, int max) {
         return value.length() > max ? value.substring(0, max) : value;
+    }
+
+    private String truncateTail(String value, int max) {
+        if (value.length() <= max) {
+            return value;
+        }
+        String tail = value.substring(value.length() - max);
+        int firstNewline = tail.indexOf('\n');
+        if (firstNewline >= 0 && firstNewline + 1 < tail.length()) {
+            tail = tail.substring(firstNewline + 1);
+        }
+        return "（日志过长，仅展示末尾内容）\n" + tail;
     }
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
@@ -39,6 +40,8 @@ public class Notification implements Serializable, TenantAware {
     @Column(name = "title")
     private String title;
 
+    /** 站内信内容可能包含较长的任务错误日志，数据库列使用 CLOB。 */
+    @Lob
     @Column(name = "content")
     private String content;
 
