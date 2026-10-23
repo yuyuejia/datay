@@ -3,7 +3,11 @@ import { flushPromises, shallowMount } from '@vue/test-utils';
 import { readDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import AnalysisDashboardDesigner from './analysis-dashboard-designer.vue';
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, createMock, updateMock } = vi.hoisted(() => ({
+  push: vi.fn(),
+  createMock: vi.fn(),
+  updateMock: vi.fn(),
+}));
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
@@ -20,8 +24,8 @@ vi.mock('@/shared/dashboard/dashboard.service', () => ({
   default: class {
     get = vi.fn();
     validateSpec = vi.fn(async (spec: unknown) => spec);
-    create = vi.fn();
-    update = vi.fn();
+    create = createMock;
+    update = updateMock;
   },
 }));
 
@@ -51,6 +55,7 @@ type WidgetLayout = { x: number; y: number; w: number; h: number };
 type DesignerVm = {
   name: string;
   description: string;
+  editingId?: string;
   spec: {
     title?: string;
     widgets: Array<{
@@ -80,6 +85,7 @@ type DesignerVm = {
   onLayoutChange: (id: string, layout: WidgetLayout) => void;
   applyAiSpec: (spec: any) => Promise<boolean>;
   openPreview: () => void;
+  save: () => Promise<void>;
   undo: () => void;
   redo: () => void;
   $nextTick: () => Promise<void>;
@@ -90,6 +96,7 @@ describe('AnalysisDashboardDesigner history', () => {
   let vm: DesignerVm;
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     localStorage.clear();
     wrapper = shallowMount(AnalysisDashboardDesigner, {
       global: {
@@ -425,6 +432,27 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.undo();
     await vm.$nextTick();
     expect(vm.spec.widgets).toHaveLength(0);
+  });
+
+  it('保存看板后停留在当前页面，并继续以编辑模式保存', async () => {
+    createMock.mockResolvedValue({ id: 'db1', name: '测试看板' });
+    updateMock.mockResolvedValue({ id: 'db1', name: '测试看板' });
+    vm.name = '测试看板';
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    await vm.save();
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+    expect(vm.editingId).toBe('db1');
+
+    await vm.save();
+
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    expect(updateMock.mock.calls[0][0]).toBe('db1');
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('在新页签打开当前设计的预览', async () => {

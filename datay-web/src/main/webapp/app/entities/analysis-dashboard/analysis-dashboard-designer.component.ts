@@ -1177,10 +1177,12 @@ export default defineComponent({
         if (editingId.value) {
           await dashboardService.update(editingId.value, { ...payload, id: editingId.value });
         } else {
-          await dashboardService.create(payload);
+          const created = await dashboardService.create(payload);
+          if (created?.id) {
+            editingId.value = created.id;
+          }
         }
         ElMessage.success('看板已保存');
-        router.push({ name: 'AnalysisDashboard' });
       } catch (err: any) {
         alertService.showError(errorMessage(err, '保存失败'));
       } finally {
