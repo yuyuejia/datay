@@ -1,14 +1,26 @@
 package com.data.datafusion.service.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.data.datafusion.domain.AnalysisDashboard;
+import com.data.datafusion.repository.AnalysisDashboardRepository;
+import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.service.DimensionValueService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * 空筛选条件占位符中和逻辑测试：筛选器未设值时应等价于「不过滤，取全部」。
+ * 看板数据集执行路径与空筛选条件占位符中和逻辑测试。
  */
 class DashboardDataServiceTest {
 
@@ -113,5 +125,93 @@ class DashboardDataServiceTest {
         named.put("city", "x' OR '1'='1");
         String result = DashboardDataService.renderSql("WHERE city = ${city}", named);
         assertThat(result).isEqualTo("WHERE city = 'x'' OR ''1''=''1'");
+    }
+
+    @Test
+    void shouldPassReferencedDatasetIdAsScopeForInMemorySpec() throws Exception {
+        Map<String, Object> resolvedDataset = dataset("local-1", "lib-1");
+        Map<String, Object> filter = Map.of("id", "filter-1", "type", "select");
+        Map<String, Object> spec = Map.of("datasets", List.of(Map.of("id", "local-1", "refId", "lib-1")));
+        Map<String, Object> resolvedSpec = Map.of("datasets", List.of(resolvedDataset), "filters", List.of(filter));
+        Map<String, Object> filterValues = Map.of("filter-1", "华东");
+
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+
+        newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class))
+            .queryDataset(spec, "fallback-source", "local-1", filterValues);
+
+        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of(filter)), eq(filterValues), eq("lib-1"));
+    }
+
+    @Test
+    void shouldPassNullScopeForEmbeddedDataset() throws Exception {
+        Map<String, Object> resolvedDataset = dataset("local-2", null);
+        Map<String, Object> spec = Map.of("datasets", List.of(Map.of("id", "local-2", "type", "SQL")));
+        Map<String, Object> resolvedSpec = Map.of("datasets", List.of(resolvedDataset));
+        Map<String, Object> filterValues = Map.of();
+
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+
+        newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class))
+            .queryDataset(spec, "fallback-source", "local-2", filterValues);
+
+        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of()), eq(filterValues), isNull());
+    }
+
+    @Test
+    void shouldPassReferencedDatasetIdAsScopeForSavedDashboard() throws Exception {
+        Map<String, Object> resolvedDataset = dataset("local-1", "lib-1");
+        Map<String, Object> spec = Map.of("datasets", List.of(Map.of("id", "local-1", "refId", "lib-1")));
+        Map<String, Object> resolvedSpec = Map.of("datasets", List.of(resolvedDataset));
+        AnalysisDashboard dashboard = new AnalysisDashboard();
+        dashboard.setId("dashboard-1");
+        dashboard.setDataSourceId("fallback-source");
+        dashboard.setSpec("dashboard-spec");
+
+        AnalysisDashboardRepository dashboardRepository = mock(AnalysisDashboardRepository.class);
+        DashboardSpecValidator specValidator = mock(DashboardSpecValidator.class);
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(dashboardRepository.findById("dashboard-1")).thenReturn(Optional.of(dashboard));
+        when(specValidator.parse("dashboard-spec")).thenReturn(spec);
+        when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+
+        newService(resolver, queryService, dashboardRepository, specValidator).queryDataset("dashboard-1", "local-1", Map.of());
+
+        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of()), eq(Map.of()), eq("lib-1"));
+    }
+
+    private DashboardDataService newService(
+        AnalysisDatasetResolver resolver,
+        DatasetQueryService queryService,
+        AnalysisDashboardRepository dashboardRepository,
+        DashboardSpecValidator specValidator
+    ) {
+        return new DashboardDataService(
+            dashboardRepository,
+            specValidator,
+            resolver,
+            queryService,
+            mock(DimensionValueService.class),
+            mock(DataModelRepository.class)
+        );
+    }
+
+    private Map<String, Object> dataset(String id, String refId) {
+        Map<String, Object> dataset = new LinkedHashMap<>();
+        dataset.put("id", id);
+        if (refId != null) {
+            dataset.put("refId", refId);
+        } else {
+            dataset.put("type", "SQL");
+        }
+        return dataset;
     }
 }

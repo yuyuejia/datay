@@ -2,7 +2,12 @@ package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.DataModel;
@@ -11,6 +16,8 @@ import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dataset.DatasetScopeCondition;
+import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
 import com.data.datafusion.service.dto.MetricQueryTimeRangeDTO;
@@ -33,6 +40,7 @@ class MetricQueryServiceTest {
     private DataModelRepository dataModelRepository;
     private ModelFieldRepository modelFieldRepository;
     private RoleDataScopeService roleDataScopeService;
+    private DataSourceQueryService dataSourceQueryService;
     private MetricQueryService metricQueryService;
 
     private Metric salesAmount;
@@ -45,12 +53,13 @@ class MetricQueryServiceTest {
         dataModelRepository = mock(DataModelRepository.class);
         modelFieldRepository = mock(ModelFieldRepository.class);
         roleDataScopeService = mock(RoleDataScopeService.class);
+        dataSourceQueryService = mock(DataSourceQueryService.class);
         metricQueryService = new MetricQueryService(
             metricRepository,
             dataModelRepository,
             modelFieldRepository,
             mock(DataSourceService.class),
-            mock(DataSourceQueryService.class),
+            dataSourceQueryService,
             new ObjectMapper(),
             roleDataScopeService
         );
@@ -661,6 +670,33 @@ class MetricQueryServiceTest {
 
         String sql = metricQueryService.buildSqlFor(dto);
         assertThat(countOccurrences(sql, "d0.category_l1 IN ('电子产品')")).isEqualTo(2);
+    }
+
+    @Test
+    void shouldWrapMetricDatasetPlanSqlWithDatasetScopeConditions() throws Exception {
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        DataSourceDTO dataSource = new DataSourceDTO();
+        dataSource.setId("source-1");
+        dataSource.setType("MYSQL");
+        MetricQueryService.QueryPlan plan = new MetricQueryService.QueryPlan(
+            "SELECT region, sales_amount FROM fact_sales",
+            dataSource,
+            Map.of("region", "区域")
+        );
+        MetricQueryService spyService = spy(metricQueryService);
+        doReturn(plan).when(spyService).plan(dto);
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(Map.of("columns", List.of(), "rows", List.of()));
+        DatasetScopeCondition condition = new DatasetScopeCondition();
+        condition.setFieldName("region");
+        condition.setOperator("EQ");
+        condition.setValue("华东");
+
+        Map<String, Object> result = spyService.query(dto, List.of(condition));
+
+        String scopedSql = "SELECT * FROM (SELECT region, sales_amount FROM fact_sales) dp_dataset WHERE ((region = '华东'))";
+        verify(dataSourceQueryService).executeQuery(eq(dataSource), eq(scopedSql));
+        assertThat(result).containsEntry("sql", scopedSql).containsEntry("columnLabels", Map.of("region", "区域"));
     }
 
     private static int countOccurrences(String text, String token) {

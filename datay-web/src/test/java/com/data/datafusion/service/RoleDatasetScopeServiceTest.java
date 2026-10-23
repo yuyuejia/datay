@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,12 +20,14 @@ import com.data.datafusion.service.dataset.DatasetScopeCondition;
 import com.data.datafusion.service.dto.RoleDatasetScopeDTO;
 import com.data.datafusion.service.mapper.RoleDatasetScopeMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -95,10 +98,61 @@ class RoleDatasetScopeServiceTest {
     }
 
     @Test
+    void shouldReturnEmptyWhenUnauthenticated() {
+        SecurityContextHolder.clearContext();
+
+        assertThat(roleDatasetScopeService.resolveConditions("ds-1")).isEmpty();
+        verify(roleDatasetScopeRepository, never()).findByRoleNameInAndDatasetIdAndEnabledTrue(anyCollection(), anyString());
+    }
+
+    @Test
+    void shouldReturnEmptyWhenDatasetIdIsBlank() {
+        authenticate("ROLE_REGION");
+
+        assertThat(roleDatasetScopeService.resolveConditions(" ")).isEmpty();
+        verify(roleDatasetScopeRepository, never()).findByRoleNameInAndDatasetIdAndEnabledTrue(anyCollection(), anyString());
+    }
+
+    @Test
+    void shouldReturnEmptyForAdminEvenWithOtherRoles() {
+        authenticate("ROLE_ADMIN", "ROLE_REGION");
+
+        assertThat(roleDatasetScopeService.resolveConditions("ds-1")).isEmpty();
+        verify(roleDatasetScopeRepository, never()).findByRoleNameInAndDatasetIdAndEnabledTrue(anyCollection(), anyString());
+    }
+
+    @Test
     void shouldReturnEmptyWhenNoRules() {
         authenticate("ROLE_REGION");
         when(roleDatasetScopeRepository.findByRoleNameInAndDatasetIdAndEnabledTrue(Set.of("ROLE_REGION"), "ds-1")).thenReturn(List.of());
         assertThat(roleDatasetScopeService.resolveConditions("ds-1")).isEmpty();
+    }
+
+    @Test
+    void shouldMergeConditionsAcrossMultipleRoles() {
+        authenticate("ROLE_REGION", "ROLE_SALES");
+        RoleDatasetScope east = scope(
+            "ROLE_REGION",
+            "ds-1",
+            "{\"conditions\":[{\"fieldName\":\"region\",\"operator\":\"EQ\",\"value\":\"华东\"}]}"
+        );
+        RoleDatasetScope south = scope(
+            "ROLE_SALES",
+            "ds-1",
+            "{\"conditions\":[{\"fieldName\":\"region\",\"operator\":\"EQ\",\"value\":\"华南\"}]}"
+        );
+        when(roleDatasetScopeRepository.findByRoleNameInAndDatasetIdAndEnabledTrue(anyCollection(), eq("ds-1")))
+            .thenReturn(List.of(east, south));
+
+        List<DatasetScopeCondition> conditions = roleDatasetScopeService.resolveConditions("ds-1");
+
+        assertThat(conditions).hasSize(2);
+        assertThat(conditions).extracting(DatasetScopeCondition::getValue).containsExactly("华东", "华南");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<String>> rolesCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(roleDatasetScopeRepository).findByRoleNameInAndDatasetIdAndEnabledTrue(rolesCaptor.capture(), eq("ds-1"));
+        assertThat(rolesCaptor.getValue()).containsExactlyInAnyOrder("ROLE_REGION", "ROLE_SALES");
     }
 
     @Test

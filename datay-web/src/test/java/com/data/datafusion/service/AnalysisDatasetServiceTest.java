@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -113,6 +115,42 @@ class AnalysisDatasetServiceTest {
         dto.setDefinition("{\"sql\":\"DELETE FROM orders\"}");
 
         assertThatThrownBy(() -> service.validateDefinition(dto)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldApplyDatasetScopeWhenPreviewingSavedDataset() throws Exception {
+        AnalysisDataset entity = new AnalysisDataset();
+        entity.setId("ds-1");
+        entity.setName("订单明细");
+        entity.setType(AnalysisDataset.TYPE_SQL);
+        entity.setDataSourceId("source-1");
+        entity.setDefinition("{\"sql\":\"SELECT region FROM orders\"}");
+        when(repository.findById("ds-1")).thenReturn(Optional.of(entity));
+        when(resolver.parseDefinition(anyString())).thenReturn(Map.of("sql", "SELECT region FROM orders"));
+        when(queryService.query(any(), any(), any(), any(), eq("ds-1"))).thenReturn(
+            Map.of("columns", List.of("region"), "rows", List.of())
+        );
+
+        service.preview("ds-1", Map.of());
+
+        verify(queryService).query(any(), eq("source-1"), eq(List.of()), eq(Map.of()), eq("ds-1"));
+    }
+
+    @Test
+    void shouldNotApplyDatasetScopeWhenPreviewingUnsavedDefinition() throws Exception {
+        AnalysisDatasetDTO dto = new AnalysisDatasetDTO();
+        dto.setName("订单明细");
+        dto.setType(AnalysisDataset.TYPE_SQL);
+        dto.setDataSourceId("source-1");
+        dto.setDefinition("{\"sql\":\"SELECT region FROM orders\"}");
+        when(resolver.parseDefinition(anyString())).thenReturn(Map.of("sql", "SELECT region FROM orders"));
+        when(queryService.query(any(), any(), any(), any(), isNull())).thenReturn(
+            Map.of("columns", List.of("region"), "rows", List.of())
+        );
+
+        service.previewDefinition(dto, Map.of());
+
+        verify(queryService).query(any(), eq("source-1"), eq(List.of()), eq(Map.of()), isNull());
     }
 
     @Test

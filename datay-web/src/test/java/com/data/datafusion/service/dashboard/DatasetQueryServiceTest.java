@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,6 +92,75 @@ class DatasetQueryServiceTest {
 
         verify(dataSourceQueryService).executeQuery(any(), eq("SELECT region, amount FROM orders"));
         assertThat(result.get("sql")).isEqualTo("SELECT region, amount FROM orders");
+    }
+
+    @Test
+    void shouldWrapSqlDatasetWithAllScopeConditionsUsingOr() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(
+            List.of(condition("region", "EQ", "华东"), condition("region", "EQ", "华南"))
+        );
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(new LinkedHashMap<>(Map.of("columns", List.of(), "rows", List.of())));
+
+        datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
+
+        verify(dataSourceQueryService)
+            .executeQuery(
+                any(),
+                eq("SELECT * FROM (SELECT region, amount FROM orders) dp_dataset WHERE ((region = '华东') OR (region = '华南'))")
+            );
+    }
+
+    @Test
+    void shouldRejectElasticsearchWhenScopeConditionsExist() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        DataSourceDTO elasticsearch = dataSource();
+        elasticsearch.setType("ELASTICSEARCH");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of(condition("region", "EQ", "华东")));
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(elasticsearch));
+
+        assertThatThrownBy(() -> datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Elasticsearch 数据源暂不支持数据集行级数据权限");
+        verify(dataSourceQueryService, never()).executeQuery(any(), any());
+    }
+
+    @Test
+    void shouldExecuteElasticsearchWhenNoScopeConditionsExist() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        DataSourceDTO elasticsearch = dataSource();
+        elasticsearch.setType("ELASTICSEARCH");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(elasticsearch));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(new LinkedHashMap<>(Map.of("columns", List.of(), "rows", List.of())));
+
+        datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
+
+        verify(dataSourceQueryService).executeQuery(any(), eq("SELECT region, amount FROM orders"));
+    }
+
+    @Test
+    void shouldRejectScopeConditionForUnknownDatasetFieldBeforeExecution() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of(condition("unknown", "EQ", "华东")));
+
+        assertThatThrownBy(() -> datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("数据集权限字段不存在：unknown");
+        verify(dataSourceService, never()).findOne(any());
+        verify(dataSourceQueryService, never()).executeQuery(any(), any());
+    }
+
+    @Test
+    void shouldRejectInvalidScopeOperatorBeforeExecution() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of(condition("region", "BAD", "华东")));
+
+        assertThatThrownBy(() -> datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不支持的数据集权限运算符");
+        verify(dataSourceQueryService, never()).executeQuery(any(), any());
     }
 
     @Test
