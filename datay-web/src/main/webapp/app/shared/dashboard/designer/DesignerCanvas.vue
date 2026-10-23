@@ -35,7 +35,7 @@
       <div class="designer-resize-handle" title="拖动调整大小" @pointerdown.stop="startResize($event, widget)"></div>
     </div>
     <div v-if="!widgets.length" class="designer-empty">
-      <el-empty description="从左侧拖拽图表、KPI 或表格到画布" />
+      <el-empty description="从左侧拖拽图表、指标卡或表格到画布" />
     </div>
     <div v-if="dropPreview" class="designer-drop-preview" :style="dropPreviewStyle"></div>
   </div>

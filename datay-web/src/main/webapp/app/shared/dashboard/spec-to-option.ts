@@ -284,7 +284,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
 }
 
 /**
- * 计算 KPI 单值：优先取显式 valueField，否则取首个数值列并按行求和。
+ * 计算指标卡单值：优先取显式 valueField，否则取首个数值列并按行求和。
  */
 export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult): { value: number | null; label?: string } {
   if (!result || !Array.isArray(result.rows) || result.rows.length === 0) {
@@ -305,5 +305,102 @@ export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult)
   return {
     value: values.reduce((sum, value) => sum + value, 0),
     label: numericColumn,
+  };
+}
+
+/** 指标卡数值展示：空值显示占位符，整数千分位，小数最多保留两位。 */
+export function formatKpiValue(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '--';
+  }
+  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** 让指标卡仪表盘的最大值保持整洁，同时为当前值留出进度空间。 */
+function niceGaugeBound(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 100;
+  }
+  const rough = value * 1.2;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const normalized = rough / magnitude;
+  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return Number((step * magnitude).toPrecision(12));
+}
+
+/** 指标卡数值字号随字符数量收缩，避免长金额压住环形进度。 */
+function kpiDetailFontSize(text: string): number {
+  if (text.length <= 4) {
+    return 30;
+  }
+  if (text.length <= 6) {
+    return 27;
+  }
+  if (text.length <= 8) {
+    return 23;
+  }
+  if (text.length <= 10) {
+    return 18;
+  }
+  return 15;
+}
+
+/**
+ * 构建指标卡 ECharts option。
+ *
+ * <p>使用 gauge 绘制环形进度与汇总值；柱状图等普通图表仍由
+ * {@link buildEchartsOption} 负责，避免两套数据映射逻辑互相影响。
+ */
+export function buildKpiGaugeOption(widget: DashboardWidget, result?: DatasetResult): Record<string, any> {
+  const { value, label } = resolveKpiValue(widget, result);
+  const negative = value !== null && value < 0;
+  const bound = niceGaugeBound(Math.abs(value ?? 0));
+  const accent = negative ? '#F56C6C' : '#409EFF';
+  const displayValue = formatKpiValue(value);
+  const fallbackLabel = widget.title ? undefined : label;
+  return {
+    animationDuration: 500,
+    series: [
+      {
+        type: 'gauge',
+        startAngle: 220,
+        endAngle: -40,
+        min: negative ? -bound : 0,
+        max: negative ? 0 : bound,
+        radius: '96%',
+        center: ['50%', '52%'],
+        pointer: { show: false },
+        anchor: { show: false },
+        progress: {
+          show: true,
+          roundCap: true,
+          width: 8,
+          itemStyle: { color: accent },
+        },
+        axisLine: {
+          roundCap: true,
+          lineStyle: { width: 8, color: [[1, '#EBEEF5']] },
+        },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        title: {
+          show: !!fallbackLabel,
+          offsetCenter: [0, '40%'],
+          color: '#909399',
+          fontSize: 12,
+          fontWeight: 400,
+        },
+        detail: {
+          valueAnimation: true,
+          offsetCenter: [0, '2%'],
+          color: negative ? '#F56C6C' : '#303133',
+          fontSize: kpiDetailFontSize(displayValue),
+          fontWeight: 600,
+          formatter: () => displayValue,
+        },
+        data: [{ value: value ?? 0, name: fallbackLabel || '' }],
+      },
+    ],
   };
 }

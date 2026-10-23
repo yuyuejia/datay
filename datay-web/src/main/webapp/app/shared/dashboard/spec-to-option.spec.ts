@@ -1,4 +1,4 @@
-import { applyDataRefRows, buildEchartsOption, resolveKpiValue } from './spec-to-option';
+import { applyDataRefRows, buildEchartsOption, buildKpiGaugeOption, formatKpiValue, resolveKpiValue } from './spec-to-option';
 import type { DashboardWidget, DatasetResult } from './types';
 
 const result: DatasetResult = {
@@ -165,7 +165,7 @@ describe('spec-to-option', () => {
     expect(rows.map(row => row.amount)).toEqual([120.5, 80]);
   });
 
-  it('KPI 对指定数值字段求和', () => {
+  it('指标卡对指定数值字段求和', () => {
     const kpi = resolveKpiValue(
       widget({
         type: 'kpi',
@@ -175,5 +175,75 @@ describe('spec-to-option', () => {
     );
 
     expect(kpi.value).toBe(375.75);
+  });
+
+  it('指标卡使用 ECharts gauge 展示汇总值', () => {
+    const option = buildKpiGaugeOption(
+      widget({
+        type: 'kpi',
+        dataRef: { valueField: 'amount' },
+      }),
+      result,
+    );
+    const series = option.series[0];
+
+    expect(series.type).toBe('gauge');
+    expect(series.min).toBe(0);
+    expect(series.max).toBe(500);
+    expect(series.data).toMatchObject([{ value: 375.75 }]);
+    expect(series.title.show).toBe(false);
+    expect(series.detail.formatter()).toBe('375.75');
+  });
+
+  it('指标卡无数据时显示占位符', () => {
+    const option = buildKpiGaugeOption(widget({ type: 'kpi' }), undefined);
+    const series = option.series[0];
+
+    expect(series.data).toMatchObject([{ value: 0 }]);
+    expect(series.max).toBe(100);
+    expect(series.detail.formatter()).toBe('--');
+  });
+
+  it('指标卡负值使用反向仪表盘', () => {
+    const option = buildKpiGaugeOption(
+      widget({
+        type: 'kpi',
+        dataRef: { valueField: 'amount' },
+      }),
+      { columns: ['amount'], rows: [{ amount: -100 }] },
+    );
+    const series = option.series[0];
+
+    expect(series.min).toBe(-200);
+    expect(series.max).toBe(0);
+    expect(series.data).toMatchObject([{ value: -100 }]);
+    expect(series.detail.formatter()).toBe('-100');
+  });
+
+  it('指标卡没有标题时在图表内展示自动识别的字段名', () => {
+    const option = buildKpiGaugeOption(widget({ type: 'kpi', title: undefined }), result);
+    const series = option.series[0];
+
+    expect(series.title.show).toBe(true);
+    expect(series.data[0].name).toBe('amount');
+  });
+
+  it('指标卡数值格式化保留两位小数', () => {
+    expect(formatKpiValue(375.756)).toMatch(/^375[.,]76$/);
+    expect(formatKpiValue(null)).toBe('--');
+  });
+
+  it('指标卡长金额自动缩小字号避免压住环形进度', () => {
+    const option = buildKpiGaugeOption(
+      widget({
+        type: 'kpi',
+        dataRef: { valueField: 'amount' },
+      }),
+      { columns: ['amount'], rows: [{ amount: 1234567.89 }] },
+    );
+    const series = option.series[0];
+
+    expect(series.detail.fontSize).toBe(15);
+    expect(series.detail.formatter()).toMatch(/^1[.,]234[.,]567[.,]89$/);
   });
 });
