@@ -15,7 +15,6 @@ import {
   type IAlertDelivery,
   type IAlertEvent,
   type IAlertRecipientOptions,
-  type IAlertRecipientUser,
   type IAlertRule,
   type IAlertSummary,
 } from '@/shared/model/alert.model';
@@ -257,24 +256,12 @@ export default defineComponent({
 
     const normalizeRecipients = (values: string[]): string[] => Array.from(new Set(values.map(normalizeRecipient).filter(Boolean)));
 
-    const userDisplayName = (user: IAlertRecipientUser): string => {
-      const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
-      return name || user.login;
-    };
-
     const recipientLabel = (expression: string): string => {
       if (expression.startsWith('role:')) {
-        const name = expression.substring('role:'.length);
-        if (name === 'ROLE_TENANT_ADMIN') {
-          return '租户管理员';
-        }
-        const role = recipientOptions.value.roles.find(item => item.name === name);
-        return role?.description || name;
+        return expression.substring('role:'.length) || expression;
       }
       if (expression.startsWith('user:')) {
-        const login = expression.substring('user:'.length);
-        const user = recipientOptions.value.users.find(item => item.login === login);
-        return user ? `${userDisplayName(user)}（${user.login}）` : login;
+        return expression.substring('user:'.length) || expression;
       }
       return expression;
     };
@@ -288,9 +275,7 @@ export default defineComponent({
       if (!keyword) {
         return recipientOptions.value.roles;
       }
-      return recipientOptions.value.roles.filter(
-        role => role.name.toLowerCase().includes(keyword) || (role.description ?? '').toLowerCase().includes(keyword),
-      );
+      return recipientOptions.value.roles.filter(role => role.name.toLowerCase().includes(keyword));
     });
 
     const filteredRecipientUsers = computed(() => {
@@ -298,12 +283,7 @@ export default defineComponent({
       if (!keyword) {
         return recipientOptions.value.users;
       }
-      return recipientOptions.value.users.filter(
-        user =>
-          user.login.toLowerCase().includes(keyword) ||
-          (user.firstName ?? '').toLowerCase().includes(keyword) ||
-          (user.lastName ?? '').toLowerCase().includes(keyword),
-      );
+      return recipientOptions.value.users.filter(user => user.login.toLowerCase().includes(keyword));
     });
 
     const knownRecipientExpressions = computed(() => {
@@ -656,7 +636,6 @@ export default defineComponent({
       missingRecipientExpressions,
       recipientLabel,
       recipientTagType,
-      userDisplayName,
       openRecipientDialog,
       confirmRecipients,
       removeRecipient,

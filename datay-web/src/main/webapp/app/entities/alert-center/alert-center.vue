@@ -313,10 +313,7 @@
               :value="`role:${role.name}`"
               class="recipient-option"
             >
-              <span class="recipient-option-label">
-                <span>{{ role.description || role.name }}</span>
-                <span class="recipient-login">{{ role.name }}</span>
-              </span>
+              {{ role.name }}
             </el-checkbox>
           </el-checkbox-group>
         </div>
@@ -330,10 +327,7 @@
               :value="`user:${user.login}`"
               class="recipient-option"
             >
-              <span class="recipient-option-label">
-                <span>{{ userDisplayName(user) }}</span>
-                <span class="recipient-login">{{ user.login }}</span>
-              </span>
+              {{ user.login }}
             </el-checkbox>
           </el-checkbox-group>
         </div>
@@ -348,7 +342,7 @@
               closable
               @close="removeDraftRecipient(recipient)"
             >
-              {{ recipient }}
+              {{ recipientLabel(recipient) }}
             </el-tag>
           </div>
         </div>
@@ -572,18 +566,6 @@
   height: auto;
   margin-right: 0;
   padding: 6px 0;
-}
-
-.recipient-option-label {
-  display: inline-flex;
-  flex-direction: column;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.recipient-login {
-  color: #909399;
-  font-size: 12px;
 }
 
 .recipient-dialog-footer {
