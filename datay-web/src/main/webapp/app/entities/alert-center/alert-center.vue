@@ -265,10 +265,24 @@
           <span class="form-hint">分钟内重复失败只累计次数，不重复发送</span>
         </el-form-item>
         <el-form-item label="站内信接收人">
-          <el-input v-model="ruleForm.recipientsText" placeholder="role:ROLE_TENANT_ADMIN, user:admin" />
-          <div class="form-tip">
-            支持 <code>role:角色编码</code> 和 <code>user:登录名</code>，逗号分隔；默认发送给租户管理员。邮件/Webhook 的目标在渠道中配置。
+          <div class="recipient-field">
+            <div class="recipient-selected">
+              <template v-if="ruleForm.recipients.length">
+                <el-tag
+                  v-for="recipient in ruleForm.recipients"
+                  :key="recipient"
+                  :type="recipientTagType(recipient)"
+                  closable
+                  @close="removeRecipient(recipient)"
+                >
+                  {{ recipientLabel(recipient) }}
+                </el-tag>
+              </template>
+              <span v-else class="recipient-selected-empty">未选择，保存时默认发送给租户管理员</span>
+            </div>
+            <el-button @click="openRecipientDialog">选择接收人</el-button>
           </div>
+          <div class="form-tip">默认发送给租户管理员；邮件 / Webhook 的目标在渠道中配置。</div>
         </el-form-item>
         <el-form-item label="通知渠道">
           <el-select v-model="ruleForm.channelIds" multiple clearable style="width: 100%" placeholder="不选则只发站内信">
@@ -283,6 +297,79 @@
       <template #footer>
         <el-button @click="ruleDialog = false">取消</el-button>
         <el-button type="primary" @click="saveRule">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="recipientDialog" title="选择站内信接收人" width="720px" append-to-body>
+      <div v-loading="recipientOptionsLoading" class="recipient-picker">
+        <el-input v-model="recipientSearch" clearable placeholder="搜索用户或角色" class="recipient-search" />
+
+        <div v-if="filteredRecipientRoles.length" class="recipient-section">
+          <div class="recipient-section-title">角色</div>
+          <el-checkbox-group v-model="recipientDraft" class="recipient-grid">
+            <el-checkbox
+              v-for="role in filteredRecipientRoles"
+              :key="`role:${role.name}`"
+              :value="`role:${role.name}`"
+              class="recipient-option"
+            >
+              <span class="recipient-option-label">
+                <span>{{ role.description || role.name }}</span>
+                <span class="recipient-login">{{ role.name }}</span>
+              </span>
+            </el-checkbox>
+          </el-checkbox-group>
+        </div>
+
+        <div v-if="filteredRecipientUsers.length" class="recipient-section">
+          <div class="recipient-section-title">用户</div>
+          <el-checkbox-group v-model="recipientDraft" class="recipient-grid">
+            <el-checkbox
+              v-for="user in filteredRecipientUsers"
+              :key="`user:${user.login}`"
+              :value="`user:${user.login}`"
+              class="recipient-option"
+            >
+              <span class="recipient-option-label">
+                <span>{{ userDisplayName(user) }}</span>
+                <span class="recipient-login">{{ user.login }}</span>
+              </span>
+            </el-checkbox>
+          </el-checkbox-group>
+        </div>
+
+        <div v-if="missingRecipientExpressions.length" class="recipient-section">
+          <div class="recipient-section-title">当前租户未找到的接收人</div>
+          <div class="recipient-selected">
+            <el-tag
+              v-for="recipient in missingRecipientExpressions"
+              :key="recipient"
+              type="info"
+              closable
+              @close="removeDraftRecipient(recipient)"
+            >
+              {{ recipient }}
+            </el-tag>
+          </div>
+        </div>
+
+        <el-empty
+          v-if="
+            !recipientOptionsLoading &&
+            filteredRecipientRoles.length === 0 &&
+            filteredRecipientUsers.length === 0 &&
+            missingRecipientExpressions.length === 0
+          "
+          description="暂无可选接收人"
+          :image-size="72"
+        />
+      </div>
+      <template #footer>
+        <div class="recipient-dialog-footer">
+          <span class="recipient-selected-count">已选 {{ recipientDraft.length }} 项</span>
+          <el-button @click="recipientDialog = false">取消</el-button>
+          <el-button type="primary" @click="confirmRecipients">确定</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -429,6 +516,86 @@
   margin-left: 10px;
   color: #909399;
   font-size: 12px;
+}
+
+.recipient-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.recipient-selected {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.recipient-selected-empty {
+  color: #c0c4cc;
+  font-size: 13px;
+  line-height: 24px;
+}
+
+.recipient-picker {
+  min-height: 260px;
+}
+
+.recipient-search {
+  margin-bottom: 14px;
+}
+
+.recipient-section {
+  margin-bottom: 18px;
+}
+
+.recipient-section-title {
+  margin-bottom: 8px;
+  color: #303133;
+  font-weight: 600;
+}
+
+.recipient-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+
+.recipient-option {
+  width: 100%;
+  height: auto;
+  margin-right: 0;
+  padding: 6px 0;
+}
+
+.recipient-option-label {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.recipient-login {
+  color: #909399;
+  font-size: 12px;
+}
+
+.recipient-dialog-footer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.recipient-selected-count {
+  margin-right: auto;
+  color: #909399;
+  font-size: 13px;
 }
 
 .sub-text {

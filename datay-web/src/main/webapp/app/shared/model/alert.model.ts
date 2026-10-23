@@ -56,6 +56,23 @@ export interface IAlertRule {
   updateTime?: Date | string;
 }
 
+export interface IAlertRecipientRole {
+  name: string;
+  description?: string | null;
+}
+
+export interface IAlertRecipientUser {
+  id?: number;
+  login: string;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+export interface IAlertRecipientOptions {
+  roles: IAlertRecipientRole[];
+  users: IAlertRecipientUser[];
+}
+
 export interface IAlertChannel {
   id?: string;
   name?: string;

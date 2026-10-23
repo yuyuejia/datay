@@ -14,6 +14,8 @@ import {
   type IAlertChannel,
   type IAlertDelivery,
   type IAlertEvent,
+  type IAlertRecipientOptions,
+  type IAlertRecipientUser,
   type IAlertRule,
   type IAlertSummary,
 } from '@/shared/model/alert.model';
@@ -26,7 +28,7 @@ interface RuleForm {
   severity: string;
   jobType: string;
   silenceMinutes: number;
-  recipientsText: string;
+  recipients: string[];
   channelIds: string[];
   enabled: boolean;
 }
@@ -52,7 +54,7 @@ const defaultRuleForm = (): RuleForm => ({
   severity: 'P1',
   jobType: '',
   silenceMinutes: 30,
-  recipientsText: 'role:ROLE_TENANT_ADMIN',
+  recipients: ['role:ROLE_TENANT_ADMIN'],
   channelIds: [],
   enabled: true,
 });
@@ -107,6 +109,12 @@ export default defineComponent({
 
     const ruleDialog = ref(false);
     const ruleForm = ref<RuleForm>(defaultRuleForm());
+    const recipientDialog = ref(false);
+    const recipientDraft = ref<string[]>([]);
+    const recipientSearch = ref('');
+    const recipientOptionsLoading = ref(false);
+    const recipientOptionsLoaded = ref(false);
+    const recipientOptions = ref<IAlertRecipientOptions>({ roles: [], users: [] });
     const channelDialog = ref(false);
     const channelForm = ref<ChannelForm>(defaultChannelForm());
 
@@ -239,12 +247,120 @@ export default defineComponent({
       }
     };
 
+    const normalizeRecipient = (expression: string): string => {
+      const value = expression.trim();
+      if (!value) {
+        return '';
+      }
+      return value.includes(':') ? value : `user:${value}`;
+    };
+
+    const normalizeRecipients = (values: string[]): string[] => Array.from(new Set(values.map(normalizeRecipient).filter(Boolean)));
+
+    const userDisplayName = (user: IAlertRecipientUser): string => {
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      return name || user.login;
+    };
+
+    const recipientLabel = (expression: string): string => {
+      if (expression.startsWith('role:')) {
+        const name = expression.substring('role:'.length);
+        if (name === 'ROLE_TENANT_ADMIN') {
+          return '租户管理员';
+        }
+        const role = recipientOptions.value.roles.find(item => item.name === name);
+        return role?.description || name;
+      }
+      if (expression.startsWith('user:')) {
+        const login = expression.substring('user:'.length);
+        const user = recipientOptions.value.users.find(item => item.login === login);
+        return user ? `${userDisplayName(user)}（${user.login}）` : login;
+      }
+      return expression;
+    };
+
+    const recipientTagType = (expression: string): 'primary' | 'info' => (expression.startsWith('role:') ? 'info' : 'primary');
+
+    const recipientKeyword = computed(() => recipientSearch.value.trim().toLowerCase());
+
+    const filteredRecipientRoles = computed(() => {
+      const keyword = recipientKeyword.value;
+      if (!keyword) {
+        return recipientOptions.value.roles;
+      }
+      return recipientOptions.value.roles.filter(
+        role => role.name.toLowerCase().includes(keyword) || (role.description ?? '').toLowerCase().includes(keyword),
+      );
+    });
+
+    const filteredRecipientUsers = computed(() => {
+      const keyword = recipientKeyword.value;
+      if (!keyword) {
+        return recipientOptions.value.users;
+      }
+      return recipientOptions.value.users.filter(
+        user =>
+          user.login.toLowerCase().includes(keyword) ||
+          (user.firstName ?? '').toLowerCase().includes(keyword) ||
+          (user.lastName ?? '').toLowerCase().includes(keyword),
+      );
+    });
+
+    const knownRecipientExpressions = computed(() => {
+      const known = new Set<string>();
+      recipientOptions.value.roles.forEach(role => known.add(`role:${role.name}`));
+      recipientOptions.value.users.forEach(user => known.add(`user:${user.login}`));
+      return known;
+    });
+
+    const missingRecipientExpressions = computed(() => recipientDraft.value.filter(item => !knownRecipientExpressions.value.has(item)));
+
+    const loadRecipientOptions = async () => {
+      if (recipientOptionsLoaded.value) {
+        return;
+      }
+      recipientOptionsLoading.value = true;
+      try {
+        const options = await service.retrieveRecipientOptions();
+        recipientOptions.value = {
+          roles: options?.roles ?? [],
+          users: options?.users ?? [],
+        };
+        recipientOptionsLoaded.value = true;
+      } catch (err) {
+        showRequestError(err);
+      } finally {
+        recipientOptionsLoading.value = false;
+      }
+    };
+
+    const openRecipientDialog = async () => {
+      recipientDraft.value = normalizeRecipients(ruleForm.value.recipients);
+      recipientSearch.value = '';
+      recipientDialog.value = true;
+      await loadRecipientOptions();
+    };
+
+    const confirmRecipients = () => {
+      ruleForm.value.recipients = normalizeRecipients(recipientDraft.value);
+      recipientDialog.value = false;
+    };
+
+    const removeRecipient = (expression: string) => {
+      ruleForm.value.recipients = ruleForm.value.recipients.filter(item => item !== expression);
+    };
+
+    const removeDraftRecipient = (expression: string) => {
+      recipientDraft.value = recipientDraft.value.filter(item => item !== expression);
+    };
+
     const openCreateRule = () => {
       ruleForm.value = defaultRuleForm();
       ruleDialog.value = true;
     };
 
     const openEditRule = (rule: IAlertRule) => {
+      const recipients = normalizeRecipients(parseStringArray(rule.recipients));
       ruleForm.value = {
         id: rule.id,
         name: rule.name ?? '',
@@ -253,19 +369,11 @@ export default defineComponent({
         severity: rule.severity ?? 'P1',
         jobType: rule.jobType ?? '',
         silenceMinutes: rule.silenceMinutes ?? 30,
-        recipientsText: parseStringArray(rule.recipients).join(', '),
+        recipients: recipients.length ? recipients : ['role:ROLE_TENANT_ADMIN'],
         channelIds: parseStringArray(rule.channelIds),
         enabled: rule.enabled !== false,
       };
       ruleDialog.value = true;
-    };
-
-    const normalizeRecipient = (expression: string): string => {
-      const value = expression.trim();
-      if (!value) {
-        return '';
-      }
-      return value.includes(':') ? value : `user:${value}`;
     };
 
     const saveRule = async () => {
@@ -277,10 +385,7 @@ export default defineComponent({
         ElMessage.warning('请至少选择一种告警事件');
         return;
       }
-      const recipients = ruleForm.value.recipientsText
-        .split(/[,;，；\s]+/)
-        .map(normalizeRecipient)
-        .filter(Boolean);
+      const recipients = normalizeRecipients(ruleForm.value.recipients);
       if (recipients.length === 0) {
         recipients.push('role:ROLE_TENANT_ADMIN');
       }
@@ -505,7 +610,8 @@ export default defineComponent({
       return '-';
     };
 
-    const ruleRecipients = (rule: IAlertRule): string => parseStringArray(rule.recipients).join(', ') || '-';
+    const ruleRecipients = (rule: IAlertRule): string =>
+      parseStringArray(rule.recipients).map(normalizeRecipient).filter(Boolean).map(recipientLabel).join('、') || '-';
 
     const ruleChannels = (rule: IAlertRule): string => {
       const ids = parseStringArray(rule.channelIds);
@@ -540,6 +646,21 @@ export default defineComponent({
       testingChannelId,
       ruleDialog,
       ruleForm,
+      recipientDialog,
+      recipientDraft,
+      recipientSearch,
+      recipientOptionsLoading,
+      recipientOptions,
+      filteredRecipientRoles,
+      filteredRecipientUsers,
+      missingRecipientExpressions,
+      recipientLabel,
+      recipientTagType,
+      userDisplayName,
+      openRecipientDialog,
+      confirmRecipients,
+      removeRecipient,
+      removeDraftRecipient,
       channelDialog,
       channelForm,
       alertEventTypeOptions: ALERT_EVENT_TYPE_OPTIONS,

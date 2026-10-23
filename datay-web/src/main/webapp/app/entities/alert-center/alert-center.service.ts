@@ -1,7 +1,15 @@
 import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
-import type { IAlertChannel, IAlertDelivery, IAlertEvent, IAlertRule, IAlertSummary, INotification } from '@/shared/model/alert.model';
+import type {
+  IAlertChannel,
+  IAlertDelivery,
+  IAlertEvent,
+  IAlertRecipientOptions,
+  IAlertRule,
+  IAlertSummary,
+  INotification,
+} from '@/shared/model/alert.model';
 
 const baseApiUrl = 'api';
 
@@ -37,6 +45,10 @@ export default class AlertCenterService {
 
   retrieveRules(): Promise<IAlertRule[]> {
     return axios.get(`${baseApiUrl}/alert-rules`).then(res => res.data);
+  }
+
+  retrieveRecipientOptions(): Promise<IAlertRecipientOptions> {
+    return axios.get(`${baseApiUrl}/alert-rules/recipient-options`).then(res => res.data);
   }
 
   createRule(rule: IAlertRule): Promise<IAlertRule> {

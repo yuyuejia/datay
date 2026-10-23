@@ -1,6 +1,9 @@
 package com.data.datafusion.web.rest;
 
+import com.data.datafusion.security.SecurityUtils;
+import com.data.datafusion.service.alert.AlertRecipientOptionService;
 import com.data.datafusion.service.alert.AlertRuleService;
+import com.data.datafusion.service.dto.AlertRecipientOptionsDTO;
 import com.data.datafusion.service.dto.AlertRuleDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
@@ -38,13 +41,25 @@ public class AlertRuleResource {
 
     private final AlertRuleService alertRuleService;
 
-    public AlertRuleResource(AlertRuleService alertRuleService) {
+    private final AlertRecipientOptionService alertRecipientOptionService;
+
+    public AlertRuleResource(AlertRuleService alertRuleService, AlertRecipientOptionService alertRecipientOptionService) {
         this.alertRuleService = alertRuleService;
+        this.alertRecipientOptionService = alertRecipientOptionService;
     }
 
     @GetMapping("")
     public ResponseEntity<List<AlertRuleDTO>> getAllAlertRules() {
         return ResponseEntity.ok(alertRuleService.findAll());
+    }
+
+    /**
+     * 当前租户内可选的站内信接收人。告警中心对所有登录用户开放，因此不能依赖管理员用户/角色接口。
+     */
+    @GetMapping("/recipient-options")
+    public ResponseEntity<AlertRecipientOptionsDTO> getRecipientOptions() {
+        Long tenantId = SecurityUtils.getCurrentTenantId().orElse(null);
+        return ResponseEntity.ok(alertRecipientOptionService.getOptions(tenantId));
     }
 
     @GetMapping("/{id}")

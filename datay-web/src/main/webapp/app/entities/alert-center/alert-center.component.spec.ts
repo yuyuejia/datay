@@ -13,6 +13,7 @@ describe('AlertCenter Component', () => {
   let retrieveEvents: sinon.SinonStub;
   let retrieveRules: sinon.SinonStub;
   let retrieveChannels: sinon.SinonStub;
+  let retrieveRecipientOptions: sinon.SinonStub;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
@@ -22,6 +23,10 @@ describe('AlertCenter Component', () => {
       .resolves({ headers: { 'x-total-count': '1' }, data: [{ id: 'event-1' }] });
     retrieveRules = sandbox.stub(AlertCenterService.prototype, 'retrieveRules').resolves([{ id: 'rule-1' }]);
     retrieveChannels = sandbox.stub(AlertCenterService.prototype, 'retrieveChannels').resolves([{ id: 'channel-1' }]);
+    retrieveRecipientOptions = sandbox.stub(AlertCenterService.prototype, 'retrieveRecipientOptions').resolves({
+      roles: [{ name: 'ROLE_TENANT_ADMIN', description: '租户管理员' }],
+      users: [{ id: 1, login: 'alice', firstName: 'Alice', lastName: null }],
+    });
   });
 
   afterEach(() => {
@@ -51,5 +56,34 @@ describe('AlertCenter Component', () => {
     expect(component.summary).toEqual({ firing: 1, acknowledged: 2, resolved: 3 });
     expect(component.events).toEqual([{ id: 'event-1' }]);
     expect(component.eventTotal).toBe(1);
+  });
+
+  it('should select rule recipients from the picker dialog', async () => {
+    const wrapper = shallowMount(AlertCenter, {
+      global: {
+        provide: {
+          alertService: new AlertService(),
+        },
+        stubs: {
+          'font-awesome-icon': true,
+          'el-table-column': true,
+        },
+      },
+    });
+    const component = wrapper.vm as AlertCenterComponentType;
+
+    await flushPromises();
+    component.openCreateRule();
+    await component.openRecipientDialog();
+    await flushPromises();
+
+    expect(retrieveRecipientOptions.calledOnce).toBe(true);
+    expect(component.recipientDraft).toContain('role:ROLE_TENANT_ADMIN');
+
+    component.recipientDraft.push('user:alice');
+    component.confirmRecipients();
+
+    expect(component.ruleForm.recipients).toEqual(['role:ROLE_TENANT_ADMIN', 'user:alice']);
+    expect(component.recipientDialog).toBe(false);
   });
 });
