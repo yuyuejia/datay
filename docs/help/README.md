@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | **产品介绍** | DataY 整体介绍，涵盖轻量数据平台与 DataY Core 引擎 | [开始阅读](introduction/README.md) |
 | **快速开始** | 环境要求、一键部署、应用市场初始化数据应用、首次登录 | [开始阅读](quickstart/README.md) |
-| **使用指南** | 各功能模块的使用介绍：数据源、集成、开发、调度、建模、指标、问数 | [开始阅读](guide/README.md) |
+| **使用指南** | 各功能模块的使用介绍：数据源、集成、开发、调度、告警、建模、指标、问数 | [开始阅读](guide/README.md) |
 | **场景案例** | 端到端实战、批量同步、CDC 实时同步、文件 / HTTP / 飞书接入 | [开始阅读](cases/README.md) |
 | **ETL 组件介绍** | 输入 / 处理 / 输出 / 其他组件的配置说明 | [开始阅读](components/README.md) |
 
@@ -28,6 +28,7 @@
 | 数据建模 | 维度建模、事实表关联、指标管理 | [维度建模](guide/modeling.md) · [指标管理](guide/metric.md) |
 | 数据开发 | 拖拽画布、SQL / Shell / DAG 任务 | [任务设计与开发](guide/development.md) |
 | 任务调度 | Cron 调度、依赖调度、master/worker 分离 | [任务调度与实例](guide/scheduler.md) |
+| 运维告警 | 任务失败 / 超时告警、通知渠道、告警事件闭环 | [告警中心](guide/alert-center.md) |
 | 数据应用 | 智能问数、指标查询面板 | [智能问数](guide/askdata.md) · [指标管理](guide/metric.md) |
 
 ---

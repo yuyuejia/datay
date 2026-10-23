@@ -10,6 +10,7 @@
 | 数据集成与同步 | 拖拽 ETL 画布或可视化选表，把源数据同步进数仓 | [数据集成与同步](guide/integration.md) |
 | 任务设计与开发 | 定义并编排 ETL、SQL、Shell、DAG 等任务 | [任务设计与开发](guide/development.md) |
 | 任务调度与实例 | Cron 调度、依赖调度、上线 / 下线、实例监控 | [任务调度与实例](guide/scheduler.md) |
+| 告警中心 | 任务失败 / 超时告警、站内信 / 邮件 / Webhook 通知、事件处理 | [告警中心](guide/alert-center.md) |
 | 维度建模 | 定义维度 / 事实表与关联关系，构建星型模型 | [维度建模](guide/modeling.md) |
 | 指标管理 | 定义原子指标、衍生指标，统一业务口径 | [指标管理](guide/metric.md) |
 | 智能问数 | 用自然语言直接取数，无需编写 SQL | [智能问数](guide/askdata.md) |

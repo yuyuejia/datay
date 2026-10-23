@@ -11,6 +11,7 @@
   - [数据集成与同步](guide/integration.md)
   - [任务设计与开发](guide/development.md)
   - [任务调度与实例](guide/scheduler.md)
+  - [告警中心](guide/alert-center.md)
   - [维度建模](guide/modeling.md)
   - [指标管理](guide/metric.md)
   - [智能问数](guide/askdata.md)
