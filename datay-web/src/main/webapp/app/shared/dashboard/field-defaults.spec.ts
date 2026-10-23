@@ -49,6 +49,12 @@ describe('field-defaults', () => {
     expect(fields.find(field => field.name === 'region')?.numeric).toBe(false);
   });
 
+  it('字段描述优先作为属性面板展示名称', () => {
+    const fields = buildDashboardFields(['amount'], [], [{ name: 'amount', description: '成交金额', type: 'number' }]);
+
+    expect(fields[0]).toMatchObject({ name: 'amount', label: '成交金额', type: 'number' });
+  });
+
   it('默认分类字段避开代理键，默认数值字段优先常见度量字段', () => {
     const fields = buildDashboardFields(['region_id', 'region', 'id', 'amount', 'quantity'], rows);
 

@@ -1,5 +1,5 @@
 import { defineComponent, inject, onMounted, ref, onBeforeUnmount, computed, nextTick, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import DataSourceService from './data-source.service';
 import DataQueryService from './data-query.service';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -75,6 +75,7 @@ export default defineComponent({
   components: { DataQueryAi, TableLineage },
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
     const dataQueryService = inject('dataQueryService', () => new DataQueryService());
     const alertService = inject('alertService', () => useAlertService(), true);
@@ -168,6 +169,27 @@ export default defineComponent({
       } finally {
         isExecuting.value = false;
       }
+    };
+
+    const generateDataset = () => {
+      const activeSql = getActiveSql();
+      if (!activeSql) {
+        alertService.showWarning('请先编写 SQL 语句');
+        return;
+      }
+      if (!dataSourceId.value) {
+        alertService.showWarning('缺少数据源信息');
+        return;
+      }
+      router.push({
+        name: 'AnalysisDatasetEdit',
+        query: {
+          dataSourceId: dataSourceId.value,
+          sql: activeSql,
+          name: `${dataSourceName.value || 'SQL'} 分析数据集`,
+          from: 'data-query',
+        },
+      });
     };
 
     const getSqlDialectSpec = () => {
@@ -316,7 +338,7 @@ export default defineComponent({
           const res = await dataSourceService().getTables(dataSourceId.value, node.data.name);
           const tables = res.data || res || [];
           const tableNodes = tables.map((table: any) => {
-            const tableName = typeof table === 'string' ? table : table.table ?? table.tableName ?? table.name ?? table;
+            const tableName = typeof table === 'string' ? table : (table.table ?? table.tableName ?? table.name ?? table);
             const catalog = table?.catalog;
             const schema = table?.schema ?? node.data.name;
             return {
@@ -766,6 +788,7 @@ export default defineComponent({
       handleNodeDblClick,
       loadTables,
       executeQuery,
+      generateDataset,
       formatSql,
       formatTime,
       previewTable,

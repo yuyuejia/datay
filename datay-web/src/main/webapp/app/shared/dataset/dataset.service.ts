@@ -123,10 +123,16 @@ export default class DatasetService {
 
   static columns(fields?: DatasetFields): DatasetColumn[] {
     const columns = fields?.columns ?? [];
-    return columns.map(column =>
-      typeof column === 'string'
-        ? { name: column, label: fields?.columnLabels?.[column] || column }
-        : { ...column, label: column.label || fields?.columnLabels?.[column.name] || column.name },
-    );
+    return columns.map(column => {
+      if (typeof column === 'string') {
+        return { name: column, label: fields?.columnLabels?.[column] || column };
+      }
+      const description = column.description || fields?.columnLabels?.[column.name] || column.label || column.name;
+      return {
+        ...column,
+        description,
+        label: column.label || description,
+      };
+    });
   }
 }

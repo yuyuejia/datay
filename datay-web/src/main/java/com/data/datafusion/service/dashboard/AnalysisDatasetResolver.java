@@ -65,6 +65,9 @@ public class AnalysisDatasetResolver {
         if (DatasetQueryService.asString(copy.get("name")) == null || DatasetQueryService.asString(copy.get("name")).isBlank()) {
             copy.put("name", entity.getName());
         }
+        if (entity.getFields() != null && !entity.getFields().isBlank()) {
+            copy.put("fields", entity.getFields());
+        }
         // 清掉可能存在的旧快照字段，避免数据集更新后仍使用过期定义
         copy.remove("metricQuery");
         copy.remove("sql");

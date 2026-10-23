@@ -28,6 +28,7 @@ export default defineComponent({
     const previewLoading = ref(false);
     const previewColumns = ref<string[]>([]);
     const previewRows = ref<Record<string, any>[]>([]);
+    const previewColumnLabels = ref<Record<string, string>>({});
     const previewDataset = ref<AnalysisDataset | null>(null);
     const previewError = ref('');
 
@@ -85,10 +86,12 @@ export default defineComponent({
       previewError.value = '';
       previewColumns.value = [];
       previewRows.value = [];
+      previewColumnLabels.value = {};
       try {
         const result = await service.preview(row.id as string);
         previewColumns.value = result.columns ?? [];
         previewRows.value = result.rows ?? [];
+        previewColumnLabels.value = result.columnLabels ?? {};
       } catch (err: any) {
         previewError.value =
           err?.response?.data?.errorMessage || err?.response?.data?.title || err?.response?.data?.detail || err?.message || '预览失败';
@@ -96,6 +99,8 @@ export default defineComponent({
         previewLoading.value = false;
       }
     };
+
+    const previewColumnLabel = (column: string): string => previewColumnLabels.value[column] || column;
 
     const prepareRemove = (row: AnalysisDataset) => {
       removeId.value = row.id ?? null;
@@ -141,6 +146,7 @@ export default defineComponent({
       previewRows,
       previewDataset,
       previewError,
+      previewColumnLabel,
       retrieve,
       create,
       edit,

@@ -35,6 +35,7 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   // 数据模型
   DataModel: { path: '/data-model', title: '维度建模', componentName: 'DataModel', closable: true },
   Metric: { path: '/metric', title: '指标管理', componentName: 'Metric', closable: true },
+  AnalysisDataset: { path: '/analysis-dataset', title: '分析数据集', componentName: 'AnalysisDataset', closable: true },
   // 数据开发
   SqlJob: { path: '/sql-job', title: 'SQL 任务', componentName: 'SqlJob', closable: true },
   DagJob: { path: '/dag-job', title: '任务编排', componentName: 'DagJob', closable: true },
@@ -45,7 +46,6 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   MetricAi: { path: '/metric-ai', title: '智能问数', componentName: 'MetricAi', closable: true },
   DataApi: { path: '/data-api', title: 'API 服务', componentName: 'DataApi', closable: true },
   AnalysisDashboard: { path: '/analysis-dashboard', title: '分析看板', componentName: 'AnalysisDashboard', closable: true },
-  AnalysisDataset: { path: '/analysis-dataset', title: '分析数据集', componentName: 'AnalysisDataset', closable: true },
   AppPackage: { path: '/app-package', title: '应用市场', componentName: 'AppPackage', closable: true },
   // 账号菜单
   Settings: { path: '/account/settings', title: '个人设置', componentName: 'Settings', closable: true },

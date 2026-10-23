@@ -5,9 +5,10 @@ import { ElMessage } from 'element-plus';
 import { useAlertService } from '@/shared/alert/alert.service';
 import DataSourceService from '@/entities/data-source/data-source.service';
 import MetricService from '@/entities/metric/metric.service';
+import { buildDashboardFields } from '@/shared/dashboard/field-defaults';
 import DatasetService from '@/shared/dataset/dataset.service';
 import type { DatasetPreviewResult } from '@/shared/dataset/dataset.service';
-import type { AnalysisDataset, AnalysisDatasetType, MetricDimensionMeta, MetricQueryMeta } from '@/shared/dataset/types';
+import type { AnalysisDataset, AnalysisDatasetType, DatasetColumn, MetricDimensionMeta, MetricQueryMeta } from '@/shared/dataset/types';
 
 interface MetricOption {
   code: string;
@@ -15,11 +16,11 @@ interface MetricOption {
   metricType?: string;
 }
 
-interface DimensionOption {
+export interface DimensionOption {
   dimensionModelCode: string;
   dimensionModelName?: string;
   selected: boolean;
-  fieldName: string;
+  fieldNames: string[];
   fields: Array<{ fieldName: string; fieldType?: string; description?: string }>;
   isTimeDimension?: boolean;
 }
@@ -57,10 +58,13 @@ export function buildDatasetDefinition(
       metricCodes,
       dimensions: dimensions
         .filter(dimension => dimension.selected)
-        .map(dimension => ({
-          dimensionModelCode: dimension.dimensionModelCode,
-          dimensionFieldName: dimension.fieldName || undefined,
-        })),
+        .map(dimension => {
+          const fieldNames = dimension.fieldNames.filter(field => !!field);
+          return {
+            dimensionModelCode: dimension.dimensionModelCode,
+            dimensionFieldNames: fieldNames.length ? fieldNames : undefined,
+          };
+        }),
     },
   });
 }
@@ -101,11 +105,14 @@ export default defineComponent({
     const selectedTable = ref('');
     const loadingTables = ref(false);
 
+    const previewVisible = ref(false);
     const previewLoading = ref(false);
     const previewError = ref('');
     const previewColumns = ref<string[]>([]);
     const previewRows = ref<Record<string, any>[]>([]);
     const previewSql = ref('');
+    const previewColumnLabels = ref<Record<string, string>>({});
+    const fieldMetadata = ref<DatasetColumn[]>([]);
 
     const definition = computed(() =>
       buildDatasetDefinition(form.value.type, sqlText.value, metricCodes.value, dimensions.value, form.value.dataSourceId),
@@ -120,6 +127,22 @@ export default defineComponent({
       err?.response?.data?.message ||
       err?.message ||
       fallback;
+
+    const previewColumnLabel = (column: string): string => fieldMetadata.value.find(field => field.name === column)?.description || column;
+
+    const applyPreviewFields = (labels: Record<string, string>) => {
+      const existing = new Map(fieldMetadata.value.map(field => [field.name, field] as const));
+      fieldMetadata.value = buildDashboardFields(previewColumns.value, previewRows.value, fieldMetadata.value).map(field => {
+        const previous = existing.get(field.name);
+        return {
+          name: field.name,
+          label: previous?.label || field.label,
+          description: previous?.description || labels[field.name] || field.name,
+          type: previous?.type && previous.type !== 'unknown' ? previous.type : field.type,
+          primaryKey: previous?.primaryKey ?? false,
+        };
+      });
+    };
 
     const loadMetrics = async () => {
       try {
@@ -147,7 +170,7 @@ export default defineComponent({
           dimensionModelCode: dimension.dimensionModelCode,
           dimensionModelName: dimension.dimensionModelName || dimension.dimensionModelCode,
           selected: false,
-          fieldName: dimension.displayFieldName || dimension.recommendedDisplayField || '',
+          fieldNames: [dimension.recommendedDisplayField || dimension.displayFieldName || ''].filter(Boolean),
           fields: dimension.fields ?? [],
           isTimeDimension: dimension.isTimeDimension,
         }));
@@ -223,6 +246,7 @@ export default defineComponent({
         const dataset = await datasetService.get(id);
         editingId.value = id;
         form.value = { ...dataset };
+        fieldMetadata.value = DatasetService.columns(DatasetService.parseFields(dataset));
         const def = DatasetService.parseDefinition(dataset);
         if (dataset.type === 'SQL') {
           sqlText.value = def.sql || '';
@@ -230,12 +254,20 @@ export default defineComponent({
           const query = def.metricQuery || def;
           metricCodes.value = query.metricCodes || [];
           await loadDimensions();
-          const selected: Array<{ dimensionModelCode: string; dimensionFieldName?: string }> = query.dimensions || [];
+          const selected: Array<{ dimensionModelCode: string; dimensionFieldNames?: string[]; dimensionFieldName?: string }> =
+            query.dimensions || [];
           for (const dimension of dimensions.value) {
             const hit = selected.find(item => item.dimensionModelCode === dimension.dimensionModelCode);
             if (hit) {
               dimension.selected = true;
-              dimension.fieldName = hit.dimensionFieldName || dimension.fieldName;
+              const fieldNames = Array.isArray(hit.dimensionFieldNames)
+                ? hit.dimensionFieldNames
+                : hit.dimensionFieldName
+                  ? [hit.dimensionFieldName]
+                  : [];
+              if (fieldNames.length) {
+                dimension.fieldNames = fieldNames;
+              }
             }
           }
         }
@@ -254,12 +286,34 @@ export default defineComponent({
       const id = route.query.id ? String(route.query.id) : undefined;
       if (id) {
         await loadExisting(id);
+        return;
+      }
+
+      // 从数据源查询页携带 SQL 快速创建数据集。
+      const prefillSql = route.query.sql ? String(route.query.sql) : '';
+      const prefillDataSourceId = route.query.dataSourceId ? String(route.query.dataSourceId) : '';
+      if (prefillSql || prefillDataSourceId) {
+        form.value.type = 'SQL';
+        form.value.dataSourceId = prefillDataSourceId || undefined;
+        sqlText.value = prefillSql;
+        const queryName = route.query.name ? String(route.query.name).trim() : '';
+        const dataSource = dataSources.value.find(item => item.id === prefillDataSourceId);
+        form.value.name = queryName || (dataSource ? `${dataSource.name} 分析数据集` : 'SQL 分析数据集');
+        if (route.query.from === 'data-query' && !form.value.description) {
+          form.value.description = '由数据查询 SQL 快速生成';
+        }
+        if (form.value.dataSourceId) {
+          await loadSchemas();
+        }
       }
     });
 
     const onTypeChange = () => {
       previewColumns.value = [];
       previewRows.value = [];
+      previewSql.value = '';
+      previewColumnLabels.value = {};
+      fieldMetadata.value = [];
       previewError.value = '';
     };
 
@@ -271,11 +325,24 @@ export default defineComponent({
       await loadDimensions();
     };
 
-    const buildPayload = (normalizedDefinition?: string): AnalysisDataset => ({
-      ...form.value,
-      name: form.value.name?.trim(),
-      definition: normalizedDefinition || definition.value,
-    });
+    const buildPayload = (normalizedDefinition?: string): AnalysisDataset => {
+      const columns = fieldMetadata.value.map(field => ({
+        name: field.name,
+        label: field.label,
+        description: field.description || field.name,
+        type: field.type,
+        primaryKey: !!field.primaryKey,
+      }));
+      const columnLabels = Object.fromEntries(
+        columns.filter(field => !!field.description).map(field => [field.name, field.description as string]),
+      );
+      return {
+        ...form.value,
+        name: form.value.name?.trim(),
+        definition: normalizedDefinition || definition.value,
+        fields: columns.length ? JSON.stringify({ columns, columnLabels }) : undefined,
+      };
+    };
 
     const validate = async (): Promise<AnalysisDataset | null> => {
       if (!form.value.name?.trim()) {
@@ -310,6 +377,7 @@ export default defineComponent({
       if (!normalized) {
         return;
       }
+      previewVisible.value = true;
       previewLoading.value = true;
       previewError.value = '';
       previewColumns.value = [];
@@ -325,6 +393,8 @@ export default defineComponent({
         previewColumns.value = result.columns ?? [];
         previewRows.value = result.rows ?? [];
         previewSql.value = result.sql || '';
+        previewColumnLabels.value = result.columnLabels ?? {};
+        applyPreviewFields(previewColumnLabels.value);
       } catch (err: any) {
         previewError.value = errorMessage(err, '预览失败');
       } finally {
@@ -372,11 +442,14 @@ export default defineComponent({
       selectedTable,
       loadingTables,
       placeholders,
+      previewVisible,
       previewLoading,
       previewError,
       previewColumns,
       previewRows,
       previewSql,
+      fieldMetadata,
+      previewColumnLabel,
       onTypeChange,
       onDataSourceChange,
       onMetricChange,

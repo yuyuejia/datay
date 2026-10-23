@@ -75,10 +75,61 @@ public class DatasetQueryService {
         Map<String, Object> filterValues
     ) throws SQLException {
         String type = asString(dataset.get("type"));
+        Map<String, Object> result;
         if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
-            return querySqlDataset(fallbackDataSourceId, dataset, filters, filterValues);
+            result = querySqlDataset(fallbackDataSourceId, dataset, filters, filterValues);
+        } else {
+            result = queryMetricDataset(dataset, filters, filterValues);
         }
-        return queryMetricDataset(dataset, filters, filterValues);
+        attachColumnLabels(dataset, result);
+        return result;
+    }
+
+    /**
+     * 把数据集字段描述合并到查询结果列标签，供表格表头和图表图例使用。
+     */
+    @SuppressWarnings("unchecked")
+    private void attachColumnLabels(Map<String, Object> dataset, Map<String, Object> result) {
+        Object rawFields = dataset.get("fields");
+        if (rawFields == null) {
+            return;
+        }
+        Map<String, Object> fields;
+        try {
+            if (rawFields instanceof Map<?, ?> map) {
+                fields = new LinkedHashMap<>((Map<String, Object>) map);
+            } else {
+                fields = objectMapper.readValue(String.valueOf(rawFields), Map.class);
+            }
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            return;
+        }
+        Object rawColumns = fields.get("columns");
+        if (!(rawColumns instanceof List<?> columns)) {
+            return;
+        }
+        Map<String, String> labels = new LinkedHashMap<>();
+        if (result.get("columnLabels") instanceof Map<?, ?> existing) {
+            for (Map.Entry<?, ?> entry : existing.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    labels.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                }
+            }
+        }
+        for (Object rawColumn : columns) {
+            if (!(rawColumn instanceof Map<?, ?> column)) {
+                continue;
+            }
+            String name = asString(column.get("name"));
+            String description = asString(column.get("description"));
+            String label = description == null || description.isBlank() ? asString(column.get("label")) : description;
+            if (name != null && !name.isBlank() && label != null && !label.isBlank()) {
+                labels.put(name, label);
+            }
+        }
+        if (!labels.isEmpty()) {
+            result.put("columnLabels", labels);
+        }
     }
 
     // ------------------------------------------------------------- metric data

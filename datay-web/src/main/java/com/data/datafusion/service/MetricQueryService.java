@@ -336,11 +336,12 @@ public class MetricQueryService {
                 throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
             }
             boolean hierarchy = isHierarchyLike(dimensionModel.getDimensionKind());
+            List<String> requestedDisplayFields = requestedDisplayFields(dimension);
 
             DimSelection selection = new DimSelection();
             selection.dimensionModelId = dimensionModelId;
 
-            if (hierarchy) {
+            if (hierarchy && requestedDisplayFields.isEmpty()) {
                 int levelCount = resolveLevelCount(dimensionModel);
                 int level = dimension.getLevelIndex() == null ? levelCount : dimension.getLevelIndex();
                 if (level < 1 || level > levelCount) {
@@ -349,17 +350,7 @@ public class MetricQueryService {
                 selection.groupKeyFields = List.of(levelFieldName(dimensionModelId, level, ROLE_LEVEL_ID));
                 selection.displayFields = List.of(levelFieldName(dimensionModelId, level, ROLE_LEVEL_NAME));
             } else {
-                List<String> displayFields = new ArrayList<>();
-                if (dimension.getDimensionFieldNames() != null) {
-                    for (String field : dimension.getDimensionFieldNames()) {
-                        if (field != null && !field.isBlank()) {
-                            displayFields.add(field);
-                        }
-                    }
-                }
-                if (displayFields.isEmpty() && dimension.getDimensionFieldName() != null && !dimension.getDimensionFieldName().isBlank()) {
-                    displayFields.add(dimension.getDimensionFieldName());
-                }
+                List<String> displayFields = new ArrayList<>(requestedDisplayFields);
                 List<String> primaryKeys = primaryKeyFields(dimensionModelId);
                 if (displayFields.isEmpty()) {
                     // 未选择显示字段时，默认按维度主键汇总并显示维度主键
@@ -726,6 +717,21 @@ public class MetricQueryService {
         if (!groups.contains(expression)) {
             groups.add(expression);
         }
+    }
+
+    private List<String> requestedDisplayFields(MetricQueryFieldDTO dimension) {
+        List<String> displayFields = new ArrayList<>();
+        if (dimension.getDimensionFieldNames() != null) {
+            for (String field : dimension.getDimensionFieldNames()) {
+                if (field != null && !field.isBlank()) {
+                    displayFields.add(field);
+                }
+            }
+        }
+        if (displayFields.isEmpty() && dimension.getDimensionFieldName() != null && !dimension.getDimensionFieldName().isBlank()) {
+            displayFields.add(dimension.getDimensionFieldName());
+        }
+        return displayFields;
     }
 
     private List<String> primaryKeyFields(String dimensionModelId) {

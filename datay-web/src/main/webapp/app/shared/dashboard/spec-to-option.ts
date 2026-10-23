@@ -183,6 +183,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
   }
 
   const columns = result.columns ?? [];
+  const fieldLabel = (field?: string): string => (field ? result.columnLabels?.[field] || field : '');
   const categoryField = resolveNameField(ref.categoryField ?? columns[0], columns);
   const valueField = resolveNameField(
     ref.valueField ?? ref.series?.[0]?.field ?? columns.find(column => column !== categoryField),
@@ -213,6 +214,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       {
         ...(baseSeries(option)[0] || {}),
         type: 'pie',
+        name: (baseSeries(option)[0] || {}).name || fieldLabel(valueField),
         data: rows.map(row => ({
           name: row[categoryField],
           value: toNumber(row[valueField as string]),
@@ -274,7 +276,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     const template = base[index] || base[0] || {};
     return {
       ...template,
-      name: series.name || series.field,
+      name: series.name && series.name !== series.field ? series.name : fieldLabel(series.field),
       data: rows.map(row => toNumber(row[series.field])),
     };
   });

@@ -38,6 +38,19 @@ describe('spec-to-option', () => {
     expect(option.yAxis).toMatchObject({ type: 'value' });
   });
 
+  it('图例默认使用字段描述而不是字段名', () => {
+    const option = buildEchartsOption(
+      widget({
+        type: 'echarts',
+        echartsOption: { series: [{ type: 'bar' }] },
+        dataRef: { categoryField: 'region', valueField: 'amount', limit: 100 },
+      }),
+      { ...result, columnLabels: { amount: '成交金额' } },
+    );
+
+    expect(option.series[0].name).toBe('成交金额');
+  });
+
   it('分类字段 groupBy 后对数值字段求和', () => {
     const option = buildEchartsOption(
       widget({

@@ -76,7 +76,7 @@ export function buildDashboardFields(
     const type = inferFieldType(declared ?? name, rows);
     return {
       name,
-      label: declared?.label || name,
+      label: declared?.description || declared?.label || name,
       type,
       numeric: isNumericFieldType(type),
     };

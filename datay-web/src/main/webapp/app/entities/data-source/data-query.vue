@@ -6,7 +6,9 @@
           <font-awesome-icon icon="arrow-left" />
           <span>返回</span>
         </router-link>
-        <h3 class="query-title">数据查询 <span v-if="dataSourceName" class="ds-name">({{ dataSourceName }})</span></h3>
+        <h3 class="query-title">
+          数据查询 <span v-if="dataSourceName" class="ds-name">({{ dataSourceName }})</span>
+        </h3>
       </div>
       <div class="header-right">
         <span class="execute-info" v-if="executionTime !== null">
@@ -82,6 +84,12 @@
                       <font-awesome-icon icon="indent" />
                       <span>格式化</span>
                     </el-button>
+                    <el-tooltip content="将当前 SQL 快速生成可复用的分析数据集" placement="bottom">
+                      <el-button size="small" text @click="generateDataset" class="dataset-entry-btn">
+                        <font-awesome-icon icon="database" class="mr-1" />
+                        <span>生成数据集</span>
+                      </el-button>
+                    </el-tooltip>
                     <el-tooltip content="AI 助手：用自然语言生成 SQL" placement="bottom">
                       <el-button size="small" text @click="aiDrawerVisible = true" class="ai-entry-btn">
                         <font-awesome-icon icon="wand-magic-sparkles" class="mr-1" />
@@ -109,15 +117,7 @@
                   </span>
                 </div>
                 <div class="result-content">
-                  <el-table
-                    v-if="resultColumns.length > 0"
-                    :data="resultData"
-                    stripe
-                    border
-                    style="width: 100%"
-                    height="100%"
-                    size="small"
-                  >
+                  <el-table v-if="resultColumns.length > 0" :data="resultData" stripe border style="width: 100%" height="100%" size="small">
                     <el-table-column
                       v-for="col in resultColumns"
                       :key="col"
@@ -239,15 +239,7 @@
 
                 <el-tab-pane label="数据预览" name="data">
                   <div class="preview-data" v-loading="tab.loading">
-                    <el-table
-                      v-if="tab.columns.length > 0"
-                      :data="tab.rows"
-                      stripe
-                      border
-                      style="width: 100%"
-                      height="100%"
-                      size="small"
-                    >
+                    <el-table v-if="tab.columns.length > 0" :data="tab.rows" stripe border style="width: 100%" height="100%" size="small">
                       <el-table-column
                         v-for="col in tab.columns"
                         :key="col"
@@ -281,12 +273,7 @@
       </div>
     </div>
 
-    <data-query-ai
-      v-model="aiDrawerVisible"
-      :data-source-id="dataSourceId"
-      assistant-id="query"
-      @apply-sql="applyAiSql"
-    />
+    <data-query-ai v-model="aiDrawerVisible" :data-source-id="dataSourceId" assistant-id="query" @apply-sql="applyAiSql" />
 
     <teleport to="body">
       <div

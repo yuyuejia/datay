@@ -1,42 +1,55 @@
 <template>
   <div class="dataset-editor" v-loading="loading">
     <div class="dataset-editor-header">
-      <div class="dataset-editor-title">
-        <el-button text @click="cancel" class="mr-2">← 返回</el-button>
-        <span>{{ editingId ? '编辑数据集' : '新建数据集' }}</span>
-      </div>
+      <h3>{{ editingId ? '编辑数据集' : '新建数据集' }}</h3>
       <div class="dataset-editor-actions">
-        <el-button :loading="previewLoading" @click="runPreview">校验并预览</el-button>
+        <el-button @click="cancel">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">保存</el-button>
       </div>
     </div>
 
     <div class="dataset-editor-body">
       <div class="dataset-editor-form">
-        <el-form label-width="92px" label-position="right">
-          <el-form-item label="名称" required>
-            <el-input v-model="form.name" placeholder="例如：订单销售明细" maxlength="120" />
-          </el-form-item>
-          <el-form-item label="编码">
-            <el-input v-model="form.code" placeholder="留空自动生成，如 order_sales" />
-          </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="form.description" type="textarea" :rows="2" placeholder="可选" />
-          </el-form-item>
-          <el-form-item label="类型" required>
-            <el-radio-group v-model="form.type" @change="onTypeChange">
-              <el-radio-button label="METRIC">指标数据集</el-radio-button>
-              <el-radio-button label="SQL">SQL 数据集</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-switch
-              :model-value="form.status !== 'DISABLED'"
-              active-text="启用"
-              inactive-text="停用"
-              @update:model-value="value => (form.status = value ? 'ENABLED' : 'DISABLED')"
-            />
-          </el-form-item>
+        <el-form :model="form" label-width="100px" label-position="right">
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="名称" required>
+                <el-input v-model="form.name" placeholder="例如：订单销售明细" maxlength="120" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="编码">
+                <el-input v-model="form.code" placeholder="留空自动生成，如 order_sales" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="类型" required>
+                <el-radio-group v-model="form.type" @change="onTypeChange">
+                  <el-radio-button label="METRIC">指标数据集</el-radio-button>
+                  <el-radio-button label="SQL">SQL 数据集</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="状态">
+                <el-switch
+                  :model-value="form.status !== 'DISABLED'"
+                  active-text="启用"
+                  inactive-text="停用"
+                  @update:model-value="value => (form.status = value ? 'ENABLED' : 'DISABLED')"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="24">
+              <el-form-item label="描述">
+                <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入数据集描述" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
           <template v-if="form.type === 'SQL'">
             <el-form-item label="数据源" required>
@@ -112,11 +125,14 @@
                     <el-tag v-if="dimension.isTimeDimension" size="small" type="info">时间</el-tag>
                   </el-checkbox>
                   <el-select
-                    v-model="dimension.fieldName"
-                    size="small"
+                    v-model="dimension.fieldNames"
+                    multiple
+                    collapse-tags
+                    collapse-tags-tooltip
+                    filterable
                     clearable
-                    placeholder="展示字段"
-                    style="width: 200px"
+                    placeholder="展示字段（可多选）"
+                    class="dataset-dimension-field-select"
                     :disabled="!dimension.selected"
                   >
                     <el-option
@@ -133,30 +149,68 @@
           </template>
         </el-form>
       </div>
-
-      <div class="dataset-editor-preview">
-        <div class="dataset-preview-header">
-          <span>数据预览</span>
-          <span v-if="previewError" class="dataset-preview-error">{{ previewError }}</span>
-        </div>
-        <div v-if="previewSql" class="dataset-preview-sql">
-          <code>{{ previewSql }}</code>
-        </div>
-        <div class="dataset-preview-table" v-loading="previewLoading">
-          <el-table v-if="previewColumns.length" :data="previewRows" border stripe height="100%">
-            <el-table-column
-              v-for="column in previewColumns"
-              :key="column"
-              :prop="column"
-              :label="column"
-              min-width="130"
-              show-overflow-tooltip
-            />
-          </el-table>
-          <el-empty v-else description="点击「校验并预览」查看数据" />
-        </div>
-      </div>
     </div>
+
+    <div class="dataset-fields-panel">
+      <div class="dataset-fields-header">
+        <div class="dataset-fields-title">
+          <h4>字段信息</h4>
+          <span class="dataset-fields-hint">校验并预览后自动带出字段，可设置描述、类型和主键</span>
+        </div>
+        <el-button :loading="previewLoading" @click="runPreview">
+          <font-awesome-icon icon="eye" class="mr-1" />
+          预览数据
+        </el-button>
+      </div>
+      <el-table v-if="fieldMetadata.length" :data="fieldMetadata" border stripe size="small">
+        <el-table-column prop="name" label="字段名称" min-width="180" show-overflow-tooltip />
+        <el-table-column label="描述" min-width="260">
+          <template #default="{ row }">
+            <el-input v-model="row.description" placeholder="请输入字段描述" clearable />
+          </template>
+        </el-table-column>
+        <el-table-column label="字段类型" width="160">
+          <template #default="{ row }">
+            <el-select v-model="row.type" filterable allow-create placeholder="选择或输入类型">
+              <el-option value="string" label="string" />
+              <el-option value="number" label="number" />
+              <el-option value="date" label="date" />
+              <el-option value="boolean" label="boolean" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="主键" width="80" align="center">
+          <template #default="{ row }">
+            <el-checkbox v-model="row.primaryKey" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-else description="暂无字段信息，请先校验并预览" :image-size="60" />
+    </div>
+
+    <app-modal v-model="previewVisible" size="lg" :title="`数据预览 · ${form.name || '未命名数据集'}`">
+      <el-alert v-if="previewError" type="error" :title="previewError" :closable="false" class="mb-2" />
+      <div v-if="previewSql" class="dataset-preview-sql">
+        <code>{{ previewSql }}</code>
+      </div>
+      <div v-loading="previewLoading" class="dataset-preview-table">
+        <el-table v-if="previewColumns.length" :data="previewRows" border stripe height="420">
+          <el-table-column
+            v-for="column in previewColumns"
+            :key="column"
+            :prop="column"
+            :label="previewColumnLabel(column)"
+            min-width="130"
+            show-overflow-tooltip
+          />
+        </el-table>
+        <el-empty v-else-if="!previewLoading && !previewError" description="查询成功，无数据返回" />
+      </div>
+      <template #modal-footer>
+        <el-button @click="previewVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="previewLoading" @click="runPreview">重新预览</el-button>
+      </template>
+    </app-modal>
   </div>
 </template>
 
@@ -164,19 +218,24 @@
 
 <style scoped>
 .dataset-editor {
-  padding: 8px 4px;
+  width: 100%;
+  padding: 20px;
+  background: #fff;
+  border-radius: 4px;
 }
 
 .dataset-editor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
-.dataset-editor-title {
-  display: flex;
-  align-items: center;
+.dataset-editor-header h3 {
+  margin: 0;
   color: #303133;
   font-size: 18px;
   font-weight: 600;
@@ -184,75 +243,82 @@
 
 .dataset-editor-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 8px;
+  align-items: center;
 }
 
 .dataset-editor-body {
-  display: flex;
-  gap: 16px;
-  align-items: stretch;
+  display: block;
 }
 
 .dataset-editor-form {
-  flex: 1;
   min-width: 0;
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
+  margin-bottom: 32px;
 }
 
-.dataset-editor-preview {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 560px;
-  padding: 12px;
-  background: #fff;
-  border-radius: 8px;
+.dataset-fields-panel {
+  margin-top: 24px;
 }
 
-.dataset-preview-header {
+.dataset-fields-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 16px;
   color: #303133;
+}
+
+.dataset-fields-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.dataset-fields-header h4 {
+  margin: 0;
+  font-size: 16px;
   font-weight: 600;
 }
 
-.dataset-preview-error {
-  max-width: 60%;
-  color: #f56c6c;
+.dataset-fields-hint {
+  color: #909399;
   font-size: 12px;
   font-weight: 400;
-  text-align: right;
 }
 
 .dataset-preview-sql {
-  max-height: 90px;
-  margin-bottom: 8px;
-  padding: 8px;
+  max-height: 120px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
   overflow: auto;
-  background: #f5f7fa;
-  border-radius: 4px;
+  background: #f7f8fa;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
   color: #606266;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.6;
   white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .dataset-preview-table {
-  flex: 1;
-  min-height: 0;
+  min-height: 180px;
 }
 
 .dataset-table-picker {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
 .dataset-sql-input :deep(textarea) {
+  min-height: 240px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
   line-height: 1.6;
@@ -281,10 +347,17 @@
 
 .dataset-dimension-item {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 10px 0;
   border-bottom: 1px solid #f5f7fa;
+}
+
+.dataset-dimension-field-select {
+  width: 380px;
+  max-width: 100%;
 }
 
 .dataset-muted {
@@ -298,5 +371,16 @@
   margin-left: 12px;
   color: #909399;
   font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .dataset-editor-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dataset-editor-actions {
+    justify-content: flex-end;
+  }
 }
 </style>

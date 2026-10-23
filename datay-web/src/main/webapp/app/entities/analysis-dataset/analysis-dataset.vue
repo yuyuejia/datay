@@ -75,7 +75,7 @@
             v-for="column in previewColumns"
             :key="column"
             :prop="column"
-            :label="column"
+            :label="previewColumnLabel(column)"
             min-width="130"
             show-overflow-tooltip
           />

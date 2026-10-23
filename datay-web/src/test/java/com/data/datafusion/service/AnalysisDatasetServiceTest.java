@@ -108,14 +108,15 @@ class AnalysisDatasetServiceTest {
         entity.setType(AnalysisDataset.TYPE_SQL);
         entity.setDataSourceId("source-1");
         entity.setDefinition("{\"sql\":\"SELECT region, amount FROM orders\"}");
+        entity.setFields("{\"columns\":[{\"name\":\"amount\",\"description\":\"成交金额\",\"type\":\"number\",\"primaryKey\":true}]}");
         when(repository.findById("ds-1")).thenReturn(Optional.of(entity));
         when(resolver.parseDefinition(anyString())).thenReturn(Map.of("sql", "SELECT region, amount FROM orders"));
         when(queryService.query(any(), any(), any(), any())).thenReturn(
             Map.of(
                 "columns",
-                List.of("region", "amount"),
+                List.of("region", "amount", "quantity"),
                 "rows",
-                List.of(Map.of("region", "华东", "amount", 12.5)),
+                List.of(Map.of("region", "华东", "amount", 12.5, "quantity", 2)),
                 "columnLabels",
                 Map.of("region", "区域")
             )
@@ -128,6 +129,13 @@ class AnalysisDatasetServiceTest {
         assertThat(fields.get("columns").get(0).get("type").asText()).isEqualTo("string");
         assertThat(fields.get("columns").get(1).get("name").asText()).isEqualTo("amount");
         assertThat(fields.get("columns").get(1).get("type").asText()).isEqualTo("number");
+        assertThat(fields.get("columns").get(1).get("description").asText()).isEqualTo("成交金额");
+        assertThat(fields.get("columns").get(1).get("primaryKey").asBoolean()).isTrue();
+        assertThat(fields.get("columns").get(2).get("name").asText()).isEqualTo("quantity");
+        assertThat(fields.get("columns").get(2).get("description").asText()).isEqualTo("quantity");
+        assertThat(fields.get("columnLabels").get("region").asText()).isEqualTo("区域");
+        assertThat(fields.get("columnLabels").get("amount").asText()).isEqualTo("成交金额");
+        assertThat(fields.get("columnLabels").get("quantity").asText()).isEqualTo("quantity");
         verify(repository).save(entity);
     }
 }

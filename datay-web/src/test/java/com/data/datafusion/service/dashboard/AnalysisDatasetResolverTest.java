@@ -35,6 +35,7 @@ class AnalysisDatasetResolverTest {
         entity.setName("销售指标");
         entity.setType(AnalysisDataset.TYPE_METRIC);
         entity.setDefinition("{\"metricQuery\":{\"metricCodes\":[\"sales_amount\"],\"dimensions\":[]}}");
+        entity.setFields("{\"columns\":[{\"name\":\"sales_amount\",\"description\":\"销售额\",\"type\":\"number\"}]}");
         when(repository.findById("lib-1")).thenReturn(Optional.of(entity));
 
         Map<String, Object> resolved = resolver.resolveDataset(
@@ -43,6 +44,7 @@ class AnalysisDatasetResolverTest {
 
         assertThat(resolved).containsEntry("id", "ds1").containsEntry("refId", "lib-1").containsEntry("type", "METRIC");
         assertThat(resolved).containsEntry("name", "旧名称");
+        assertThat(String.valueOf(resolved.get("fields"))).contains("销售额");
         @SuppressWarnings("unchecked")
         Map<String, Object> metricQuery = (Map<String, Object>) resolved.get("metricQuery");
         assertThat(metricQuery).containsEntry("metricCodes", List.of("sales_amount"));

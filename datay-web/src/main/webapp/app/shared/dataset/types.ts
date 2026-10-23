@@ -23,8 +23,13 @@ export interface AnalysisDataset {
 
 export interface DatasetColumn {
   name: string;
+  /** 字段展示名称。 */
   label?: string;
+  /** 字段业务描述，图表属性与图例优先使用该名称。 */
+  description?: string;
   type?: string;
+  /** 是否主键字段。 */
+  primaryKey?: boolean;
 }
 
 export interface DatasetFields {

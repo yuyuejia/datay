@@ -340,6 +340,16 @@ class MetricQueryServiceTest {
         assertThat(sql).contains("LEFT JOIN main.dim_region d0 ON f.region_sk = d0.member_id");
         assertThat(sql).contains("d0.level1_name AS level1_name");
         assertThat(sql).contains("GROUP BY d0.level1_id, d0.level1_name");
+
+        MetricQueryFieldDTO multiFieldDimension = new MetricQueryFieldDTO();
+        multiFieldDimension.setDimensionModelCode("dim_region");
+        multiFieldDimension.setDimensionFieldNames(List.of("level1_name", "level2_name"));
+        dto.setDimensions(List.of(multiFieldDimension));
+
+        String multiFieldSql = metricQueryService.buildSqlFor(dto);
+        assertThat(multiFieldSql).contains("d0.level1_name AS level1_name");
+        assertThat(multiFieldSql).contains("d0.level2_name AS level2_name");
+        assertThat(multiFieldSql).contains("GROUP BY d0.level1_name, d0.level2_name");
     }
 
     @Test

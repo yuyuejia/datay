@@ -68,7 +68,6 @@ public class AnalysisDatasetService {
         ZonedDateTime now = ZonedDateTime.now();
         dto.setId(null);
         dto.setTenantId(null);
-        dto.setFields(null);
         dto.setCode(code);
         dto.setType(normalizeType(dto.getType()));
         dto.setCreateTime(now);
@@ -96,11 +95,9 @@ public class AnalysisDatasetService {
                     dto.setStatus(existing.getStatus() == null ? AnalysisDataset.STATUS_ENABLED : existing.getStatus());
                 }
                 String definition = normalizeDefinition(dto.getType(), dto.getDefinition(), dto.getDataSourceId());
-                if (!definition.equals(existing.getDefinition())) {
-                    // 定义变化后旧的字段缓存失效，等待下一次预览重新生成。
-                    dto.setFields(null);
-                } else if (dto.getFields() == null) {
-                    dto.setFields(existing.getFields());
+                if (dto.getFields() == null) {
+                    // 未显式提交字段信息时：定义未变则沿用旧缓存，定义变化则等待下次预览重建。
+                    dto.setFields(definition.equals(existing.getDefinition()) ? existing.getFields() : null);
                 }
                 dto.setDefinition(definition);
                 AnalysisDataset entity = repository.save(mapper.toEntity(dto));
@@ -262,7 +259,16 @@ public class AnalysisDatasetService {
     }
 
     private Map<String, Object> toQueryDataset(AnalysisDataset entity) {
-        return buildQueryDataset(entity.getId(), entity.getType(), entity.getDefinition(), entity.getDataSourceId());
+        Map<String, Object> dataset = buildQueryDataset(
+            entity.getId(),
+            entity.getType(),
+            entity.getDefinition(),
+            entity.getDataSourceId()
+        );
+        if (entity.getFields() != null && !entity.getFields().isBlank()) {
+            dataset.put("fields", entity.getFields());
+        }
+        return dataset;
     }
 
     private Map<String, Object> buildQueryDataset(String id, String type, String definitionJson, String dataSourceId) {
@@ -293,26 +299,105 @@ public class AnalysisDatasetService {
         List<Map<String, Object>> rows = result.get("rows") instanceof List<?> rowList
             ? (List<Map<String, Object>>) rowList
             : List.of();
+        Map<String, Map<String, Object>> existingColumns = parseExistingFieldColumns(entity.getFields());
+        Map<String, String> labels = new LinkedHashMap<>();
+        addColumnLabels(labels, existingColumns);
+        addColumnLabels(labels, result.get("columnLabels"));
         try {
             List<Map<String, Object>> fieldsColumns = new ArrayList<>();
             for (Object rawColumn : columnList) {
                 if (rawColumn == null) {
                     continue;
                 }
-                String name = String.valueOf(rawColumn);
+                String name = rawColumn instanceof Map<?, ?> map ? DatasetQueryService.asString(map.get("name")) : String.valueOf(rawColumn);
+                if (name == null || name.isBlank()) {
+                    continue;
+                }
+                Map<String, Object> existing = existingColumns.getOrDefault(name, Map.of());
                 Map<String, Object> column = new LinkedHashMap<>();
                 column.put("name", name);
-                column.put("type", inferColumnType(rows, name));
+                String existingType = DatasetQueryService.asString(existing.get("type"));
+                column.put("type", existingType == null || existingType.isBlank() ? inferColumnType(rows, name) : existingType);
+                copyIfPresent(column, existing, "description");
+                copyIfPresent(column, existing, "label");
+                if (Boolean.TRUE.equals(existing.get("primaryKey"))) {
+                    column.put("primaryKey", true);
+                }
+                String description = DatasetQueryService.asString(column.get("description"));
+                if (description == null || description.isBlank()) {
+                    String inherited = labels.get(name);
+                    description = inherited != null && !inherited.isBlank() ? inherited : name;
+                    column.put("description", description);
+                }
+                labels.put(name, description);
                 fieldsColumns.add(column);
             }
             Map<String, Object> fields = new LinkedHashMap<>();
             fields.put("columns", fieldsColumns);
-            fields.put("columnLabels", result.get("columnLabels"));
+            fields.put("columnLabels", labels.isEmpty() ? null : labels);
             entity.setFields(objectMapper.writeValueAsString(fields));
             entity.setUpdateTime(ZonedDateTime.now());
             repository.save(entity);
         } catch (JsonProcessingException e) {
             LOG.warn("缓存数据集字段失败: {}", e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Map<String, Object>> parseExistingFieldColumns(String fieldsJson) {
+        if (fieldsJson == null || fieldsJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> fields = objectMapper.readValue(fieldsJson, new TypeReference<Map<String, Object>>() {});
+            Object rawColumns = fields == null ? null : fields.get("columns");
+            if (!(rawColumns instanceof List<?> columns)) {
+                return Map.of();
+            }
+            Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+            for (Object rawColumn : columns) {
+                if (rawColumn instanceof Map<?, ?> map) {
+                    String name = DatasetQueryService.asString(map.get("name"));
+                    if (name != null && !name.isBlank()) {
+                        result.put(name, new LinkedHashMap<>((Map<String, Object>) map));
+                    }
+                } else if (rawColumn != null) {
+                    result.put(String.valueOf(rawColumn), Map.of());
+                }
+            }
+            return result;
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            return Map.of();
+        }
+    }
+
+    private void addColumnLabels(Map<String, String> target, Map<String, Map<String, Object>> columns) {
+        for (Map.Entry<String, Map<String, Object>> entry : columns.entrySet()) {
+            String description = DatasetQueryService.asString(entry.getValue().get("description"));
+            String label = DatasetQueryService.asString(entry.getValue().get("label"));
+            if (description != null && !description.isBlank()) {
+                target.put(entry.getKey(), description);
+            } else if (label != null && !label.isBlank()) {
+                target.put(entry.getKey(), label);
+            }
+        }
+    }
+
+    private void addColumnLabels(Map<String, String> target, Object rawLabels) {
+        if (!(rawLabels instanceof Map<?, ?> labels)) {
+            return;
+        }
+        for (Map.Entry<?, ?> entry : labels.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                target.putIfAbsent(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            }
+        }
+    }
+
+    private void copyIfPresent(Map<String, Object> target, Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.put(key, value);
         }
     }
 

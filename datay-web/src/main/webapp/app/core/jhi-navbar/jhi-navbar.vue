@@ -33,7 +33,9 @@
                 >
                   <font-awesome-icon v-if="currentTenantId === t.id" icon="check" class="mr-1 text-success" />
                   <span v-else class="mr-1"></span>
-                  <span>{{ t.name }} <small class="text-muted">({{ t.code }})</small></span>
+                  <span
+                    >{{ t.name }} <small class="text-muted">({{ t.code }})</small></span
+                  >
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -80,6 +82,9 @@
                 </el-dropdown-item>
                 <el-dropdown-item command="/metric">
                   <span>指标管理</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/analysis-dataset">
+                  <span>分析数据集</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -130,9 +135,6 @@
                 </el-dropdown-item>
                 <el-dropdown-item command="/analysis-dashboard">
                   <span>分析看板</span>
-                </el-dropdown-item>
-                <el-dropdown-item command="/analysis-dataset">
-                  <span>分析数据集</span>
                 </el-dropdown-item>
                 <el-dropdown-item command="/app-package">
                   <span>应用市场</span>
@@ -285,6 +287,6 @@
 }
 
 .logo-y {
-    color: #8ec5ff;
+  color: #8ec5ff;
 }
 </style>

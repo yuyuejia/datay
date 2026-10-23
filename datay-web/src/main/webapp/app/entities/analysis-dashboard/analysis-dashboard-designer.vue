@@ -229,7 +229,7 @@
                         allow-create
                         placeholder="选择或输入分类字段"
                       >
-                        <el-option v-for="column in widgetColumns" :key="column" :label="column" :value="column" />
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
 
                       <label>数值字段</label>
@@ -240,7 +240,12 @@
                         allow-create
                         placeholder="选择或输入数值字段"
                       >
-                        <el-option v-for="column in widgetValueColumns" :key="column" :label="column" :value="column" />
+                        <el-option
+                          v-for="field in widgetValueFieldOptions"
+                          :key="field.name"
+                          :label="field.label || field.name"
+                          :value="field.name"
+                        />
                       </el-select>
                       <div class="designer-hint">饼图按分类字段分区，数值字段决定扇区大小；不绘制坐标轴。</div>
                     </template>
@@ -254,7 +259,7 @@
                         allow-create
                         placeholder="选择分类字段"
                       >
-                        <el-option v-for="column in widgetColumns" :key="column" :label="column" :value="column" />
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
                       <div class="designer-hint">ECharts category 轴使用单个分类字段。</div>
 
@@ -268,7 +273,12 @@
                         allow-create
                         placeholder="可选择一个或多个数值字段"
                       >
-                        <el-option v-for="column in widgetValueColumns" :key="column" :label="column" :value="column" />
+                        <el-option
+                          v-for="field in widgetValueFieldOptions"
+                          :key="field.name"
+                          :label="field.label || field.name"
+                          :value="field.name"
+                        />
                       </el-select>
                       <div class="designer-hint">支持多个数值字段；多个字段会自动生成多条系列。</div>
 
@@ -281,7 +291,12 @@
                           allow-create
                           placeholder="按字段拆分为多系列"
                         >
-                          <el-option v-for="column in widgetColumns" :key="column" :label="column" :value="column" />
+                          <el-option
+                            v-for="field in widgetFields"
+                            :key="field.name"
+                            :label="field.label || field.name"
+                            :value="field.name"
+                          />
                         </el-select>
                       </template>
                     </template>
@@ -296,7 +311,7 @@
                         placeholder="不排序"
                         style="flex: 1"
                       >
-                        <el-option v-for="column in widgetColumns" :key="column" :label="column" :value="column" />
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
                       <el-select v-model="selectedWidget.dataRef.sortOrder" style="width: 90px">
                         <el-option value="asc" label="升序" />
@@ -321,7 +336,7 @@
                         placeholder="不排序"
                         style="flex: 1"
                       >
-                        <el-option v-for="column in widgetColumns" :key="column" :label="column" :value="column" />
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
                       <el-select v-model="selectedWidget.dataRef.sortOrder" style="width: 90px">
                         <el-option value="asc" label="升序" />
@@ -345,7 +360,12 @@
                       allow-create
                       placeholder="选择或输入数值字段"
                     >
-                      <el-option v-for="column in widgetValueColumns" :key="column" :label="column" :value="column" />
+                      <el-option
+                        v-for="field in widgetValueFieldOptions"
+                        :key="field.name"
+                        :label="field.label || field.name"
+                        :value="field.name"
+                      />
                     </el-select>
                   </template>
                   <div class="designer-hint">KPI 对所选数值字段求和；留空时自动取首个数值列。</div>
@@ -408,7 +428,7 @@
               placeholder="选择或输入字段名"
               @change="onFilterFieldChange"
             >
-              <el-option v-for="column in selectedFilterColumns" :key="column" :label="column" :value="column" />
+              <el-option v-for="field in selectedFilterFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
             </el-select>
 
             <div v-if="selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect'" class="designer-hint">

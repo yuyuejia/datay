@@ -429,10 +429,9 @@ export default defineComponent({
     };
 
     const widgetFields = computed(() => fieldCandidates(selectedWidget.value?.datasetId));
-    const widgetColumns = computed(() => widgetFields.value.map(field => field.name));
-    const widgetValueColumns = computed(() => {
-      const numeric = widgetFields.value.filter(field => field.numeric).map(field => field.name);
-      return numeric.length > 0 ? numeric : widgetColumns.value;
+    const widgetValueFieldOptions = computed(() => {
+      const numeric = widgetFields.value.filter(field => field.numeric);
+      return numeric.length > 0 ? numeric : widgetFields.value;
     });
 
     /**
@@ -1024,7 +1023,7 @@ export default defineComponent({
       ElMessage.success('已恢复默认图表配置');
     };
 
-    const selectedFilterColumns = computed(() => fieldCandidates(selectedFilter.value?.datasetId).map(field => field.name));
+    const selectedFilterFields = computed(() => fieldCandidates(selectedFilter.value?.datasetId));
 
     const defaultFilterField = (datasetId: string | undefined, type: DashboardFilter['type']): string => {
       const fields = fieldCandidates(datasetId);
@@ -1262,15 +1261,15 @@ export default defineComponent({
       loadingData,
       selectedWidget,
       selectedFilter,
-      widgetColumns,
-      widgetValueColumns,
+      widgetFields,
+      widgetValueFieldOptions,
       widgetValueFields,
       chartType,
       applyCustomOption,
       resetCustomOption,
       filterOptionsText,
       filterDefaultText,
-      selectedFilterColumns,
+      selectedFilterFields,
       onFilterDatasetChange,
       onFilterTypeChange,
       onFilterFieldChange,
