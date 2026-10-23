@@ -15,6 +15,7 @@
   - [维度建模](guide/modeling.md)
   - [指标管理](guide/metric.md)
   - [智能问数](guide/askdata.md)
+  - [数据权限](guide/data-permission.md)
 
 - **场景案例**
   - [案例总览](cases/README.md)
