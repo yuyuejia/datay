@@ -1,15 +1,16 @@
 <template>
   <div class="role-data-scope-container">
-    <h2 id="page-heading">
-      <span>数据权限（维度成员 / 数据集范围）</span>
-    </h2>
-
-    <div class="toolbar">
-      <span class="toolbar-label">角色</span>
-      <el-select v-model="selectedRole" placeholder="请选择角色" class="role-select" @change="onRoleChange">
-        <el-option v-for="authority in authorities" :key="authority.name" :value="authority.name" :label="authority.name" />
-      </el-select>
-      <el-button type="info" @click="reloadScopes">刷新</el-button>
+    <div class="page-header">
+      <h2 id="page-heading">
+        <span>数据权限（维度成员 / 数据集范围）</span>
+      </h2>
+      <div class="header-actions">
+        <span class="toolbar-label">角色</span>
+        <el-select v-model="selectedRole" placeholder="全部角色" class="role-select" clearable filterable @change="onRoleChange">
+          <el-option v-for="authority in authorities" :key="authority.name" :value="authority.name" :label="authority.name" />
+        </el-select>
+        <el-button type="info" @click="reloadScopes">刷新</el-button>
+      </div>
     </div>
 
     <el-alert
@@ -24,10 +25,13 @@
     <el-tabs v-model="activeTab" class="scope-tabs">
       <el-tab-pane label="维度数据权限" name="dimension">
         <div class="tab-toolbar">
-          <el-button type="primary" :disabled="!selectedRole" @click="openCreate"> <font-awesome-icon icon="plus" /> 新增范围 </el-button>
+          <el-button type="primary" @click="openCreate"> <font-awesome-icon icon="plus" /> 新增范围 </el-button>
         </div>
 
         <el-table :data="scopes" v-loading="loading" style="width: 100%">
+          <el-table-column label="角色" min-width="150">
+            <template #default="{ row }">{{ row.roleName }}</template>
+          </el-table-column>
           <el-table-column label="维度" min-width="180">
             <template #default="{ row }">{{ dimensionName(row.dimensionModelId) }}</template>
           </el-table-column>
@@ -46,19 +50,20 @@
             </template>
           </el-table-column>
           <template #empty>
-            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据范围，该角色不受限制' : '请先选择角色' }}</div>
+            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据范围，该角色不受限制' : '暂无数据范围' }}</div>
           </template>
         </el-table>
       </el-tab-pane>
 
       <el-tab-pane label="数据集数据权限" name="dataset">
         <div class="tab-toolbar">
-          <el-button type="primary" :disabled="!selectedRole" @click="openCreateDataset">
-            <font-awesome-icon icon="plus" /> 新增规则
-          </el-button>
+          <el-button type="primary" @click="openCreateDataset"> <font-awesome-icon icon="plus" /> 新增规则 </el-button>
         </div>
 
         <el-table :data="datasetScopes" v-loading="datasetLoading" style="width: 100%">
+          <el-table-column label="角色" min-width="150">
+            <template #default="{ row }">{{ row.roleName }}</template>
+          </el-table-column>
           <el-table-column label="数据集" min-width="180">
             <template #default="{ row }">{{ datasetName(row.datasetId) }}</template>
           </el-table-column>
@@ -77,7 +82,7 @@
             </template>
           </el-table-column>
           <template #empty>
-            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据集数据权限，该角色不受限制' : '请先选择角色' }}</div>
+            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据集数据权限，该角色不受限制' : '暂无数据集数据权限' }}</div>
           </template>
         </el-table>
       </el-tab-pane>
@@ -86,7 +91,9 @@
     <app-modal v-model="dialogVisible" :title="form.id ? '编辑数据范围' : '新增数据范围'" size="lg">
       <el-form label-position="top">
         <el-form-item label="角色">
-          <el-input :model-value="form.roleName || ''" disabled />
+          <el-select v-model="form.roleName" placeholder="请选择角色" style="width: 100%" filterable :disabled="!!form.id">
+            <el-option v-for="authority in authorities" :key="authority.name" :value="authority.name" :label="authority.name" />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="维度">
@@ -143,7 +150,9 @@
     <app-modal v-model="datasetDialogVisible" :title="datasetForm.id ? '编辑数据集数据权限' : '新增数据集数据权限'" size="lg">
       <el-form label-position="top">
         <el-form-item label="角色">
-          <el-input :model-value="datasetForm.roleName || ''" disabled />
+          <el-select v-model="datasetForm.roleName" placeholder="请选择角色" style="width: 100%" filterable :disabled="!!datasetForm.id">
+            <el-option v-for="authority in authorities" :key="authority.name" :value="authority.name" :label="authority.name" />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="数据集">
@@ -388,13 +397,9 @@ const loadDatasets = async () => {
 };
 
 const loadScopes = async () => {
-  if (!selectedRole.value) {
-    scopes.value = [];
-    return;
-  }
   loading.value = true;
   try {
-    const response = await service.retrieve(selectedRole.value);
+    const response = await service.retrieve(selectedRole.value || undefined);
     scopes.value = response.data ?? [];
   } catch (error: any) {
     alertService.showError(errorMessage(error, '加载数据范围失败'));
@@ -404,13 +409,9 @@ const loadScopes = async () => {
 };
 
 const loadDatasetScopes = async () => {
-  if (!selectedRole.value) {
-    datasetScopes.value = [];
-    return;
-  }
   datasetLoading.value = true;
   try {
-    const response = await datasetService.retrieve(selectedRole.value);
+    const response = await datasetService.retrieve(selectedRole.value || undefined);
     datasetScopes.value = response.data ?? [];
   } catch (error: any) {
     alertService.showError(errorMessage(error, '加载数据集数据权限失败'));
@@ -514,7 +515,7 @@ const loadDatasetFieldValues = (
 
 const openCreate = () => {
   form.value = {
-    roleName: selectedRole.value,
+    roleName: selectedRole.value || '',
     enabled: true,
     dimensionModelId: dimensions.value[0]?.id ?? '',
   };
@@ -548,6 +549,10 @@ const removeCondition = (index: number) => {
 };
 
 const submit = async () => {
+  if (!form.value.roleName) {
+    alertService.showWarning('请选择角色');
+    return;
+  }
   if (!form.value.dimensionModelId) {
     alertService.showWarning('请选择维度模型');
     return;
@@ -596,7 +601,7 @@ const onDatasetChange = () => {
 const openCreateDataset = () => {
   const dataset = datasets.value[0];
   datasetForm.value = {
-    roleName: selectedRole.value,
+    roleName: selectedRole.value || '',
     enabled: true,
     datasetId: dataset?.id ?? '',
   };
@@ -624,6 +629,10 @@ const removeDatasetCondition = (index: number) => {
 };
 
 const submitDataset = async () => {
+  if (!datasetForm.value.roleName) {
+    alertService.showWarning('请选择角色');
+    return;
+  }
   if (!datasetForm.value.datasetId) {
     alertService.showWarning('请选择数据集');
     return;
@@ -712,7 +721,7 @@ const removeDatasetScope = async (row: IRoleDatasetScope) => {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadAuthorities(), loadDimensions(), loadDatasets()]);
+    await Promise.all([loadAuthorities(), loadDimensions(), loadDatasets(), reloadScopes()]);
   } catch (error: any) {
     alertService.showError(errorMessage(error, '初始化数据加载失败'));
   }
@@ -724,11 +733,24 @@ onMounted(async () => {
   padding: 8px 0;
 }
 
-.toolbar {
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-left: auto;
 }
 
 .toolbar-label {
@@ -738,7 +760,7 @@ onMounted(async () => {
 }
 
 .role-select {
-  width: 280px;
+  width: 240px;
 }
 
 .tab-toolbar {
