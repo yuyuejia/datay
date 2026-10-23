@@ -54,8 +54,8 @@ public class PrepareMetricDatasetTool implements AiTool {
     @Override
     public String description() {
         return """
-            在生成看板前准备指标数据集。先把整个看板需要的全部指标、维度和时间范围汇总成一个 metricQuery，
-            再只调用一次本工具。工具会优先复用能覆盖本次 metricCodes / dimensions / timeRange 的已有数据集，
+            在生成看板前准备指标数据集。先把整个看板需要的全部指标、维度、业务限定和时间范围汇总成一个 metricQuery，
+            再只调用一次本工具。工具会优先复用能覆盖本次 metricCodes / dimensions / filterConfig / timeRange 的已有数据集，
             允许复用包含额外指标或维度的数据集；只有无法覆盖时才登记一个待创建草稿，并返回临时 refId。
             生成看板 datasets 时必须使用返回的 refId，禁止在 datasets 中直接内嵌 metricQuery；
             一个看板应尽量只使用一个指标数据集，不要为每个图表分别创建数据集。
@@ -79,7 +79,7 @@ public class PrepareMetricDatasetTool implements AiTool {
         metricQuery.put("type", "object");
         metricQuery.put(
             "description",
-            "指标查询定义：metricCodes 必填；dimensions 为维度分组；timeRange 为可选日期区间（start/end）"
+            "指标查询定义：metricCodes 必填；dimensions 为维度分组；filterConfig 为可选业务限定（conditions）；timeRange 为可选日期区间（start/end）"
         );
         props.put("metricQuery", metricQuery);
         schema.put("properties", props);
@@ -199,7 +199,54 @@ public class PrepareMetricDatasetTool implements AiTool {
         if (!dimensionsCover(existingQuery.get("dimensions"), requestedQuery.get("dimensions"))) {
             return false;
         }
+        // 业务限定是数据集的固定过滤口径，必须一致才能复用；否则会拿到错误的数据范围。
+        if (!filterConfigCovers(existingQuery.get("filterConfig"), requestedQuery.get("filterConfig"))) {
+            return false;
+        }
         return timeRangeCovers(asMap(existingQuery.get("timeRange")), asMap(requestedQuery.get("timeRange")));
+    }
+
+    private boolean filterConfigCovers(Object existingRaw, Object requestedRaw) {
+        return canonicalFilterConfig(existingRaw).equals(canonicalFilterConfig(requestedRaw));
+    }
+
+    /**
+     * 将 filterConfig（字符串或对象）规范化为可比较的 JSON，忽略无关字段与默认值差异。
+     */
+    private String canonicalFilterConfig(Object raw) {
+        Object parsed = raw;
+        if (raw instanceof String text) {
+            if (text.isBlank()) {
+                parsed = null;
+            } else {
+                parsed = parseJson(text);
+            }
+        }
+        List<Map<String, Object>> normalized = new ArrayList<>();
+        if (parsed instanceof Map<?, ?> config && config.get("conditions") instanceof List<?> conditions) {
+            for (Object item : conditions) {
+                if (!(item instanceof Map<?, ?> condition)) {
+                    continue;
+                }
+                Map<String, Object> normalizedCondition = new LinkedHashMap<>();
+                normalizedCondition.put("type", asString(condition.get("type")) == null ? "DIMENSION" : asString(condition.get("type")));
+                normalizedCondition.put("factFieldName", asString(condition.get("factFieldName")));
+                normalizedCondition.put("dimensionModelId", asString(condition.get("dimensionModelId")));
+                normalizedCondition.put("dimensionModelCode", asString(condition.get("dimensionModelCode")));
+                normalizedCondition.put("dimensionFieldName", asString(condition.get("dimensionFieldName")));
+                normalizedCondition.put("operator", asString(condition.get("operator")));
+                normalizedCondition.put("value", asString(condition.get("value")));
+                normalizedCondition.put("valueEnd", asString(condition.get("valueEnd")));
+                String logic = asString(condition.get("logic"));
+                normalizedCondition.put("logic", logic == null || logic.isBlank() ? "AND" : logic);
+                normalized.add(normalizedCondition);
+            }
+        }
+        try {
+            return objectMapper.writeValueAsString(normalized);
+        } catch (JsonProcessingException e) {
+            return String.valueOf(raw);
+        }
     }
 
     private boolean dimensionsCover(Object existingRaw, Object requestedRaw) {

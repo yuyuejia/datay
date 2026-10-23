@@ -631,6 +631,31 @@ export default defineComponent({
       }
     };
 
+    const generateDataset = () => {
+      if (selectedQueryMetricCodes.value.length === 0) {
+        alertService.showError("请至少选择一个指标");
+        return;
+      }
+      const query = buildQueryPayload();
+      const names = selectedQueryMetricCodes.value.map(
+        (code) =>
+          allMetricOptions.value.find((metric) => metric.code === code)?.name ||
+          code,
+      );
+      const name =
+        names.length === 1
+          ? `${names[0]}指标数据集`
+          : `${names[0]}等${names.length}项指标数据集`;
+      router.push({
+        name: "AnalysisDatasetEdit",
+        query: {
+          from: "metric-query",
+          name,
+          metricQuery: JSON.stringify(query),
+        },
+      });
+    };
+
     const previewSql = async (metric: IMetric) => {
       if (!metric.id) {
         return;
@@ -787,6 +812,7 @@ export default defineComponent({
       clearQueryTimeRange,
       runQuery,
       previewQuerySql,
+      generateDataset,
       isUnaryOperator,
       isRangeOperator,
       ...dateFormat,

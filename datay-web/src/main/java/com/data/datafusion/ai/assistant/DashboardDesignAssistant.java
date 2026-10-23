@@ -100,8 +100,9 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("      用 list_metrics（可带 keyword）把「销售额」等口语匹配到真实指标编码；\n");
         sb.append("      用 describe_metrics 获取维度、默认展示字段和时间字段；\n");
         sb.append("      需要维度筛选值时，用 sample_dimension_values 确认成员可用。\n");
-        sb.append("   c. 【聚合数据集】先汇总整个看板需要的全部指标、维度和时间范围，再准备一个数据集：\n");
-        sb.append("      默认只调用一次 prepare_metric_dataset(name=数据集名称, metricQuery={metricCodes,dimensions,timeRange})。\n");
+        sb.append("   c. 【聚合数据集】先汇总整个看板需要的全部指标、维度、业务限定和时间范围，再准备一个数据集：\n");
+        sb.append("      默认只调用一次 prepare_metric_dataset(name=数据集名称, metricQuery={metricCodes,dimensions,filterConfig,timeRange})；\n");
+        sb.append("      用户有业务限定时传入 filterConfig，否则可省略。\n");
         sb.append("      metricCodes 使用全部指标的并集，dimensions 使用全部图表维度的并集；各图表从同一数据集中选择所需字段。\n");
         sb.append("      工具会优先复用能覆盖本次需求的已有数据集，或登记一份待创建草稿，并返回 refId。\n");
         sb.append("      生成结束后系统会自动把草稿落库为分析数据集。\n");

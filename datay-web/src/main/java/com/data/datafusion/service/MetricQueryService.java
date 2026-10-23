@@ -1235,7 +1235,10 @@ public class MetricQueryService {
             return false;
         }
         String type = fieldType.toUpperCase();
-        return type.equals("INTEGER") || type.equals("LONG") || type.equals("DOUBLE") || type.equals("DECIMAL");
+        return switch (type) {
+            case "TINYINT", "SMALLINT", "INTEGER", "INT", "LONG", "BIGINT", "FLOAT", "DOUBLE", "REAL", "DECIMAL", "NUMERIC", "NUMBER" -> true;
+            default -> false;
+        };
     }
 
     private String physicalTableName(DataModel model) {

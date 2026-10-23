@@ -56,8 +56,15 @@ export interface MetricDimensionMeta {
   }>;
 }
 
+export interface MetricTimeFieldMeta {
+  fieldName: string;
+  fieldType?: string;
+  factTable?: string;
+}
+
 export interface MetricQueryMeta {
   metrics?: Array<{ name: string; code: string; metricType?: string }>;
+  factTables?: string[];
   dimensions?: MetricDimensionMeta[];
-  timeFields?: string[];
+  timeFields?: MetricTimeFieldMeta[];
 }

@@ -80,6 +80,58 @@ class PrepareMetricDatasetToolTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldNotReuseDatasetWithDifferentBusinessFilters() {
+        AnalysisDatasetService service = mock(AnalysisDatasetService.class);
+        when(service.validateDefinition(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        AnalysisDatasetDTO existing = new AnalysisDatasetDTO();
+        existing.setId("ds-filtered");
+        existing.setType(AnalysisDataset.TYPE_METRIC);
+        existing.setDefinition(
+            "{\"metricQuery\":{\"metricCodes\":[\"sales_amount\"],\"filterConfig\":{\"conditions\":[" +
+            "{\"type\":\"DIMENSION\",\"dimensionModelCode\":\"dim_store\",\"dimensionFieldName\":\"region\"," +
+            "\"operator\":\"EQ\",\"value\":\"华东\"}]}}}"
+        );
+        when(service.findAllSimple()).thenReturn(List.of(existing));
+        PrepareMetricDatasetTool tool = new PrepareMetricDatasetTool(service, new ObjectMapper());
+        AiToolContext context = new AiToolContext(null, null, "", null);
+
+        Object result = tool.execute(
+            Map.of(
+                "name",
+                "华南销售",
+                "metricQuery",
+                Map.of(
+                    "metricCodes",
+                    List.of("sales_amount"),
+                    "filterConfig",
+                    Map.of(
+                        "conditions",
+                        List.of(
+                            Map.of(
+                                "type",
+                                "DIMENSION",
+                                "dimensionModelCode",
+                                "dim_store",
+                                "dimensionFieldName",
+                                "region",
+                                "operator",
+                                "EQ",
+                                "value",
+                                "华南"
+                            )
+                        )
+                    )
+                )
+            ),
+            context
+        );
+
+        assertThat(result).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).containsEntry("draft", true);
+        assertThat(context.getArtifacts()).containsKey(PrepareMetricDatasetTool.ARTIFACT_DRAFTS);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldCreateDraftWhenMetricIsNotCovered() {
         AnalysisDatasetService service = mock(AnalysisDatasetService.class);
         when(service.validateDefinition(any())).thenAnswer(invocation -> invocation.getArgument(0));

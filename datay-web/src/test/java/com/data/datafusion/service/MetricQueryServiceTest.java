@@ -217,7 +217,7 @@ class MetricQueryServiceTest {
 
         ModelField orderDateSk = new ModelField();
         orderDateSk.setFieldName("order_date_sk");
-        orderDateSk.setFieldType("LONG");
+        orderDateSk.setFieldType("BIGINT");
         when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3101")).thenReturn(List.of(orderDateSk));
 
         MetricQueryDTO dto = new MetricQueryDTO();

@@ -99,7 +99,11 @@
           </template>
 
           <template v-else>
-            <el-form-item label="指标" required>
+            <div class="dataset-query-section">
+              <div class="dataset-query-section-header">
+                <h5>指标</h5>
+                <span class="dataset-query-hint">选择本次数据集需要分析的指标</span>
+              </div>
               <el-select
                 v-model="metricCodes"
                 multiple
@@ -115,37 +119,151 @@
                   <span class="dataset-option-code">{{ metric.code }}</span>
                 </el-option>
               </el-select>
-            </el-form-item>
-            <el-form-item label="维度">
+              <div v-if="factTables.length" class="dataset-fact-tables">
+                <span class="dataset-query-hint">事实表：</span>
+                <el-tag v-for="table in factTables" :key="table" size="small" type="info">{{ table }}</el-tag>
+              </div>
+            </div>
+
+            <div class="dataset-query-section">
+              <div class="dataset-query-section-header">
+                <h5>维度</h5>
+                <span class="dataset-query-hint">勾选维度后可设置层级和展示字段</span>
+              </div>
               <div v-loading="loadingMeta" class="dataset-dimensions">
                 <div v-if="!metricCodes.length" class="dataset-muted">选择指标后可加载可用维度</div>
                 <div v-for="dimension in dimensions" :key="dimension.dimensionModelCode" class="dataset-dimension-item">
                   <el-checkbox v-model="dimension.selected">
                     {{ dimension.dimensionModelName }}
                     <el-tag v-if="dimension.isTimeDimension" size="small" type="info">时间</el-tag>
+                    <el-tag v-if="dimension.isHierarchy" size="small" type="warning">层级</el-tag>
                   </el-checkbox>
-                  <el-select
-                    v-model="dimension.fieldNames"
-                    multiple
-                    collapse-tags
-                    collapse-tags-tooltip
-                    filterable
-                    clearable
-                    placeholder="展示字段（可多选）"
-                    class="dataset-dimension-field-select"
-                    :disabled="!dimension.selected"
-                  >
-                    <el-option
-                      v-for="field in dimension.fields"
-                      :key="field.fieldName"
-                      :label="field.description || field.fieldName"
-                      :value="field.fieldName"
-                    />
-                  </el-select>
+                  <div class="dataset-dimension-controls">
+                    <el-select
+                      v-if="dimension.isHierarchy && dimensionLevels(dimension).length"
+                      v-model="dimension.levelIndex"
+                      placeholder="选择层级"
+                      class="dataset-dimension-level-select"
+                      :disabled="!dimension.selected"
+                    >
+                      <el-option
+                        v-for="level in dimensionLevels(dimension)"
+                        :key="level.levelIndex"
+                        :label="dimensionLevelLabel(dimension, level.levelIndex)"
+                        :value="level.levelIndex"
+                      />
+                    </el-select>
+                    <el-select
+                      v-model="dimension.fieldNames"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      filterable
+                      clearable
+                      :placeholder="dimension.isHierarchy ? '展示字段（可选，选择后按字段分组）' : '展示字段（可多选）'"
+                      class="dataset-dimension-field-select"
+                      :disabled="!dimension.selected"
+                    >
+                      <el-option
+                        v-for="field in dimension.fields"
+                        :key="field.fieldName"
+                        :label="field.description || field.fieldName"
+                        :value="field.fieldName"
+                      />
+                    </el-select>
+                  </div>
                 </div>
                 <div v-if="metricCodes.length && !loadingMeta && !dimensions.length" class="dataset-muted">当前指标没有可用维度</div>
               </div>
-            </el-form-item>
+            </div>
+
+            <div class="dataset-query-section">
+              <div class="dataset-query-section-header">
+                <h5>业务限定</h5>
+                <el-button type="primary" size="small" @click="addFilterCondition"> <font-awesome-icon icon="plus" /> 添加条件 </el-button>
+              </div>
+              <div v-if="!filterConditions.length" class="dataset-muted">未设置业务限定</div>
+              <div v-for="(condition, index) in filterConditions" :key="`condition-${index}`" class="dataset-condition-row">
+                <el-select v-if="index > 0" v-model="condition.logic" class="dataset-condition-logic" size="small">
+                  <el-option value="AND" label="AND" />
+                  <el-option value="OR" label="OR" />
+                </el-select>
+                <span v-else class="dataset-condition-logic dataset-condition-logic-placeholder">条件</span>
+                <el-select
+                  v-model="condition.dimensionModelCode"
+                  class="dataset-condition-control"
+                  placeholder="选择维度"
+                  filterable
+                  @change="onFilterDimensionChange(condition)"
+                >
+                  <el-option
+                    v-for="dimension in dimensions"
+                    :key="dimension.dimensionModelCode"
+                    :label="dimension.dimensionModelName || dimension.dimensionModelCode"
+                    :value="dimension.dimensionModelCode"
+                  />
+                </el-select>
+                <el-select
+                  v-model="condition.dimensionFieldName"
+                  class="dataset-condition-control"
+                  placeholder="选择维度字段"
+                  filterable
+                  :disabled="!condition.dimensionModelCode"
+                >
+                  <el-option
+                    v-for="field in conditionDimensionFields(condition)"
+                    :key="field.fieldName"
+                    :label="field.description || field.fieldName"
+                    :value="field.fieldName"
+                  />
+                </el-select>
+                <el-select v-model="condition.operator" class="dataset-condition-operator">
+                  <el-option v-for="op in filterOperators" :key="op.value" :value="op.value" :label="op.label" />
+                </el-select>
+                <span v-if="isUnaryOperator(condition.operator)" class="dataset-query-placeholder">-</span>
+                <template v-else-if="isRangeOperator(condition.operator)">
+                  <el-input v-model="condition.value" class="dataset-condition-value" placeholder="开始值" />
+                  <el-input v-model="condition.valueEnd" class="dataset-condition-value" placeholder="结束值" />
+                </template>
+                <el-input v-else v-model="condition.value" class="dataset-condition-value" placeholder="值" />
+                <el-button link type="danger" size="small" @click="removeFilterCondition(index)">
+                  <font-awesome-icon icon="trash" />
+                </el-button>
+              </div>
+            </div>
+
+            <div class="dataset-query-section">
+              <div class="dataset-query-section-header">
+                <h5>时间统计范围</h5>
+                <el-button v-if="queryTimeRange.start || queryTimeRange.end" link type="info" size="small" @click="clearTimeRange">
+                  <font-awesome-icon icon="times" /> 清除
+                </el-button>
+              </div>
+              <div class="dataset-time-row">
+                <el-date-picker
+                  v-model="queryTimeRange.start"
+                  class="dataset-time-picker"
+                  type="datetime"
+                  value-format="YYYY-MM-DDTHH:mm:ss"
+                  placeholder="开始时间"
+                />
+                <span class="dataset-query-placeholder">~</span>
+                <el-date-picker
+                  v-model="queryTimeRange.end"
+                  class="dataset-time-picker"
+                  type="datetime"
+                  value-format="YYYY-MM-DDTHH:mm:ss"
+                  placeholder="结束时间"
+                />
+              </div>
+              <div v-if="timeFields.length" class="dataset-time-hint">
+                <span class="dataset-query-hint">时间字段（事实表配置）：</span>
+                <el-tag v-for="field in timeFields" :key="field.fieldName" size="small" type="info">
+                  {{ field.fieldName }}
+                </el-tag>
+              </div>
+              <div v-else class="dataset-time-hint-empty">所选指标的事实表未配置时间周期字段，时间范围将不生效</div>
+            </div>
           </template>
         </el-form>
       </div>
@@ -340,6 +458,45 @@
   color: #e6a23c;
 }
 
+.dataset-query-section {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #fafcff;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+}
+
+.dataset-query-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.dataset-query-section-header h5 {
+  margin: 0;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dataset-query-hint {
+  color: #909399;
+  font-size: 12px;
+}
+
+.dataset-fact-tables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
 .dataset-dimensions {
   width: 100%;
   min-height: 60px;
@@ -355,9 +512,87 @@
   border-bottom: 1px solid #f5f7fa;
 }
 
+.dataset-dimension-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  max-width: 100%;
+}
+
 .dataset-dimension-field-select {
   width: 380px;
   max-width: 100%;
+}
+
+.dataset-dimension-level-select {
+  width: 160px;
+}
+
+.dataset-condition-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dataset-condition-logic {
+  flex: none;
+  width: 80px;
+}
+
+.dataset-condition-logic-placeholder {
+  color: #909399;
+  font-size: 13px;
+  text-align: center;
+}
+
+.dataset-condition-control {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+
+.dataset-condition-operator {
+  flex: 0 0 140px;
+  min-width: 0;
+}
+
+.dataset-condition-value {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.dataset-query-placeholder {
+  flex: none;
+  padding: 0 4px;
+  color: #c0c4cc;
+}
+
+.dataset-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dataset-time-picker {
+  flex: 0 0 220px;
+  width: 220px;
+}
+
+.dataset-time-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.dataset-time-hint-empty {
+  margin-top: 8px;
+  color: #e6a23c;
+  font-size: 13px;
 }
 
 .dataset-muted {

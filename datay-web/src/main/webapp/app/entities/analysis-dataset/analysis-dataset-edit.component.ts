@@ -8,7 +8,21 @@ import MetricService from '@/entities/metric/metric.service';
 import { buildDashboardFields } from '@/shared/dashboard/field-defaults';
 import DatasetService from '@/shared/dataset/dataset.service';
 import type { DatasetPreviewResult } from '@/shared/dataset/dataset.service';
-import type { AnalysisDataset, AnalysisDatasetType, DatasetColumn, MetricDimensionMeta, MetricQueryMeta } from '@/shared/dataset/types';
+import type {
+  AnalysisDataset,
+  AnalysisDatasetType,
+  DatasetColumn,
+  MetricDimensionMeta,
+  MetricQueryMeta,
+  MetricTimeFieldMeta,
+} from '@/shared/dataset/types';
+import {
+  FILTER_OPERATORS,
+  FILTER_TYPE_DIMENSION,
+  isRangeOperator,
+  isUnaryOperator,
+  type IMetricFilterCondition,
+} from '@/shared/model/metric.model';
 
 interface MetricOption {
   code: string;
@@ -23,9 +37,57 @@ export interface DimensionOption {
   fieldNames: string[];
   fields: Array<{ fieldName: string; fieldType?: string; description?: string }>;
   isTimeDimension?: boolean;
+  isHierarchy?: boolean;
+  levels?: Array<{ levelIndex: number; label?: string }>;
+  levelCount?: number;
+  levelIndex?: number | null;
+}
+
+export interface MetricFilterConditionOption {
+  dimensionModelCode: string;
+  dimensionFieldName: string;
+  operator: string;
+  value: string;
+  valueEnd: string;
+  logic: 'AND' | 'OR';
+}
+
+export interface MetricFilterConfigPayload {
+  conditions: IMetricFilterCondition[];
+}
+
+export interface MetricTimeRangeOption {
+  start: string;
+  end: string;
 }
 
 const PLACEHOLDER = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+export function buildMetricFilterConfig(conditions: MetricFilterConditionOption[]): MetricFilterConfigPayload | undefined {
+  const normalized = conditions
+    .filter(condition => condition.dimensionModelCode && condition.dimensionFieldName)
+    .map((condition, index) => {
+      const operator = condition.operator || 'EQ';
+      const unary = isUnaryOperator(operator);
+      const range = isRangeOperator(operator);
+      return {
+        type: FILTER_TYPE_DIMENSION,
+        dimensionModelCode: condition.dimensionModelCode,
+        dimensionFieldName: condition.dimensionFieldName,
+        operator,
+        value: unary ? null : condition.value || null,
+        valueEnd: range ? condition.valueEnd || null : null,
+        logic: index === 0 ? 'AND' : condition.logic || 'AND',
+      } satisfies IMetricFilterCondition;
+    });
+  return normalized.length ? { conditions: normalized } : undefined;
+}
+
+function normalizeTimeRange(timeRange?: MetricTimeRangeOption | null) {
+  const start = timeRange?.start?.trim() || undefined;
+  const end = timeRange?.end?.trim() || undefined;
+  return start || end ? { start, end } : undefined;
+}
 
 /** 从 SQL 中提取命名占位符，作为数据集参数声明。 */
 export function extractSqlParams(sql: string): Array<{ name: string; label: string }> {
@@ -45,6 +107,8 @@ export function buildDatasetDefinition(
   metricCodes: string[],
   dimensions: DimensionOption[],
   dataSourceId?: string,
+  filterConfig?: MetricFilterConfigPayload | null,
+  timeRange?: MetricTimeRangeOption | null,
 ): string {
   if (type === 'SQL') {
     return JSON.stringify({
@@ -53,6 +117,7 @@ export function buildDatasetDefinition(
       dataSourceId: dataSourceId || undefined,
     });
   }
+  const normalizedTimeRange = normalizeTimeRange(timeRange);
   return JSON.stringify({
     metricQuery: {
       metricCodes,
@@ -63,8 +128,11 @@ export function buildDatasetDefinition(
           return {
             dimensionModelCode: dimension.dimensionModelCode,
             dimensionFieldNames: fieldNames.length ? fieldNames : undefined,
+            levelIndex: dimension.levelIndex ?? undefined,
           };
         }),
+      filterConfig: filterConfig?.conditions?.length ? filterConfig : undefined,
+      timeRange: normalizedTimeRange,
     },
   });
 }
@@ -96,6 +164,11 @@ export default defineComponent({
     const metricCodes = ref<string[]>([]);
     const metrics = ref<MetricOption[]>([]);
     const dimensions = ref<DimensionOption[]>([]);
+    const factTables = ref<string[]>([]);
+    const timeFields = ref<MetricTimeFieldMeta[]>([]);
+    const filterConditions = ref<MetricFilterConditionOption[]>([]);
+    const queryTimeRange = ref<MetricTimeRangeOption>({ start: '', end: '' });
+    const filterOperators = FILTER_OPERATORS;
     const loadingMeta = ref(false);
 
     const dataSources = ref<any[]>([]);
@@ -115,7 +188,15 @@ export default defineComponent({
     const fieldMetadata = ref<DatasetColumn[]>([]);
 
     const definition = computed(() =>
-      buildDatasetDefinition(form.value.type, sqlText.value, metricCodes.value, dimensions.value, form.value.dataSourceId),
+      buildDatasetDefinition(
+        form.value.type,
+        sqlText.value,
+        metricCodes.value,
+        dimensions.value,
+        form.value.dataSourceId,
+        buildMetricFilterConfig(filterConditions.value),
+        queryTimeRange.value,
+      ),
     );
 
     const placeholders = computed(() => extractSqlParams(sqlText.value));
@@ -160,24 +241,128 @@ export default defineComponent({
 
     const loadDimensions = async () => {
       dimensions.value = [];
+      factTables.value = [];
+      timeFields.value = [];
       if (!metricCodes.value.length) {
         return;
       }
       loadingMeta.value = true;
       try {
         const meta: MetricQueryMeta = await datasetService.loadMetricMeta(metricCodes.value);
-        dimensions.value = (meta.dimensions ?? []).map((dimension: MetricDimensionMeta) => ({
-          dimensionModelCode: dimension.dimensionModelCode,
-          dimensionModelName: dimension.dimensionModelName || dimension.dimensionModelCode,
-          selected: false,
-          fieldNames: [dimension.recommendedDisplayField || dimension.displayFieldName || ''].filter(Boolean),
-          fields: dimension.fields ?? [],
-          isTimeDimension: dimension.isTimeDimension,
-        }));
+        factTables.value = meta.factTables ?? [];
+        timeFields.value = meta.timeFields ?? [];
+        dimensions.value = (meta.dimensions ?? []).map((dimension: MetricDimensionMeta) => {
+          const levels = dimension.levels ?? [];
+          const isHierarchy = !!dimension.isHierarchy;
+          return {
+            dimensionModelCode: dimension.dimensionModelCode,
+            dimensionModelName: dimension.dimensionModelName || dimension.dimensionModelCode,
+            selected: false,
+            fieldNames: isHierarchy ? [] : [dimension.recommendedDisplayField || dimension.displayFieldName || ''].filter(Boolean),
+            fields: dimension.fields ?? [],
+            isTimeDimension: dimension.isTimeDimension,
+            isHierarchy,
+            levels,
+            levelCount: dimension.levelCount ?? levels.length,
+            levelIndex: isHierarchy ? (levels.length ? levels[levels.length - 1].levelIndex : (dimension.levelCount ?? 1)) : null,
+          };
+        });
       } catch (err: any) {
         alertService.showError(errorMessage(err, '维度信息加载失败'));
       } finally {
         loadingMeta.value = false;
+      }
+    };
+
+    const dimensionLevels = (dimension: DimensionOption) => {
+      if (!dimension.isHierarchy) {
+        return [] as Array<{ levelIndex: number; label?: string }>;
+      }
+      if (dimension.levels?.length) {
+        return dimension.levels;
+      }
+      const count = Number(dimension.levelCount) || 0;
+      return Array.from({ length: count }, (_value, index) => ({ levelIndex: index + 1 }));
+    };
+
+    const dimensionLevelLabel = (dimension: DimensionOption, levelIndex: number) => {
+      const levels = dimensionLevels(dimension);
+      const current = levels.find(level => level.levelIndex === levelIndex);
+      if (current?.label) {
+        return current.label;
+      }
+      const names = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+      const label = names[levelIndex - 1] ? `${names[levelIndex - 1]}级` : `第${levelIndex}级`;
+      const last = levels.length > 0 && levels[levels.length - 1].levelIndex === levelIndex;
+      return last ? `${label}(末级)` : label;
+    };
+
+    const conditionDimensionFields = (condition: MetricFilterConditionOption) => {
+      return dimensions.value.find(dimension => dimension.dimensionModelCode === condition.dimensionModelCode)?.fields ?? [];
+    };
+
+    const createFilterCondition = (): MetricFilterConditionOption => ({
+      dimensionModelCode: '',
+      dimensionFieldName: '',
+      operator: 'EQ',
+      value: '',
+      valueEnd: '',
+      logic: 'AND',
+    });
+
+    const addFilterCondition = () => {
+      filterConditions.value.push(createFilterCondition());
+    };
+
+    const removeFilterCondition = (index: number) => {
+      filterConditions.value.splice(index, 1);
+    };
+
+    const onFilterDimensionChange = (condition: MetricFilterConditionOption) => {
+      condition.dimensionFieldName = '';
+    };
+
+    const parseFilterConditions = (raw: unknown): MetricFilterConditionOption[] => {
+      let config: any = raw;
+      if (typeof raw === 'string') {
+        if (!raw.trim()) {
+          return [];
+        }
+        try {
+          config = JSON.parse(raw);
+        } catch {
+          return [];
+        }
+      }
+      const conditions = Array.isArray(config?.conditions) ? config.conditions : [];
+      return conditions
+        .filter((condition: any) => condition?.dimensionModelCode && condition?.dimensionFieldName)
+        .map((condition: any, index: number) => ({
+          dimensionModelCode: String(condition.dimensionModelCode),
+          dimensionFieldName: String(condition.dimensionFieldName),
+          operator: condition.operator || 'EQ',
+          value: condition.value == null ? '' : String(condition.value),
+          valueEnd: condition.valueEnd == null ? '' : String(condition.valueEnd),
+          logic: index === 0 ? 'AND' : condition.logic === 'OR' ? 'OR' : 'AND',
+        }));
+    };
+
+    const applySelectedDimensions = (selected: any[]) => {
+      for (const dimension of dimensions.value) {
+        const hit = selected.find(item => item.dimensionModelCode === dimension.dimensionModelCode);
+        if (!hit) {
+          continue;
+        }
+        dimension.selected = true;
+        const fieldNames = Array.isArray(hit.dimensionFieldNames)
+          ? hit.dimensionFieldNames
+          : hit.dimensionFieldName
+            ? [hit.dimensionFieldName]
+            : [];
+        dimension.fieldNames = fieldNames.filter((field: unknown): field is string => typeof field === 'string' && !!field);
+        if (hit.levelIndex != null) {
+          dimension.levelIndex = Number(hit.levelIndex);
+        }
       }
     };
 
@@ -254,22 +439,12 @@ export default defineComponent({
           const query = def.metricQuery || def;
           metricCodes.value = query.metricCodes || [];
           await loadDimensions();
-          const selected: Array<{ dimensionModelCode: string; dimensionFieldNames?: string[]; dimensionFieldName?: string }> =
-            query.dimensions || [];
-          for (const dimension of dimensions.value) {
-            const hit = selected.find(item => item.dimensionModelCode === dimension.dimensionModelCode);
-            if (hit) {
-              dimension.selected = true;
-              const fieldNames = Array.isArray(hit.dimensionFieldNames)
-                ? hit.dimensionFieldNames
-                : hit.dimensionFieldName
-                  ? [hit.dimensionFieldName]
-                  : [];
-              if (fieldNames.length) {
-                dimension.fieldNames = fieldNames;
-              }
-            }
-          }
+          applySelectedDimensions(Array.isArray(query.dimensions) ? query.dimensions : []);
+          filterConditions.value = parseFilterConditions(query.filterConfig);
+          queryTimeRange.value = {
+            start: query.timeRange?.start || '',
+            end: query.timeRange?.end || '',
+          };
         }
         if (dataset.type === 'SQL' && dataset.dataSourceId) {
           await loadSchemas();
@@ -279,6 +454,24 @@ export default defineComponent({
       } finally {
         loading.value = false;
       }
+    };
+
+    const applyMetricQueryPrefill = async (metricQuery: any, name?: string, description?: string) => {
+      form.value.type = 'METRIC';
+      if (name) {
+        form.value.name = name;
+      }
+      if (description && !form.value.description) {
+        form.value.description = description;
+      }
+      metricCodes.value = Array.isArray(metricQuery?.metricCodes) ? metricQuery.metricCodes : [];
+      await loadDimensions();
+      applySelectedDimensions(Array.isArray(metricQuery?.dimensions) ? metricQuery.dimensions : []);
+      filterConditions.value = parseFilterConditions(metricQuery?.filterConfig);
+      queryTimeRange.value = {
+        start: metricQuery?.timeRange?.start || '',
+        end: metricQuery?.timeRange?.end || '',
+      };
     };
 
     onMounted(async () => {
@@ -305,6 +498,19 @@ export default defineComponent({
         if (form.value.dataSourceId) {
           await loadSchemas();
         }
+        return;
+      }
+
+      // 从指标查询页携带完整的指标查询配置快速创建指标数据集。
+      const prefillMetricQuery = route.query.metricQuery ? String(route.query.metricQuery) : '';
+      if (prefillMetricQuery) {
+        try {
+          const metricQuery = JSON.parse(prefillMetricQuery);
+          const queryName = route.query.name ? String(route.query.name).trim() : '';
+          await applyMetricQueryPrefill(metricQuery, queryName, '由指标查询快速生成');
+        } catch {
+          alertService.showError('指标查询配置解析失败，请返回指标查询后重试');
+        }
       }
     });
 
@@ -321,7 +527,13 @@ export default defineComponent({
       await loadSchemas();
     };
 
+    const clearTimeRange = () => {
+      queryTimeRange.value = { start: '', end: '' };
+    };
+
     const onMetricChange = async () => {
+      filterConditions.value = [];
+      clearTimeRange();
       await loadDimensions();
     };
 
@@ -434,6 +646,11 @@ export default defineComponent({
       metricCodes,
       metrics,
       dimensions,
+      factTables,
+      timeFields,
+      filterConditions,
+      queryTimeRange,
+      filterOperators,
       loadingMeta,
       dataSources,
       schemas,
@@ -450,6 +667,15 @@ export default defineComponent({
       previewSql,
       fieldMetadata,
       previewColumnLabel,
+      dimensionLevels,
+      dimensionLevelLabel,
+      conditionDimensionFields,
+      addFilterCondition,
+      removeFilterCondition,
+      onFilterDimensionChange,
+      clearTimeRange,
+      isUnaryOperator,
+      isRangeOperator,
       onTypeChange,
       onDataSourceChange,
       onMetricChange,

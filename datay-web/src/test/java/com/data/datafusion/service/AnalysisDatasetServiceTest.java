@@ -77,16 +77,27 @@ class AnalysisDatasetServiceTest {
     }
 
     @Test
-    void shouldNormalizeMetricDefinition() {
+    void shouldNormalizeMetricDefinitionWithFiltersAndTimeRange() {
         AnalysisDatasetDTO dto = new AnalysisDatasetDTO();
         dto.setName("销售");
         dto.setType("metric");
-        dto.setDefinition("{\"metricCodes\":[\"sales_amount\"]}");
+        dto.setDefinition(
+            "{\"metricQuery\":{\"metricCodes\":[\"sales_amount\"]," +
+            "\"filterConfig\":{\"conditions\":[{\"type\":\"DIMENSION\",\"dimensionModelCode\":\"dim_store\"," +
+            "\"dimensionFieldName\":\"region\",\"operator\":\"EQ\",\"value\":\"华东\"}]}," +
+            "\"timeRange\":{\"start\":\"2026-01-01\",\"end\":\"2026-12-31\"}}}"
+        );
 
         AnalysisDatasetDTO result = service.validateDefinition(dto);
 
         assertThat(result.getType()).isEqualTo(AnalysisDataset.TYPE_METRIC);
-        assertThat(result.getDefinition()).contains("\"metricQuery\"").contains("sales_amount");
+        assertThat(result.getDefinition())
+            .contains("\"metricQuery\"")
+            .contains("sales_amount")
+            .contains("\"filterConfig\"")
+            .contains("dim_store")
+            .contains("\"timeRange\"")
+            .contains("2026-12-31");
     }
 
     @Test

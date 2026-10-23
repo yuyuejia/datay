@@ -454,6 +454,9 @@
                 <font-awesome-icon icon="search" /> 查询
               </el-button>
               <el-button @click="previewQuerySql">查看 SQL</el-button>
+              <el-button type="success" plain @click="generateDataset">
+                <font-awesome-icon icon="database" /> 生成数据集
+              </el-button>
             </div>
 
             <div v-if="queryColumns.length > 0" class="query-result">
