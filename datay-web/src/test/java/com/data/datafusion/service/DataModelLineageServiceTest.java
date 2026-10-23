@@ -107,7 +107,35 @@ class DataModelLineageServiceTest {
         assertThat(lineage.nodes()).anyMatch(node -> "sales_amount".equals(node.meta().get("code")));
         assertThat(lineage.nodes()).anyMatch(node -> "profit_rate".equals(node.meta().get("code")));
         assertThat(lineage.nodes()).anyMatch(node -> "销售看板".equals(node.name()));
-        assertThat(edgeKinds(lineage)).contains("DIMENSION", "METRIC", "DERIVE", "DASHBOARD", "READ");
+        assertThat(lineage.nodes())
+            .anyMatch(node -> "DATASET".equals(node.type()) && "指标数据集".equals(node.name()) && "METRIC".equals(node.subType()));
+        assertThat(lineage.nodes())
+            .anyMatch(node -> "DATASET".equals(node.type()) && "明细数据集".equals(node.name()) && "SQL".equals(node.subType()));
+        assertThat(edgeKinds(lineage)).contains("DIMENSION", "METRIC", "DERIVE", "DATASET", "DASHBOARD", "READ");
+        assertThat(lineage.edges())
+            .anyMatch(edge ->
+                "DATASET".equals(edge.kind()) &&
+                "metric:m1".equals(edge.source()) &&
+                edge.target().startsWith("dataset:")
+            );
+        assertThat(lineage.edges())
+            .anyMatch(edge ->
+                "READ".equals(edge.kind()) &&
+                "table:ds1:main.fact_sales".equals(edge.source()) &&
+                edge.target().startsWith("dataset:")
+            );
+        assertThat(lineage.edges())
+            .filteredOn(edge -> "DASHBOARD".equals(edge.kind()))
+            .allMatch(edge -> edge.source().startsWith("dataset:") && "dashboard:db1".equals(edge.target()));
+        int dashboardLayer = lineage.nodes()
+            .stream()
+            .filter(node -> "DASHBOARD".equals(node.type()))
+            .findFirst()
+            .orElseThrow()
+            .layer();
+        assertThat(lineage.nodes())
+            .filteredOn(node -> "DATASET".equals(node.type()))
+            .allMatch(node -> node.layer() < dashboardLayer);
     }
 
     @Test
@@ -262,6 +290,32 @@ class DataModelLineageServiceTest {
     }
 
     @Test
+    void shouldLinkSqlDatasetAndDashboardFromTableLineage() throws Exception {
+        when(dataModelRepository.findAll()).thenReturn(List.of());
+        when(dataSyncTableConfigRepository.findByDesTableNameIgnoreCase(anyString())).thenReturn(List.of());
+        when(etlNodeRepository.findAll()).thenReturn(List.of());
+        when(analysisDashboardRepository.findAll()).thenReturn(List.of(dashboard()));
+
+        com.data.datafusion.service.dto.TableLineageDTO lineage = service.buildTable("ds1", "main", "fact_sales");
+
+        assertThat(lineage.nodes())
+            .anyMatch(node ->
+                "DATASET".equals(node.type()) &&
+                "SQL".equals(node.subType()) &&
+                "明细数据集".equals(node.name())
+            );
+        assertThat(lineage.nodes()).anyMatch(node -> "DASHBOARD".equals(node.type()) && "销售看板".equals(node.name()));
+        assertThat(lineage.edges())
+            .anyMatch(edge ->
+                lineage.currentTableId().equals(edge.source()) &&
+                "READ".equals(edge.kind()) &&
+                edge.target().startsWith("dataset:")
+            );
+        assertThat(lineage.edges())
+            .anyMatch(edge -> "DASHBOARD".equals(edge.kind()) && edge.source().startsWith("dataset:"));
+    }
+
+    @Test
     void shouldBuildOnlyUpstreamLineage() {
         DataModel fact = model("f1", "fact_sales", "DWD", "main", "fact_sales");
         ETLNode readNode = node(
@@ -357,6 +411,8 @@ class DataModelLineageServiceTest {
         Map<String, Object> metricDataset = Map.of(
             "id",
             "sales",
+            "name",
+            "指标数据集",
             "type",
             "METRIC",
             "metricQuery",
@@ -365,6 +421,8 @@ class DataModelLineageServiceTest {
         Map<String, Object> sqlDataset = Map.of(
             "id",
             "detail",
+            "name",
+            "明细数据集",
             "type",
             "SQL",
             "dataSourceId",

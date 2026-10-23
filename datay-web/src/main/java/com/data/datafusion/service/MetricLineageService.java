@@ -36,6 +36,7 @@ public class MetricLineageService {
 
     private static final String TYPE_METRIC = "METRIC";
     private static final String TYPE_DASHBOARD = "DASHBOARD";
+    private static final String TYPE_DATASET = "DATASET";
 
     private static final String CONFIDENCE_CONFIG = "CONFIG";
     private static final String CONFIDENCE_PARSED = "PARSED";
@@ -43,6 +44,7 @@ public class MetricLineageService {
     private static final String KIND_METRIC = "METRIC";
     private static final String KIND_DERIVE = "DERIVE";
     private static final String KIND_DASHBOARD = "DASHBOARD";
+    private static final String KIND_DATASET = "DATASET";
 
     private final MetricRepository metricRepository;
     private final AnalysisDashboardRepository analysisDashboardRepository;
@@ -233,39 +235,121 @@ public class MetricLineageService {
             if (!datasets.isArray()) {
                 continue;
             }
+            int index = 0;
             for (JsonNode dataset : datasets) {
                 JsonNode codesNode = dataset.path("metricQuery").path("metricCodes");
-                if (!codesNode.isArray()) {
-                    continue;
+                if (codesNode.isArray()) {
+                    List<Metric> matchedMetrics = new ArrayList<>();
+                    int layer = 0;
+                    for (JsonNode codeNode : codesNode) {
+                        String code = codeNode.asText();
+                        Metric metric = metricsByCode.get(code);
+                        if (metric == null || !metricCodes.contains(code)) {
+                            continue;
+                        }
+                        LineageNodeDTO metricNode = accumulator.nodes.get(metricNodeId(metric.getId()));
+                        if (metricNode == null) {
+                            continue;
+                        }
+                        matchedMetrics.add(metric);
+                        layer = Math.max(layer, metricNode.layer() + 1);
+                    }
+                    if (!matchedMetrics.isEmpty()) {
+                        LineageNodeDTO datasetNode = datasetNode(accumulator, dashboard, dataset, index, layer);
+                        for (Metric metric : matchedMetrics) {
+                            accumulator.addEdge(
+                                metricNodeId(metric.getId()),
+                                datasetNode.id(),
+                                KIND_DATASET,
+                                "指标数据集",
+                                CONFIDENCE_CONFIG
+                            );
+                        }
+                        LineageNodeDTO dashboardNode = dashboardNode(accumulator, dashboard, datasetNode.layer() + 1);
+                        accumulator.addEdge(
+                            datasetNode.id(),
+                            dashboardNode.id(),
+                            KIND_DASHBOARD,
+                            "看板引用数据集",
+                            CONFIDENCE_CONFIG
+                        );
+                    }
                 }
-                for (JsonNode codeNode : codesNode) {
-                    String code = codeNode.asText();
-                    Metric metric = metricsByCode.get(code);
-                    if (metric == null || !metricCodes.contains(code)) {
-                        continue;
-                    }
-                    LineageNodeDTO metricNode = accumulator.nodes.get(metricNodeId(metric.getId()));
-                    if (metricNode == null) {
-                        continue;
-                    }
-                    LineageNodeDTO dashboardNode = accumulator.nodes.get(dashboardNodeId(dashboard.getId()));
-                    if (dashboardNode == null) {
-                        dashboardNode = dashboardNode(dashboard, metricNode.layer() + 1);
-                        accumulator.addNode(dashboardNode);
-                    } else if (dashboardNode.layer() < metricNode.layer() + 1) {
-                        dashboardNode = shiftLayer(dashboardNode, metricNode.layer() + 1 - dashboardNode.layer());
-                        accumulator.nodes.put(dashboardNode.id(), dashboardNode);
-                    }
-                    accumulator.addEdge(
-                        metricNode.id(),
-                        dashboardNode.id(),
-                        KIND_DASHBOARD,
-                        "指标数据集「" + datasetName(dataset) + "」",
-                        CONFIDENCE_CONFIG
-                    );
-                }
+                index++;
             }
         }
+    }
+
+    private LineageNodeDTO datasetNode(
+        LineageAccumulator accumulator,
+        AnalysisDashboard dashboard,
+        JsonNode dataset,
+        int index,
+        int layer
+    ) {
+        String nodeId = datasetNodeId(dashboard, dataset, index);
+        LineageNodeDTO existing = accumulator.nodes.get(nodeId);
+        if (existing != null) {
+            if (existing.layer() < layer) {
+                existing = shiftLayer(existing, layer - existing.layer());
+                accumulator.nodes.put(nodeId, existing);
+            }
+            return existing;
+        }
+        String type = datasetType(dataset);
+        String dataSourceId = text(dataset, "dataSourceId");
+        if (dataSourceId == null) {
+            dataSourceId = dashboard.getDataSourceId();
+        }
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("refId", text(dataset, "refId"));
+        meta.put("localId", text(dataset, "id"));
+        meta.put("datasetType", type);
+        meta.put("dataSourceId", dataSourceId);
+        meta.put("dashboardId", dashboard.getId());
+        return accumulator.addNode(
+            new LineageNodeDTO(nodeId, TYPE_DATASET, datasetName(dataset), type, layer, meta)
+        );
+    }
+
+    private String datasetType(JsonNode dataset) {
+        String type = text(dataset, "type");
+        if (type != null) {
+            return type;
+        }
+        if (dataset.has("metricQuery")) {
+            return "METRIC";
+        }
+        if (dataset.has("sql")) {
+            return "SQL";
+        }
+        return null;
+    }
+
+    private String datasetNodeId(AnalysisDashboard dashboard, JsonNode dataset, int index) {
+        String refId = text(dataset, "refId");
+        if (refId != null) {
+            return "dataset:" + refId;
+        }
+        String localId = text(dataset, "id");
+        if (localId != null) {
+            return "dataset:" + dashboard.getId() + ":" + localId;
+        }
+        return "dataset:" + dashboard.getId() + ":#" + index;
+    }
+
+    private LineageNodeDTO dashboardNode(LineageAccumulator accumulator, AnalysisDashboard dashboard, int layer) {
+        String nodeId = dashboardNodeId(dashboard.getId());
+        LineageNodeDTO existing = accumulator.nodes.get(nodeId);
+        if (existing != null) {
+            if (existing.layer() < layer) {
+                existing = shiftLayer(existing, layer - existing.layer());
+                accumulator.nodes.put(nodeId, existing);
+            }
+            return existing;
+        }
+        LineageNodeDTO node = dashboardNode(dashboard, layer);
+        return accumulator.addNode(node);
     }
 
     private LineageNodeDTO metricNode(Metric metric, int layer) {
@@ -332,6 +416,18 @@ public class MetricLineageService {
         return id == null || id.asText().isBlank() ? "数据集" : id.asText();
     }
 
+    private String text(JsonNode node, String field) {
+        if (node == null) {
+            return null;
+        }
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        String text = value.asText();
+        return text == null || text.isBlank() ? null : text.trim();
+    }
+
     private String entityId(String nodeId) {
         int index = nodeId == null ? -1 : nodeId.indexOf(':');
         return index >= 0 ? nodeId.substring(index + 1) : nodeId;
@@ -354,8 +450,9 @@ public class MetricLineageService {
         private final Map<String, LineageNodeDTO> nodes = new LinkedHashMap<>();
         private final Map<String, LineageEdgeDTO> edges = new LinkedHashMap<>();
 
-        private void addNode(LineageNodeDTO node) {
+        private LineageNodeDTO addNode(LineageNodeDTO node) {
             nodes.putIfAbsent(node.id(), node);
+            return nodes.get(node.id());
         }
 
         private void mergeUpstreamNode(LineageNodeDTO node) {

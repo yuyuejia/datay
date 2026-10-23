@@ -88,6 +88,7 @@ const TYPE_LABELS: Record<string, string> = {
   SYNC: '数据同步',
   ETL: 'ETL 任务',
   METRIC: '指标',
+  DATASET: '数据集',
   DASHBOARD: '看板',
 };
 
@@ -115,6 +116,9 @@ const nodeMeta = (node: any) => {
   }
   if (node.nodeType === 'METRIC') {
     return [meta.code, meta.metricType].filter(Boolean).join(' · ');
+  }
+  if (node.nodeType === 'DATASET') {
+    return [meta.datasetType, meta.refId ? '数据集库' : '看板内嵌'].filter(Boolean).join(' · ');
   }
   if (node.nodeType === 'DASHBOARD') {
     return meta.code || '';
@@ -242,6 +246,9 @@ watch(
 }
 .legend-metric {
   background: #f56c6c;
+}
+.legend-dataset {
+  background: #6366f1;
 }
 .legend-dashboard {
   background: #14b8a6;
@@ -383,6 +390,13 @@ watch(
 .lineage-node-metric .lineage-node-type {
   color: #c45656;
   background: #fef0f0;
+}
+.lineage-node-dataset {
+  border-color: #c7d2fe;
+}
+.lineage-node-dataset .lineage-node-type {
+  color: #4f46e5;
+  background: #eef2ff;
 }
 .lineage-node-dashboard {
   border-color: #99e6df;

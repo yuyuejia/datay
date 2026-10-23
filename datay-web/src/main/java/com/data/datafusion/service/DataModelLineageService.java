@@ -65,6 +65,7 @@ public class DataModelLineageService {
     private static final String TYPE_ETL = "ETL";
     private static final String TYPE_METRIC = "METRIC";
     private static final String TYPE_DASHBOARD = "DASHBOARD";
+    private static final String TYPE_DATASET = "DATASET";
 
     private static final String CONFIDENCE_CONFIG = "CONFIG";
     private static final String CONFIDENCE_PARSED = "PARSED";
@@ -165,6 +166,7 @@ public class DataModelLineageService {
             new HashSet<>(),
             new HashSet<>()
         );
+        addDashboards(context);
 
         List<LineageNodeDTO> nodes = new ArrayList<>(context.nodes.values());
         nodes.sort(Comparator.comparingInt(LineageNodeDTO::layer).thenComparing(LineageNodeDTO::name, Comparator.nullsLast(String::compareTo)));
@@ -843,64 +845,147 @@ public class DataModelLineageService {
             if (spec == null) {
                 continue;
             }
-            int layer = Integer.MAX_VALUE;
             JsonNode datasets = spec.path("datasets");
-            if (datasets.isArray()) {
-                for (JsonNode dataset : datasets) {
-                    String type = text(dataset, "type");
-                    if ("METRIC".equalsIgnoreCase(type) || dataset.has("metricQuery")) {
-                        JsonNode metricCodes = dataset.path("metricQuery").path("metricCodes");
-                        if (metricCodes.isArray()) {
-                            for (JsonNode codeNode : metricCodes) {
-                                Metric metric = context.metricsByCode.get(codeNode.asText());
-                                if (metric != null) {
-                                    LineageNodeDTO dashboardNode = dashboardNode(context, dashboard, 1);
-                                    addEdge(
-                                        context,
-                                        metricNodeId(metric.getId()),
-                                        dashboardNode.id(),
-                                        "DASHBOARD",
-                                        "指标数据集「" + datasetName(dataset) + "」",
-                                        CONFIDENCE_CONFIG
-                                    );
-                                    layer = Math.min(layer, context.metricNodeLayer.getOrDefault(metric.getId(), 1) + 1);
-                                }
+            if (!datasets.isArray()) {
+                continue;
+            }
+            int index = 0;
+            for (JsonNode dataset : datasets) {
+                String type = datasetType(dataset);
+                if ("METRIC".equalsIgnoreCase(type) || dataset.has("metricQuery")) {
+                    JsonNode metricCodes = dataset.path("metricQuery").path("metricCodes");
+                    if (metricCodes.isArray()) {
+                        List<Metric> matchedMetrics = new ArrayList<>();
+                        int layer = 0;
+                        for (JsonNode codeNode : metricCodes) {
+                            Metric metric = context.metricsByCode.get(codeNode.asText());
+                            if (metric == null) {
+                                continue;
                             }
+                            matchedMetrics.add(metric);
+                            layer = Math.max(layer, context.metricNodeLayer.getOrDefault(metric.getId(), 1) + 1);
+                        }
+                        if (!matchedMetrics.isEmpty()) {
+                            LineageNodeDTO metricDatasetNode = datasetNode(context, dashboard, dataset, index, layer);
+                            for (Metric metric : matchedMetrics) {
+                                addEdge(
+                                    context,
+                                    metricNodeId(metric.getId()),
+                                    metricDatasetNode.id(),
+                                    "DATASET",
+                                    "指标数据集",
+                                    CONFIDENCE_CONFIG
+                                );
+                            }
+                            LineageNodeDTO dashboardNode = dashboardNode(context, dashboard, metricDatasetNode.layer() + 1);
+                            addEdge(
+                                context,
+                                metricDatasetNode.id(),
+                                dashboardNode.id(),
+                                "DASHBOARD",
+                                "看板引用数据集",
+                                CONFIDENCE_CONFIG
+                            );
                         }
                     }
-                    String sql = text(dataset, "sql");
-                    if (sql != null && !sql.isBlank() && matchesSqlRead(dataset, dashboard, sql, context.current)) {
-                        LineageNodeDTO dashboardNode = dashboardNode(context, dashboard, 1);
-                        String anchor = context.currentTableNode != null ? context.currentTableNode.id() : context.currentModelNode.id();
-                        addEdge(
-                            context,
-                            anchor,
-                            dashboardNode.id(),
-                            "READ",
-                            "SQL 数据集「" + datasetName(dataset) + "」读取",
-                            CONFIDENCE_PARSED
-                        );
-                        layer = Math.min(layer, 1);
-                    }
                 }
-            }
-            if (layer != Integer.MAX_VALUE) {
-                LineageNodeDTO existing = context.nodes.get(dashboardNodeId(dashboard.getId()));
-                if (existing != null && existing.layer() < layer) {
-                    context.nodes.put(existing.id(), withLayer(existing, layer));
+                String sql = text(dataset, "sql");
+                if (sql != null && !sql.isBlank() && matchesSqlRead(dataset, dashboard, sql, context.current)) {
+                    String anchor = context.currentTableNode != null ? context.currentTableNode.id() : context.currentModelNode.id();
+                    int sourceLayer = context.currentTableNode != null ? context.currentTableNode.layer() : context.currentModelNode.layer();
+                    LineageNodeDTO sqlDatasetNode = datasetNode(context, dashboard, dataset, index, sourceLayer + 1);
+                    addEdge(context, anchor, sqlDatasetNode.id(), "READ", "SQL 数据集读取", CONFIDENCE_PARSED);
+                    LineageNodeDTO dashboardNode = dashboardNode(context, dashboard, sqlDatasetNode.layer() + 1);
+                    addEdge(
+                        context,
+                        sqlDatasetNode.id(),
+                        dashboardNode.id(),
+                        "DASHBOARD",
+                        "看板引用数据集",
+                        CONFIDENCE_PARSED
+                    );
                 }
+                index++;
             }
         }
     }
 
+    private LineageNodeDTO datasetNode(
+        LineageContext context,
+        AnalysisDashboard dashboard,
+        JsonNode dataset,
+        int index,
+        int layer
+    ) {
+        String nodeId = datasetNodeId(dashboard, dataset, index);
+        LineageNodeDTO existing = context.nodes.get(nodeId);
+        if (existing != null) {
+            if (existing.layer() < layer) {
+                existing = withLayer(existing, layer);
+                context.nodes.put(nodeId, existing);
+            }
+            return existing;
+        }
+        String datasetType = datasetType(dataset);
+        String dataSourceId = text(dataset, "dataSourceId");
+        if (dataSourceId == null) {
+            dataSourceId = dashboard.getDataSourceId();
+        }
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("refId", text(dataset, "refId"));
+        meta.put("localId", text(dataset, "id"));
+        meta.put("datasetType", datasetType);
+        meta.put("dataSourceId", dataSourceId);
+        meta.put("dashboardId", dashboard.getId());
+        return addNode(
+            context,
+            new LineageNodeDTO(nodeId, TYPE_DATASET, datasetName(dataset), datasetType, layer, meta)
+        );
+    }
+
+    private String datasetType(JsonNode dataset) {
+        String type = text(dataset, "type");
+        if (type != null) {
+            return type;
+        }
+        if (dataset.has("metricQuery")) {
+            return "METRIC";
+        }
+        if (dataset.has("sql")) {
+            return "SQL";
+        }
+        return null;
+    }
+
+    private String datasetNodeId(AnalysisDashboard dashboard, JsonNode dataset, int index) {
+        String refId = text(dataset, "refId");
+        if (refId != null) {
+            return "dataset:" + refId;
+        }
+        String localId = text(dataset, "id");
+        if (localId != null) {
+            return "dataset:" + dashboard.getId() + ":" + localId;
+        }
+        return "dataset:" + dashboard.getId() + ":#" + index;
+    }
+
     private LineageNodeDTO dashboardNode(LineageContext context, AnalysisDashboard dashboard, int layer) {
+        String nodeId = dashboardNodeId(dashboard.getId());
+        LineageNodeDTO existing = context.nodes.get(nodeId);
+        if (existing != null) {
+            if (existing.layer() < layer) {
+                existing = withLayer(existing, layer);
+                context.nodes.put(nodeId, existing);
+            }
+            return existing;
+        }
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("code", dashboard.getCode());
         meta.put("status", dashboard.getStatus());
         meta.put("dataSourceId", dashboard.getDataSourceId());
         return addNode(
             context,
-            new LineageNodeDTO(dashboardNodeId(dashboard.getId()), TYPE_DASHBOARD, dashboard.getName(), dashboard.getStatus(), layer, meta)
+            new LineageNodeDTO(nodeId, TYPE_DASHBOARD, dashboard.getName(), dashboard.getStatus(), layer, meta)
         );
     }
 

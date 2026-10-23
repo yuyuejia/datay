@@ -70,8 +70,26 @@ class MetricLineageServiceTest {
         assertThat(lineage.nodes()).anyMatch(node -> "metric:m1".equals(node.id()) && node.layer() == 0);
         assertThat(lineage.nodes()).anyMatch(node -> "model:f1".equals(node.id()) && node.layer() == -1);
         assertThat(lineage.nodes()).anyMatch(node -> "table:ds1:main.fact_sales".equals(node.id()) && node.layer() == -2);
-        assertThat(lineage.nodes()).anyMatch(node -> "DASHBOARD".equals(node.type()) && node.layer() == 1);
-        assertThat(kinds(lineage)).contains("METRIC", "DASHBOARD");
+        assertThat(lineage.nodes())
+            .anyMatch(node ->
+                "DATASET".equals(node.type()) &&
+                node.layer() == 1 &&
+                "dataset:ds-sales".equals(node.id()) &&
+                "ds-sales".equals(node.meta().get("refId")) &&
+                "指标数据集".equals(node.name())
+            );
+        assertThat(lineage.nodes()).anyMatch(node -> "DASHBOARD".equals(node.type()) && node.layer() == 2);
+        assertThat(kinds(lineage)).contains("METRIC", "DATASET", "DASHBOARD");
+        assertThat(lineage.edges())
+            .anyMatch(edge ->
+                "metric:m1".equals(edge.source()) && "dataset:ds-sales".equals(edge.target()) && "DATASET".equals(edge.kind())
+            );
+        assertThat(lineage.edges())
+            .anyMatch(edge ->
+                "dataset:ds-sales".equals(edge.source()) &&
+                "dashboard:db-sales_dashboard".equals(edge.target()) &&
+                "DASHBOARD".equals(edge.kind())
+            );
     }
 
     @Test
@@ -89,8 +107,9 @@ class MetricLineageServiceTest {
 
         assertThat(lineage.nodes()).anyMatch(node -> "metric:m1".equals(node.id()) && node.layer() == -1);
         assertThat(lineage.nodes()).anyMatch(node -> "metric:m3".equals(node.id()) && node.layer() == 1);
-        assertThat(lineage.nodes()).anyMatch(node -> "DASHBOARD".equals(node.type()) && node.layer() == 2);
-        assertThat(kinds(lineage)).contains("DERIVE", "METRIC", "DASHBOARD");
+        assertThat(lineage.nodes()).anyMatch(node -> "DATASET".equals(node.type()) && node.layer() == 2);
+        assertThat(lineage.nodes()).anyMatch(node -> "DASHBOARD".equals(node.type()) && node.layer() == 3);
+        assertThat(kinds(lineage)).contains("DERIVE", "METRIC", "DATASET", "DASHBOARD");
         assertThat(lineage.edges()).anyMatch(edge -> "metric:m1".equals(edge.source()) && "metric:m2".equals(edge.target()));
         assertThat(lineage.edges()).anyMatch(edge -> "metric:m2".equals(edge.source()) && "metric:m3".equals(edge.target()));
     }
@@ -126,8 +145,12 @@ class MetricLineageServiceTest {
         Map<String, Object> dataset = Map.of(
             "id",
             "dataset",
+            "refId",
+            "ds-sales",
             "name",
             "指标数据集",
+            "type",
+            "METRIC",
             "metricQuery",
             Map.of("metricCodes", List.of(metricCodes))
         );
