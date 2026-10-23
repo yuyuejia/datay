@@ -12,8 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.data.datafusion.domain.Authority;
 import com.data.datafusion.domain.RoleDataScope;
+import com.data.datafusion.domain.RoleDatasetScope;
 import com.data.datafusion.repository.AuthorityRepository;
 import com.data.datafusion.repository.RoleDataScopeRepository;
+import com.data.datafusion.repository.RoleDatasetScopeRepository;
 import com.data.datafusion.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +47,9 @@ class AuthorityManagementResourceTest {
 
     @MockitoBean
     private RoleDataScopeRepository roleDataScopeRepository;
+
+    @MockitoBean
+    private RoleDatasetScopeRepository roleDatasetScopeRepository;
 
     @Test
     void shouldPrefixRoleNameOnCreate() throws Exception {
@@ -106,9 +111,20 @@ class AuthorityManagementResourceTest {
     }
 
     @Test
+    void shouldRejectDeletingRoleWithDatasetScopes() throws Exception {
+        when(userRepository.countByAuthoritiesName("ROLE_REGION")).thenReturn(0L);
+        when(roleDataScopeRepository.findByRoleName("ROLE_REGION")).thenReturn(List.of());
+        when(roleDatasetScopeRepository.findByRoleName("ROLE_REGION")).thenReturn(List.of(new RoleDatasetScope()));
+
+        mvc.perform(delete("/api/authorities/ROLE_REGION")).andExpect(status().isBadRequest());
+        verify(authorityRepository, never()).deleteById(any());
+    }
+
+    @Test
     void shouldDeleteUnusedRole() throws Exception {
         when(userRepository.countByAuthoritiesName("ROLE_REGION")).thenReturn(0L);
         when(roleDataScopeRepository.findByRoleName("ROLE_REGION")).thenReturn(List.of());
+        when(roleDatasetScopeRepository.findByRoleName("ROLE_REGION")).thenReturn(List.of());
 
         mvc.perform(delete("/api/authorities/ROLE_REGION")).andExpect(status().isNoContent());
         verify(authorityRepository).deleteById("ROLE_REGION");

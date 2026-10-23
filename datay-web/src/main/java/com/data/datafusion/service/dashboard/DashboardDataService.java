@@ -78,7 +78,14 @@ public class DashboardDataService {
     ) throws SQLException {
         Map<String, Object> resolved = datasetResolver.resolveSpec(spec);
         Map<String, Object> dataset = findDataset(resolved, datasetId);
-        return datasetQueryService.query(dataset, fallbackDataSourceId, asMapList(resolved.get("filters")), filterValues);
+        String datasetScopeId = DatasetQueryService.asString(dataset.get("refId"));
+        return datasetQueryService.query(
+            dataset,
+            fallbackDataSourceId,
+            asMapList(resolved.get("filters")),
+            filterValues,
+            datasetScopeId
+        );
     }
 
     /**

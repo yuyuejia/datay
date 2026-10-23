@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 角色数据集范围：按角色约束数据集行级可见范围 -->
+    <changeSet id="20261026000000-1-role-dataset-scope" author="datafusion">
+        <createTable tableName="dp_role_dataset_scope">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="role_name" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="dataset_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="filter_config" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_role_dataset_scope" indexName="idx_role_dataset_scope_role">
+            <column name="role_name"/>
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_role_dataset_scope" indexName="idx_role_dataset_scope_dataset">
+            <column name="dataset_id"/>
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

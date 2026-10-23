@@ -3,6 +3,10 @@ package com.data.datafusion.service.dashboard;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.MetricQueryService;
+import com.data.datafusion.service.RoleDatasetScopeService;
+import com.data.datafusion.service.dataset.DatasetFieldValueSqlBuilder;
+import com.data.datafusion.service.dataset.DatasetScopeCondition;
+import com.data.datafusion.service.dataset.DatasetScopeSqlBuilder;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
@@ -10,6 +14,7 @@ import com.data.datafusion.service.dto.MetricQueryTimeRangeDTO;
 import com.data.datafusion.service.metric.MetricFilterCondition;
 import com.data.datafusion.service.metric.MetricFilterConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -46,43 +51,178 @@ public class DatasetQueryService {
     private final MetricQueryService metricQueryService;
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
+    private final RoleDatasetScopeService roleDatasetScopeService;
+    private final AnalysisDatasetResolver datasetResolver;
     private final ObjectMapper objectMapper;
 
     public DatasetQueryService(
         MetricQueryService metricQueryService,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
+        RoleDatasetScopeService roleDatasetScopeService,
+        AnalysisDatasetResolver datasetResolver,
         ObjectMapper objectMapper
     ) {
         this.metricQueryService = metricQueryService;
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
+        this.roleDatasetScopeService = roleDatasetScopeService;
+        this.datasetResolver = datasetResolver;
         this.objectMapper = objectMapper;
     }
 
     /**
      * 执行数据集。
      *
-     * @param dataset             数据集定义（含 id / type / metricQuery 或 sql / dataSourceId）
+     * @param dataset              数据集定义（含 id / type / metricQuery 或 sql / dataSourceId）
      * @param fallbackDataSourceId SQL 数据集未显式绑定数据源时的回退数据源
-     * @param filters             看板筛选器定义；数据集预览时传空列表
-     * @param filterValues        运行时筛选器值，键为筛选器 id
+     * @param filters              看板筛选器定义；数据集预览时传空列表
+     * @param filterValues         运行时筛选器值，键为筛选器 id
+     * @param datasetScopeId       用于匹配数据集数据权限的持久化数据集 id；为空表示不应用数据集权限
      */
     public Map<String, Object> query(
         Map<String, Object> dataset,
         String fallbackDataSourceId,
         List<Map<String, Object>> filters,
-        Map<String, Object> filterValues
+        Map<String, Object> filterValues,
+        String datasetScopeId
     ) throws SQLException {
+        List<DatasetScopeCondition> scopeConditions = roleDatasetScopeService.resolveConditions(datasetScopeId);
+        Set<String> scopeFields = scopeConditions.isEmpty() ? Set.of() : resolveDatasetFieldNames(dataset);
+        if (!scopeConditions.isEmpty()) {
+            // 提前校验字段存在性与运算符，避免把配置错误带到数据库层
+            DatasetScopeSqlBuilder.buildPredicate(scopeConditions, scopeFields);
+        }
         String type = asString(dataset.get("type"));
         Map<String, Object> result;
         if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
-            result = querySqlDataset(fallbackDataSourceId, dataset, filters, filterValues);
+            result = querySqlDataset(fallbackDataSourceId, dataset, filters, filterValues, scopeConditions, scopeFields);
         } else {
-            result = queryMetricDataset(dataset, filters, filterValues);
+            result = queryMetricDataset(dataset, filters, filterValues, scopeConditions);
         }
         attachColumnLabels(dataset, result);
         return result;
+    }
+
+    /**
+     * 查询数据集某个输出字段的去重取值，供数据权限条件值、筛选器候选值等场景使用。
+     *
+     * @param datasetId 已保存数据集 id
+     * @param fieldName 数据集输出字段名
+     * @param keyword   取值模糊过滤关键字，可为空
+     * @param page      页码，从 1 开始
+     * @param size      每页条数
+     * @return values / total / page / size
+     */
+    public Map<String, Object> loadFieldValues(
+        String datasetId,
+        String fieldName,
+        String keyword,
+        Integer page,
+        Integer size
+    ) throws SQLException {
+        if (datasetId == null || datasetId.isBlank()) {
+            throw new IllegalArgumentException("数据集不能为空");
+        }
+        String column = DatasetScopeSqlBuilder.requireIdentifier(fieldName);
+        Map<String, Object> dataset = datasetResolver.resolveDataset(Map.of("refId", datasetId));
+        Set<String> fieldNames = resolveDatasetFieldNames(dataset);
+        if (!fieldNames.isEmpty() && !fieldNames.contains(column)) {
+            throw new IllegalArgumentException("数据集字段不存在：" + column);
+        }
+        List<DatasetScopeCondition> scopeConditions = roleDatasetScopeService.resolveConditions(datasetId);
+        String type = asString(dataset.get("type"));
+        if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
+            String sql = DashboardSqlGuard.requireReadOnly(asString(dataset.get("sql")));
+            String dataSourceId = asString(dataset.get("dataSourceId"));
+            if (dataSourceId == null || dataSourceId.isBlank()) {
+                throw new IllegalArgumentException("SQL 数据集未绑定数据源");
+            }
+            DataSourceDTO dataSource = dataSourceService
+                .findOne(dataSourceId)
+                .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + dataSourceId));
+            if (!scopeConditions.isEmpty() && isElasticsearch(dataSource)) {
+                throw new IllegalArgumentException("Elasticsearch 数据源暂不支持数据集行级数据权限");
+            }
+            String effectiveSql = neutralizeEmptyParams(sql, Map.of());
+            String renderedSql = renderSql(effectiveSql, Map.of());
+            String scopedSql = DatasetScopeSqlBuilder.wrap(renderedSql, scopeConditions, fieldNames);
+            return pageFieldValues(dataSource, scopedSql, column, keyword, page, size);
+        }
+        MetricQueryDTO dto = buildMetricQueryDTO(dataset, List.of(), Map.of());
+        MetricQueryService.QueryPlan plan = metricQueryService.plan(dto);
+        String scopedSql = DatasetScopeSqlBuilder.wrap(plan.sql(), scopeConditions, fieldNames);
+        return pageFieldValues(plan.dataSource(), scopedSql, column, keyword, page, size);
+    }
+
+    private Map<String, Object> pageFieldValues(
+        DataSourceDTO dataSource,
+        String baseSql,
+        String fieldName,
+        String keyword,
+        Integer page,
+        Integer size
+    ) throws SQLException {
+        int pageSize = size == null ? 20 : Math.max(1, Math.min(size, 100));
+        int currentPage = page == null || page < 1 ? 1 : page;
+        long offset = (long) (currentPage - 1) * pageSize;
+        List<String> values = queryFieldValues(
+            dataSource,
+            DatasetFieldValueSqlBuilder.buildValueQuery(baseSql, fieldName, keyword, pageSize, offset)
+        );
+        long total = countFieldValues(dataSource, baseSql, fieldName, keyword, offset + values.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("values", values);
+        result.put("total", total);
+        result.put("page", currentPage);
+        result.put("size", pageSize);
+        return result;
+    }
+
+    private List<String> queryFieldValues(DataSourceDTO dataSource, String sql) throws SQLException {
+        Map<String, Object> result = dataSourceQueryService.executeQuery(dataSource, sql);
+        List<String> values = new ArrayList<>();
+        if (result.get("rows") instanceof List<?> rows) {
+            for (Object row : rows) {
+                if (row instanceof Map<?, ?> map && !map.isEmpty()) {
+                    Object value = map.values().iterator().next();
+                    if (value != null && !String.valueOf(value).isBlank()) {
+                        values.add(String.valueOf(value));
+                    }
+                }
+            }
+        }
+        return values;
+    }
+
+    private long countFieldValues(
+        DataSourceDTO dataSource,
+        String baseSql,
+        String fieldName,
+        String keyword,
+        long fallback
+    ) {
+        try {
+            Map<String, Object> result = dataSourceQueryService.executeQuery(
+                dataSource,
+                DatasetFieldValueSqlBuilder.buildCountQuery(baseSql, fieldName, keyword)
+            );
+            if (result.get("rows") instanceof List<?> rows && !rows.isEmpty()) {
+                Object row = rows.get(0);
+                if (row instanceof Map<?, ?> map && !map.isEmpty()) {
+                    Object value = map.values().iterator().next();
+                    if (value instanceof Number number) {
+                        return number.longValue();
+                    }
+                    if (value != null) {
+                        return Long.parseLong(String.valueOf(value));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("统计数据集字段取值数量失败 {}: {}", fieldName, e.getMessage());
+        }
+        return fallback;
     }
 
     /**
@@ -132,13 +272,60 @@ public class DatasetQueryService {
         }
     }
 
+    /**
+     * 从数据集定义中解析当前输出字段名，用于校验数据权限条件引用的字段是否仍然存在。
+     */
+    @SuppressWarnings("unchecked")
+    private Set<String> resolveDatasetFieldNames(Map<String, Object> dataset) {
+        Object rawFields = dataset.get("fields");
+        if (rawFields == null) {
+            return Set.of();
+        }
+        Map<String, Object> fields;
+        try {
+            if (rawFields instanceof Map<?, ?> map) {
+                fields = new LinkedHashMap<>((Map<String, Object>) map);
+            } else {
+                fields = objectMapper.readValue(String.valueOf(rawFields), new TypeReference<Map<String, Object>>() {});
+            }
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            return Set.of();
+        }
+        Object rawColumns = fields.get("columns");
+        if (!(rawColumns instanceof List<?> columns)) {
+            return Set.of();
+        }
+        Set<String> names = new LinkedHashSet<>();
+        for (Object rawColumn : columns) {
+            if (rawColumn instanceof Map<?, ?> column) {
+                String name = asString(column.get("name"));
+                if (name != null && !name.isBlank()) {
+                    names.add(name);
+                }
+            } else if (rawColumn != null && !String.valueOf(rawColumn).isBlank()) {
+                names.add(String.valueOf(rawColumn));
+            }
+        }
+        return names;
+    }
+
     // ------------------------------------------------------------- metric data
 
     private Map<String, Object> queryMetricDataset(
         Map<String, Object> dataset,
         List<Map<String, Object>> filters,
-        Map<String, Object> filterValues
+        Map<String, Object> filterValues,
+        List<DatasetScopeCondition> scopeConditions
     ) throws SQLException {
+        MetricQueryDTO dto = buildMetricQueryDTO(dataset, filters, filterValues);
+        return metricQueryService.query(dto, scopeConditions);
+    }
+
+    private MetricQueryDTO buildMetricQueryDTO(
+        Map<String, Object> dataset,
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues
+    ) {
         Map<String, Object> metricQuery = asMap(dataset.get("metricQuery"));
         MetricQueryDTO dto = new MetricQueryDTO();
         dto.setMetricCodes(asStringList(metricQuery.get("metricCodes")));
@@ -195,7 +382,7 @@ public class DatasetQueryService {
                 throw new IllegalArgumentException("筛选条件序列化失败：" + e.getOriginalMessage());
             }
         }
-        return metricQueryService.query(dto);
+        return dto;
     }
 
     private MetricFilterCondition buildDimensionCondition(String filterType, Map<String, Object> binding, Object value) {
@@ -261,7 +448,9 @@ public class DatasetQueryService {
         String fallbackDataSourceId,
         Map<String, Object> dataset,
         List<Map<String, Object>> filters,
-        Map<String, Object> filterValues
+        Map<String, Object> filterValues,
+        List<DatasetScopeCondition> scopeConditions,
+        Set<String> scopeFields
     ) throws SQLException {
         String sql = DashboardSqlGuard.requireReadOnly(asString(dataset.get("sql")));
         String dataSourceId = asString(dataset.get("dataSourceId"));
@@ -275,14 +464,22 @@ public class DatasetQueryService {
         DataSourceDTO dataSource = dataSourceService
             .findOne(resolvedDataSourceId)
             .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + resolvedDataSourceId));
+        if (!scopeConditions.isEmpty() && isElasticsearch(dataSource)) {
+            throw new IllegalArgumentException("Elasticsearch 数据源暂不支持数据集行级数据权限");
+        }
 
         Map<String, Object> namedParams = collectSqlParams(dataset, filters, filterValues);
         String effectiveSql = neutralizeEmptyParams(sql, namedParams);
         String renderedSql = renderSql(effectiveSql, namedParams);
+        String scopedSql = DatasetScopeSqlBuilder.wrap(renderedSql, scopeConditions, scopeFields);
 
-        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, renderedSql));
+        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, scopedSql));
         result.put("sql", sql);
         return result;
+    }
+
+    private static boolean isElasticsearch(DataSourceDTO dataSource) {
+        return dataSource != null && "ELASTICSEARCH".equalsIgnoreCase(dataSource.getType());
     }
 
     private Map<String, Object> collectSqlParams(

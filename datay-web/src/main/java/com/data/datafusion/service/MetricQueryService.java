@@ -6,6 +6,8 @@ import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dataset.DatasetScopeCondition;
+import com.data.datafusion.service.dataset.DatasetScopeSqlBuilder;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
@@ -145,17 +147,51 @@ public class MetricQueryService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> query(MetricQueryDTO dto) throws SQLException {
+        return query(dto, List.of());
+    }
+
+    /**
+     * 执行公共指标查询，并在结果集外层叠加数据集行级数据权限条件。
+     * <p>
+     * 指标数据集本身已包含基于维度成员的数据权限，这里再按数据集输出字段做行级过滤，
+     * 从而让指标数据集与 SQL 数据集共用同一套数据集权限语义。
+     *
+     * @param dto               指标查询请求
+     * @param datasetConditions 当前用户在该数据集上生效的行级过滤条件，可为空
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> query(MetricQueryDTO dto, List<DatasetScopeCondition> datasetConditions) throws SQLException {
+        QueryPlan plan = plan(dto);
+        String effectiveSql = DatasetScopeSqlBuilder.wrap(plan.sql(), datasetConditions, null);
+        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(plan.dataSource(), effectiveSql));
+        result.put("columnLabels", plan.columnLabels());
+        result.put("sql", effectiveSql);
+        return result;
+    }
+
+    /**
+     * 解析指标查询计划：SQL、目标数据源与列标签。
+     * <p>
+     * 供数据集取值等需要基于指标查询结果二次查询的场景复用，避免重复构建 SQL。
+     */
+    @Transactional(readOnly = true)
+    public QueryPlan plan(MetricQueryDTO dto) {
         QueryContext context = prepare(dto);
         String dataSourceId = validateDataSource(context);
         DataSourceDTO dataSource = dataSourceService
             .findOne(dataSourceId)
             .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + dataSourceId));
-        String sql = buildSql(context);
-        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, sql));
-        result.put("columnLabels", buildColumnLabels(context));
-        result.put("sql", sql);
-        return result;
+        return new QueryPlan(buildSql(context), dataSource, buildColumnLabels(context));
     }
+
+    /**
+     * 指标查询执行计划。
+     *
+     * @param sql           指标查询 SQL
+     * @param dataSource    目标数据源
+     * @param columnLabels  输出列标签
+     */
+    public record QueryPlan(String sql, DataSourceDTO dataSource, Map<String, String> columnLabels) {}
 
     /**
      * 构建列标签：维度展示字段使用字段描述（为空回退字段名），指标使用指标名称（为空回退编码）。

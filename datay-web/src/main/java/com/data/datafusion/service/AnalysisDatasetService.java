@@ -44,6 +44,7 @@ public class AnalysisDatasetService {
     private final AnalysisDatasetMapper mapper;
     private final AnalysisDatasetResolver datasetResolver;
     private final DatasetQueryService datasetQueryService;
+    private final RoleDatasetScopeService roleDatasetScopeService;
     private final ObjectMapper objectMapper;
 
     public AnalysisDatasetService(
@@ -52,6 +53,7 @@ public class AnalysisDatasetService {
         AnalysisDatasetMapper mapper,
         AnalysisDatasetResolver datasetResolver,
         DatasetQueryService datasetQueryService,
+        RoleDatasetScopeService roleDatasetScopeService,
         ObjectMapper objectMapper
     ) {
         this.repository = repository;
@@ -59,6 +61,7 @@ public class AnalysisDatasetService {
         this.mapper = mapper;
         this.datasetResolver = datasetResolver;
         this.datasetQueryService = datasetQueryService;
+        this.roleDatasetScopeService = roleDatasetScopeService;
         this.objectMapper = objectMapper;
     }
 
@@ -130,6 +133,8 @@ public class AnalysisDatasetService {
         if (references > 0) {
             throw new IllegalArgumentException("数据集正被 " + references + " 个看板引用，请先解除引用后再删除");
         }
+        // 数据集权限规则依附于数据集，删除数据集时一并清理，避免残留孤儿规则
+        roleDatasetScopeService.deleteByDatasetId(id);
         repository.deleteById(id);
     }
 
@@ -141,7 +146,13 @@ public class AnalysisDatasetService {
             .findById(id)
             .orElseThrow(() -> new IllegalArgumentException("数据集不存在：" + id));
         Map<String, Object> dataset = toQueryDataset(entity);
-        Map<String, Object> result = datasetQueryService.query(dataset, entity.getDataSourceId(), List.of(), filterValues);
+        Map<String, Object> result = datasetQueryService.query(
+            dataset,
+            entity.getDataSourceId(),
+            List.of(),
+            filterValues,
+            entity.getId()
+        );
         cacheFields(entity, result);
         return result;
     }
@@ -154,7 +165,7 @@ public class AnalysisDatasetService {
         String type = normalizeType(dto.getType());
         String definition = normalizeDefinition(type, dto.getDefinition(), dto.getDataSourceId());
         Map<String, Object> dataset = buildQueryDataset("__preview__", type, definition, dto.getDataSourceId());
-        return datasetQueryService.query(dataset, dto.getDataSourceId(), List.of(), filterValues);
+        return datasetQueryService.query(dataset, dto.getDataSourceId(), List.of(), filterValues, null);
     }
 
     /**

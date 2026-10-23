@@ -35,6 +35,7 @@ class AnalysisDatasetServiceTest {
     private AnalysisDashboardRepository dashboardRepository;
     private AnalysisDatasetResolver resolver;
     private DatasetQueryService queryService;
+    private RoleDatasetScopeService roleDatasetScopeService;
     private AnalysisDatasetService service;
 
     @BeforeEach
@@ -43,12 +44,14 @@ class AnalysisDatasetServiceTest {
         dashboardRepository = mock(AnalysisDashboardRepository.class);
         resolver = mock(AnalysisDatasetResolver.class);
         queryService = mock(DatasetQueryService.class);
+        roleDatasetScopeService = mock(RoleDatasetScopeService.class);
         service = new AnalysisDatasetService(
             repository,
             dashboardRepository,
             mock(AnalysisDatasetMapper.class),
             resolver,
             queryService,
+            roleDatasetScopeService,
             new ObjectMapper()
         );
     }
@@ -74,6 +77,7 @@ class AnalysisDatasetServiceTest {
         service.delete("lib-1");
 
         verify(repository).deleteById("lib-1");
+        verify(roleDatasetScopeService).deleteByDatasetId("lib-1");
     }
 
     @Test
@@ -122,7 +126,7 @@ class AnalysisDatasetServiceTest {
         entity.setFields("{\"columns\":[{\"name\":\"amount\",\"description\":\"成交金额\",\"type\":\"number\",\"primaryKey\":true}]}");
         when(repository.findById("ds-1")).thenReturn(Optional.of(entity));
         when(resolver.parseDefinition(anyString())).thenReturn(Map.of("sql", "SELECT region, amount FROM orders"));
-        when(queryService.query(any(), any(), any(), any())).thenReturn(
+        when(queryService.query(any(), any(), any(), any(), any())).thenReturn(
             Map.of(
                 "columns",
                 List.of("region", "amount", "quantity"),

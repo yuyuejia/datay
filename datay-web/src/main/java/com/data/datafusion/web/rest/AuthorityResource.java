@@ -3,6 +3,7 @@ package com.data.datafusion.web.rest;
 import com.data.datafusion.domain.Authority;
 import com.data.datafusion.repository.AuthorityRepository;
 import com.data.datafusion.repository.RoleDataScopeRepository;
+import com.data.datafusion.repository.RoleDatasetScopeRepository;
 import com.data.datafusion.repository.UserRepository;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
@@ -49,15 +50,18 @@ public class AuthorityResource {
     private final AuthorityRepository authorityRepository;
     private final UserRepository userRepository;
     private final RoleDataScopeRepository roleDataScopeRepository;
+    private final RoleDatasetScopeRepository roleDatasetScopeRepository;
 
     public AuthorityResource(
         AuthorityRepository authorityRepository,
         UserRepository userRepository,
-        RoleDataScopeRepository roleDataScopeRepository
+        RoleDataScopeRepository roleDataScopeRepository,
+        RoleDatasetScopeRepository roleDatasetScopeRepository
     ) {
         this.authorityRepository = authorityRepository;
         this.userRepository = userRepository;
         this.roleDataScopeRepository = roleDataScopeRepository;
+        this.roleDatasetScopeRepository = roleDatasetScopeRepository;
     }
 
     /**
@@ -156,6 +160,9 @@ public class AuthorityResource {
         }
         if (!roleDataScopeRepository.findByRoleName(id).isEmpty()) {
             throw new BadRequestAlertException("该角色存在数据权限规则，请先在数据权限中删除", ENTITY_NAME, "hasScope");
+        }
+        if (!roleDatasetScopeRepository.findByRoleName(id).isEmpty()) {
+            throw new BadRequestAlertException("该角色存在数据集数据权限规则，请先在数据权限中删除", ENTITY_NAME, "hasDatasetScope");
         }
         authorityRepository.deleteById(id);
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
