@@ -102,7 +102,7 @@ class ElasticsearchConnectionTest {
     }
 
     @Test
-    void testsConnection() {
+    void testsConnection() throws Exception {
         assertTrue(connection().testConnection());
     }
 

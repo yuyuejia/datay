@@ -154,7 +154,7 @@ class InfluxDbConnectionTest {
     // ------------------------------------------------------------------ 通用
 
     @Test
-    void testsConnectionViaPing() {
+    void testsConnectionViaPing() throws Exception {
         assertTrue(v1Connection().testConnection());
         assertTrue(v2Connection().testConnection());
     }
