@@ -238,7 +238,8 @@ export const dbTypes: DbType[] = [
     supportedVersions: ['2008', '2012', '2014', '2016', '2017', '2019', '2022'],
     defaultPort: '1433',
     image: '/content/images/sqlserver.svg',
-    schemaEnabled: true,
+    // SQL Server 以「数据库 + schema」定位表，无需配置默认 Schema；保存时清空该字段
+    clearSchemaOnSave: true,
   },
   {
     name: 'DUCKDB',
