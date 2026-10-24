@@ -143,13 +143,9 @@ public class ElasticsearchConnection implements DataSourceConnection {
     }
 
     @Override
-    public boolean testConnection() {
-        try {
-            request("GET", "/", null);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+    public boolean testConnection() throws Exception {
+        request("GET", "/", null);
+        return true;
     }
 
     // ------------------------------------------------------------------ query

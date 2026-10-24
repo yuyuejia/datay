@@ -146,6 +146,29 @@ describe('Component Tests', () => {
       });
     });
 
+    describe('Test connection', () => {
+      it('Should show detailed reason when test fails', async () => {
+        const wrapper = shallowMount(DataSourceUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataSource = {
+          type: 'MYSQL',
+          url: 'jdbc:mysql://127.0.0.1:3306/demo',
+          hostname: '127.0.0.1',
+          port: '3306',
+          database: 'demo',
+          username: 'root',
+        };
+        const message = '连接测试失败：Connection refused（请检查端口是否开放、数据库服务是否已启动）';
+        dataSourceServiceStub.testConnection.resolves({ success: false, message });
+        const showErrorDetail = vitest.spyOn(alertService, 'showErrorDetail');
+
+        await comp.testConnection();
+
+        expect(showErrorDetail).toHaveBeenCalledWith('连接测试失败', message);
+        expect(comp.isTestingConnection).toEqual(false);
+      });
+    });
+
     describe('Url mode switch', () => {
       it('Should preserve the custom url when switching to simple and back to custom', async () => {
         // GIVEN

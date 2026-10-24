@@ -502,7 +502,7 @@ export default defineComponent({
         if (result.success) {
           alertService.showSuccess(result.message || '连接测试成功');
         } else {
-          alertService.showError(result.message || '连接测试失败');
+          alertService.showErrorDetail('连接测试失败', result.message || '连接测试失败，请检查数据源配置');
         }
       } catch (error) {
         alertService.showHttpError(error.response);

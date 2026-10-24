@@ -205,10 +205,10 @@ public class DataSourceHarnessTools {
                     dto.setPassword(str(args, "password"));
                     dto.setExtraParams(asStringMap(mapVal(args, "extraParams")));
                 }
-                boolean success = dataSourceService.testConnection(dto);
+                DataSourceService.ConnectionTestResult testResult = dataSourceService.testConnectionWithDetail(dto);
                 Map<String, Object> result = new LinkedHashMap<>();
-                result.put("success", success);
-                result.put("message", success ? "连接测试成功" : "连接测试失败");
+                result.put("success", testResult.success());
+                result.put("message", testResult.message());
                 result.put("target", id == null ? dto.getUrl() : "datasource#" + id);
                 return result;
             }

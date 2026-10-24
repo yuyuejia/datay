@@ -1,4 +1,4 @@
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const toMessageType = (variant?: string): 'success' | 'warning' | 'info' | 'error' => {
   switch (variant) {
@@ -31,6 +31,17 @@ export default class AlertService {
 
   showError(toastMessage: string) {
     this.show(toastMessage, { variant: 'danger' });
+  }
+
+  /**
+   * 以弹窗展示需要用户仔细阅读的错误详情（例如连接测试失败原因）。
+   */
+  showErrorDetail(title: string, message: string) {
+    return ElMessageBox.alert(message, title, {
+      type: 'error',
+      confirmButtonText: '知道了',
+      closeOnClickModal: false,
+    }).catch(() => undefined);
   }
 
   private show(message: string, options: { variant?: string; [key: string]: any }) {

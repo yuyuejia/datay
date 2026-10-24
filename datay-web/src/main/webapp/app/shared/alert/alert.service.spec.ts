@@ -1,9 +1,12 @@
 import { vitest } from 'vitest';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import AlertService from './alert.service';
 
 vitest.mock('element-plus', () => ({
   ElMessage: vitest.fn(),
+  ElMessageBox: {
+    alert: vitest.fn().mockResolvedValue('confirm'),
+  },
 }));
 
 describe('Alert Service test suite', () => {
@@ -23,6 +26,16 @@ describe('Alert Service test suite', () => {
         message: 'translatedMessage',
         type: 'error',
       }),
+    );
+  });
+
+  it('should show detailed error in a dialog', () => {
+    alertService.showErrorDetail('连接测试失败', '连接测试失败：Connection refused（请检查端口是否开放）');
+
+    expect(ElMessageBox.alert).toHaveBeenCalledWith(
+      '连接测试失败：Connection refused（请检查端口是否开放）',
+      '连接测试失败',
+      expect.objectContaining({ type: 'error' }),
     );
   });
 

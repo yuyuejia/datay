@@ -368,10 +368,10 @@ public class DataSourceResource {
     @PostMapping("/test-connection")
     public ResponseEntity<Map<String, Object>> testConnection(@RequestBody DataSourceDTO dataSourceDTO) {
         LOG.debug("REST request to test DataSource connection : {}", dataSourceDTO);
-        boolean success = dataSourceService.testConnection(dataSourceDTO);
+        DataSourceService.ConnectionTestResult testResult = dataSourceService.testConnectionWithDetail(dataSourceDTO);
         Map<String, Object> result = new HashMap<>();
-        result.put("success", success);
-        result.put("message", success ? "连接测试成功" : "连接测试失败");
+        result.put("success", testResult.success());
+        result.put("message", testResult.message());
         return ResponseEntity.ok().body(result);
     }
 

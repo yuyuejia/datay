@@ -252,13 +252,9 @@ public class MongoConnection implements DataSourceConnection {
     }
 
     @Override
-    public boolean testConnection() {
-        try {
-            client.getDatabase("admin").runCommand(new Document("ping", 1));
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+    public boolean testConnection() throws Exception {
+        client.getDatabase("admin").runCommand(new Document("ping", 1));
+        return true;
     }
 
     @Override

@@ -519,7 +519,7 @@ public class InfluxDbConnection implements DataSourceConnection {
     }
 
     @Override
-    public boolean testConnection() {
+    public boolean testConnection() throws Exception {
         try {
             request("GET", "/ping", null, null, null);
             return true;
@@ -528,7 +528,8 @@ public class InfluxDbConnection implements DataSourceConnection {
                 request("GET", "/health", null, null, "application/json");
                 return true;
             } catch (Exception healthFailed) {
-                return false;
+                healthFailed.addSuppressed(pingFailed);
+                throw healthFailed;
             }
         }
     }

@@ -9,6 +9,7 @@ import com.data.datasource.DataSourceProviderFactory;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class DataSourceService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataSourceService.class);
+
+    private static final int MAX_ERROR_DETAIL_LENGTH = 500;
 
     private final DataSourceRepository dataSourceRepository;
 
@@ -165,17 +168,102 @@ public class DataSourceService {
     }
 
     /**
+     * 测试数据源连接，并返回可直接展示给用户的失败原因。
+     *
+     * @param dataSourceDTO 数据源DTO
+     * @return 连接测试结果及提示信息
+     */
+    public ConnectionTestResult testConnectionWithDetail(DataSourceDTO dataSourceDTO) {
+        LOG.debug("Request to test DataSource connection: {}", dataSourceDTO);
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSourceDTO))) {
+            boolean success = connection.testConnection();
+            return new ConnectionTestResult(success, success ? "连接测试成功" : "连接测试失败：未能建立可用连接");
+        } catch (Exception e) {
+            String message = describeConnectionFailure(e);
+            LOG.warn("Data source connection test failed: {}", message, e);
+            return new ConnectionTestResult(false, message);
+        }
+    }
+
+    /**
      * 测试数据源连接
      * @param dataSourceDTO 数据源DTO
      * @return 连接测试结果，true表示连接成功，false表示连接失败
      */
     public boolean testConnection(DataSourceDTO dataSourceDTO) {
-        LOG.debug("Request to test DataSource connection: {}", dataSourceDTO);
-        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSourceDTO))) {
-            return connection.testConnection();
-        } catch (Exception e) {
-            LOG.debug("Data source connection test failed: {}", e.getMessage());
-            return false;
-        }
+        return testConnectionWithDetail(dataSourceDTO).success();
     }
+
+    /**
+     * 将连接异常转换为便于排查的提示：优先使用最底层原因，并针对常见错误补充处理建议。
+     */
+    static String describeConnectionFailure(Throwable error) {
+        Throwable root = error;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+
+        String detail = firstNonBlank(root.getMessage(), error.getMessage(), root.getClass().getSimpleName());
+        detail = detail.replaceAll("\\s+", " ").trim();
+        detail = detail.replaceAll("(?i)(password|pwd)\\s*[=:]\\s*[^;&\\s]+", "$1=***");
+        if (detail.length() > MAX_ERROR_DETAIL_LENGTH) {
+            detail = detail.substring(0, MAX_ERROR_DETAIL_LENGTH) + "…";
+        }
+
+        String hint = connectionFailureHint(detail);
+        return hint == null ? "连接测试失败：" + detail : "连接测试失败：" + detail + "（" + hint + "）";
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "未知错误";
+    }
+
+    private static String connectionFailureHint(String detail) {
+        String lower = detail.toLowerCase(Locale.ROOT);
+        if (
+            lower.contains("access denied") ||
+            lower.contains("authentication failed") ||
+            lower.contains("invalid username/password") ||
+            lower.contains("login failed")
+        ) {
+            return "请检查用户名、密码及账号权限";
+        }
+        if (lower.contains("unknown database") || (lower.contains("database") && lower.contains("does not exist"))) {
+            return "请检查数据库名是否存在";
+        }
+        if (
+            lower.contains("unknownhost") ||
+            lower.contains("unknown host") ||
+            lower.contains("name or service not known") ||
+            lower.contains("nodename nor servname")
+        ) {
+            return "请检查主机地址或 DNS 解析";
+        }
+        if (lower.contains("connection refused") || lower.contains("connectexception")) {
+            return "请检查端口是否开放、数据库服务是否已启动";
+        }
+        if (lower.contains("timed out") || lower.contains("timeout")) {
+            return "请检查网络连通性、防火墙或超时配置";
+        }
+        if (lower.contains("no suitable driver") || lower.contains("classnotfound") || lower.contains("driver class")) {
+            return "请检查 JDBC URL、驱动类名及驱动文件";
+        }
+        if (lower.contains("public key retrieval")) {
+            return "请在 JDBC URL 中增加 allowPublicKeyRetrieval=true";
+        }
+        if (lower.contains("ssl")) {
+            return "请检查 SSL 相关连接参数";
+        }
+        return null;
+    }
+
+    /**
+     * 连接测试结果。
+     */
+    public record ConnectionTestResult(boolean success, String message) {}
 }
