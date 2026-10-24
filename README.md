@@ -164,6 +164,12 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **文件系统**: 本地文件、MinIO对象存储
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, MongoDB Change Streams
 
+## 开源协议
+
+本项目采用 [Apache License 2.0](LICENSE)。
+
+该协议适用于仓库内的全部自有代码，包括 `datay-core` 引擎、`datay-web` 后端（Spring Boot）与 Vue 前端；各模块不设单独的授权范围。`datay-web/package.json` 中的 `private: true` 仅表示该 npm 包不发布到公共 registry，与授权无关。第三方依赖、JDBC 驱动及随附组件仍遵循各自许可证。
+
 ## 联系方式
 
 有问题或建议，请通过项目Issue或加微信号进行反馈，我们会尽快回复您。

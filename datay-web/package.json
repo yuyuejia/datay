@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Description for Datafusion",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "scripts": {
     "app:start": "./mvnw -ntp --batch-mode",
     "app:up": "docker compose -f src/main/docker/app.yml up --wait",

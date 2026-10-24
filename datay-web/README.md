@@ -307,6 +307,10 @@ OpenAI / DeepSeek / 通义千问 / Ollama 等只要兼容该协议，替换 `bas
 npm run lint
 ```
 
+## 开源协议
+
+`datay-web`（含 Spring Boot 后端与 Vue 前端）采用 [Apache License 2.0](../LICENSE)，与仓库根目录一致，无独立授权范围。`package.json` 中的 `private: true` 仅表示不发布到公共 npm registry；`license` 字段已同步为 `Apache-2.0`。JHipster 脚手架默认生成的 `UNLICENSED` 不代表本项目授权。第三方依赖遵循各自许可证。
+
 ## 联系方式
 
 产品不断完善中，如有问题或建议，请通过项目 Issue 反馈，我们会尽快回复您。支持个性化需求，可以加微信联系我们。
