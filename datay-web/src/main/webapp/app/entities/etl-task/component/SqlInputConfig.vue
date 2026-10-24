@@ -1,16 +1,23 @@
 <template>
   <el-form name="editForm" label-position="top">
     <el-form-item label="数据源">
-      <DataSourceSelector
-        type="source"
-        :datasourceId="formData.sourceId"
-        :schema="formData.schema"
-        @selected="handleDataSourceSelected"
-      />
+      <DataSourceSelector type="source" :datasourceId="formData.sourceId" :schema="formData.schema" @selected="handleDataSourceSelected" />
     </el-form-item>
-    <el-form-item label="SQL语句">
-      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入SQL查询语句，留空则使用上游FlowFile中的SQL" />
-      <small class="form-text text-muted"> 支持标准SQL语法，留空时将使用上游传递的SQL语句 </small>
+    <el-form-item>
+      <template #label>SQL语句 <DynamicParameterHelp /></template>
+      <el-input
+        type="textarea"
+        id="sql"
+        name="sql"
+        v-model="formData.sql"
+        :rows="8"
+        :maxlength="5000"
+        placeholder="请输入SQL查询语句，留空则使用上游FlowFile中的SQL"
+      />
+      <small class="form-text text-muted">
+        支持标准SQL语法和动态参数：<code>${attr:属性名}</code> / <code>${属性名}</code> / <code>${FLOW_FILE_DATA}</code> /
+        <code>#{内置参数}</code>；<code>${属性名}</code> 可引用上游属性或单行数据字段；留空时将使用上游传递的完整SQL语句
+      </small>
     </el-form-item>
   </el-form>
 </template>
@@ -20,6 +27,7 @@ import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
+import DynamicParameterHelp from '../DynamicParameterHelp.vue';
 
 const props = defineProps({
   node: Object,

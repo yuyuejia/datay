@@ -123,6 +123,7 @@ public class Example {
 
 ### 输入组件
 - [StreamJdbcInput](docs/component/StreamJdbcInput.md) : JDBC数据源输入
+- [SqlInput](docs/component/SqlInput.md) : 执行自定义 SQL 查询，支持上游动态 SQL 与动态参数
 - [JdbcInput](docs/component/JdbcInput.md) : JDBC数据源输入
 - [MySQLBinlogInput](docs/component/MySQLBinlogInput.md) : 读取MySQL Binlog日志,支持增量数据同步
 - [PostgresCDCInput](docs/component/PostgresCDCInput.md) : 基于PostgreSQL逻辑复制(WAL/pgoutput)实时捕获数据变更
