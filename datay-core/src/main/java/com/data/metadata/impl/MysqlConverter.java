@@ -74,7 +74,7 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), MysqlType.DOUBLE.name());
         commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), MysqlType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.NUMBER.name(), MysqlType.DECIMAL.name());
-        commonDataType2ColumnType.put(AllDataType.MONEY.name(), MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), MysqlType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.BINARY.name(), MysqlType.BINARY.name());
         commonDataType2ColumnType.put(AllDataType.BYTEA.name(), MysqlType.BLOB.name());
         commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), MysqlType.DOUBLE.name());
@@ -86,6 +86,7 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.LONGBLOB.name(), MysqlType.LONGBLOB.name());
         commonDataType2ColumnType.put(AllDataType.DATE.name(), MysqlType.DATE.name());
         commonDataType2ColumnType.put(AllDataType.TIME.name(), MysqlType.TIME.name());
+        commonDataType2ColumnType.put(AllDataType.DATETIME.name(), MysqlType.DATETIME.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP.name(), MysqlType.DATETIME.name());
         commonDataType2ColumnType.put(AllDataType.TIMESTAMP_6.getName(), MysqlType.DATETIME.name());
         commonDataType2ColumnType.put(AllDataType.TIME_WITH_TIME_ZONE.name(), MysqlType.TIME.name());
@@ -98,6 +99,23 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.JSON.name(), MysqlType.JSON.name());
 
         commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), MysqlType.VARCHAR.name());
+
+        // SQL Server 物理类型名（JDBC 元数据直接返回的 TYPE_NAME）
+        commonDataType2ColumnType.put("SMALLMONEY", MysqlType.DECIMAL.name());
+        commonDataType2ColumnType.put("DATETIME2", MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put("SMALLDATETIME", MysqlType.DATETIME.name());
+        commonDataType2ColumnType.put("TIMESTAMP_NS", MysqlType.DATETIME.name());
+        // MySQL 无时区时间类型，用字符串保留原始偏移，避免时区换算丢信息
+        commonDataType2ColumnType.put("DATETIMEOFFSET", MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put("TIMESTAMPTZ", MysqlType.VARCHAR.name());
+        commonDataType2ColumnType.put("UNIQUEIDENTIFIER", MysqlType.CHAR.name());
+        commonDataType2ColumnType.put("NTEXT", MysqlType.LONGTEXT.name());
+        commonDataType2ColumnType.put("IMAGE", MysqlType.LONGBLOB.name());
+        commonDataType2ColumnType.put("REAL", MysqlType.FLOAT.name());
+        // SQL Server FLOAT 为 8 字节，映射为 DOUBLE 避免精度损失
+        commonDataType2ColumnType.put("FLOAT", MysqlType.DOUBLE.name());
+        // MySQL 侧用 TINYINT 表示 0/1，避免 BIT 在链路中类型不兼容
+        commonDataType2ColumnType.put("BIT", MysqlType.TINYINT.name());
     }
 
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
@@ -118,6 +136,13 @@ public class MysqlConverter implements TypeConverter {
         }
         if ("NUMBER".equals(upperType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 38 && columnMeta.getPrecision() > 0) {
             type = MysqlType.BIGINT.name();
+        }
+        // 超长字符串/二进制列（VARCHAR(MAX)/NVARCHAR(MAX)/VARBINARY(MAX)）映射为 LONGTEXT/LONGBLOB
+        if ("VARCHAR".equals(type) || "CHAR".equals(type) || "VARBINARY".equals(type) || "BINARY".equals(type)) {
+            int maxLength = ("VARCHAR".equals(type) || "CHAR".equals(type)) ? 16383 : 16383;
+            if (columnMeta.getLength() > maxLength) {
+                type = ("VARBINARY".equals(type) || "BINARY".equals(type)) ? MysqlType.LONGBLOB.name() : MysqlType.LONGTEXT.name();
+            }
         }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
         column.setLength(columnMeta.getLength());
@@ -286,7 +311,13 @@ public class MysqlConverter implements TypeConverter {
             // 这些类型必须明确指定长度
             int length = column.getLength() > 0 && column.getLength() <= 16383 ? column.getLength() : getDefaultLength(typeUpper);
             sb.append(column.getType()).append("(").append(length).append(")");
-        } else if (typeUpper.matches("DECIMAL|NUMERIC|FLOAT|DOUBLE")) {
+        } else if (typeUpper.matches("DATETIME|TIMESTAMP|TIME")) {
+            sb.append(typeUpper);
+            int scale = Math.min(Math.max(column.getScale(), 0), 6);
+            if (scale > 0) {
+                sb.append("(").append(scale).append(")");
+            }
+        } else if (typeUpper.matches("DECIMAL|NUMERIC")) {
             // 处理精度和小数位
             if (column.getPrecision() <= 0) {
                 sb.append(column.getType());

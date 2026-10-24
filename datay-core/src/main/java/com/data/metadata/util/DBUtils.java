@@ -32,6 +32,7 @@ import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -336,6 +337,12 @@ public class DBUtils {
                 appender.append((byte) (toBoolean(value) ? 1 : 0));
             } else if ("BLOB".equals(type) || "BINARY".equals(type) || "VARBINARY".equals(type)) {
                 appender.append(toByteArray(value));
+            } else if ("UUID".equals(type)) {
+                appender.append(toUuid(value));
+            } else if ("TIMESTAMP_NS".equals(type)) {
+                appender.append(toLocalDateTime(value));
+            } else if ("TIMESTAMPTZ".equals(type) || type.contains("WITH TIME ZONE")) {
+                appender.append(toOffsetDateTime(value));
             } else if ("DATE".equals(type)) {
                 appender.append(toLocalDate(value));
             } else if ("TIME".equals(type)) {
@@ -419,6 +426,29 @@ public class DBUtils {
         return LocalTime.parse(value.toString());
     }
 
+    private static UUID toUuid(Object value) {
+        if (value instanceof UUID) {
+            return (UUID) value;
+        }
+        return UUID.fromString(value.toString().trim());
+    }
+
+    private static OffsetDateTime toOffsetDateTime(Object value) {
+        if (value instanceof OffsetDateTime) {
+            return (OffsetDateTime) value;
+        }
+        if (value instanceof java.time.ZonedDateTime) {
+            return ((java.time.ZonedDateTime) value).toOffsetDateTime();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toInstant().atOffset(ZoneOffset.UTC);
+        }
+        String text = value.toString().trim();
+        // 兼容 "2026-10-24 12:34:56.1234567 +08:00" 这类带空格的表示
+        text = text.replaceFirst(" ", "T").replaceAll("\\s+(?=[+-]\\d{2}:?\\d{2}$)", "");
+        return OffsetDateTime.parse(text);
+    }
+
     /**
      * 把来自 CDC 等场景的原始值规范化为 JDBC 可写入的目标类型。
      * <p>主要处理 MySQL Binlog 采集返回的 {@link java.util.Date}（按 UTC 记录无时区时间），
@@ -438,6 +468,13 @@ public class DBUtils {
                 return new String((byte[]) value, java.nio.charset.StandardCharsets.UTF_8);
             }
             return value;
+        }
+        if (value instanceof Boolean && (type.contains("INT") || type.startsWith("DECIMAL") || type.startsWith("NUMERIC"))) {
+            return ((Boolean) value) ? 1 : 0;
+        }
+        if (isTextType(fieldType) && !(value instanceof String) && !(value instanceof Number) && !(value instanceof Boolean)) {
+            // 时间、时区、UUID 等对象写入文本目标列时统一转字符串
+            return value.toString();
         }
         if (!(value instanceof java.util.Date)) {
             return value;

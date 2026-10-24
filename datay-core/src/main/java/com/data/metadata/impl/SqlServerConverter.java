@@ -33,10 +33,11 @@ public class SqlServerConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.INTEGER.name(), "INT");
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), "BIGINT");
         commonDataType2ColumnType.put(AllDataType.LARGEINT.name(), "DECIMAL");
-        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), "REAL");
+        commonDataType2ColumnType.put(AllDataType.FLOAT.name(), "FLOAT");
         commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), "REAL");
         commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), "FLOAT");
         commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), "FLOAT");
+        commonDataType2ColumnType.put("REAL", "REAL");
         commonDataType2ColumnType.put(AllDataType.BINARY_FLOAT.name(), "REAL");
         commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), "FLOAT");
         commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), "DECIMAL");
@@ -100,6 +101,22 @@ public class SqlServerConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.BIT.name(), "BIT");
         commonDataType2ColumnType.put(AllDataType.VARBIT.name(), "BIT");
 
+        // SQL Server 物理类型名（JDBC 元数据直接返回的 TYPE_NAME）
+        commonDataType2ColumnType.put("SMALLMONEY", "DECIMAL");
+        commonDataType2ColumnType.put("DATETIMEOFFSET", "DATETIMEOFFSET");
+        commonDataType2ColumnType.put("UNIQUEIDENTIFIER", "UNIQUEIDENTIFIER");
+        commonDataType2ColumnType.put("NTEXT", "NVARCHAR(MAX)");
+        commonDataType2ColumnType.put("IMAGE", "VARBINARY(MAX)");
+        commonDataType2ColumnType.put("SQL_VARIANT", "NVARCHAR(MAX)");
+        commonDataType2ColumnType.put("GEOGRAPHY", "NVARCHAR(MAX)");
+        commonDataType2ColumnType.put("GEOMETRY", "NVARCHAR(MAX)");
+        commonDataType2ColumnType.put("HIERARCHYID", "NVARCHAR(MAX)");
+        // DuckDB 等目标回流的时区类型
+        commonDataType2ColumnType.put("TIMESTAMPTZ", "DATETIMEOFFSET");
+        commonDataType2ColumnType.put("TIMESTAMP_NS", "DATETIME2");
+        commonDataType2ColumnType.put("TIMESTAMP WITH TIME ZONE", "DATETIMEOFFSET");
+        commonDataType2ColumnType.put("TIMESTAMP(6) WITH TIME ZONE", "DATETIMEOFFSET");
+
         // 其他类型统一退化为字符串
         for (String type : new String[] {
             AllDataType.INTERVAL.name(),
@@ -142,6 +159,21 @@ public class SqlServerConverter implements TypeConverter {
     }
 
     private String inferType(String upperType) {
+        if (upperType.startsWith("DATETIMEOFFSET")) {
+            return "DATETIMEOFFSET";
+        }
+        if (upperType.startsWith("SMALLMONEY") || upperType.startsWith("MONEY")) {
+            return "DECIMAL";
+        }
+        if (upperType.startsWith("UNIQUEIDENTIFIER")) {
+            return "UNIQUEIDENTIFIER";
+        }
+        if (upperType.equals("REAL")) {
+            return "REAL";
+        }
+        if (upperType.equals("FLOAT") || upperType.equals("DOUBLE") || upperType.equals("DOUBLE PRECISION")) {
+            return "FLOAT";
+        }
         if (upperType.startsWith("INT") || upperType.startsWith("MEDIUMINT")) {
             return "INT";
         }

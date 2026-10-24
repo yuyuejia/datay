@@ -29,6 +29,8 @@ public class DuckDBConverter implements TypeConverter {
         DATE,
         TIME,
         TIMESTAMP,
+        TIMESTAMP_NS,
+        TIMESTAMPTZ,
         TINYINT1,
         JSON,
     }
@@ -69,7 +71,7 @@ public class DuckDBConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.NUMERIC.name(), DuckDBType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.DECIMAL.name(), DuckDBType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.NUMBER.name(), DuckDBType.DECIMAL.name());
-        commonDataType2ColumnType.put(AllDataType.MONEY.name(), DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.MONEY.name(), DuckDBType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.BINARY.name(), DuckDBType.BLOB.name());
         commonDataType2ColumnType.put(AllDataType.BYTEA.name(), DuckDBType.BLOB.name());
         commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), DuckDBType.DOUBLE.name());
@@ -97,6 +99,21 @@ public class DuckDBConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.JSON.name(), DuckDBType.JSON.name());
 
         commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DuckDBType.VARCHAR.name());
+
+        // SQL Server 物理类型名（JDBC 元数据直接返回的 TYPE_NAME），保证跨库 ETL 类型不退化
+        commonDataType2ColumnType.put("SMALLMONEY", DuckDBType.DECIMAL.name());
+        commonDataType2ColumnType.put("REAL", DuckDBType.FLOAT.name());
+        commonDataType2ColumnType.put("DATETIME2", DuckDBType.TIMESTAMP_NS.name());
+        commonDataType2ColumnType.put("TIMESTAMP_NS", DuckDBType.TIMESTAMP_NS.name());
+        commonDataType2ColumnType.put("SMALLDATETIME", DuckDBType.TIMESTAMP.name());
+        commonDataType2ColumnType.put("DATETIMEOFFSET", DuckDBType.TIMESTAMPTZ.name());
+        commonDataType2ColumnType.put("TIMESTAMPTZ", DuckDBType.TIMESTAMPTZ.name());
+        commonDataType2ColumnType.put("UNIQUEIDENTIFIER", DuckDBType.UUID.name());
+        commonDataType2ColumnType.put("NTEXT", DuckDBType.VARCHAR.name());
+        commonDataType2ColumnType.put("IMAGE", DuckDBType.BLOB.name());
+        commonDataType2ColumnType.put("BIT", DuckDBType.BOOLEAN.name());
+        // SQL Server FLOAT 为 8 字节双精度，映射到 DOUBLE 避免精度损失
+        commonDataType2ColumnType.put("FLOAT", DuckDBType.DOUBLE.name());
     }
 
     public ColumnMeta toLogicalType(ColumnMeta columnMeta) {

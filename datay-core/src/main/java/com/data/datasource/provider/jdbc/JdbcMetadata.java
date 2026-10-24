@@ -1,6 +1,7 @@
 package com.data.datasource.provider.jdbc;
 
 import com.data.metadata.ColumnMeta;
+import com.data.metadata.DatabaseConverter;
 import com.data.metadata.IndexMeta;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
@@ -129,13 +130,34 @@ public final class JdbcMetadata {
 
                 int precision = -1;
                 int scale = -1;
+                String baseType = DatabaseConverter.stripTypeParameters(type == null ? "" : type.toUpperCase());
                 if (
-                    "NUMBER".equalsIgnoreCase(type) ||
-                    "DECIMAL".startsWith(type.toUpperCase()) ||
-                    "NUMERIC".equalsIgnoreCase(type) ||
-                    "FLOAT".equalsIgnoreCase(type) ||
-                    "DOUBLE".equalsIgnoreCase(type)
+                    "NUMBER".equals(baseType) ||
+                    "DECIMAL".equals(baseType) ||
+                    "NUMERIC".equals(baseType) ||
+                    "MONEY".equals(baseType) ||
+                    "SMALLMONEY".equals(baseType) ||
+                    "FLOAT".equals(baseType) ||
+                    "DOUBLE".equals(baseType)
                 ) {
+                    precision = size;
+                    scale = decimalDigits;
+                    // 部分驱动（如 DuckDB）只在 TYPE_NAME 中携带精度/小数位，如 DECIMAL(18,4)
+                    int[] parsed = DatabaseConverter.parseTypePrecisionScale(type == null ? "" : type.toUpperCase());
+                    if (parsed != null) {
+                        if (precision <= 0) {
+                            precision = parsed[0];
+                        }
+                        if (scale < 0) {
+                            scale = parsed[1];
+                        }
+                    }
+                } else if (
+                    baseType.startsWith("DATETIME") ||
+                    baseType.startsWith("TIMESTAMP") ||
+                    "TIME".equals(baseType)
+                ) {
+                    // 时间类型的 DECIMAL_DIGITS 表示小数秒精度，如 DATETIME2(7) / DATETIME(3) / TIME(6)
                     precision = size;
                     scale = decimalDigits;
                 }

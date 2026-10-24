@@ -13,6 +13,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -232,7 +234,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
                 for (int i = 1; i <= srcTable.columns().size(); i++) {
                     String columnName = rs.getMetaData().getColumnName(i);
                     int incrColumnSqlType = rs.getMetaData().getColumnType(i);
-                    Object value = rs.getObject(i);
+                    Object value = readColumnValue(rs, i, incrColumnSqlType, srcTable);
                     jsonRecord.put(columnName, value);
 
                     // 记录增量字段的最大值
@@ -272,6 +274,35 @@ public abstract class AbstractJdbcInput extends FlowComponent {
                 persistIncrStatus(srcTable, currentTableLastIncrValue);
             }
         }
+    }
+
+    /**
+     * 读取列值。
+     *
+     * <p>SQL Server 的 {@code TIME} 通过 {@code getObject} 返回 {@link java.sql.Time}（本地墙上时间），
+     * 后续按 UTC 还原会发生时区偏移（如 12:34 变 04:34），因此直接读取为 {@link LocalTime}。
+     */
+    protected Object readColumnValue(ResultSet rs, int index, int sqlType, TableMeta table) throws SQLException {
+        if (sqlType == Types.TIME) {
+            // JDBC 的 TIME 是本地墙上时间，直接读取为 LocalTime，避免按 UTC 还原导致时区偏移
+            try {
+                Object value = rs.getObject(index, LocalTime.class);
+                if (value != null) {
+                    return value;
+                }
+            } catch (SQLException | AbstractMethodError | UnsupportedOperationException e) {
+                // 驱动不支持 java.time 时退回 java.sql.Time
+            }
+            java.sql.Time time = rs.getTime(index);
+            return time == null ? null : time.toLocalTime();
+        }
+        if (table != null && "SQLSERVER".equalsIgnoreCase(table.getDbType())) {
+            String typeName = rs.getMetaData().getColumnTypeName(index);
+            if ("datetimeoffset".equalsIgnoreCase(typeName)) {
+                return rs.getObject(index, OffsetDateTime.class);
+            }
+        }
+        return rs.getObject(index);
     }
 
     /**
