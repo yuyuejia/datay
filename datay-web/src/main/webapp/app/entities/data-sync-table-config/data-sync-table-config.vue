@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dataSyncTableConfigs && dataSyncTableConfigs.length === 0">
       <span>No Data Sync Table Configs found</span>
     </div>
-    <div class="table-responsive" v-if="dataSyncTableConfigs && dataSyncTableConfigs.length > 0">
+    <div class="list-page-scroll" v-if="dataSyncTableConfigs && dataSyncTableConfigs.length > 0">
       <table class="table table-striped" aria-describedby="dataSyncTableConfigs">
         <thead>
           <tr>

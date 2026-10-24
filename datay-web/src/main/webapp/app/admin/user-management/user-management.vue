@@ -14,7 +14,7 @@
         </router-link>
       </div>
     </h2>
-    <div v-if="users">
+    <div v-if="users" class="list-page-scroll">
       <el-table :data="users" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="id" label="ID" sortable="custom" width="90">
           <template #default="{ row }">

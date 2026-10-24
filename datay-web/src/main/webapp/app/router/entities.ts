@@ -125,7 +125,7 @@ export default {
       path: "data-source",
       name: "DataSource",
       component: DataSource,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "data-source/new",
@@ -155,13 +155,13 @@ export default {
       path: "file-management",
       name: "FileManagement",
       component: FileManagement,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "job-instance",
       name: "JobInstance",
       component: JobInstance,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "job-instance/new",
@@ -185,7 +185,7 @@ export default {
       path: "job",
       name: "Job",
       component: Job,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "job/new",
@@ -209,7 +209,7 @@ export default {
       path: "dag-job",
       name: "DagJob",
       component: DagJob,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "dag-job/design-new",
@@ -227,7 +227,7 @@ export default {
       path: "job-depend",
       name: "JobDepend",
       component: JobDepend,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "job-depend/new",
@@ -251,7 +251,7 @@ export default {
       path: "data-sync",
       name: "DataSync",
       component: DataSync,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "data-sync/new",
@@ -275,7 +275,7 @@ export default {
       path: "data-sync-table-config",
       name: "DataSyncTableConfig",
       component: DataSyncTableConfig,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "data-sync-table-config/new",
@@ -299,7 +299,7 @@ export default {
       path: "etl-task",
       name: "ETLTask",
       component: ETLTask,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "etl-task/new",
@@ -335,7 +335,7 @@ export default {
       path: "etl-component",
       name: "ETLComponent",
       component: ETLComponent,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "etl-component/new",
@@ -359,7 +359,7 @@ export default {
       path: "etl-node",
       name: "ETLNode",
       component: ETLNode,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "etl-node/new",
@@ -383,7 +383,7 @@ export default {
       path: "etl-edge",
       name: "ETLEdge",
       component: ETLEdge,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "etl-edge/new",
@@ -407,7 +407,7 @@ export default {
       path: "dp-table",
       name: "DpTable",
       component: DpTable,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "dp-table/new",
@@ -461,7 +461,7 @@ export default {
       path: "data-model",
       name: "DataModel",
       component: DataModelList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "data-model/new",
@@ -479,7 +479,7 @@ export default {
       path: "metric",
       name: "Metric",
       component: MetricList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "metric/new",
@@ -503,7 +503,7 @@ export default {
       path: "data-api",
       name: "DataApi",
       component: DataApiList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "data-api/new",
@@ -521,7 +521,7 @@ export default {
       path: "sql-job",
       name: "SqlJob",
       component: SqlJob,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "sql-job/new",
@@ -539,7 +539,7 @@ export default {
       path: "shell-job",
       name: "ShellJob",
       component: ShellJob,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "shell-job/new",
@@ -557,7 +557,7 @@ export default {
       path: "analysis-dashboard",
       name: "AnalysisDashboard",
       component: AnalysisDashboardList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "analysis-dashboard/design",
@@ -575,7 +575,7 @@ export default {
       path: "analysis-dataset",
       name: "AnalysisDataset",
       component: AnalysisDatasetList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "analysis-dataset/edit",
@@ -587,7 +587,7 @@ export default {
       path: "app-package",
       name: "AppPackage",
       component: AppPackageList,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     {
       path: "app-package/export",
@@ -605,7 +605,7 @@ export default {
       path: "alert-center",
       name: "AlertCenter",
       component: AlertCenter,
-      meta: { authorities: [Authority.USER] },
+      meta: { listPage: true, authorities: [Authority.USER] },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here
   ],

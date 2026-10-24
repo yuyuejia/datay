@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && eTLEdges && eTLEdges.length === 0">
       <span>No ETL Edges found</span>
     </div>
-    <div class="table-responsive" v-if="eTLEdges && eTLEdges.length > 0">
+    <div class="list-page-scroll" v-if="eTLEdges && eTLEdges.length > 0">
       <table class="table table-striped" aria-describedby="eTLEdges">
         <thead>
           <tr>

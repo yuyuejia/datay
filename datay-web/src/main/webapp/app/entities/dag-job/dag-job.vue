@@ -29,7 +29,7 @@
     >
       <span>尚未创建任务编排，点击「新建编排」开始设计 DAG。</span>
     </div>
-    <div v-if="dagJobs && dagJobs.length > 0">
+    <div v-if="dagJobs && dagJobs.length > 0" class="list-page-scroll">
       <el-table
         :data="dagJobs"
         style="width: 100%"

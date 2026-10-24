@@ -15,7 +15,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dataApis && dataApis.length === 0">
       <span>未找到数据服务</span>
     </div>
-    <div v-if="dataApis && dataApis.length > 0">
+    <div v-if="dataApis && dataApis.length > 0" class="list-page-scroll">
       <el-table :data="dataApis" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="name" label="名称" sortable="custom" min-width="150"></el-table-column>
         <el-table-column prop="code" label="编码" sortable="custom" width="140"></el-table-column>

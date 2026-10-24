@@ -26,7 +26,7 @@
       </el-card>
     </div>
 
-    <el-tabs v-model="activeTab" class="alert-tabs">
+    <el-tabs v-model="activeTab" class="alert-tabs list-page-tabs">
       <el-tab-pane label="告警事件" name="events">
         <div class="toolbar">
           <el-select v-model="eventStatus" placeholder="全部状态" clearable style="width: 140px" @change="onSearch">
@@ -47,42 +47,44 @@
           <el-button @click="resetFilters">重置</el-button>
         </div>
 
-        <el-table v-loading="loading" :data="events" row-key="id" style="width: 100%">
-          <el-table-column label="级别" width="90" align="center">
-            <template #default="scope">
-              <el-tag :type="severityTagType(scope.row.severity)" size="small">{{ scope.row.severity || '-' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="告警" min-width="260">
-            <template #default="scope">
-              <el-link type="primary" :underline="false" @click="openEvent(scope.row)">{{ scope.row.title }}</el-link>
-              <div class="sub-text">{{ scope.row.jobName }}（{{ scope.row.jobCode }}）</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="事件" width="100" align="center">
-            <template #default="scope">{{ eventTypeLabel(scope.row.eventType) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="100" align="center">
-            <template #default="scope">
-              <el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="eventCount" label="次数" width="70" align="center" />
-          <el-table-column label="最近触发" width="160">
-            <template #default="scope">{{ dateFormat.formatDateShort(scope.row.lastSeen) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" size="small" @click="openEvent(scope.row)">详情</el-button>
-              <el-button v-if="scope.row.status === 'FIRING'" link type="warning" size="small" @click="acknowledgeEvent(scope.row)">
-                认领
-              </el-button>
-              <el-button v-if="scope.row.status !== 'RESOLVED'" link type="success" size="small" @click="resolveEvent(scope.row)">
-                恢复
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="list-page-scroll">
+          <el-table v-loading="loading" :data="events" row-key="id" style="width: 100%">
+            <el-table-column label="级别" width="90" align="center">
+              <template #default="scope">
+                <el-tag :type="severityTagType(scope.row.severity)" size="small">{{ scope.row.severity || '-' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="告警" min-width="260">
+              <template #default="scope">
+                <el-link type="primary" :underline="false" @click="openEvent(scope.row)">{{ scope.row.title }}</el-link>
+                <div class="sub-text">{{ scope.row.jobName }}（{{ scope.row.jobCode }}）</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="事件" width="100" align="center">
+              <template #default="scope">{{ eventTypeLabel(scope.row.eventType) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="100" align="center">
+              <template #default="scope">
+                <el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="eventCount" label="次数" width="70" align="center" />
+            <el-table-column label="最近触发" width="160">
+              <template #default="scope">{{ dateFormat.formatDateShort(scope.row.lastSeen) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="220" fixed="right">
+              <template #default="scope">
+                <el-button link type="primary" size="small" @click="openEvent(scope.row)">详情</el-button>
+                <el-button v-if="scope.row.status === 'FIRING'" link type="warning" size="small" @click="acknowledgeEvent(scope.row)">
+                  认领
+                </el-button>
+                <el-button v-if="scope.row.status !== 'RESOLVED'" link type="success" size="small" @click="resolveEvent(scope.row)">
+                  恢复
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <div class="pagination-bar">
           <el-pagination
@@ -104,48 +106,50 @@
             <span>新建规则</span>
           </el-button>
         </div>
-        <el-table :data="rules" row-key="id" style="width: 100%">
-          <el-table-column label="规则名称" min-width="220">
-            <template #default="scope">
-              <span>{{ scope.row.name }}</span>
-              <el-tag v-if="scope.row.defaultRule" type="info" size="small" class="ml-2">默认规则</el-tag>
-              <div class="sub-text">{{ scope.row.code }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="事件" width="150">
-            <template #default="scope">{{ (scope.row.eventType || '').split(',').map(eventTypeLabel).join('、') }}</template>
-          </el-table-column>
-          <el-table-column label="级别" width="80" align="center">
-            <template #default="scope">
-              <el-tag :type="severityTagType(scope.row.severity)" size="small">{{ scope.row.severity }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="范围" min-width="160">
-            <template #default="scope">
-              <div>类型：{{ scope.row.jobType || '全部' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="静默" width="90" align="center">
-            <template #default="scope">{{ scope.row.silenceMinutes }} 分钟</template>
-          </el-table-column>
-          <el-table-column label="站内信接收人" min-width="180">
-            <template #default="scope">{{ ruleRecipients(scope.row) }}</template>
-          </el-table-column>
-          <el-table-column label="渠道" min-width="150">
-            <template #default="scope">{{ ruleChannels(scope.row) }}</template>
-          </el-table-column>
-          <el-table-column label="启用" width="80" align="center">
-            <template #default="scope">
-              <el-switch v-model="scope.row.enabled" @change="toggleRule(scope.row)" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" size="small" @click="openEditRule(scope.row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="deleteRule(scope.row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="list-page-scroll">
+          <el-table :data="rules" row-key="id" style="width: 100%">
+            <el-table-column label="规则名称" min-width="220">
+              <template #default="scope">
+                <span>{{ scope.row.name }}</span>
+                <el-tag v-if="scope.row.defaultRule" type="info" size="small" class="ml-2">默认规则</el-tag>
+                <div class="sub-text">{{ scope.row.code }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="事件" width="150">
+              <template #default="scope">{{ (scope.row.eventType || '').split(',').map(eventTypeLabel).join('、') }}</template>
+            </el-table-column>
+            <el-table-column label="级别" width="80" align="center">
+              <template #default="scope">
+                <el-tag :type="severityTagType(scope.row.severity)" size="small">{{ scope.row.severity }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="范围" min-width="160">
+              <template #default="scope">
+                <div>类型：{{ scope.row.jobType || '全部' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="静默" width="90" align="center">
+              <template #default="scope">{{ scope.row.silenceMinutes }} 分钟</template>
+            </el-table-column>
+            <el-table-column label="站内信接收人" min-width="180">
+              <template #default="scope">{{ ruleRecipients(scope.row) }}</template>
+            </el-table-column>
+            <el-table-column label="渠道" min-width="150">
+              <template #default="scope">{{ ruleChannels(scope.row) }}</template>
+            </el-table-column>
+            <el-table-column label="启用" width="80" align="center">
+              <template #default="scope">
+                <el-switch v-model="scope.row.enabled" @change="toggleRule(scope.row)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="scope">
+                <el-button link type="primary" size="small" @click="openEditRule(scope.row)">编辑</el-button>
+                <el-button link type="danger" size="small" @click="deleteRule(scope.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="通知渠道" name="channels">
@@ -156,41 +160,43 @@
             <span>新建渠道</span>
           </el-button>
         </div>
-        <el-table :data="channels" row-key="id" style="width: 100%">
-          <el-table-column prop="name" label="渠道名称" min-width="180">
-            <template #default="scope">
-              <div>{{ scope.row.name }}</div>
-              <div class="sub-text">{{ scope.row.code }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="类型" width="100" align="center">
-            <template #default="scope">
-              <el-tag :type="scope.row.type === 'EMAIL' ? 'primary' : 'success'" size="small">
-                {{ channelTypeLabel(scope.row.type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="目标" min-width="260">
-            <template #default="scope">{{ channelTarget(scope.row) }}</template>
-          </el-table-column>
-          <el-table-column label="启用" width="80" align="center">
-            <template #default="scope">
-              <el-switch v-model="scope.row.enabled" @change="toggleChannel(scope.row)" />
-            </template>
-          </el-table-column>
-          <el-table-column label="更新时间" width="160">
-            <template #default="scope">{{ dateFormat.formatDateShort(scope.row.updateTime) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="210" fixed="right">
-            <template #default="scope">
-              <el-button link type="success" size="small" :loading="testingChannelId === scope.row.id" @click="testChannel(scope.row)">
-                测试
-              </el-button>
-              <el-button link type="primary" size="small" @click="openEditChannel(scope.row)">编辑</el-button>
-              <el-button link type="danger" size="small" @click="deleteChannel(scope.row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="list-page-scroll">
+          <el-table :data="channels" row-key="id" style="width: 100%">
+            <el-table-column prop="name" label="渠道名称" min-width="180">
+              <template #default="scope">
+                <div>{{ scope.row.name }}</div>
+                <div class="sub-text">{{ scope.row.code }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="类型" width="100" align="center">
+              <template #default="scope">
+                <el-tag :type="scope.row.type === 'EMAIL' ? 'primary' : 'success'" size="small">
+                  {{ channelTypeLabel(scope.row.type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="目标" min-width="260">
+              <template #default="scope">{{ channelTarget(scope.row) }}</template>
+            </el-table-column>
+            <el-table-column label="启用" width="80" align="center">
+              <template #default="scope">
+                <el-switch v-model="scope.row.enabled" @change="toggleChannel(scope.row)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="160">
+              <template #default="scope">{{ dateFormat.formatDateShort(scope.row.updateTime) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="210" fixed="right">
+              <template #default="scope">
+                <el-button link type="success" size="small" :loading="testingChannelId === scope.row.id" @click="testChannel(scope.row)">
+                  测试
+                </el-button>
+                <el-button link type="primary" size="small" @click="openEditChannel(scope.row)">编辑</el-button>
+                <el-button link type="danger" size="small" @click="deleteChannel(scope.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
     </el-tabs>
 

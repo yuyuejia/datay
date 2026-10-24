@@ -16,7 +16,7 @@
     <div class="alert alert-warning" v-if="!isFetching && jobs && jobs.length === 0">
       <span>No Jobs found</span>
     </div>
-    <div v-if="jobs && jobs.length > 0">
+    <div v-if="jobs && jobs.length > 0" class="list-page-scroll">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="jobs" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="id" label="ID" sortable="custom" width="100">

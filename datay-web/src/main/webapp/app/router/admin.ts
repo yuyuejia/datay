@@ -28,7 +28,7 @@ export default [
     path: "/admin/user-management",
     name: "JhiUser",
     component: JhiUserManagementComponent,
-    meta: { authorities: [Authority.ADMIN] },
+    meta: { listPage: true, authorities: [Authority.ADMIN] },
   },
   {
     path: "/admin/user-management/new",
@@ -52,7 +52,7 @@ export default [
     path: "/admin/tenant-management",
     name: "JhiTenant",
     component: JhiTenantManagementComponent,
-    meta: { authorities: [Authority.ADMIN] },
+    meta: { listPage: true, authorities: [Authority.ADMIN] },
   },
   {
     path: "/admin/tenant-management/new",
@@ -76,13 +76,13 @@ export default [
     path: "/admin/role-management",
     name: "JhiRoleManagement",
     component: JhiRoleManagementComponent,
-    meta: { authorities: [Authority.ADMIN] },
+    meta: { listPage: true, authorities: [Authority.ADMIN] },
   },
   {
     path: "/admin/role-data-scope",
     name: "JhiRoleDataScope",
     component: JhiRoleDataScopeComponent,
-    meta: { authorities: [Authority.ADMIN] },
+    meta: { listPage: true, authorities: [Authority.ADMIN] },
   },
   {
     path: "/admin/docs",

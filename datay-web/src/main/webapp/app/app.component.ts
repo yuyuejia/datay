@@ -1,4 +1,4 @@
-import { defineComponent, provide, computed } from 'vue';
+import { defineComponent, provide, computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 
@@ -47,16 +47,53 @@ export default defineComponent({
         route.name === 'DagJobDesign' ||
         route.name === 'DagJobDesignNew' ||
         route.name === 'DataSourceQuery' ||
+        route.name === 'SqlJobCreate' ||
+        route.name === 'SqlJobEdit' ||
+        route.name === 'ShellJobCreate' ||
+        route.name === 'ShellJobEdit' ||
+        route.name === 'MetricAi' ||
         route.name === 'AnalysisDashboardDesign' ||
         route.name === 'AnalysisDashboardDesigner'
       );
     });
 
+    const isListPage = computed(() => route.meta.listPage === true);
+
     const isLoginPage = computed(() => route.name === 'Login');
+
+    // 把顶栏（导航 + 菜单页签）的实际高度写入 CSS 变量，供页面计算可视高度。
+    const topbarRef = ref<HTMLElement | null>(null);
+    let topbarObserver: ResizeObserver | undefined;
+
+    const syncTopbarHeight = () => {
+      const height = topbarRef.value?.getBoundingClientRect().height;
+      if (height) {
+        document.documentElement.style.setProperty('--app-topbar-height', `${height}px`);
+      }
+    };
+
+    const observeTopbar = () => {
+      topbarObserver?.disconnect();
+      topbarObserver = undefined;
+      syncTopbarHeight();
+      if (topbarRef.value && typeof ResizeObserver !== 'undefined') {
+        topbarObserver = new ResizeObserver(syncTopbarHeight);
+        topbarObserver.observe(topbarRef.value);
+      }
+    };
+
+    onMounted(observeTopbar);
+    watch(topbarRef, observeTopbar, { flush: 'post' });
+
+    onBeforeUnmount(() => {
+      topbarObserver?.disconnect();
+    });
 
     return {
       isDesignPage,
+      isListPage,
       isLoginPage,
+      topbarRef,
       tenantVersion,
       authenticated,
       route,

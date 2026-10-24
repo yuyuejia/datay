@@ -1037,7 +1037,7 @@ const cancelTask = () => {
 .design-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: calc(100vh - var(--app-topbar-height, 88px));
   background: var(--el-bg-color, #fff);
 }
 

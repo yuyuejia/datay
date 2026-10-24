@@ -30,7 +30,7 @@
     >
       <span>尚未创建 SQL 任务，点击「新建 SQL 任务」开始创建。</span>
     </div>
-    <div v-if="sqlJobs && sqlJobs.length > 0">
+    <div v-if="sqlJobs && sqlJobs.length > 0" class="list-page-scroll">
       <el-table
         :data="sqlJobs"
         style="width: 100%"

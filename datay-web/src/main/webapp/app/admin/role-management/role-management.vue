@@ -10,6 +10,7 @@
       </div>
     </h2>
 
+    <div class="list-page-scroll">
     <el-table :data="roles" style="width: 100%">
       <el-table-column label="角色名" min-width="200">
         <template #default="{ row }">
@@ -42,6 +43,7 @@
         <div class="text-center text-muted py-4">暂无角色</div>
       </template>
     </el-table>
+    </div>
 
     <app-modal v-model="dialogVisible" :title="editing ? '编辑角色' : '新增角色'" size="md">
       <el-form label-position="top">

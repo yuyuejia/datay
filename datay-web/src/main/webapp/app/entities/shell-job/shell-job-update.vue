@@ -37,7 +37,7 @@
 
 <style scoped>
 .shell-task-container {
-  height: calc(100vh - 60px);
+  height: calc(100vh - var(--app-topbar-height, 88px));
   display: flex;
   flex-direction: column;
   background: var(--el-bg-color, #fff);

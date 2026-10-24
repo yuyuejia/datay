@@ -554,7 +554,7 @@
 .designer-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 96px);
+  height: calc(100vh - var(--app-topbar-height, 88px));
   min-height: 620px;
   padding: 8px;
 }

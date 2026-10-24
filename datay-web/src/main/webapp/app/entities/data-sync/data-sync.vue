@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dataSyncs && dataSyncs.length === 0">
       <span>未找到数据同步</span>
     </div>
-    <div v-if="dataSyncs && dataSyncs.length > 0">
+    <div v-if="dataSyncs && dataSyncs.length > 0" class="list-page-scroll">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="dataSyncs" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="jobName" label="任务名称" sortable="custom" width="150"></el-table-column>

@@ -752,7 +752,8 @@
 
 <style scoped>
 .metric-container {
-  height: calc(100vh - 120px);
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }

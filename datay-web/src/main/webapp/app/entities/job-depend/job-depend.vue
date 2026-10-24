@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && jobDepends && jobDepends.length === 0">
       <span>No Job Depends found</span>
     </div>
-    <div class="table-responsive" v-if="jobDepends && jobDepends.length > 0">
+    <div class="list-page-scroll" v-if="jobDepends && jobDepends.length > 0">
       <table class="table table-striped" aria-describedby="jobDepends">
         <thead>
           <tr>

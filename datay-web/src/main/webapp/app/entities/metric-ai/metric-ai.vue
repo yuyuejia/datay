@@ -168,7 +168,7 @@
 
 <style scoped>
 .metric-ai-page {
-  height: calc(100vh - 60px);
+  height: calc(100vh - var(--app-topbar-height, 88px));
   display: flex;
   flex-direction: column;
   padding: 16px 20px 20px;

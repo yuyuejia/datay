@@ -13,7 +13,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dashboards && dashboards.length === 0">
       <span>暂无分析看板，点击「新建看板」开始设计</span>
     </div>
-    <div v-if="dashboards && dashboards.length > 0">
+    <div v-if="dashboards && dashboards.length > 0" class="list-page-scroll">
       <el-table :data="dashboards" style="width: 100%" v-loading="isFetching">
         <el-table-column prop="name" label="名称" min-width="160"></el-table-column>
         <el-table-column prop="code" label="编码" width="180"></el-table-column>

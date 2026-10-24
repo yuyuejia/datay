@@ -34,7 +34,7 @@
     <div class="alert alert-warning" v-if="!isFetching && jobInstances && jobInstances.length === 0">
       <span>未找到任务实例</span>
     </div>
-    <div v-if="jobInstances && jobInstances.length > 0">
+    <div v-if="jobInstances && jobInstances.length > 0" class="list-page-scroll">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="jobInstances" style="width: 100%" @sort-change="handleSortChange">
         <!-- <el-table-column prop="instanceCode" label="Instance Code" sortable="custom" width="150"></el-table-column> -->

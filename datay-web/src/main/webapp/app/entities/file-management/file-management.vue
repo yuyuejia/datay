@@ -41,7 +41,7 @@
       <font-awesome-icon icon="spinner" spin class="fa-2x text-muted"></font-awesome-icon>
     </div>
 
-    <div v-if="!loading && files && files.length > 0">
+    <div v-if="!loading && files && files.length > 0" class="list-page-scroll">
       <el-table :data="files" style="width: 100%">
         <el-table-column label="名称" min-width="300">
           <template #default="scope">

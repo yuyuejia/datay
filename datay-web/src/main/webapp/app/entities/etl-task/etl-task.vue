@@ -29,7 +29,7 @@
     <div class="alert alert-warning" v-if="!isFetching && eTLTasks && eTLTasks.length === 0">
       <span>未找到 ETL 任务</span>
     </div>
-    <div v-if="eTLTasks && eTLTasks.length > 0">
+    <div v-if="eTLTasks && eTLTasks.length > 0" class="list-page-scroll">
       <el-table
         :data="eTLTasks"
         style="width: 100%"

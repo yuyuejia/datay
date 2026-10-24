@@ -22,37 +22,39 @@
       title="ROLE_ADMIN 默认不受数据范围限制，配置的规则不会对管理员生效。"
     />
 
-    <el-tabs v-model="activeTab" class="scope-tabs">
+    <el-tabs v-model="activeTab" class="scope-tabs list-page-tabs">
       <el-tab-pane label="维度数据权限" name="dimension">
         <div class="tab-toolbar">
           <el-button type="primary" @click="openCreate"> <font-awesome-icon icon="plus" /> 新增范围 </el-button>
         </div>
 
-        <el-table :data="scopes" v-loading="loading" style="width: 100%">
-          <el-table-column label="角色" min-width="150">
-            <template #default="{ row }">{{ row.roleName }}</template>
-          </el-table-column>
-          <el-table-column label="维度" min-width="180">
-            <template #default="{ row }">{{ dimensionName(row.dimensionModelId) }}</template>
-          </el-table-column>
-          <el-table-column label="成员范围" min-width="260">
-            <template #default="{ row }">{{ summarize(row) }}</template>
-          </el-table-column>
-          <el-table-column label="启用" width="100" align="center">
-            <template #default="{ row }">
-              <el-switch :model-value="row.enabled" @change="toggleEnabled(row)" />
+        <div class="list-page-scroll">
+          <el-table :data="scopes" v-loading="loading" style="width: 100%">
+            <el-table-column label="角色" min-width="150">
+              <template #default="{ row }">{{ row.roleName }}</template>
+            </el-table-column>
+            <el-table-column label="维度" min-width="180">
+              <template #default="{ row }">{{ dimensionName(row.dimensionModelId) }}</template>
+            </el-table-column>
+            <el-table-column label="成员范围" min-width="260">
+              <template #default="{ row }">{{ summarize(row) }}</template>
+            </el-table-column>
+            <el-table-column label="启用" width="100" align="center">
+              <template #default="{ row }">
+                <el-switch :model-value="row.enabled" @change="toggleEnabled(row)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180">
+              <template #default="{ row }">
+                <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+                <el-button type="danger" size="small" @click="removeScope(row)">删除</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据范围，该角色不受限制' : '暂无数据范围' }}</div>
             </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180">
-            <template #default="{ row }">
-              <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-              <el-button type="danger" size="small" @click="removeScope(row)">删除</el-button>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据范围，该角色不受限制' : '暂无数据范围' }}</div>
-          </template>
-        </el-table>
+          </el-table>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="数据集数据权限" name="dataset">
@@ -60,31 +62,35 @@
           <el-button type="primary" @click="openCreateDataset"> <font-awesome-icon icon="plus" /> 新增规则 </el-button>
         </div>
 
-        <el-table :data="datasetScopes" v-loading="datasetLoading" style="width: 100%">
-          <el-table-column label="角色" min-width="150">
-            <template #default="{ row }">{{ row.roleName }}</template>
-          </el-table-column>
-          <el-table-column label="数据集" min-width="180">
-            <template #default="{ row }">{{ datasetName(row.datasetId) }}</template>
-          </el-table-column>
-          <el-table-column label="行级条件" min-width="260">
-            <template #default="{ row }">{{ summarizeDataset(row) }}</template>
-          </el-table-column>
-          <el-table-column label="启用" width="100" align="center">
-            <template #default="{ row }">
-              <el-switch :model-value="row.enabled" @change="toggleDatasetEnabled(row)" />
+        <div class="list-page-scroll">
+          <el-table :data="datasetScopes" v-loading="datasetLoading" style="width: 100%">
+            <el-table-column label="角色" min-width="150">
+              <template #default="{ row }">{{ row.roleName }}</template>
+            </el-table-column>
+            <el-table-column label="数据集" min-width="180">
+              <template #default="{ row }">{{ datasetName(row.datasetId) }}</template>
+            </el-table-column>
+            <el-table-column label="行级条件" min-width="260">
+              <template #default="{ row }">{{ summarizeDataset(row) }}</template>
+            </el-table-column>
+            <el-table-column label="启用" width="100" align="center">
+              <template #default="{ row }">
+                <el-switch :model-value="row.enabled" @change="toggleDatasetEnabled(row)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180">
+              <template #default="{ row }">
+                <el-button type="primary" size="small" @click="openEditDataset(row)">编辑</el-button>
+                <el-button type="danger" size="small" @click="removeDatasetScope(row)">删除</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <div class="text-center text-muted py-4">
+                {{ selectedRole ? '暂无数据集数据权限，该角色不受限制' : '暂无数据集数据权限' }}
+              </div>
             </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180">
-            <template #default="{ row }">
-              <el-button type="primary" size="small" @click="openEditDataset(row)">编辑</el-button>
-              <el-button type="danger" size="small" @click="removeDatasetScope(row)">删除</el-button>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <div class="text-center text-muted py-4">{{ selectedRole ? '暂无数据集数据权限，该角色不受限制' : '暂无数据集数据权限' }}</div>
-          </template>
-        </el-table>
+          </el-table>
+        </div>
       </el-tab-pane>
     </el-tabs>
 

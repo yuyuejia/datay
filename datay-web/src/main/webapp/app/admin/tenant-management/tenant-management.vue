@@ -14,7 +14,7 @@
         </router-link>
       </div>
     </h2>
-    <div v-if="tenants">
+    <div v-if="tenants" class="list-page-scroll">
       <el-table :data="tenants" style="width: 100%">
         <el-table-column prop="id" label="ID" sortable width="90">
           <template #default="{ row }">

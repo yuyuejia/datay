@@ -30,7 +30,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dataSources && dataSources.length === 0">
       <span>未找到数据源</span>
     </div>
-    <div v-if="dataSources && dataSources.length > 0">
+    <div v-if="dataSources && dataSources.length > 0" class="list-page-scroll">
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="name" label="名称" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="description" label="描述" sortable="custom" width="260" show-overflow-tooltip></el-table-column>

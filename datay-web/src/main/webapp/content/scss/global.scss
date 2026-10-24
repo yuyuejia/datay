@@ -108,6 +108,76 @@ Generic styles
   padding: 0;
 }
 
+/* ==========================================================================
+   列表页布局：铺满可视区域，只让表格区域滚动
+   ========================================================================== */
+
+.jh-card--fill {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-topbar-height, 88px));
+  overflow: hidden;
+}
+
+/* 页面根节点作为纵向 flex 容器，撑满卡片剩余高度 */
+.jh-card--fill > * {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 表格滚动区域：标题、分页等保持固定，表格内容独立滚动（表头固定） */
+.list-page-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.list-page-scroll > .el-table {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.list-page-scroll > .el-table .el-table__body-wrapper {
+  min-height: 0;
+}
+
+/* 卡片类列表（如应用市场）：由容器整体滚动 */
+.list-card-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+}
+
+/* 带页签的列表页：页签内容区撑满剩余高度，内部表格自行滚动 */
+.list-page-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.list-page-tabs > .el-tabs__header {
+  flex: none;
+}
+
+.list-page-tabs > .el-tabs__content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.list-page-tabs .el-tab-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .error {
   color: white;
   background-color: red;

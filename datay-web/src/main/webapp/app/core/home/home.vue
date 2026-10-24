@@ -273,7 +273,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - var(--app-topbar-height, 88px));
   padding: 40px 20px;
 }
 

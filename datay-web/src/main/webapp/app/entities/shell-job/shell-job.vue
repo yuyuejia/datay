@@ -31,7 +31,7 @@
     >
       <span>尚未创建 Shell 任务，点击「新建 Shell 任务」开始创建。</span>
     </div>
-    <div v-if="shellJobs && shellJobs.length > 0">
+    <div v-if="shellJobs && shellJobs.length > 0" class="list-page-scroll">
       <el-table
         :data="shellJobs"
         style="width: 100%"

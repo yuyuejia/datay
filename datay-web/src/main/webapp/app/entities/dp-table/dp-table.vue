@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && dpTables && dpTables.length === 0">
       <span>No Dp Tables found</span>
     </div>
-    <div class="table-responsive" v-if="dpTables && dpTables.length > 0">
+    <div class="list-page-scroll" v-if="dpTables && dpTables.length > 0">
       <table class="table table-striped" aria-describedby="dpTables">
         <thead>
           <tr>

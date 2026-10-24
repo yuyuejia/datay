@@ -18,7 +18,7 @@
     <div class="alert alert-warning" v-if="!isFetching && eTLNodes && eTLNodes.length === 0">
       <span>No ETL Nodes found</span>
     </div>
-    <div class="table-responsive" v-if="eTLNodes && eTLNodes.length > 0">
+    <div class="list-page-scroll" v-if="eTLNodes && eTLNodes.length > 0">
       <table class="table table-striped" aria-describedby="eTLNodes">
         <thead>
           <tr>

@@ -10,11 +10,10 @@
         </el-button>
       </div>
     </h2>
-    <br />
     <div class="alert alert-warning" v-if="!isFetching && datasets.length === 0">
       <span>暂无数据集。数据集可被多个看板复用，修改后所有引用看板自动生效。</span>
     </div>
-    <div v-if="datasets.length > 0">
+    <div v-if="datasets.length > 0" class="list-page-scroll">
       <el-table :data="datasets" style="width: 100%" v-loading="isFetching">
         <el-table-column prop="name" label="名称" min-width="160">
           <template #default="scope">
