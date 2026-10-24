@@ -62,7 +62,7 @@ datay/
 - **内嵌 DuckDB**，列存 + 向量化 + 无锁并发，单机就能跑出分布式数仓的性能
 - 与维度建模、指标管理打通，原子指标 / 衍生指标统一口径
 - 支持 Doris / ClickHouse 流式加载，需要大规模查询可随时外挂
-- 支持 DuckLake（Iceberg 格式），低成本构建数据湖
+- 支持 DuckLake（基于 Parquet 文件与 SQL 元数据目录的湖仓格式），低成本构建数据湖
 
 ### 🤖 智能问数（AI Data Agent）
 

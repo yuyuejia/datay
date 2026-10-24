@@ -36,7 +36,7 @@ DataY 由「一个引擎 + 一个平台」组成，两者既能单独使用，�
 - **内嵌 DuckDB**：列式存储 + 向量化执行 + 多线程，单机即可跑出分布式数仓的性能
 - **流批一体**：同一套组件同时支持批处理与流式处理，按场景选择合适的处理模式
 - **实时同步**：支持 MySQL Binlog / PostgreSQL 逻辑复制（WAL）CDC，实时捕获数据变更
-- **高性能数仓**：支持 DuckLake（Iceberg 格式）构建低成本数据湖，必要时可外挂 Doris / ClickHouse
+- **高性能数仓**：支持 DuckLake（基于 Parquet 文件与 SQL 元数据目录的湖仓格式）构建低成本数据湖，必要时可外挂 Doris / ClickHouse
 
 ---
 
