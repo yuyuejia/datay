@@ -13,6 +13,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { format } from 'sql-formatter';
 import DataQueryAi from './data-query-ai.vue';
 import TableLineage from './TableLineage.vue';
+import { getSqlDialect } from '@/shared/sql/sql-dialect';
 
 interface TableNode {
   id: string;
@@ -361,28 +362,7 @@ export default defineComponent({
       }
     };
 
-    const getSqlDialect = () => {
-      const type = (dataSourceType.value || '').toUpperCase();
-      const backtickTypes = ['MYSQL', 'TIDB', 'DORIS', 'CLICKHOUSE'];
-      const bracketTypes = ['SQLSERVER', 'SQL_SERVER', 'MSSQL'];
-      const isBacktick = backtickTypes.some(t => type.includes(t));
-      const isBracket = bracketTypes.some(t => type.includes(t));
-      const isOracle = type.includes('ORACLE');
-
-      return {
-        quote: (identifier: string) => {
-          if (isBacktick) return `\`${identifier}\``;
-          if (isBracket) return `[${identifier}]`;
-          return `"${identifier}"`;
-        },
-        limit: (baseSql: string, limit: number) => {
-          if (isOracle) {
-            return `${baseSql} FETCH FIRST ${limit} ROWS ONLY;`;
-          }
-          return `${baseSql} LIMIT ${limit};`;
-        },
-      };
-    };
+    const getDialect = () => getSqlDialect(dataSourceType.value);
 
     const qualifiedName = (data: TableNode, quote: (id: string) => string) => {
       const parts: string[] = [];
@@ -395,7 +375,7 @@ export default defineComponent({
     const isDocumentDataSource = () => (dataSourceType.value || '').toUpperCase().includes('MONGO');
 
     const buildSelectSql = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 100) => {
-      const dialect = getSqlDialect();
+      const dialect = getDialect();
       const catalogPart = catalog ? `${dialect.quote(catalog)}.` : '';
       const schemaPart = schema ? `${dialect.quote(schema)}.` : '';
       const baseSql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
@@ -418,7 +398,7 @@ export default defineComponent({
     };
 
     const buildInsertSql = (data: TableNode, columns: ColumnInfo[]) => {
-      const dialect = getSqlDialect();
+      const dialect = getDialect();
       const name = qualifiedName(data, dialect.quote);
       const columnList = columns.map(c => dialect.quote(c.name)).join(', ');
       const placeholders = columns.map(() => '?').join(', ');
@@ -440,7 +420,7 @@ export default defineComponent({
     };
 
     const buildDdlSql = (data: TableNode, columns: ColumnInfo[]) => {
-      const dialect = getSqlDialect();
+      const dialect = getDialect();
       const name = qualifiedName(data, dialect.quote);
       const lines = columns.map(col => {
         let line = `  ${dialect.quote(col.name)} ${formatColumnType(col)}`;

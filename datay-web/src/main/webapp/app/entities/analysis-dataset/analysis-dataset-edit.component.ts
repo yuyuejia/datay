@@ -8,6 +8,7 @@ import MetricService from '@/entities/metric/metric.service';
 import { buildDashboardFields } from '@/shared/dashboard/field-defaults';
 import DatasetService from '@/shared/dataset/dataset.service';
 import type { DatasetPreviewResult } from '@/shared/dataset/dataset.service';
+import { getSqlDialect } from '@/shared/sql/sql-dialect';
 import type {
   AnalysisDataset,
   AnalysisDatasetType,
@@ -421,7 +422,8 @@ export default defineComponent({
         return;
       }
       const prefix = selectedSchema.value ? `${selectedSchema.value}.` : '';
-      const statement = `SELECT *\nFROM ${prefix}${selectedTable.value}\nLIMIT 100`;
+      const dataSource = dataSources.value.find((item: any) => item.id === form.value.dataSourceId);
+      const statement = getSqlDialect(dataSource?.type).limit(`SELECT *\nFROM ${prefix}${selectedTable.value}`, 100);
       sqlText.value = sqlText.value?.trim() ? `${sqlText.value.trim()}\n\n${statement}` : statement;
     };
 

@@ -13,6 +13,7 @@ import { type IJob } from "@/shared/model/job.model";
 import { type IDataSource } from "@/shared/model/data-source.model";
 import { useAlertService } from "@/shared/alert/alert.service";
 import DataQueryAi from "@/entities/data-source/data-query-ai.vue";
+import { getSqlDialect } from "@/shared/sql/sql-dialect";
 
 import { EditorState } from "@codemirror/state";
 import {
@@ -395,28 +396,7 @@ export default defineComponent({
       await loadSchemas();
     };
 
-    const getSqlDialect = () => {
-      const type = (dataSourceType.value || "").toUpperCase();
-      const backtickTypes = ["MYSQL", "TIDB", "DORIS", "CLICKHOUSE"];
-      const bracketTypes = ["SQLSERVER", "SQL_SERVER", "MSSQL"];
-      const isBacktick = backtickTypes.some((t) => type.includes(t));
-      const isBracket = bracketTypes.some((t) => type.includes(t));
-      const isOracle = type.includes("ORACLE");
-
-      return {
-        quote: (identifier: string) => {
-          if (isBacktick) return `\`${identifier}\``;
-          if (isBracket) return `[${identifier}]`;
-          return `"${identifier}"`;
-        },
-        limit: (rawSql: string, limit: number) => {
-          if (isOracle) {
-            return `${rawSql} FETCH FIRST ${limit} ROWS ONLY;`;
-          }
-          return `${rawSql} LIMIT ${limit};`;
-        },
-      };
-    };
+    const getDialect = () => getSqlDialect(dataSourceType.value);
 
     const buildSelectSql = (
       catalog: string | undefined,
@@ -424,7 +404,7 @@ export default defineComponent({
       tableName: string,
       limit = 10,
     ) => {
-      const dialect = getSqlDialect();
+      const dialect = getDialect();
       const catalogPart = catalog ? `${dialect.quote(catalog)}.` : "";
       const schemaPart = schema ? `${dialect.quote(schema)}.` : "";
       const rawSql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
