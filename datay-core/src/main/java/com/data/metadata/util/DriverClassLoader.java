@@ -75,49 +75,56 @@ public class DriverClassLoader extends URLClassLoader {
                 return loadedClass;
             }
 
-            // 如果是驱动相关类，优先使用当前类加载器加载
-            if (
-                name.startsWith("java.sql.") ||
-                name.startsWith("javax.sql.") ||
-                name.startsWith("com.mysql.") ||
-                name.startsWith("oracle.jdbc.") ||
-                name.startsWith("org.postgresql.") ||
-                name.startsWith("com.microsoft.sqlserver.") ||
-                name.startsWith("org.duckdb.") ||
-                name.startsWith("dm.jdbc.") ||
-                name.startsWith("com.sap.db.")
-            ) {
-                // 首先尝试在当前类加载器中查找
+            // JDK / 平台类必须由平台类加载器提供：驱动 JAR 不包含也不应包含这些类，
+            // 且 java.sql.Driver 等类型需要与 DriverManager、应用代码保持同一份定义。
+            if (isPlatformClass(name)) {
+                loadedClass = fallbackClassLoader().loadClass(name);
+                if (resolve) {
+                    resolveClass(loadedClass);
+                }
+                return loadedClass;
+            }
+
+            // 其余类一律优先从驱动 JAR（隔离加载器）加载，包括驱动自带的 shaded 依赖
+            // （如 mssql-jdbc 的 mssql.googlecode.* / microsoft.sql.*）。
+            // 这样新增数据库驱动时无需再往白名单里逐个补包名；
+            // 只有 JAR 中确实不存在时，才回退到应用类加载器。
+            try {
+                loadedClass = findClass(name);
+                if (resolve) {
+                    resolveClass(loadedClass);
+                }
+                loadedClasses.put(name, loadedClass);
+                return loadedClass;
+            } catch (ClassNotFoundException e) {
                 try {
-                    loadedClass = findClass(name);
+                    loadedClass = fallbackClassLoader().loadClass(name);
                     if (resolve) {
                         resolveClass(loadedClass);
                     }
-                    loadedClasses.put(name, loadedClass);
                     return loadedClass;
-                } catch (ClassNotFoundException e) {
-                    // 如果自定义类加载器找不到，回退到应用类加载器
-                    try {
-                        loadedClass = fallbackClassLoader().loadClass(name);
-                        if (resolve) {
-                            resolveClass(loadedClass);
-                        }
-                        return loadedClass;
-                    } catch (ClassNotFoundException e2) {
-                        // 应用类加载器也找不到，抛出异常
-                        throw new ClassNotFoundException("Class not found by both custom and fallback class loaders: " + name, e2);
-                    }
+                } catch (ClassNotFoundException e2) {
+                    throw new ClassNotFoundException("Class not found by both custom and fallback class loaders: " + name, e2);
                 }
             }
-
-            // 对于其他类，使用回退类加载器
-            try {
-                loadedClass = fallbackClassLoader().loadClass(name);
-                return loadedClass;
-            } catch (ClassNotFoundException e) {
-                throw new ClassNotFoundException("Class not found: " + name);
-            }
         }
+    }
+
+    /**
+     * 是否为 JDK / 平台自带的类。
+     *
+     * <p>这些类必须交给平台类加载器，不能从驱动 JAR 中重复定义：
+     * 一方面驱动 JAR 通常不包含它们，另一方面像 {@code java.sql.Driver}、
+     * {@code javax.sql.DataSource} 这类核心接口一旦出现两份定义，驱动注册与连接调用会直接失败。
+     */
+    private static boolean isPlatformClass(String name) {
+        return (
+            name.startsWith("java.") ||
+            name.startsWith("javax.") ||
+            name.startsWith("jdk.") ||
+            name.startsWith("sun.") ||
+            name.startsWith("com.sun.")
+        );
     }
 
     @Override
