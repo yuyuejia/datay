@@ -8,6 +8,7 @@ import com.data.datafusion.service.dto.DataSourceDTO;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,20 +82,11 @@ public class DimensionValueService {
         int pageSize = size == null ? DEFAULT_PAGE_SIZE : Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         int currentPage = page == null || page < 1 ? 1 : page;
         String table = physicalTableName(dimension);
-        String where = buildWhereClause(fieldName, keyword);
+        String where = buildWhereClause(fieldName, keyword, isSqlServer(dataSource));
 
         long total = countDistinct(dataSource, table, fieldName, where);
         long offset = (long) (currentPage - 1) * pageSize;
-        String sql =
-            "SELECT DISTINCT " +
-            fieldName +
-            " FROM " +
-            table +
-            where +
-            " ORDER BY 1 LIMIT " +
-            pageSize +
-            " OFFSET " +
-            offset;
+        String sql = buildPageSql(dataSource, table, fieldName, where, offset, pageSize);
 
         List<String> values = queryValues(dataSource, dimension, fieldName, sql);
         Map<String, Object> result = new LinkedHashMap<>();
@@ -105,10 +97,52 @@ public class DimensionValueService {
         return result;
     }
 
-    private String buildWhereClause(String fieldName, String keyword) {
+    /**
+     * 构造分页取值 SQL：SQL Server 不支持 LIMIT，使用 ROW_NUMBER() 分页（兼容 2008+）。
+     */
+    private String buildPageSql(DataSourceDTO dataSource, String table, String fieldName, String where, long offset, int pageSize) {
+        if (isSqlServer(dataSource)) {
+            return (
+                "SELECT " +
+                fieldName +
+                " FROM (SELECT " +
+                fieldName +
+                ", ROW_NUMBER() OVER (ORDER BY " +
+                fieldName +
+                ") AS rn FROM (SELECT DISTINCT " +
+                fieldName +
+                " FROM " +
+                table +
+                where +
+                ") d) t WHERE rn > " +
+                offset +
+                " AND rn <= " +
+                (offset + pageSize) +
+                " ORDER BY " +
+                fieldName
+            );
+        }
+        return "SELECT DISTINCT " + fieldName + " FROM " + table + where + " ORDER BY 1 LIMIT " + pageSize + " OFFSET " + offset;
+    }
+
+    private boolean isSqlServer(DataSourceDTO dataSource) {
+        String type = dataSource.getType() == null ? "" : dataSource.getType().toUpperCase(Locale.ROOT);
+        if ("SQLSERVER".equals(type)) {
+            return true;
+        }
+        String url = dataSource.getUrl() == null ? "" : dataSource.getUrl().toLowerCase(Locale.ROOT);
+        return url.startsWith("jdbc:sqlserver:");
+    }
+
+    private String buildWhereClause(String fieldName, String keyword, boolean unicodeLiteral) {
         StringBuilder where = new StringBuilder(" WHERE ").append(fieldName).append(" IS NOT NULL");
         if (keyword != null && !keyword.isBlank()) {
-            where.append(" AND ").append(fieldName).append(" LIKE ").append(quote("%" + keyword.trim() + "%"));
+            // SQL Server 的默认排序规则可能不支持直接使用非 Unicode 中文字面量，需加 N 前缀
+            String literal = quote("%" + keyword.trim() + "%");
+            if (unicodeLiteral) {
+                literal = "N" + literal;
+            }
+            where.append(" AND ").append(fieldName).append(" LIKE ").append(literal);
         }
         return where.toString();
     }
