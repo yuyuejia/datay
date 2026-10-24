@@ -16,9 +16,11 @@
             <p class="text-muted">请联系管理员将您添加到租户后再使用系统功能。</p>
           </div>
           <router-view v-else v-slot="{ Component }">
+            <!-- 顶层列表页（如系统管理）不缓存，返回时重新挂载并取数；其他页面继续使用 keep-alive。 -->
             <keep-alive :include="rootCachedViews" :max="20">
-              <component :is="Component" :key="rootKey" />
+              <component v-if="!isTopLevelListPage" :is="Component" :key="rootKey" />
             </keep-alive>
+            <component v-if="isTopLevelListPage" :is="Component" :key="route.fullPath" />
           </router-view>
         </div>
       </div>

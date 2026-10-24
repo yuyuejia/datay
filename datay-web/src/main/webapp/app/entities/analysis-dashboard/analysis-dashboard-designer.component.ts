@@ -11,6 +11,22 @@ import DashboardService from '@/shared/dashboard/dashboard.service';
 import type { AnalysisDashboard } from '@/shared/dashboard/dashboard.service';
 import { initFilterValues } from '@/shared/dashboard/filter-utils';
 import {
+  DARK_SCREEN_BACKGROUND,
+  DEFAULT_SCREEN_HEIGHT,
+  DEFAULT_SCREEN_WIDTH,
+  getSystemScreenSize,
+  LIGHT_SCREEN_BACKGROUND,
+  normalizeDashboardLayout,
+  normalizeDashboardSpec,
+  normalizeFitMode,
+  normalizeTheme,
+  resolveScreenBackgroundStyle,
+  resolveScreenTheme,
+  SCREEN_FIT_MODES,
+} from '@/shared/dashboard/layout-defaults';
+import DashboardBackgroundService from '@/shared/dashboard/dashboard-background.service';
+import { useDashboardBackgroundImage } from '@/shared/dashboard/useDashboardBackgroundImage';
+import {
   buildDashboardFields,
   createDefaultDataRef,
   ensureDefaultFields,
@@ -21,11 +37,16 @@ import type { DashboardField } from '@/shared/dashboard/field-defaults';
 import { createDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import type {
   ChartType,
+  DashboardBackgroundType,
   DashboardDataset,
   DashboardFilter,
+  DashboardMode,
+  DashboardScreen,
   DashboardSpec,
+  DashboardTheme,
   DashboardWidget,
   FilterValues,
+  ScreenFitMode,
   WidgetLayout,
   WidgetPalettePayload,
   WidgetType,
@@ -33,9 +54,20 @@ import type {
 import { WIDGET_PALETTE_MIME } from '@/shared/dashboard/types';
 import { useDashboardData } from '@/shared/dashboard/useDashboardData';
 import DashboardFilters from '@/shared/dashboard/DashboardFilters.vue';
+import DashboardStage from '@/shared/dashboard/DashboardStage.vue';
 import DesignerCanvas from '@/shared/dashboard/designer/DesignerCanvas.vue';
 import WidgetPaletteIcon from '@/shared/dashboard/designer/WidgetPaletteIcon.vue';
-import { compactLayouts, moveLayout, nextLayout, resizeLayout } from '@/shared/dashboard/designer/grid-layout';
+import {
+  CANVAS_PADDING,
+  compactLayouts,
+  DEFAULT_GAP,
+  DEFAULT_ROW_HEIGHT,
+  GRID_COLUMNS,
+  layoutContentHeight,
+  moveLayout,
+  nextLayout,
+  resizeLayout,
+} from '@/shared/dashboard/designer/grid-layout';
 
 type PaletteCategory = 'charts' | 'kpi' | 'table' | 'text';
 
@@ -82,14 +114,25 @@ const PALETTE_CATEGORIES: Array<{ key: PaletteCategory; label: string; icon: str
 ];
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  { key: 'bar', label: '柱状图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'bar', w: 6, h: 4 },
-  { key: 'line', label: '折线图', icon: 'line', category: 'charts', type: 'echarts', chartType: 'line', w: 6, h: 4 },
-  { key: 'pie', label: '饼图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'pie', w: 4, h: 4 },
-  { key: 'area', label: '面积图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'area', w: 6, h: 4 },
-  { key: 'kpi', label: 'KPI 指标', icon: 'kpi', category: 'kpi', type: 'kpi', w: 3, h: 2 },
-  { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 6, h: 4 },
-  { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 6, h: 3 },
+  { key: 'bar', label: '柱状图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'bar', w: 12, h: 8 },
+  { key: 'line', label: '折线图', icon: 'line', category: 'charts', type: 'echarts', chartType: 'line', w: 12, h: 8 },
+  { key: 'pie', label: '饼图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'pie', w: 8, h: 8 },
+  { key: 'area', label: '面积图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'area', w: 12, h: 8 },
+  { key: 'kpi', label: 'KPI 指标', icon: 'kpi', category: 'kpi', type: 'kpi', w: 6, h: 4 },
+  { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 12, h: 8 },
+  { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 12, h: 4 },
 ];
+
+const SCREEN_PRESETS = [
+  { key: '1280x720', label: '1280 × 720', width: 1280, height: 720 },
+  { key: '1920x1080', label: '1920 × 1080', width: 1920, height: 1080 },
+  { key: '2560x1440', label: '2560 × 1440', width: 2560, height: 1440 },
+  { key: '3840x2160', label: '3840 × 2160', width: 3840, height: 2160 },
+];
+
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 2;
+const ZOOM_STEP = 0.1;
 
 const DEFAULT_ECHARTS_OPTION = (type: ChartType) => {
   const seriesType = type === 'area' ? 'line' : type;
@@ -142,11 +185,11 @@ const errorMessage = (err: any, fallback: string): string =>
   fallback;
 
 /**
- * 可视化看板设计器：数据集引用、12 列拖拽布局、图表配置、全局筛选器与实时预览。
+ * 可视化看板设计器：数据集引用、24 列拖拽布局、图表配置、全局筛选器与实时预览。
  */
 export default defineComponent({
   name: 'AnalysisDashboardDesigner',
-  components: { DashboardFilters, DesignerCanvas, WidgetPaletteIcon },
+  components: { DashboardFilters, DashboardStage, DesignerCanvas, WidgetPaletteIcon },
   props: {
     aiMode: {
       type: Boolean,
@@ -169,6 +212,8 @@ export default defineComponent({
     const status = ref('ENABLED');
     const activePanel = ref<'datasets' | 'widgets' | 'filters'>('datasets');
     const propertyTab = ref<'basic' | 'custom'>('basic');
+    const dashboardSettingsVisible = ref(false);
+    const propertiesRef = ref<HTMLElement | null>(null);
     const customOptionText = ref('');
     const customOptionError = ref('');
     const paletteCategory = ref<PaletteCategory>('charts');
@@ -187,18 +232,13 @@ export default defineComponent({
     const aiSamples = ref<string[]>([]);
     const aiAssistantLoaded = ref(false);
 
-    const specJsonVisible = ref(false);
-    const specJsonText = ref('');
-    const specJsonError = ref('');
-    const specJsonApplying = ref(false);
-
     const paletteCategories = PALETTE_CATEGORIES;
     const activePaletteItems = computed(() => PALETTE_ITEMS.filter(item => item.category === paletteCategory.value));
 
     const spec = ref<DashboardSpec>({
       title: '',
       description: '',
-      layout: { columns: 12, rowHeight: 90, gap: 16 },
+      layout: normalizeDashboardLayout(),
       datasets: [],
       widgets: [],
       filters: [],
@@ -209,6 +249,259 @@ export default defineComponent({
 
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
     const selectedFilter = computed(() => (spec.value.filters ?? []).find(filter => filter.id === selectedFilterId.value));
+
+    const canvasZoom = ref<'fit' | number>('fit');
+    const canvasScale = ref(1);
+    const systemScreen = getSystemScreenSize();
+    const screenPresets = computed(() => {
+      if (SCREEN_PRESETS.some(preset => preset.width === systemScreen.width && preset.height === systemScreen.height)) {
+        return SCREEN_PRESETS;
+      }
+      return [
+        {
+          key: 'system',
+          label: `当前屏幕 ${systemScreen.width} × ${systemScreen.height}`,
+          width: systemScreen.width,
+          height: systemScreen.height,
+        },
+        ...SCREEN_PRESETS,
+      ];
+    });
+
+    const isScreenMode = computed(() => spec.value.layout?.mode === 'screen');
+
+    const ensureScreenSettings = (): DashboardScreen => {
+      if (!spec.value.layout) {
+        spec.value.layout = normalizeDashboardLayout();
+      }
+      if (!spec.value.layout.screen) {
+        const system = getSystemScreenSize();
+        spec.value.layout.screen = {
+          width: system.width,
+          height: system.height,
+          fitMode: 'stretch',
+          theme: 'light',
+          autoRefreshSeconds: 0,
+        };
+      }
+      return spec.value.layout.screen;
+    };
+
+    const updateScreenResolution = (width: number, height: number) => {
+      const screen = ensureScreenSettings();
+      screen.width = Math.min(7680, Math.max(640, Math.round(width || DEFAULT_SCREEN_WIDTH)));
+      screen.height = Math.min(4320, Math.max(480, Math.round(height || DEFAULT_SCREEN_HEIGHT)));
+      canvasZoom.value = 'fit';
+    };
+
+    const layoutMode = computed<DashboardMode>({
+      get: () => spec.value.layout?.mode ?? 'standard',
+      set: mode => {
+        if (!spec.value.layout) {
+          spec.value.layout = normalizeDashboardLayout();
+        }
+        spec.value.layout.mode = mode;
+        canvasZoom.value = 'fit';
+      },
+    });
+
+    const screenWidth = computed<number>({
+      get: () => spec.value.layout?.screen?.width ?? DEFAULT_SCREEN_WIDTH,
+      set: value => updateScreenResolution(value, spec.value.layout?.screen?.height ?? DEFAULT_SCREEN_HEIGHT),
+    });
+
+    const screenHeight = computed<number>({
+      get: () => spec.value.layout?.screen?.height ?? DEFAULT_SCREEN_HEIGHT,
+      set: value => updateScreenResolution(spec.value.layout?.screen?.width ?? DEFAULT_SCREEN_WIDTH, value),
+    });
+
+    const screenFitMode = computed<ScreenFitMode>({
+      get: () => normalizeFitMode(spec.value.layout?.screen?.fitMode),
+      set: value => {
+        ensureScreenSettings().fitMode = normalizeFitMode(value);
+      },
+    });
+
+    const screenTheme = computed<DashboardTheme>({
+      get: () => normalizeTheme(spec.value.layout?.screen?.theme),
+      set: value => {
+        ensureScreenSettings().theme = normalizeTheme(value);
+      },
+    });
+
+    const screenThemeClass = computed(() => (screenTheme.value === 'dark' ? 'dashboard-theme-dark' : 'dashboard-theme-light'));
+    const fitModeOptions = SCREEN_FIT_MODES;
+    const fitModeHint = computed(() => SCREEN_FIT_MODES.find(option => option.value === screenFitMode.value)?.hint ?? '');
+
+    const backgroundService = new DashboardBackgroundService();
+    const backgroundUploading = ref(false);
+    const backgroundUploadRef = ref<{ clearFiles?: () => void } | null>(null);
+    const screenBackground = computed(() => spec.value.layout?.screen?.background);
+    const gradientDefaults = () => (screenTheme.value === 'dark' ? { from: '#0f172a', to: '#1e293b' } : { from: '#eef2ff', to: '#dbeafe' });
+
+    const backgroundType = computed<DashboardBackgroundType>({
+      get: () => screenBackground.value?.type ?? 'color',
+      set: type => {
+        const current = screenBackground.value;
+        const defaultColor = screenTheme.value === 'dark' ? DARK_SCREEN_BACKGROUND : LIGHT_SCREEN_BACKGROUND;
+        if (type === 'image') {
+          ensureScreenSettings().background = {
+            type: 'image',
+            imagePath: current?.imagePath,
+            imageContentType: current?.imageContentType,
+          };
+        } else if (type === 'gradient') {
+          const defaults = gradientDefaults();
+          ensureScreenSettings().background = {
+            type: 'gradient',
+            gradient: current?.gradient ?? { ...defaults, angle: 135 },
+          };
+        } else {
+          ensureScreenSettings().background = { type: 'color', color: current?.color ?? defaultColor };
+        }
+      },
+    });
+
+    const backgroundColor = computed<string>({
+      get: () => {
+        const defaultColor = screenTheme.value === 'dark' ? DARK_SCREEN_BACKGROUND : LIGHT_SCREEN_BACKGROUND;
+        return screenBackground.value?.type === 'color' ? (screenBackground.value.color ?? defaultColor) : defaultColor;
+      },
+      set: color => {
+        const defaultColor = screenTheme.value === 'dark' ? DARK_SCREEN_BACKGROUND : LIGHT_SCREEN_BACKGROUND;
+        ensureScreenSettings().background = { type: 'color', color: color || defaultColor };
+      },
+    });
+
+    const updateGradient = (patch: Partial<{ from: string; to: string; angle: number }>) => {
+      const current = screenBackground.value?.type === 'gradient' ? screenBackground.value.gradient : undefined;
+      const defaults = gradientDefaults();
+      ensureScreenSettings().background = {
+        type: 'gradient',
+        gradient: {
+          from: current?.from ?? defaults.from,
+          to: current?.to ?? defaults.to,
+          angle: current?.angle ?? 135,
+          ...patch,
+        },
+      };
+    };
+
+    const gradientFrom = computed<string>({
+      get: () =>
+        screenBackground.value?.type === 'gradient'
+          ? (screenBackground.value.gradient?.from ?? gradientDefaults().from)
+          : gradientDefaults().from,
+      set: from => updateGradient({ from }),
+    });
+    const gradientTo = computed<string>({
+      get: () =>
+        screenBackground.value?.type === 'gradient'
+          ? (screenBackground.value.gradient?.to ?? gradientDefaults().to)
+          : gradientDefaults().to,
+      set: to => updateGradient({ to }),
+    });
+    const gradientAngle = computed<number>({
+      get: () => (screenBackground.value?.type === 'gradient' ? (screenBackground.value.gradient?.angle ?? 135) : 135),
+      set: angle => updateGradient({ angle: Math.min(360, Math.max(0, Math.round(angle || 0))) }),
+    });
+
+    const backgroundImagePath = computed(() => (screenBackground.value?.type === 'image' ? (screenBackground.value.imagePath ?? '') : ''));
+    const { imageUrl: backgroundImageUrl } = useDashboardBackgroundImage(backgroundImagePath);
+    const screenBackgroundStyle = computed(() => resolveScreenBackgroundStyle(spec.value.layout, backgroundImageUrl.value));
+
+    const onBackgroundFileChange = async (uploadFile: any) => {
+      const file: File | undefined = uploadFile?.raw;
+      if (!file) {
+        return;
+      }
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        ElMessage.warning('仅支持 PNG、JPEG、WebP、GIF 图片');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        ElMessage.warning('背景图不能超过 5MB');
+        return;
+      }
+      backgroundUploading.value = true;
+      try {
+        const result = await backgroundService.upload(file);
+        ensureScreenSettings().background = {
+          type: 'image',
+          imagePath: result.path,
+          imageContentType: result.contentType,
+        };
+        backgroundUploadRef.value?.clearFiles?.();
+        ElMessage.success('背景图已上传');
+      } catch (err: any) {
+        ElMessage.error(errorMessage(err, '背景图上传失败'));
+      } finally {
+        backgroundUploading.value = false;
+      }
+    };
+
+    const removeBackgroundImage = () => {
+      // 只解除看板与图片的引用，避免撤销/重做时文件已被删除导致背景失效。
+      ensureScreenSettings().background = undefined;
+    };
+
+    const autoRefreshSeconds = computed<number>({
+      get: () => spec.value.layout?.screen?.autoRefreshSeconds ?? 0,
+      set: value => {
+        ensureScreenSettings().autoRefreshSeconds = Math.min(86400, Math.max(0, Math.round(value || 0)));
+      },
+    });
+
+    const screenPresetValue = computed(() => {
+      const screen = spec.value.layout?.screen;
+      return screenPresets.value.find(item => item.width === screen?.width && item.height === screen?.height)?.key ?? 'custom';
+    });
+
+    const currentScale = computed(() => (typeof canvasZoom.value === 'number' ? canvasZoom.value : canvasScale.value));
+    const zoomPercent = computed(() => Math.round(currentScale.value * 100));
+
+    const applyScreenPreset = (key: string) => {
+      const preset = screenPresets.value.find(item => item.key === key);
+      if (!preset) {
+        return;
+      }
+      updateScreenResolution(preset.width, preset.height);
+    };
+
+    const setZoom = (value: number) => {
+      canvasZoom.value = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(value * 100) / 100));
+    };
+    const zoomIn = () => setZoom(currentScale.value + ZOOM_STEP);
+    const zoomOut = () => setZoom(currentScale.value - ZOOM_STEP);
+    const fitCanvas = () => {
+      canvasZoom.value = 'fit';
+    };
+    const onCanvasScaleChange = (value: number) => {
+      canvasScale.value = value;
+    };
+
+    const isCanvasOverflow = computed(() => {
+      const layout = spec.value.layout;
+      const screen = layout?.screen;
+      if (!isScreenMode.value || !screen) {
+        return false;
+      }
+      return (
+        layoutContentHeight(spec.value.widgets, layout.rowHeight ?? DEFAULT_ROW_HEIGHT, layout.gap ?? DEFAULT_GAP, CANVAS_PADDING) >
+        screen.height
+      );
+    });
+
+    const canvasBindings = computed(() => ({
+      spec: spec.value,
+      datasetData: datasetData.value,
+      loadingDatasets: loadingDatasets.value,
+      datasetErrors: datasetErrors.value,
+      selectedId: selectedWidgetId.value,
+      dragItem: paletteDragItem.value,
+    }));
+
     const hasDesignContents = computed(
       () => spec.value.widgets.length > 0 || spec.value.datasets.length > 0 || (spec.value.filters?.length ?? 0) > 0,
     );
@@ -372,6 +665,12 @@ export default defineComponent({
 
     watch([name, description, status], () => scheduleHistoryCommit());
     watch(spec, () => scheduleHistoryCommit(), { deep: true });
+    watch([dashboardSettingsVisible, selectedWidgetId, selectedFilterId], async () => {
+      await nextTick();
+      if (propertiesRef.value) {
+        propertiesRef.value.scrollTop = 0;
+      }
+    });
 
     const pendingFieldDefaults = new Set<string>();
 
@@ -407,7 +706,16 @@ export default defineComponent({
       }
     };
 
+    const openDashboardSettings = async () => {
+      dashboardSettingsVisible.value = true;
+      await nextTick();
+      if (propertiesRef.value) {
+        propertiesRef.value.scrollTop = 0;
+      }
+    };
+
     const selectWidget = (id: string) => {
+      dashboardSettingsVisible.value = false;
       selectedWidgetId.value = id;
       selectedFilterId.value = '';
       const widget = spec.value.widgets.find(item => item.id === id);
@@ -419,12 +727,14 @@ export default defineComponent({
     };
 
     const selectFilter = (id: string) => {
+      dashboardSettingsVisible.value = false;
       selectedFilterId.value = id;
       selectedWidgetId.value = '';
       activePanel.value = 'filters';
     };
 
     const openFiltersPanel = () => {
+      dashboardSettingsVisible.value = false;
       activePanel.value = 'filters';
     };
 
@@ -472,16 +782,7 @@ export default defineComponent({
       }
     };
 
-    const ensureSpecShape = (raw: DashboardSpec): DashboardSpec => ({
-      ...raw,
-      layout: { columns: 12, rowHeight: 90, gap: 16, ...(raw.layout ?? {}) },
-      datasets: (raw.datasets ?? []).map(dataset => ({ ...dataset })),
-      widgets: (raw.widgets ?? []).map(widget => ({
-        ...widget,
-        layout: { x: 0, y: 0, w: 6, h: 4, ...(widget.layout ?? {}) },
-      })),
-      filters: (raw.filters ?? []).map(filter => ({ ...filter })),
-    });
+    const ensureSpecShape = (raw: DashboardSpec): DashboardSpec => normalizeDashboardSpec(raw);
 
     const loadExisting = async (id: string) => {
       loading.value = true;
@@ -560,6 +861,25 @@ export default defineComponent({
       }
       if (!description.value.trim() && normalized.description) {
         description.value = normalized.description;
+      }
+      if (!editingId.value) {
+        // 新建看板：大屏分辨率默认跟随当前系统屏幕，除非明确指定了非默认分辨率。
+        const screen = normalized.layout?.screen;
+        const usesDefaultScreen = !screen || (screen.width === DEFAULT_SCREEN_WIDTH && screen.height === DEFAULT_SCREEN_HEIGHT);
+        if (normalized.layout?.mode !== 'screen' || usesDefaultScreen) {
+          const systemScreen = getSystemScreenSize();
+          normalized = {
+            ...normalized,
+            layout: {
+              ...(normalized.layout ?? {}),
+              screen: {
+                ...(normalized.layout?.screen ?? {}),
+                width: systemScreen.width,
+                height: systemScreen.height,
+              },
+            },
+          };
+        }
       }
       spec.value = ensureSpecShape(normalized);
       spec.value.title = name.value.trim() || spec.value.title || '';
@@ -656,35 +976,6 @@ export default defineComponent({
 
     const toggleAiTools = (index: number) => {
       aiToolsExpanded.value[index] = !aiToolsExpanded.value[index];
-    };
-
-    const openSpecJson = () => {
-      specJsonText.value = JSON.stringify(spec.value, null, 2);
-      specJsonError.value = '';
-      specJsonVisible.value = true;
-    };
-
-    const applySpecJson = async () => {
-      let parsed: DashboardSpec;
-      try {
-        parsed = JSON.parse(specJsonText.value) as DashboardSpec;
-      } catch (err: any) {
-        specJsonError.value = err?.message || 'JSON 解析失败';
-        return;
-      }
-      specJsonError.value = '';
-      specJsonApplying.value = true;
-      try {
-        const valid = await applySpecDefinition(parsed, '已应用看板定义');
-        if (valid) {
-          specJsonText.value = JSON.stringify(spec.value, null, 2);
-          specJsonVisible.value = false;
-        } else {
-          specJsonError.value = '看板定义校验失败，请根据提示修改后重试';
-        }
-      } finally {
-        specJsonApplying.value = false;
-      }
     };
 
     watch(
@@ -844,10 +1135,9 @@ export default defineComponent({
 
     const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout) => {
       const id = nextWidgetId(type);
-      const title =
-        type === 'kpi' ? 'KPI 指标' : type === 'table' ? '明细表' : type === 'html' ? '说明文本' : CHART_LABELS[chartType] || '图表';
-      const defaultWidth = type === 'kpi' ? 3 : type === 'echarts' && chartType === 'pie' ? 4 : 6;
-      const defaultHeight = type === 'kpi' ? 2 : type === 'html' ? 3 : 4;
+      const title = type === 'html' ? '' : type === 'kpi' ? 'KPI 指标' : type === 'table' ? '明细表' : CHART_LABELS[chartType] || '图表';
+      const defaultWidth = type === 'kpi' ? 6 : type === 'echarts' && chartType === 'pie' ? 8 : 12;
+      const defaultHeight = type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
       const widget: DashboardWidget = {
         id,
         title,
@@ -860,7 +1150,7 @@ export default defineComponent({
       if (type === 'echarts') {
         widget.echartsOption = DEFAULT_ECHARTS_OPTION(chartType);
       } else if (type === 'html') {
-        widget.html = '<div style="padding:16px">在此编写 HTML 说明</div>';
+        widget.html = '<div>在此编写 HTML 说明</div>';
       }
       const fields = type === 'html' ? [] : fieldCandidates(widget.datasetId);
       if (type !== 'html') {
@@ -874,12 +1164,13 @@ export default defineComponent({
         applyLayouts(
           compactLayouts(
             spec.value.widgets.map(item => ({ id: item.id, layout: item.layout })),
-            spec.value.layout?.columns ?? 12,
+            spec.value.layout?.columns ?? GRID_COLUMNS,
             id,
           ),
         );
       }
       selectedWidgetId.value = id;
+      dashboardSettingsVisible.value = false;
       propertyTab.value = 'basic';
       activePanel.value = 'widgets';
       commitHistory();
@@ -921,14 +1212,14 @@ export default defineComponent({
 
     const onLayoutChange = (id: string, layout: WidgetLayout) => {
       const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
-      const updated = moveLayout(items, id, layout.x, layout.y);
+      const updated = moveLayout(items, id, layout.x, layout.y, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
       commitHistory();
     };
 
     const onResize = (id: string, layout: WidgetLayout) => {
       const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
-      const updated = resizeLayout(items, id, layout.w, layout.h);
+      const updated = resizeLayout(items, id, layout.w, layout.h, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
       commitHistory();
     };
@@ -1095,6 +1386,7 @@ export default defineComponent({
       };
       spec.value.filters = [...(spec.value.filters ?? []), filter];
       filterValues.value[filter.id] = undefined;
+      dashboardSettingsVisible.value = false;
       selectedWidgetId.value = '';
       selectedFilterId.value = filter.id;
       activePanel.value = 'filters';
@@ -1219,7 +1511,6 @@ export default defineComponent({
       undo,
       redo,
       name,
-      description,
       status,
       activePanel,
       propertyTab,
@@ -1248,12 +1539,6 @@ export default defineComponent({
       toggleAiTools,
       formatAiToolArgs,
       applyAiSpec,
-      specJsonVisible,
-      specJsonText,
-      specJsonError,
-      specJsonApplying,
-      openSpecJson,
-      applySpecJson,
       spec,
       filterValues,
       datasetData,
@@ -1263,6 +1548,43 @@ export default defineComponent({
       loadingData,
       selectedWidget,
       selectedFilter,
+      dashboardSettingsVisible,
+      openDashboardSettings,
+      propertiesRef,
+      isScreenMode,
+      layoutMode,
+      screenPresets,
+      screenPresetValue,
+      screenWidth,
+      screenHeight,
+      screenFitMode,
+      screenTheme,
+      screenThemeClass,
+      screenBackgroundStyle,
+      fitModeOptions,
+      fitModeHint,
+      backgroundType,
+      backgroundColor,
+      gradientFrom,
+      gradientTo,
+      gradientAngle,
+      backgroundImageUrl,
+      backgroundImagePath,
+      backgroundUploading,
+      backgroundUploadRef,
+      autoRefreshSeconds,
+      onBackgroundFileChange,
+      removeBackgroundImage,
+      applyScreenPreset,
+      canvasZoom,
+      canvasScale,
+      zoomPercent,
+      zoomIn,
+      zoomOut,
+      fitCanvas,
+      onCanvasScaleChange,
+      isCanvasOverflow,
+      canvasBindings,
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,

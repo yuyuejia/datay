@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,6 +31,23 @@ public class DashboardSpecValidator {
     public static final String WIDGET_KPI = "kpi";
 
     private static final Set<String> WIDGET_TYPES = Set.of(WIDGET_ECHARTS, WIDGET_HTML, WIDGET_TABLE, WIDGET_KPI);
+
+    private static final String LAYOUT_MODE_STANDARD = "standard";
+    private static final String LAYOUT_MODE_SCREEN = "screen";
+
+    private static final Set<String> FIT_MODES = Set.of("contain", "stretch", "cover");
+    private static final String THEME_LIGHT = "light";
+    private static final String THEME_DARK = "dark";
+    private static final String DEFAULT_LIGHT_BACKGROUND = "#f5f7fa";
+    private static final String DEFAULT_DARK_BACKGROUND = "#0f172a";
+    private static final Pattern COLOR_PATTERN = Pattern.compile("^(#[0-9a-fA-F]{3,8}|rgba?\\([^)]+\\)|hsla?\\([^)]+\\))$");
+    private static final int MAX_BACKGROUND_PATH_LENGTH = 1024;
+
+    public static final int GRID_COLUMNS = 24;
+    public static final int DEFAULT_ROW_HEIGHT = 40;
+    public static final int DEFAULT_GAP = 12;
+    public static final int DEFAULT_SCREEN_WIDTH = 1920;
+    public static final int DEFAULT_SCREEN_HEIGHT = 1080;
 
     public static final String FILTER_DATE_RANGE = "dateRange";
     public static final String FILTER_SELECT = "select";
@@ -67,7 +85,7 @@ public class DashboardSpecValidator {
         }
         Map<String, Object> root = parse(specJson);
         root.putIfAbsent("title", "分析看板");
-        root.putIfAbsent("layout", defaultLayout());
+        root.put("layout", normalizeRootLayout(root.get("layout")));
 
         Set<String> datasetIds = new LinkedHashSet<>();
         Map<String, String> datasetTypes = new LinkedHashMap<>();
@@ -226,11 +244,13 @@ public class DashboardSpecValidator {
     private Map<String, Object> normalizeLayout(Object raw, String widgetType) {
         Map<String, Object> layout = asMap(raw);
         boolean kpi = WIDGET_KPI.equals(widgetType);
-        int x = clamp(intOrDefault(layout.get("x"), 0), 0, 11);
+        int defaultWidth = kpi ? 6 : 12;
+        int defaultHeight = kpi ? 4 : 8;
+        int w = clamp(intOrDefault(layout.get("w"), defaultWidth), 1, GRID_COLUMNS);
+        int x = clamp(intOrDefault(layout.get("x"), 0), 0, GRID_COLUMNS - w);
         int y = Math.max(0, intOrDefault(layout.get("y"), 0));
-        int w = clamp(intOrDefault(layout.get("w"), kpi ? 3 : 6), 1, 12);
-        // 指标卡内容简单，默认高度取 2 并限制上限，避免过高留白
-        int h = clamp(intOrDefault(layout.get("h"), kpi ? 2 : 4), 2, kpi ? 4 : 24);
+        // 指标卡内容简单，默认高度 4 并限制上限，避免过高留白
+        int h = clamp(intOrDefault(layout.get("h"), defaultHeight), 2, kpi ? 8 : 40);
         Map<String, Object> normalized = new LinkedHashMap<>();
         normalized.put("x", x);
         normalized.put("y", y);
@@ -350,12 +370,94 @@ public class DashboardSpecValidator {
 
     // ---------------------------------------------------------------- helpers
 
-    private Map<String, Object> defaultLayout() {
-        Map<String, Object> layout = new LinkedHashMap<>();
-        layout.put("columns", 12);
-        layout.put("rowHeight", 90);
-        layout.put("gap", 16);
-        return layout;
+    private Map<String, Object> normalizeRootLayout(Object raw) {
+        Map<String, Object> layout = asMap(raw);
+        String mode = asString(layout.get("mode"));
+        mode = mode != null && LAYOUT_MODE_SCREEN.equalsIgnoreCase(mode.trim()) ? LAYOUT_MODE_SCREEN : LAYOUT_MODE_STANDARD;
+        Map<String, Object> screen = asMap(layout.get("screen"));
+        int width = clamp(intOrDefault(screen.get("width"), DEFAULT_SCREEN_WIDTH), 640, 7680);
+        int height = clamp(intOrDefault(screen.get("height"), DEFAULT_SCREEN_HEIGHT), 480, 4320);
+        String theme = normalizeTheme(screen.get("theme"));
+        String fitMode = normalizeFitMode(screen.get("fitMode"));
+        int autoRefreshSeconds = clamp(intOrDefault(screen.get("autoRefreshSeconds"), 0), 0, 86400);
+        Map<String, Object> background = normalizeBackground(screen.get("background"), theme);
+
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("mode", mode);
+        normalized.put("columns", GRID_COLUMNS);
+        normalized.put("rowHeight", DEFAULT_ROW_HEIGHT);
+        normalized.put("gap", DEFAULT_GAP);
+        Map<String, Object> normalizedScreen = new LinkedHashMap<>();
+        normalizedScreen.put("width", width);
+        normalizedScreen.put("height", height);
+        normalizedScreen.put("fitMode", fitMode);
+        normalizedScreen.put("theme", theme);
+        normalizedScreen.put("autoRefreshSeconds", autoRefreshSeconds);
+        if (!background.isEmpty()) {
+            normalizedScreen.put("background", background);
+        }
+        normalized.put("screen", normalizedScreen);
+        return normalized;
+    }
+
+    private String normalizeFitMode(Object raw) {
+        String fitMode = asString(raw);
+        if (fitMode != null && FIT_MODES.contains(fitMode.trim().toLowerCase())) {
+            return fitMode.trim().toLowerCase();
+        }
+        return "stretch";
+    }
+
+    private String normalizeTheme(Object raw) {
+        String theme = asString(raw);
+        return theme != null && THEME_DARK.equalsIgnoreCase(theme.trim()) ? THEME_DARK : THEME_LIGHT;
+    }
+
+    private Map<String, Object> normalizeBackground(Object raw, String theme) {
+        Map<String, Object> background = asMap(raw);
+        if (background.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
+        String defaultColor = THEME_DARK.equals(theme) ? DEFAULT_DARK_BACKGROUND : DEFAULT_LIGHT_BACKGROUND;
+        String type = asString(background.get("type"));
+        type = type == null ? "color" : type.trim().toLowerCase();
+        if ("gradient".equals(type)) {
+            Map<String, Object> gradient = asMap(background.get("gradient"));
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("type", "gradient");
+            Map<String, Object> normalizedGradient = new LinkedHashMap<>();
+            normalizedGradient.put("from", normalizeColor(gradient.get("from"), "#0f172a"));
+            normalizedGradient.put("to", normalizeColor(gradient.get("to"), "#1e293b"));
+            normalizedGradient.put("angle", clamp(intOrDefault(gradient.get("angle"), 135), 0, 360));
+            normalized.put("gradient", normalizedGradient);
+            return normalized;
+        }
+        if ("image".equals(type)) {
+            String imagePath = asString(background.get("imagePath"));
+            if (imagePath != null && !imagePath.isBlank() && imagePath.trim().length() <= MAX_BACKGROUND_PATH_LENGTH) {
+                Map<String, Object> normalized = new LinkedHashMap<>();
+                normalized.put("type", "image");
+                normalized.put("imagePath", imagePath.trim());
+                String contentType = asString(background.get("imageContentType"));
+                if (contentType != null && !contentType.isBlank()) {
+                    normalized.put("imageContentType", contentType.trim());
+                }
+                return normalized;
+            }
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("type", "color");
+        normalized.put("color", normalizeColor(background.get("color"), defaultColor));
+        return normalized;
+    }
+
+    private String normalizeColor(Object raw, String fallback) {
+        String color = asString(raw);
+        if (color == null) {
+            return fallback;
+        }
+        String trimmed = color.trim();
+        return COLOR_PATTERN.matcher(trimmed).matches() ? trimmed : fallback;
     }
 
     @SuppressWarnings("unchecked")

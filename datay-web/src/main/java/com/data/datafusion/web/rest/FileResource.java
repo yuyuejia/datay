@@ -9,6 +9,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -87,6 +88,23 @@ public class FileResource {
                 .body(resource);
         } catch (Exception e) {
             LOG.error("Failed to download file", e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/view")
+    public ResponseEntity<Resource> viewFile(@RequestParam("path") String path) {
+        LOG.debug("REST request to view file inline: {}", path);
+        try {
+            InputStream inputStream = fileStorageStrategy.download(path);
+            Resource resource = new InputStreamResource(inputStream);
+            MediaType mediaType = MediaTypeFactory.getMediaType(path).orElse(MediaType.APPLICATION_OCTET_STREAM);
+            return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .body(resource);
+        } catch (Exception e) {
+            LOG.error("Failed to view file", e);
             return ResponseEntity.notFound().build();
         }
     }

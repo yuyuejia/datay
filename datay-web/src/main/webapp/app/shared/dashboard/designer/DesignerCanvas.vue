@@ -2,7 +2,7 @@
   <div
     ref="gridRef"
     class="designer-canvas"
-    :class="{ 'is-drag-over': !!dropPreview }"
+    :class="{ 'is-drag-over': !!dropPreview, 'is-screen': isScreenMode }"
     :style="gridStyle"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
@@ -17,7 +17,7 @@
       @pointerdown="select(widget)"
     >
       <div class="designer-widget-toolbar" @pointerdown.stop="startDrag($event, widget)">
-        <span class="designer-widget-title">{{ widget.title || widget.id }}</span>
+        <span class="designer-widget-title">{{ widget.title || (widget.type === 'html' ? '说明文本' : widget.id) }}</span>
         <div class="designer-widget-actions">
           <el-button text size="small" title="删除组件" @pointerdown.stop @click.stop="emit('delete', widget.id)">
             <font-awesome-icon icon="trash"></font-awesome-icon>
@@ -30,6 +30,7 @@
           :result="datasetData?.[widget.datasetId || '']"
           :loading="loadingDatasets?.[widget.datasetId || '']"
           :error="datasetErrors?.[widget.datasetId || '']"
+          :theme="theme"
         />
       </div>
       <div class="designer-resize-handle" title="拖动调整大小" @pointerdown.stop="startResize($event, widget)"></div>
@@ -55,9 +56,8 @@ import type {
   WidgetType,
 } from '../types';
 import { WIDGET_PALETTE_MIME } from '../types';
-import { clamp, GRID_COLUMNS, layoutFromPoint, normalizeLayout } from './grid-layout';
-
-const CANVAS_PADDING = 12;
+import { normalizeTheme } from '../layout-defaults';
+import { CANVAS_PADDING, clamp, DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS, layoutFromPoint, normalizeLayout } from './grid-layout';
 
 const props = defineProps<{
   spec: DashboardSpec;
@@ -66,6 +66,8 @@ const props = defineProps<{
   datasetErrors?: Record<string, string>;
   selectedId?: string;
   dragItem?: WidgetPalettePayload | null;
+  /** 画布舞台缩放比例，拖动位移与落点需要按比例还原为逻辑像素。 */
+  scale?: number;
 }>();
 
 const emit = defineEmits<{
@@ -80,14 +82,25 @@ const gridRef = ref<HTMLElement | null>(null);
 const widgets = computed(() => props.spec.widgets ?? []);
 
 const columns = computed(() => props.spec.layout?.columns ?? GRID_COLUMNS);
-const rowHeight = computed(() => props.spec.layout?.rowHeight ?? 90);
-const gap = computed(() => props.spec.layout?.gap ?? 16);
+const rowHeight = computed(() => props.spec.layout?.rowHeight ?? DEFAULT_ROW_HEIGHT);
+const gap = computed(() => props.spec.layout?.gap ?? DEFAULT_GAP);
+const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
+const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
+const scale = computed(() => (props.scale && props.scale > 0 ? props.scale : 1));
 
-const gridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${columns.value}, minmax(0, 1fr))`,
-  gridAutoRows: `${rowHeight.value}px`,
-  gap: `${gap.value}px`,
-}));
+const gridStyle = computed(() => {
+  const lineWidth = `${Math.round(Math.min(4, Math.max(1, 1 / scale.value)) * 100) / 100}px`;
+  const columnStep = `calc((100% + ${gap.value}px) / ${columns.value})`;
+  const rowStep = `${rowHeight.value + gap.value}px`;
+  return {
+    gridTemplateColumns: `repeat(${columns.value}, minmax(0, 1fr))`,
+    gridAutoRows: `${rowHeight.value}px`,
+    gap: `${gap.value}px`,
+    // 竖向与横向网格线都按当前缩放反向加粗，缩小时仍保持至少 1 个物理像素。
+    backgroundImage: `linear-gradient(90deg, var(--dashboard-grid-line, rgba(64, 158, 255, 0.24)) ${lineWidth}, transparent ${lineWidth}), linear-gradient(180deg, var(--dashboard-grid-line-secondary, rgba(64, 158, 255, 0.14)) ${lineWidth}, transparent ${lineWidth})`,
+    backgroundSize: `${columnStep} 100%, 100% ${rowStep}`,
+  };
+});
 
 interface DragState {
   id: string;
@@ -98,6 +111,7 @@ interface DragState {
   current: WidgetLayout;
   cellWidth: number;
   rowUnit: number;
+  scale: number;
 }
 
 const drag = ref<DragState | null>(null);
@@ -115,8 +129,8 @@ watch(
 function itemStyle(widget: Widget) {
   const layout = drag.value?.id === widget.id ? drag.value.current : widget.layout;
   return {
-    gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 6}`,
-    gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 4}`,
+    gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
+    gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
   };
 }
 
@@ -150,7 +164,10 @@ function layoutForDrop(event: DragEvent, payload: WidgetPalettePayload): WidgetL
   const rect = el.getBoundingClientRect();
   const { cellWidth } = measure();
   return layoutFromPoint(
-    { x: event.clientX - rect.left - CANVAS_PADDING, y: event.clientY - rect.top - CANVAS_PADDING },
+    {
+      x: (event.clientX - rect.left) / scale.value - CANVAS_PADDING,
+      y: (event.clientY - rect.top) / scale.value - CANVAS_PADDING,
+    },
     { w: payload.w, h: payload.h },
     { cellWidth, rowHeight: rowHeight.value, gap: gap.value, columns: columns.value },
   );
@@ -223,6 +240,7 @@ function startDrag(event: PointerEvent, widget: Widget) {
     current: normalizeLayout(widget.layout, columns.value),
     cellWidth,
     rowUnit,
+    scale: scale.value,
   };
   emit('select', widget.id);
   bindWindow();
@@ -243,6 +261,7 @@ function startResize(event: PointerEvent, widget: Widget) {
     current: normalizeLayout(widget.layout, columns.value),
     cellWidth,
     rowUnit,
+    scale: scale.value,
   };
   emit('select', widget.id);
   bindWindow();
@@ -250,11 +269,11 @@ function startResize(event: PointerEvent, widget: Widget) {
 
 function onPointerMove(event: PointerEvent) {
   const state = drag.value;
-  if (!state || state.cellWidth <= 0) {
+  if (!state || state.cellWidth <= 0 || state.scale <= 0) {
     return;
   }
-  const dx = Math.round((event.clientX - state.startX) / state.cellWidth);
-  const dy = Math.round((event.clientY - state.startY) / state.rowUnit);
+  const dx = Math.round((event.clientX - state.startX) / state.scale / state.cellWidth);
+  const dy = Math.round((event.clientY - state.startY) / state.scale / state.rowUnit);
   if (state.mode === 'move') {
     state.current = {
       ...state.origin,
@@ -302,11 +321,19 @@ function select(widget: Widget) {
 .designer-canvas {
   position: relative;
   display: grid;
+  box-sizing: border-box;
   min-height: 480px;
-  padding: 12px;
-  background: linear-gradient(90deg, rgb(64 158 255 / 5%) 1px, transparent 1px), #f5f7fa;
-  background-size: calc(100% / 12) 100%;
+  padding: 16px;
+  background-color: #fbfcff;
+  background-origin: content-box;
   border-radius: 8px;
+}
+
+.designer-canvas.is-screen {
+  height: 100%;
+  min-height: 0;
+  background-color: transparent;
+  border-radius: 6px;
 }
 
 .designer-canvas.is-drag-over {

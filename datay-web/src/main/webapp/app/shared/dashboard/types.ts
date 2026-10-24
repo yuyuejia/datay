@@ -25,10 +25,47 @@ export type FilterType = 'dateRange' | 'select' | 'multiSelect' | 'input' | 'num
 
 export type BindingKind = 'metricTime' | 'metricDimension' | 'metricFactField' | 'sqlParam';
 
+/** 看板展示模式：standard 为自适应画布，screen 为固定分辨率大屏。 */
+export type DashboardMode = 'standard' | 'screen';
+
+export type ScreenFitMode = 'contain' | 'stretch' | 'cover';
+
+export type DashboardTheme = 'light' | 'dark';
+
+export type DashboardBackgroundType = 'color' | 'gradient' | 'image';
+
+export interface DashboardGradient {
+  from: string;
+  to: string;
+  angle: number;
+}
+
+export interface DashboardBackground {
+  type: DashboardBackgroundType;
+  color?: string;
+  gradient?: DashboardGradient;
+  /** 服务端文件存储中的背景图路径。 */
+  imagePath?: string;
+  imageContentType?: string;
+}
+
+export interface DashboardScreen {
+  width: number;
+  height: number;
+  fitMode?: ScreenFitMode;
+  theme?: DashboardTheme;
+  background?: DashboardBackground;
+  /** 自动刷新间隔（秒），0 表示关闭。 */
+  autoRefreshSeconds?: number;
+}
+
 export interface DashboardLayout {
+  mode?: DashboardMode;
   columns?: number;
   rowHeight?: number;
   gap?: number;
+  /** 大屏模式下的设计分辨率（逻辑像素）。 */
+  screen?: DashboardScreen;
 }
 
 export interface MetricDimensionSpec {

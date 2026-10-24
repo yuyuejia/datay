@@ -4,23 +4,41 @@
       <div class="designer-header-left">
         <el-button text @click="goBack">← 返回</el-button>
         <el-input v-model="name" class="designer-name-input" placeholder="未命名看板" maxlength="120" />
-        <el-tag v-if="editingId" type="info" size="small">编辑中</el-tag>
         <el-tag v-if="aiMode" type="warning" size="small">AI 设计</el-tag>
       </div>
+      <div class="designer-header-center">
+        <el-radio-group v-model="layoutMode" size="small" class="designer-mode-switch">
+          <el-radio-button value="standard">标准</el-radio-button>
+          <el-radio-button value="screen">大屏</el-radio-button>
+        </el-radio-group>
+      </div>
       <div class="designer-header-actions">
-        <el-button-group class="designer-history-actions">
-          <el-button :disabled="!canUndo || saving || loading" title="撤销（Ctrl/Cmd+Z）" @click="undo">↶ 撤销</el-button>
-          <el-button :disabled="!canRedo || saving || loading" title="重做（Ctrl/Cmd+Shift+Z）" @click="redo">↷ 重做</el-button>
+        <el-button
+          size="small"
+          type="primary"
+          :plain="!dashboardSettingsVisible"
+          :disabled="loading"
+          title="看板设置：模式、分辨率与画布缩放"
+          @click="openDashboardSettings"
+        >
+          <font-awesome-icon icon="cog" class="mr-1"></font-awesome-icon>
+          设置
+        </el-button>
+        <el-button size="small" title="重新加载看板数据集" @click="refreshData">刷新</el-button>
+        <span v-if="loadingData" class="designer-loading-hint">加载中…</span>
+        <el-button-group class="designer-history-actions" size="small">
+          <el-button :disabled="!canUndo || saving || loading" title="撤销（Ctrl/Cmd+Z）" @click="undo">↶</el-button>
+          <el-button :disabled="!canRedo || saving || loading" title="重做（Ctrl/Cmd+Shift+Z）" @click="redo">↷</el-button>
         </el-button-group>
-        <el-button :disabled="loading || saving" title="在新页签预览当前设计，无需先保存" @click="openPreview">
+        <el-button size="small" :disabled="loading || saving" title="在新页签预览当前设计，无需先保存" @click="openPreview">
           <font-awesome-icon icon="eye" class="mr-1"></font-awesome-icon>
           预览
         </el-button>
-        <el-button :disabled="loading || saving" @click="openAiAssistant">
+        <el-button size="small" :disabled="loading || saving" title="AI 看板助手" @click="openAiAssistant">
           <font-awesome-icon icon="wand-magic-sparkles" class="mr-1"></font-awesome-icon>
           AI 助手
         </el-button>
-        <el-button type="primary" :loading="saving" @click="save">保存看板</el-button>
+        <el-button size="small" type="primary" :loading="saving" @click="save">保存</el-button>
       </div>
     </div>
 
@@ -111,7 +129,7 @@
                 @click="selectWidget(widget.id)"
               >
                 <div class="designer-list-main">
-                  <div class="designer-list-title">{{ widget.title || widget.id }}</div>
+                  <div class="designer-list-title">{{ widget.title || (widget.type === 'html' ? '说明文本' : widget.id) }}</div>
                   <div class="designer-list-sub">{{ widget.type }} · {{ widget.datasetId || '未绑定数据集' }}</div>
                 </div>
                 <el-button text size="small" type="danger" @click.stop="removeWidget(widget.id)">删除</el-button>
@@ -145,15 +163,11 @@
         </el-tabs>
       </aside>
 
-      <main class="designer-main">
-        <div class="designer-main-toolbar">
-          <el-input v-model="description" placeholder="看板描述（可选）" class="designer-desc-input" />
-          <div class="designer-main-meta">
-            <span v-if="loadingData">数据加载中…</span>
-            <el-button size="small" title="查看或编辑当前看板定义" @click="openSpecJson">JSON</el-button>
-            <el-button size="small" @click="refreshData">刷新预览数据</el-button>
-          </div>
-        </div>
+      <main
+        class="designer-main"
+        :class="{ 'is-screen': isScreenMode, 'is-standard': !isScreenMode }"
+        :style="!isScreenMode ? screenBackgroundStyle : undefined"
+      >
         <section class="designer-preview-filters">
           <div class="designer-preview-filters-header">
             <div class="designer-preview-filters-heading">
@@ -175,33 +189,193 @@
             <el-button text type="primary" size="small" @click="openFiltersPanel">去配置</el-button>
           </div>
         </section>
-        <div class="designer-tip">
-          从左侧组件库拖拽图表、KPI 或表格到画布；拖动组件标题栏移动位置，拖动右下角调整大小。筛选结果会实时作用到相关组件。支持 Ctrl/Cmd+Z
-          撤销、Ctrl/Cmd+Shift+Z 重做。点击「预览」可在新页签查看当前设计，无需先保存。
+        <div v-if="isScreenMode" class="designer-stage-caption">
+          <span class="designer-stage-caption-title">大屏设计画布</span>
+          <span>{{ screenWidth }} × {{ screenHeight }}</span>
+          <span>缩放 {{ zoomPercent }}%{{ canvasZoom === 'fit' ? '（适应）' : '' }}</span>
         </div>
+        <DashboardStage
+          v-if="isScreenMode"
+          class="designer-stage"
+          :class="screenThemeClass"
+          :width="screenWidth"
+          :height="screenHeight"
+          :zoom="canvasZoom"
+          fit-mode="contain"
+          :padding="16"
+          :background-style="screenBackgroundStyle"
+          @scale-change="onCanvasScaleChange"
+        >
+          <template #default="{ scale }">
+            <DesignerCanvas
+              v-bind="canvasBindings"
+              :scale="scale"
+              @select="selectWidget"
+              @layout-change="onLayoutChange"
+              @resize="onResize"
+              @delete="removeWidget"
+              @add-widget="onCanvasAddWidget"
+            />
+          </template>
+        </DashboardStage>
         <DesignerCanvas
-          :spec="spec"
-          :dataset-data="datasetData"
-          :loading-datasets="loadingDatasets"
-          :dataset-errors="datasetErrors"
-          :selected-id="selectedWidgetId"
-          :drag-item="paletteDragItem"
+          v-else
+          class="designer-canvas-standard"
+          :class="!isScreenMode ? screenThemeClass : ''"
+          v-bind="canvasBindings"
+          :scale="1"
           @select="selectWidget"
           @layout-change="onLayoutChange"
           @resize="onResize"
           @delete="removeWidget"
           @add-widget="onCanvasAddWidget"
         />
+        <div v-if="isCanvasOverflow" class="designer-canvas-overflow">
+          <font-awesome-icon icon="triangle-exclamation" class="mr-1"></font-awesome-icon>
+          内容超出画布高度，浏览时底部会被裁切
+        </div>
       </main>
 
-      <aside class="designer-properties">
-        <template v-if="selectedWidget">
+      <aside ref="propertiesRef" class="designer-properties">
+        <template v-if="dashboardSettingsVisible">
+          <div class="designer-property-title designer-settings-title">
+            <span>看板设置</span>
+            <el-button text size="small" @click="dashboardSettingsVisible = false">收起</el-button>
+          </div>
+          <div class="designer-property-form">
+            <label>展示模式</label>
+            <div class="designer-settings-value">
+              <el-tag size="small" :type="isScreenMode ? 'primary' : 'info'">{{ isScreenMode ? '大屏模式' : '标准模式' }}</el-tag>
+              <span class="designer-hint">可在顶部看板名称后切换</span>
+            </div>
+
+            <template v-if="isScreenMode">
+              <label>屏幕分辨率</label>
+              <el-select :model-value="screenPresetValue" style="width: 100%" @change="applyScreenPreset">
+                <el-option v-for="preset in screenPresets" :key="preset.key" :label="preset.label" :value="preset.key" />
+                <el-option label="自定义" value="custom" />
+              </el-select>
+              <div class="designer-inline">
+                <el-input-number
+                  v-model="screenWidth"
+                  :min="640"
+                  :max="7680"
+                  :step="1"
+                  controls-position="right"
+                  style="flex: 1; min-width: 0"
+                />
+                <span class="designer-canvas-times">×</span>
+                <el-input-number
+                  v-model="screenHeight"
+                  :min="480"
+                  :max="4320"
+                  :step="1"
+                  controls-position="right"
+                  style="flex: 1; min-width: 0"
+                />
+              </div>
+              <div class="designer-hint">设计画布按该分辨率固定尺寸，设计时自动适应设计区；浏览时按全屏适配方式缩放。</div>
+
+              <label>全屏适配方式</label>
+              <el-select v-model="screenFitMode" style="width: 100%">
+                <el-option v-for="option in fitModeOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+              <div class="designer-hint">{{ fitModeHint }}；仅在浏览 / 预览页生效。</div>
+
+              <label>画布缩放</label>
+              <div class="designer-inline">
+                <el-button size="small" :disabled="zoomPercent <= 25" title="缩小画布" @click="zoomOut">−</el-button>
+                <span class="designer-zoom-value">{{ zoomPercent }}%</span>
+                <el-button size="small" :disabled="zoomPercent >= 200" title="放大画布" @click="zoomIn">+</el-button>
+                <el-button size="small" :type="canvasZoom === 'fit' ? 'primary' : 'default'" @click="fitCanvas">适应</el-button>
+              </div>
+              <div class="designer-hint">默认自动适应设计区；放大后可滚动查看细节，浏览态始终自动缩放。</div>
+            </template>
+            <div v-else class="designer-settings-empty">标准模式使用自适应画布：宽度铺满设计区，高度随组件自动增长。</div>
+
+            <label>主题</label>
+            <el-radio-group v-model="screenTheme" size="small">
+              <el-radio-button value="light">浅色</el-radio-button>
+              <el-radio-button value="dark">深色</el-radio-button>
+            </el-radio-group>
+
+            <label>背景</label>
+            <el-radio-group v-model="backgroundType" size="small">
+              <el-radio-button value="color">纯色</el-radio-button>
+              <el-radio-button value="gradient">渐变</el-radio-button>
+              <el-radio-button value="image">图片</el-radio-button>
+            </el-radio-group>
+            <template v-if="backgroundType === 'color'">
+              <el-color-picker v-model="backgroundColor" show-alpha />
+            </template>
+            <template v-else-if="backgroundType === 'gradient'">
+              <div class="designer-inline">
+                <el-color-picker v-model="gradientFrom" show-alpha />
+                <span class="designer-canvas-times">→</span>
+                <el-color-picker v-model="gradientTo" show-alpha />
+              </div>
+              <div class="designer-inline">
+                <span class="designer-settings-label-inline">角度</span>
+                <el-input-number
+                  v-model="gradientAngle"
+                  :min="0"
+                  :max="360"
+                  :step="15"
+                  controls-position="right"
+                  style="flex: 1; min-width: 0"
+                />
+              </div>
+            </template>
+            <template v-else>
+              <div class="designer-settings-upload">
+                <el-upload
+                  ref="backgroundUploadRef"
+                  :auto-upload="false"
+                  :show-file-list="false"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  :on-change="onBackgroundFileChange"
+                >
+                  <el-button size="small" :loading="backgroundUploading">上传背景图</el-button>
+                </el-upload>
+                <el-button v-if="backgroundImagePath" text size="small" type="danger" @click="removeBackgroundImage">移除</el-button>
+              </div>
+              <img v-if="backgroundImageUrl" class="designer-settings-bg" :src="backgroundImageUrl" alt="背景图预览" />
+              <div class="designer-hint">支持 PNG / JPEG / WebP / GIF，最大 5MB。</div>
+            </template>
+
+            <label>自动刷新</label>
+            <div class="designer-inline">
+              <el-input-number
+                v-model="autoRefreshSeconds"
+                :min="0"
+                :max="86400"
+                :step="10"
+                controls-position="right"
+                style="flex: 1; min-width: 0"
+              />
+              <span class="designer-settings-label-inline">秒</span>
+            </div>
+            <div class="designer-hint">0 表示不自动刷新；仅在浏览 / 预览页生效。</div>
+
+            <label>栅格规则</label>
+            <div class="designer-settings-grid">
+              <span>24 栅格列</span>
+              <span>行高 40px</span>
+              <span>间距 12px</span>
+            </div>
+            <div class="designer-hint">组件按 24 栅格定位，垂直拖动步长为 52px。</div>
+
+            <div v-if="isCanvasOverflow" class="designer-settings-warning">内容超出画布高度，浏览时底部会被裁切。</div>
+          </div>
+        </template>
+        <template v-else-if="selectedWidget">
           <div class="designer-property-title">组件配置</div>
           <el-tabs v-model="propertyTab" class="designer-property-tabs">
             <el-tab-pane label="基础设置" name="basic">
               <div class="designer-property-form">
                 <label>标题</label>
                 <el-input v-model="selectedWidget.title" placeholder="组件标题" />
+                <div v-if="selectedWidget.type === 'html'" class="designer-hint">留空则不显示标题栏，HTML 内容占满整个组件。</div>
 
                 <template v-if="selectedWidget.type !== 'html'">
                   <label>数据集</label>
@@ -535,16 +709,6 @@
         </div>
       </div>
     </div>
-
-    <el-dialog v-model="specJsonVisible" title="看板定义 JSON" width="720px" append-to-body>
-      <el-alert v-if="specJsonError" type="error" :title="specJsonError" :closable="false" class="mb-2" />
-      <p class="designer-json-hint">可手动修改下方 JSON，点击「应用并刷新」校验并重新渲染画布。</p>
-      <textarea v-model="specJsonText" class="designer-json" spellcheck="false"></textarea>
-      <template #footer>
-        <el-button @click="specJsonVisible = false">关闭</el-button>
-        <el-button type="primary" :loading="specJsonApplying" @click="applySpecJson"> 应用并刷新 </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -560,27 +724,67 @@
 }
 
 .designer-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 10px;
 }
 
 .designer-header-left {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   min-width: 0;
+  justify-self: start;
+}
+
+.designer-header-center {
+  display: flex;
+  align-items: center;
+  justify-self: center;
 }
 
 .designer-name-input {
   width: 280px;
+  max-width: 100%;
+}
+
+.designer-mode-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 32px;
+}
+
+.designer-mode-switch :deep(.el-radio-button) {
+  display: inline-flex;
+  height: 100%;
+}
+
+.designer-mode-switch :deep(.el-radio-button__inner) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
 }
 
 .designer-header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
+  justify-self: end;
+}
+
+.designer-loading-hint {
+  color: #909399;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .designer-history-actions {
@@ -790,24 +994,83 @@
 }
 
 .designer-main {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: 10px;
   overflow: auto;
   background: #f5f7fa;
   border-radius: 8px;
 }
 
-.designer-main-toolbar {
+.designer-main.is-screen {
+  overflow: hidden;
+}
+
+.designer-main.is-standard .designer-canvas-standard {
+  flex: 1 0 auto;
+  background-color: transparent;
+}
+
+.designer-stage {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.designer-stage-caption {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex: 0 0 auto;
   gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+  color: #606266;
+  font-size: 12px;
+}
+
+.designer-stage-caption-title {
+  color: #303133;
+  font-weight: 600;
+}
+
+.designer-main.is-screen .designer-stage {
+  height: 0;
+  background: #dfe6f0;
+  border-radius: 8px;
+}
+
+.designer-main.is-screen .designer-stage :deep(.dashboard-stage-frame) {
+  outline: 1px solid #c3cfdf;
+  box-shadow: 0 10px 34px rgb(31 45 61 / 14%);
+}
+
+.designer-canvas-times {
+  color: #909399;
+  font-size: 12px;
+}
+
+.designer-zoom-value {
+  min-width: 44px;
+  color: #606266;
+  font-size: 12px;
+  text-align: center;
+}
+
+.designer-canvas-overflow {
+  flex: 0 0 auto;
+  margin-top: 6px;
+  padding: 6px 10px;
+  color: #e6a23c;
+  font-size: 12px;
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
 }
 
 .designer-preview-filters {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
@@ -854,30 +1117,76 @@
   flex: 0 0 auto;
 }
 
-.designer-desc-input {
-  max-width: 420px;
-}
-
-.designer-main-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #909399;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.designer-tip {
-  margin: 8px 0 4px;
-  color: #909399;
-  font-size: 11px;
-}
-
 .designer-property-title {
   padding-bottom: 8px;
   border-bottom: 1px solid #f0f0f0;
   color: #303133;
   font-weight: 600;
+}
+
+.designer-settings-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.designer-settings-value {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.designer-settings-empty {
+  padding: 8px 10px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.designer-settings-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.designer-settings-grid span {
+  padding: 2px 8px;
+  color: #409eff;
+  font-size: 11px;
+  background: #ecf5ff;
+  border-radius: 10px;
+}
+
+.designer-settings-warning {
+  padding: 6px 10px;
+  color: #e6a23c;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+}
+
+.designer-settings-label-inline {
+  color: #909399;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.designer-settings-upload {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.designer-settings-bg {
+  width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
 }
 
 .designer-property-tabs {
@@ -1108,12 +1417,6 @@
   border: 1px solid #ebeef5;
   border-radius: 8px;
   box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
-}
-
-.designer-json-hint {
-  margin: 0 0 8px;
-  color: #909399;
-  font-size: 12px;
 }
 
 .designer-json {

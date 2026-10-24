@@ -135,7 +135,13 @@ public class DashboardDesignAssistant implements AiAssistant {
             {
               "title": "看板标题",
               "description": "一句话说明",
-              "layout": { "columns": 12, "rowHeight": 90, "gap": 16 },
+              "layout": {
+                "mode": "standard",
+                "columns": 24,
+                "rowHeight": 40,
+                "gap": 12,
+                "screen": { "width": 1920, "height": 1080 }
+              },
               "datasets": [
                 {
                   "id": "ds_sales",
@@ -149,7 +155,7 @@ public class DashboardDesignAssistant implements AiAssistant {
                   "id": "w_store",
                   "title": "门店销售额 Top10",
                   "type": "echarts",
-                  "layout": { "x": 0, "y": 0, "w": 8, "h": 4 },
+                  "layout": { "x": 0, "y": 0, "w": 16, "h": 8 },
                   "datasetId": "ds_sales",
                   "dataRef": {
                     "categoryField": "store_name",
@@ -184,8 +190,12 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("- 组件 type 取值：echarts / html / table / kpi。echarts 必须给出 echartsOption 与 dataRef；\n");
         sb.append("  html 用 html 字段承载简单 HTML 片段；table 按数据集渲染明细表；kpi 展示单值指标。\n");
         sb.append("- 组件标题统一用 widget.title，ECharts option 内不要再写 title（会被忽略，避免与卡片标题重复）。\n");
-        sb.append("- layout 使用 12 列栅格：x 起点(0-11)、y 行号、w 宽度(1-12)、h 高度(2-24)。组件横纵不得重叠。\n");
-        sb.append("- 指标卡（kpi）默认 w=3、h=2，多个指标卡在同一行横向并排，避免过高（h 不超过 4）。\n");
+        sb.append("- layout 使用 24 列栅格：x 起点(0-23)、y 行号、w 宽度(1-24)、h 高度(2-40)。组件横纵不得重叠。\n");
+        sb.append("- 指标卡（kpi）默认 w=6、h=4，多个指标卡在同一行横向并排，避免过高（h 不超过 8）。\n");
+        sb.append("- 普通图表默认 w=12、h=8，整行图表使用 w=24；同一行组件宽度之和不要超过 24。\n");
+        sb.append("- 需要投屏 / 大屏展示时，把 layout.mode 设为 screen，并在 layout.screen 指定 width / height（默认 1920×1080）。\n");
+        sb.append("- 大屏可选设置：layout.screen.fitMode(contain=居中/cover=裁切/stretch=铺满，默认 stretch)、theme(light/dark)、autoRefreshSeconds(0-86400)；\n");
+        sb.append("  背景色/渐变/背景图由用户在设置面板配置，不要生成 background.imagePath。\n");
         sb.append("- dataRef 约定：categoryField 使用数据集中的维度展示字段，禁止使用 *_sk / *_id；series[].field 为数值字段；\n");
         sb.append("  可选 seriesField 表示按该字段透视成多系列；groupBy=true 表示图表按分类字段聚合；limit/sortField/sortOrder 控制排序与截断。\n");
         sb.append("- 筛选器使用 datasetId + field 直接绑定数据集字段，不再生成 bindings；field 必须是数据集真实列名。\n");

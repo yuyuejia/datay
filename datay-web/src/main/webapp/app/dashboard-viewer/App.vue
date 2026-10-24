@@ -1,6 +1,6 @@
 <template>
-  <div class="dashboard-viewer">
-    <div class="dashboard-viewer-topbar">
+  <div class="dashboard-viewer" :class="viewerClasses" :style="backgroundStyle">
+    <div v-if="!isScreenMode" class="dashboard-viewer-topbar">
       <div class="dashboard-viewer-brand">
         <span class="dashboard-viewer-title">{{ brandTitle }}</span>
         <el-tag v-if="isPreview" size="small" type="warning">设计预览</el-tag>
@@ -11,21 +11,53 @@
     <el-result v-if="error" icon="error" title="看板加载失败" :sub-title="error" class="dashboard-viewer-error" />
 
     <template v-else-if="spec">
-      <DashboardFilters
-        :filters="spec.filters || []"
-        :model-value="filterValues"
-        :dashboard-id="dashboardId"
-        :spec="spec"
-        :source-data="rawDatasetData"
-        @update:model-value="onFiltersChange"
-      />
-      <DashboardCanvas
-        :spec="spec"
-        :dataset-data="datasetData"
-        :loading-datasets="loadingDatasets"
-        :dataset-errors="datasetErrors"
-        :show-header="false"
-      />
+      <template v-if="isScreenMode">
+        <div v-if="(spec.filters || []).length" class="dashboard-viewer-filters-float">
+          <DashboardFilters
+            :filters="spec.filters || []"
+            :model-value="filterValues"
+            :dashboard-id="dashboardId"
+            :spec="spec"
+            :source-data="rawDatasetData"
+            @update:model-value="onFiltersChange"
+          />
+        </div>
+        <DashboardStage
+          class="dashboard-viewer-stage"
+          :width="screenWidth"
+          :height="screenHeight"
+          zoom="fit"
+          :fit-mode="fitMode"
+          :padding="0"
+          :background-style="{ backgroundColor: 'transparent' }"
+        >
+          <DashboardCanvas
+            :spec="spec"
+            :dataset-data="datasetData"
+            :loading-datasets="loadingDatasets"
+            :dataset-errors="datasetErrors"
+            :show-header="false"
+          />
+        </DashboardStage>
+      </template>
+
+      <template v-else>
+        <DashboardFilters
+          :filters="spec.filters || []"
+          :model-value="filterValues"
+          :dashboard-id="dashboardId"
+          :spec="spec"
+          :source-data="rawDatasetData"
+          @update:model-value="onFiltersChange"
+        />
+        <DashboardCanvas
+          :spec="spec"
+          :dataset-data="datasetData"
+          :loading-datasets="loadingDatasets"
+          :dataset-errors="datasetErrors"
+          :show-header="false"
+        />
+      </template>
     </template>
 
     <div v-else class="dashboard-viewer-loading" v-loading="true"></div>
@@ -33,14 +65,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue';
 
 import DashboardCanvas from '@/shared/dashboard/DashboardCanvas.vue';
 import DashboardFilters from '@/shared/dashboard/DashboardFilters.vue';
+import DashboardStage from '@/shared/dashboard/DashboardStage.vue';
 import DashboardService from '@/shared/dashboard/dashboard.service';
 import { filtersFromQuery, initFilterValues } from '@/shared/dashboard/filter-utils';
+import {
+  normalizeDashboardSpec,
+  resolveScreenBackgroundStyle,
+  resolveScreenFitMode,
+  resolveScreenTheme,
+} from '@/shared/dashboard/layout-defaults';
 import { cleanupDashboardPreviewDrafts, readDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import type { DashboardSpec, FilterValues } from '@/shared/dashboard/types';
+import { useDashboardAutoRefresh } from '@/shared/dashboard/useDashboardAutoRefresh';
+import { useDashboardBackgroundImage } from '@/shared/dashboard/useDashboardBackgroundImage';
 import { useDashboardData } from '@/shared/dashboard/useDashboardData';
 
 const service = new DashboardService();
@@ -51,20 +92,59 @@ const filterValues = ref<FilterValues>({});
 const error = ref('');
 const isPreview = ref(false);
 
+const isScreenMode = computed(() => spec.value?.layout?.mode === 'screen');
+const screenWidth = computed(() => spec.value?.layout?.screen?.width ?? 1920);
+const screenHeight = computed(() => spec.value?.layout?.screen?.height ?? 1080);
+const screenTheme = computed(() => resolveScreenTheme(spec.value?.layout));
+const isDarkTheme = computed(() => screenTheme.value === 'dark');
+const fitMode = computed(() => resolveScreenFitMode(spec.value?.layout));
+const backgroundImagePath = computed(() => {
+  const background = spec.value?.layout?.screen?.background;
+  return background?.type === 'image' ? (background.imagePath ?? '') : '';
+});
+const { imageUrl: backgroundImageUrl } = useDashboardBackgroundImage(backgroundImagePath);
+const backgroundStyle = computed(() => resolveScreenBackgroundStyle(spec.value?.layout, backgroundImageUrl.value));
+const refreshSeconds = computed(() => spec.value?.layout?.screen?.autoRefreshSeconds ?? 0);
+
+const viewerClasses = computed(() => ({
+  'is-screen': isScreenMode.value,
+  'dashboard-theme-dark': isDarkTheme.value,
+  'dashboard-theme-light': !isDarkTheme.value,
+}));
+
 const brandTitle = computed(() => spec.value?.title || dashboardName.value || '分析看板');
 
 const { datasetData, rawDatasetData, loadingDatasets, datasetErrors, loadAll } = useDashboardData({ dashboardId, spec });
+
+const refresh = () => loadAll(filterValues.value);
+const { schedule: scheduleAutoRefresh } = useDashboardAutoRefresh(refreshSeconds, refresh);
+
+watchEffect(() => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('dark', isDarkTheme.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove('dark');
+  }
+});
 
 let debounceTimer: number | undefined;
 const onFiltersChange = (values: FilterValues) => {
   filterValues.value = values;
   window.clearTimeout(debounceTimer);
-  debounceTimer = window.setTimeout(() => loadAll(values), 300);
+  debounceTimer = window.setTimeout(async () => {
+    await loadAll(values);
+    scheduleAutoRefresh();
+  }, 300);
 };
 
-const reload = () => {
+const reload = async () => {
   if (spec.value) {
-    loadAll(filterValues.value);
+    await loadAll(filterValues.value);
+    scheduleAutoRefresh();
   }
 };
 
@@ -76,7 +156,7 @@ const applyPreviewDraft = async (draftId: string) => {
   isPreview.value = true;
   dashboardId.value = undefined;
   dashboardName.value = draft.name || draft.spec.title || '看板预览';
-  spec.value = draft.spec;
+  spec.value = normalizeDashboardSpec(draft.spec);
   document.title = `${dashboardName.value} - 设计预览`;
   filterValues.value = {
     ...initFilterValues(draft.spec.filters),
@@ -113,7 +193,7 @@ onMounted(async () => {
     const dashboard = await resolveDashboard();
     dashboardName.value = dashboard.name || '';
     document.title = dashboard.name || '分析看板';
-    const parsed = DashboardService.parseSpec(dashboard);
+    const parsed = normalizeDashboardSpec(DashboardService.parseSpec(dashboard));
     spec.value = parsed;
     filterValues.value = {
       ...initFilterValues(parsed.filters),
@@ -132,13 +212,44 @@ onMounted(async () => {
   padding-bottom: 24px;
 }
 
+.dashboard-viewer.is-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  background: var(--dashboard-letterbox, #e9edf3);
+}
+
+.dashboard-viewer-stage {
+  min-height: 0;
+}
+
+.dashboard-viewer.is-screen .dashboard-viewer-stage {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+
+.dashboard-viewer-filters-float {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 20;
+  max-width: calc(100vw - 24px);
+  transform: translateX(-50%);
+}
+
 .dashboard-viewer-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 6%);
+  background: var(--dashboard-surface, #fff);
+  box-shadow: var(--dashboard-shadow, 0 1px 4px rgb(0 0 0 / 6%));
 }
 
 .dashboard-viewer-brand {
@@ -149,7 +260,7 @@ onMounted(async () => {
 }
 
 .dashboard-viewer-title {
-  color: #303133;
+  color: var(--dashboard-text, #303133);
   font-size: 18px;
   font-weight: 600;
 }

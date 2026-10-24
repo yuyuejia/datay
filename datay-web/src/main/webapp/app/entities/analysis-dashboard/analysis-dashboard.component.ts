@@ -47,13 +47,12 @@ export default defineComponent({
       searchTimer = setTimeout(retrieveDashboards, 300);
     });
 
+    onMounted(retrieveDashboards);
     onUnmounted(() => {
       if (searchTimer) {
         clearTimeout(searchTimer);
       }
     });
-
-    onMounted(retrieveDashboards);
 
     const openInNewTab = (row: AnalysisDashboard) => {
       window.open(`/dashboard.html?id=${row.id}`, '_blank');

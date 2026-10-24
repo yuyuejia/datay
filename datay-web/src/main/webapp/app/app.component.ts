@@ -59,6 +59,9 @@ export default defineComponent({
 
     const isListPage = computed(() => route.meta.listPage === true);
 
+    /** 顶层路由自身就是列表页时（如系统管理），同样不使用 keep-alive，返回时重新挂载取数。 */
+    const isTopLevelListPage = computed(() => route.matched[0]?.meta?.listPage === true);
+
     const isLoginPage = computed(() => route.name === 'Login');
 
     // 把顶栏（导航 + 菜单页签）的实际高度写入 CSS 变量，供页面计算可视高度。
@@ -92,6 +95,7 @@ export default defineComponent({
     return {
       isDesignPage,
       isListPage,
+      isTopLevelListPage,
       isLoginPage,
       topbarRef,
       tenantVersion,

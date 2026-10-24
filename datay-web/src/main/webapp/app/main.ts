@@ -18,6 +18,7 @@ import AccountService from '@/account/account.service';
 
 import '../content/scss/global.scss';
 import '../content/scss/vendor.scss';
+import '@/shared/dashboard/dashboard-theme.scss';
 
 const pinia = createPinia();
 
@@ -97,7 +98,7 @@ const app = createApp({
 initFortAwesome(app);
 
 app
-  .component('jhi-item-count', JhiItemCountComponent)
+  .component('JhiItemCount', JhiItemCountComponent)
   .component('jhi-sort-indicator', JhiSortIndicatorComponent)
   .component('AppModal', AppModal)
   .use(router)

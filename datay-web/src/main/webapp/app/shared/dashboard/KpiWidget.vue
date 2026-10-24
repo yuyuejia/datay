@@ -6,10 +6,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed } from 'vue';
 
-import { resolveKpiValue } from "./spec-to-option";
-import type { DashboardWidget, DatasetResult } from "./types";
+import { resolveKpiValue } from './spec-to-option';
+import type { DashboardWidget, DatasetResult } from './types';
 
 const props = defineProps<{
   widget: DashboardWidget;
@@ -17,16 +17,14 @@ const props = defineProps<{
 }>();
 
 const kpi = computed(() => resolveKpiValue(props.widget, props.result));
-const caption = computed(() => props.widget.title || kpi.value.label || "");
+const caption = computed(() => props.widget.title || kpi.value.label || '');
 
 const displayValue = computed(() => {
   const value = kpi.value.value;
   if (value === null || value === undefined) {
-    return "--";
+    return '--';
   }
-  return Number.isInteger(value)
-    ? value.toLocaleString()
-    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 });
 </script>
 
@@ -42,7 +40,7 @@ const displayValue = computed(() => {
 
 .kpi-widget-value {
   overflow: hidden;
-  color: #303133;
+  color: var(--dashboard-kpi-value, #303133);
   font-size: 30px;
   font-weight: 600;
   line-height: 1.2;
@@ -52,7 +50,7 @@ const displayValue = computed(() => {
 
 .kpi-widget-caption {
   margin-top: 6px;
-  color: #909399;
+  color: var(--dashboard-kpi-caption, #909399);
   font-size: 13px;
 }
 </style>

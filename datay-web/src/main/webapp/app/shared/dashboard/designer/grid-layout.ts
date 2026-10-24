@@ -1,15 +1,19 @@
 import type { DashboardWidget, WidgetLayout } from '../types';
 
 /**
- * 轻量 12 列网格布局算法（无第三方依赖）。
+ * 轻量 24 列网格布局算法（无第三方依赖）。
  *
  * 坐标约定与看板 spec 一致：x / y 从 0 开始，w / h 为跨列 / 跨行数。
  * 设计器只在指针拖动、缩放结束时调用这里，避免拖动过程中反复计算。
  */
 
-export const GRID_COLUMNS = 12;
-export const DEFAULT_WIDGET_W = 6;
-export const DEFAULT_WIDGET_H = 4;
+export const GRID_COLUMNS = 24;
+export const DEFAULT_WIDGET_W = 12;
+export const DEFAULT_WIDGET_H = 8;
+export const DEFAULT_ROW_HEIGHT = 40;
+export const DEFAULT_GAP = 12;
+/** 设计态与浏览态统一的画布内边距，保证大屏模式所见即所得。 */
+export const CANVAS_PADDING = 16;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -113,6 +117,20 @@ export function resizeLayout(
 export function nextLayout(widgets: DashboardWidget[], w = DEFAULT_WIDGET_W, h = DEFAULT_WIDGET_H): WidgetLayout {
   const bottom = widgets.reduce((max, widget) => Math.max(max, (widget.layout?.y ?? 0) + (widget.layout?.h ?? 0)), 0);
   return normalizeLayout({ x: 0, y: bottom, w, h });
+}
+
+/** 当前组件布局占用的总高度（含画布内边距），用于大屏模式判断内容是否超出设计分辨率。 */
+export function layoutContentHeight(
+  widgets: DashboardWidget[],
+  rowHeight = DEFAULT_ROW_HEIGHT,
+  gap = DEFAULT_GAP,
+  padding = CANVAS_PADDING,
+): number {
+  const bottom = widgets.reduce((max, widget) => Math.max(max, (widget.layout?.y ?? 0) + (widget.layout?.h ?? 0)), 0);
+  if (bottom <= 0) {
+    return padding * 2;
+  }
+  return bottom * rowHeight + (bottom - 1) * gap + padding * 2;
 }
 
 /** 组件是否落在网格内（用于校验导入的 spec）。 */

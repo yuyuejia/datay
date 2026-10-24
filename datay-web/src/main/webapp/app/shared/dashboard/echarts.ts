@@ -1,11 +1,5 @@
-import * as echarts from "echarts/core";
-import {
-  BarChart,
-  GaugeChart,
-  LineChart,
-  PieChart,
-  ScatterChart,
-} from "echarts/charts";
+import * as echarts from 'echarts/core';
+import { BarChart, GaugeChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import {
   DataZoomComponent,
   DatasetComponent,
@@ -15,8 +9,8 @@ import {
   TitleComponent,
   ToolboxComponent,
   TooltipComponent,
-} from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
+} from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 
 /**
  * ECharts 按需注册。
@@ -40,6 +34,47 @@ echarts.use([
   MarkLineComponent,
   CanvasRenderer,
 ]);
+
+const darkText = '#cbd5e1';
+const darkSecondaryText = '#94a3b8';
+const darkLine = '#475569';
+const darkSplitLine = '#334155';
+
+/** 看板大屏暗色主题：与 dashboard-theme-dark 的卡片配色保持一致。 */
+echarts.registerTheme('dashboard-dark', {
+  darkMode: true,
+  backgroundColor: 'transparent',
+  color: ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#22d3ee', '#fb923c', '#e879f9'],
+  textStyle: { color: darkText },
+  title: { textStyle: { color: darkText } },
+  legend: { textStyle: { color: darkText } },
+  tooltip: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+    textStyle: { color: '#e5e7eb' },
+  },
+  axisPointer: {
+    lineStyle: { color: darkLine },
+    crossStyle: { color: darkLine },
+    label: { backgroundColor: '#1e293b', color: '#e5e7eb' },
+  },
+  dataZoom: {
+    borderColor: darkLine,
+    fillerColor: 'rgba(96, 165, 250, 0.15)',
+    handleStyle: { color: '#60a5fa' },
+    textStyle: { color: darkSecondaryText },
+  },
+  categoryAxis: {
+    axisLine: { lineStyle: { color: darkLine } },
+    axisLabel: { color: darkSecondaryText },
+    splitLine: { show: false },
+  },
+  valueAxis: {
+    axisLine: { lineStyle: { color: darkLine } },
+    axisLabel: { color: darkSecondaryText },
+    splitLine: { lineStyle: { color: darkSplitLine } },
+  },
+});
 
 export { echarts };
 export type ECharts = echarts.ECharts;

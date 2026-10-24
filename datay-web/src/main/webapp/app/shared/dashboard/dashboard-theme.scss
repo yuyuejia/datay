@@ -1,0 +1,79 @@
+/* 看板大屏主题变量：只作用于带有 dashboard-theme-* 的看板容器，不影响编辑页面。 */
+.dashboard-theme-light {
+  --dashboard-surface: #fff;
+  --dashboard-surface-muted: #f5f7fa;
+  --dashboard-background: #f5f7fa;
+  --dashboard-text: #303133;
+  --dashboard-text-secondary: #909399;
+  --dashboard-text-placeholder: #c0c4cc;
+  --dashboard-border: #f0f0f0;
+  --dashboard-border-strong: #e4e7ed;
+  --dashboard-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  --dashboard-filter-bg: #fff;
+  --dashboard-filter-text: #606266;
+  --dashboard-filter-separator: #909399;
+  --dashboard-letterbox: #e9edf3;
+  --dashboard-grid-line: rgb(64 158 255 / 24%);
+  --dashboard-grid-line-secondary: rgb(64 158 255 / 14%);
+  --dashboard-kpi-value: #303133;
+  --dashboard-kpi-caption: #909399;
+  --dashboard-error-bg: #fef0f0;
+  --dashboard-error-text: #f56c6c;
+}
+
+.dashboard-theme-dark {
+  color-scheme: dark;
+  --dashboard-surface: #182233;
+  --dashboard-surface-muted: #111827;
+  --dashboard-background: #0f172a;
+  --dashboard-text: #e5e7eb;
+  --dashboard-text-secondary: #94a3b8;
+  --dashboard-text-placeholder: #64748b;
+  --dashboard-border: #263244;
+  --dashboard-border-strong: #334155;
+  --dashboard-shadow: 0 1px 4px rgb(0 0 0 / 40%);
+  --dashboard-filter-bg: #182233;
+  --dashboard-filter-text: #cbd5e1;
+  --dashboard-filter-separator: #64748b;
+  --dashboard-letterbox: #060b14;
+  --dashboard-grid-line: rgb(148 163 184 / 30%);
+  --dashboard-grid-line-secondary: rgb(148 163 184 / 16%);
+  --dashboard-kpi-value: #f8fafc;
+  --dashboard-kpi-caption: #94a3b8;
+  --dashboard-error-bg: rgb(127 29 29 / 35%);
+  --dashboard-error-text: #fca5a5;
+
+  --el-bg-color: #182233;
+  --el-bg-color-overlay: #1e293b;
+  --el-bg-color-page: #0f172a;
+  --el-text-color-primary: #e5e7eb;
+  --el-text-color-regular: #cbd5e1;
+  --el-text-color-secondary: #94a3b8;
+  --el-text-color-placeholder: #64748b;
+  --el-border-color: #334155;
+  --el-border-color-light: #263244;
+  --el-border-color-lighter: #263244;
+  --el-fill-color-blank: #182233;
+  --el-fill-color-light: #1e293b;
+  --el-fill-color-lighter: #1e293b;
+  --el-fill-color: #1e293b;
+  --el-disabled-bg-color: #1e293b;
+  --el-mask-color: rgb(15 23 42 / 80%);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: #1e293b;
+  --el-table-row-hover-bg-color: #1e293b;
+  --el-table-border-color: #263244;
+  --el-table-text-color: #cbd5e1;
+  --el-table-header-text-color: #e5e7eb;
+}
+
+.dashboard-theme-dark .el-table {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: #1e293b;
+  --el-table-row-hover-bg-color: #1e293b;
+  --el-table-border-color: #263244;
+  --el-table-text-color: #cbd5e1;
+  --el-table-header-text-color: #e5e7eb;
+}

@@ -237,9 +237,10 @@ onMounted(() => {
   align-items: center;
   gap: 12px 20px;
   padding: 12px 16px;
-  background: #fff;
+  color: var(--dashboard-filter-text, #606266);
+  background: var(--dashboard-filter-bg, #fff);
   border-radius: 6px;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  box-shadow: var(--dashboard-shadow, 0 1px 4px rgb(0 0 0 / 8%));
 }
 
 .dashboard-filter-item {
@@ -249,7 +250,7 @@ onMounted(() => {
 }
 
 .dashboard-filter-label {
-  color: #606266;
+  color: var(--dashboard-filter-text, #606266);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -271,7 +272,7 @@ onMounted(() => {
 }
 
 .dashboard-filter-range-sep {
-  color: #909399;
+  color: var(--dashboard-filter-separator, #909399);
 }
 
 .dashboard-filter-range :deep(.el-input-number) {

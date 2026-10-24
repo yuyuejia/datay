@@ -37,7 +37,9 @@ export default class DashboardService {
     if (params.search) {
       query.search = params.search;
     }
-    return axios.get(baseApiUrl, { params: query }).then((res) => res.data);
+    return axios
+      .get(baseApiUrl, { params: query, headers: { "Cache-Control": "no-cache" } })
+      .then((res) => res.data);
   }
 
   get(id: string): Promise<AnalysisDashboard> {

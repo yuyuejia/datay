@@ -1,9 +1,6 @@
 <template>
-  <div class="dashboard-canvas">
-    <div
-      v-if="showHeader !== false && (spec.title || spec.description)"
-      class="dashboard-canvas-header"
-    >
+  <div class="dashboard-canvas" :class="{ 'is-screen': isScreenMode }">
+    <div v-if="showHeader !== false && !isScreenMode && (spec.title || spec.description)" class="dashboard-canvas-header">
       <h2 v-if="spec.title" class="dashboard-canvas-title">{{ spec.title }}</h2>
       <p v-if="spec.description" class="dashboard-canvas-desc">
         {{ spec.description }}
@@ -11,32 +8,20 @@
     </div>
 
     <div class="dashboard-canvas-grid" :style="gridStyle">
-      <div
-        v-for="widget in widgets"
-        :key="widget.id"
-        class="dashboard-canvas-item"
-        :style="itemStyle(widget)"
-      >
-        <DashboardWidget
-          :widget="widget"
-          :result="resultOf(widget)"
-          :loading="loadingOf(widget)"
-          :error="errorOf(widget)"
-        />
+      <div v-for="widget in widgets" :key="widget.id" class="dashboard-canvas-item" :style="itemStyle(widget)">
+        <DashboardWidget :widget="widget" :result="resultOf(widget)" :loading="loadingOf(widget)" :error="errorOf(widget)" :theme="theme" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed } from 'vue';
 
-import DashboardWidget from "./DashboardWidget.vue";
-import type {
-  DashboardSpec,
-  DashboardWidget as Widget,
-  DatasetResult,
-} from "./types";
+import DashboardWidget from './DashboardWidget.vue';
+import { DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
+import { normalizeTheme } from './layout-defaults';
+import type { DashboardSpec, DashboardWidget as Widget, DatasetResult } from './types';
 
 const props = defineProps<{
   spec: DashboardSpec;
@@ -48,35 +33,41 @@ const props = defineProps<{
 }>();
 
 const widgets = computed(() => props.spec.widgets ?? []);
+const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
+const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
 
 const gridStyle = computed(() => {
   const layout = props.spec.layout ?? {};
   return {
-    gridTemplateColumns: `repeat(${layout.columns ?? 12}, minmax(0, 1fr))`,
-    gridAutoRows: `${layout.rowHeight ?? 90}px`,
-    gap: `${layout.gap ?? 16}px`,
+    gridTemplateColumns: `repeat(${layout.columns ?? GRID_COLUMNS}, minmax(0, 1fr))`,
+    gridAutoRows: `${layout.rowHeight ?? DEFAULT_ROW_HEIGHT}px`,
+    gap: `${layout.gap ?? DEFAULT_GAP}px`,
   };
 });
 
 const itemStyle = (widget: Widget) => {
   const layout = widget.layout;
   return {
-    gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 6}`,
-    gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 4}`,
+    gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
+    gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
   };
 };
 
-const resultOf = (widget: Widget) =>
-  widget.datasetId ? props.datasetData?.[widget.datasetId] : undefined;
-const loadingOf = (widget: Widget) =>
-  widget.datasetId ? props.loadingDatasets?.[widget.datasetId] : false;
-const errorOf = (widget: Widget) =>
-  widget.datasetId ? props.datasetErrors?.[widget.datasetId] : "";
+const resultOf = (widget: Widget) => (widget.datasetId ? props.datasetData?.[widget.datasetId] : undefined);
+const loadingOf = (widget: Widget) => (widget.datasetId ? props.loadingDatasets?.[widget.datasetId] : false);
+const errorOf = (widget: Widget) => (widget.datasetId ? props.datasetErrors?.[widget.datasetId] : '');
 </script>
 
 <style scoped>
 .dashboard-canvas {
+  box-sizing: border-box;
   padding: 16px;
+}
+
+.dashboard-canvas.is-screen {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .dashboard-canvas-header {

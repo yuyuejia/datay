@@ -59,7 +59,117 @@ class DashboardSpecValidatorTest {
         assertThat(spec.get("filters")).asList().hasSize(1);
         @SuppressWarnings("unchecked")
         Map<String, Object> layout = (Map<String, Object>) spec.get("layout");
-        assertThat(layout).containsEntry("columns", 12);
+        assertThat(layout)
+            .containsEntry("mode", "standard")
+            .containsEntry("columns", 24)
+            .containsEntry("rowHeight", 40)
+            .containsEntry("gap", 12);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeScreenLayout() {
+        String spec =
+            """
+            {
+              "layout": {
+                "mode": "screen",
+                "columns": 12,
+                "rowHeight": 999,
+                "gap": -5,
+                "screen": { "width": 100, "height": 9000 }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "datasetId": "ds1", "layout": { "x": 20, "y": 0, "w": 12, "h": 4 } } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
+        assertThat(layout)
+            .containsEntry("mode", "screen")
+            .containsEntry("columns", 24)
+            .containsEntry("rowHeight", 40)
+            .containsEntry("gap", 12);
+        Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
+        assertThat(screen)
+            .containsEntry("width", 640)
+            .containsEntry("height", 4320)
+            .containsEntry("fitMode", "stretch")
+            .containsEntry("theme", "light")
+            .containsEntry("autoRefreshSeconds", 0);
+
+        java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> widgetLayout = (Map<String, Object>) widgets.get(0).get("layout");
+        assertThat(widgetLayout).containsEntry("x", 12).containsEntry("w", 12);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeScreenAppearanceSettings() {
+        String spec =
+            """
+            {
+              "layout": {
+                "mode": "screen",
+                "screen": {
+                  "width": 1920,
+                  "height": 1080,
+                  "fitMode": "cover",
+                  "theme": "dark",
+                  "autoRefreshSeconds": 30,
+                  "background": {
+                    "type": "gradient",
+                    "gradient": { "from": "#000000", "to": "#ffffff", "angle": 45 }
+                  }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "datasetId": "ds1" } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
+        Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
+        assertThat(screen)
+            .containsEntry("fitMode", "cover")
+            .containsEntry("theme", "dark")
+            .containsEntry("autoRefreshSeconds", 30);
+        Map<String, Object> background = (Map<String, Object>) screen.get("background");
+        assertThat(background).containsEntry("type", "gradient");
+        Map<String, Object> gradient = (Map<String, Object>) background.get("gradient");
+        assertThat(gradient).containsEntry("from", "#000000").containsEntry("to", "#ffffff").containsEntry("angle", 45);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldFallbackInvalidScreenAppearanceSettings() {
+        String spec =
+            """
+            {
+              "layout": {
+                "mode": "screen",
+                "screen": {
+                  "width": 1920,
+                  "height": 1080,
+                  "fitMode": "unknown",
+                  "theme": "unknown",
+                  "autoRefreshSeconds": 999999,
+                  "background": { "type": "image", "imagePath": "" }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "datasetId": "ds1" } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
+        Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
+        assertThat(screen)
+            .containsEntry("fitMode", "stretch")
+            .containsEntry("theme", "light")
+            .containsEntry("autoRefreshSeconds", 86400);
+        Map<String, Object> background = (Map<String, Object>) screen.get("background");
+        assertThat(background).containsEntry("type", "color").containsEntry("color", "#f5f7fa");
     }
 
     @Test
@@ -173,7 +283,7 @@ class DashboardSpecValidatorTest {
         Map<String, Object> normalized = validator.validateAndNormalize(spec);
         java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
         Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
-        assertThat(layout).containsEntry("w", 3).containsEntry("h", 2);
+        assertThat(layout).containsEntry("w", 6).containsEntry("h", 4);
     }
 
     @Test
@@ -182,12 +292,12 @@ class DashboardSpecValidatorTest {
         String spec = """
             {
               "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
-              "widgets": [ { "id": "k1", "type": "kpi", "datasetId": "ds1", "layout": { "x": 0, "y": 0, "w": 3, "h": 8 } } ]
+              "widgets": [ { "id": "k1", "type": "kpi", "datasetId": "ds1", "layout": { "x": 0, "y": 0, "w": 6, "h": 20 } } ]
             }
             """;
         Map<String, Object> normalized = validator.validateAndNormalize(spec);
         java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
         Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
-        assertThat(layout).containsEntry("h", 4);
+        assertThat(layout).containsEntry("h", 8);
     }
 }
