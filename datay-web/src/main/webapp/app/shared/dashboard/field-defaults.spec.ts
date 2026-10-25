@@ -55,6 +55,12 @@ describe('field-defaults', () => {
     expect(fields[0]).toMatchObject({ name: 'amount', label: '成交金额', type: 'number' });
   });
 
+  it('字段没有声明描述时使用查询结果列标签', () => {
+    const fields = buildDashboardFields(['sales_amount'], [], [], { sales_amount: '销售额' });
+
+    expect(fields[0]).toMatchObject({ name: 'sales_amount', label: '销售额' });
+  });
+
   it('默认分类字段避开代理键，默认数值字段优先常见度量字段', () => {
     const fields = buildDashboardFields(['region_id', 'region', 'id', 'amount', 'quantity'], rows);
 

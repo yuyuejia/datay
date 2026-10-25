@@ -69,6 +69,7 @@ export function buildDashboardFields(
   columns: string[],
   rows: Array<Record<string, any>> = [],
   declaredColumns: DatasetColumn[] = [],
+  columnLabels: Record<string, string> = {},
 ): DashboardField[] {
   const declaredByName = new Map(declaredColumns.map(column => [column.name, column]));
   return columns.map(name => {
@@ -76,7 +77,7 @@ export function buildDashboardFields(
     const type = inferFieldType(declared ?? name, rows);
     return {
       name,
-      label: declared?.description || declared?.label || name,
+      label: declared?.description || declared?.label || columnLabels[name] || name,
       type,
       numeric: isNumericFieldType(type),
     };

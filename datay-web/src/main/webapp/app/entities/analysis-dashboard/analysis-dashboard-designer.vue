@@ -454,33 +454,25 @@
                       </el-select>
                       <div class="designer-hint">支持多个数值字段；多个字段会自动生成多条系列。</div>
 
-                      <label>聚合方式</label>
-                      <el-select v-model="widgetAggregation">
-                        <el-option value="sum" label="求和 sum" />
-                        <el-option value="avg" label="平均 avg" />
-                        <el-option value="min" label="最小 min" />
-                        <el-option value="max" label="最大 max" />
-                        <el-option value="count" label="计数 count" />
-                        <el-option value="none" label="不聚合 none" />
-                      </el-select>
-
-                      <template v-if="widgetValueFields.length <= 1">
-                        <label>系列拆分字段（可选）</label>
-                        <el-select
-                          v-model="selectedWidget.encode.seriesField"
-                          clearable
-                          filterable
-                          allow-create
-                          placeholder="按字段拆分为多系列"
+                      <label>数值字段聚合方式</label>
+                      <div v-if="selectedWidget.encode.values?.length" class="designer-value-agg-list">
+                        <div
+                          v-for="(value, index) in selectedWidget.encode.values"
+                          :key="`${value.field}-${index}`"
+                          class="designer-value-agg-row"
                         >
-                          <el-option
-                            v-for="field in widgetFields"
-                            :key="field.name"
-                            :label="field.label || field.name"
-                            :value="field.name"
-                          />
-                        </el-select>
-                      </template>
+                          <span class="designer-value-agg-field">{{ value.name || value.field || `字段 ${index + 1}` }}</span>
+                          <el-select v-model="value.agg" size="small" @change="commitHistory">
+                            <el-option value="sum" label="求和 sum" />
+                            <el-option value="avg" label="平均 avg" />
+                            <el-option value="min" label="最小 min" />
+                            <el-option value="max" label="最大 max" />
+                            <el-option value="count" label="计数 count" />
+                            <el-option value="none" label="不聚合 none" />
+                          </el-select>
+                        </div>
+                      </div>
+                      <div v-else class="designer-hint">请先选择 Y 轴数值字段。</div>
                     </template>
 
                     <label>排序字段 / 方向</label>
@@ -627,9 +619,34 @@
               <el-select v-model="target.datasetId" clearable placeholder="选择数据集" @change="onFilterTargetDatasetChange(target)">
                 <el-option v-for="dataset in spec.datasets" :key="dataset.id" :label="dataset.name || dataset.id" :value="dataset.id" />
               </el-select>
-              <template v-if="target.pushdown">
-                <el-tag type="success">{{ target.pushdown.kind }}</el-tag>
+              <template v-if="isSqlDataset(target.datasetId)">
+                <div class="designer-filter-target-field">
+                  <el-select
+                    :model-value="filterTargetFieldValue(target)"
+                    clearable
+                    filterable
+                    allow-create
+                    placeholder="选择字段或 SQL 参数"
+                    @update:model-value="value => onFilterTargetFieldSelect(target, String(value))"
+                  >
+                    <el-option :value="SQL_PARAM_OPTION" label="SQL 参数" />
+                    <el-option
+                      v-for="field in fieldCandidates(target.datasetId)"
+                      :key="field.name"
+                      :label="field.label || field.name"
+                      :value="field.name"
+                    />
+                  </el-select>
+                  <el-input
+                    v-if="target.pushdown?.kind === 'sqlParam'"
+                    v-model="target.pushdown.param"
+                    size="small"
+                    placeholder="SQL 参数名，如 store_name"
+                    @change="commitHistory"
+                  />
+                </div>
               </template>
+              <el-tag v-else-if="target.pushdown" type="success">{{ pushdownDetail(target) }}</el-tag>
               <el-select
                 v-else
                 v-model="target.field"
@@ -652,6 +669,7 @@
               </el-button>
             </div>
             <el-button text type="primary" @click="addFilterTarget">添加目标</el-button>
+            <div class="designer-hint">SQL 参数目标表示数据集 SQL 中的 ${参数名}；普通字段目标可选择服务端或客户端过滤。</div>
 
             <div v-if="selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect'" class="designer-hint">
               下拉选项将从字段目标的数据集去重值中加载；pushdown 目标由服务端处理。
@@ -1274,6 +1292,34 @@
   gap: 6px;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.designer-filter-target-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.designer-value-agg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.designer-value-agg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 8px;
+  align-items: center;
+}
+
+.designer-value-agg-field {
+  overflow: hidden;
+  color: #606266;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .designer-property-empty {

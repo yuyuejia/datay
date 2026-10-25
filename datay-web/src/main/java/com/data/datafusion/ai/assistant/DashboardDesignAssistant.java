@@ -208,7 +208,7 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("- 大屏可选设置：layout.screen.fitMode(contain=居中/cover=裁切/stretch=铺满，默认 stretch)、theme(light/dark)、autoRefreshSeconds(0-86400)；\n");
         sb.append("  背景色/渐变/背景图由用户在设置面板配置，不要生成 background.imagePath。\n");
         sb.append("- encode 约定：categoryField 使用数据集中的维度展示字段，禁止使用 *_sk / *_id；values[].field 为数值字段，values[].agg 使用 sum/avg/min/max/count/none；\n");
-        sb.append("  可选 seriesField 表示按该字段透视成多系列；groupBy=true 表示图表按分类字段聚合；limit/sortField/sortOrder 控制排序与截断。\n");
+        sb.append("  groupBy=true 表示图表按分类字段聚合；limit/sortField/sortOrder 控制排序与截断。\n");
         sb.append("- 筛选器统一使用 targets[]；field 目标使用 mode=client，pushdown 目标使用 mode=server；field 必须是数据集真实列名。\n");
         sb.append("- 指标数据集（METRIC）的 dateRange 必须使用 targets[{datasetId, mode:server, pushdown:{kind:\"metricTime\"}}]，不能使用 field；\n");
         sb.append("  SQL 数据集的筛选器如需下推到 SQL，使用 targets[{datasetId, mode:server, pushdown:{kind:\"sqlParam\", param:\"参数名\"}}]。\n");

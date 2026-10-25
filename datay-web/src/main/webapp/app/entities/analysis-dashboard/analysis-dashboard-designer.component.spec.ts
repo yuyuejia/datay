@@ -574,6 +574,21 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(vm.spec.filters[0].targets[0]).toMatchObject({ datasetId: 'ds1', field: 'region', mode: 'server' });
   });
 
+  it('SQL 数据集字段下拉支持 SQL 参数选项', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addFilter();
+    await vm.$nextTick();
+
+    const target = vm.spec.filters[0].targets[0];
+    (vm as any).onFilterTargetFieldSelect(target, (vm as any).SQL_PARAM_OPTION);
+    expect(target.pushdown).toMatchObject({ kind: 'sqlParam' });
+    expect(target.field).toBeUndefined();
+
+    (vm as any).onFilterTargetFieldSelect(target, 'region');
+    expect(target.field).toBe('region');
+    expect(target.pushdown).toBeUndefined();
+  });
+
   it('AI 模式复用设计器并默认打开助手', async () => {
     const aiWrapper = shallowMount(AnalysisDashboardDesigner, {
       props: { aiMode: true },

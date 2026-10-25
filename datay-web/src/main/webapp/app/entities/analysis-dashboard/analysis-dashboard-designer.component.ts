@@ -714,7 +714,7 @@ export default defineComponent({
         : undefined;
       const declared = available ? DatasetService.columns(DatasetService.parseFields(available)) : [];
       const columns = result?.columns?.length ? result.columns : declared.map(column => column.name);
-      return buildDashboardFields(columns, result?.rows ?? [], declared);
+      return buildDashboardFields(columns, result?.rows ?? [], declared, result?.columnLabels ?? {});
     };
 
     /** 初始化或补全组件的 encode，并在字段尚未就绪时等待数据集结果。 */
@@ -1376,9 +1376,31 @@ export default defineComponent({
       ElMessage.success('已恢复默认图表配置');
     };
 
+    const SQL_PARAM_OPTION = '__sql_param__';
+
     const filterTargetMode = (datasetId: string | undefined): 'server' | 'client' => {
       const dataset = spec.value.datasets.find(item => item.id === datasetId);
       return dataset?.type === 'SQL' ? 'server' : 'client';
+    };
+
+    const isSqlDataset = (datasetId: string | undefined): boolean =>
+      spec.value.datasets.some(item => item.id === datasetId && item.type === 'SQL');
+
+    const filterTargetFieldValue = (target: DashboardFilter['targets'][number]): string =>
+      target.pushdown?.kind === 'sqlParam' ? SQL_PARAM_OPTION : (target.field ?? '');
+
+    const onFilterTargetFieldSelect = (target: DashboardFilter['targets'][number], value: string) => {
+      if (value === SQL_PARAM_OPTION) {
+        const param = target.pushdown?.param || target.field || '';
+        target.mode = 'server';
+        target.pushdown = { kind: 'sqlParam', ...(param ? { param } : {}) };
+        delete target.field;
+      } else {
+        target.field = value;
+        target.mode = filterTargetMode(target.datasetId);
+        delete target.pushdown;
+      }
+      commitHistory();
     };
 
     const defaultFilterField = (datasetId: string | undefined, type: DashboardFilter['type']): string => {
@@ -1461,13 +1483,47 @@ export default defineComponent({
       commitHistory();
     };
 
+    const pushdownLabel = (kind?: string): string => {
+      switch (kind) {
+        case 'sqlParam':
+          return 'SQL 参数';
+        case 'metricTime':
+          return '指标时间范围';
+        case 'metricDimension':
+          return '指标维度';
+        case 'metricFactField':
+          return '指标事实字段';
+        default:
+          return kind || '服务端下推';
+      }
+    };
+
+    const pushdownDetail = (target: DashboardFilter['targets'][number]): string => {
+      const pushdown = target.pushdown;
+      if (!pushdown) {
+        return '未配置字段';
+      }
+      switch (pushdown.kind) {
+        case 'sqlParam':
+          return `${pushdownLabel(pushdown.kind)}：${pushdown.param || '未填写参数名'}`;
+        case 'metricTime':
+          return pushdownLabel(pushdown.kind);
+        case 'metricDimension':
+          return `${pushdownLabel(pushdown.kind)}：${pushdown.dimensionFieldName || pushdown.dimensionModelCode || '未配置维度'}`;
+        case 'metricFactField':
+          return `${pushdownLabel(pushdown.kind)}：${pushdown.factFieldName || '未配置事实字段'}`;
+        default:
+          return pushdownLabel(pushdown.kind);
+      }
+    };
+
     const filterTargetLabel = (filter: DashboardFilter): string => {
       const target = filter.targets?.[0];
       const dataset = spec.value.datasets.find(item => item.id === target?.datasetId);
       if (!dataset) {
         return '未配置数据集/字段';
       }
-      const field = target?.field || (target?.pushdown?.kind ? `(${target.pushdown.kind})` : '未选字段');
+      const field = target?.field || (target?.pushdown ? pushdownDetail(target) : '未选字段');
       const suffix = (filter.targets?.length ?? 0) > 1 ? ` 等 ${filter.targets.length} 个目标` : '';
       return `${dataset.name || dataset.id}.${field}${suffix}`;
     };
@@ -1708,12 +1764,18 @@ export default defineComponent({
       filterOptionsText,
       filterDefaultText,
       fieldCandidates,
+      isSqlDataset,
+      SQL_PARAM_OPTION,
+      filterTargetFieldValue,
+      onFilterTargetFieldSelect,
       addFilterTarget,
       removeFilterTarget,
       onFilterTargetDatasetChange,
       onFilterTargetFieldChange,
       onFilterTypeChange,
       filterTargetLabel,
+      pushdownLabel,
+      pushdownDetail,
       selectWidget,
       selectFilter,
       openFiltersPanel,
@@ -1732,6 +1794,7 @@ export default defineComponent({
       removeFilter,
       onFiltersChange,
       refreshData,
+      commitHistory,
       save,
       openPreview,
       goBack,
