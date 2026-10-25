@@ -237,6 +237,8 @@ class DashboardDataServiceTest {
         assertThat(result.get("errors")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
             .containsEntry("ds2", "ds2 查询失败");
         verify(resolver).resolveSpec(spec);
+        verify(queryService).query(eq(ds1), eq("source-1"), eq(List.of()), eq(Map.of()), eq("lib-1"), any());
+        verify(queryService).query(eq(ds2), eq("source-1"), eq(List.of()), eq(Map.of()), eq("lib-2"), any());
     }
 
     private DashboardDataService newService(

@@ -214,6 +214,71 @@ class DatasetQueryServiceTest {
             .hasMessageContaining("数据集字段不存在");
     }
 
+
+    @Test
+    void shouldKeepScopeWhenApplyingColumnFilterSortAndLimit() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of(condition("region", "EQ", "华东")));
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows());
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("datasetId", "ds-1");
+        target.put("field", "amount");
+        target.put("mode", "server");
+        Map<String, Object> filter = new LinkedHashMap<>();
+        filter.put("id", "amount_filter");
+        filter.put("type", "numberRange");
+        filter.put("targets", List.of(target));
+        Map<String, Object> filterValues = Map.of("amount_filter", Map.of("min", 100, "max", 200));
+
+        datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            filterValues,
+            "lib-1",
+            new DatasetQueryOptions("amount", "desc", 10, null)
+        );
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(any(), sqlCaptor.capture());
+        String sql = sqlCaptor.getValue();
+        assertThat(sql).contains("dp_dataset WHERE ((region = '华东'))");
+        assertThat(sql).contains("dp_filter WHERE ((amount BETWEEN 100 AND 200))");
+        assertThat(sql).contains("dp_sort ORDER BY amount DESC LIMIT 10");
+        assertThat(sql.indexOf("dp_dataset")).isLessThan(sql.indexOf("dp_filter"));
+        assertThat(sql.indexOf("dp_filter")).isLessThan(sql.indexOf("dp_sort"));
+    }
+
+
+    @Test
+    void shouldKeepMetricScopeWhenApplyingLimit() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        List<DatasetScopeCondition> conditions = List.of(condition("region", "EQ", "华东"));
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(conditions);
+        when(metricQueryService.plan(any())).thenReturn(
+            new MetricQueryService.QueryPlan("SELECT region, sales_amount FROM metric_result", dataSource(), Map.of())
+        );
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows());
+
+        datasetQueryService.query(
+            dataset,
+            null,
+            List.of(),
+            Map.of(),
+            "lib-1",
+            new DatasetQueryOptions(null, null, 10, null)
+        );
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(any(), sqlCaptor.capture());
+        assertThat(sqlCaptor.getValue())
+            .contains("dp_dataset WHERE ((region = '华东'))")
+            .contains("dp_sort")
+            .contains("LIMIT 10");
+        verify(metricQueryService, never()).query(any(), anyList());
+    }
+
     @SafeVarargs
     private Map<String, Object> rows(Map<String, Object>... rowItems) {
         Map<String, Object> result = new LinkedHashMap<>();
