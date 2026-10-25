@@ -393,6 +393,20 @@
                     <el-option value="area" label="面积图" />
                   </el-select>
 
+                  <label>图表选项</label>
+                  <div class="designer-chart-options">
+                    <el-checkbox v-model="chartLegendVisible" class="designer-chart-option" @change="commitHistory"> 显示图例 </el-checkbox>
+                    <el-checkbox v-model="chartDataLabelVisible" class="designer-chart-option" @change="commitHistory">
+                      数据标签
+                    </el-checkbox>
+                    <el-checkbox v-if="hasChartAxes" v-model="chartAxesVisible" class="designer-chart-option" @change="commitHistory">
+                      坐标轴
+                    </el-checkbox>
+                    <el-checkbox v-if="hasChartAxes" v-model="chartGridLinesVisible" class="designer-chart-option" @change="commitHistory">
+                      网格线
+                    </el-checkbox>
+                  </div>
+
                   <template v-if="selectedWidget.encode">
                     <template v-if="chartType === 'pie'">
                       <label>分类字段</label>
@@ -1305,6 +1319,27 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.designer-chart-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.designer-chart-option {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 4px 0;
+  background: transparent;
+}
+
+.designer-chart-option :deep(.el-checkbox__label) {
+  padding-left: 6px;
+  color: #606266;
+  font-size: 12px;
 }
 
 .designer-value-agg-row {

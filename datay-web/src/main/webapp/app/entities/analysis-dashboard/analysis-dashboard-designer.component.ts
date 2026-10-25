@@ -1296,6 +1296,101 @@ export default defineComponent({
     };
 
     const chartType = computed<ChartType>(() => resolveChartType(selectedWidget.value?.echartsOption));
+    const hasChartAxes = computed(() => chartType.value !== 'pie');
+
+    const chartSeries = (option: Record<string, any>): Record<string, any>[] => {
+      if (Array.isArray(option.series)) {
+        return option.series.filter((item): item is Record<string, any> => !!item && typeof item === 'object');
+      }
+      return option.series && typeof option.series === 'object' ? [option.series] : [];
+    };
+
+    const chartAxes = (option: Record<string, any>): Record<string, any>[] => {
+      const result: Record<string, any>[] = [];
+      for (const key of ['xAxis', 'yAxis']) {
+        const axis = option[key];
+        if (Array.isArray(axis)) {
+          result.push(...axis.filter((item): item is Record<string, any> => !!item && typeof item === 'object'));
+        } else if (axis && typeof axis === 'object') {
+          result.push(axis);
+        }
+      }
+      return result;
+    };
+
+    const updateChartAxes = (updater: (axis: Record<string, any>, key: 'xAxis' | 'yAxis') => void) => {
+      const option = selectedWidget.value?.echartsOption;
+      if (!option) {
+        return;
+      }
+      for (const key of ['xAxis', 'yAxis'] as const) {
+        const axis = option[key];
+        if (Array.isArray(axis)) {
+          option[key] = axis.map(item => {
+            if (!item || typeof item !== 'object') {
+              return item;
+            }
+            const next = { ...item };
+            updater(next, key);
+            return next;
+          });
+        } else if (axis && typeof axis === 'object') {
+          const next = { ...axis };
+          updater(next, key);
+          option[key] = next;
+        }
+      }
+    };
+
+    const chartLegendVisible = computed<boolean>({
+      get: () => !!selectedWidget.value?.echartsOption?.legend && selectedWidget.value.echartsOption.legend.show !== false,
+      set: value => {
+        const option = selectedWidget.value?.echartsOption;
+        if (option) {
+          option.legend = { ...(option.legend ?? {}), show: value };
+        }
+      },
+    });
+
+    const chartDataLabelVisible = computed<boolean>({
+      get: () => {
+        const option = selectedWidget.value?.echartsOption;
+        return option ? chartSeries(option).some(series => series.label?.show === true) : false;
+      },
+      set: value => {
+        const option = selectedWidget.value?.echartsOption;
+        if (!option) {
+          return;
+        }
+        const series = chartSeries(option);
+        for (const item of series) {
+          item.label = { ...(item.label ?? {}), show: value };
+        }
+      },
+    });
+
+    const chartAxesVisible = computed<boolean>({
+      get: () => {
+        const option = selectedWidget.value?.echartsOption;
+        return option ? chartAxes(option).some(axis => axis.show !== false) : true;
+      },
+      set: value => updateChartAxes(axis => (axis.show = value)),
+    });
+
+    const chartGridLinesVisible = computed<boolean>({
+      get: () => {
+        const option = selectedWidget.value?.echartsOption;
+        if (!option) {
+          return true;
+        }
+        const axes = chartAxes(option);
+        return axes.length === 0 || axes.some(axis => axis.splitLine?.show !== false);
+      },
+      set: value =>
+        updateChartAxes(axis => {
+          axis.splitLine = { ...(axis.splitLine ?? {}), show: value };
+        }),
+    });
 
     const syncCustomOption = () => {
       customOptionError.value = '';
@@ -1759,6 +1854,11 @@ export default defineComponent({
       widgetTableColumns,
       widgetAggregation,
       chartType,
+      hasChartAxes,
+      chartLegendVisible,
+      chartDataLabelVisible,
+      chartAxesVisible,
+      chartGridLinesVisible,
       applyCustomOption,
       resetCustomOption,
       filterOptionsText,

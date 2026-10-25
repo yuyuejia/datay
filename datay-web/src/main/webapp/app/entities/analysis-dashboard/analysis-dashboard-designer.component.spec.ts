@@ -103,6 +103,10 @@ type DesignerVm = {
   customOptionText: string;
   customOptionError: string;
   widgetValueFields: string[];
+  chartLegendVisible: boolean;
+  chartDataLabelVisible: boolean;
+  chartAxesVisible: boolean;
+  chartGridLinesVisible: boolean;
   addWidget: (type: string, chartType?: string) => void;
   applyCustomOption: () => void;
   resetCustomOption: () => void;
@@ -199,6 +203,26 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(html.layout.w).toBe(12);
     expect(html.layout.h).toBe(4);
     expect(html.html).toContain('HTML');
+  });
+
+  it('图表选项可控制图例、数据标签、坐标轴和网格线', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    vm.chartLegendVisible = false;
+    vm.chartDataLabelVisible = true;
+    vm.chartAxesVisible = false;
+    vm.chartGridLinesVisible = false;
+    await vm.$nextTick();
+
+    const option = vm.spec.widgets[0].echartsOption;
+    expect(option.legend.show).toBe(false);
+    expect(option.series[0].label.show).toBe(true);
+    expect(option.xAxis.show).toBe(false);
+    expect(option.yAxis.show).toBe(false);
+    expect(option.xAxis.splitLine.show).toBe(false);
+    expect(option.yAxis.splitLine.show).toBe(false);
   });
 
   it('统一使用 24 列栅格并支持切换大屏分辨率', async () => {
