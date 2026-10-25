@@ -1001,7 +1001,7 @@ public class AppPackageImportService {
     /**
      * 重写看板定义中的数据集引用与数据源 ID；引用的数据集被跳过时返回 null，由调用方跳过该看板。
      */
-    private JsonNode rewriteDashboardSpec(
+    JsonNode rewriteDashboardSpec(
         JsonNode spec,
         Map<String, String> datasetMap,
         Map<String, String> dataSourceMap,

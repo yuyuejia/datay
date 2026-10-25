@@ -5,8 +5,10 @@ import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.MetricQueryService;
 import com.data.datafusion.service.RoleDatasetScopeService;
 import com.data.datafusion.service.dataset.DatasetFieldValueSqlBuilder;
+import com.data.datafusion.service.dataset.DatasetFilterSqlBuilder;
 import com.data.datafusion.service.dataset.DatasetScopeCondition;
 import com.data.datafusion.service.dataset.DatasetScopeSqlBuilder;
+import com.data.datafusion.service.dataset.DatasetSortLimitSqlBuilder;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
@@ -87,6 +89,21 @@ public class DatasetQueryService {
         Map<String, Object> filterValues,
         String datasetScopeId
     ) throws SQLException {
+        return query(dataset, fallbackDataSourceId, filters, filterValues, datasetScopeId, DatasetQueryOptions.NONE);
+    }
+
+    /**
+     * 执行数据集，并可按组件 encode 下推排序与 Top N。
+     */
+    public Map<String, Object> query(
+        Map<String, Object> dataset,
+        String fallbackDataSourceId,
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues,
+        String datasetScopeId,
+        DatasetQueryOptions options
+    ) throws SQLException {
+        DatasetQueryOptions effectiveOptions = options == null ? DatasetQueryOptions.NONE : options;
         List<DatasetScopeCondition> scopeConditions = roleDatasetScopeService.resolveConditions(datasetScopeId);
         Set<String> scopeFields = scopeConditions.isEmpty() ? Set.of() : resolveDatasetFieldNames(dataset);
         if (!scopeConditions.isEmpty()) {
@@ -96,9 +113,17 @@ public class DatasetQueryService {
         String type = asString(dataset.get("type"));
         Map<String, Object> result;
         if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
-            result = querySqlDataset(fallbackDataSourceId, dataset, filters, filterValues, scopeConditions, scopeFields);
+            result = querySqlDataset(
+                fallbackDataSourceId,
+                dataset,
+                filters,
+                filterValues,
+                scopeConditions,
+                scopeFields,
+                effectiveOptions
+            );
         } else {
-            result = queryMetricDataset(dataset, filters, filterValues, scopeConditions);
+            result = queryMetricDataset(dataset, filters, filterValues, scopeConditions, effectiveOptions);
         }
         attachColumnLabels(dataset, result);
         return result;
@@ -254,6 +279,8 @@ public class DatasetQueryService {
             return;
         }
         Map<String, String> labels = new LinkedHashMap<>();
+        Map<String, String> types = new LinkedHashMap<>();
+        List<String> numericColumns = new ArrayList<>();
         if (result.get("columnLabels") instanceof Map<?, ?> existing) {
             for (Map.Entry<?, ?> entry : existing.entrySet()) {
                 if (entry.getKey() != null && entry.getValue() != null) {
@@ -271,10 +298,27 @@ public class DatasetQueryService {
             if (name != null && !name.isBlank() && label != null && !label.isBlank()) {
                 labels.put(name, label);
             }
+            String type = asString(column.get("type"));
+            if (name != null && !name.isBlank() && type != null && !type.isBlank()) {
+                types.put(name, type);
+                if (isNumericType(type)) {
+                    numericColumns.add(name);
+                }
+            }
         }
         if (!labels.isEmpty()) {
             result.put("columnLabels", labels);
         }
+        if (!types.isEmpty()) {
+            result.put("columnTypes", types);
+        }
+        if (!numericColumns.isEmpty()) {
+            result.put("numericColumns", numericColumns);
+        }
+    }
+
+    private boolean isNumericType(String type) {
+        return type != null && type.matches("(?i)^(number|numeric|decimal|double|float|real|int|integer|bigint|smallint|tinyint|long|short|byte|money|currency|percent).*$");
     }
 
     /**
@@ -320,10 +364,28 @@ public class DatasetQueryService {
         Map<String, Object> dataset,
         List<Map<String, Object>> filters,
         Map<String, Object> filterValues,
-        List<DatasetScopeCondition> scopeConditions
+        List<DatasetScopeCondition> scopeConditions,
+        DatasetQueryOptions options
     ) throws SQLException {
         MetricQueryDTO dto = buildMetricQueryDTO(dataset, filters, filterValues);
-        return metricQueryService.query(dto, scopeConditions);
+        if (options == null || options.isEmpty()) {
+            return metricQueryService.query(dto, scopeConditions);
+        }
+        MetricQueryService.QueryPlan plan = metricQueryService.plan(dto);
+        String scopedSql = DatasetScopeSqlBuilder.wrap(plan.sql(), scopeConditions, null);
+        String sortedSql = DatasetSortLimitSqlBuilder.apply(
+            plan.dataSource(),
+            scopedSql,
+            options.sortField(),
+            options.sortOrder(),
+            options.limit(),
+            options.offset(),
+            resolveDatasetFieldNames(dataset)
+        );
+        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(plan.dataSource(), sortedSql));
+        result.put("columnLabels", plan.columnLabels());
+        result.put("sql", sortedSql);
+        return result;
     }
 
     private MetricQueryDTO buildMetricQueryDTO(
@@ -350,10 +412,7 @@ public class DatasetQueryService {
             if (isEmptyValue(value)) {
                 continue;
             }
-            for (Map<String, Object> binding : asMapList(filter.get("bindings"))) {
-                if (!datasetId.equals(asString(binding.get("datasetId")))) {
-                    continue;
-                }
+            for (Map<String, Object> binding : filterPushdowns(filter, datasetId)) {
                 String kind = asString(binding.get("kind"));
                 if (BINDING_METRIC_TIME.equals(kind)) {
                     String[] range = readRange(value);
@@ -455,7 +514,8 @@ public class DatasetQueryService {
         List<Map<String, Object>> filters,
         Map<String, Object> filterValues,
         List<DatasetScopeCondition> scopeConditions,
-        Set<String> scopeFields
+        Set<String> scopeFields,
+        DatasetQueryOptions options
     ) throws SQLException {
         String sql = DashboardSqlGuard.requireReadOnly(asString(dataset.get("sql")));
         String dataSourceId = asString(dataset.get("dataSourceId"));
@@ -477,10 +537,99 @@ public class DatasetQueryService {
         String effectiveSql = neutralizeEmptyParams(sql, namedParams);
         String renderedSql = renderSql(effectiveSql, namedParams);
         String scopedSql = DatasetScopeSqlBuilder.wrap(renderedSql, scopeConditions, scopeFields);
+        Set<String> datasetFields = resolveDatasetFieldNames(dataset);
+        List<DatasetScopeCondition> filterConditions = collectSqlColumnConditions(filters, filterValues, dataset, datasetFields);
+        String filteredSql = DatasetFilterSqlBuilder.wrap(scopedSql, filterConditions, datasetFields);
+        String sortedSql = DatasetSortLimitSqlBuilder.apply(
+            dataSource,
+            filteredSql,
+            options.sortField(),
+            options.sortOrder(),
+            options.limit(),
+            options.offset(),
+            datasetFields
+        );
 
-        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, scopedSql));
+        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, sortedSql));
         result.put("sql", sql);
         return result;
+    }
+
+    /**
+     * 把 SQL 数据集的 mode=server 字段目标转换为外层筛选条件。
+     */
+    private List<DatasetScopeCondition> collectSqlColumnConditions(
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues,
+        Map<String, Object> dataset,
+        Set<String> datasetFields
+    ) {
+        String datasetId = asString(dataset.get("id"));
+        List<DatasetScopeCondition> conditions = new ArrayList<>();
+        for (Map<String, Object> filter : filters) {
+            String filterType = asString(filter.get("type"));
+            Object value = effectiveValue(filter, filterValues);
+            if (isEmptyValue(value)) {
+                continue;
+            }
+            for (Map<String, Object> target : FilterTargetResolver.targetsFor(filter, datasetId)) {
+                if (!FilterTargetResolver.isServerTarget(target)) {
+                    continue;
+                }
+                String field = FilterTargetResolver.field(target);
+                if (field == null) {
+                    continue;
+                }
+                if (!datasetFields.isEmpty() && !datasetFields.contains(field)) {
+                    throw new IllegalArgumentException("数据集筛选字段不存在：" + field);
+                }
+                DatasetScopeCondition condition = buildSqlColumnCondition(filterType, field, value);
+                if (condition != null) {
+                    conditions.add(condition);
+                }
+            }
+        }
+        return conditions;
+    }
+
+    private DatasetScopeCondition buildSqlColumnCondition(String filterType, String field, Object value) {
+        DatasetScopeCondition condition = new DatasetScopeCondition();
+        condition.setFieldName(field);
+        if (DashboardSpecValidator.FILTER_INPUT.equals(filterType)) {
+            condition.setOperator("LIKE");
+            condition.setValue("%" + firstValue(value) + "%");
+            return condition;
+        }
+        if (DashboardSpecValidator.FILTER_DATE_RANGE.equals(filterType) || DashboardSpecValidator.FILTER_NUMBER_RANGE.equals(filterType)) {
+            String[] range = readRange(value);
+            if (range[0] == null && range[1] == null) {
+                return null;
+            }
+            if (range[0] != null && range[1] != null) {
+                condition.setOperator("BETWEEN");
+                condition.setValue(range[0]);
+                condition.setValueEnd(range[1]);
+            } else if (range[0] != null) {
+                condition.setOperator("GE");
+                condition.setValue(range[0]);
+            } else {
+                condition.setOperator("LE");
+                condition.setValue(range[1]);
+            }
+            return condition;
+        }
+        List<String> values = asStringList(value);
+        if (values.isEmpty()) {
+            return null;
+        }
+        if (values.size() == 1) {
+            condition.setOperator("EQ");
+            condition.setValue(values.get(0));
+        } else {
+            condition.setOperator("IN");
+            condition.setValue(String.join(",", values));
+        }
+        return condition;
     }
 
     private static boolean isElasticsearch(DataSourceDTO dataSource) {
@@ -498,8 +647,8 @@ public class DatasetQueryService {
             String filterType = asString(filter.get("type"));
             Object value = effectiveValue(filter, filterValues);
             boolean emptyValue = isEmptyValue(value);
-            for (Map<String, Object> binding : asMapList(filter.get("bindings"))) {
-                if (!datasetId.equals(asString(binding.get("datasetId"))) || !BINDING_SQL_PARAM.equals(asString(binding.get("kind")))) {
+            for (Map<String, Object> binding : filterPushdowns(filter, datasetId)) {
+                if (!BINDING_SQL_PARAM.equals(asString(binding.get("kind")))) {
                     continue;
                 }
                 String param = asString(binding.get("param"));
@@ -725,6 +874,20 @@ public class DatasetQueryService {
             LOG.warn("解析数据集 filterConfig 失败: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * 从 v1 filter.targets 中提取当前数据集的 pushdown 配置。
+     */
+    private List<Map<String, Object>> filterPushdowns(Map<String, Object> filter, String datasetId) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> target : FilterTargetResolver.targetsFor(filter, datasetId)) {
+            Map<String, Object> pushdown = FilterTargetResolver.pushdown(target);
+            if (!pushdown.isEmpty()) {
+                result.add(pushdown);
+            }
+        }
+        return result;
     }
 
     private Object effectiveValue(Map<String, Object> filter, Map<String, Object> filterValues) {

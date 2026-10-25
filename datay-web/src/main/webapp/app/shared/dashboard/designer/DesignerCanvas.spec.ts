@@ -12,6 +12,7 @@ vi.mock('../DashboardWidget.vue', () => ({
 }));
 
 const spec: DashboardSpec = {
+  version: 1,
   title: 'test',
   layout: { mode: 'standard', columns: 24, rowHeight: 40, gap: 12, screen: { width: 1920, height: 1080 } },
   datasets: [],

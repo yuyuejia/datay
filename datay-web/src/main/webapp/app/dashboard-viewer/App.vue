@@ -12,16 +12,39 @@
 
     <template v-else-if="spec">
       <template v-if="isScreenMode">
-        <div v-if="(spec.filters || []).length" class="dashboard-viewer-filters-float">
-          <DashboardFilters
-            :filters="spec.filters || []"
-            :model-value="filterValues"
-            :dashboard-id="dashboardId"
-            :spec="spec"
-            :source-data="rawDatasetData"
-            @update:model-value="onFiltersChange"
-          />
-        </div>
+        <template v-if="(spec.filters || []).length">
+          <button
+            type="button"
+            class="dashboard-viewer-filters-toggle"
+            :class="{ 'is-open': screenFiltersOpen }"
+            :title="screenFiltersOpen ? '收起筛选器' : '展开筛选器'"
+            :aria-label="screenFiltersOpen ? '收起筛选器' : '展开筛选器'"
+            :aria-expanded="screenFiltersOpen"
+            @click="screenFiltersOpen = !screenFiltersOpen"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z"></path>
+            </svg>
+          </button>
+          <div v-if="screenFiltersOpen" class="dashboard-viewer-filters-float">
+            <DashboardFilters
+              :filters="spec.filters || []"
+              :model-value="filterValues"
+              :dashboard-id="dashboardId"
+              :spec="spec"
+              :source-data="rawDatasetData"
+              @update:model-value="onFiltersChange"
+            />
+          </div>
+        </template>
         <DashboardStage
           class="dashboard-viewer-stage"
           :width="screenWidth"
@@ -34,8 +57,13 @@
           <DashboardCanvas
             :spec="spec"
             :dataset-data="datasetData"
+            :widget-data="widgetData"
             :loading-datasets="loadingDatasets"
             :dataset-errors="datasetErrors"
+            :widget-errors="widgetErrors"
+            :server-pagination-widgets="serverPaginationWidgets"
+            :load-widget-page="loadWidgetPage"
+            :data-version="dataVersion"
             :show-header="false"
           />
         </DashboardStage>
@@ -53,8 +81,13 @@
         <DashboardCanvas
           :spec="spec"
           :dataset-data="datasetData"
+          :widget-data="widgetData"
           :loading-datasets="loadingDatasets"
           :dataset-errors="datasetErrors"
+          :widget-errors="widgetErrors"
+          :server-pagination-widgets="serverPaginationWidgets"
+          :load-widget-page="loadWidgetPage"
+          :data-version="dataVersion"
           :show-header="false"
         />
       </template>
@@ -91,8 +124,14 @@ const spec = ref<DashboardSpec | undefined>();
 const filterValues = ref<FilterValues>({});
 const error = ref('');
 const isPreview = ref(false);
+const screenFiltersOpen = ref(false);
 
 const isScreenMode = computed(() => spec.value?.layout?.mode === 'screen');
+watchEffect(() => {
+  if (!isScreenMode.value || !(spec.value?.filters?.length ?? 0)) {
+    screenFiltersOpen.value = false;
+  }
+});
 const screenWidth = computed(() => spec.value?.layout?.screen?.width ?? 1920);
 const screenHeight = computed(() => spec.value?.layout?.screen?.height ?? 1080);
 const screenTheme = computed(() => resolveScreenTheme(spec.value?.layout));
@@ -114,9 +153,23 @@ const viewerClasses = computed(() => ({
 
 const brandTitle = computed(() => spec.value?.title || dashboardName.value || '分析看板');
 
-const { datasetData, rawDatasetData, loadingDatasets, datasetErrors, loadAll } = useDashboardData({ dashboardId, spec });
+const {
+  datasetData,
+  rawDatasetData,
+  widgetData,
+  loadingDatasets,
+  datasetErrors,
+  widgetErrors,
+  serverPaginationWidgets,
+  dataVersion,
+  loadAll,
+  loadWidgetPage,
+} = useDashboardData({
+  dashboardId,
+  spec,
+});
 
-const refresh = () => loadAll(filterValues.value);
+const refresh = () => loadAll(filterValues.value, { force: true });
 const { schedule: scheduleAutoRefresh } = useDashboardAutoRefresh(refreshSeconds, refresh);
 
 watchEffect(() => {
@@ -143,7 +196,7 @@ const onFiltersChange = (values: FilterValues) => {
 
 const reload = async () => {
   if (spec.value) {
-    await loadAll(filterValues.value);
+    await loadAll(filterValues.value, { force: true });
     scheduleAutoRefresh();
   }
 };
@@ -162,7 +215,7 @@ const applyPreviewDraft = async (draftId: string) => {
     ...initFilterValues(draft.spec.filters),
     ...filtersFromQuery(draft.spec.filters, window.location.search),
   };
-  await loadAll(filterValues.value);
+  await loadAll(filterValues.value, { force: true });
 };
 
 const resolveDashboard = async () => {
@@ -199,7 +252,7 @@ onMounted(async () => {
       ...initFilterValues(parsed.filters),
       ...filtersFromQuery(parsed.filters, window.location.search),
     };
-    await loadAll(filterValues.value);
+    await loadAll(filterValues.value, { force: true });
   } catch (err: any) {
     error.value = err?.response?.data?.message || err?.message || '看板加载失败';
   }
@@ -234,9 +287,43 @@ onMounted(async () => {
   height: 100%;
 }
 
+.dashboard-viewer-filters-toggle {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  color: var(--dashboard-filter-text, #606266);
+  cursor: pointer;
+  background: var(--dashboard-filter-bg, rgb(255 255 255 / 82%));
+  border: 1px solid var(--dashboard-border, rgb(0 0 0 / 8%));
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  opacity: 0.65;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.dashboard-viewer-filters-toggle:hover,
+.dashboard-viewer-filters-toggle.is-open {
+  background: var(--dashboard-filter-bg, #fff);
+  opacity: 1;
+}
+
+.dashboard-viewer-filters-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
 .dashboard-viewer-filters-float {
   position: absolute;
-  top: 12px;
+  top: 56px;
   left: 50%;
   z-index: 20;
   max-width: calc(100vw - 24px);

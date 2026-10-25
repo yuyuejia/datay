@@ -35,8 +35,27 @@ public final class DatasetScopeSqlBuilder {
      * @param allowedFields 数据集当前输出字段；为空表示不做字段存在性校验
      */
     public static String buildPredicate(List<DatasetScopeCondition> conditions, Collection<String> allowedFields) {
-        if (conditions == null || conditions.isEmpty()) {
+        List<String> predicates = buildConditionPredicates(conditions, allowedFields);
+        if (predicates.isEmpty()) {
             return "";
+        }
+        return "(" + String.join(" OR ", predicates) + ")";
+    }
+
+    /**
+     * 构建多个条件的 AND 谓词；用于看板筛选等要求条件同时满足的场景。
+     */
+    public static String buildAndPredicate(List<DatasetScopeCondition> conditions, Collection<String> allowedFields) {
+        List<String> predicates = buildConditionPredicates(conditions, allowedFields);
+        if (predicates.isEmpty()) {
+            return "";
+        }
+        return "(" + String.join(" AND ", predicates) + ")";
+    }
+
+    private static List<String> buildConditionPredicates(List<DatasetScopeCondition> conditions, Collection<String> allowedFields) {
+        if (conditions == null || conditions.isEmpty()) {
+            return List.of();
         }
         Set<String> allowed = allowedFields == null
             ? Set.of()
@@ -49,10 +68,7 @@ public final class DatasetScopeSqlBuilder {
                 predicates.add("(" + predicate + ")");
             }
         }
-        if (predicates.isEmpty()) {
-            return "";
-        }
-        return "(" + String.join(" OR ", predicates) + ")";
+        return predicates;
     }
 
     /**

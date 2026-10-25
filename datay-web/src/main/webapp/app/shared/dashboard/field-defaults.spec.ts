@@ -1,6 +1,6 @@
 import {
   buildDashboardFields,
-  createDefaultDataRef,
+  createDefaultEncode,
   ensureDefaultFields,
   hasCompleteDefaultFields,
   pickCategoryField,
@@ -62,13 +62,13 @@ describe('field-defaults', () => {
     expect(pickValueField(fields, 'region')).toBe('amount');
   });
 
-  it('图表默认 dataRef 带分类字段、数值字段和 groupBy', () => {
+  it('图表默认 encode 带分类字段、数值字段和 groupBy', () => {
     const fields = buildDashboardFields(['region', 'amount'], rows);
-    const ref = createDefaultDataRef('echarts', 'bar', fields);
+    const ref = createDefaultEncode('echarts', 'bar', fields);
 
     expect(ref).toMatchObject({
       categoryField: 'region',
-      valueField: 'amount',
+      values: [{ field: 'amount', agg: 'sum' }],
       limit: 100,
       groupBy: true,
     });
@@ -77,8 +77,8 @@ describe('field-defaults', () => {
   it('表格不设置分类/数值字段，KPI 只设置数值字段', () => {
     const fields = buildDashboardFields(['region', 'amount'], rows);
 
-    expect(createDefaultDataRef('table', undefined, fields)).toEqual({ limit: 100 });
-    expect(createDefaultDataRef('kpi', undefined, fields)).toEqual({ valueField: 'amount' });
+    expect(createDefaultEncode('table', undefined, fields)).toEqual({ limit: 100 });
+    expect(createDefaultEncode('kpi', undefined, fields)).toEqual({ values: [{ field: 'amount', agg: 'sum' }] });
   });
 
   it('只有图表类型需要按分类字段 group by', () => {
@@ -92,18 +92,18 @@ describe('field-defaults', () => {
 
   it('数据到达后只补全空字段，并保持用户选择', () => {
     const item = widget({
-      dataRef: { categoryField: '自定义分类', limit: 100, groupBy: true },
+      encode: { categoryField: '自定义分类', limit: 100, groupBy: true },
     });
     const fields = buildDashboardFields(['region', 'amount'], rows);
 
     ensureDefaultFields(item, fields);
-    expect(item.dataRef?.categoryField).toBe('自定义分类');
-    expect(item.dataRef?.valueField).toBe('amount');
+    expect(item.encode?.categoryField).toBe('自定义分类');
+    expect(item.encode?.values?.[0]?.field).toBe('amount');
     expect(hasCompleteDefaultFields(item)).toBe(true);
 
-    const empty = widget({ dataRef: { categoryField: '', valueField: '', limit: 100 } });
+    const empty = widget({ encode: { categoryField: '', values: [], limit: 100 } });
     ensureDefaultFields(empty, fields);
-    expect(empty.dataRef).toMatchObject({ categoryField: 'region', valueField: 'amount', groupBy: true });
+    expect(empty.encode).toMatchObject({ categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }], groupBy: true });
   });
 
   it('从 echarts option 解析图表类型', () => {

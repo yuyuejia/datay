@@ -27,10 +27,13 @@
       <div class="designer-widget-body">
         <DashboardWidget
           :widget="widget"
-          :result="datasetData?.[widget.datasetId || '']"
+          :result="widgetData?.[widget.id] ?? datasetData?.[widget.datasetId || '']"
           :loading="loadingDatasets?.[widget.datasetId || '']"
-          :error="datasetErrors?.[widget.datasetId || '']"
+          :error="widgetErrors?.[widget.id] ?? datasetErrors?.[widget.datasetId || '']"
           :theme="theme"
+          :server-paged="serverPaginationWidgets?.[widget.id]"
+          :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
+          :page-reset-key="dataVersion"
         />
       </div>
       <div class="designer-resize-handle" title="拖动调整大小" @pointerdown.stop="startResize($event, widget)"></div>
@@ -53,6 +56,7 @@ import type {
   DatasetResult,
   WidgetLayout,
   WidgetPalettePayload,
+  WidgetPageLoader,
   WidgetType,
 } from '../types';
 import { WIDGET_PALETTE_MIME } from '../types';
@@ -62,8 +66,13 @@ import { CANVAS_PADDING, clamp, DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS, l
 const props = defineProps<{
   spec: DashboardSpec;
   datasetData?: Record<string, DatasetResult>;
+  widgetData?: Record<string, DatasetResult>;
   loadingDatasets?: Record<string, boolean>;
   datasetErrors?: Record<string, string>;
+  widgetErrors?: Record<string, string>;
+  serverPaginationWidgets?: Record<string, boolean>;
+  loadWidgetPage?: WidgetPageLoader;
+  dataVersion?: number;
   selectedId?: string;
   dragItem?: WidgetPalettePayload | null;
   /** 画布舞台缩放比例，拖动位移与落点需要按比例还原为逻辑像素。 */

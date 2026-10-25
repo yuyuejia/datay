@@ -1,4 +1,4 @@
-import { applyDataRefRows, buildEchartsOption, resolveKpiValue } from './spec-to-option';
+import { applyEncodeRows, buildEchartsOption, resolveKpiValue } from './spec-to-option';
 import type { DashboardWidget, DatasetResult } from './types';
 
 const result: DatasetResult = {
@@ -26,7 +26,7 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'bar' }] },
-        dataRef: { categoryField: 'region', valueField: 'amount', limit: 100 },
+        encode: { categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }], limit: 100 },
       }),
       result,
     );
@@ -43,7 +43,7 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'bar' }] },
-        dataRef: { categoryField: 'region', valueField: 'amount', limit: 100 },
+        encode: { categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }], limit: 100 },
       }),
       { ...result, columnLabels: { amount: '成交金额' } },
     );
@@ -56,9 +56,9 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'bar' }] },
-        dataRef: {
+        encode: {
           categoryField: 'region',
-          valueField: 'amount',
+          values: [{ field: 'amount', agg: 'sum' }],
           groupBy: true,
           limit: 100,
         },
@@ -76,9 +76,9 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'pie' }] },
-        dataRef: {
+        encode: {
           categoryField: 'region',
-          valueField: 'amount',
+          values: [{ field: 'amount', agg: 'sum' }],
           groupBy: true,
           limit: 3,
         },
@@ -98,12 +98,11 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'bar' }] },
-        dataRef: {
+        encode: {
           categoryField: 'region',
-          valueField: 'amount',
-          series: [
-            { name: 'amount', field: 'amount' },
-            { name: 'quantity', field: 'quantity' },
+          values: [
+            { name: 'amount', field: 'amount', agg: 'sum' },
+            { name: 'quantity', field: 'quantity', agg: 'sum' },
           ],
           groupBy: true,
           limit: 100,
@@ -123,9 +122,9 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'bar' }] },
-        dataRef: {
+        encode: {
           categoryField: 'region',
-          valueField: 'amount',
+          values: [{ field: 'amount', agg: 'sum' }],
           seriesField: 'channel',
           limit: 100,
         },
@@ -145,7 +144,7 @@ describe('spec-to-option', () => {
       widget({
         type: 'echarts',
         echartsOption: { series: [{ type: 'pie' }] },
-        dataRef: { categoryField: 'region', valueField: 'amount', limit: 3 },
+        encode: { categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }], limit: 3 },
       }),
       result,
     );
@@ -158,22 +157,96 @@ describe('spec-to-option', () => {
     ]);
   });
 
-  it('明细表数据按 dataRef 排序并截断', () => {
-    const rows = applyDataRefRows({ sortField: 'amount', sortOrder: 'desc', limit: 2 }, result.rows);
+  it('明细表数据按 encode 排序并截断', () => {
+    const rows = applyEncodeRows({ sortField: 'amount', sortOrder: 'desc', limit: 2 }, result.rows);
 
     expect(rows.map(row => row.region)).toEqual(['华东', '华南']);
     expect(rows.map(row => row.amount)).toEqual([120.5, 80]);
+  });
+
+  it('KPI 按声明的聚合方式计算', () => {
+    const avgKpi = resolveKpiValue(
+      widget({
+        type: 'kpi',
+        encode: { values: [{ field: 'amount', agg: 'avg' }] },
+      }),
+      result,
+    );
+    expect(avgKpi.value).toBe(75.15);
+
+    const countKpi = resolveKpiValue(
+      widget({
+        type: 'kpi',
+        encode: { values: [{ field: 'amount', agg: 'count' }] },
+      }),
+      result,
+    );
+    expect(countKpi.value).toBe(5);
   });
 
   it('KPI 对指定数值字段求和', () => {
     const kpi = resolveKpiValue(
       widget({
         type: 'kpi',
-        dataRef: { valueField: 'amount' },
+        encode: { values: [{ field: 'amount', agg: 'sum' }] },
       }),
       result,
     );
 
     expect(kpi.value).toBe(375.75);
+  });
+
+  it('按 encode 声明的聚合方式聚合图表数据', () => {
+    const avgOption = buildEchartsOption(
+      widget({
+        type: 'echarts',
+        echartsOption: { series: [{ type: 'bar' }] },
+        encode: {
+          categoryField: 'region',
+          values: [{ field: 'amount', agg: 'avg' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      result,
+    );
+
+    expect(avgOption.series[0].data).toEqual([90.25, 80, 45.25, 70]);
+
+    const countOption = buildEchartsOption(
+      widget({
+        type: 'echarts',
+        echartsOption: { series: [{ type: 'bar' }] },
+        encode: {
+          categoryField: 'region',
+          values: [{ field: 'amount', agg: 'count' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      result,
+    );
+
+    expect(countOption.series[0].data).toEqual([2, 1, 1, 1]);
+  });
+
+  it('净化 AI option 中的 HTML formatter，保留 ECharts 模板占位符', () => {
+    const option = buildEchartsOption(
+      widget({
+        type: 'echarts',
+        echartsOption: {
+          tooltip: { formatter: '<img src=x onerror="alert(1)">{b}: {c}' },
+          xAxis: { axisLabel: { formatter: '<img src=x onerror="alert(1)">{value}' } },
+          series: [{ type: 'bar' }],
+        },
+        encode: { categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }], limit: 3 },
+      }),
+      result,
+    );
+
+    expect(option.tooltip.formatter).not.toContain('onerror');
+    expect(option.tooltip.formatter).toContain('{b}: {c}');
+    expect(option.xAxis.axisLabel.formatter).not.toContain('onerror');
+    expect(option.xAxis.axisLabel.formatter).toContain('{value}');
   });
 });

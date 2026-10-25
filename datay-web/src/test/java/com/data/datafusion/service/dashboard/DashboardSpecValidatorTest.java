@@ -3,23 +3,32 @@ package com.data.datafusion.service.dashboard;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
  * {@link DashboardSpecValidator} 与 {@link DashboardSqlGuard} 单元测试。
+ *
+ * <p>当前只支持 spec v1；历史 dataRef / bindings / datasetId+field 会被拒绝。
  */
 class DashboardSpecValidatorTest {
 
-    private final AnalysisDatasetResolver resolver = new AnalysisDatasetResolver(mock(AnalysisDatasetRepository.class), new ObjectMapper());
+    private final AnalysisDatasetRepository datasetRepository = mock(AnalysisDatasetRepository.class);
+
+    private final AnalysisDatasetResolver resolver = new AnalysisDatasetResolver(datasetRepository, new ObjectMapper());
 
     private final DashboardSpecValidator validator = new DashboardSpecValidator(new ObjectMapper(), resolver);
 
     private static final String METRIC_SPEC = """
         {
+          "version": 1,
           "title": "销售看板",
           "datasets": [
             {
@@ -37,7 +46,11 @@ class DashboardSpecValidatorTest {
               "type": "echarts",
               "layout": { "x": 0, "y": 0, "w": 6, "h": 4 },
               "datasetId": "ds1",
-              "dataRef": { "categoryField": "month", "series": [ { "name": "销售额", "field": "sales_amount" } ] },
+              "encode": {
+                "categoryField": "month",
+                "values": [ { "name": "销售额", "field": "sales_amount", "agg": "sum" } ]
+              },
+              "chart": { "type": "line" },
               "echartsOption": { "series": [ { "type": "line" } ] }
             }
           ],
@@ -45,7 +58,9 @@ class DashboardSpecValidatorTest {
             {
               "id": "date_range",
               "type": "dateRange",
-              "bindings": [ { "datasetId": "ds1", "kind": "metricTime" } ]
+              "targets": [
+                { "datasetId": "ds1", "mode": "server", "pushdown": { "kind": "metricTime" } }
+              ]
             }
           ]
         }
@@ -55,15 +70,13 @@ class DashboardSpecValidatorTest {
     void shouldNormalizeValidMetricSpec() {
         Map<String, Object> spec = validator.validateAndNormalize(METRIC_SPEC);
 
-        assertThat(spec).containsKeys("layout", "datasets", "widgets", "filters");
+        assertThat(spec)
+            .containsKeys("version", "layout", "datasets", "widgets", "filters")
+            .containsEntry("version", 1);
         assertThat(spec.get("filters")).asList().hasSize(1);
         @SuppressWarnings("unchecked")
         Map<String, Object> layout = (Map<String, Object>) spec.get("layout");
-        assertThat(layout)
-            .containsEntry("mode", "standard")
-            .containsEntry("columns", 24)
-            .containsEntry("rowHeight", 40)
-            .containsEntry("gap", 12);
+        assertThat(layout).containsEntry("mode", "standard").doesNotContainKeys("columns", "rowHeight", "gap", "screen");
     }
 
     @Test
@@ -72,6 +85,7 @@ class DashboardSpecValidatorTest {
         String spec =
             """
             {
+              "version": 1,
               "layout": {
                 "mode": "screen",
                 "columns": 12,
@@ -85,11 +99,7 @@ class DashboardSpecValidatorTest {
             """;
         Map<String, Object> normalized = validator.validateAndNormalize(spec);
         Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
-        assertThat(layout)
-            .containsEntry("mode", "screen")
-            .containsEntry("columns", 24)
-            .containsEntry("rowHeight", 40)
-            .containsEntry("gap", 12);
+        assertThat(layout).containsEntry("mode", "screen").doesNotContainKeys("columns", "rowHeight", "gap");
         Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
         assertThat(screen)
             .containsEntry("width", 640)
@@ -98,7 +108,7 @@ class DashboardSpecValidatorTest {
             .containsEntry("theme", "light")
             .containsEntry("autoRefreshSeconds", 0);
 
-        java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
         Map<String, Object> widgetLayout = (Map<String, Object>) widgets.get(0).get("layout");
         assertThat(widgetLayout).containsEntry("x", 12).containsEntry("w", 12);
     }
@@ -109,6 +119,7 @@ class DashboardSpecValidatorTest {
         String spec =
             """
             {
+              "version": 1,
               "layout": {
                 "mode": "screen",
                 "screen": {
@@ -146,6 +157,7 @@ class DashboardSpecValidatorTest {
         String spec =
             """
             {
+              "version": 1,
               "layout": {
                 "mode": "screen",
                 "screen": {
@@ -173,39 +185,132 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
-    void shouldInferMetricTimeBindingForDateRange() {
-        Map<String, Object> spec = validator.validateAndNormalize(METRIC_SPEC);
-        @SuppressWarnings("unchecked")
-        var filters = (java.util.List<Map<String, Object>>) spec.get("filters");
-        @SuppressWarnings("unchecked")
-        var bindings = (java.util.List<Map<String, Object>>) filters.get(0).get("bindings");
-        assertThat(bindings.get(0)).containsEntry("kind", "metricTime");
+    @SuppressWarnings("unchecked")
+    void shouldAcceptMultipleFilterTargets() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [
+                { "id": "ds1", "type": "SQL", "sql": "SELECT region FROM t1" },
+                { "id": "ds2", "type": "SQL", "sql": "SELECT region FROM t2" }
+              ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "region",
+                  "type": "select",
+                  "targets": [
+                    { "datasetId": "ds1", "field": "region", "mode": "client" },
+                    { "datasetId": "ds2", "field": "region", "mode": "client" }
+                  ]
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+
+        List<Map<String, Object>> filters = (List<Map<String, Object>>) normalized.get("filters");
+        List<Map<String, Object>> targets = (List<Map<String, Object>>) filters.get(0).get("targets");
+        assertThat(targets).hasSize(2);
+        assertThat(targets.get(1)).containsEntry("datasetId", "ds2").containsEntry("field", "region");
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void shouldNormalizeDatasetFieldFilterWithoutBindings() {
-        String spec = """
+    void shouldRejectMissingVersion() {
+        String spec =
+            """
             {
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少 version");
+    }
+
+    @Test
+    void shouldRejectUnsupportedSpecVersion() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不支持的看板 spec 版本");
+    }
+
+    @Test
+    void shouldRejectLegacyWidgetDataRef() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "k1",
+                  "type": "kpi",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "dataRef": { "valueField": "m1" }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("dataRef");
+    }
+
+    @Test
+    void shouldRejectLegacyFilterFields() {
+        String spec =
+            """
+            {
+              "version": 1,
               "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
               "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
               "filters": [ { "id": "region", "type": "select", "datasetId": "ds1", "field": "region" } ]
             }
             """;
-        Map<String, Object> normalized = validator.validateAndNormalize(spec);
-        var filters = (java.util.List<Map<String, Object>>) normalized.get("filters");
-        Map<String, Object> filter = filters.get(0);
-        assertThat(filter).containsEntry("datasetId", "ds1").containsEntry("field", "region");
-        assertThat(filter).doesNotContainKey("bindings");
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("targets");
     }
 
     @Test
-    void shouldRejectFilterWithUnknownDataset() {
-        String spec = """
+    void shouldRejectFilterWithoutTargets() {
+        String spec =
+            """
             {
+              "version": 1,
               "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
               "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
-              "filters": [ { "id": "region", "type": "select", "datasetId": "missing", "field": "region" } ]
+              "filters": [ { "id": "region", "type": "select", "targets": [] } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少 targets");
+    }
+
+    @Test
+    void shouldRejectFilterTargetWithUnknownDataset() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                { "id": "region", "type": "select", "targets": [ { "datasetId": "missing", "field": "region" } ] }
+              ]
             }
             """;
         assertThatThrownBy(() -> validator.validateAndNormalize(spec))
@@ -214,9 +319,75 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
-    void shouldRejectNonReadOnlySql() {
-        String spec = """
+    void shouldRejectDirectDateRangeForMetricDataset() {
+        String spec =
+            """
             {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                { "id": "f1", "type": "dateRange", "targets": [ { "datasetId": "ds1", "field": "stat_date" } ] }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("metricTime");
+    }
+
+    @Test
+    void shouldRejectTargetWithBothFieldAndPushdown() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "f1",
+                  "type": "select",
+                  "targets": [
+                    {
+                      "datasetId": "ds1",
+                      "field": "region",
+                      "pushdown": { "kind": "metricDimension", "dimensionModelCode": "dim", "dimensionFieldName": "region" }
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不能同时配置");
+    }
+
+    @Test
+    void shouldRejectSqlTargetWithNonSqlPushdown() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "SQL", "dataSourceId": 1, "sql": "SELECT 1 AS a" } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                { "id": "f1", "type": "select", "targets": [ { "datasetId": "ds1", "pushdown": { "kind": "metricDimension" } } ] }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("只支持 kind=sqlParam");
+    }
+
+    @Test
+    void shouldRejectNonReadOnlySql() {
+        String spec =
+            """
+            {
+              "version": 1,
               "datasets": [ { "id": "ds1", "type": "SQL", "dataSourceId": 1, "sql": "DELETE FROM t" } ],
               "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ]
             }
@@ -225,12 +396,16 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
-    void shouldRejectBindingToUnknownDataset() {
-        String spec = """
+    void shouldRejectPushdownToUnknownDataset() {
+        String spec =
+            """
             {
+              "version": 1,
               "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
               "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
-              "filters": [ { "id": "f1", "type": "select", "bindings": [ { "datasetId": "missing", "kind": "metricDimension" } ] } ]
+              "filters": [
+                { "id": "f1", "type": "select", "targets": [ { "datasetId": "missing", "pushdown": { "kind": "metricDimension" } } ] }
+              ]
             }
             """;
         assertThatThrownBy(() -> validator.validateAndNormalize(spec)).isInstanceOf(IllegalArgumentException.class);
@@ -238,14 +413,463 @@ class DashboardSpecValidatorTest {
 
     @Test
     void shouldRequireSqlParamFields() {
-        String spec = """
+        String spec =
+            """
             {
+              "version": 1,
               "datasets": [ { "id": "ds1", "type": "SQL", "dataSourceId": 1, "sql": "SELECT 1 AS a" } ],
               "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
-              "filters": [ { "id": "f1", "type": "input", "bindings": [ { "datasetId": "ds1", "kind": "sqlParam" } ] } ]
+              "filters": [
+                { "id": "f1", "type": "input", "targets": [ { "datasetId": "ds1", "pushdown": { "kind": "sqlParam" } } ] }
+              ]
             }
             """;
         assertThatThrownBy(() -> validator.validateAndNormalize(spec)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldRejectDuplicateWidgetId() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" },
+                { "id": "w1", "type": "table", "layout": { "x":6,"y":0,"w":6,"h":4 }, "datasetId": "ds1" }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("组件 id 重复");
+    }
+
+    @Test
+    void shouldRejectNonHtmlWidgetWithoutDataset() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 } } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少 datasetId");
+    }
+
+    @Test
+    void shouldRejectChartWithoutEncode() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "echartsOption": { "series": [ { "type": "bar" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少 encode");
+    }
+
+    @Test
+    void shouldRejectKpiWithoutEncode() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "k1", "type": "kpi", "datasetId": "ds1" } ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少 encode");
+    }
+
+    @Test
+    void shouldRejectOverlappingWidgets() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" },
+                { "id": "w2", "type": "table", "layout": { "x":3,"y":2,"w":6,"h":4 }, "datasetId": "ds1" }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("布局重叠");
+    }
+
+    @Test
+    void shouldRejectWidgetFieldMissingFromDatasetCache() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [
+                {
+                  "id": "ds1",
+                  "type": "SQL",
+                  "dataSourceId": 1,
+                  "sql": "SELECT month, sales_amount FROM t",
+                  "fields": { "columns": [ { "name": "month" }, { "name": "sales_amount" } ] }
+                }
+              ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "encode": {
+                    "categoryField": "month",
+                    "values": [ { "name": "销售额", "field": "missing_field", "agg": "sum" } ]
+                  },
+                  "chart": { "type": "line" },
+                  "echartsOption": { "series": [ { "type": "line" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的字段");
+    }
+
+    @Test
+    void shouldRejectFilterFieldMissingFromDatasetCache() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [
+                {
+                  "id": "ds1",
+                  "type": "SQL",
+                  "dataSourceId": 1,
+                  "sql": "SELECT month, sales_amount FROM t",
+                  "fields": { "columns": [ { "name": "month" }, { "name": "sales_amount" } ] }
+                }
+              ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                { "id": "f1", "type": "select", "targets": [ { "datasetId": "ds1", "field": "missing_field", "mode": "client" } ] }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的字段");
+    }
+
+    @Test
+    void shouldRejectInvalidMultiSelectDefaultValue() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "f1",
+                  "type": "multiSelect",
+                  "targets": [ { "datasetId": "ds1", "field": "region", "mode": "client" } ],
+                  "defaultValue": "华东"
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("默认值必须是数组");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldTreatEmptyRangeDefaultValueAsNoDefault() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "f1",
+                  "type": "dateRange",
+                  "targets": [ { "datasetId": "ds1", "mode": "server", "pushdown": { "kind": "metricTime" } } ],
+                  "defaultValue": []
+                },
+                {
+                  "id": "f2",
+                  "type": "numberRange",
+                  "targets": [ { "datasetId": "ds1", "field": "m1", "mode": "client" } ],
+                  "defaultValue": {}
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> filters = (List<Map<String, Object>>) normalized.get("filters");
+        assertThat(filters.get(0)).doesNotContainKey("defaultValue");
+        assertThat(filters.get(1)).doesNotContainKey("defaultValue");
+    }
+
+    @Test
+    void shouldRejectInvalidDateRangeDefaultValue() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "f1",
+                  "type": "dateRange",
+                  "targets": [ { "datasetId": "ds1", "mode": "server", "pushdown": { "kind": "metricTime" } } ],
+                  "defaultValue": "2026-01-01"
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("{start,end}");
+    }
+
+    @Test
+    void shouldRejectMissingAggregation() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "encode": { "categoryField": "month", "values": [ { "field": "m1" } ] },
+                  "chart": { "type": "bar" },
+                  "echartsOption": { "series": [ { "type": "bar" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("agg");
+    }
+
+    @Test
+    void shouldRejectUnsupportedChartType() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "encode": { "categoryField": "month", "values": [ { "field": "m1", "agg": "sum" } ] },
+                  "chart": { "type": "radar" },
+                  "echartsOption": { "series": [ { "type": "radar" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不支持的");
+    }
+
+    @Test
+    void shouldValidateTableColumnConfiguration() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [
+                {
+                  "id": "ds1",
+                  "type": "SQL",
+                  "dataSourceId": 1,
+                  "sql": "SELECT region, amount FROM t",
+                  "fields": { "columns": [ { "name": "region" }, { "name": "amount" } ] }
+                }
+              ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "table",
+                  "layout": { "x":0,"y":0,"w":12,"h":8 },
+                  "datasetId": "ds1",
+                  "encode": {
+                    "limit": 100,
+                    "columns": [ { "field": "region", "label": "区域", "width": 160 } ]
+                  }
+                }
+              ]
+            }
+            """;
+        assertThat(validator.validateAndNormalize(spec)).containsEntry("version", 1);
+
+        String missing =
+            """
+            {
+              "version": 1,
+              "datasets": [
+                {
+                  "id": "ds1",
+                  "type": "SQL",
+                  "dataSourceId": 1,
+                  "sql": "SELECT region FROM t",
+                  "fields": { "columns": [ { "name": "region" } ] }
+                }
+              ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "table",
+                  "layout": { "x":0,"y":0,"w":12,"h":8 },
+                  "datasetId": "ds1",
+                  "encode": { "columns": [ { "field": "missing" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(missing))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的字段");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldMigrateEarlyV1EncodeValueField() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "layout": { "x":0,"y":0,"w":6,"h":4 },
+                  "datasetId": "ds1",
+                  "encode": { "categoryField": "month", "valueField": "m1" },
+                  "chart": { "type": "bar" },
+                  "echartsOption": { "series": [ { "type": "bar" } ] }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> encode = (Map<String, Object>) widgets.get(0).get("encode");
+        List<Map<String, Object>> values = (List<Map<String, Object>>) encode.get("values");
+        assertThat(values).hasSize(1);
+        assertThat(values.get(0)).containsEntry("field", "m1").containsEntry("agg", "sum");
+        assertThat(encode).doesNotContainKey("valueField");
+    }
+
+    @Test
+    void shouldRejectOversizedSpec() {
+        String spec = "{" + " ".repeat(1_000_000);
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("看板定义过大");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldUseReferencedDatasetTypeInsteadOfSpecType() {
+        AnalysisDataset entity = new AnalysisDataset();
+        entity.setId("ref1");
+        entity.setName("引用数据集");
+        entity.setType(AnalysisDataset.TYPE_SQL);
+        entity.setDefinition("{\"sql\":\"SELECT 1 AS value\"}");
+        when(datasetRepository.existsById("ref1")).thenReturn(true);
+        when(datasetRepository.findById("ref1")).thenReturn(Optional.of(entity));
+
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "refId": "ref1", "type": "METRIC" } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+
+        List<Map<String, Object>> datasets = (List<Map<String, Object>>) normalized.get("datasets");
+        assertThat(datasets.get(0)).containsEntry("type", "SQL").containsEntry("refId", "ref1");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDefaultKpiLayoutToCompactSize() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "k1", "type": "kpi", "datasetId": "ds1", "encode": { "values": [ { "field": "m1", "agg": "sum" } ] } }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
+        assertThat(layout).containsEntry("w", 6).containsEntry("h", 4);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldCapKpiHeight() {
+        String spec =
+            """
+            {
+              "version": 1,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "k1",
+                  "type": "kpi",
+                  "datasetId": "ds1",
+                  "encode": { "values": [ { "field": "m1", "agg": "sum" } ] },
+                  "layout": { "x": 0, "y": 0, "w": 6, "h": 20 }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
+        assertThat(layout).containsEntry("h", 8);
     }
 
     @Test
@@ -269,35 +893,5 @@ class DashboardSpecValidatorTest {
         )
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("写操作");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldDefaultKpiLayoutToCompactSize() {
-        String spec = """
-            {
-              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
-              "widgets": [ { "id": "k1", "type": "kpi", "datasetId": "ds1" } ]
-            }
-            """;
-        Map<String, Object> normalized = validator.validateAndNormalize(spec);
-        java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
-        Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
-        assertThat(layout).containsEntry("w", 6).containsEntry("h", 4);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void shouldCapKpiHeight() {
-        String spec = """
-            {
-              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
-              "widgets": [ { "id": "k1", "type": "kpi", "datasetId": "ds1", "layout": { "x": 0, "y": 0, "w": 6, "h": 20 } } ]
-            }
-            """;
-        Map<String, Object> normalized = validator.validateAndNormalize(spec);
-        java.util.List<Map<String, Object>> widgets = (java.util.List<Map<String, Object>>) normalized.get("widgets");
-        Map<String, Object> layout = (Map<String, Object>) widgets.get(0).get("layout");
-        assertThat(layout).containsEntry("h", 8);
     }
 }

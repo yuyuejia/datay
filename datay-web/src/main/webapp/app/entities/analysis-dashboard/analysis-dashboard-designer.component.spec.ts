@@ -42,10 +42,15 @@ vi.mock('@/shared/dashboard/useDashboardData', async () => {
     useDashboardData: () => ({
       datasetData: ref({}),
       rawDatasetData: ref({}),
+      widgetData: ref({}),
       loadingDatasets: ref({}),
       datasetErrors: ref({}),
+      widgetErrors: ref({}),
+      serverPaginationWidgets: ref({}),
+      dataVersion: ref(0),
       loading: ref(false),
       loadAll: vi.fn().mockResolvedValue(undefined),
+      loadWidgetPage: vi.fn().mockResolvedValue(undefined),
     }),
   };
 });
@@ -83,12 +88,12 @@ type DesignerVm = {
       title: string;
       type?: string;
       datasetId?: string;
-      dataRef?: any;
+      encode?: any;
       echartsOption?: any;
       html?: string;
       layout: WidgetLayout;
     }>;
-    filters: Array<{ id: string; datasetId?: string; field?: string; bindings?: any[] }>;
+    filters: Array<{ id: string; targets: any[] }>;
     datasets: Array<{ id: string; type?: string }>;
   };
   canUndo: boolean;
@@ -175,7 +180,7 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(pie.datasetId).toBe('ds1');
     expect(pie.layout.w).toBe(8);
     expect(pie.layout.h).toBe(8);
-    expect(pie.dataRef).toEqual({ categoryField: '', valueField: '', limit: 100, groupBy: true });
+    expect(pie.encode).toEqual({ categoryField: '', values: [{ field: '', agg: 'sum' }], limit: 100, groupBy: true });
     expect(pie.echartsOption.series[0].type).toBe('pie');
     expect(pie.echartsOption.xAxis).toBeUndefined();
     expect(pie.echartsOption.yAxis).toBeUndefined();
@@ -183,12 +188,12 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(kpi.datasetId).toBe('ds1');
     expect(kpi.layout.w).toBe(6);
     expect(kpi.layout.h).toBe(4);
-    expect(kpi.dataRef).toEqual({ valueField: '' });
+    expect(kpi.encode).toEqual({ values: [{ field: '', agg: 'sum' }] });
 
     expect(table.datasetId).toBe('ds1');
     expect(table.layout.w).toBe(12);
     expect(table.layout.h).toBe(8);
-    expect(table.dataRef).toEqual({ limit: 100 });
+    expect(table.encode).toEqual({ limit: 100 });
 
     expect(html.datasetId).toBeUndefined();
     expect(html.layout.w).toBe(12);
@@ -357,9 +362,9 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addWidget('echarts', 'bar');
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].dataRef).toEqual({
+    expect(vm.spec.widgets[0].encode).toEqual({
       categoryField: 'region',
-      valueField: 'amount',
+      values: [{ field: 'amount', agg: 'sum' }],
       limit: 100,
       groupBy: true,
     });
@@ -370,7 +375,7 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addWidget('echarts', 'bar');
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].dataRef).toMatchObject({ categoryField: '', valueField: '' });
+    expect(vm.spec.widgets[0].encode).toMatchObject({ categoryField: '', values: [{ field: '', agg: 'sum' }] });
 
     (vm as any).datasetData = {
       ds1: {
@@ -381,7 +386,7 @@ describe('AnalysisDashboardDesigner history', () => {
     await flushPromises();
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].dataRef).toMatchObject({ categoryField: 'region', valueField: 'amount' });
+    expect(vm.spec.widgets[0].encode).toMatchObject({ categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }] });
   });
 
   it('KPI 使用默认数值字段，表格不强加分类字段', async () => {
@@ -398,8 +403,8 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addWidget('table');
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].dataRef).toEqual({ valueField: 'amount' });
-    expect(vm.spec.widgets[1].dataRef).toEqual({ limit: 100 });
+    expect(vm.spec.widgets[0].encode).toEqual({ values: [{ field: 'amount', agg: 'sum' }] });
+    expect(vm.spec.widgets[1].encode).toEqual({ limit: 100 });
   });
 
   it('纵轴支持多个数值字段并生成多条系列', async () => {
@@ -417,19 +422,17 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.widgetValueFields = ['amount', 'quantity'];
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].dataRef).toMatchObject({
-      valueField: 'amount',
-      series: [
-        { name: 'amount', field: 'amount' },
-        { name: 'quantity', field: 'quantity' },
+    expect(vm.spec.widgets[0].encode).toMatchObject({
+      values: [
+        { name: 'amount', field: 'amount', agg: 'sum' },
+        { name: 'quantity', field: 'quantity', agg: 'sum' },
       ],
       seriesField: null,
     });
 
     vm.widgetValueFields = ['amount'];
     await vm.$nextTick();
-    expect(vm.spec.widgets[0].dataRef.valueField).toBe('amount');
-    expect(vm.spec.widgets[0].dataRef.series).toBeUndefined();
+    expect(vm.spec.widgets[0].encode.values).toHaveLength(1);
   });
 
   it('自定义设置可应用和恢复 ECharts 配置', async () => {
@@ -555,7 +558,7 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(vm.spec.filters).toHaveLength(1);
   });
 
-  it('新增筛选器直接配置数据集和字段，不再生成绑定', async () => {
+  it('新增筛选器统一生成 targets，SQL 数据集默认服务端下推', async () => {
     vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
     (vm as any).datasetData = {
       ds1: {
@@ -568,8 +571,7 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addFilter();
     await vm.$nextTick();
 
-    expect(vm.spec.filters[0]).toMatchObject({ datasetId: 'ds1', field: 'region' });
-    expect(vm.spec.filters[0].bindings).toBeUndefined();
+    expect(vm.spec.filters[0].targets[0]).toMatchObject({ datasetId: 'ds1', field: 'region', mode: 'server' });
   });
 
   it('AI 模式复用设计器并默认打开助手', async () => {

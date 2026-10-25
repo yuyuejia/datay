@@ -163,6 +163,99 @@ class DashboardDatasetScopeControlTest {
     }
 
     @Test
+    void shouldPushDownSqlColumnFilterFromTargets() throws Exception {
+        Map<String, Object> dataset = new LinkedHashMap<>();
+        dataset.put("id", "chart-filter");
+        dataset.put("type", "SQL");
+        dataset.put("sql", "SELECT region, order_amount FROM orders");
+        dataset.put("dataSourceId", "source-1");
+        dataset.put("fields", "{\"columns\":[{\"name\":\"region\"},{\"name\":\"order_amount\"}]}");
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("datasetId", "chart-filter");
+        target.put("field", "region");
+        target.put("mode", "server");
+        Map<String, Object> filter = new LinkedHashMap<>();
+        filter.put("id", "region");
+        filter.put("type", "multiSelect");
+        filter.put("targets", List.of(target));
+        Map<String, Object> spec = Map.of("datasets", List.of(dataset), "filters", List.of(filter));
+
+        Map<String, Object> result = dashboardDataService.queryDataset(
+            spec,
+            "source-1",
+            "chart-filter",
+            Map.of("region", List.of("华东", "华南"))
+        );
+
+        assertThat(regions(result)).containsExactlyInAnyOrder("华东", "华南");
+    }
+
+    @Test
+    void shouldPushDownSqlSortAndLimitFromWidgetQuery() throws Exception {
+        Map<String, Object> dataset = new LinkedHashMap<>();
+        dataset.put("id", "chart-sort");
+        dataset.put("type", "SQL");
+        dataset.put("sql", "SELECT region, order_amount FROM orders");
+        dataset.put("dataSourceId", "source-1");
+        dataset.put("fields", "{\"columns\":[{\"name\":\"region\"},{\"name\":\"order_amount\"}]}");
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("id", "widget-1");
+        query.put("datasetId", "chart-sort");
+        query.put("sortField", "order_amount");
+        query.put("sortOrder", "desc");
+        query.put("limit", 2);
+        Map<String, Object> spec = Map.of("datasets", List.of(dataset), "filters", List.of());
+
+        Map<String, Object> response = dashboardDataService.queryWidgets(
+            spec,
+            "source-1",
+            List.of("chart-sort"),
+            List.of(query),
+            Map.of()
+        );
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> widget = (Map<String, Object>) ((Map<String, Object>) response.get("widgets")).get("widget-1");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) widget.get("rows");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.stream().map(row -> value(row, "order_amount")).toList()).containsExactly(300, 200);
+    }
+
+    @Test
+    void shouldPushDownSqlPaginationOffset() throws Exception {
+        Map<String, Object> dataset = new LinkedHashMap<>();
+        dataset.put("id", "chart-page");
+        dataset.put("type", "SQL");
+        dataset.put("sql", "SELECT region, order_amount FROM orders");
+        dataset.put("dataSourceId", "source-1");
+        dataset.put("fields", "{\"columns\":[{\"name\":\"region\"},{\"name\":\"order_amount\"}]}");
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("id", "widget-page");
+        query.put("datasetId", "chart-page");
+        query.put("sortField", "order_amount");
+        query.put("sortOrder", "desc");
+        query.put("limit", 1);
+        query.put("offset", 1);
+        Map<String, Object> spec = Map.of("datasets", List.of(dataset), "filters", List.of());
+
+        Map<String, Object> response = dashboardDataService.queryWidgets(
+            spec,
+            "source-1",
+            List.of(),
+            List.of(query),
+            Map.of()
+        );
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> widget = (Map<String, Object>) ((Map<String, Object>) response.get("widgets")).get("widget-page");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) widget.get("rows");
+        assertThat(rows).hasSize(1);
+        assertThat(value(rows.get(0), "order_amount")).isEqualTo(200);
+    }
+
+    @Test
     void shouldNotFilterForAdmin() throws Exception {
         authenticate("ROLE_ADMIN");
 

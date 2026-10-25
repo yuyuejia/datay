@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardViewer from './App.vue';
 
 const dashboardSpec = {
+  version: 1,
   title: '大屏看板',
   layout: {
     mode: 'screen',
@@ -22,10 +23,17 @@ const dashboardSpec = {
   },
   datasets: [{ id: 'ds1', type: 'SQL' }],
   widgets: [],
-  filters: [],
+  filters: [
+    {
+      id: 'region',
+      type: 'select',
+      targets: [{ datasetId: 'ds1', field: 'region', mode: 'server' }],
+    },
+  ],
 };
 
 const standardSpec = {
+  version: 1,
   title: '标准看板',
   layout: {
     mode: 'standard',
@@ -53,7 +61,13 @@ vi.mock('@/shared/dashboard/dashboard.service', () => ({
       Promise.resolve({
         id: 'db1',
         name: '看板',
-        spec: JSON.stringify(window.location.search.includes('standard') ? standardSpec : dashboardSpec),
+        spec: JSON.stringify(
+          window.location.search.includes('standard')
+            ? standardSpec
+            : window.location.search.includes('nofilters')
+              ? { ...dashboardSpec, filters: [] }
+              : dashboardSpec,
+        ),
       }),
     );
     getByCode = vi.fn();
@@ -66,10 +80,15 @@ vi.mock('@/shared/dashboard/useDashboardData', async () => {
     useDashboardData: () => ({
       datasetData: ref({}),
       rawDatasetData: ref({}),
+      widgetData: ref({}),
       loadingDatasets: ref({}),
       datasetErrors: ref({}),
+      widgetErrors: ref({}),
+      serverPaginationWidgets: ref({}),
+      dataVersion: ref(0),
       loading: ref(false),
       loadAll: vi.fn().mockResolvedValue(undefined),
+      loadWidgetPage: vi.fn().mockResolvedValue(undefined),
     }),
   };
 });
@@ -111,6 +130,50 @@ describe('dashboard viewer screen settings', () => {
     expect(wrapper.element.style.backgroundColor).not.toBe('');
     expect(wrapper.classes()).toContain('dashboard-theme-dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it('collapses screen filters by default and toggles them on click', async () => {
+    const wrapper = mount(DashboardViewer, {
+      global: {
+        stubs: {
+          DashboardStage: DashboardStageStub,
+          DashboardCanvas: true,
+          DashboardFilters: true,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.dashboard-viewer-filters-toggle').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-viewer-filters-toggle').text()).toBe('');
+    expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(false);
+
+    await wrapper.find('.dashboard-viewer-filters-toggle').trigger('click');
+    expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(true);
+
+    await wrapper.find('.dashboard-viewer-filters-toggle').trigger('click');
+    expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it('hides the screen filter toggle when no filters are configured', async () => {
+    window.history.pushState({}, '', '/dashboard.html?id=nofilters');
+    const wrapper = mount(DashboardViewer, {
+      global: {
+        stubs: {
+          DashboardStage: DashboardStageStub,
+          DashboardCanvas: true,
+          DashboardFilters: true,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.dashboard-viewer-filters-toggle').exists()).toBe(false);
+    expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(false);
 
     wrapper.unmount();
   });

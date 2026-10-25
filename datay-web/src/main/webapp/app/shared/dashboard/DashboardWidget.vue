@@ -12,7 +12,14 @@
       </div>
       <EChart v-else-if="widget.type === 'echarts'" :option="option" :theme="theme" />
       <KpiWidget v-else-if="widget.type === 'kpi'" :widget="widget" :result="result" />
-      <DataTableWidget v-else-if="widget.type === 'table'" :widget="widget" :result="result" />
+      <DataTableWidget
+        v-else-if="widget.type === 'table'"
+        :widget="widget"
+        :result="result"
+        :server-paged="serverPaged"
+        :page-loader="pageLoader"
+        :page-reset-key="pageResetKey"
+      />
       <HtmlWidget v-else-if="widget.type === 'html'" :widget="widget" />
       <div v-else class="dashboard-widget-empty">不支持的组件类型：{{ widget.type }}</div>
     </div>
@@ -27,7 +34,7 @@ import EChart from './EChart.vue';
 import HtmlWidget from './HtmlWidget.vue';
 import KpiWidget from './KpiWidget.vue';
 import { buildEchartsOption } from './spec-to-option';
-import type { DashboardTheme, DashboardWidget, DatasetResult } from './types';
+import type { DashboardTheme, DashboardWidget, DatasetResult, TablePageLoader } from './types';
 
 const props = defineProps<{
   widget: DashboardWidget;
@@ -35,6 +42,9 @@ const props = defineProps<{
   loading?: boolean;
   error?: string;
   theme?: DashboardTheme;
+  serverPaged?: boolean;
+  pageLoader?: TablePageLoader;
+  pageResetKey?: number;
 }>();
 
 const option = computed(() => buildEchartsOption(props.widget, props.result));

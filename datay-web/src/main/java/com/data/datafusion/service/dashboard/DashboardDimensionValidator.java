@@ -58,16 +58,18 @@ public class DashboardDimensionValidator {
     }
 
     private boolean isFilterUsable(Map<String, Object> filter, Map<String, Boolean> cache) {
-        // 新版筛选器直接绑定数据集字段，选项来自数据集结果，不再依赖维度模型。
-        String datasetId = asString(filter.get("datasetId"));
-        String field = asString(filter.get("field"));
-        if (datasetId != null && !datasetId.isBlank() && field != null && !field.isBlank()) {
+        List<Map<String, Object>> targets = FilterTargetResolver.targets(filter);
+        if (targets.isEmpty()) {
+            return false;
+        }
+        // 直接字段筛选由前端基于数据集结果处理，不依赖维度模型。
+        if (targets.stream().anyMatch(target -> {
+            String field = asString(target.get("field"));
+            return field != null && !field.isBlank();
+        })) {
             return true;
         }
-        List<String[]> dimensions = referencedDimensions(filter);
-        if (dimensions.isEmpty()) {
-            return true;
-        }
+        List<String[]> dimensions = referencedDimensions(targets);
         for (String[] dimension : dimensions) {
             String modelCode = dimension[0];
             String fieldName = dimension[1];
@@ -82,18 +84,14 @@ public class DashboardDimensionValidator {
         return true;
     }
 
-    /** 收集筛选器引用的维度（下拉选项维度 + 指标维度绑定）。 */
-    private List<String[]> referencedDimensions(Map<String, Object> filter) {
+    /** 收集指标维度下推目标引用的维度。 */
+    private List<String[]> referencedDimensions(List<Map<String, Object>> targets) {
         List<String[]> dimensions = new ArrayList<>();
-        Map<String, Object> options = asMap(filter.get("options"));
-        if ("dimension".equalsIgnoreCase(asString(options.get("mode")))) {
-            dimensions.add(new String[] { asString(options.get("dimensionModelCode")), asString(options.get("dimensionFieldName")) });
-        }
-        for (Object element : asList(filter.get("bindings"))) {
-            Map<String, Object> binding = asMap(element);
-            if (BINDING_METRIC_DIMENSION.equals(asString(binding.get("kind")))) {
+        for (Map<String, Object> target : targets) {
+            Map<String, Object> pushdown = FilterTargetResolver.pushdown(target);
+            if (BINDING_METRIC_DIMENSION.equals(asString(pushdown.get("kind")))) {
                 dimensions.add(
-                    new String[] { asString(binding.get("dimensionModelCode")), asString(binding.get("dimensionFieldName")) }
+                    new String[] { asString(pushdown.get("dimensionModelCode")), asString(pushdown.get("dimensionFieldName")) }
                 );
             }
         }

@@ -435,7 +435,40 @@ class DataModelLineageServiceTest {
         dashboard.setName("销售看板");
         dashboard.setCode("sales_dashboard");
         dashboard.setDataSourceId("ds1");
-        dashboard.setSpec(objectMapper.writeValueAsString(Map.of("datasets", List.of(metricDataset, sqlDataset))));
+        Map<String, Object> widget = Map.of(
+            "id",
+            "w1",
+            "type",
+            "echarts",
+            "datasetId",
+            "sales",
+            "encode",
+            Map.of("categoryField", "store_name", "values", List.of(Map.of("field", "sales_amount", "agg", "sum"))),
+            "chart",
+            Map.of("type", "bar")
+        );
+        Map<String, Object> filter = Map.of(
+            "id",
+            "store",
+            "type",
+            "multiSelect",
+            "targets",
+            List.of(Map.of("datasetId", "sales", "field", "store_name", "mode", "client"))
+        );
+        dashboard.setSpec(
+            objectMapper.writeValueAsString(
+                Map.of(
+                    "version",
+                    1,
+                    "datasets",
+                    List.of(metricDataset, sqlDataset),
+                    "widgets",
+                    List.of(widget),
+                    "filters",
+                    List.of(filter)
+                )
+            )
+        );
         return dashboard;
     }
 

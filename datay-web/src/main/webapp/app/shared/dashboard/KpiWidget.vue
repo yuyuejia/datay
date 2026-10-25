@@ -24,7 +24,15 @@ const displayValue = computed(() => {
   if (value === null || value === undefined) {
     return '--';
   }
-  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const format = props.widget.format;
+  const precision = format?.precision;
+  const formatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision ?? (Number.isInteger(value) ? 0 : 2),
+    useGrouping: true,
+  });
+  const formatted = formatter.format(value);
+  return `${format?.prefix ?? ''}${formatted}${format?.unit ?? ''}${format?.suffix ?? ''}`;
 });
 </script>
 

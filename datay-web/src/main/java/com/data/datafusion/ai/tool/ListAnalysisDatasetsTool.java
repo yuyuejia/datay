@@ -1,6 +1,8 @@
 package com.data.datafusion.ai.tool;
 
 import com.data.datafusion.domain.AnalysisDataset;
+import com.data.datafusion.domain.Metric;
+import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,10 +30,21 @@ public class ListAnalysisDatasetsTool implements AiTool {
 
     private final AnalysisDatasetService datasetService;
     private final ObjectMapper objectMapper;
+    private final MetricRepository metricRepository;
 
     public ListAnalysisDatasetsTool(AnalysisDatasetService datasetService, ObjectMapper objectMapper) {
+        this(datasetService, objectMapper, null);
+    }
+
+    @Autowired
+    public ListAnalysisDatasetsTool(
+        AnalysisDatasetService datasetService,
+        ObjectMapper objectMapper,
+        MetricRepository metricRepository
+    ) {
         this.datasetService = datasetService;
         this.objectMapper = objectMapper;
+        this.metricRepository = metricRepository;
     }
 
     @Override
@@ -120,8 +134,41 @@ public class ListAnalysisDatasetsTool implements AiTool {
         Object definition = parseJson(dto.getDefinition());
         if (definition != null) {
             item.put("definition", definition);
+            List<Map<String, Object>> metrics = resolveMetrics(definition);
+            if (!metrics.isEmpty()) {
+                item.put("metrics", metrics);
+            }
         }
         return item;
+    }
+
+    private List<Map<String, Object>> resolveMetrics(Object definition) {
+        if (metricRepository == null || !(definition instanceof Map<?, ?> map)) {
+            return List.of();
+        }
+        Object metricQuery = map.get("metricQuery");
+        List<?> codes = List.of();
+        if (metricQuery instanceof Map<?, ?> query && query.get("metricCodes") instanceof List<?> list) {
+            codes = list;
+        } else if (map.get("metricCodes") instanceof List<?> list) {
+            codes = list;
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object code : codes) {
+            String value = asString(code);
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            metricRepository.findByCode(value).ifPresent(metric -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("code", metric.getCode());
+                item.put("name", metric.getName());
+                item.put("metricType", metric.getMetricType());
+                item.put("isAdditive", metric.getIsAdditive());
+                result.add(item);
+            });
+        }
+        return result;
     }
 
     private Object parseJson(String json) {

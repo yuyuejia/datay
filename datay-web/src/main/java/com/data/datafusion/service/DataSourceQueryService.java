@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,7 +27,8 @@ public class DataSourceQueryService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataSourceQueryService.class);
 
-    private static final int MAX_ROWS = 10000;
+    @Value("${datay.query.max-rows:10000}")
+    private int maxRows = 10000;
 
     /**
      * Converts a {@link DataSourceDTO} into the {@link DatasourceInfo} used by the
@@ -76,8 +78,14 @@ public class DataSourceQueryService {
             throw new IllegalArgumentException("SQL语句不能为空");
         }
         try (DataSourceConnection connection = DataSourceProviderFactory.connect(toDatasourceInfo(dataSource))) {
-            QueryResult result = connection.executeQuery(sql, params, MAX_ROWS);
-            return result.toResultMap();
+            int rowLimit = Math.max(1, maxRows);
+            QueryResult result = connection.executeQuery(sql, params, rowLimit);
+            Map<String, Object> map = result.toResultMap();
+            if (map.get("rows") instanceof List<?> rows && rows.size() >= rowLimit) {
+                map.put("truncated", true);
+                map.put("rowLimit", rowLimit);
+            }
+            return map;
         } catch (SQLException e) {
             LOG.error("SQL execution error", e);
             throw e;

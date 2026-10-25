@@ -655,14 +655,7 @@
         "title": "入门门店销售分析",
         "description": "数据来自分析数据集「入门门店月度销售数据集」。首次使用请先在「任务编排」运行 qs_daily_orchestration 生成 ADS 数据。",
         "layout": {
-          "mode": "standard",
-          "columns": 24,
-          "rowHeight": 40,
-          "gap": 12,
-          "screen": {
-            "width": 1920,
-            "height": 1080
-          }
+          "mode": "standard"
         },
         "datasets": [
           {
@@ -684,8 +677,13 @@
               "h": 4
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "valueField": "sales_amount"
+            "encode": {
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
             }
           },
           {
@@ -699,8 +697,13 @@
               "h": 4
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "valueField": "order_count"
+            "encode": {
+              "values": [
+                {
+                  "field": "order_count",
+                  "agg": "sum"
+                }
+              ]
             }
           },
           {
@@ -714,12 +717,6 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "categoryField": "month_name",
-              "valueField": "sales_amount",
-              "groupBy": true,
-              "limit": 100
-            },
             "echartsOption": {
               "tooltip": {
                 "trigger": "axis"
@@ -746,6 +743,20 @@
                   "barMaxWidth": 36
                 }
               ]
+            },
+            "encode": {
+              "categoryField": "month_name",
+              "limit": 100,
+              "groupBy": true,
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
+            },
+            "chart": {
+              "type": "bar"
             }
           },
           {
@@ -759,12 +770,6 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "categoryField": "store_name",
-              "valueField": "sales_amount",
-              "groupBy": true,
-              "limit": 20
-            },
             "echartsOption": {
               "tooltip": {
                 "trigger": "item"
@@ -776,12 +781,23 @@
                 {
                   "type": "pie",
                   "name": "销售额",
-                  "radius": [
-                    "40%",
-                    "68%"
-                  ]
+                  "radius": ["40%", "68%"]
                 }
               ]
+            },
+            "encode": {
+              "categoryField": "store_name",
+              "limit": 20,
+              "groupBy": true,
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
+            },
+            "chart": {
+              "type": "pie"
             }
           },
           {
@@ -795,7 +811,7 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
+            "encode": {
               "limit": 100
             }
           }
@@ -807,23 +823,21 @@
             "label": "门店",
             "options": {
               "mode": "static",
-              "values": [
-                "北京朝阳大悦城店",
-                "上海南京东路店",
-                "广州天河城店",
-                "成都春熙路店",
-                "杭州湖滨银泰店"
-              ]
+              "values": ["北京朝阳大悦城店", "上海南京东路店", "广州天河城店", "成都春熙路店", "杭州湖滨银泰店"]
             },
-            "bindings": [
+            "targets": [
               {
                 "datasetId": "ds_store_sales",
-                "kind": "sqlParam",
-                "param": "store_name"
+                "mode": "server",
+                "pushdown": {
+                  "kind": "sqlParam",
+                  "param": "store_name"
+                }
               }
             ]
           }
-        ]
+        ],
+        "version": 1
       }
     },
     {
@@ -838,9 +852,6 @@
         "description": "1920×1080 暗色大屏，按 24 栅格布局，适配后自动刷新。",
         "layout": {
           "mode": "screen",
-          "columns": 24,
-          "rowHeight": 40,
-          "gap": 12,
           "screen": {
             "width": 1920,
             "height": 1080,
@@ -877,8 +888,13 @@
               "h": 4
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "valueField": "sales_amount"
+            "encode": {
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
             }
           },
           {
@@ -892,8 +908,13 @@
               "h": 4
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "valueField": "order_count"
+            "encode": {
+              "values": [
+                {
+                  "field": "order_count",
+                  "agg": "sum"
+                }
+              ]
             }
           },
           {
@@ -907,12 +928,6 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "categoryField": "month_name",
-              "valueField": "sales_amount",
-              "groupBy": true,
-              "limit": 100
-            },
             "echartsOption": {
               "tooltip": {
                 "trigger": "axis"
@@ -939,6 +954,20 @@
                   "barMaxWidth": 36
                 }
               ]
+            },
+            "encode": {
+              "categoryField": "month_name",
+              "limit": 100,
+              "groupBy": true,
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
+            },
+            "chart": {
+              "type": "bar"
             }
           },
           {
@@ -952,12 +981,6 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
-              "categoryField": "store_name",
-              "valueField": "sales_amount",
-              "groupBy": true,
-              "limit": 20
-            },
             "echartsOption": {
               "tooltip": {
                 "trigger": "item"
@@ -969,12 +992,23 @@
                 {
                   "type": "pie",
                   "name": "销售额",
-                  "radius": [
-                    "40%",
-                    "68%"
-                  ]
+                  "radius": ["40%", "68%"]
                 }
               ]
+            },
+            "encode": {
+              "categoryField": "store_name",
+              "limit": 20,
+              "groupBy": true,
+              "values": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum"
+                }
+              ]
+            },
+            "chart": {
+              "type": "pie"
             }
           },
           {
@@ -988,12 +1022,13 @@
               "h": 8
             },
             "datasetId": "ds_store_sales",
-            "dataRef": {
+            "encode": {
               "limit": 100
             }
           }
         ],
-        "filters": []
+        "filters": [],
+        "version": 1
       }
     }
   ],

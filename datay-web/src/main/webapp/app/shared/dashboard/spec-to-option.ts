@@ -1,9 +1,10 @@
-import type { DataRef, DashboardWidget, DatasetResult } from './types';
+import { sanitizeEchartsOption } from './echarts-option-sanitizer';
+import type { Aggregation, DashboardWidget, DatasetResult, WidgetEncode } from './types';
 
 /**
  * 把 AI 生成的 ECharts option 与查询返回的数据结合。
  *
- * AI 负责图表类型与样式（option），`dataRef` 负责声明如何把数据集列映射到图上；
+ * AI 负责图表类型与样式（option），`encode` 负责声明如何把数据集列映射到图上；
  * 本模块据此把真实的分类轴数据、系列数据注入 option，保证看板数据来自实时查询。
  */
 
@@ -74,98 +75,114 @@ function setCategoryAxis(option: Record<string, any>, categories: any[]): void {
   setAxisData(option, axisKey, categories);
 }
 
-function resolveSeriesDefs(ref: DataRef, columns: string[], categoryField?: string) {
-  if (ref.series && ref.series.length > 0) {
-    return ref.series;
+function resolveSeriesDefs(encode: WidgetEncode, columns: string[], categoryField?: string) {
+  if (encode.values && encode.values.length > 0) {
+    return encode.values;
   }
-  if (ref.valueField) {
-    return [{ name: ref.valueField, field: ref.valueField }];
-  }
-  return columns.filter(column => column !== categoryField).map(column => ({ name: column, field: column }));
+  return columns.filter(column => column !== categoryField).map(column => ({ name: column, field: column, agg: 'sum' as const }));
 }
 
 /**
- * 按 dataRef 对行做排序与 limit 截断。
+ * 按 encode 对行做排序与 limit 截断。
  *
  * 图表和明细表共用同一套数据裁剪规则，避免配置项只对部分组件生效。
  */
-export function applyDataRefRows(ref: DataRef | undefined, rows: Record<string, any>[]): Record<string, any>[] {
+export function applyEncodeRows(encode: WidgetEncode | undefined, rows: Record<string, any>[]): Record<string, any>[] {
   let result = [...rows];
-  if (ref?.sortField) {
-    result = sortRows(result, ref.sortField, ref.sortOrder);
+  if (encode?.sortField) {
+    result = sortRows(result, encode.sortField, encode.sortOrder);
   }
-  if (ref?.limit && result.length > ref.limit) {
-    result = result.slice(0, ref.limit);
+  if (encode?.limit && result.length > encode.limit) {
+    result = result.slice(0, encode.limit);
   }
   return result;
 }
 
 /**
+ * 解析字段的聚合方式；未声明 agg 时默认 SUM。
+ */
+export function aggregationFor(encode: WidgetEncode | undefined, field: string): Aggregation {
+  return encode?.values?.find(value => value.field === field)?.agg ?? 'sum';
+}
+
+function aggregateValues(values: number[], agg: Aggregation): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+  switch (agg) {
+    case 'avg':
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    case 'min':
+      return Math.min(...values);
+    case 'max':
+      return Math.max(...values);
+    case 'count':
+      return values.length;
+    case 'none':
+      return values[0];
+    default:
+      return values.reduce((sum, value) => sum + value, 0);
+  }
+}
+
+/**
  * 按分类字段聚合图表数据。
  *
- * <p>柱/折/面积图按「分类 + 系列」求和，饼图只按分类求和；
- * 聚合后再执行排序与 limit，避免明细行数上限截断同一分类的数据。
+ * <p>柱/折/面积图按「分类 + 系列」聚合，饼图只按分类聚合；聚合方式来自
+ * `encode.values[].agg`。聚合后再执行排序与 limit，避免明细行数上限截断同一分类的数据。
  */
-export function aggregateChartRows(ref: DataRef | undefined, rows: Record<string, any>[], chartType?: string): Record<string, any>[] {
-  const valueFields = Array.from(
-    new Set([ref?.valueField, ...(ref?.series?.map(series => series.field) ?? [])].filter((field): field is string => !!field)),
-  );
-  if (!ref?.groupBy || !ref.categoryField || valueFields.length === 0) {
+export function aggregateChartRows(
+  encode: WidgetEncode | undefined,
+  rows: Record<string, any>[],
+  chartType?: string,
+): Record<string, any>[] {
+  const valueFields = Array.from(new Set((encode?.values?.map(value => value.field) ?? []).filter((field): field is string => !!field)));
+  if (!encode?.groupBy || !encode.categoryField || valueFields.length === 0) {
     return rows;
   }
-  const categoryField = ref.categoryField;
-  const seriesField = chartType === 'pie' ? undefined : ref.seriesField || undefined;
-  const groups = new Map<string, Record<string, any>>();
+  const categoryField = encode.categoryField;
+  const seriesField = chartType === 'pie' ? undefined : encode.seriesField || undefined;
+  const groups = new Map<string, { row: Record<string, any>; values: Map<string, number[]> }>();
   for (const row of rows) {
     const category = row[categoryField];
     const series = seriesField ? row[seriesField] : undefined;
     const key = JSON.stringify([category, series]);
-    const grouped = groups.get(key);
+    let grouped = groups.get(key);
     if (!grouped) {
-      const initial = { ...row };
-      for (const field of valueFields) {
-        initial[field] = toNumber(row[field]);
-      }
-      groups.set(key, initial);
-      continue;
+      grouped = {
+        row: { ...row },
+        values: new Map(valueFields.map(field => [field, []])),
+      };
+      groups.set(key, grouped);
     }
     for (const field of valueFields) {
       const value = toNumber(row[field]);
       if (value !== null) {
-        grouped[field] = (toNumber(grouped[field]) ?? 0) + value;
+        grouped.values.get(field)?.push(value);
       }
     }
   }
-  return Array.from(groups.values());
+  return Array.from(groups.values()).map(group => {
+    const result = { ...group.row };
+    for (const field of valueFields) {
+      result[field] = aggregateValues(group.values.get(field) ?? [], aggregationFor(encode, field));
+    }
+    return result;
+  });
 }
 
 /**
- * 展示字段优先取业务名称：当字段为 id/sk 代理键且存在对应的 name 字段时返回 name，否则原样返回。
+ * v1 展示字段完全由 encode 显式声明，不再自动把 _id/_sk 替换为 _name。
  */
-export function resolveNameField(field: string | undefined, columns: string[]): string | undefined {
-  if (!field) {
-    return field;
-  }
-  const lower = field.toLowerCase();
-  if (!(lower.endsWith('_id') || lower.endsWith('_sk'))) {
-    return field;
-  }
-  const prefix = field.replace(/_(id|sk)$/i, '');
-  const candidates = [`${prefix}_name`, 'name'];
-  for (const candidate of candidates) {
-    const hit = columns.find(column => column.toLowerCase() === candidate.toLowerCase());
-    if (hit) {
-      return hit;
-    }
-  }
+export function resolveNameField(field: string | undefined, _columns: string[]): string | undefined {
   return field;
 }
 
 /**
- * 构建最终 ECharts option；无数据或未声明 dataRef 时原样返回 AI option。
+ * 构建最终 ECharts option；无数据或未声明 encode 时原样返回 AI option。
  */
 export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResult): Record<string, any> {
-  const option: Record<string, any> = JSON.parse(JSON.stringify(widget.echartsOption || {}));
+  const option: Record<string, any> = sanitizeEchartsOption(JSON.parse(JSON.stringify(widget.echartsOption || {})));
   // 组件卡片已展示标题，移除图表内 title 避免重复（默认保留 dashboard-widget-title）
   delete option.title;
   const chartType = firstSeriesType(option);
@@ -177,37 +194,30 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       option.yAxis = { type: 'value' };
     }
   }
-  const ref = widget.dataRef;
-  if (!ref || !result || !Array.isArray(result.rows) || result.rows.length === 0) {
+  const encode = widget.encode;
+  if (!encode || !result || !Array.isArray(result.rows) || result.rows.length === 0) {
     return option;
   }
 
   const columns = result.columns ?? [];
   const fieldLabel = (field?: string): string => (field ? result.columnLabels?.[field] || field : '');
-  const categoryField = resolveNameField(ref.categoryField ?? columns[0], columns);
-  const valueField = resolveNameField(
-    ref.valueField ?? ref.series?.[0]?.field ?? columns.find(column => column !== categoryField),
-    columns,
-  );
-  const seriesField = resolveNameField(ref.seriesField ?? undefined, columns);
-  const resolvedSeries = ref.series?.map(series => ({
-    ...series,
-    field: resolveNameField(series.field, columns) ?? series.field,
+  const categoryField = resolveNameField(encode.categoryField ?? columns[0], columns) ?? '';
+  const valueField = resolveNameField(encode.values?.[0]?.field ?? columns.find(column => column !== categoryField), columns);
+  const seriesField = resolveNameField(encode.seriesField ?? undefined, columns);
+  const sortField = resolveNameField(encode.sortField ?? undefined, columns);
+  const resolvedValues = encode.values?.map(value => ({
+    ...value,
+    field: resolveNameField(value.field, columns) ?? value.field,
   }));
-  const groupedRows = ref.groupBy
-    ? aggregateChartRows(
-        {
-          ...ref,
-          categoryField,
-          valueField,
-          seriesField,
-          series: chartType === 'pie' ? undefined : resolvedSeries,
-        },
-        result.rows,
-        chartType,
-      )
-    : result.rows;
-  const rows = applyDataRefRows(ref, groupedRows);
+  const effectiveEncode: WidgetEncode = {
+    ...encode,
+    categoryField,
+    seriesField,
+    sortField,
+    values: resolvedValues,
+  };
+  const groupedRows = effectiveEncode.groupBy ? aggregateChartRows(effectiveEncode, result.rows, chartType) : result.rows;
+  const rows = applyEncodeRows(effectiveEncode, groupedRows);
 
   if (chartType === 'pie') {
     option.series = [
@@ -268,7 +278,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     return option;
   }
 
-  const seriesDefs = resolveSeriesDefs(ref, columns, categoryField).map(series => ({
+  const seriesDefs = resolveSeriesDefs(effectiveEncode, columns, categoryField).map(series => ({
     ...series,
     field: resolveNameField(series.field, columns) ?? series.field,
   }));
@@ -284,26 +294,18 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
 }
 
 /**
- * 计算 KPI 单值：优先取显式 valueField，否则取首个数值列并按行求和。
+ * 计算 KPI 单值：优先取 encode.values[0]，否则取首个数值列。
  */
 export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult): { value: number | null; label?: string } {
   if (!result || !Array.isArray(result.rows) || result.rows.length === 0) {
     return { value: null };
   }
-  const ref = widget.dataRef;
-  const columns = result.columns ?? [];
-  const field = ref?.valueField ?? ref?.series?.[0]?.field;
-  if (field) {
-    const values = result.rows.map(row => toNumber(row[field])).filter((value): value is number => value !== null);
-    return { value: values.reduce((sum, value) => sum + value, 0) };
-  }
-  const numericColumn = columns.find(column => result.rows.some(row => toNumber(row[column]) !== null));
-  if (!numericColumn) {
+  const rows = result.rows;
+  const encode = widget.encode;
+  const field = encode?.values?.[0]?.field;
+  if (!field) {
     return { value: null };
   }
-  const values = result.rows.map(row => toNumber(row[numericColumn])).filter((value): value is number => value !== null);
-  return {
-    value: values.reduce((sum, value) => sum + value, 0),
-    label: numericColumn,
-  };
+  const values = rows.map(row => toNumber(row[field])).filter((value): value is number => value !== null);
+  return { value: aggregateValues(values, aggregationFor(encode, field)) };
 }

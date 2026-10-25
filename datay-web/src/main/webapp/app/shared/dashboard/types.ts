@@ -10,6 +10,8 @@ export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi';
 
 export type ChartType = 'bar' | 'line' | 'pie' | 'area';
 
+export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'none';
+
 /** 从组件库拖拽到画布时携带的组件信息。 */
 export interface WidgetPalettePayload {
   type: WidgetType;
@@ -95,21 +97,45 @@ export interface DashboardDataset {
   fields?: string;
 }
 
-export interface DataRefSeries {
-  name?: string;
+/** v1 显式数据映射与聚合配置。 */
+export interface WidgetEncodeValue {
   field: string;
+  name?: string;
+  agg?: Aggregation;
 }
 
-export interface DataRef {
+export interface WidgetTableColumn {
+  field: string;
+  label?: string;
+  width?: number;
+  format?: WidgetFormat;
+}
+
+export interface WidgetEncode {
   categoryField?: string;
-  valueField?: string;
-  series?: DataRefSeries[];
+  values?: WidgetEncodeValue[];
   seriesField?: string | null;
   sortField?: string | null;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
-  /** 图表按分类字段聚合数值；表格/KPI 不使用该配置。 */
   groupBy?: boolean;
+  /** 表格列配置；按数组顺序展示。 */
+  columns?: WidgetTableColumn[];
+  /** 表格前端分页大小；不配置时不分页。 */
+  pageSize?: number;
+}
+
+/** v1 图表类型声明；具体样式仍由 echartsOption 承载。 */
+export interface DashboardChart {
+  type?: string;
+  [key: string]: any;
+}
+
+export interface WidgetFormat {
+  unit?: string;
+  precision?: number;
+  prefix?: string;
+  suffix?: string;
 }
 
 export interface WidgetLayout {
@@ -125,20 +151,21 @@ export interface DashboardWidget {
   type: WidgetType;
   layout: WidgetLayout;
   datasetId?: string;
-  dataRef?: DataRef;
+  /** v1 显式映射与聚合。 */
+  encode?: WidgetEncode;
+  /** v1 图表类型。 */
+  chart?: DashboardChart;
+  /** KPI 等组件的展示格式。 */
+  format?: WidgetFormat;
   echartsOption?: Record<string, any>;
   html?: string;
 }
 
 export interface FilterOptions {
-  mode?: 'dimension' | 'static';
-  dimensionModelCode?: string;
-  dimensionFieldName?: string;
   values?: string[];
 }
 
-export interface FilterBinding {
-  datasetId: string;
+export interface FilterPushdown {
   kind: BindingKind;
   dimensionModelCode?: string;
   dimensionFieldName?: string;
@@ -147,21 +174,30 @@ export interface FilterBinding {
   paramEnd?: string;
 }
 
+export type FilterTargetMode = 'server' | 'client';
+
+/** v1 筛选器目标：一个筛选器可同时作用于多个数据集。 */
+export interface FilterTarget {
+  datasetId: string;
+  /** 直接字段筛选（当前只支持客户端过滤）。 */
+  field?: string;
+  mode?: FilterTargetMode;
+  /** 服务端下推配置；datasetId 由 target 提供。 */
+  pushdown?: FilterPushdown;
+}
+
 export interface DashboardFilter {
   id: string;
   type: FilterType;
   label?: string;
   defaultValue?: any;
   options?: FilterOptions;
-  /** 筛选器直接绑定的看板数据集别名。 */
-  datasetId?: string;
-  /** 数据集中的筛选字段；下拉选项也取自该字段的去重值。 */
-  field?: string;
-  /** 兼容旧版看板的多绑定配置。 */
-  bindings?: FilterBinding[];
+  /** v1 筛选目标，支持多数据集与 pushdown。 */
+  targets: FilterTarget[];
 }
 
 export interface DashboardSpec {
+  version: 1;
   title?: string;
   description?: string;
   layout?: DashboardLayout;
@@ -175,8 +211,18 @@ export interface DatasetResult {
   rows?: Record<string, any>[];
   /** 列标签：字段名 → 展示名称（通常为字段描述，为空时回退字段名）。 */
   columnLabels?: Record<string, string>;
+  /** 列类型：字段名 → 数据集字段缓存中的类型。 */
+  columnTypes?: Record<string, string>;
+  /** 数值列，供格式化与聚合提示使用。 */
+  numericColumns?: string[];
   affectedRows?: number;
   sql?: string;
+  /** 结果是否因全局行数上限被截断。 */
+  truncated?: boolean;
+  rowLimit?: number;
 }
 
 export type FilterValues = Record<string, any>;
+
+export type WidgetPageLoader = (widgetId: string, page: number) => Promise<void>;
+export type TablePageLoader = (page: number) => Promise<void>;

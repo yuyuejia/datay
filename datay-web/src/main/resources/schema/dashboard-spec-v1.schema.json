@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datay.local/schema/dashboard-spec-v1.schema.json",
+  "title": "DataY 分析看板 Spec v1",
+  "description": "v1 正式协议；当前只接受 version=1、widgets[].encode 与 filters[].targets。",
+  "type": "object",
+  "required": ["version", "datasets", "widgets"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "layout": {
+      "$ref": "#/$defs/layout"
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dataset"
+      }
+    },
+    "widgets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/widget"
+      }
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/filter"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "layout": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": ["standard", "screen"]
+        },
+        "screen": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 640,
+              "maximum": 7680
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 480,
+              "maximum": 4320
+            },
+            "fitMode": {
+              "enum": ["contain", "stretch", "cover"]
+            },
+            "theme": {
+              "enum": ["light", "dark"]
+            },
+            "autoRefreshSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            },
+            "background": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "refId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enum": ["METRIC", "SQL"]
+        },
+        "fields": {
+          "description": "字段缓存；仅设计器/校验使用。",
+          "type": ["object", "string"]
+        },
+        "metricQuery": {
+          "type": "object",
+          "deprecated": true,
+          "description": "v0 内联指标定义；v1 保存态应改为 refId。"
+        },
+        "sql": {
+          "type": "string",
+          "deprecated": true,
+          "description": "v0 内联 SQL；v1 保存态应改为 refId。"
+        },
+        "params": {
+          "type": "object",
+          "deprecated": true
+        },
+        "dataSourceId": {
+          "deprecated": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "widget": {
+      "type": "object",
+      "required": ["id", "type", "layout"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "type": {
+          "enum": ["echarts", "table", "kpi", "html"]
+        },
+        "layout": {
+          "type": "object",
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 23
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "w": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 24
+            },
+            "h": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 40
+            }
+          },
+          "additionalProperties": false
+        },
+        "datasetId": {
+          "type": "string"
+        },
+        "encode": {
+          "$ref": "#/$defs/encode"
+        },
+        "chart": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["bar", "line", "pie", "area", "gauge"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "echartsOption": {
+          "type": "object"
+        },
+        "html": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "suffix": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "html"
+                }
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["datasetId"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["echarts", "kpi"]
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": ["encode"]
+              }
+            ]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "encode": {
+      "type": "object",
+      "properties": {
+        "categoryField": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/encodeValue"
+          }
+        },
+        "seriesField": {
+          "type": ["string", "null"]
+        },
+        "sortField": {
+          "type": ["string", "null"]
+        },
+        "sortOrder": {
+          "enum": ["asc", "desc"]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "groupBy": {
+          "type": "boolean"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 2000
+              },
+              "format": {
+                "type": "object"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 1000
+        }
+      },
+      "additionalProperties": false
+    },
+    "encodeValue": {
+      "type": "object",
+      "required": ["field", "agg"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "agg": {
+          "enum": ["sum", "avg", "min", "max", "count", "none"],
+          "default": "sum"
+        }
+      },
+      "additionalProperties": false
+    },
+    "filter": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": ["dateRange", "select", "multiSelect", "input", "numberRange"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "defaultValue": {},
+        "options": {
+          "type": "object"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/filterTarget"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "filterTarget": {
+      "type": "object",
+      "required": ["datasetId"],
+      "properties": {
+        "datasetId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": ["server", "client"],
+          "default": "client"
+        },
+        "pushdown": {
+          "$ref": "#/$defs/pushdown"
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["pushdown"]
+        },
+        {
+          "required": ["field"]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "pushdown": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["metricTime", "metricDimension", "metricFactField", "sqlParam"]
+        },
+        "dimensionModelCode": {
+          "type": "string"
+        },
+        "dimensionFieldName": {
+          "type": "string"
+        },
+        "factFieldName": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        },
+        "paramEnd": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

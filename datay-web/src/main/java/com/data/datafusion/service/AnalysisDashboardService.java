@@ -2,6 +2,7 @@ package com.data.datafusion.service;
 
 import com.data.datafusion.domain.AnalysisDashboard;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
+import com.data.datafusion.service.dashboard.DashboardDataService;
 import com.data.datafusion.service.dashboard.DashboardDimensionValidator;
 import com.data.datafusion.service.dashboard.DashboardSpecValidator;
 import com.data.datafusion.service.dto.AnalysisDashboardDTO;
@@ -128,9 +129,23 @@ public class AnalysisDashboardService {
      * 规范化看板定义：结构校验，并剔除引用了不存在或无数据维度的筛选器。
      */
     private String normalizeSpec(String specJson) {
+        assertReferencesOnly(specJson);
         Map<String, Object> spec = specValidator.validateAndNormalize(specJson);
         dimensionValidator.sanitizeFilters(spec);
         return specValidator.toJson(spec);
+    }
+
+    /**
+     * v1 保存态只允许数据集引用，禁止内联数据集绕过数据集行级权限。
+     */
+    private void assertReferencesOnly(String specJson) {
+        Map<String, Object> raw = specValidator.parse(specJson);
+        for (Map<String, Object> dataset : DashboardDataService.asMapList(raw.get("datasets"))) {
+            Object refId = dataset.get("refId");
+            if (refId == null || String.valueOf(refId).isBlank()) {
+                throw new IllegalArgumentException("看板数据集必须引用数据集库（refId），不允许内联数据集");
+            }
+        }
     }
 
     private void validate(AnalysisDashboardDTO dto) {

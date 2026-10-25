@@ -393,11 +393,11 @@
                     <el-option value="area" label="面积图" />
                   </el-select>
 
-                  <template v-if="selectedWidget.dataRef">
+                  <template v-if="selectedWidget.encode">
                     <template v-if="chartType === 'pie'">
                       <label>分类字段</label>
                       <el-select
-                        v-model="selectedWidget.dataRef.categoryField"
+                        v-model="selectedWidget.encode.categoryField"
                         clearable
                         filterable
                         allow-create
@@ -407,13 +407,7 @@
                       </el-select>
 
                       <label>数值字段</label>
-                      <el-select
-                        v-model="selectedWidget.dataRef.valueField"
-                        clearable
-                        filterable
-                        allow-create
-                        placeholder="选择或输入数值字段"
-                      >
+                      <el-select v-model="widgetPrimaryValueField" clearable filterable allow-create placeholder="选择或输入数值字段">
                         <el-option
                           v-for="field in widgetValueFieldOptions"
                           :key="field.name"
@@ -422,17 +416,21 @@
                         />
                       </el-select>
                       <div class="designer-hint">饼图按分类字段分区，数值字段决定扇区大小；不绘制坐标轴。</div>
+
+                      <label>聚合方式</label>
+                      <el-select v-model="widgetAggregation">
+                        <el-option value="sum" label="求和 sum" />
+                        <el-option value="avg" label="平均 avg" />
+                        <el-option value="min" label="最小 min" />
+                        <el-option value="max" label="最大 max" />
+                        <el-option value="count" label="计数 count" />
+                        <el-option value="none" label="不聚合 none" />
+                      </el-select>
                     </template>
 
                     <template v-else>
                       <label>横轴字段（X 轴）</label>
-                      <el-select
-                        v-model="selectedWidget.dataRef.categoryField"
-                        clearable
-                        filterable
-                        allow-create
-                        placeholder="选择分类字段"
-                      >
+                      <el-select v-model="selectedWidget.encode.categoryField" clearable filterable allow-create placeholder="选择分类字段">
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
                       <div class="designer-hint">ECharts category 轴使用单个分类字段。</div>
@@ -456,10 +454,20 @@
                       </el-select>
                       <div class="designer-hint">支持多个数值字段；多个字段会自动生成多条系列。</div>
 
+                      <label>聚合方式</label>
+                      <el-select v-model="widgetAggregation">
+                        <el-option value="sum" label="求和 sum" />
+                        <el-option value="avg" label="平均 avg" />
+                        <el-option value="min" label="最小 min" />
+                        <el-option value="max" label="最大 max" />
+                        <el-option value="count" label="计数 count" />
+                        <el-option value="none" label="不聚合 none" />
+                      </el-select>
+
                       <template v-if="widgetValueFields.length <= 1">
                         <label>系列拆分字段（可选）</label>
                         <el-select
-                          v-model="selectedWidget.dataRef.seriesField"
+                          v-model="selectedWidget.encode.seriesField"
                           clearable
                           filterable
                           allow-create
@@ -478,7 +486,7 @@
                     <label>排序字段 / 方向</label>
                     <div class="designer-inline">
                       <el-select
-                        v-model="selectedWidget.dataRef.sortField"
+                        v-model="selectedWidget.encode.sortField"
                         clearable
                         filterable
                         allow-create
@@ -487,23 +495,23 @@
                       >
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
-                      <el-select v-model="selectedWidget.dataRef.sortOrder" style="width: 90px">
+                      <el-select v-model="selectedWidget.encode.sortOrder" style="width: 90px">
                         <el-option value="asc" label="升序" />
                         <el-option value="desc" label="降序" />
                       </el-select>
                     </div>
 
                     <label>返回行数上限</label>
-                    <el-input-number v-model="selectedWidget.dataRef.limit" :min="1" :max="10000" controls-position="right" />
+                    <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
                   </template>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'table'">
-                  <template v-if="selectedWidget.dataRef">
+                  <template v-if="selectedWidget.encode">
                     <label>排序字段 / 方向</label>
                     <div class="designer-inline">
                       <el-select
-                        v-model="selectedWidget.dataRef.sortField"
+                        v-model="selectedWidget.encode.sortField"
                         clearable
                         filterable
                         allow-create
@@ -512,28 +520,46 @@
                       >
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
-                      <el-select v-model="selectedWidget.dataRef.sortOrder" style="width: 90px">
+                      <el-select v-model="selectedWidget.encode.sortOrder" style="width: 90px">
                         <el-option value="asc" label="升序" />
                         <el-option value="desc" label="降序" />
                       </el-select>
                     </div>
 
                     <label>返回行数上限</label>
-                    <el-input-number v-model="selectedWidget.dataRef.limit" :min="1" :max="10000" controls-position="right" />
+                    <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
+
+                    <label>显示列</label>
+                    <el-select
+                      v-model="widgetTableColumns"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      filterable
+                      allow-create
+                      placeholder="默认展示全部列"
+                    >
+                      <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                    </el-select>
+                    <div class="designer-hint">不配置时展示数据集全部列；配置后按选择顺序展示。</div>
+
+                    <label>分页大小</label>
+                    <el-input-number
+                      v-model="selectedWidget.encode.pageSize"
+                      :min="5"
+                      :max="1000"
+                      controls-position="right"
+                      placeholder="不分页"
+                    />
+                    <div class="designer-hint">配置后在前端按页展示；服务端分页仍受返回行数上限约束。</div>
                   </template>
-                  <div class="designer-hint">明细表展示数据集全部列，可配置排序和返回行数上限。</div>
+                  <div class="designer-hint">明细表展示数据集列，可配置排序、返回行数上限和显示列。</div>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'kpi'">
-                  <template v-if="selectedWidget.dataRef">
+                  <template v-if="selectedWidget.encode">
                     <label>数值字段</label>
-                    <el-select
-                      v-model="selectedWidget.dataRef.valueField"
-                      clearable
-                      filterable
-                      allow-create
-                      placeholder="选择或输入数值字段"
-                    >
+                    <el-select v-model="widgetPrimaryValueField" clearable filterable allow-create placeholder="选择或输入数值字段">
                       <el-option
                         v-for="field in widgetValueFieldOptions"
                         :key="field.name"
@@ -541,8 +567,17 @@
                         :value="field.name"
                       />
                     </el-select>
+                    <label>聚合方式</label>
+                    <el-select v-model="widgetAggregation">
+                      <el-option value="sum" label="求和 sum" />
+                      <el-option value="avg" label="平均 avg" />
+                      <el-option value="min" label="最小 min" />
+                      <el-option value="max" label="最大 max" />
+                      <el-option value="count" label="计数 count" />
+                      <el-option value="none" label="不聚合 none" />
+                    </el-select>
                   </template>
-                  <div class="designer-hint">KPI 对所选数值字段求和；留空时自动取首个数值列。</div>
+                  <div class="designer-hint">KPI 由所选字段与聚合方式计算，不再自动求和。</div>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'html'">
@@ -587,35 +622,47 @@
               <el-option value="numberRange" label="数值范围" />
             </el-select>
 
-            <label>数据集</label>
-            <el-select v-model="selectedFilter.datasetId" clearable placeholder="选择数据集" @change="onFilterDatasetChange">
-              <el-option v-for="dataset in spec.datasets" :key="dataset.id" :label="dataset.name || dataset.id" :value="dataset.id" />
-            </el-select>
-
-            <label>字段</label>
-            <el-select
-              v-model="selectedFilter.field"
-              clearable
-              filterable
-              allow-create
-              :disabled="!selectedFilter.datasetId"
-              placeholder="选择或输入字段名"
-              @change="onFilterFieldChange"
-            >
-              <el-option v-for="field in selectedFilterFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
-            </el-select>
+            <label>目标数据集 / 字段</label>
+            <div v-for="(target, index) in selectedFilter.targets" :key="index" class="designer-filter-target">
+              <el-select v-model="target.datasetId" clearable placeholder="选择数据集" @change="onFilterTargetDatasetChange(target)">
+                <el-option v-for="dataset in spec.datasets" :key="dataset.id" :label="dataset.name || dataset.id" :value="dataset.id" />
+              </el-select>
+              <template v-if="target.pushdown">
+                <el-tag type="success">{{ target.pushdown.kind }}</el-tag>
+              </template>
+              <el-select
+                v-else
+                v-model="target.field"
+                clearable
+                filterable
+                allow-create
+                :disabled="!target.datasetId"
+                placeholder="选择或输入字段名"
+                @change="onFilterTargetFieldChange(target)"
+              >
+                <el-option
+                  v-for="field in fieldCandidates(target.datasetId)"
+                  :key="field.name"
+                  :label="field.label || field.name"
+                  :value="field.name"
+                />
+              </el-select>
+              <el-button text type="danger" :disabled="selectedFilter.targets.length <= 1" @click="removeFilterTarget(index)">
+                删除
+              </el-button>
+            </div>
+            <el-button text type="primary" @click="addFilterTarget">添加目标</el-button>
 
             <div v-if="selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect'" class="designer-hint">
-              {{
-                selectedFilter.datasetId
-                  ? selectedFilter.field
-                    ? '下拉选项将从所选数据集字段的去重值中加载。'
-                    : '请选择字段以加载下拉选项。'
-                  : '未选择数据集字段时，可使用下方静态选项。'
-              }}
+              下拉选项将从字段目标的数据集去重值中加载；pushdown 目标由服务端处理。
             </div>
 
-            <template v-if="(selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect') && !selectedFilter.datasetId">
+            <template
+              v-if="
+                (selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect') &&
+                !selectedFilter.targets?.some(target => target.field || target.pushdown)
+              "
+            >
               <label>静态选项（逗号分隔）</label>
               <el-input v-model="filterOptionsText" type="textarea" :rows="3" placeholder="华东,华南,华北" />
             </template>
@@ -1219,6 +1266,14 @@
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+.designer-filter-target {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
 .designer-property-empty {

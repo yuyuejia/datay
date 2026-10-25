@@ -10,6 +10,7 @@ import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -151,6 +152,28 @@ public class AnalysisDashboardResource {
     }
 
     /**
+     * 批量执行看板数据集。请求体：{ datasetIds?: string[], filterValues?: object }。
+     */
+    @PostMapping("/{id}/query")
+    public ResponseEntity<Map<String, Object>> queryDatasets(
+        @PathVariable("id") String id,
+        @RequestBody(required = false) Map<String, Object> body
+    ) {
+        LOG.debug("REST request to batch query dashboard {}", id);
+        try {
+            List<String> datasetIds = asStringList(body == null ? null : body.get("datasetIds"));
+            List<Map<String, Object>> queries = body == null ? List.of() : DashboardDataService.asMapList(body.get("queries"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> filterValues = body != null && body.get("filterValues") instanceof Map<?, ?> map
+                ? (Map<String, Object>) map
+                : Map.of();
+            return ResponseEntity.ok().body(dashboardDataService.queryWidgets(id, datasetIds, queries, filterValues));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "datasetQueryError");
+        }
+    }
+
+    /**
      * 加载筛选器选项（动态维度成员或静态值）。
      */
     @GetMapping("/{id}/filters/{filterId}/options")
@@ -178,8 +201,31 @@ public class AnalysisDashboardResource {
             dimensionValidator.sanitizeFilters(spec);
             return ResponseEntity.ok().body(spec);
         } catch (IllegalArgumentException e) {
-            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "invalidSpec");
+            return specValidationError(e);
         }
+    }
+
+    private ResponseEntity<Map<String, Object>> specValidationError(IllegalArgumentException e) {
+        String message = e.getMessage() == null ? "看板定义不合法" : e.getMessage();
+        String path = "spec";
+        if (message.startsWith("组件 ")) {
+            path = "widgets";
+        } else if (message.startsWith("筛选器 ")) {
+            path = "filters";
+        } else if (message.startsWith("数据集 ")) {
+            path = "datasets";
+        } else if (message.startsWith("看板")) {
+            path = "layout";
+        }
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", "invalidSpec");
+        error.put("path", path);
+        error.put("message", message);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("title", "看板定义校验失败");
+        body.put("message", message);
+        body.put("errors", List.of(error));
+        return ResponseEntity.badRequest().body(body);
     }
 
     /**
@@ -205,6 +251,27 @@ public class AnalysisDashboardResource {
     }
 
     /**
+     * 未保存看板的批量实时预览：一次执行多个数据集。
+     */
+    @PostMapping("/preview-query")
+    public ResponseEntity<Map<String, Object>> previewDatasets(@RequestBody Map<String, Object> body) {
+        LOG.debug("REST request to preview dashboard datasets");
+        try {
+            Map<String, Object> spec = parseSpecObject(body.get("spec"));
+            List<String> datasetIds = asStringList(body.get("datasetIds"));
+            List<Map<String, Object>> queries = DashboardDataService.asMapList(body.get("queries"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> filterValues = body.get("filterValues") instanceof Map<?, ?> map
+                ? (Map<String, Object>) map
+                : Map.of();
+            String dataSourceId = body.get("dataSourceId") == null ? null : String.valueOf(body.get("dataSourceId"));
+            return ResponseEntity.ok().body(dashboardDataService.queryWidgets(spec, dataSourceId, datasetIds, queries, filterValues));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "datasetQueryError");
+        }
+    }
+
+    /**
      * 未保存看板的实时预览：加载筛选器选项。
      */
     @PostMapping("/preview-filter-options")
@@ -218,6 +285,16 @@ public class AnalysisDashboardResource {
         } catch (IllegalArgumentException e) {
             throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "filterOptionsError");
         }
+    }
+
+    private List<String> asStringList(Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream()
+            .filter(item -> item != null && !String.valueOf(item).isBlank())
+            .map(String::valueOf)
+            .toList();
     }
 
     private String toSpecJson(Object spec) {

@@ -7,6 +7,7 @@ import {
 import type { DashboardSpec } from './types';
 
 const previewSpec: DashboardSpec = {
+  version: 1,
   title: '预览测试',
   datasets: [{ id: 'ds1', type: 'SQL' }],
   widgets: [

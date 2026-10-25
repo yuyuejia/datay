@@ -2,6 +2,7 @@
   <div v-if="filters.length" class="dashboard-filters">
     <div v-for="filter in filters" :key="filter.id" class="dashboard-filter-item">
       <span class="dashboard-filter-label">{{ filter.label || filter.id }}</span>
+      <el-tag v-if="hasClientTarget(filter)" size="small" type="info">本地筛选</el-tag>
 
       <div v-if="filter.type === 'dateRange'" class="dashboard-filter-date-range">
         <el-date-picker
@@ -114,6 +115,9 @@ const defaultForType = (filter: DashboardFilter) => {
 
 const emitChange = () => emit('update:modelValue', { ...local.value });
 
+const hasClientTarget = (filter: DashboardFilter): boolean =>
+  (filter.targets ?? []).some(target => !!target.field && target.mode !== 'server');
+
 const dateValue = (filter: DashboardFilter, key: 'start' | 'end'): string => {
   const value = local.value[filter.id];
   if (Array.isArray(value)) {
@@ -161,13 +165,15 @@ const loadOptions = async (filter: DashboardFilter) => {
   if (filter.type !== 'select' && filter.type !== 'multiSelect') {
     return;
   }
-  if (filter.datasetId && filter.field) {
-    const source = props.sourceData?.[filter.datasetId];
-    optionsMap.value[filter.id] = source ? distinctFieldValues(source, filter.field) : (filter.options?.values ?? []);
+  const fieldTarget = (filter.targets ?? []).find(target => target.datasetId && target.field);
+  if (fieldTarget && fieldTarget.mode !== 'server') {
+    const source = props.sourceData?.[fieldTarget.datasetId];
+    optionsMap.value[filter.id] = source ? distinctFieldValues(source, fieldTarget.field) : (filter.options?.values ?? []);
     return;
   }
-  const mode = filter.options?.mode ?? 'static';
-  if (mode !== 'dimension' || (!props.dashboardId && !props.spec)) {
+  const hasServerLookup =
+    fieldTarget?.mode === 'server' || (filter.targets ?? []).some(target => target.pushdown?.kind === 'metricDimension');
+  if (!hasServerLookup || (!props.dashboardId && !props.spec)) {
     optionsMap.value[filter.id] = filter.options?.values ?? [];
     return;
   }
@@ -200,9 +206,7 @@ watch(
 // 设计器会动态增删筛选器，选项需要随定义变化重新加载。
 watch(
   () =>
-    props.filters
-      .map(filter => `${filter.id}:${filter.datasetId ?? ''}:${filter.field ?? ''}:${JSON.stringify(filter.options ?? {})}`)
-      .join('|'),
+    props.filters.map(filter => `${filter.id}:${JSON.stringify(filter.targets ?? [])}:${JSON.stringify(filter.options ?? {})}`).join('|'),
   () => {
     for (const filter of props.filters) {
       loadOptions(filter);
@@ -215,7 +219,7 @@ watch(
   () => props.sourceData,
   () => {
     for (const filter of props.filters) {
-      if (filter.datasetId && filter.field) {
+      if ((filter.targets ?? []).some(target => target.field)) {
         loadOptions(filter);
       }
     }

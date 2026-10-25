@@ -138,12 +138,19 @@ class DashboardDataServiceTest {
         AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
         DatasetQueryService queryService = mock(DatasetQueryService.class);
         when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
-        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(Map.of());
 
         newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class))
             .queryDataset(spec, "fallback-source", "local-1", filterValues);
 
-        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of(filter)), eq(filterValues), eq("lib-1"));
+        verify(queryService).query(
+            eq(resolvedDataset),
+            eq("fallback-source"),
+            eq(List.of(filter)),
+            eq(filterValues),
+            eq("lib-1"),
+            eq(DatasetQueryOptions.NONE)
+        );
     }
 
     @Test
@@ -156,12 +163,19 @@ class DashboardDataServiceTest {
         AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
         DatasetQueryService queryService = mock(DatasetQueryService.class);
         when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
-        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(Map.of());
 
         newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class))
             .queryDataset(spec, "fallback-source", "local-2", filterValues);
 
-        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of()), eq(filterValues), isNull());
+        verify(queryService).query(
+            eq(resolvedDataset),
+            eq("fallback-source"),
+            eq(List.of()),
+            eq(filterValues),
+            isNull(),
+            eq(DatasetQueryOptions.NONE)
+        );
     }
 
     @Test
@@ -181,11 +195,48 @@ class DashboardDataServiceTest {
         when(dashboardRepository.findById("dashboard-1")).thenReturn(Optional.of(dashboard));
         when(specValidator.parse("dashboard-spec")).thenReturn(spec);
         when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
-        when(queryService.query(any(), any(), anyList(), any(), any())).thenReturn(Map.of());
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(Map.of());
 
         newService(resolver, queryService, dashboardRepository, specValidator).queryDataset("dashboard-1", "local-1", Map.of());
 
-        verify(queryService).query(eq(resolvedDataset), eq("fallback-source"), eq(List.of()), eq(Map.of()), eq("lib-1"));
+        verify(queryService).query(
+            eq(resolvedDataset),
+            eq("fallback-source"),
+            eq(List.of()),
+            eq(Map.of()),
+            eq("lib-1"),
+            eq(DatasetQueryOptions.NONE)
+        );
+    }
+
+    @Test
+    void shouldQueryMultipleDatasetsAndCollectPartialErrors() throws Exception {
+        Map<String, Object> ds1 = dataset("ds1", "lib-1");
+        Map<String, Object> ds2 = dataset("ds2", "lib-2");
+        Map<String, Object> spec = Map.of("datasets", List.of(ds1, ds2));
+        Map<String, Object> resolvedSpec = Map.of("datasets", List.of(ds1, ds2), "filters", List.of());
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenAnswer(invocation -> {
+            Map<String, Object> dataset = invocation.getArgument(0);
+            if ("ds2".equals(dataset.get("id"))) {
+                throw new IllegalArgumentException("ds2 查询失败");
+            }
+            return Map.of("rows", List.of(Map.of("value", 1)));
+        });
+
+        Map<String, Object> result = newService(
+            resolver,
+            queryService,
+            mock(AnalysisDashboardRepository.class),
+            mock(DashboardSpecValidator.class)
+        ).queryDatasets(spec, "source-1", List.of("ds1", "ds2"), Map.of());
+
+        assertThat(result.get("datasets")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).containsKey("ds1");
+        assertThat(result.get("errors")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+            .containsEntry("ds2", "ds2 查询失败");
+        verify(resolver).resolveSpec(spec);
     }
 
     private DashboardDataService newService(

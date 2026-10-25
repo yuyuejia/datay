@@ -100,6 +100,38 @@ class AppPackagePresetTest {
         }
     }
 
+
+    @Test
+    void presetDashboardsUseVersion1Spec() throws IOException {
+        for (String file : PRESET_FILES) {
+            AppPackageContent content = load(file);
+            for (var dashboard : content.getDashboards()) {
+                JsonNode spec = dashboard.spec;
+                assertThat(spec.path("version").asInt()).as(file + ": " + dashboard.code).isEqualTo(1);
+                assertThat(spec.has("dataRef")).isFalse();
+                for (JsonNode dataset : spec.path("datasets")) {
+                    assertThat(dataset.has("dataRef")).isFalse();
+                }
+                for (JsonNode widget : spec.path("widgets")) {
+                    assertThat(widget.has("dataRef")).as(file + ": " + dashboard.code).isFalse();
+                    String type = widget.path("type").asText();
+                    if ("echarts".equals(type) || "kpi".equals(type)) {
+                        JsonNode values = widget.path("encode").path("values");
+                        assertThat(values.isArray() && !values.isEmpty()).as(file + ": " + dashboard.code + " " + widget.path("id").asText()).isTrue();
+                        for (JsonNode value : values) {
+                            assertThat(value.path("agg").asText()).isNotBlank();
+                        }
+                    }
+                }
+                for (JsonNode filter : spec.path("filters")) {
+                    assertThat(filter.has("bindings")).isFalse();
+                    assertThat(filter.has("datasetId")).isFalse();
+                    assertThat(filter.path("targets").isArray()).isTrue();
+                }
+            }
+        }
+    }
+
     /**
      * ETL 任务与节点上的文本字段最终写入 varchar(255) 列，超长会在初始化时触发数据库截断错误。
      */

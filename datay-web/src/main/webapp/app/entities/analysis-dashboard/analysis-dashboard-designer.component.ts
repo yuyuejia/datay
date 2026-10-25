@@ -28,7 +28,7 @@ import DashboardBackgroundService from '@/shared/dashboard/dashboard-background.
 import { useDashboardBackgroundImage } from '@/shared/dashboard/useDashboardBackgroundImage';
 import {
   buildDashboardFields,
-  createDefaultDataRef,
+  createDefaultEncode,
   ensureDefaultFields,
   hasCompleteDefaultFields,
   resolveChartType,
@@ -36,6 +36,7 @@ import {
 import type { DashboardField } from '@/shared/dashboard/field-defaults';
 import { createDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import type {
+  Aggregation,
   ChartType,
   DashboardBackgroundType,
   DashboardDataset,
@@ -176,13 +177,20 @@ const mergeEchartsOption = (base: Record<string, any>, override: Record<string, 
   return result;
 };
 
-const errorMessage = (err: any, fallback: string): string =>
-  err?.response?.data?.errorMessage ||
-  err?.response?.data?.detail ||
-  err?.response?.data?.title ||
-  err?.response?.data?.message ||
-  err?.message ||
-  fallback;
+const errorMessage = (err: any, fallback: string): string => {
+  const detail = err?.response?.data?.errors?.[0];
+  if (detail?.message) {
+    return detail.path ? `${detail.path}: ${detail.message}` : detail.message;
+  }
+  return (
+    err?.response?.data?.errorMessage ||
+    err?.response?.data?.detail ||
+    err?.response?.data?.title ||
+    err?.response?.data?.message ||
+    err?.message ||
+    fallback
+  );
+};
 
 /**
  * 可视化看板设计器：数据集引用、24 列拖拽布局、图表配置、全局筛选器与实时预览。
@@ -236,6 +244,7 @@ export default defineComponent({
     const activePaletteItems = computed(() => PALETTE_ITEMS.filter(item => item.category === paletteCategory.value));
 
     const spec = ref<DashboardSpec>({
+      version: 1,
       title: '',
       description: '',
       layout: normalizeDashboardLayout(),
@@ -245,7 +254,19 @@ export default defineComponent({
     });
     const filterValues = ref<FilterValues>({});
 
-    const { datasetData, rawDatasetData, loadingDatasets, datasetErrors, loading: loadingData, loadAll } = useDashboardData({ spec });
+    const {
+      datasetData,
+      rawDatasetData,
+      widgetData,
+      loadingDatasets,
+      datasetErrors,
+      widgetErrors,
+      serverPaginationWidgets,
+      dataVersion,
+      loading: loadingData,
+      loadAll,
+      loadWidgetPage,
+    } = useDashboardData({ spec });
 
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
     const selectedFilter = computed(() => (spec.value.filters ?? []).find(filter => filter.id === selectedFilterId.value));
@@ -496,8 +517,13 @@ export default defineComponent({
     const canvasBindings = computed(() => ({
       spec: spec.value,
       datasetData: datasetData.value,
+      widgetData: widgetData.value,
       loadingDatasets: loadingDatasets.value,
       datasetErrors: datasetErrors.value,
+      widgetErrors: widgetErrors.value,
+      serverPaginationWidgets: serverPaginationWidgets.value,
+      loadWidgetPage,
+      dataVersion: dataVersion.value,
       selectedId: selectedWidgetId.value,
       dragItem: paletteDragItem.value,
     }));
@@ -691,12 +717,12 @@ export default defineComponent({
       return buildDashboardFields(columns, result?.rows ?? [], declared);
     };
 
-    /** 初始化或补全组件的 dataRef，并在字段尚未就绪时等待数据集结果。 */
-    const setupWidgetDataRef = (widget: DashboardWidget, fields = fieldCandidates(widget.datasetId)) => {
-      if (!widget.dataRef) {
-        widget.dataRef = createDefaultDataRef(widget.type, resolveChartType(widget.echartsOption), fields);
+    /** 初始化或补全组件的 encode，并在字段尚未就绪时等待数据集结果。 */
+    const setupWidgetEncode = (widget: DashboardWidget, fields = fieldCandidates(widget.datasetId)) => {
+      if (!widget.encode) {
+        widget.encode = createDefaultEncode(widget.type, resolveChartType(widget.echartsOption), fields);
       }
-      if (widget.dataRef) {
+      if (widget.encode) {
         ensureDefaultFields(widget, fields);
       }
       if ((widget.type === 'echarts' || widget.type === 'kpi') && !hasCompleteDefaultFields(widget)) {
@@ -719,8 +745,8 @@ export default defineComponent({
       selectedWidgetId.value = id;
       selectedFilterId.value = '';
       const widget = spec.value.widgets.find(item => item.id === id);
-      if (widget && !widget.dataRef) {
-        setupWidgetDataRef(widget);
+      if (widget && !widget.encode) {
+        setupWidgetEncode(widget);
       }
       propertyTab.value = 'basic';
       activePanel.value = 'widgets';
@@ -745,32 +771,71 @@ export default defineComponent({
     });
 
     /**
-     * 纵轴支持多个数值字段：单字段复用 valueField，多字段写入 series。
+     * 纵轴支持多个数值字段，统一写入 encode.values。
      */
     const widgetValueFields = computed<string[]>({
-      get: () => {
-        const ref = selectedWidget.value?.dataRef;
-        if (!ref) {
-          return [];
-        }
-        if (ref.series?.length) {
-          return ref.series.map(series => series.field).filter(Boolean);
-        }
-        return ref.valueField ? [ref.valueField] : [];
-      },
+      get: () => selectedWidget.value?.encode?.values?.map(value => value.field).filter(Boolean) ?? [],
       set: fields => {
-        const ref = selectedWidget.value?.dataRef;
-        if (!ref) {
+        const encode = selectedWidget.value?.encode;
+        if (!encode) {
           return;
         }
         const unique = Array.from(new Set(fields.filter(Boolean)));
-        ref.valueField = unique[0] ?? '';
-        if (unique.length <= 1) {
-          delete ref.series;
+        encode.seriesField = null;
+        if (unique.length === 0) {
+          encode.values = [];
           return;
         }
-        ref.series = unique.map(field => ({ name: field, field }));
-        ref.seriesField = null;
+        encode.values = unique.map(field => {
+          const existing = encode.values?.find(value => value.field === field);
+          return { field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum' };
+        });
+      },
+    });
+
+    const widgetAggregation = computed<Aggregation>({
+      get: () => selectedWidget.value?.encode?.values?.[0]?.agg ?? 'sum',
+      set: agg => {
+        const encode = selectedWidget.value?.encode;
+        if (!encode?.values?.length) {
+          return;
+        }
+        encode.values = encode.values.map(value => ({ ...value, agg }));
+      },
+    });
+
+    const widgetTableColumns = computed<string[]>({
+      get: () => selectedWidget.value?.encode?.columns?.map(column => column.field) ?? [],
+      set: fields => {
+        const encode = selectedWidget.value?.encode;
+        if (!encode) {
+          return;
+        }
+        const unique = Array.from(new Set(fields.filter(Boolean)));
+        if (unique.length === 0) {
+          delete encode.columns;
+          return;
+        }
+        encode.columns = unique.map(field => {
+          const existing = encode.columns?.find(column => column.field === field);
+          return existing ?? { field, label: field };
+        });
+      },
+    });
+
+    const widgetPrimaryValueField = computed<string>({
+      get: () => selectedWidget.value?.encode?.values?.[0]?.field ?? '',
+      set: field => {
+        const encode = selectedWidget.value?.encode;
+        if (!encode) {
+          return;
+        }
+        if (!field) {
+          encode.values = [];
+          return;
+        }
+        const existing = encode.values?.find(value => value.field === field);
+        encode.values = [{ field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum' }];
       },
     });
 
@@ -1033,7 +1098,7 @@ export default defineComponent({
           widgets: spec.value.widgets.map(widget => ({
             id: widget.id,
             datasetId: widget.datasetId,
-            dataRef: widget.dataRef,
+            encode: widget.encode,
           })),
         }),
       () => scheduleReload(),
@@ -1047,7 +1112,7 @@ export default defineComponent({
           return;
         }
         for (const widget of spec.value.widgets) {
-          if (!pendingFieldDefaults.has(widget.id) || !widget.dataRef) {
+          if (!pendingFieldDefaults.has(widget.id) || !widget.encode) {
             continue;
           }
           const fields = fieldCandidates(widget.datasetId);
@@ -1064,7 +1129,7 @@ export default defineComponent({
     );
 
     async function refreshData() {
-      await loadAll(filterValues.value);
+      await loadAll(filterValues.value, { force: true });
     }
 
     const onFiltersChange = async (values: FilterValues) => {
@@ -1111,17 +1176,12 @@ export default defineComponent({
           widget.datasetId = undefined;
         }
       });
-      spec.value.filters = (spec.value.filters ?? []).map(filter => {
-        const next: DashboardFilter = {
+      spec.value.filters = (spec.value.filters ?? [])
+        .map(filter => ({
           ...filter,
-          bindings: (filter.bindings ?? []).filter(binding => binding.datasetId !== dataset.id),
-        };
-        if (next.datasetId === dataset.id) {
-          next.datasetId = undefined;
-          next.field = '';
-        }
-        return next;
-      });
+          targets: (filter.targets ?? []).filter(target => target.datasetId !== dataset.id),
+        }))
+        .filter(filter => filter.targets.length > 0);
       commitHistory();
     };
 
@@ -1149,16 +1209,17 @@ export default defineComponent({
       }
       if (type === 'echarts') {
         widget.echartsOption = DEFAULT_ECHARTS_OPTION(chartType);
+        widget.chart = { type: chartType };
       } else if (type === 'html') {
         widget.html = '<div>在此编写 HTML 说明</div>';
       }
       const fields = type === 'html' ? [] : fieldCandidates(widget.datasetId);
       if (type !== 'html') {
-        widget.dataRef = createDefaultDataRef(type, chartType, fields);
+        widget.encode = createDefaultEncode(type, chartType, fields);
       }
       spec.value.widgets.push(widget);
       if (type !== 'html') {
-        setupWidgetDataRef(widget, fields);
+        setupWidgetEncode(widget, fields);
       }
       if (layout) {
         applyLayouts(
@@ -1269,11 +1330,12 @@ export default defineComponent({
         return;
       }
       widget.echartsOption = DEFAULT_ECHARTS_OPTION(type);
-      if (type === 'pie' && widget.dataRef?.series?.length) {
-        widget.dataRef.valueField = widget.dataRef.valueField || widget.dataRef.series[0]?.field || '';
-        delete widget.dataRef.series;
+      widget.chart = { type };
+      if (type === 'pie' && widget.encode?.values?.length) {
+        const first = widget.encode.values[0];
+        widget.encode.values = first.field ? [first] : [];
       }
-      setupWidgetDataRef(widget);
+      setupWidgetEncode(widget);
       if (propertyTab.value === 'custom') {
         syncCustomOption();
       }
@@ -1314,7 +1376,10 @@ export default defineComponent({
       ElMessage.success('已恢复默认图表配置');
     };
 
-    const selectedFilterFields = computed(() => fieldCandidates(selectedFilter.value?.datasetId));
+    const filterTargetMode = (datasetId: string | undefined): 'server' | 'client' => {
+      const dataset = spec.value.datasets.find(item => item.id === datasetId);
+      return dataset?.type === 'SQL' ? 'server' : 'client';
+    };
 
     const defaultFilterField = (datasetId: string | undefined, type: DashboardFilter['type']): string => {
       const fields = fieldCandidates(datasetId);
@@ -1334,13 +1399,54 @@ export default defineComponent({
       return fields.find(field => !field.numeric)?.name ?? fields[0].name;
     };
 
-    const onFilterDatasetChange = () => {
+    const configureFilterTarget = (filter: DashboardFilter, target: DashboardFilter['targets'][number]) => {
+      const dataset = spec.value.datasets.find(item => item.id === target.datasetId);
+      if (filter.type === 'dateRange' && dataset?.type === 'METRIC') {
+        target.mode = 'server';
+        target.pushdown = { kind: 'metricTime' };
+        delete target.field;
+        return;
+      }
+      target.mode = filterTargetMode(target.datasetId);
+      target.field = defaultFilterField(target.datasetId, filter.type);
+      delete target.pushdown;
+    };
+
+    const addFilterTarget = () => {
       const filter = selectedFilter.value;
       if (!filter) {
         return;
       }
-      filter.field = defaultFilterField(filter.datasetId, filter.type);
-      filter.bindings = [];
+      const target = { datasetId: spec.value.datasets[0]?.id ?? '', field: '', mode: 'client' as const };
+      filter.targets = [...(filter.targets ?? []), target];
+      configureFilterTarget(filter, target);
+      commitHistory();
+    };
+
+    const removeFilterTarget = (index: number) => {
+      const filter = selectedFilter.value;
+      if (!filter || (filter.targets?.length ?? 0) <= 1) {
+        return;
+      }
+      filter.targets.splice(index, 1);
+      commitHistory();
+    };
+
+    const onFilterTargetDatasetChange = (target: DashboardFilter['targets'][number]) => {
+      const filter = selectedFilter.value;
+      if (!filter) {
+        return;
+      }
+      configureFilterTarget(filter, target);
+      commitHistory();
+    };
+
+    const onFilterTargetFieldChange = (target: DashboardFilter['targets'][number]) => {
+      if (!selectedFilter.value) {
+        return;
+      }
+      target.mode = filterTargetMode(target.datasetId);
+      delete target.pushdown;
       commitHistory();
     };
 
@@ -1349,25 +1455,21 @@ export default defineComponent({
       if (!filter) {
         return;
       }
-      filter.field = defaultFilterField(filter.datasetId, filter.type);
-      filter.bindings = [];
+      for (const target of filter.targets ?? []) {
+        configureFilterTarget(filter, target);
+      }
       commitHistory();
     };
 
-    const onFilterFieldChange = () => {
-      const filter = selectedFilter.value;
-      if (filter) {
-        filter.bindings = [];
-        commitHistory();
-      }
-    };
-
     const filterTargetLabel = (filter: DashboardFilter): string => {
-      const dataset = spec.value.datasets.find(item => item.id === filter.datasetId);
+      const target = filter.targets?.[0];
+      const dataset = spec.value.datasets.find(item => item.id === target?.datasetId);
       if (!dataset) {
         return '未配置数据集/字段';
       }
-      return `${dataset.name || dataset.id}.${filter.field || '未选字段'}`;
+      const field = target?.field || (target?.pushdown?.kind ? `(${target.pushdown.kind})` : '未选字段');
+      const suffix = (filter.targets?.length ?? 0) > 1 ? ` 等 ${filter.targets.length} 个目标` : '';
+      return `${dataset.name || dataset.id}.${field}${suffix}`;
     };
 
     const addFilter = () => {
@@ -1380,9 +1482,14 @@ export default defineComponent({
         id: `filter${index}`,
         type: 'select',
         label: '筛选器',
-        options: { mode: 'static', values: [] },
-        datasetId: dataset?.id,
-        field: dataset ? defaultFilterField(dataset.id, 'select') : '',
+        options: { values: [] },
+        targets: [
+          {
+            datasetId: dataset?.id ?? '',
+            field: dataset ? defaultFilterField(dataset.id, 'select') : '',
+            mode: filterTargetMode(dataset?.id),
+          },
+        ],
       };
       spec.value.filters = [...(spec.value.filters ?? []), filter];
       filterValues.value[filter.id] = undefined;
@@ -1409,7 +1516,6 @@ export default defineComponent({
           return;
         }
         selectedFilter.value.options = {
-          mode: 'static',
           ...(selectedFilter.value.options ?? {}),
           values: value
             .split(',')
@@ -1543,8 +1649,13 @@ export default defineComponent({
       filterValues,
       datasetData,
       rawDatasetData,
+      widgetData,
       loadingDatasets,
       datasetErrors,
+      widgetErrors,
+      serverPaginationWidgets,
+      dataVersion,
+      loadWidgetPage,
       loadingData,
       selectedWidget,
       selectedFilter,
@@ -1588,15 +1699,20 @@ export default defineComponent({
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,
+      widgetPrimaryValueField,
+      widgetTableColumns,
+      widgetAggregation,
       chartType,
       applyCustomOption,
       resetCustomOption,
       filterOptionsText,
       filterDefaultText,
-      selectedFilterFields,
-      onFilterDatasetChange,
+      fieldCandidates,
+      addFilterTarget,
+      removeFilterTarget,
+      onFilterTargetDatasetChange,
+      onFilterTargetFieldChange,
       onFilterTypeChange,
-      onFilterFieldChange,
       filterTargetLabel,
       selectWidget,
       selectFilter,

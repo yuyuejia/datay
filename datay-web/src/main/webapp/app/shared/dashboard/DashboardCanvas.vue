@@ -9,7 +9,16 @@
 
     <div class="dashboard-canvas-grid" :style="gridStyle">
       <div v-for="widget in widgets" :key="widget.id" class="dashboard-canvas-item" :style="itemStyle(widget)">
-        <DashboardWidget :widget="widget" :result="resultOf(widget)" :loading="loadingOf(widget)" :error="errorOf(widget)" :theme="theme" />
+        <DashboardWidget
+          :widget="widget"
+          :result="resultOf(widget)"
+          :loading="loadingOf(widget)"
+          :error="errorOf(widget)"
+          :theme="theme"
+          :server-paged="serverPaginationWidgets?.[widget.id]"
+          :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
+          :page-reset-key="dataVersion"
+        />
       </div>
     </div>
   </div>
@@ -21,13 +30,18 @@ import { computed } from 'vue';
 import DashboardWidget from './DashboardWidget.vue';
 import { DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
 import { normalizeTheme } from './layout-defaults';
-import type { DashboardSpec, DashboardWidget as Widget, DatasetResult } from './types';
+import type { DashboardSpec, DashboardWidget as Widget, DatasetResult, WidgetPageLoader } from './types';
 
 const props = defineProps<{
   spec: DashboardSpec;
   datasetData?: Record<string, DatasetResult>;
+  widgetData?: Record<string, DatasetResult>;
   loadingDatasets?: Record<string, boolean>;
   datasetErrors?: Record<string, string>;
+  widgetErrors?: Record<string, string>;
+  serverPaginationWidgets?: Record<string, boolean>;
+  loadWidgetPage?: WidgetPageLoader;
+  dataVersion?: number;
   /** 是否展示标题/描述头部；独立查看器由顶栏展示时可传 false。 */
   showHeader?: boolean;
 }>();
@@ -53,9 +67,11 @@ const itemStyle = (widget: Widget) => {
   };
 };
 
-const resultOf = (widget: Widget) => (widget.datasetId ? props.datasetData?.[widget.datasetId] : undefined);
+const resultOf = (widget: Widget) =>
+  props.widgetData?.[widget.id] ?? (widget.datasetId ? props.datasetData?.[widget.datasetId] : undefined);
 const loadingOf = (widget: Widget) => (widget.datasetId ? props.loadingDatasets?.[widget.datasetId] : false);
-const errorOf = (widget: Widget) => (widget.datasetId ? props.datasetErrors?.[widget.datasetId] : '');
+const errorOf = (widget: Widget) =>
+  props.widgetErrors?.[widget.id] ?? (widget.datasetId ? props.datasetErrors?.[widget.datasetId] : '') ?? '';
 </script>
 
 <style scoped>

@@ -77,14 +77,182 @@ public class DashboardDataService {
         Map<String, Object> filterValues
     ) throws SQLException {
         Map<String, Object> resolved = datasetResolver.resolveSpec(spec);
-        Map<String, Object> dataset = findDataset(resolved, datasetId);
+        return executeDataset(resolved, fallbackDataSourceId, datasetId, filterValues);
+    }
+
+    /**
+     * 批量执行看板的多个数据集；单个数据集失败不影响其他结果。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> queryDatasets(String dashboardId, List<String> datasetIds, Map<String, Object> filterValues) {
+        AnalysisDashboard dashboard = dashboardRepository
+            .findById(dashboardId)
+            .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
+        Map<String, Object> spec = datasetResolver.resolveSpec(specValidator.parse(dashboard.getSpec()));
+        Map<String, Object> result = queryAll(spec, dashboard.getDataSourceId(), datasetIds, List.of(), filterValues);
+        result.remove("widgets");
+        result.remove("widgetErrors");
+        return result;
+    }
+
+    /**
+     * 基于内存 spec 批量执行数据集，供设计器预览复用。
+     */
+    public Map<String, Object> queryDatasets(
+        Map<String, Object> spec,
+        String fallbackDataSourceId,
+        List<String> datasetIds,
+        Map<String, Object> filterValues
+    ) {
+        Map<String, Object> result = queryAll(spec, fallbackDataSourceId, datasetIds, List.of(), filterValues);
+        result.remove("widgets");
+        result.remove("widgetErrors");
+        return result;
+    }
+
+    /**
+     * 批量执行数据集原始查询与组件级查询（带 encode.sort/limit）。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> queryWidgets(
+        String dashboardId,
+        List<String> datasetIds,
+        List<Map<String, Object>> queries,
+        Map<String, Object> filterValues
+    ) {
+        AnalysisDashboard dashboard = dashboardRepository
+            .findById(dashboardId)
+            .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
+        Map<String, Object> spec = datasetResolver.resolveSpec(specValidator.parse(dashboard.getSpec()));
+        return queryAll(spec, dashboard.getDataSourceId(), datasetIds, queries, filterValues);
+    }
+
+    public Map<String, Object> queryWidgets(
+        Map<String, Object> spec,
+        String fallbackDataSourceId,
+        List<String> datasetIds,
+        List<Map<String, Object>> queries,
+        Map<String, Object> filterValues
+    ) {
+        return queryAll(spec, fallbackDataSourceId, datasetIds, queries, filterValues);
+    }
+
+    private Map<String, Object> queryAll(
+        Map<String, Object> spec,
+        String fallbackDataSourceId,
+        List<String> datasetIds,
+        List<Map<String, Object>> queries,
+        Map<String, Object> filterValues
+    ) {
+        Map<String, Object> resolved = datasetResolver.resolveSpec(spec);
+        boolean hasQueries = queries != null && !queries.isEmpty();
+        List<String> requested = datasetIds == null || (datasetIds.isEmpty() && !hasQueries)
+            ? asMapList(resolved.get("datasets")).stream().map(dataset -> DatasetQueryService.asString(dataset.get("id"))).toList()
+            : datasetIds;
+        Map<String, Object> datasetsResult = new LinkedHashMap<>();
+        Map<String, Object> errors = new LinkedHashMap<>();
+        Map<String, Object> widgetResult = new LinkedHashMap<>();
+        Map<String, Object> widgetErrors = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> datasetById = new LinkedHashMap<>();
+        for (Map<String, Object> dataset : asMapList(resolved.get("datasets"))) {
+            String id = DatasetQueryService.asString(dataset.get("id"));
+            if (id != null && !id.isBlank()) {
+                datasetById.put(id, dataset);
+            }
+        }
+        for (String datasetId : requested) {
+            if (datasetId == null || datasetId.isBlank()) {
+                continue;
+            }
+            Map<String, Object> dataset = datasetById.get(datasetId);
+            if (dataset == null) {
+                errors.put(datasetId, "数据集不存在：" + datasetId);
+                continue;
+            }
+            try {
+                datasetsResult.put(
+                    datasetId,
+                    executeDataset(dataset, resolved, fallbackDataSourceId, filterValues, DatasetQueryOptions.NONE)
+                );
+            } catch (SQLException | RuntimeException e) {
+                errors.put(datasetId, e.getMessage() == null ? "查询失败" : e.getMessage());
+            }
+        }
+        for (Map<String, Object> query : queries == null ? List.<Map<String, Object>>of() : queries) {
+            String queryId = DatasetQueryService.asString(query.get("id"));
+            String datasetId = DatasetQueryService.asString(query.get("datasetId"));
+            if (queryId == null || queryId.isBlank() || datasetId == null || datasetId.isBlank()) {
+                continue;
+            }
+            Map<String, Object> dataset = datasetById.get(datasetId);
+            if (dataset == null) {
+                widgetErrors.put(queryId, "数据集不存在：" + datasetId);
+                continue;
+            }
+            try {
+                DatasetQueryOptions options = queryOptions(query);
+                widgetResult.put(queryId, executeDataset(dataset, resolved, fallbackDataSourceId, filterValues, options));
+            } catch (SQLException | RuntimeException e) {
+                widgetErrors.put(queryId, e.getMessage() == null ? "查询失败" : e.getMessage());
+            }
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("datasets", datasetsResult);
+        response.put("widgets", widgetResult);
+        if (!errors.isEmpty()) {
+            response.put("errors", errors);
+        }
+        if (!widgetErrors.isEmpty()) {
+            response.put("widgetErrors", widgetErrors);
+        }
+        return response;
+    }
+
+    private DatasetQueryOptions queryOptions(Map<String, Object> query) {
+        Long limit = DatasetQueryService.asLong(query.get("limit"));
+        Long offset = DatasetQueryService.asLong(query.get("offset"));
+        String sortOrder = DatasetQueryService.asString(query.get("sortOrder"));
+        if (sortOrder != null && !"asc".equalsIgnoreCase(sortOrder) && !"desc".equalsIgnoreCase(sortOrder)) {
+            throw new IllegalArgumentException("排序方向只能是 asc 或 desc：" + sortOrder);
+        }
+        return new DatasetQueryOptions(
+            DatasetQueryService.asString(query.get("sortField")),
+            sortOrder,
+            limit == null ? null : limit.intValue(),
+            offset == null ? null : offset.intValue()
+        );
+    }
+
+    private Map<String, Object> executeDataset(
+        Map<String, Object> resolved,
+        String fallbackDataSourceId,
+        String datasetId,
+        Map<String, Object> filterValues
+    ) throws SQLException {
+        return executeDataset(
+            findDataset(resolved, datasetId),
+            resolved,
+            fallbackDataSourceId,
+            filterValues,
+            DatasetQueryOptions.NONE
+        );
+    }
+
+    private Map<String, Object> executeDataset(
+        Map<String, Object> dataset,
+        Map<String, Object> resolved,
+        String fallbackDataSourceId,
+        Map<String, Object> filterValues,
+        DatasetQueryOptions options
+    ) throws SQLException {
         String datasetScopeId = DatasetQueryService.asString(dataset.get("refId"));
         return datasetQueryService.query(
             dataset,
             fallbackDataSourceId,
             asMapList(resolved.get("filters")),
             filterValues,
-            datasetScopeId
+            datasetScopeId,
+            options
         );
     }
 
@@ -106,11 +274,14 @@ public class DashboardDataService {
     public Map<String, Object> loadFilterOptions(Map<String, Object> spec, String filterId, String keyword, Integer limit) {
         Map<String, Object> filter = findFilter(spec, filterId);
         Map<String, Object> options = DatasetQueryService.asMap(filter.get("options"));
-        String mode = DatasetQueryService.asString(options.get("mode"));
         int size = limit == null ? 50 : Math.max(1, Math.min(limit, 100));
-        if ("dimension".equalsIgnoreCase(mode)) {
-            String modelCode = DatasetQueryService.asString(options.get("dimensionModelCode"));
-            String fieldName = DatasetQueryService.asString(options.get("dimensionFieldName"));
+        for (Map<String, Object> target : FilterTargetResolver.targets(filter)) {
+            Map<String, Object> pushdown = FilterTargetResolver.pushdown(target);
+            if (!"metricDimension".equals(DatasetQueryService.asString(pushdown.get("kind")))) {
+                continue;
+            }
+            String modelCode = DatasetQueryService.asString(pushdown.get("dimensionModelCode"));
+            String fieldName = DatasetQueryService.asString(pushdown.get("dimensionFieldName"));
             if (modelCode == null || fieldName == null) {
                 throw new IllegalArgumentException("筛选器 " + filterId + " 未配置维度字段");
             }
@@ -118,6 +289,23 @@ public class DashboardDataService {
                 .findFirstByCode(modelCode)
                 .orElseThrow(() -> new IllegalArgumentException("维度模型不存在：" + modelCode));
             return dimensionValueService.pageValues(model.getId(), fieldName, keyword, 1, size);
+        }
+        for (Map<String, Object> target : FilterTargetResolver.targets(filter)) {
+            String field = FilterTargetResolver.field(target);
+            String datasetId = DatasetQueryService.asString(target.get("datasetId"));
+            if (field == null || datasetId == null || datasetId.isBlank()) {
+                continue;
+            }
+            Map<String, Object> dataset = findDataset(spec, datasetId);
+            String refId = DatasetQueryService.asString(dataset.get("refId"));
+            if (refId == null || refId.isBlank()) {
+                continue;
+            }
+            try {
+                return datasetQueryService.loadFieldValues(refId, field, keyword, 1, size);
+            } catch (SQLException | RuntimeException e) {
+                LOG.warn("加载筛选器字段选项失败 {}.{}: {}", datasetId, field, e.getMessage());
+            }
         }
         List<String> staticValues = DatasetQueryService.asStringList(options.get("values"));
         List<String> filtered = new ArrayList<>();

@@ -1,5 +1,5 @@
 import type { DatasetColumn } from '@/shared/dataset/types';
-import type { ChartType, DashboardWidget, DataRef, WidgetType } from './types';
+import type { ChartType, DashboardWidget, WidgetEncode, WidgetType } from './types';
 
 /** 看板字段元数据：字段名、展示名称、类型以及是否数值字段。 */
 export interface DashboardField {
@@ -159,13 +159,17 @@ export function resolveChartType(option?: Record<string, any>): ChartType {
 }
 
 /**
- * 为新组件生成默认 dataRef。
+ * 为新组件生成默认 encode。
  *
  * - 图表：选择默认分类字段与数值字段，并按图表类型设置 groupBy；
  * - KPI：只设置默认数值字段；
- * - 表格：保留明细行，不设置分类/数值字段。
+ * - 表格：保留明细行，只设置 limit。
  */
-export function createDefaultDataRef(type: WidgetType, chartType: ChartType | undefined, fields: DashboardField[]): DataRef | undefined {
+export function createDefaultEncode(
+  type: WidgetType,
+  chartType: ChartType | undefined,
+  fields: DashboardField[],
+): WidgetEncode | undefined {
   if (type === 'html') {
     return undefined;
   }
@@ -173,12 +177,14 @@ export function createDefaultDataRef(type: WidgetType, chartType: ChartType | un
     return { limit: 100 };
   }
   if (type === 'kpi') {
-    return { valueField: pickValueField(fields) ?? '' };
+    const field = pickValueField(fields) ?? '';
+    return { values: [{ field, agg: 'sum' }] };
   }
   const categoryField = pickCategoryField(fields) ?? '';
+  const valueField = pickValueField(fields, categoryField) ?? '';
   return {
     categoryField,
-    valueField: pickValueField(fields, categoryField) ?? '',
+    values: [{ field: valueField, agg: 'sum' }],
     limit: 100,
     groupBy: shouldGroupByCategory(type, chartType),
   };
@@ -190,26 +196,27 @@ export function createDefaultDataRef(type: WidgetType, chartType: ChartType | un
  * <p>只填充空值，不覆盖用户已经手动选择的字段。
  */
 export function ensureDefaultFields(widget: DashboardWidget, fields: DashboardField[]): boolean {
-  if (!widget.dataRef || widget.type === 'html' || widget.type === 'table') {
+  if (!widget.encode || widget.type === 'html' || widget.type === 'table') {
     return false;
   }
+  const encode = widget.encode;
   let changed = false;
   if (widget.type === 'echarts') {
-    if (!widget.dataRef.categoryField && fields.length > 0) {
-      widget.dataRef.categoryField = pickCategoryField(fields) ?? '';
+    if (!encode.categoryField && fields.length > 0) {
+      encode.categoryField = pickCategoryField(fields) ?? '';
       changed = true;
     }
-    if (!widget.dataRef.valueField && fields.length > 0) {
-      widget.dataRef.valueField = pickValueField(fields, widget.dataRef.categoryField) ?? '';
+    if (!encode.values?.[0]?.field && fields.length > 0) {
+      encode.values = [{ field: pickValueField(fields, encode.categoryField) ?? '', agg: 'sum' }];
       changed = true;
     }
     const groupBy = shouldGroupByCategory(widget.type, resolveChartType(widget.echartsOption));
-    if (widget.dataRef.groupBy !== groupBy) {
-      widget.dataRef.groupBy = groupBy;
+    if (encode.groupBy !== groupBy) {
+      encode.groupBy = groupBy;
       changed = true;
     }
-  } else if (widget.type === 'kpi' && !widget.dataRef.valueField && fields.length > 0) {
-    widget.dataRef.valueField = pickValueField(fields) ?? '';
+  } else if (widget.type === 'kpi' && !encode.values?.[0]?.field && fields.length > 0) {
+    encode.values = [{ field: pickValueField(fields) ?? '', agg: 'sum' }];
     changed = true;
   }
   return changed;
@@ -217,11 +224,11 @@ export function ensureDefaultFields(widget: DashboardWidget, fields: DashboardFi
 
 /** 判断图表的默认分类/数值字段是否已经完整。 */
 export function hasCompleteDefaultFields(widget: DashboardWidget): boolean {
-  if (!widget.dataRef || widget.type === 'html' || widget.type === 'table') {
+  if (!widget.encode || widget.type === 'html' || widget.type === 'table') {
     return true;
   }
   if (widget.type === 'kpi') {
-    return !!widget.dataRef.valueField;
+    return !!widget.encode.values?.[0]?.field;
   }
-  return !!widget.dataRef.categoryField && !!widget.dataRef.valueField;
+  return !!widget.encode.categoryField && !!widget.encode.values?.[0]?.field;
 }
