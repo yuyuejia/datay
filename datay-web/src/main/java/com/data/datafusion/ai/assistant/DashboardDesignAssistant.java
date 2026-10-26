@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
@@ -222,7 +223,8 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("\n字段约束：\n");
         sb.append("- datasets 必须引用数据集库：{ id, refId, name, type }；禁止内嵌 metricQuery、sql 或数据源定义。\n");
         sb.append("- 顶层必须包含 version:2；当前只支持 v2 协议。\n");
-        sb.append("- refId 必须来自 list_analysis_datasets 或 prepare_metric_dataset 的返回值；name/type 可沿用工具返回结果。\n");
+        sb.append("- refId 必须原样复制 list_analysis_datasets 或 prepare_metric_dataset 返回的 id；name/type 可沿用工具返回结果。\n");
+        sb.append("  datasets[].id 才是看板内本地别名，禁止把本地别名、数据集名称或自造字符串写入 refId。\n");
         sb.append("- 组件 type 取值：echarts / html / table / kpi / pivot。echarts 必须给出 encode 与 chart；echartsOption 可选，仅作为样式覆盖；\n");
         sb.append("  kpi 必须给出 encode.measures（至少一个 field）；html 用 html 字段承载简单 HTML 片段；table 按数据集渲染明细表；\n");
         sb.append("  pivot 使用 encode.dimensions 的 role=row / role=column 与 role=value 的 measures，渲染交叉透视表。\n");
@@ -254,11 +256,13 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("\n生成后请自检以下事项，全部满足后再输出：\n");
         sb.append("1. 顶层 version=2；每个 echarts 组件都有 chart.type，且类型在可用列表内。\n");
         sb.append("2. encode.dimensions 使用 role=x/series/row/column；encode.measures 使用 role=y/value/size，且 agg 合法。\n");
+        sb.append("   同一组件内 dimensions/measures 的 field 不得重复，即使 role 不同；透视表行列维度必须使用不同字段。\n");
         sb.append("3. 热力图/桑基图/关系图必须有 role=x 与 role=series；透视表必须有 role=row 与 role=value 度量。\n");
         sb.append("4. chart.series[].measure 必须引用 encode.measures 中的字段；组合图/双轴才使用 chart.series。\n");
         sb.append("5. formatRules 仅用于 table/pivot/kpi，operator 与 value 必须齐全；between 需要 value2。\n");
         sb.append("6. 布局使用 24 栅格，组件不重叠，宽高不越界；不要输出解释性文字，只输出 JSON。\n");
-        sb.append("7. 不要输出 dataRef、bindings、内嵌 metricQuery/sql、未知字段或已废弃的 v1 encode。\n\n");
+        sb.append("7. 每个 datasets[].refId 都必须原样来自工具返回 id，不能用示例中的 ds_sales、本地 id 或自造名称。\n");
+        sb.append("8. 不要输出 dataRef、bindings、内嵌 metricQuery/sql、未知字段或已废弃的 v1 encode。\n\n");
 
         Object currentSpec = context.getContextData().get("currentSpec");
         if (currentSpec != null) {
@@ -337,7 +341,38 @@ public class DashboardDesignAssistant implements AiAssistant {
                 } else {
                     throw new IllegalArgumentException("指标数据集草稿已失效，请重新生成看板");
                 }
-            } else if ((refId == null || refId.isBlank()) && dataset.get("metricQuery") instanceof Map<?, ?> metricQuery) {
+            } else if (refId != null && !refId.isBlank()) {
+                Optional<AnalysisDatasetDTO> existing = datasetService.findOne(refId);
+                if (existing.isPresent()) {
+                    dataset.putIfAbsent("type", existing.get().getType());
+                    if (asString(dataset.get("name")) == null || asString(dataset.get("name")).isBlank()) {
+                        dataset.put("name", existing.get().getName());
+                    }
+                } else if (dataset.get("metricQuery") instanceof Map<?, ?> metricQuery) {
+                    // refId 无效但模型带了内嵌指标定义时，用内嵌定义恢复为数据集引用。
+                    draft = draftFromMetricQuery(dataset, (Map<String, Object>) metricQuery);
+                } else {
+                    // 模型常见错误：把看板本地 id / 数据集名称 / 自造字符串写进 refId。
+                    draft = fallbackDraft(drafts, dataset);
+                    if (draft == null) {
+                        Optional<AnalysisDatasetDTO> existingByName = findExistingDataset(refId, asString(dataset.get("name")));
+                        if (existingByName.isPresent()) {
+                            AnalysisDatasetDTO matched = existingByName.get();
+                            dataset.put("refId", matched.getId());
+                            dataset.putIfAbsent("type", matched.getType());
+                            if (asString(dataset.get("name")) == null || asString(dataset.get("name")).isBlank()) {
+                                dataset.put("name", matched.getName());
+                            }
+                        } else if (specValidator != null) {
+                            throw new IllegalArgumentException(
+                                "数据集引用无效：" +
+                                refId +
+                                "，refId 必须原样使用 list_analysis_datasets 或 prepare_metric_dataset 返回的 id"
+                            );
+                        }
+                    }
+                }
+            } else if (dataset.get("metricQuery") instanceof Map<?, ?> metricQuery) {
                 // 兜底：模型未使用 prepare_metric_dataset 而直接内嵌 metricQuery 时，也统一转为数据集引用。
                 draft = draftFromMetricQuery(dataset, (Map<String, Object>) metricQuery);
             }
@@ -347,13 +382,6 @@ public class DashboardDesignAssistant implements AiAssistant {
                 dataset.put("refId", saved.getId());
                 dataset.put("name", saved.getName());
                 dataset.put("type", saved.getType());
-            } else if (refId != null && !refId.isBlank()) {
-                datasetService.findOne(refId).ifPresent(existing -> {
-                    dataset.putIfAbsent("type", existing.getType());
-                    if (asString(dataset.get("name")) == null || asString(dataset.get("name")).isBlank()) {
-                        dataset.put("name", existing.getName());
-                    }
-                });
             }
 
             // 看板只保留数据集引用，去除所有内嵌定义。
@@ -399,6 +427,7 @@ public class DashboardDesignAssistant implements AiAssistant {
             if (migrated) {
                 widget.put("encode", encode);
             }
+            dedupeEncodeFields(encode);
             if ("pivot".equals(asString(widget.get("type")))) {
                 repairPivotDimensions(encode);
                 widget.put("encode", encode);
@@ -480,17 +509,74 @@ public class DashboardDesignAssistant implements AiAssistant {
         return true;
     }
 
+    /**
+     * 去重 AI 偶尔重复输出的维度/度量字段。
+     *
+     * <p>validator 要求同一组件内 dimensions/measures 的 field 唯一；
+     * 维度重复时保留优先级更高的角色：row > column > x > series。
+     */
+    @SuppressWarnings("unchecked")
+    private void dedupeEncodeFields(Map<String, Object> encode) {
+        if (encode.get("dimensions") instanceof List<?> dimensions) {
+            Map<String, Map<String, Object>> byField = new LinkedHashMap<>();
+            for (Object item : dimensions) {
+                if (!(item instanceof Map<?, ?> rawDimension)) {
+                    continue;
+                }
+                Map<String, Object> dimension = new LinkedHashMap<>((Map<String, Object>) rawDimension);
+                String field = asString(dimension.get("field"));
+                if (isBlank(field)) {
+                    continue;
+                }
+                Map<String, Object> existing = byField.get(field);
+                if (
+                    existing == null ||
+                    dimensionRolePriority(asString(dimension.get("role"))) <
+                    dimensionRolePriority(asString(existing.get("role")))
+                ) {
+                    byField.put(field, dimension);
+                }
+            }
+            if (byField.isEmpty()) {
+                encode.remove("dimensions");
+            } else {
+                encode.put("dimensions", new ArrayList<>(byField.values()));
+            }
+        }
+        if (encode.get("measures") instanceof List<?> measures) {
+            Map<String, Map<String, Object>> byField = new LinkedHashMap<>();
+            for (Object item : measures) {
+                if (!(item instanceof Map<?, ?> rawMeasure)) {
+                    continue;
+                }
+                Map<String, Object> measure = new LinkedHashMap<>((Map<String, Object>) rawMeasure);
+                String field = asString(measure.get("field"));
+                if (isBlank(field)) {
+                    continue;
+                }
+                byField.putIfAbsent(field, measure);
+            }
+            if (byField.isEmpty()) {
+                encode.remove("measures");
+            } else {
+                encode.put("measures", new ArrayList<>(byField.values()));
+            }
+        }
+    }
+
+    private int dimensionRolePriority(String role) {
+        return switch (role == null ? "" : role.toLowerCase()) {
+            case "row" -> 0;
+            case "column" -> 1;
+            case "x" -> 2;
+            case "series" -> 3;
+            default -> 4;
+        };
+    }
+
     @SuppressWarnings("unchecked")
     private void repairPivotDimensions(Map<String, Object> encode) {
         if (!(encode.get("dimensions") instanceof List<?> dimensions)) {
-            return;
-        }
-        boolean hasPivotRole = dimensions.stream().anyMatch(item ->
-            item instanceof Map<?, ?> map &&
-            ("row".equals(asString(((Map<String, Object>) map).get("role"))) ||
-                "column".equals(asString(((Map<String, Object>) map).get("role"))))
-        );
-        if (hasPivotRole) {
             return;
         }
         List<Map<String, Object>> repaired = new ArrayList<>();
@@ -506,6 +592,10 @@ public class DashboardDesignAssistant implements AiAssistant {
                 dimension.put("role", "row");
             }
             repaired.add(dimension);
+        }
+        boolean hasRow = repaired.stream().anyMatch(dimension -> "row".equals(asString(dimension.get("role"))));
+        if (!hasRow && !repaired.isEmpty()) {
+            repaired.get(0).put("role", "row");
         }
         encode.put("dimensions", repaired);
     }
@@ -548,6 +638,50 @@ public class DashboardDesignAssistant implements AiAssistant {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    /**
+     * 模型把数据集名称或 code 写进 refId 时，尝试按名称/code 找到真实数据集。
+     */
+    private Optional<AnalysisDatasetDTO> findExistingDataset(String refId, String name) {
+        String effectiveName = name == null ? null : name.trim();
+        String effectiveRefId = refId == null ? null : refId.trim();
+        return datasetService
+            .findAllSimple()
+            .stream()
+            .filter(existing ->
+                (effectiveName != null && !effectiveName.isBlank() && effectiveName.equals(existing.getName())) ||
+                (effectiveRefId != null && !effectiveRefId.isBlank() && effectiveRefId.equals(existing.getCode()))
+            )
+            .findFirst();
+    }
+
+    /**
+     * 当模型写错 refId 时，从本次工具调用产生的草稿中恢复。
+     *
+     * <p>只有一个草稿时直接使用；多个草稿时按数据集名称匹配，避免误用。
+     */
+    private Map<String, Object> fallbackDraft(Map<String, Object> drafts, Map<String, Object> dataset) {
+        if (drafts.isEmpty()) {
+            return null;
+        }
+        if (drafts.size() == 1) {
+            Object only = drafts.values().iterator().next();
+            return only instanceof Map<?, ?> map ? new LinkedHashMap<>((Map<String, Object>) map) : null;
+        }
+        String datasetName = asString(dataset.get("name"));
+        if (datasetName == null || datasetName.isBlank()) {
+            return null;
+        }
+        for (Object value : drafts.values()) {
+            if (value instanceof Map<?, ?> map) {
+                Map<String, Object> draft = new LinkedHashMap<>((Map<String, Object>) map);
+                if (datasetName.equals(asString(draft.get("name")))) {
+                    return draft;
+                }
+            }
+        }
+        return null;
     }
 
     private Map<String, Object> draftFromMetricQuery(Map<String, Object> dataset, Map<String, Object> metricQuery) {

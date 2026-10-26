@@ -556,7 +556,9 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.dimensions[].field 不能为空");
             }
             if (!fields.add(field)) {
-                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.dimensions 字段重复：" + field);
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的 encode.dimensions 字段重复：" + field + "，同一字段不能同时作为多个维度"
+                );
             }
             String role = trimToNull(asString(item.get("role")));
             role = role == null ? defaultRole : role.toLowerCase();
@@ -586,7 +588,9 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures[].field 不能为空");
             }
             if (!fields.add(field)) {
-                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures 字段重复：" + field);
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的 encode.measures 字段重复：" + field + "，同一字段不能同时作为多个度量"
+                );
             }
             String agg = trimToNull(asString(item.get("agg")));
             agg = agg == null ? null : agg.toLowerCase();

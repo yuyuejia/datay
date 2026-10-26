@@ -26,6 +26,16 @@ AI 输出在严格校验前会修复以下常见问题：
 - 透视表维度 role 错误：
   - `x` → `row`
   - `series` → `column`
+  - 只有 column 没有 row 时，自动把第一个维度回退为 row
+- 同一组件内 `dimensions/measures` 字段重复：
+  - 维度按 `row > column > x > series` 保留优先级最高的角色
+  - 度量保留第一个声明
+  - 避免 `encode.dimensions 字段重复` 导致生成失败
+- 无效 `refId` 恢复：
+  - 优先使用本次 `prepare_metric_dataset` 产生的单个草稿
+  - 其次使用模型内嵌的 `metricQuery` 转为真实数据集
+  - 再按数据集名称/code 匹配已有数据集
+  - 仍无法恢复时提示 `refId 必须原样使用工具返回 id`
 
 自动修复只用于 AI 生成结果，不改变已保存看板。
 
