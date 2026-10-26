@@ -37,6 +37,7 @@ import type { DashboardField } from '@/shared/dashboard/field-defaults';
 import { createDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import type {
   Aggregation,
+  ChartSeries,
   ChartType,
   DashboardBackgroundType,
   DashboardDataset,
@@ -48,6 +49,7 @@ import type {
   DashboardWidget,
   FilterValues,
   ScreenFitMode,
+  WidgetFormatRule,
   WidgetLayout,
   WidgetPalettePayload,
   WidgetType,
@@ -103,8 +105,19 @@ const HISTORY_COMMIT_DELAY = 400;
 const CHART_LABELS: Record<ChartType, string> = {
   bar: '柱状图',
   line: '折线图',
-  pie: '饼图',
   area: '面积图',
+  pie: '饼图',
+  donut: '环形图',
+  gauge: '仪表盘',
+  scatter: '散点图',
+  radar: '雷达图',
+  funnel: '漏斗图',
+  heatmap: '热力图',
+  treemap: '矩形树图',
+  waterfall: '瀑布图',
+  sankey: '桑基图',
+  graph: '关系图',
+  boxplot: '箱线图',
 };
 
 const PALETTE_CATEGORIES: Array<{ key: PaletteCategory; label: string; icon: string }> = [
@@ -118,9 +131,21 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'bar', label: '柱状图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'bar', w: 12, h: 8 },
   { key: 'line', label: '折线图', icon: 'line', category: 'charts', type: 'echarts', chartType: 'line', w: 12, h: 8 },
   { key: 'pie', label: '饼图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'pie', w: 8, h: 8 },
+  { key: 'donut', label: '环形图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'donut', w: 8, h: 8 },
   { key: 'area', label: '面积图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'area', w: 12, h: 8 },
+  { key: 'gauge', label: '仪表盘', icon: 'kpi', category: 'charts', type: 'echarts', chartType: 'gauge', w: 6, h: 8 },
+  { key: 'scatter', label: '散点图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'scatter', w: 12, h: 8 },
+  { key: 'radar', label: '雷达图', icon: 'kpi', category: 'charts', type: 'echarts', chartType: 'radar', w: 12, h: 8 },
+  { key: 'funnel', label: '漏斗图', icon: 'pie', category: 'charts', type: 'echarts', chartType: 'funnel', w: 8, h: 8 },
+  { key: 'heatmap', label: '热力图', icon: 'table', category: 'charts', type: 'echarts', chartType: 'heatmap', w: 12, h: 8 },
+  { key: 'treemap', label: '矩形树图', icon: 'table', category: 'charts', type: 'echarts', chartType: 'treemap', w: 12, h: 8 },
+  { key: 'waterfall', label: '瀑布图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'waterfall', w: 12, h: 8 },
+  { key: 'sankey', label: '桑基图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'sankey', w: 12, h: 8 },
+  { key: 'graph', label: '关系图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'graph', w: 12, h: 8 },
+  { key: 'boxplot', label: '箱线图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'boxplot', w: 12, h: 8 },
   { key: 'kpi', label: 'KPI 指标', icon: 'kpi', category: 'kpi', type: 'kpi', w: 6, h: 4 },
   { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 12, h: 8 },
+  { key: 'pivot', label: '透视表', icon: 'table', category: 'table', type: 'pivot', w: 12, h: 8 },
   { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 12, h: 4 },
 ];
 
@@ -136,23 +161,55 @@ const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.1;
 
 const DEFAULT_ECHARTS_OPTION = (type: ChartType) => {
-  const seriesType = type === 'area' ? 'line' : type;
+  const seriesType = type === 'area' ? 'line' : type === 'donut' ? 'pie' : type === 'waterfall' ? 'bar' : type;
+  const isPie = seriesType === 'pie';
+  const isGauge = seriesType === 'gauge';
+  const isSingleValue = isPie || seriesType === 'funnel' || seriesType === 'treemap';
+  const isRadar = seriesType === 'radar';
+  const isScatter = seriesType === 'scatter';
+  const isHeatmap = seriesType === 'heatmap';
+  const isNodeLink = seriesType === 'sankey' || seriesType === 'graph';
+  const isBoxplot = seriesType === 'boxplot';
+  const isWaterfall = type === 'waterfall';
   const option: Record<string, any> = {
-    tooltip: { trigger: seriesType === 'pie' ? 'item' : 'axis' },
+    tooltip: { trigger: isSingleValue || isGauge || isRadar || isScatter || isHeatmap || isNodeLink || isBoxplot ? 'item' : 'axis' },
     legend: { top: 0 },
     series: [
       {
         type: seriesType,
         smooth: seriesType === 'line',
         areaStyle: type === 'area' ? {} : undefined,
+        radius: type === 'donut' ? ['42%', '68%'] : undefined,
         emphasis: { focus: 'series' },
+        ...(isGauge
+          ? {
+              progress: { show: true },
+              detail: { valueAnimation: true, formatter: '{value}' },
+              data: [{ value: 0, name: '' }],
+            }
+          : {}),
+        ...(isHeatmap ? { label: { show: true } } : {}),
+        ...(isBoxplot ? { boxWidth: [8, 32] } : {}),
+        ...(isNodeLink ? { layout: seriesType === 'graph' ? 'force' : undefined, roam: true } : {}),
       },
     ],
   };
-  if (seriesType !== 'pie') {
-    option.grid = { left: 48, right: 24, top: 40, bottom: 36 };
-    option.xAxis = { type: 'category', boundaryGap: seriesType === 'bar' };
+  if (isGauge || isSingleValue || isRadar || isNodeLink) {
+    return option;
+  }
+  option.grid = { left: 48, right: 24, top: 40, bottom: 36 };
+  if (isScatter) {
+    option.xAxis = { type: 'value' };
     option.yAxis = { type: 'value' };
+  } else if (isHeatmap) {
+    option.xAxis = { type: 'category' };
+    option.yAxis = { type: 'category' };
+  } else {
+    option.xAxis = { type: 'category', boundaryGap: seriesType === 'bar' || isWaterfall };
+    option.yAxis = { type: 'value' };
+  }
+  if (isHeatmap) {
+    option.visualMap = { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0 };
   }
   return option;
 };
@@ -244,7 +301,7 @@ export default defineComponent({
     const activePaletteItems = computed(() => PALETTE_ITEMS.filter(item => item.category === paletteCategory.value));
 
     const spec = ref<DashboardSpec>({
-      version: 1,
+      version: 2,
       title: '',
       description: '',
       layout: normalizeDashboardLayout(),
@@ -256,7 +313,6 @@ export default defineComponent({
 
     const {
       datasetData,
-      rawDatasetData,
       widgetData,
       loadingDatasets,
       datasetErrors,
@@ -720,12 +776,12 @@ export default defineComponent({
     /** 初始化或补全组件的 encode，并在字段尚未就绪时等待数据集结果。 */
     const setupWidgetEncode = (widget: DashboardWidget, fields = fieldCandidates(widget.datasetId)) => {
       if (!widget.encode) {
-        widget.encode = createDefaultEncode(widget.type, resolveChartType(widget.echartsOption), fields);
+        widget.encode = createDefaultEncode(widget.type, resolveChartType(widget), fields);
       }
       if (widget.encode) {
         ensureDefaultFields(widget, fields);
       }
-      if ((widget.type === 'echarts' || widget.type === 'kpi') && !hasCompleteDefaultFields(widget)) {
+      if ((widget.type === 'echarts' || widget.type === 'kpi' || widget.type === 'pivot') && !hasCompleteDefaultFields(widget)) {
         pendingFieldDefaults.add(widget.id);
       } else {
         pendingFieldDefaults.delete(widget.id);
@@ -770,37 +826,140 @@ export default defineComponent({
       return numeric.length > 0 ? numeric : widgetFields.value;
     });
 
+    const widgetChartType = computed<ChartType>(() => resolveChartType(selectedWidget.value));
+
+    const widgetDimensionField = (role: 'x' | 'series' | 'row' | 'column'): string =>
+      selectedWidget.value?.encode?.dimensions?.find(dimension => dimension.role === role)?.field ?? '';
+
+    const setWidgetDimensionField = (role: 'x' | 'series' | 'row' | 'column', field: string) => {
+      const encode = selectedWidget.value?.encode;
+      if (!encode) {
+        return;
+      }
+      const dimensions = [...(encode.dimensions ?? [])];
+      const index = dimensions.findIndex(dimension => dimension.role === role);
+      if (!field) {
+        if (index >= 0) {
+          dimensions.splice(index, 1);
+        }
+      } else if (index >= 0) {
+        dimensions[index] = { ...dimensions[index], field };
+      } else {
+        dimensions.push({ field, role });
+      }
+      if (dimensions.length > 0) {
+        encode.dimensions = dimensions;
+      } else {
+        delete encode.dimensions;
+      }
+    };
+
+    const widgetCategoryField = computed<string>({
+      get: () => widgetDimensionField('x'),
+      set: field => setWidgetDimensionField('x', field),
+    });
+
+    const widgetSeriesField = computed<string>({
+      get: () => widgetDimensionField('series'),
+      set: field => setWidgetDimensionField('series', field),
+    });
+
+    const widgetRowField = computed<string>({
+      get: () => widgetDimensionField('row'),
+      set: field => setWidgetDimensionField('row', field),
+    });
+
+    const widgetColumnField = computed<string>({
+      get: () => widgetDimensionField('column'),
+      set: field => setWidgetDimensionField('column', field),
+    });
+
+    const valueMeasureRole = (): 'y' | 'value' => {
+      const widget = selectedWidget.value;
+      const chartType = widgetChartType.value;
+      if (
+        widget?.type === 'kpi' ||
+        widget?.type === 'pivot' ||
+        chartType === 'gauge' ||
+        chartType === 'pie' ||
+        chartType === 'donut' ||
+        chartType === 'funnel' ||
+        chartType === 'treemap' ||
+        chartType === 'heatmap' ||
+        chartType === 'sankey' ||
+        chartType === 'graph'
+      ) {
+        return 'value';
+      }
+      return 'y';
+    };
+
     /**
-     * 纵轴支持多个数值字段，统一写入 encode.values。
+     * 纵轴/数值字段统一写入 encode.measures；散点大小字段单独维护。
      */
     const widgetValueFields = computed<string[]>({
-      get: () => selectedWidget.value?.encode?.values?.map(value => value.field).filter(Boolean) ?? [],
+      get: () =>
+        selectedWidget.value?.encode?.measures
+          ?.filter(measure => measure.role !== 'size')
+          .map(measure => measure.field)
+          .filter(Boolean) ?? [],
       set: fields => {
-        const encode = selectedWidget.value?.encode;
+        const widget = selectedWidget.value;
+        const encode = widget?.encode;
         if (!encode) {
           return;
         }
         const unique = Array.from(new Set(fields.filter(Boolean)));
-        encode.seriesField = null;
+        const sizeMeasure = encode.measures?.find(measure => measure.role === 'size');
         if (unique.length === 0) {
-          encode.values = [];
+          encode.measures = sizeMeasure ? [sizeMeasure] : [];
+          if (widget?.chart?.series) {
+            delete widget.chart.series;
+          }
           return;
         }
-        encode.values = unique.map(field => {
-          const existing = encode.values?.find(value => value.field === field);
-          return { field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum' };
+        const role = valueMeasureRole();
+        const nextMeasures = unique.map(field => {
+          const existing = encode.measures?.find(measure => measure.field === field && measure.role !== 'size');
+          return { field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum', role: existing?.role ?? role };
         });
+        encode.measures = sizeMeasure ? [...nextMeasures, sizeMeasure] : nextMeasures;
+        if (widget && widget.chart?.series) {
+          const declaredSeries = widget.chart.series;
+          const seriesType: 'bar' | 'line' | 'area' =
+            widgetChartType.value === 'line' ? 'line' : widgetChartType.value === 'area' ? 'area' : 'bar';
+          widget.chart.series = unique.map(field => {
+            const existing = declaredSeries.find(series => series.measure === field);
+            return existing ?? { measure: field, type: seriesType, axis: 'left' };
+          });
+        }
+      },
+    });
+
+    const widgetSizeField = computed<string>({
+      get: () => selectedWidget.value?.encode?.measures?.find(measure => measure.role === 'size')?.field ?? '',
+      set: field => {
+        const encode = selectedWidget.value?.encode;
+        if (!encode) {
+          return;
+        }
+        const measures = (encode.measures ?? []).filter(measure => measure.role !== 'size' && measure.field !== field);
+        if (field) {
+          const existing = encode.measures?.find(measure => measure.field === field && measure.role === 'size');
+          measures.push({ field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum', role: 'size' });
+        }
+        encode.measures = measures;
       },
     });
 
     const widgetAggregation = computed<Aggregation>({
-      get: () => selectedWidget.value?.encode?.values?.[0]?.agg ?? 'sum',
+      get: () => selectedWidget.value?.encode?.measures?.find(measure => measure.role !== 'size')?.agg ?? 'sum',
       set: agg => {
         const encode = selectedWidget.value?.encode;
-        if (!encode?.values?.length) {
+        if (!encode?.measures?.length) {
           return;
         }
-        encode.values = encode.values.map(value => ({ ...value, agg }));
+        encode.measures = encode.measures.map(measure => ({ ...measure, agg }));
       },
     });
 
@@ -824,20 +983,61 @@ export default defineComponent({
     });
 
     const widgetPrimaryValueField = computed<string>({
-      get: () => selectedWidget.value?.encode?.values?.[0]?.field ?? '',
+      get: () => selectedWidget.value?.encode?.measures?.find(measure => measure.role !== 'size')?.field ?? '',
       set: field => {
-        const encode = selectedWidget.value?.encode;
+        const widget = selectedWidget.value;
+        const encode = widget?.encode;
         if (!encode) {
           return;
         }
+        const sizeMeasure = encode.measures?.find(measure => measure.role === 'size');
         if (!field) {
-          encode.values = [];
+          encode.measures = sizeMeasure ? [sizeMeasure] : [];
+          if (widget?.chart?.series) {
+            delete widget.chart.series;
+          }
           return;
         }
-        const existing = encode.values?.find(value => value.field === field);
-        encode.values = [{ field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum' }];
+        const existing = encode.measures?.find(measure => measure.field === field && measure.role !== 'size');
+        const role = valueMeasureRole();
+        const nextMeasure = { field, name: existing?.name ?? field, agg: existing?.agg ?? 'sum', role };
+        encode.measures = sizeMeasure ? [nextMeasure, sizeMeasure] : [nextMeasure];
+        if (widget && widget.chart?.series) {
+          const existingSeries = widget.chart.series.find(series => series.measure === field);
+          const seriesType: 'bar' | 'line' | 'area' =
+            widgetChartType.value === 'line' ? 'line' : widgetChartType.value === 'area' ? 'area' : 'bar';
+          widget.chart.series = [existingSeries ?? { measure: field, type: seriesType, axis: 'left' }];
+        }
       },
     });
+
+    const addFormatRule = () => {
+      const widget = selectedWidget.value;
+      if (!widget) {
+        return;
+      }
+      if (!widget.formatRules) {
+        widget.formatRules = [];
+      }
+      const rule: WidgetFormatRule = {
+        id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        field: widget.type === 'kpi' ? undefined : '',
+        operator: 'gt',
+        value: 0,
+        color: '#67c23a',
+      };
+      widget.formatRules.push(rule);
+      commitHistory();
+    };
+
+    const removeFormatRule = (index: number) => {
+      const rules = selectedWidget.value?.formatRules;
+      if (!rules || index < 0 || index >= rules.length) {
+        return;
+      }
+      rules.splice(index, 1);
+      commitHistory();
+    };
 
     const loadAvailableDatasets = async () => {
       try {
@@ -1195,8 +1395,24 @@ export default defineComponent({
 
     const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout) => {
       const id = nextWidgetId(type);
-      const title = type === 'html' ? '' : type === 'kpi' ? 'KPI 指标' : type === 'table' ? '明细表' : CHART_LABELS[chartType] || '图表';
-      const defaultWidth = type === 'kpi' ? 6 : type === 'echarts' && chartType === 'pie' ? 8 : 12;
+      const title =
+        type === 'html'
+          ? ''
+          : type === 'kpi'
+            ? 'KPI 指标'
+            : type === 'table'
+              ? '明细表'
+              : type === 'pivot'
+                ? '透视表'
+                : CHART_LABELS[chartType] || '图表';
+      const defaultWidth =
+        type === 'kpi'
+          ? 6
+          : type === 'echarts' && (chartType === 'pie' || chartType === 'donut' || chartType === 'funnel')
+            ? 8
+            : type === 'echarts' && chartType === 'gauge'
+              ? 6
+              : 12;
       const defaultHeight = type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
       const widget: DashboardWidget = {
         id,
@@ -1209,7 +1425,12 @@ export default defineComponent({
       }
       if (type === 'echarts') {
         widget.echartsOption = DEFAULT_ECHARTS_OPTION(chartType);
-        widget.chart = { type: chartType };
+        const subtype = chartType === 'bar' ? 'grouped' : chartType === 'line' || chartType === 'area' ? 'smooth' : undefined;
+        widget.chart = {
+          type: chartType,
+          ...(subtype ? { subtype } : {}),
+          ...(chartType === 'bar' ? { orientation: 'vertical' as const } : {}),
+        };
       } else if (type === 'html') {
         widget.html = '<div>在此编写 HTML 说明</div>';
       }
@@ -1295,8 +1516,79 @@ export default defineComponent({
       });
     };
 
-    const chartType = computed<ChartType>(() => resolveChartType(selectedWidget.value?.echartsOption));
-    const hasChartAxes = computed(() => chartType.value !== 'pie');
+    const chartType = computed<ChartType>(() => resolveChartType(selectedWidget.value));
+    const hasChartAxes = computed(() => !['pie', 'donut', 'gauge', 'funnel', 'radar', 'treemap'].includes(chartType.value));
+
+    const chartSubtypeOptions = computed<Array<{ value: string; label: string }>>(() => {
+      if (chartType.value === 'bar') {
+        return [
+          { value: 'grouped', label: '分组' },
+          { value: 'stacked', label: '堆积' },
+          { value: 'stackedPercent', label: '百分比堆积' },
+        ];
+      }
+      if (chartType.value === 'line' || chartType.value === 'area') {
+        return [
+          { value: 'smooth', label: '平滑' },
+          { value: 'step', label: '阶梯' },
+        ];
+      }
+      return [];
+    });
+
+    const chartSubtype = computed<string>({
+      get: () => selectedWidget.value?.chart?.subtype ?? chartSubtypeOptions.value[0]?.value ?? '',
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        widget.chart = { ...(widget.chart ?? { type: chartType.value }) };
+        if (value) {
+          widget.chart.subtype = value as any;
+        } else {
+          delete widget.chart.subtype;
+        }
+      },
+    });
+
+    const chartOrientation = computed<'vertical' | 'horizontal'>({
+      get: () => selectedWidget.value?.chart?.orientation ?? 'vertical',
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        widget.chart = { ...(widget.chart ?? { type: chartType.value }), orientation: value };
+      },
+    });
+
+    const chartCombo = computed<boolean>({
+      get: () => selectedWidget.value?.chart?.series?.some(series => series.type === 'line' || series.axis === 'right') ?? false,
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        widget.chart = { ...(widget.chart ?? { type: chartType.value }) };
+        if (!value) {
+          delete widget.chart.series;
+          return;
+        }
+        const measures = (widget.encode?.measures ?? []).filter(measure => measure.role !== 'size');
+        if (measures.length < 2) {
+          delete widget.chart.series;
+          return;
+        }
+        widget.chart.type = 'bar';
+        const series: ChartSeries[] = measures.map((measure, index) => ({
+          measure: measure.field,
+          type: index === 0 ? 'bar' : 'line',
+          axis: index === 0 ? 'left' : 'right',
+        }));
+        widget.chart.series = series;
+      },
+    });
 
     const chartSeries = (option: Record<string, any>): Record<string, any>[] => {
       if (Array.isArray(option.series)) {
@@ -1425,10 +1717,38 @@ export default defineComponent({
         return;
       }
       widget.echartsOption = DEFAULT_ECHARTS_OPTION(type);
-      widget.chart = { type };
-      if (type === 'pie' && widget.encode?.values?.length) {
-        const first = widget.encode.values[0];
-        widget.encode.values = first.field ? [first] : [];
+      const subtype = type === 'bar' ? 'grouped' : type === 'line' || type === 'area' ? 'smooth' : undefined;
+      widget.chart = {
+        type,
+        ...(subtype ? { subtype } : {}),
+        ...(type === 'bar' ? { orientation: 'vertical' as const } : {}),
+      };
+      if (widget.encode) {
+        const singleValue = type === 'pie' || type === 'donut' || type === 'funnel' || type === 'treemap';
+        const nodeLink = type === 'sankey' || type === 'graph';
+        if (type === 'gauge') {
+          delete widget.encode.dimensions;
+          widget.encode.groupBy = false;
+        } else if (singleValue) {
+          widget.encode.dimensions = (widget.encode.dimensions ?? []).filter(dimension => dimension.role === 'x');
+        } else if (type === 'heatmap' || nodeLink) {
+          widget.encode.dimensions = (widget.encode.dimensions ?? []).filter(
+            dimension => dimension.role === 'x' || dimension.role === 'series',
+          );
+        } else if (type === 'boxplot' || type === 'waterfall') {
+          widget.encode.dimensions = (widget.encode.dimensions ?? []).filter(dimension => dimension.role === 'x');
+        }
+        if (singleValue || type === 'gauge' || nodeLink) {
+          const first = widget.encode.measures?.find(measure => measure.role !== 'size');
+          widget.encode.measures = first?.field ? [{ ...first, role: 'value' }] : [];
+        } else if (type === 'heatmap' || type === 'scatter') {
+          widget.encode.measures = (widget.encode.measures ?? []).map(measure =>
+            measure.role === 'size' ? measure : { ...measure, role: type === 'heatmap' ? 'value' : 'y' },
+          );
+        } else if (widget.encode.measures?.length) {
+          widget.encode.measures = widget.encode.measures.map(measure => (measure.role === 'size' ? measure : { ...measure, role: 'y' }));
+        }
+        widget.encode.groupBy = !['gauge', 'scatter', 'boxplot'].includes(type);
       }
       setupWidgetEncode(widget);
       if (propertyTab.value === 'custom') {
@@ -1473,10 +1793,8 @@ export default defineComponent({
 
     const SQL_PARAM_OPTION = '__sql_param__';
 
-    const filterTargetMode = (datasetId: string | undefined): 'server' | 'client' => {
-      const dataset = spec.value.datasets.find(item => item.id === datasetId);
-      return dataset?.type === 'SQL' ? 'server' : 'client';
-    };
+    /** 所有筛选目标统一服务端执行；保留函数便于集中维护目标默认值。 */
+    const filterTargetMode = (_datasetId: string | undefined): 'server' => 'server';
 
     const isSqlDataset = (datasetId: string | undefined): boolean =>
       spec.value.datasets.some(item => item.id === datasetId && item.type === 'SQL');
@@ -1534,7 +1852,7 @@ export default defineComponent({
       if (!filter) {
         return;
       }
-      const target = { datasetId: spec.value.datasets[0]?.id ?? '', field: '', mode: 'client' as const };
+      const target = { datasetId: spec.value.datasets[0]?.id ?? '', field: '', mode: 'server' as const };
       filter.targets = [...(filter.targets ?? []), target];
       configureFilterTarget(filter, target);
       commitHistory();
@@ -1799,7 +2117,6 @@ export default defineComponent({
       spec,
       filterValues,
       datasetData,
-      rawDatasetData,
       widgetData,
       loadingDatasets,
       datasetErrors,
@@ -1851,9 +2168,20 @@ export default defineComponent({
       widgetValueFieldOptions,
       widgetValueFields,
       widgetPrimaryValueField,
+      widgetCategoryField,
+      widgetSeriesField,
+      widgetRowField,
+      widgetColumnField,
+      widgetSizeField,
       widgetTableColumns,
       widgetAggregation,
+      addFormatRule,
+      removeFormatRule,
       chartType,
+      chartSubtype,
+      chartSubtypeOptions,
+      chartOrientation,
+      chartCombo,
       hasChartAxes,
       chartLegendVisible,
       chartDataLabelVisible,

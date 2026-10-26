@@ -72,7 +72,7 @@ public class DimensionInfoTool implements AiTool {
             - levels：层级维度的各层级 idField / nameField / granularity；
             - periodFields：时间维度可用的周期字段；
             - recommendedDisplayField：推荐的展示字段（业务名称字段）。
-            生成图表时，请据此选择名称字段作为展示字段（dimensionFieldNames / encode.categoryField），
+            生成图表时，请据此选择名称字段作为展示字段（dimensionFieldNames / encode.dimensions 中 role=x 的 field），
             不要使用 *_sk / *_id 代理键字段。
             """;
     }

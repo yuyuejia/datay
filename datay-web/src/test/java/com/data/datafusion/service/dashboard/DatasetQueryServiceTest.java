@@ -16,6 +16,7 @@ import com.data.datafusion.service.MetricQueryService;
 import com.data.datafusion.service.RoleDatasetScopeService;
 import com.data.datafusion.service.dataset.DatasetScopeCondition;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * {@link DatasetQueryService} 数据集行级数据权限应用的单元测试。
@@ -161,6 +163,94 @@ class DatasetQueryServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("不支持的数据集权限运算符");
         verify(dataSourceQueryService, never()).executeQuery(any(), any());
+    }
+
+    @Test
+    void shouldPushGroupedAggregationToSqlDataset() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("columns", List.of("region", "amount"), "rows", List.of()))
+        );
+        DatasetQueryOptions options = new DatasetQueryOptions(
+            "amount",
+            "desc",
+            10,
+            0,
+            List.of("region"),
+            List.of(new DatasetQueryOptions.Aggregation("amount", "sum"))
+        );
+
+        Map<String, Object> result = datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1", options);
+
+        verify(dataSourceQueryService)
+            .executeQuery(
+                any(),
+                eq(
+                    "SELECT * FROM (SELECT region, SUM(amount) AS amount FROM (SELECT region, amount FROM orders) dp_agg GROUP BY region) dp_sort ORDER BY amount DESC LIMIT 10"
+                )
+            );
+        assertThat(result).containsEntry("aggregated", true);
+    }
+
+    @Test
+    void shouldPushDirectFieldFilterToSqlDataset() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("columns", List.of("region", "amount"), "rows", List.of()))
+        );
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "select",
+            "targets",
+            List.of(Map.of("datasetId", "ds-1", "field", "region", "mode", "client"))
+        );
+
+        datasetQueryService.query(dataset, null, List.of(filter), Map.of("f1", "华东"), "lib-1");
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(any(), sql.capture());
+        assertThat(sql.getValue()).contains("region = '华东'");
+    }
+
+    @Test
+    void shouldPushDirectMetricFieldFilterToDimensionCondition() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put(
+            "metricQuery",
+            Map.of(
+                "metricCodes",
+                List.of("sales_amount"),
+                "dimensions",
+                List.of(Map.of("dimensionModelCode", "dim_region", "dimensionFieldNames", List.of("region_name")))
+            )
+        );
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(metricQueryService.query(any(), anyList())).thenReturn(
+            new LinkedHashMap<>(Map.of("columns", List.of(), "rows", List.of()))
+        );
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "select",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "field", "region_name", "mode", "client"))
+        );
+
+        datasetQueryService.query(dataset, null, List.of(filter), Map.of("f1", "华东"), "lib-1");
+
+        ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
+        verify(metricQueryService).query(dto.capture(), anyList());
+        assertThat(dto.getValue().getFilterConfig())
+            .contains("dim_region")
+            .contains("region_name")
+            .contains("华东");
     }
 
     @Test

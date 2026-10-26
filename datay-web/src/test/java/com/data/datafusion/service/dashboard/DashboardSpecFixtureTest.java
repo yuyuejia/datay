@@ -11,14 +11,14 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * v1 看板 spec 回归样例：作为 AI、前端、后端共用契约的基线。
+ * v2 看板 spec 回归样例：作为 AI、前端、后端共用契约的基线。
  */
 class DashboardSpecFixtureTest {
 
     @Test
-    void shouldValidateVersion1Fixture() throws Exception {
+    void shouldValidateVersion2Fixture() throws Exception {
         String json;
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("dashboard/spec-v1-example.json")) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("dashboard/spec-v2-example.json")) {
             assertThat(in).isNotNull();
             json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -29,7 +29,7 @@ class DashboardSpecFixtureTest {
 
         Map<String, Object> spec = validator.validateAndNormalize(json);
 
-        assertThat(spec).containsEntry("version", 1);
+        assertThat(spec).containsEntry("version", 2);
         assertThat(spec.get("widgets")).asList().hasSize(3);
         assertThat(spec.get("filters")).asList().hasSize(1);
     }

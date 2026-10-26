@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -239,6 +240,68 @@ class DashboardDataServiceTest {
         verify(resolver).resolveSpec(spec);
         verify(queryService).query(eq(ds1), eq("source-1"), eq(List.of()), eq(Map.of()), eq("lib-1"), any());
         verify(queryService).query(eq(ds2), eq("source-1"), eq(List.of()), eq(Map.of()), eq("lib-2"), any());
+    }
+
+    @Test
+    void shouldLoadDirectFieldFilterOptionsFromServerDataset() throws Exception {
+        Map<String, Object> dataset = dataset("ds1", "lib-1");
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "select",
+            "targets",
+            List.of(Map.of("datasetId", "ds1", "field", "region", "mode", "client"))
+        );
+        Map<String, Object> spec = Map.of("datasets", List.of(dataset), "filters", List.of(filter));
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(queryService.loadFieldValues(eq("lib-1"), eq("region"), eq("华"), eq(1), eq(50)))
+            .thenReturn(Map.of("values", List.of("华东"), "total", 1L));
+
+        Map<String, Object> result = newService(
+            mock(AnalysisDatasetResolver.class),
+            queryService,
+            mock(AnalysisDashboardRepository.class),
+            mock(DashboardSpecValidator.class)
+        ).loadFilterOptions(spec, "f1", "华", null);
+
+        assertThat(result.get("values")).isEqualTo(List.of("华东"));
+        verify(queryService).loadFieldValues("lib-1", "region", "华", 1, 50);
+    }
+
+    @Test
+    void shouldCacheRepeatedSavedDashboardQueriesAndEvict() throws Exception {
+        Map<String, Object> ds1 = dataset("ds1", "lib-1");
+        Map<String, Object> spec = Map.of("datasets", List.of(ds1));
+        Map<String, Object> resolvedSpec = Map.of("datasets", List.of(ds1), "filters", List.of());
+        AnalysisDashboard dashboard = new AnalysisDashboard();
+        dashboard.setId("dashboard-cache");
+        dashboard.setDataSourceId("source-1");
+        dashboard.setSpec("dashboard-spec");
+
+        AnalysisDashboardRepository repository = mock(AnalysisDashboardRepository.class);
+        DashboardSpecValidator validator = mock(DashboardSpecValidator.class);
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(repository.findById("dashboard-cache")).thenReturn(Optional.of(dashboard));
+        when(validator.parse(any())).thenReturn(spec);
+        when(resolver.resolveSpec(any())).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("rows", List.of(Map.of("value", 1))))
+        );
+
+        DashboardDataService service = newService(resolver, queryService, repository, validator);
+        service.queryWidgets("dashboard-cache", List.of("ds1"), List.of(), Map.of());
+        service.queryWidgets("dashboard-cache", List.of("ds1"), List.of(), Map.of());
+
+        verify(repository, times(1)).findById("dashboard-cache");
+        verify(queryService, times(1)).query(any(), any(), anyList(), any(), any(), any());
+
+        service.evictDashboardCache("dashboard-cache");
+        service.queryWidgets("dashboard-cache", List.of("ds1"), List.of(), Map.of());
+
+        verify(repository, times(2)).findById("dashboard-cache");
+        verify(queryService, times(2)).query(any(), any(), anyList(), any(), any(), any());
     }
 
     private DashboardDataService newService(

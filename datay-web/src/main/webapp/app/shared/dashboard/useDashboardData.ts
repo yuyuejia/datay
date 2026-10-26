@@ -3,15 +3,15 @@ import type { Ref } from 'vue';
 
 import DashboardService from './dashboard.service';
 import type { DashboardQuery } from './dashboard.service';
-import { applyDashboardFilters } from './filter-utils';
-import type { DashboardSpec, DatasetResult, FilterValues } from './types';
+import { buildServerAggregation, serverQueryLimit } from './server-aggregation';
+import type { Aggregation, DashboardSpec, DatasetResult, FilterValues } from './types';
 
 /**
  * 看板取数组合式函数。
  *
- * - 数据集原始查询用于筛选选项与设计器字段候选；
- * - 组件级查询用于把 encode.sort/limit 下推到服务端；
- * - 纯客户端筛选变化只重算结果，不发网络请求。
+ * - 所有筛选器统一由服务端执行，前端不再做本地行过滤；
+ * - 数据集查询与组件级查询都携带当前 filterValues；
+ * - 组件级查询额外下推聚合、sort、limit。
  */
 export function useDashboardData(config: { dashboardId?: Ref<string | undefined>; spec: Ref<DashboardSpec | undefined> }) {
   const service = new DashboardService();
@@ -29,13 +29,8 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
   let pageSequence = 0;
   let currentFilterValues: FilterValues = {};
 
-  const hasClientTarget = (spec: DashboardSpec, datasetId: string): boolean =>
-    (spec.filters ?? []).some(filter =>
-      (filter.targets ?? []).some(target => target.datasetId === datasetId && !!target.field && target.mode !== 'server'),
-    );
-
   /**
-   * 同一数据集、同一 sort/limit 的组件共用一次查询。
+   * 同一数据集、同一聚合与 sort/limit 的组件共用一次查询。
    */
   const buildWidgetQueries = (spec: DashboardSpec): { queries: DashboardQuery[]; byWidget: Record<string, string> } => {
     const queries: DashboardQuery[] = [];
@@ -47,13 +42,23 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
       }
       const encode = widget.encode;
       const sortField = encode?.sortField || undefined;
-      const serverPaged = widget.type === 'table' && !!encode?.pageSize && !hasClientTarget(spec, widget.datasetId);
-      const limit = serverPaged ? encode.pageSize : hasClientTarget(spec, widget.datasetId) ? undefined : encode?.limit;
+      const serverPaged = widget.type === 'table' && !!encode?.pageSize;
+      const aggregation = buildServerAggregation(widget);
+      const hasAggregation = aggregation.groupFields.length > 0 && aggregation.aggregations.length > 0;
+      const limit = serverQueryLimit(widget, serverPaged);
       const offset = serverPaged ? 0 : undefined;
-      if (!sortField && !limit) {
+      if (!sortField && !limit && !hasAggregation) {
         continue;
       }
-      const key = JSON.stringify([widget.datasetId, sortField ?? null, encode?.sortOrder ?? null, limit ?? null, offset ?? null]);
+      const key = JSON.stringify([
+        widget.datasetId,
+        sortField ?? null,
+        encode?.sortOrder ?? null,
+        limit ?? null,
+        offset ?? null,
+        aggregation.groupFields,
+        aggregation.aggregations,
+      ]);
       let queryId = keyToId.get(key);
       if (!queryId) {
         queryId = `q${keyToId.size + 1}`;
@@ -65,6 +70,7 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
           sortOrder: encode?.sortOrder,
           limit,
           offset,
+          ...(hasAggregation ? { groupFields: aggregation.groupFields, aggregations: aggregation.aggregations } : {}),
         });
       }
       byWidget[widget.id] = queryId;
@@ -80,40 +86,41 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
     }
     for (const widget of spec.widgets ?? []) {
       if (widget.type === 'table' && widget.encode?.pageSize && widget.datasetId) {
-        result[widget.id] = !hasClientTarget(spec, widget.datasetId);
+        result[widget.id] = true;
       }
     }
     return result;
   });
 
-  const applyClientFilters = (spec: DashboardSpec, filterValues: FilterValues) => {
+  /** 服务端结果已经包含筛选，直接同步到视图，不再做本地行过滤。 */
+  const syncBatchResults = (spec: DashboardSpec) => {
     widgetData.value = {};
     for (const dataset of spec.datasets ?? []) {
       const raw = rawDatasetData.value[dataset.id];
       if (raw) {
-        datasetData.value[dataset.id] = applyDashboardFilters(raw, spec.filters, filterValues, dataset.id);
+        datasetData.value[dataset.id] = raw;
       }
     }
     const { byWidget } = buildWidgetQueries(spec);
     for (const widget of spec.widgets ?? []) {
       const queryId = byWidget[widget.id];
-      if (!queryId || !widget.datasetId) {
+      if (!queryId) {
         continue;
       }
       const raw = rawWidgetData.value[queryId];
       if (raw) {
-        widgetData.value[widget.id] = applyDashboardFilters(raw, spec.filters, filterValues, widget.datasetId);
+        widgetData.value[widget.id] = raw;
       }
     }
   };
 
   /**
-   * 服务端筛选签名：只有 pushdown / server 目标、组件 sort/limit 变化时才需要重新请求。
+   * 服务端筛选签名：所有带字段/pushdown 目标的筛选器都参与签名。
    */
   const serverFilterSignature = (spec: DashboardSpec, filterValues: FilterValues): string => {
     const serverFilters = (spec.filters ?? [])
       .map(filter => {
-        const targets = (filter.targets ?? []).filter(target => !!target.pushdown || (!!target.field && target.mode === 'server'));
+        const targets = (filter.targets ?? []).filter(target => !!target.pushdown || !!target.field);
         return targets.length ? { id: filter.id, targets, value: filterValues[filter.id] } : undefined;
       })
       .filter((item): item is { id: string; targets: any[]; value: any } => !!item);
@@ -143,7 +150,7 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
     }
     const signature = serverFilterSignature(spec, filterValues);
     if (!options.force && signature === lastServerSignature && Object.keys(rawDatasetData.value).length > 0) {
-      applyClientFilters(spec, filterValues);
+      syncBatchResults(spec);
       return;
     }
     const datasetIds = Array.from(new Set((spec.datasets ?? []).map(dataset => dataset.id)));
@@ -186,7 +193,7 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
           widgetErrors.value[widget.id] = error;
         }
       }
-      applyClientFilters(spec, filterValues);
+      syncBatchResults(spec);
     } catch (error: any) {
       if (sequence !== loadSequence) {
         return;
@@ -238,7 +245,7 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
       }
       widgetErrors.value[widget.id] = '';
       rawWidgetData.value[query.id] = result;
-      widgetData.value[widget.id] = applyDashboardFilters(result, spec.filters, currentFilterValues, widget.datasetId);
+      widgetData.value[widget.id] = result;
     } catch (error: any) {
       if (sequence !== pageSequence) {
         return;

@@ -443,7 +443,12 @@ class DataModelLineageServiceTest {
             "datasetId",
             "sales",
             "encode",
-            Map.of("categoryField", "store_name", "values", List.of(Map.of("field", "sales_amount", "agg", "sum"))),
+            Map.of(
+                "dimensions",
+                List.of(Map.of("field", "store_name", "role", "x")),
+                "measures",
+                List.of(Map.of("field", "sales_amount", "agg", "sum", "role", "y"))
+            ),
             "chart",
             Map.of("type", "bar")
         );
@@ -459,7 +464,7 @@ class DataModelLineageServiceTest {
             objectMapper.writeValueAsString(
                 Map.of(
                     "version",
-                    1,
+                    2,
                     "datasets",
                     List.of(metricDataset, sqlDataset),
                     "widgets",

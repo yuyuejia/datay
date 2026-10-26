@@ -148,12 +148,12 @@ describe('layout-defaults', () => {
 
   it('normalizes a stored dashboard spec', () => {
     const raw: DashboardSpec = {
-      version: 1,
+      version: 2,
       title: '旧看板',
       layout: { columns: 12, rowHeight: 90, gap: 16 },
       datasets: [{ id: 'ds1', type: 'SQL' }],
       widgets: [{ id: 'w1', type: 'table', layout: { x: 2, y: 1, w: 6, h: 4 } }],
-      filters: [{ id: 'f1', type: 'input', targets: [{ datasetId: 'ds1', field: 'keyword', mode: 'client' }] }],
+      filters: [{ id: 'f1', type: 'input', targets: [{ datasetId: 'ds1', field: 'keyword', mode: 'server' }] }],
     };
 
     const normalized = normalizeDashboardSpec(raw);

@@ -1,5 +1,5 @@
-import { applyDashboardFilters, distinctFieldValues, filtersFromQuery, initFilterValues } from './filter-utils';
-import type { DashboardFilter, DatasetResult } from './types';
+import { filtersFromQuery, initFilterValues } from './filter-utils';
+import type { DashboardFilter } from './types';
 
 const filters: DashboardFilter[] = [
   { id: 'region', type: 'select', defaultValue: '华东' },
@@ -74,72 +74,5 @@ describe('filter-utils', () => {
   it('drops malformed range values instead of leaking strings into filters', () => {
     const rangeFilters: DashboardFilter[] = [{ id: 'amount', type: 'numberRange' }];
     expect(filtersFromQuery(rangeFilters, '?f_amount=not-a-number')).toEqual({ amount: null });
-  });
-});
-
-const result: DatasetResult = {
-  columns: ['region', 'amount', 'date', 'channel'],
-  rows: [
-    { region: '华东', amount: 120, date: '2026-10-01', channel: '官网' },
-    { region: '华南', amount: 80, date: '2026-10-08', channel: 'APP' },
-    { region: '华东', amount: 60, date: '2026-10-15', channel: '门店' },
-  ],
-};
-
-describe('filter-utils field filters', () => {
-  it('applies select, multiSelect, input, date and number filters to one dataset', () => {
-    const target = (field: string) => [{ datasetId: 'ds1', field, mode: 'client' as const }];
-    const filters: DashboardFilter[] = [
-      { id: 'region', type: 'select', targets: target('region') },
-      { id: 'channels', type: 'multiSelect', targets: target('channel') },
-      { id: 'keyword', type: 'input', targets: target('region') },
-      { id: 'date', type: 'dateRange', targets: target('date') },
-      { id: 'amount', type: 'numberRange', targets: target('amount') },
-    ];
-
-    const filtered = applyDashboardFilters(
-      result,
-      filters,
-      {
-        region: '华东',
-        channels: ['官网', '门店'],
-        keyword: '华',
-        date: { start: '2026-10-01', end: '2026-10-10' },
-        amount: { min: 100, max: 130 },
-      },
-      'ds1',
-    );
-
-    expect(filtered.rows).toEqual([{ region: '华东', amount: 120, date: '2026-10-01', channel: '官网' }]);
-    expect(filtered.affectedRows).toBe(1);
-  });
-
-  it('ignores empty values, other datasets and pushdown targets', () => {
-    const filters: DashboardFilter[] = [
-      { id: 'region', type: 'select', targets: [{ datasetId: 'ds1', field: 'region', mode: 'client' }] },
-      { id: 'other', type: 'select', targets: [{ datasetId: 'ds2', field: 'region', mode: 'client' }] },
-      {
-        id: 'old',
-        type: 'select',
-        targets: [{ datasetId: 'ds1', mode: 'server', pushdown: { kind: 'sqlParam', param: 'region' } }],
-      },
-    ];
-
-    expect(applyDashboardFilters(result, filters, { region: undefined, other: '华南', old: '华南' }, 'ds1').rows).toHaveLength(3);
-  });
-
-  it('extracts distinct options from a field', () => {
-    expect(distinctFieldValues(result, 'region')).toEqual(['华东', '华南']);
-    expect(distinctFieldValues(result, 'missing')).toEqual([]);
-  });
-
-  it('throws a diagnosable error when a filter field is absent from result columns', () => {
-    const filters: DashboardFilter[] = [
-      { id: 'missing', type: 'select', targets: [{ datasetId: 'ds1', field: 'not_a_column', mode: 'client' }] },
-    ];
-
-    expect(() => applyDashboardFilters(result, filters, { missing: 'x' }, 'ds1')).toThrow(
-      '筛选器 missing 的字段 not_a_column 不在数据集 ds1 的查询结果中',
-    );
   });
 });

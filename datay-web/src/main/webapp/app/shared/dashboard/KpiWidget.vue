@@ -1,6 +1,6 @@
 <template>
   <div class="kpi-widget">
-    <div class="kpi-widget-value">{{ displayValue }}</div>
+    <div class="kpi-widget-value" :style="valueStyle">{{ displayValue }}</div>
     <div v-if="caption" class="kpi-widget-caption">{{ caption }}</div>
   </div>
 </template>
@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import { formatRuleStyle, resolveFormatRule } from './format-rules';
 import { resolveKpiValue } from './spec-to-option';
 import type { DashboardWidget, DatasetResult } from './types';
 
@@ -18,6 +19,10 @@ const props = defineProps<{
 
 const kpi = computed(() => resolveKpiValue(props.widget, props.result));
 const caption = computed(() => props.widget.title || kpi.value.label || '');
+
+const valueStyle = computed(() =>
+  formatRuleStyle(resolveFormatRule(props.widget.formatRules, props.widget.encode?.measures?.[0]?.field, kpi.value.value)),
+);
 
 const displayValue = computed(() => {
   const value = kpi.value.value;

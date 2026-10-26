@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardViewer from './App.vue';
 
 const dashboardSpec = {
-  version: 1,
+  version: 2,
   title: '大屏看板',
   layout: {
     mode: 'screen',
@@ -33,7 +33,7 @@ const dashboardSpec = {
 };
 
 const standardSpec = {
-  version: 1,
+  version: 2,
   title: '标准看板',
   layout: {
     mode: 'standard',

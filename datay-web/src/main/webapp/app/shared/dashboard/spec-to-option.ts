@@ -1,11 +1,21 @@
 import { sanitizeEchartsOption } from './echarts-option-sanitizer';
-import type { Aggregation, DashboardWidget, DatasetResult, WidgetEncode } from './types';
+import type {
+  Aggregation,
+  ChartOrientation,
+  ChartSeries,
+  ChartType,
+  DashboardWidget,
+  DatasetResult,
+  WidgetEncode,
+  WidgetEncodeDimension,
+  WidgetEncodeMeasure,
+} from './types';
 
 /**
- * 把 AI 生成的 ECharts option 与查询返回的数据结合。
+ * 把看板 v2 spec 的图表声明与查询返回的数据结合。
  *
- * AI 负责图表类型与样式（option），`encode` 负责声明如何把数据集列映射到图上；
- * 本模块据此把真实的分类轴数据、系列数据注入 option，保证看板数据来自实时查询。
+ * `chart.type` 决定图表类型，`encode.dimensions/measures` 决定数据映射，
+ * `chart.series` 用于组合图/双轴；`echartsOption` 只作为样式模板。
  */
 
 function toNumber(value: any): number | null {
@@ -54,32 +64,59 @@ function baseSeries(option: Record<string, any>): Record<string, any>[] {
   return [];
 }
 
+function seriesTemplate(base: Record<string, any>[], index: number): Record<string, any> {
+  const template = base[index] ?? base[base.length - 1] ?? {};
+  const result = { ...template };
+  delete result.data;
+  return result;
+}
+
 function setAxisData(option: Record<string, any>, axisKey: 'xAxis' | 'yAxis', categories: any[]): void {
   const axis = option[axisKey];
   if (Array.isArray(axis)) {
-    option[axisKey] = axis.map((item, index) => (index === 0 ? { ...item, data: categories } : item));
+    option[axisKey] = axis.map((item, index) => (index === 0 ? { ...item, data: categories, type: 'category' } : item));
   } else if (axis && typeof axis === 'object') {
-    option[axisKey] = { ...axis, data: categories };
+    option[axisKey] = { ...axis, type: 'category', data: categories };
   } else {
     option[axisKey] = { type: 'category', data: categories };
   }
 }
 
-/**
- * 分类轴既可能在 x 轴（纵向柱/折线），也可能在 y 轴（横向柱）。
- * 优先识别 type=category 的轴，否则默认 x 轴。
- */
-function setCategoryAxis(option: Record<string, any>, categories: any[]): void {
-  const yAxis = Array.isArray(option.yAxis) ? option.yAxis[0] : option.yAxis;
-  const axisKey = yAxis && yAxis.type === 'category' ? 'yAxis' : 'xAxis';
-  setAxisData(option, axisKey, categories);
+function setValueAxis(option: Record<string, any>, axisKey: 'xAxis' | 'yAxis'): void {
+  const axis = option[axisKey];
+  if (Array.isArray(axis)) {
+    option[axisKey] = axis.map((item, index) => (index === 0 ? { ...item, type: 'value' } : item));
+  } else if (axis && typeof axis === 'object') {
+    option[axisKey] = { ...axis, type: 'value' };
+  } else {
+    option[axisKey] = { type: 'value' };
+  }
 }
 
-function resolveSeriesDefs(encode: WidgetEncode, columns: string[], categoryField?: string) {
-  if (encode.values && encode.values.length > 0) {
-    return encode.values;
-  }
-  return columns.filter(column => column !== categoryField).map(column => ({ name: column, field: column, agg: 'sum' as const }));
+function isSingleValueChart(chartType: ChartType): boolean {
+  return chartType === 'pie' || chartType === 'donut' || chartType === 'funnel' || chartType === 'treemap';
+}
+
+function isCartesian(chartType: ChartType): boolean {
+  return chartType === 'bar' || chartType === 'line' || chartType === 'area';
+}
+
+function isAxisChart(chartType: ChartType): boolean {
+  return (
+    isCartesian(chartType) || chartType === 'scatter' || chartType === 'heatmap' || chartType === 'waterfall' || chartType === 'boxplot'
+  );
+}
+
+function chartUsesSeriesDimension(chartType?: string): boolean {
+  return (
+    chartType === 'bar' ||
+    chartType === 'line' ||
+    chartType === 'area' ||
+    chartType === 'scatter' ||
+    chartType === 'heatmap' ||
+    chartType === 'sankey' ||
+    chartType === 'graph'
+  );
 }
 
 /**
@@ -99,10 +136,10 @@ export function applyEncodeRows(encode: WidgetEncode | undefined, rows: Record<s
 }
 
 /**
- * 解析字段的聚合方式；未声明 agg 时默认 SUM。
+ * 解析字段的聚合方式；未声明时默认 SUM。
  */
 export function aggregationFor(encode: WidgetEncode | undefined, field: string): Aggregation {
-  return encode?.values?.find(value => value.field === field)?.agg ?? 'sum';
+  return encode?.measures?.find(measure => measure.field === field)?.agg ?? 'sum';
 }
 
 function aggregateValues(values: number[], agg: Aggregation): number | null {
@@ -125,75 +162,255 @@ function aggregateValues(values: number[], agg: Aggregation): number | null {
   }
 }
 
+function dimensionByRole(encode: WidgetEncode | undefined, role: WidgetEncodeDimension['role']): WidgetEncodeDimension | undefined {
+  return encode?.dimensions?.find(dimension => dimension.role === role);
+}
+
+function measuresOf(encode: WidgetEncode | undefined): WidgetEncodeMeasure[] {
+  return encode?.measures ?? [];
+}
+
 /**
- * 按分类字段聚合图表数据。
+ * 按分类（以及可选的系列）聚合图表数据。
  *
- * <p>柱/折/面积图按「分类 + 系列」聚合，饼图只按分类聚合；聚合方式来自
- * `encode.values[].agg`。聚合后再执行排序与 limit，避免明细行数上限截断同一分类的数据。
+ * <p>饼图/仪表盘只按分类聚合；柱/折/面积图按「分类 + 系列」聚合。
  */
 export function aggregateChartRows(
   encode: WidgetEncode | undefined,
   rows: Record<string, any>[],
   chartType?: string,
 ): Record<string, any>[] {
-  const valueFields = Array.from(new Set((encode?.values?.map(value => value.field) ?? []).filter((field): field is string => !!field)));
-  if (!encode?.groupBy || !encode.categoryField || valueFields.length === 0) {
+  const measures = measuresOf(encode);
+  const measureFields = measures.map(measure => measure.field);
+  if (!encode?.groupBy || measureFields.length === 0) {
     return rows;
   }
-  const categoryField = encode.categoryField;
-  const seriesField = chartType === 'pie' ? undefined : encode.seriesField || undefined;
+  const xField = dimensionByRole(encode, 'x')?.field;
+  if (!xField) {
+    // 仪表盘等单值场景：直接对全部行聚合。
+    const single: Record<string, any> = { ...rows[0] };
+    for (const measure of measures) {
+      const values = rows.map(row => toNumber(row[measure.field])).filter((value): value is number => value !== null);
+      single[measure.field] = aggregateValues(values, measure.agg);
+    }
+    return [single];
+  }
+  const seriesField = chartUsesSeriesDimension(chartType) ? dimensionByRole(encode, 'series')?.field : undefined;
   const groups = new Map<string, { row: Record<string, any>; values: Map<string, number[]> }>();
   for (const row of rows) {
-    const category = row[categoryField];
+    const category = row[xField];
     const series = seriesField ? row[seriesField] : undefined;
     const key = JSON.stringify([category, series]);
     let grouped = groups.get(key);
     if (!grouped) {
       grouped = {
         row: { ...row },
-        values: new Map(valueFields.map(field => [field, []])),
+        values: new Map(measureFields.map(field => [field, []])),
       };
       groups.set(key, grouped);
     }
-    for (const field of valueFields) {
-      const value = toNumber(row[field]);
+    for (const measure of measures) {
+      const value = toNumber(row[measure.field]);
       if (value !== null) {
-        grouped.values.get(field)?.push(value);
+        grouped.values.get(measure.field)?.push(value);
       }
     }
   }
   return Array.from(groups.values()).map(group => {
     const result = { ...group.row };
-    for (const field of valueFields) {
-      result[field] = aggregateValues(group.values.get(field) ?? [], aggregationFor(encode, field));
+    for (const measure of measures) {
+      result[measure.field] = aggregateValues(group.values.get(measure.field) ?? [], measure.agg);
     }
     return result;
   });
 }
 
 /**
- * v1 展示字段完全由 encode 显式声明，不再自动把 _id/_sk 替换为 _name。
+ * v2 展示字段完全由 encode 显式声明，不再自动把 _id/_sk 替换为 _name。
  */
 export function resolveNameField(field: string | undefined, _columns: string[]): string | undefined {
   return field;
 }
 
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) {
+    return 0;
+  }
+  if (sorted.length === 1) {
+    return sorted[0];
+  }
+  const position = (sorted.length - 1) * q;
+  const base = Math.floor(position);
+  const rest = position - base;
+  const next = sorted[base + 1] ?? sorted[base];
+  return sorted[base] + (next - sorted[base]) * rest;
+}
+
+function toPercent(value: number | null, total: number): number | null {
+  if (value === null || total === 0) {
+    return value === null ? null : 0;
+  }
+  return Math.round((value / total) * 10000) / 100;
+}
+
 /**
- * 构建最终 ECharts option；无数据或未声明 encode 时原样返回 AI option。
+ * 占总比变换。
+ *
+ * <p>饼图/环形图按全量合计；柱/折/面积图在存在 series 维度或 stackedPercent 子类型时
+ * 按每个分类合计，否则按全量合计。
+ */
+function applyPercentTransform(
+  rows: Record<string, any>[],
+  measureFields: string[],
+  xField: string | undefined,
+  seriesField: string | undefined,
+  chartType: ChartType,
+  subtype: string | undefined,
+): Record<string, any>[] {
+  if (measureFields.length === 0) {
+    return rows;
+  }
+  const perCategory = isCartesian(chartType) && (!!seriesField || subtype === 'stackedPercent');
+  if (!perCategory || !xField) {
+    const totals = new Map<string, number>();
+    let grandTotal = 0;
+    for (const field of measureFields) {
+      const total = rows.reduce((sum, row) => sum + (toNumber(row[field]) ?? 0), 0);
+      totals.set(field, total);
+      grandTotal += total;
+    }
+    return rows.map(row => {
+      const result = { ...row };
+      for (const field of measureFields) {
+        const total = measureFields.length > 1 ? (totals.get(field) ?? 0) : grandTotal;
+        result[field] = toPercent(toNumber(row[field]), total);
+      }
+      return result;
+    });
+  }
+  const totalsByCategory = new Map<string, number>();
+  for (const row of rows) {
+    const key = String(row[xField]);
+    const total = measureFields.reduce((sum, field) => sum + (toNumber(row[field]) ?? 0), 0);
+    totalsByCategory.set(key, (totalsByCategory.get(key) ?? 0) + total);
+  }
+  return rows.map(row => {
+    const result = { ...row };
+    const total = totalsByCategory.get(String(row[xField])) ?? 0;
+    for (const field of measureFields) {
+      result[field] = toPercent(toNumber(row[field]), total);
+    }
+    return result;
+  });
+}
+
+function normalizeSeriesDefs(widget: DashboardWidget, chartType: ChartType): ChartSeries[] {
+  const declared = widget.chart?.series;
+  if (declared && declared.length > 0) {
+    return declared.map(series => ({
+      ...series,
+      type: series.type ?? (chartType === 'area' ? 'area' : chartType === 'line' ? 'line' : 'bar'),
+      axis: series.axis ?? 'left',
+    }));
+  }
+  if (!isCartesian(chartType)) {
+    return [];
+  }
+  return measuresOf(widget.encode).map(measure => ({
+    measure: measure.field,
+    type: chartType === 'area' ? 'area' : chartType === 'line' ? 'line' : 'bar',
+    axis: 'left',
+  }));
+}
+
+function seriesTypeOf(series: ChartSeries): 'bar' | 'line' {
+  return series.type === 'line' || series.type === 'area' ? 'line' : 'bar';
+}
+
+function applySeriesStyle(target: Record<string, any>, series: ChartSeries, chartType: ChartType, widget: DashboardWidget): void {
+  const subtype = widget.chart?.subtype;
+  if (seriesTypeOf(series) === 'line') {
+    target.type = 'line';
+    if (series.type === 'area' || chartType === 'area') {
+      target.areaStyle = target.areaStyle ?? {};
+    }
+    const smooth = series.smooth ?? subtype === 'smooth';
+    if (smooth) {
+      target.smooth = true;
+    }
+    const step = series.step ?? (subtype === 'step' ? true : undefined);
+    if (step !== undefined) {
+      target.step = step;
+      target.smooth = false;
+    }
+  } else {
+    target.type = 'bar';
+  }
+  if (series.stack) {
+    target.stack = series.stack;
+  }
+}
+
+function setupCartesianAxes(option: Record<string, any>, orientation: ChartOrientation, categories: any[], hasRightAxis: boolean): void {
+  if (orientation === 'horizontal') {
+    setValueAxis(option, 'xAxis');
+    setCategoryAxis(option, categories, 'yAxis');
+    if (hasRightAxis) {
+      const existing = Array.isArray(option.xAxis) ? option.xAxis : [];
+      const left = existing[0] ?? option.xAxis ?? { type: 'value' };
+      const right = existing[1] ?? { type: 'value' };
+      option.xAxis = [
+        { ...left, type: 'value' },
+        { ...right, type: 'value' },
+      ];
+    }
+    return;
+  }
+  setCategoryAxis(option, categories, 'xAxis');
+  if (hasRightAxis) {
+    const existing = Array.isArray(option.yAxis) ? option.yAxis : [];
+    const left = existing[0] ?? option.yAxis ?? { type: 'value' };
+    const right = existing[1] ?? { type: 'value' };
+    option.yAxis = [
+      { ...left, type: 'value' },
+      { ...right, type: 'value' },
+    ];
+  } else {
+    setValueAxis(option, 'yAxis');
+  }
+}
+
+function setCategoryAxis(option: Record<string, any>, categories: any[], axisKey: 'xAxis' | 'yAxis'): void {
+  setAxisData(option, axisKey, categories);
+}
+
+/**
+ * 构建最终 ECharts option；无数据或未声明 encode 时原样返回样式模板。
  */
 export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResult): Record<string, any> {
   const option: Record<string, any> = sanitizeEchartsOption(JSON.parse(JSON.stringify(widget.echartsOption || {})));
   // 组件卡片已展示标题，移除图表内 title 避免重复（默认保留 dashboard-widget-title）
   delete option.title;
-  const chartType = firstSeriesType(option);
-  if (chartType !== 'pie' && chartType !== 'gauge') {
+  const chartType = (widget.chart?.type || firstSeriesType(option) || 'bar') as ChartType;
+  const orientation = widget.chart?.orientation ?? 'vertical';
+  const subtype = widget.chart?.subtype;
+  if (chartType === 'waterfall') {
+    option.series = baseSeries(option).map(series => ({ ...series, type: 'bar' }));
+  }
+
+  if (isAxisChart(chartType)) {
     if (!option.xAxis) {
       option.xAxis = { type: 'category' };
     }
     if (!option.yAxis) {
       option.yAxis = { type: 'value' };
     }
+  } else {
+    delete option.xAxis;
+    delete option.yAxis;
+    delete option.grid;
   }
+
   const encode = widget.encode;
   if (!encode || !result || !Array.isArray(result.rows) || result.rows.length === 0) {
     return option;
@@ -201,49 +418,92 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
 
   const columns = result.columns ?? [];
   const fieldLabel = (field?: string): string => (field ? result.columnLabels?.[field] || field : '');
-  const categoryField = resolveNameField(encode.categoryField ?? columns[0], columns) ?? '';
-  const valueField = resolveNameField(encode.values?.[0]?.field ?? columns.find(column => column !== categoryField), columns);
-  const seriesField = resolveNameField(encode.seriesField ?? undefined, columns);
-  const sortField = resolveNameField(encode.sortField ?? undefined, columns);
-  const resolvedValues = encode.values?.map(value => ({
-    ...value,
-    field: resolveNameField(value.field, columns) ?? value.field,
-  }));
+  const dimensions = encode.dimensions ?? [];
+  const measures = measuresOf(encode);
+  if (dimensions.length === 0 && measures.length === 0) {
+    return option;
+  }
+  const xDimension = dimensions.find(dimension => dimension.role === 'x');
+  const seriesDimension = dimensions.find(dimension => dimension.role === 'series');
+  const xField = resolveNameField(xDimension?.field, columns);
+  const seriesField = chartUsesSeriesDimension(chartType) ? resolveNameField(seriesDimension?.field, columns) : undefined;
+  const measureFields = measures.map(measure => resolveNameField(measure.field, columns) ?? measure.field);
+  if (measureFields.length === 0) {
+    return option;
+  }
+
   const effectiveEncode: WidgetEncode = {
     ...encode,
-    categoryField,
-    seriesField,
-    sortField,
-    values: resolvedValues,
+    dimensions: dimensions.map(dimension => ({
+      ...dimension,
+      field: resolveNameField(dimension.field, columns) ?? dimension.field,
+    })),
+    measures: measures.map(measure => ({
+      ...measure,
+      field: resolveNameField(measure.field, columns) ?? measure.field,
+    })),
+    sortField: resolveNameField(encode.sortField ?? undefined, columns),
   };
-  const groupedRows = effectiveEncode.groupBy ? aggregateChartRows(effectiveEncode, result.rows, chartType) : result.rows;
-  const rows = applyEncodeRows(effectiveEncode, groupedRows);
+  const groupedRows =
+    result.aggregated || chartType === 'boxplot'
+      ? result.rows
+      : effectiveEncode.groupBy
+        ? aggregateChartRows(effectiveEncode, result.rows, chartType)
+        : result.rows;
 
-  if (chartType === 'pie') {
-    option.series = [
-      {
-        ...(baseSeries(option)[0] || {}),
-        type: 'pie',
-        name: (baseSeries(option)[0] || {}).name || fieldLabel(valueField),
-        data: rows.map(row => ({
-          name: row[categoryField],
-          value: toNumber(row[valueField as string]),
-        })),
-      },
-    ];
+  const hasPercentTransform = (encode.transform ?? []).some(transform => transform.type === 'percentOfTotal');
+  let rows =
+    hasPercentTransform || subtype === 'stackedPercent'
+      ? applyPercentTransform(groupedRows, measureFields, xField, seriesField, chartType, subtype)
+      : groupedRows;
+  rows = applyEncodeRows(effectiveEncode, rows);
+
+  if (isSingleValueChart(chartType)) {
+    const valueField = measureFields[0];
+    const base = seriesTemplate(baseSeries(option), 0);
+    const seriesType = chartType === 'funnel' ? 'funnel' : chartType === 'treemap' ? 'treemap' : 'pie';
+    const series: Record<string, any> = {
+      ...base,
+      type: seriesType,
+      name: base.name || fieldLabel(valueField),
+      data: rows.map(row => ({
+        name: xField ? row[xField] : fieldLabel(valueField),
+        value: toNumber(row[valueField]),
+      })),
+    };
+    if (chartType === 'donut') {
+      series.radius = base.radius ?? ['42%', '68%'];
+      series.avoidLabelOverlap = true;
+    }
+    if (chartType === 'funnel') {
+      series.sort = base.sort ?? (encode.sortField ? 'none' : 'descending');
+      series.gap = base.gap ?? 2;
+      series.label = base.label ?? { show: true, position: 'inside' };
+    }
+    if (chartType === 'treemap') {
+      series.leafDepth = base.leafDepth ?? 1;
+      series.breadcrumb = base.breadcrumb ?? { show: false };
+      series.roam = base.roam ?? false;
+      series.label = base.label ?? { show: true };
+    }
+    option.series = [series];
     return option;
   }
 
   if (chartType === 'gauge') {
-    const first = rows[0];
+    const valueField = measureFields[0];
+    const measure = measures.find(item => item.field === valueField);
+    const values = result.rows.map(row => toNumber(row[valueField])).filter((value): value is number => value !== null);
+    const value = measure ? aggregateValues(values, measure.agg) : (values[0] ?? null);
+    const base = seriesTemplate(baseSeries(option), 0);
     option.series = [
       {
-        ...(baseSeries(option)[0] || {}),
+        ...base,
         type: 'gauge',
         data: [
           {
-            value: toNumber(first[valueField as string]),
-            name: first[categoryField] ?? widget.title,
+            value,
+            name: widget.title || fieldLabel(valueField),
           },
         ],
       },
@@ -251,50 +511,324 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     return option;
   }
 
-  if (categoryField) {
-    setCategoryAxis(
-      option,
-      rows.map(row => row[categoryField]),
-    );
-  }
-
-  const base = baseSeries(option);
-
-  if (seriesField) {
-    const valueFieldName = valueField as string;
-    const categories = Array.from(new Set(rows.map(row => row[categoryField])));
-    if (categoryField) {
-      setCategoryAxis(option, categories);
-    }
-    const groups = Array.from(new Set(rows.map(row => row[seriesField])));
-    option.series = groups.map((group, index) => {
-      const template = base[index] || base[0] || {};
-      const data = categories.map(category => {
-        const row = rows.find(item => item[categoryField] === category && item[seriesField] === group);
-        return row ? toNumber(row[valueFieldName]) : null;
-      });
-      return { ...template, name: String(group), data };
+  if (chartType === 'radar') {
+    const indicatorNames = xField ? Array.from(new Set(rows.map(row => row[xField]))) : [];
+    const rowFor = (name: any) => (xField ? rows.find(row => row[xField] === name) : undefined);
+    const indicator = indicatorNames.map(name => {
+      const maxValue = Math.max(...measureFields.map(field => toNumber(rowFor(name)?.[field]) ?? 0), 0);
+      return { name: String(name), max: maxValue > 0 ? Math.ceil(maxValue * 1.1) : 1 };
     });
+    const base = seriesTemplate(baseSeries(option), 0);
+    option.radar = { ...(option.radar ?? {}), indicator };
+    option.series = [
+      {
+        ...base,
+        type: 'radar',
+        data: measureFields.map((field, index) => ({
+          name: fieldLabel(field) || `系列 ${index + 1}`,
+          value: indicatorNames.map(name => toNumber(rowFor(name)?.[field]) ?? 0),
+        })),
+      },
+    ];
     return option;
   }
 
-  const seriesDefs = resolveSeriesDefs(effectiveEncode, columns, categoryField).map(series => ({
-    ...series,
-    field: resolveNameField(series.field, columns) ?? series.field,
-  }));
-  option.series = seriesDefs.map((series, index) => {
-    const template = base[index] || base[0] || {};
-    return {
-      ...template,
-      name: series.name && series.name !== series.field ? series.name : fieldLabel(series.field),
-      data: rows.map(row => toNumber(row[series.field])),
+  if (chartType === 'scatter') {
+    const yMeasures = measures.filter(measure => measure.role === 'y');
+    const scatterMeasures = yMeasures.length > 0 ? yMeasures : [measures[0]];
+    const sizeMeasure = measures.find(measure => measure.role === 'size');
+    const xValues = xField ? rows.map(row => row[xField]) : [];
+    const numericX = xValues.every(value => toNumber(value) !== null);
+    const xCategories = Array.from(new Set(xValues));
+    if (numericX) {
+      setValueAxis(option, 'xAxis');
+      setValueAxis(option, 'yAxis');
+    } else {
+      setCategoryAxis(option, xCategories, 'xAxis');
+      setValueAxis(option, 'yAxis');
+    }
+    const sizeValues = sizeMeasure ? rows.map(row => toNumber(row[sizeMeasure.field]) ?? 0) : [];
+    const maxSize = Math.max(...sizeValues, 0);
+    const pointFor = (row: Record<string, any>, yField: string) => {
+      const rawX = xField ? row[xField] : null;
+      const x = numericX ? toNumber(rawX) : xCategories.indexOf(rawX);
+      const y = toNumber(row[yField]);
+      const point: Record<string, any> = { value: [x, y] };
+      if (sizeMeasure && maxSize > 0) {
+        const sizeValue = toNumber(row[sizeMeasure.field]) ?? 0;
+        point.symbolSize = 8 + Math.round((sizeValue / maxSize) * 24);
+      }
+      return point;
     };
-  });
+    const base = baseSeries(option);
+    const generated: Record<string, any>[] = [];
+    if (seriesField) {
+      const groups = Array.from(new Set(rows.map(row => row[seriesField])));
+      for (const [measureIndex, measure] of scatterMeasures.entries()) {
+        const yField = measure.field;
+        for (const group of groups) {
+          const groupRows = rows.filter(row => row[seriesField] === group);
+          generated.push({
+            ...seriesTemplate(base, measureIndex),
+            type: 'scatter',
+            name: `${fieldLabel(yField)} · ${String(group)}`,
+            data: groupRows.map(row => pointFor(row, yField)),
+          });
+        }
+      }
+    } else {
+      for (const measure of scatterMeasures) {
+        const field = measure.field;
+        const fieldName = fieldLabel(field);
+        generated.push({
+          ...seriesTemplate(base, generated.length),
+          type: 'scatter',
+          name: fieldName,
+          data: rows.map(row => pointFor(row, field)),
+        });
+      }
+    }
+    option.series = generated;
+    return option;
+  }
+
+  if (chartType === 'heatmap') {
+    const xCategories = xField ? Array.from(new Set(rows.map(row => row[xField]))) : [];
+    const yCategories = seriesField ? Array.from(new Set(rows.map(row => row[seriesField]))) : [];
+    const valueField =
+      measures.find(measure => measure.role === 'value')?.field ??
+      measures.find(measure => measure.role === 'y')?.field ??
+      measureFields[0];
+    const data = rows
+      .map(row => {
+        const xIndex = xCategories.indexOf(xField ? row[xField] : undefined);
+        const yIndex = yCategories.indexOf(seriesField ? row[seriesField] : undefined);
+        const value = toNumber(row[valueField]);
+        return xIndex >= 0 && yIndex >= 0 && value !== null ? [xIndex, yIndex, value] : null;
+      })
+      .filter((item): item is number[] => item !== null);
+    setCategoryAxis(option, xCategories, 'xAxis');
+    setCategoryAxis(option, yCategories, 'yAxis');
+    const maxValue = Math.max(...data.map(item => item[2]), 0);
+    const visualMap = option.visualMap && !Array.isArray(option.visualMap) ? option.visualMap : {};
+    option.visualMap = {
+      ...visualMap,
+      min: visualMap.min ?? 0,
+      max: visualMap.max ?? (maxValue > 0 ? maxValue : 1),
+      calculable: visualMap.calculable ?? true,
+      orient: visualMap.orient ?? 'horizontal',
+      left: visualMap.left ?? 'center',
+      bottom: visualMap.bottom ?? 0,
+    };
+    option.series = [
+      {
+        ...seriesTemplate(baseSeries(option), 0),
+        type: 'heatmap',
+        name: fieldLabel(valueField),
+        data,
+        label: seriesTemplate(baseSeries(option), 0).label ?? { show: true },
+      },
+    ];
+    return option;
+  }
+
+  if (chartType === 'sankey' || chartType === 'graph') {
+    if (!xField || !seriesField) {
+      option.series = [];
+      return option;
+    }
+    const valueField =
+      measures.find(measure => measure.role === 'value')?.field ??
+      measures.find(measure => measure.role === 'y')?.field ??
+      measureFields[0];
+    const nodeNames = Array.from(new Set(rows.flatMap(row => [String(row[xField]), String(row[seriesField])])));
+    const links = rows.map(row => ({
+      source: String(row[xField]),
+      target: String(row[seriesField]),
+      value: toNumber(row[valueField]) ?? 0,
+    }));
+    const base = seriesTemplate(baseSeries(option), 0);
+    if (chartType === 'sankey') {
+      option.series = [
+        {
+          ...base,
+          type: 'sankey',
+          data: nodeNames.map(name => ({ name })),
+          links,
+          emphasis: { focus: 'adjacency' },
+          lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.5 },
+        },
+      ];
+    } else {
+      option.series = [
+        {
+          ...base,
+          type: 'graph',
+          layout: base.layout ?? 'force',
+          roam: base.roam ?? true,
+          draggable: base.draggable ?? true,
+          data: nodeNames.map(name => ({ name })),
+          links,
+          label: { ...(base.label ?? {}), show: base.label?.show ?? true },
+          force: {
+            repulsion: 320,
+            edgeLength: [60, 120],
+            ...(base.force ?? {}),
+          },
+          lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.1 },
+        },
+      ];
+    }
+    return option;
+  }
+
+  if (chartType === 'waterfall') {
+    const valueField =
+      measures.find(measure => measure.role === 'y')?.field ??
+      measures.find(measure => measure.role === 'value')?.field ??
+      measureFields[0];
+    const baseRows = xField ? rows : [];
+    let cumulative = 0;
+    const baseData: number[] = [];
+    const valueData: Array<Record<string, any>> = [];
+    for (const row of baseRows) {
+      const value = toNumber(row[valueField]) ?? 0;
+      const before = cumulative;
+      const after = cumulative + value;
+      baseData.push(Math.min(before, after));
+      valueData.push({
+        value: Math.abs(value),
+        itemStyle: { color: value >= 0 ? '#67c23a' : '#f56c6c' },
+      });
+      cumulative = after;
+    }
+    setCategoryAxis(
+      option,
+      baseRows.map(row => row[xField as string]),
+      'xAxis',
+    );
+    setValueAxis(option, 'yAxis');
+    const base = seriesTemplate(baseSeries(option), 0);
+    option.series = [
+      {
+        ...base,
+        type: 'bar',
+        name: '累计基数',
+        stack: 'waterfall',
+        data: baseData,
+        itemStyle: { color: 'transparent' },
+        emphasis: { disabled: true },
+        silent: true,
+        label: { show: false },
+        tooltip: { show: false },
+      },
+      {
+        ...base,
+        type: 'bar',
+        name: fieldLabel(valueField),
+        stack: 'waterfall',
+        data: valueData,
+      },
+    ];
+    return option;
+  }
+
+  if (chartType === 'boxplot') {
+    const valueField =
+      measures.find(measure => measure.role === 'y')?.field ??
+      measures.find(measure => measure.role === 'value')?.field ??
+      measureFields[0];
+    const boxCategories = xField ? Array.from(new Set(rows.map(row => row[xField]))) : [];
+    const boxData = boxCategories.map(category => {
+      const values = rows
+        .filter(row => row[xField as string] === category)
+        .map(row => toNumber(row[valueField]))
+        .filter((value): value is number => value !== null)
+        .sort((left, right) => left - right);
+      if (values.length === 0) {
+        return [0, 0, 0, 0, 0];
+      }
+      return [values[0], quantile(values, 0.25), quantile(values, 0.5), quantile(values, 0.75), values[values.length - 1]];
+    });
+    setCategoryAxis(option, boxCategories, 'xAxis');
+    setValueAxis(option, 'yAxis');
+    option.series = [
+      {
+        ...seriesTemplate(baseSeries(option), 0),
+        type: 'boxplot',
+        name: fieldLabel(valueField),
+        data: boxData,
+      },
+    ];
+    return option;
+  }
+
+  const categories = xField ? (seriesField ? Array.from(new Set(rows.map(row => row[xField]))) : rows.map(row => row[xField])) : [];
+  const seriesDefs = normalizeSeriesDefs(widget, chartType);
+  const hasRightAxis = seriesDefs.some(series => series.axis === 'right');
+  setupCartesianAxes(option, orientation, categories, hasRightAxis);
+  if (hasPercentTransform || subtype === 'stackedPercent') {
+    const axisKey = orientation === 'horizontal' ? 'xAxis' : 'yAxis';
+    const applyPercentAxis = (axis: Record<string, any>) => ({
+      ...axis,
+      max: 100,
+      axisLabel: { ...(axis.axisLabel ?? {}), formatter: axis.axisLabel?.formatter ?? '{value}%' },
+    });
+    const axis = option[axisKey];
+    option[axisKey] = Array.isArray(axis) ? axis.map(applyPercentAxis) : applyPercentAxis(axis ?? { type: 'value' });
+  }
+
+  const base = baseSeries(option);
+  const stack = subtype === 'stacked' || subtype === 'stackedPercent' || seriesDefs.some(series => !!series.stack) ? 'total' : undefined;
+  const generated: Record<string, any>[] = [];
+
+  for (const [defIndex, def] of seriesDefs.entries()) {
+    const measureField = resolveNameField(def.measure, columns) ?? def.measure;
+    if (!measureFields.includes(measureField)) {
+      continue;
+    }
+    const groups = seriesField ? Array.from(new Set(rows.map(row => row[seriesField]))) : [undefined];
+    for (const group of groups) {
+      const data = seriesField
+        ? categories.map(category => {
+            const row = rows.find(item => {
+              if (xField && item[xField] !== category) {
+                return false;
+              }
+              return group === undefined || item[seriesField] === group;
+            });
+            return row ? toNumber(row[measureField]) : null;
+          })
+        : rows.map(row => toNumber(row[measureField]));
+      const nameParts = [def.name || fieldLabel(measureField)];
+      if (seriesField && group !== undefined) {
+        nameParts.push(String(group));
+      }
+      const target: Record<string, any> = {
+        ...seriesTemplate(base, defIndex),
+        name: nameParts.join(' · '),
+        data,
+      };
+      applySeriesStyle(target, def, chartType, widget);
+      if (stack) {
+        target.stack = def.stack || stack;
+      }
+      if (def.axis === 'right') {
+        if (orientation === 'horizontal') {
+          target.xAxisIndex = 1;
+        } else {
+          target.yAxisIndex = 1;
+        }
+      }
+      generated.push(target);
+    }
+  }
+  option.series = generated;
   return option;
 }
 
 /**
- * 计算 KPI 单值：优先取 encode.values[0]，否则取首个数值列。
+ * 计算 KPI 单值：取 encode.measures[0]，否则取首个数值列。
  */
 export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult): { value: number | null; label?: string } {
   if (!result || !Array.isArray(result.rows) || result.rows.length === 0) {
@@ -302,10 +836,14 @@ export function resolveKpiValue(widget: DashboardWidget, result?: DatasetResult)
   }
   const rows = result.rows;
   const encode = widget.encode;
-  const field = encode?.values?.[0]?.field;
+  const measure = encode?.measures?.[0];
+  const field = measure?.field ?? result.numericColumns?.[0];
   if (!field) {
     return { value: null };
   }
   const values = rows.map(row => toNumber(row[field])).filter((value): value is number => value !== null);
-  return { value: aggregateValues(values, aggregationFor(encode, field)) };
+  return {
+    value: aggregateValues(values, result.aggregated ? 'none' : (measure?.agg ?? 'sum')),
+    label: measure?.name,
+  };
 }

@@ -8,8 +8,8 @@ import java.util.Map;
 /**
  * v1 筛选目标的统一解析。
  *
- * <p>服务端只消费 pushdown 或 mode=server 的字段目标；mode=client 的字段目标由前端处理。
- * 这里集中处理 targets 结构，避免各处重复判断。
+ * <p>筛选器统一由服务端执行：pushdown 目标按声明下推，直接字段目标也视为服务端目标。
+ * 前端不再执行本地过滤；mode 字段保留用于兼容历史结构，但不再决定过滤位置。
  */
 public final class FilterTargetResolver {
 
@@ -44,15 +44,15 @@ public final class FilterTargetResolver {
     }
 
     public static boolean isServerTarget(Map<String, Object> target) {
-        if (!pushdown(target).isEmpty()) {
-            return true;
-        }
-        String field = field(target);
-        return field != null && MODE_SERVER.equalsIgnoreCase(asString(target.get("mode")));
+        return !pushdown(target).isEmpty() || field(target) != null;
     }
 
+    /**
+     * @deprecated 看板运行时不再执行本地过滤，保留该方法仅用于兼容旧调用方。
+     */
+    @Deprecated
     public static boolean isClientTarget(Map<String, Object> target) {
-        return field(target) != null && !MODE_SERVER.equalsIgnoreCase(asString(target.get("mode")));
+        return false;
     }
 
     public static String field(Map<String, Object> target) {

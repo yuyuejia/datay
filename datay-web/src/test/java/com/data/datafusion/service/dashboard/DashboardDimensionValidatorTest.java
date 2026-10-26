@@ -42,7 +42,7 @@ class DashboardDimensionValidatorTest {
         target.put("datasetId", "ds1");
         if (pushdown == null) {
             target.put("field", "region");
-            target.put("mode", "client");
+            target.put("mode", "server");
         } else {
             target.put("mode", "server");
             target.put("pushdown", pushdown);
@@ -119,7 +119,7 @@ class DashboardDimensionValidatorTest {
     }
 
     @Test
-    void shouldKeepClientFieldTargetWithoutDimensionReference() {
+    void shouldKeepServerFieldTargetWithoutDimensionReference() {
         when(dataModelRepository.findFirstByCode("dim_missing")).thenReturn(Optional.empty());
 
         Map<String, Object> spec = validator.sanitizeFilters(specWith(List.of(filter("region", null))));

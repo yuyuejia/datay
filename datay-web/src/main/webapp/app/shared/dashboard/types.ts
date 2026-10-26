@@ -6,9 +6,30 @@
 
 export type DatasetType = 'METRIC' | 'SQL';
 
-export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi';
+export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi' | 'pivot';
 
-export type ChartType = 'bar' | 'line' | 'pie' | 'area';
+export type ChartType =
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'gauge'
+  | 'scatter'
+  | 'radar'
+  | 'funnel'
+  | 'heatmap'
+  | 'treemap'
+  | 'waterfall'
+  | 'sankey'
+  | 'graph'
+  | 'boxplot';
+
+export type ChartSubtype = 'grouped' | 'stacked' | 'stackedPercent' | 'smooth' | 'step';
+
+export type ChartOrientation = 'vertical' | 'horizontal';
+
+export type ChartSeriesType = 'bar' | 'line' | 'area';
 
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'none';
 
@@ -97,11 +118,26 @@ export interface DashboardDataset {
   fields?: string;
 }
 
-/** v1 显式数据映射与聚合配置。 */
-export interface WidgetEncodeValue {
+/** v2 维度字段：x 作为分类轴，series 作为系列拆分，row/column 用于透视表。 */
+export interface WidgetEncodeDimension {
   field: string;
+  role: 'x' | 'series' | 'row' | 'column';
   name?: string;
-  agg?: Aggregation;
+}
+
+/** v2 度量字段：y 用于坐标轴，value 用于单值/透视场景，size 用于散点大小。 */
+export interface WidgetEncodeMeasure {
+  field: string;
+  agg: Aggregation;
+  role: 'y' | 'value' | 'size';
+  name?: string;
+  format?: WidgetFormat;
+}
+
+/** v2 数据变换；P0 支持占总比。 */
+export interface WidgetTransform {
+  type: 'percentOfTotal';
+  measure?: string;
 }
 
 export interface WidgetTableColumn {
@@ -112,22 +148,35 @@ export interface WidgetTableColumn {
 }
 
 export interface WidgetEncode {
-  categoryField?: string;
-  values?: WidgetEncodeValue[];
-  seriesField?: string | null;
+  dimensions?: WidgetEncodeDimension[];
+  measures?: WidgetEncodeMeasure[];
   sortField?: string | null;
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   groupBy?: boolean;
+  transform?: WidgetTransform[];
   /** 表格列配置；按数组顺序展示。 */
   columns?: WidgetTableColumn[];
   /** 表格前端分页大小；不配置时不分页。 */
   pageSize?: number;
 }
 
-/** v1 图表类型声明；具体样式仍由 echartsOption 承载。 */
+/** v2 图表声明：chart.type 是唯一权威类型来源，echartsOption 只做样式覆盖。 */
+export interface ChartSeries {
+  measure: string;
+  type: ChartSeriesType;
+  axis?: 'left' | 'right';
+  stack?: string;
+  smooth?: boolean;
+  step?: boolean | 'start' | 'middle' | 'end';
+  name?: string;
+}
+
 export interface DashboardChart {
-  type?: string;
+  type?: ChartType;
+  subtype?: ChartSubtype;
+  orientation?: ChartOrientation;
+  series?: ChartSeries[];
   [key: string]: any;
 }
 
@@ -136,6 +185,20 @@ export interface WidgetFormat {
   precision?: number;
   prefix?: string;
   suffix?: string;
+}
+
+export type FormatRuleOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'neq' | 'between';
+
+export interface WidgetFormatRule {
+  id?: string;
+  /** 可选：只对指定字段生效；省略时对组件内所有数值单元格生效。 */
+  field?: string;
+  operator: FormatRuleOperator;
+  value: number;
+  value2?: number;
+  color?: string;
+  background?: string;
+  bold?: boolean;
 }
 
 export interface WidgetLayout {
@@ -151,12 +214,14 @@ export interface DashboardWidget {
   type: WidgetType;
   layout: WidgetLayout;
   datasetId?: string;
-  /** v1 显式映射与聚合。 */
+  /** v2 显式映射与聚合。 */
   encode?: WidgetEncode;
-  /** v1 图表类型。 */
+  /** v2 图表类型与系列声明。 */
   chart?: DashboardChart;
   /** KPI 等组件的展示格式。 */
   format?: WidgetFormat;
+  /** 表格/透视表/KPI 的条件格式规则。 */
+  formatRules?: WidgetFormatRule[];
   echartsOption?: Record<string, any>;
   html?: string;
 }
@@ -174,9 +239,10 @@ export interface FilterPushdown {
   paramEnd?: string;
 }
 
+/** 筛选目标统一由服务端执行；client 仅为历史类型兼容。 */
 export type FilterTargetMode = 'server' | 'client';
 
-/** v1 筛选器目标：一个筛选器可同时作用于多个数据集。 */
+/** 筛选器目标：一个筛选器可同时作用于多个数据集。 */
 export interface FilterTarget {
   datasetId: string;
   /** 直接字段筛选（当前只支持客户端过滤）。 */
@@ -192,12 +258,12 @@ export interface DashboardFilter {
   label?: string;
   defaultValue?: any;
   options?: FilterOptions;
-  /** v1 筛选目标，支持多数据集与 pushdown。 */
+  /** 筛选目标，支持多数据集与 pushdown。 */
   targets: FilterTarget[];
 }
 
 export interface DashboardSpec {
-  version: 1;
+  version: 2;
   title?: string;
   description?: string;
   layout?: DashboardLayout;
@@ -217,6 +283,8 @@ export interface DatasetResult {
   numericColumns?: string[];
   affectedRows?: number;
   sql?: string;
+  /** 结果是否已由服务端完成分组聚合。 */
+  aggregated?: boolean;
   /** 结果是否因全局行数上限被截断。 */
   truncated?: boolean;
   rowLimit?: number;

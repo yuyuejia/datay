@@ -1,5 +1,5 @@
 import type { DatasetColumn } from '@/shared/dataset/types';
-import type { ChartType, DashboardWidget, WidgetEncode, WidgetType } from './types';
+import type { ChartType, DashboardWidget, WidgetEncode, WidgetEncodeDimension, WidgetType } from './types';
 
 /** 看板字段元数据：字段名、展示名称、类型以及是否数值字段。 */
 export interface DashboardField {
@@ -146,23 +146,50 @@ export function shouldGroupByCategory(type: WidgetType, chartType?: ChartType): 
   if (type !== 'echarts') {
     return false;
   }
-  return chartType === 'bar' || chartType === 'line' || chartType === 'pie' || chartType === 'area';
+  return chartType !== 'gauge' && chartType !== 'scatter' && chartType !== 'boxplot';
 }
 
-/** 从 ECharts option 中解析当前图表类型。 */
-export function resolveChartType(option?: Record<string, any>): ChartType {
+/** 从组件或 ECharts option 中解析当前图表类型。 */
+export function resolveChartType(source?: DashboardWidget | Record<string, any>): ChartType {
+  if (source && 'chart' in source && (source as DashboardWidget).chart?.type) {
+    return (source as DashboardWidget).chart!.type as ChartType;
+  }
+  const option = (source && 'echartsOption' in source ? (source as DashboardWidget).echartsOption : source) as
+    | Record<string, any>
+    | undefined;
   const series = option?.series;
   const first = Array.isArray(series) ? series[0] : series;
   if (first?.type === 'line' && first?.areaStyle) {
     return 'area';
   }
-  return first?.type === 'line' || first?.type === 'pie' || first?.type === 'bar' ? first.type : 'bar';
+  if (first?.type === 'pie' && (first?.radius || first?.avoidLabelOverlap)) {
+    return 'donut';
+  }
+  return [
+    'bar',
+    'line',
+    'area',
+    'pie',
+    'donut',
+    'gauge',
+    'scatter',
+    'radar',
+    'funnel',
+    'heatmap',
+    'treemap',
+    'waterfall',
+    'sankey',
+    'graph',
+    'boxplot',
+  ].includes(first?.type)
+    ? (first.type as ChartType)
+    : 'bar';
 }
 
 /**
  * 为新组件生成默认 encode。
  *
- * - 图表：选择默认分类字段与数值字段，并按图表类型设置 groupBy；
+ * - 图表：维度 x + 度量 y，仪表盘只保留度量；
  * - KPI：只设置默认数值字段；
  * - 表格：保留明细行，只设置 limit。
  */
@@ -179,13 +206,38 @@ export function createDefaultEncode(
   }
   if (type === 'kpi') {
     const field = pickValueField(fields) ?? '';
-    return { values: [{ field, agg: 'sum' }] };
+    return { measures: [{ field, agg: 'sum', role: 'value' }] };
   }
   const categoryField = pickCategoryField(fields) ?? '';
+  const secondCategory = pickCategoryField(fields.filter(field => field.name !== categoryField && !field.numeric));
   const valueField = pickValueField(fields, categoryField) ?? '';
+  if (type === 'pivot') {
+    const dimensions: WidgetEncodeDimension[] = [{ field: categoryField, role: 'row' }];
+    if (secondCategory && secondCategory !== categoryField) {
+      dimensions.push({ field: secondCategory, role: 'column' });
+    }
+    return {
+      dimensions,
+      measures: [{ field: valueField, agg: 'sum', role: 'value' }],
+      limit: 100,
+    };
+  }
+  if (chartType === 'gauge') {
+    return {
+      measures: [{ field: valueField, agg: 'sum', role: 'value' }],
+      limit: 100,
+      groupBy: false,
+    };
+  }
+  const dimensions: WidgetEncodeDimension[] = [{ field: categoryField, role: 'x' }];
+  if ((chartType === 'heatmap' || chartType === 'sankey' || chartType === 'graph') && secondCategory && secondCategory !== categoryField) {
+    dimensions.push({ field: secondCategory, role: 'series' });
+  }
+  const valueOnly = ['pie', 'donut', 'funnel', 'treemap', 'heatmap', 'sankey', 'graph'].includes(chartType ?? '');
+  const measureRole: 'y' | 'value' = valueOnly ? 'value' : 'y';
   return {
-    categoryField,
-    values: [{ field: valueField, agg: 'sum' }],
+    dimensions,
+    measures: [{ field: valueField, agg: 'sum', role: measureRole }],
     limit: 100,
     groupBy: shouldGroupByCategory(type, chartType),
   };
@@ -202,22 +254,74 @@ export function ensureDefaultFields(widget: DashboardWidget, fields: DashboardFi
   }
   const encode = widget.encode;
   let changed = false;
-  if (widget.type === 'echarts') {
-    if (!encode.categoryField && fields.length > 0) {
-      encode.categoryField = pickCategoryField(fields) ?? '';
-      changed = true;
+  if (widget.type === 'pivot') {
+    if (fields.length > 0) {
+      const dimensions = [...(encode.dimensions ?? [])];
+      const rowIndex = dimensions.findIndex(dimension => dimension.role === 'row');
+      if (rowIndex < 0) {
+        dimensions.push({ field: pickCategoryField(fields) ?? '', role: 'row' });
+        encode.dimensions = dimensions;
+        changed = true;
+      } else if (!dimensions[rowIndex].field) {
+        dimensions[rowIndex] = { ...dimensions[rowIndex], field: pickCategoryField(fields) ?? '' };
+        encode.dimensions = dimensions;
+        changed = true;
+      }
+      if (!encode.measures?.length) {
+        encode.measures = [{ field: pickValueField(fields) ?? '', agg: 'sum', role: 'value' }];
+        changed = true;
+      } else if (!encode.measures[0].field) {
+        encode.measures = [{ ...encode.measures[0], field: pickValueField(fields) ?? '', role: 'value' }, ...encode.measures.slice(1)];
+        changed = true;
+      }
     }
-    if (!encode.values?.[0]?.field && fields.length > 0) {
-      encode.values = [{ field: pickValueField(fields, encode.categoryField) ?? '', agg: 'sum' }];
-      changed = true;
+  } else if (widget.type === 'echarts') {
+    const chartType = resolveChartType(widget);
+    if (chartType !== 'gauge' && fields.length > 0) {
+      const dimensions = [...(encode.dimensions ?? [])];
+      const xIndex = dimensions.findIndex(dimension => dimension.role === 'x');
+      if (xIndex < 0) {
+        dimensions.push({ field: pickCategoryField(fields) ?? '', role: 'x' });
+        encode.dimensions = dimensions;
+        changed = true;
+      } else if (!dimensions[xIndex].field) {
+        dimensions[xIndex] = { ...dimensions[xIndex], field: pickCategoryField(fields) ?? '' };
+        encode.dimensions = dimensions;
+        changed = true;
+      }
+      if (
+        (chartType === 'heatmap' || chartType === 'sankey' || chartType === 'graph') &&
+        !dimensions.find(dimension => dimension.role === 'series')
+      ) {
+        const secondCategory = pickCategoryField(fields.filter(field => field.name !== dimensions[xIndex]?.field && !field.numeric));
+        if (secondCategory && secondCategory !== dimensions[xIndex]?.field) {
+          dimensions.push({ field: secondCategory, role: 'series' });
+          encode.dimensions = dimensions;
+          changed = true;
+        }
+      }
     }
-    const groupBy = shouldGroupByCategory(widget.type, resolveChartType(widget.echartsOption));
+    if (fields.length > 0) {
+      const categoryField = encode.dimensions?.find(dimension => dimension.role === 'x')?.field;
+      const role: 'y' | 'value' = chartType === 'gauge' ? 'value' : 'y';
+      if (!encode.measures?.length) {
+        encode.measures = [{ field: pickValueField(fields, categoryField) ?? '', agg: 'sum', role }];
+        changed = true;
+      } else if (!encode.measures[0].field) {
+        encode.measures = [
+          { ...encode.measures[0], field: pickValueField(fields, categoryField) ?? '', role: encode.measures[0].role ?? role },
+          ...encode.measures.slice(1),
+        ];
+        changed = true;
+      }
+    }
+    const groupBy = shouldGroupByCategory(widget.type, chartType);
     if (encode.groupBy !== groupBy) {
       encode.groupBy = groupBy;
       changed = true;
     }
-  } else if (widget.type === 'kpi' && !encode.values?.[0]?.field && fields.length > 0) {
-    encode.values = [{ field: pickValueField(fields) ?? '', agg: 'sum' }];
+  } else if (widget.type === 'kpi' && !encode.measures?.[0]?.field && fields.length > 0) {
+    encode.measures = [{ field: pickValueField(fields) ?? '', agg: 'sum', role: 'value' }];
     changed = true;
   }
   return changed;
@@ -228,8 +332,21 @@ export function hasCompleteDefaultFields(widget: DashboardWidget): boolean {
   if (!widget.encode || widget.type === 'html' || widget.type === 'table') {
     return true;
   }
-  if (widget.type === 'kpi') {
-    return !!widget.encode.values?.[0]?.field;
+  if (widget.type === 'kpi' || widget.type === 'pivot') {
+    if (widget.type === 'pivot' && !widget.encode.dimensions?.find(dimension => dimension.role === 'row')?.field) {
+      return false;
+    }
+    return !!widget.encode.measures?.[0]?.field;
   }
-  return !!widget.encode.categoryField && !!widget.encode.values?.[0]?.field;
+  const chartType = resolveChartType(widget);
+  if (chartType === 'gauge') {
+    return !!widget.encode.measures?.[0]?.field;
+  }
+  const hasX = !!widget.encode.dimensions?.find(dimension => dimension.role === 'x')?.field;
+  if (chartType === 'heatmap' || chartType === 'sankey' || chartType === 'graph') {
+    return (
+      hasX && !!widget.encode.dimensions?.find(dimension => dimension.role === 'series')?.field && !!widget.encode.measures?.[0]?.field
+    );
+  }
+  return hasX && !!widget.encode.measures?.[0]?.field;
 }

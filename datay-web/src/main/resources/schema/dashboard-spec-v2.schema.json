@@ -1,13 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://datay.local/schema/dashboard-spec-v1.schema.json",
-  "title": "DataY 分析看板 Spec v1",
-  "description": "v1 正式协议；当前只接受 version=1、widgets[].encode 与 filters[].targets。",
+  "$id": "https://datay.local/schema/dashboard-spec-v2.schema.json",
+  "title": "DataY 分析看板 Spec v2",
+  "description": "v2 正式协议；支持基础/高级图表、透视表、encode.dimensions/measures 与 filters[].targets。",
   "type": "object",
-  "required": ["version", "datasets", "widgets"],
+  "required": [
+    "version",
+    "datasets",
+    "widgets"
+  ],
   "properties": {
     "version": {
-      "const": 1
+      "const": 2
     },
     "title": {
       "type": "string",
@@ -47,7 +51,10 @@
       "type": "object",
       "properties": {
         "mode": {
-          "enum": ["standard", "screen"]
+          "enum": [
+            "standard",
+            "screen"
+          ]
         },
         "screen": {
           "type": "object",
@@ -63,10 +70,17 @@
               "maximum": 4320
             },
             "fitMode": {
-              "enum": ["contain", "stretch", "cover"]
+              "enum": [
+                "contain",
+                "stretch",
+                "cover"
+              ]
             },
             "theme": {
-              "enum": ["light", "dark"]
+              "enum": [
+                "light",
+                "dark"
+              ]
             },
             "autoRefreshSeconds": {
               "type": "integer",
@@ -84,7 +98,9 @@
     },
     "dataset": {
       "type": "object",
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -98,11 +114,17 @@
           "type": "string"
         },
         "type": {
-          "enum": ["METRIC", "SQL"]
+          "enum": [
+            "METRIC",
+            "SQL"
+          ]
         },
         "fields": {
           "description": "字段缓存；仅设计器/校验使用。",
-          "type": ["object", "string"]
+          "type": [
+            "object",
+            "string"
+          ]
         },
         "metricQuery": {
           "type": "object",
@@ -126,7 +148,11 @@
     },
     "widget": {
       "type": "object",
-      "required": ["id", "type", "layout"],
+      "required": [
+        "id",
+        "type",
+        "layout"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -137,11 +163,22 @@
           "maxLength": 200
         },
         "type": {
-          "enum": ["echarts", "table", "kpi", "html"]
+          "enum": [
+            "echarts",
+            "table",
+            "kpi",
+            "html",
+            "pivot"
+          ]
         },
         "layout": {
           "type": "object",
-          "required": ["x", "y", "w", "h"],
+          "required": [
+            "x",
+            "y",
+            "w",
+            "h"
+          ],
           "properties": {
             "x": {
               "type": "integer",
@@ -176,7 +213,46 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["bar", "line", "pie", "area", "gauge"]
+              "enum": [
+                "bar",
+                "line",
+                "area",
+                "pie",
+                "donut",
+                "gauge",
+                "scatter",
+                "radar",
+                "funnel",
+                "heatmap",
+                "treemap",
+                "waterfall",
+                "sankey",
+                "graph",
+                "boxplot"
+              ]
+            },
+            "subtype": {
+              "type": "string",
+              "enum": [
+                "grouped",
+                "stacked",
+                "stackedPercent",
+                "smooth",
+                "step"
+              ]
+            },
+            "orientation": {
+              "type": "string",
+              "enum": [
+                "vertical",
+                "horizontal"
+              ]
+            },
+            "series": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/chartSeries"
+              }
             }
           },
           "additionalProperties": true
@@ -210,6 +286,13 @@
             }
           },
           "additionalProperties": false
+        },
+        "formatRules": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/formatRule"
+          }
         }
       },
       "allOf": [
@@ -222,25 +305,36 @@
                 }
               }
             },
-            "required": ["type"]
+            "required": [
+              "type"
+            ]
           },
           "then": {
-            "required": ["datasetId"]
+            "required": [
+              "datasetId"
+            ]
           }
         },
         {
           "if": {
             "properties": {
               "type": {
-                "enum": ["echarts", "kpi"]
+                "enum": [
+                  "echarts",
+                  "kpi"
+                ]
               }
             },
-            "required": ["type"]
+            "required": [
+              "type"
+            ]
           },
           "then": {
             "anyOf": [
               {
-                "required": ["encode"]
+                "required": [
+                  "encode"
+                ]
               }
             ]
           }
@@ -251,23 +345,29 @@
     "encode": {
       "type": "object",
       "properties": {
-        "categoryField": {
-          "type": "string"
-        },
-        "values": {
+        "dimensions": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/encodeValue"
+            "$ref": "#/$defs/encodeDimension"
           }
         },
-        "seriesField": {
-          "type": ["string", "null"]
+        "measures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/encodeMeasure"
+          }
         },
         "sortField": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "sortOrder": {
-          "enum": ["asc", "desc"]
+          "enum": [
+            "asc",
+            "desc"
+          ]
         },
         "limit": {
           "type": "integer",
@@ -277,11 +377,19 @@
         "groupBy": {
           "type": "boolean"
         },
+        "transform": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transform"
+          }
+        },
         "columns": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["field"],
+            "required": [
+              "field"
+            ],
             "properties": {
               "field": {
                 "type": "string",
@@ -311,34 +419,25 @@
       },
       "additionalProperties": false
     },
-    "encodeValue": {
-      "type": "object",
-      "required": ["field", "agg"],
-      "properties": {
-        "field": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string"
-        },
-        "agg": {
-          "enum": ["sum", "avg", "min", "max", "count", "none"],
-          "default": "sum"
-        }
-      },
-      "additionalProperties": false
-    },
     "filter": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1
         },
         "type": {
-          "enum": ["dateRange", "select", "multiSelect", "input", "numberRange"]
+          "enum": [
+            "dateRange",
+            "select",
+            "multiSelect",
+            "input",
+            "numberRange"
+          ]
         },
         "label": {
           "type": "string"
@@ -359,7 +458,9 @@
     },
     "filterTarget": {
       "type": "object",
-      "required": ["datasetId"],
+      "required": [
+        "datasetId"
+      ],
       "properties": {
         "datasetId": {
           "type": "string",
@@ -369,8 +470,11 @@
           "type": "string"
         },
         "mode": {
-          "enum": ["server", "client"],
-          "default": "client"
+          "enum": [
+            "server"
+          ],
+          "default": "server",
+          "description": "所有筛选器统一由服务端执行；mode 字段保留用于兼容。"
         },
         "pushdown": {
           "$ref": "#/$defs/pushdown"
@@ -378,20 +482,31 @@
       },
       "oneOf": [
         {
-          "required": ["pushdown"]
+          "required": [
+            "pushdown"
+          ]
         },
         {
-          "required": ["field"]
+          "required": [
+            "field"
+          ]
         }
       ],
       "additionalProperties": false
     },
     "pushdown": {
       "type": "object",
-      "required": ["kind"],
+      "required": [
+        "kind"
+      ],
       "properties": {
         "kind": {
-          "enum": ["metricTime", "metricDimension", "metricFactField", "sqlParam"]
+          "enum": [
+            "metricTime",
+            "metricDimension",
+            "metricFactField",
+            "sqlParam"
+          ]
         },
         "dimensionModelCode": {
           "type": "string"
@@ -407,6 +522,178 @@
         },
         "paramEnd": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "encodeDimension": {
+      "type": "object",
+      "required": [
+        "field",
+        "role"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "x",
+            "series",
+            "row",
+            "column"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "encodeMeasure": {
+      "type": "object",
+      "required": [
+        "field",
+        "agg",
+        "role"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agg": {
+          "enum": [
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "count",
+            "none"
+          ]
+        },
+        "role": {
+          "enum": [
+            "y",
+            "value",
+            "size"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "format": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "transform": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "percentOfTotal"
+          ]
+        },
+        "measure": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "chartSeries": {
+      "type": "object",
+      "required": [
+        "measure",
+        "type"
+      ],
+      "properties": {
+        "measure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "bar",
+            "line",
+            "area"
+          ]
+        },
+        "axis": {
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "stack": {
+          "type": "string"
+        },
+        "smooth": {
+          "type": "boolean"
+        },
+        "step": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "start",
+                "middle",
+                "end"
+              ]
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formatRule": {
+      "type": "object",
+      "required": [
+        "operator",
+        "value"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "eq",
+            "neq",
+            "between"
+          ]
+        },
+        "value": {
+          "type": "number"
+        },
+        "value2": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "bold": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

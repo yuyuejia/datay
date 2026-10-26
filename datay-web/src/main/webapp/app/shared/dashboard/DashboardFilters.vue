@@ -2,7 +2,6 @@
   <div v-if="filters.length" class="dashboard-filters">
     <div v-for="filter in filters" :key="filter.id" class="dashboard-filter-item">
       <span class="dashboard-filter-label">{{ filter.label || filter.id }}</span>
-      <el-tag v-if="hasClientTarget(filter)" size="small" type="info">本地筛选</el-tag>
 
       <div v-if="filter.type === 'dateRange'" class="dashboard-filter-date-range">
         <el-date-picker
@@ -76,16 +75,13 @@
 import { onMounted, ref, watch } from 'vue';
 
 import DashboardService from './dashboard.service';
-import { distinctFieldValues } from './filter-utils';
-import type { DashboardFilter, DashboardSpec, DatasetResult, FilterValues } from './types';
+import type { DashboardFilter, DashboardSpec, FilterValues } from './types';
 
 const props = defineProps<{
   filters: DashboardFilter[];
   modelValue: FilterValues;
   dashboardId?: string;
   spec?: DashboardSpec;
-  /** 未经筛选器裁剪的原始数据集结果，用于按数据集字段生成下拉选项。 */
-  sourceData?: Record<string, DatasetResult>;
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [FilterValues] }>();
@@ -114,9 +110,6 @@ const defaultForType = (filter: DashboardFilter) => {
 };
 
 const emitChange = () => emit('update:modelValue', { ...local.value });
-
-const hasClientTarget = (filter: DashboardFilter): boolean =>
-  (filter.targets ?? []).some(target => !!target.field && target.mode !== 'server');
 
 const dateValue = (filter: DashboardFilter, key: 'start' | 'end'): string => {
   const value = local.value[filter.id];
@@ -166,13 +159,7 @@ const loadOptions = async (filter: DashboardFilter) => {
     return;
   }
   const fieldTarget = (filter.targets ?? []).find(target => target.datasetId && target.field);
-  if (fieldTarget && fieldTarget.mode !== 'server') {
-    const source = props.sourceData?.[fieldTarget.datasetId];
-    optionsMap.value[filter.id] = source ? distinctFieldValues(source, fieldTarget.field) : (filter.options?.values ?? []);
-    return;
-  }
-  const hasServerLookup =
-    fieldTarget?.mode === 'server' || (filter.targets ?? []).some(target => target.pushdown?.kind === 'metricDimension');
+  const hasServerLookup = !!fieldTarget || (filter.targets ?? []).some(target => target.pushdown?.kind === 'metricDimension');
   if (!hasServerLookup || (!props.dashboardId && !props.spec)) {
     optionsMap.value[filter.id] = filter.options?.values ?? [];
     return;
@@ -212,19 +199,6 @@ watch(
       loadOptions(filter);
     }
   },
-);
-
-// 数据集结果更新后，基于字段的去重选项需要同步刷新。
-watch(
-  () => props.sourceData,
-  () => {
-    for (const filter of props.filters) {
-      if ((filter.targets ?? []).some(target => target.field)) {
-        loadOptions(filter);
-      }
-    }
-  },
-  { deep: true },
 );
 
 onMounted(() => {

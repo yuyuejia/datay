@@ -1,6 +1,6 @@
 <template>
   <div class="data-table-widget">
-    <el-table :data="pagedRows" height="100%" size="small" border stripe>
+    <el-table :data="pagedRows" height="100%" size="small" border stripe :cell-style="cellStyleForRow">
       <el-table-column
         v-for="column in tableColumns"
         :key="column.field"
@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
+import { formatRuleStyle, resolveFormatRule } from './format-rules';
 import { applyEncodeRows } from './spec-to-option';
 import type { DashboardWidget, DatasetResult, TablePageLoader, WidgetFormat } from './types';
 
@@ -119,6 +120,14 @@ const goServerPage = async (delta: number) => {
   } finally {
     serverLoading.value = false;
   }
+};
+
+const cellStyle = (value: any, field: string): Record<string, string | number> =>
+  formatRuleStyle(resolveFormatRule(props.widget.formatRules, field, value));
+
+const cellStyleForRow = ({ row, column }: { row: Record<string, any>; column: { property?: string } }) => {
+  const field = column.property;
+  return field ? cellStyle(row[field], field) : {};
 };
 
 const formatCell = (value: any, format?: WidgetFormat): string => {

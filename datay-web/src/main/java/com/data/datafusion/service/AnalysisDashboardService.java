@@ -35,17 +35,20 @@ public class AnalysisDashboardService {
     private final AnalysisDashboardMapper mapper;
     private final DashboardSpecValidator specValidator;
     private final DashboardDimensionValidator dimensionValidator;
+    private final DashboardDataService dashboardDataService;
 
     public AnalysisDashboardService(
         AnalysisDashboardRepository repository,
         AnalysisDashboardMapper mapper,
         DashboardSpecValidator specValidator,
-        DashboardDimensionValidator dimensionValidator
+        DashboardDimensionValidator dimensionValidator,
+        DashboardDataService dashboardDataService
     ) {
         this.repository = repository;
         this.mapper = mapper;
         this.specValidator = specValidator;
         this.dimensionValidator = dimensionValidator;
+        this.dashboardDataService = dashboardDataService;
     }
 
     public AnalysisDashboardDTO save(AnalysisDashboardDTO dto) {
@@ -62,6 +65,7 @@ public class AnalysisDashboardService {
         }
         dto.setSpec(normalizeSpec(dto.getSpec()));
         AnalysisDashboard entity = repository.save(mapper.toEntity(dto));
+        dashboardDataService.evictDashboardCache(entity.getId());
         return mapper.toDto(entity);
     }
 
@@ -81,6 +85,7 @@ public class AnalysisDashboardService {
                 }
                 dto.setSpec(normalizeSpec(dto.getSpec()));
                 AnalysisDashboard entity = repository.save(mapper.toEntity(dto));
+                dashboardDataService.evictDashboardCache(id);
                 return mapper.toDto(entity);
             });
     }
@@ -106,6 +111,7 @@ public class AnalysisDashboardService {
 
     public void delete(String id) {
         LOG.debug("Request to delete AnalysisDashboard : {}", id);
+        dashboardDataService.evictDashboardCache(id);
         repository.deleteById(id);
     }
 

@@ -678,10 +678,11 @@
             },
             "datasetId": "ds_store_sales",
             "encode": {
-              "values": [
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
               ]
             }
@@ -698,10 +699,11 @@
             },
             "datasetId": "ds_store_sales",
             "encode": {
-              "values": [
+              "measures": [
                 {
                   "field": "order_count",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
               ]
             }
@@ -726,37 +728,76 @@
               },
               "grid": {
                 "left": 56,
-                "right": 24,
+                "right": 56,
                 "top": 40,
                 "bottom": 36
               },
               "xAxis": {
                 "type": "category"
               },
-              "yAxis": {
-                "type": "value"
-              },
+              "yAxis": [
+                {
+                  "type": "value",
+                  "name": "销售额"
+                },
+                {
+                  "type": "value",
+                  "name": "订单数"
+                }
+              ],
               "series": [
                 {
                   "type": "bar",
                   "name": "销售额",
                   "barMaxWidth": 36
+                },
+                {
+                  "type": "line",
+                  "name": "订单数",
+                  "smooth": true
                 }
               ]
             },
             "encode": {
-              "categoryField": "month_name",
-              "limit": 100,
-              "groupBy": true,
-              "values": [
+              "dimensions": [
+                {
+                  "field": "month_name",
+                  "role": "x"
+                }
+              ],
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "y"
+                },
+                {
+                  "field": "order_count",
+                  "agg": "sum",
+                  "role": "y"
                 }
-              ]
+              ],
+              "limit": 100,
+              "groupBy": true
             },
             "chart": {
-              "type": "bar"
+              "type": "bar",
+              "subtype": "grouped",
+              "orientation": "vertical",
+              "series": [
+                {
+                  "measure": "sales_amount",
+                  "type": "bar",
+                  "axis": "left",
+                  "name": "销售额"
+                },
+                {
+                  "measure": "order_count",
+                  "type": "line",
+                  "axis": "right",
+                  "name": "订单数"
+                }
+              ]
             }
           },
           {
@@ -781,23 +822,32 @@
                 {
                   "type": "pie",
                   "name": "销售额",
-                  "radius": ["40%", "68%"]
+                  "radius": [
+                    "42%",
+                    "68%"
+                  ]
                 }
               ]
             },
             "encode": {
-              "categoryField": "store_name",
-              "limit": 20,
-              "groupBy": true,
-              "values": [
+              "dimensions": [
+                {
+                  "field": "store_name",
+                  "role": "x"
+                }
+              ],
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
-              ]
+              ],
+              "limit": 20,
+              "groupBy": true
             },
             "chart": {
-              "type": "pie"
+              "type": "donut"
             }
           },
           {
@@ -814,6 +864,137 @@
             "encode": {
               "limit": 100
             }
+          },
+          {
+            "id": "pivot_store_month",
+            "title": "门店月度销售透视",
+            "type": "pivot",
+            "layout": {
+              "x": 0,
+              "y": 20,
+              "w": 24,
+              "h": 8
+            },
+            "datasetId": "ds_store_sales",
+            "encode": {
+              "dimensions": [
+                {
+                  "field": "store_name",
+                  "role": "row"
+                },
+                {
+                  "field": "month_name",
+                  "role": "column"
+                }
+              ],
+              "measures": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum",
+                  "role": "value"
+                }
+              ],
+              "limit": 100
+            }
+          },
+          {
+            "id": "chart_city_waterfall",
+            "title": "城市销售瀑布",
+            "type": "echarts",
+            "layout": {
+              "x": 0,
+              "y": 28,
+              "w": 12,
+              "h": 8
+            },
+            "datasetId": "ds_store_sales",
+            "encode": {
+              "dimensions": [
+                {
+                  "field": "city",
+                  "role": "x"
+                }
+              ],
+              "measures": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum",
+                  "role": "y"
+                }
+              ],
+              "groupBy": true,
+              "limit": 100
+            },
+            "chart": {
+              "type": "waterfall"
+            },
+            "echartsOption": {
+              "tooltip": {
+                "trigger": "axis"
+              },
+              "legend": {
+                "top": 0
+              },
+              "xAxis": {
+                "type": "category"
+              },
+              "yAxis": {
+                "type": "value"
+              },
+              "series": [
+                {
+                  "type": "bar"
+                }
+              ]
+            }
+          },
+          {
+            "id": "chart_city_boxplot",
+            "title": "城市销售分布",
+            "type": "echarts",
+            "layout": {
+              "x": 12,
+              "y": 28,
+              "w": 12,
+              "h": 8
+            },
+            "datasetId": "ds_store_sales",
+            "encode": {
+              "dimensions": [
+                {
+                  "field": "city",
+                  "role": "x"
+                }
+              ],
+              "measures": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum",
+                  "role": "y"
+                }
+              ],
+              "groupBy": false,
+              "limit": 1000
+            },
+            "chart": {
+              "type": "boxplot"
+            },
+            "echartsOption": {
+              "tooltip": {
+                "trigger": "item"
+              },
+              "xAxis": {
+                "type": "category"
+              },
+              "yAxis": {
+                "type": "value"
+              },
+              "series": [
+                {
+                  "type": "boxplot"
+                }
+              ]
+            }
           }
         ],
         "filters": [
@@ -823,7 +1004,13 @@
             "label": "门店",
             "options": {
               "mode": "static",
-              "values": ["北京朝阳大悦城店", "上海南京东路店", "广州天河城店", "成都春熙路店", "杭州湖滨银泰店"]
+              "values": [
+                "北京朝阳大悦城店",
+                "上海南京东路店",
+                "广州天河城店",
+                "成都春熙路店",
+                "杭州湖滨银泰店"
+              ]
             },
             "targets": [
               {
@@ -837,7 +1024,7 @@
             ]
           }
         ],
-        "version": 1
+        "version": 2
       }
     },
     {
@@ -889,10 +1076,11 @@
             },
             "datasetId": "ds_store_sales",
             "encode": {
-              "values": [
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
               ]
             }
@@ -909,10 +1097,11 @@
             },
             "datasetId": "ds_store_sales",
             "encode": {
-              "values": [
+              "measures": [
                 {
                   "field": "order_count",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
               ]
             }
@@ -937,37 +1126,76 @@
               },
               "grid": {
                 "left": 56,
-                "right": 24,
+                "right": 56,
                 "top": 40,
                 "bottom": 36
               },
               "xAxis": {
                 "type": "category"
               },
-              "yAxis": {
-                "type": "value"
-              },
+              "yAxis": [
+                {
+                  "type": "value",
+                  "name": "销售额"
+                },
+                {
+                  "type": "value",
+                  "name": "订单数"
+                }
+              ],
               "series": [
                 {
                   "type": "bar",
                   "name": "销售额",
                   "barMaxWidth": 36
+                },
+                {
+                  "type": "line",
+                  "name": "订单数",
+                  "smooth": true
                 }
               ]
             },
             "encode": {
-              "categoryField": "month_name",
-              "limit": 100,
-              "groupBy": true,
-              "values": [
+              "dimensions": [
+                {
+                  "field": "month_name",
+                  "role": "x"
+                }
+              ],
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "y"
+                },
+                {
+                  "field": "order_count",
+                  "agg": "sum",
+                  "role": "y"
                 }
-              ]
+              ],
+              "limit": 100,
+              "groupBy": true
             },
             "chart": {
-              "type": "bar"
+              "type": "bar",
+              "subtype": "grouped",
+              "orientation": "vertical",
+              "series": [
+                {
+                  "measure": "sales_amount",
+                  "type": "bar",
+                  "axis": "left",
+                  "name": "销售额"
+                },
+                {
+                  "measure": "order_count",
+                  "type": "line",
+                  "axis": "right",
+                  "name": "订单数"
+                }
+              ]
             }
           },
           {
@@ -992,23 +1220,32 @@
                 {
                   "type": "pie",
                   "name": "销售额",
-                  "radius": ["40%", "68%"]
+                  "radius": [
+                    "42%",
+                    "68%"
+                  ]
                 }
               ]
             },
             "encode": {
-              "categoryField": "store_name",
-              "limit": 20,
-              "groupBy": true,
-              "values": [
+              "dimensions": [
+                {
+                  "field": "store_name",
+                  "role": "x"
+                }
+              ],
+              "measures": [
                 {
                   "field": "sales_amount",
-                  "agg": "sum"
+                  "agg": "sum",
+                  "role": "value"
                 }
-              ]
+              ],
+              "limit": 20,
+              "groupBy": true
             },
             "chart": {
-              "type": "pie"
+              "type": "donut"
             }
           },
           {
@@ -1028,7 +1265,7 @@
           }
         ],
         "filters": [],
-        "version": 1
+        "version": 2
       }
     }
   ],

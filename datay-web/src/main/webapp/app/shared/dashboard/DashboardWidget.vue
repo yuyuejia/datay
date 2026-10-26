@@ -20,6 +20,7 @@
         :page-loader="pageLoader"
         :page-reset-key="pageResetKey"
       />
+      <PivotWidget v-else-if="widget.type === 'pivot'" :widget="widget" :result="result" />
       <HtmlWidget v-else-if="widget.type === 'html'" :widget="widget" />
       <div v-else class="dashboard-widget-empty">不支持的组件类型：{{ widget.type }}</div>
     </div>
@@ -33,6 +34,7 @@ import DataTableWidget from './DataTableWidget.vue';
 import EChart from './EChart.vue';
 import HtmlWidget from './HtmlWidget.vue';
 import KpiWidget from './KpiWidget.vue';
+import PivotWidget from './PivotWidget.vue';
 import { buildEchartsOption } from './spec-to-option';
 import type { DashboardTheme, DashboardWidget, DatasetResult, TablePageLoader } from './types';
 

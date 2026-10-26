@@ -85,6 +85,50 @@ class DashboardDesignAssistantTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void shouldRepairCommonAiWidgetMistakes() {
+        Map<String, Object> legacyEncode = new LinkedHashMap<>();
+        legacyEncode.put("categoryField", "region");
+        legacyEncode.put("values", List.of(Map.of("field", "amount", "agg", "sum")));
+        Map<String, Object> chartWidget = new LinkedHashMap<>();
+        chartWidget.put("id", "w1");
+        chartWidget.put("type", "echarts");
+        chartWidget.put("encode", legacyEncode);
+        chartWidget.put("echartsOption", Map.of("series", List.of(Map.of("type", "line", "areaStyle", Map.of()))));
+
+        Map<String, Object> pivotWidget = new LinkedHashMap<>();
+        pivotWidget.put("id", "p1");
+        pivotWidget.put("type", "pivot");
+        pivotWidget.put(
+            "encode",
+            Map.of(
+                "dimensions",
+                List.of(Map.of("field", "region", "role", "x"), Map.of("field", "channel", "role", "series")),
+                "measures",
+                List.of(Map.of("field", "amount", "agg", "sum", "role", "value"))
+            )
+        );
+        Map<String, Object> spec = specWithDataset(Map.of("id", "ds1", "refId", "existing-id"));
+        spec.put("widgets", List.of(chartWidget, pivotWidget));
+
+        Map<String, Object> processed = assistant.postProcessSpec(spec, Map.of());
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) processed.get("widgets");
+
+        Map<String, Object> repairedChart = widgets.get(0);
+        assertThat((Map<String, Object>) repairedChart.get("chart")).containsEntry("type", "area");
+        Map<String, Object> encode = (Map<String, Object>) repairedChart.get("encode");
+        assertThat(encode).doesNotContainKeys("categoryField", "values");
+        assertThat(encode.get("dimensions")).asList().containsExactly(Map.of("field", "region", "role", "x"));
+        assertThat(encode.get("measures")).asList().containsExactly(Map.of("field", "amount", "agg", "sum", "role", "y"));
+
+        Map<String, Object> repairedPivot = widgets.get(1);
+        Map<String, Object> pivotEncode = (Map<String, Object>) repairedPivot.get("encode");
+        assertThat(pivotEncode.get("dimensions"))
+            .asList()
+            .containsExactly(Map.of("field", "region", "role", "row"), Map.of("field", "channel", "role", "column"));
+    }
+
+    @Test
     void shouldExposeDatasetPreparationToolsAndRequireRefIds() {
         assertThat(assistant.toolNames()).contains("list_analysis_datasets", "prepare_metric_dataset");
         String prompt = assistant.buildSystemPrompt(new AiAssistantContext(null, "生成销售看板"));
@@ -93,6 +137,8 @@ class DashboardDesignAssistantTest {
             .contains("prepare_metric_dataset")
             .contains("禁止内嵌 metricQuery")
             .contains("一个看板默认只使用一个指标数据集")
+            .contains("生成后请自检")
+            .contains("透视表必须有 role=row")
             .contains("refId");
     }
 

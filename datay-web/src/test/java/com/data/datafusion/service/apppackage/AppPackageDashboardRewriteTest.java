@@ -12,12 +12,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * 资产包导入时 v1 看板 refId 重写回归。
+ * 资产包导入时 v2 看板 refId 重写回归。
  */
 class AppPackageDashboardRewriteTest {
 
     @Test
-    void shouldRewriteRefIdAndKeepV1EncodeAndTargets() throws Exception {
+    void shouldRewriteRefIdAndKeepV2EncodeAndTargets() throws Exception {
         AppPackageImportService service = new AppPackageImportService(
             null,
             null,
@@ -40,7 +40,7 @@ class AppPackageDashboardRewriteTest {
         JsonNode spec = objectMapper.readTree(
             """
             {
-              "version": 1,
+              "version": 2,
               "datasets": [ { "id": "ds1", "refId": "9600", "type": "SQL" } ],
               "widgets": [
                 {
@@ -79,7 +79,7 @@ class AppPackageDashboardRewriteTest {
         );
 
         assertThat(rewritten).isNotNull();
-        assertThat(rewritten.path("version").asInt()).isEqualTo(1);
+        assertThat(rewritten.path("version").asInt()).isEqualTo(2);
         assertThat(rewritten.path("datasets").get(0).path("refId").asText()).isEqualTo("new-dataset-id");
         assertThat(rewritten.path("widgets").get(0).path("encode").path("pageSize").asInt()).isEqualTo(20);
         assertThat(rewritten.path("filters").get(0).path("targets").get(0).path("field").asText()).isEqualTo("store_name");

@@ -40,7 +40,6 @@
               :model-value="filterValues"
               :dashboard-id="dashboardId"
               :spec="spec"
-              :source-data="rawDatasetData"
               @update:model-value="onFiltersChange"
             />
           </div>
@@ -75,7 +74,6 @@
           :model-value="filterValues"
           :dashboard-id="dashboardId"
           :spec="spec"
-          :source-data="rawDatasetData"
           @update:model-value="onFiltersChange"
         />
         <DashboardCanvas
@@ -155,7 +153,6 @@ const brandTitle = computed(() => spec.value?.title || dashboardName.value || 'å
 
 const {
   datasetData,
-  rawDatasetData,
   widgetData,
   loadingDatasets,
   datasetErrors,

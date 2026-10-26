@@ -102,12 +102,12 @@ class AppPackagePresetTest {
 
 
     @Test
-    void presetDashboardsUseVersion1Spec() throws IOException {
+    void presetDashboardsUseVersion2Spec() throws IOException {
         for (String file : PRESET_FILES) {
             AppPackageContent content = load(file);
             for (var dashboard : content.getDashboards()) {
                 JsonNode spec = dashboard.spec;
-                assertThat(spec.path("version").asInt()).as(file + ": " + dashboard.code).isEqualTo(1);
+                assertThat(spec.path("version").asInt()).as(file + ": " + dashboard.code).isEqualTo(2);
                 assertThat(spec.has("dataRef")).isFalse();
                 for (JsonNode dataset : spec.path("datasets")) {
                     assertThat(dataset.has("dataRef")).isFalse();
@@ -115,12 +115,19 @@ class AppPackagePresetTest {
                 for (JsonNode widget : spec.path("widgets")) {
                     assertThat(widget.has("dataRef")).as(file + ": " + dashboard.code).isFalse();
                     String type = widget.path("type").asText();
-                    if ("echarts".equals(type) || "kpi".equals(type)) {
-                        JsonNode values = widget.path("encode").path("values");
-                        assertThat(values.isArray() && !values.isEmpty()).as(file + ": " + dashboard.code + " " + widget.path("id").asText()).isTrue();
-                        for (JsonNode value : values) {
-                            assertThat(value.path("agg").asText()).isNotBlank();
+                    if ("echarts".equals(type) || "kpi".equals(type) || "pivot".equals(type)) {
+                        JsonNode measures = widget.path("encode").path("measures");
+                        assertThat(measures.isArray() && !measures.isEmpty()).as(file + ": " + dashboard.code + " " + widget.path("id").asText()).isTrue();
+                        for (JsonNode measure : measures) {
+                            assertThat(measure.path("agg").asText()).isNotBlank();
+                            assertThat(measure.path("role").asText()).isNotBlank();
                         }
+                    }
+                    if ("echarts".equals(type)) {
+                        assertThat(widget.path("chart").path("type").asText()).isNotBlank();
+                    }
+                    if ("pivot".equals(type)) {
+                        assertThat(widget.path("encode").path("dimensions").isArray()).isTrue();
                     }
                 }
                 for (JsonNode filter : spec.path("filters")) {

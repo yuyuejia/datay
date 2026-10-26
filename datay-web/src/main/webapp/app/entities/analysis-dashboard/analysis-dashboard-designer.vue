@@ -181,7 +181,6 @@
             :filters="spec.filters || []"
             :model-value="filterValues"
             :spec="spec"
-            :source-data="rawDatasetData"
             @update:model-value="onFiltersChange"
           />
           <div v-else class="designer-preview-filters-empty">
@@ -389,9 +388,44 @@
                   <el-select :model-value="chartType" @update:model-value="setChartType">
                     <el-option value="bar" label="柱状图" />
                     <el-option value="line" label="折线图" />
-                    <el-option value="pie" label="饼图" />
                     <el-option value="area" label="面积图" />
+                    <el-option value="pie" label="饼图" />
+                    <el-option value="donut" label="环形图" />
+                    <el-option value="gauge" label="仪表盘" />
+                    <el-option value="scatter" label="散点图" />
+                    <el-option value="radar" label="雷达图" />
+                    <el-option value="funnel" label="漏斗图" />
+                    <el-option value="heatmap" label="热力图" />
+                    <el-option value="treemap" label="矩形树图" />
+                    <el-option value="waterfall" label="瀑布图" />
+                    <el-option value="sankey" label="桑基图" />
+                    <el-option value="graph" label="关系图" />
+                    <el-option value="boxplot" label="箱线图" />
                   </el-select>
+
+                  <template v-if="chartSubtypeOptions.length > 0">
+                    <label>样式</label>
+                    <el-select v-model="chartSubtype" @change="commitHistory">
+                      <el-option v-for="option in chartSubtypeOptions" :key="option.value" :value="option.value" :label="option.label" />
+                    </el-select>
+                  </template>
+
+                  <template v-if="chartType === 'bar'">
+                    <label>方向</label>
+                    <el-select v-model="chartOrientation" @change="commitHistory">
+                      <el-option value="vertical" label="纵向" />
+                      <el-option value="horizontal" label="横向" />
+                    </el-select>
+                    <el-checkbox
+                      v-model="chartCombo"
+                      class="designer-chart-option"
+                      :disabled="widgetValueFields.length < 2"
+                      @change="commitHistory"
+                    >
+                      双轴组合（首个度量柱状，其余折线）
+                    </el-checkbox>
+                    <div v-if="widgetValueFields.length < 2" class="designer-hint">添加至少两个度量后可启用双轴组合。</div>
+                  </template>
 
                   <label>图表选项</label>
                   <div class="designer-chart-options">
@@ -408,15 +442,9 @@
                   </div>
 
                   <template v-if="selectedWidget.encode">
-                    <template v-if="chartType === 'pie'">
+                    <template v-if="['pie', 'donut', 'funnel', 'treemap'].includes(chartType)">
                       <label>分类字段</label>
-                      <el-select
-                        v-model="selectedWidget.encode.categoryField"
-                        clearable
-                        filterable
-                        allow-create
-                        placeholder="选择或输入分类字段"
-                      >
+                      <el-select v-model="widgetCategoryField" clearable filterable allow-create placeholder="选择或输入分类字段">
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
 
@@ -429,7 +457,30 @@
                           :value="field.name"
                         />
                       </el-select>
-                      <div class="designer-hint">饼图按分类字段分区，数值字段决定扇区大小；不绘制坐标轴。</div>
+                      <div class="designer-hint">饼图/环形图/漏斗图/矩形树图按分类字段展开，数值字段决定面积大小；不绘制坐标轴。</div>
+
+                      <label>聚合方式</label>
+                      <el-select v-model="widgetAggregation">
+                        <el-option value="sum" label="求和 sum" />
+                        <el-option value="avg" label="平均 avg" />
+                        <el-option value="min" label="最小 min" />
+                        <el-option value="max" label="最大 max" />
+                        <el-option value="count" label="计数 count" />
+                        <el-option value="none" label="不聚合 none" />
+                      </el-select>
+                    </template>
+
+                    <template v-else-if="chartType === 'gauge'">
+                      <label>数值字段</label>
+                      <el-select v-model="widgetPrimaryValueField" clearable filterable allow-create placeholder="选择或输入数值字段">
+                        <el-option
+                          v-for="field in widgetValueFieldOptions"
+                          :key="field.name"
+                          :label="field.label || field.name"
+                          :value="field.name"
+                        />
+                      </el-select>
+                      <div class="designer-hint">仪表盘对数值字段聚合后展示单值，不绘制坐标轴。</div>
 
                       <label>聚合方式</label>
                       <el-select v-model="widgetAggregation">
@@ -443,13 +494,82 @@
                     </template>
 
                     <template v-else>
-                      <label>横轴字段（X 轴）</label>
-                      <el-select v-model="selectedWidget.encode.categoryField" clearable filterable allow-create placeholder="选择分类字段">
+                      <label>{{
+                        chartType === 'radar'
+                          ? '维度 / 指标项'
+                          : chartType === 'heatmap'
+                            ? 'X 轴字段（列）'
+                            : chartType === 'sankey' || chartType === 'graph'
+                              ? '源节点字段'
+                              : chartType === 'boxplot'
+                                ? '分类字段'
+                                : chartType === 'waterfall'
+                                  ? '阶段 / 分类字段'
+                                  : '横轴字段（X 轴）'
+                      }}</label>
+                      <el-select v-model="widgetCategoryField" clearable filterable allow-create placeholder="选择分类字段">
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
-                      <div class="designer-hint">ECharts category 轴使用单个分类字段。</div>
+                      <div v-if="chartType === 'heatmap'" class="designer-hint">热力图需要 X 轴与系列字段分别表示列和行。</div>
+                      <div v-else-if="chartType === 'sankey' || chartType === 'graph'" class="designer-hint">
+                        桑基图/关系图需要源节点字段与目标节点字段，数值字段作为连线权重。
+                      </div>
+                      <div v-else-if="chartType === 'radar'" class="designer-hint">
+                        雷达图按该维度生成指标轴，每个度量生成一条雷达系列。
+                      </div>
+                      <div v-else-if="chartType === 'boxplot'" class="designer-hint">箱线图按分类字段对数值字段的原始明细计算四分位。</div>
+                      <div v-else class="designer-hint">ECharts category 轴使用单个分类字段。</div>
 
-                      <label>纵轴字段（Y 轴）</label>
+                      <template v-if="chartType !== 'radar' && chartType !== 'boxplot' && chartType !== 'waterfall'">
+                        <label>{{
+                          chartType === 'heatmap'
+                            ? 'Y 轴字段（行）'
+                            : chartType === 'sankey' || chartType === 'graph'
+                              ? '目标节点字段'
+                              : '系列字段（可选）'
+                        }}</label>
+                        <el-select
+                          v-model="widgetSeriesField"
+                          :clearable="!['heatmap', 'sankey', 'graph'].includes(chartType)"
+                          filterable
+                          allow-create
+                          :placeholder="
+                            chartType === 'heatmap'
+                              ? '选择热力图行字段'
+                              : chartType === 'sankey' || chartType === 'graph'
+                                ? '选择目标节点字段'
+                                : '不拆分系列'
+                          "
+                        >
+                          <el-option
+                            v-for="field in widgetFields"
+                            :key="field.name"
+                            :label="field.label || field.name"
+                            :value="field.name"
+                          />
+                        </el-select>
+                        <div class="designer-hint">
+                          {{
+                            chartType === 'heatmap'
+                              ? '热力图的 Y 轴字段，用于按行展开。'
+                              : chartType === 'sankey' || chartType === 'graph'
+                                ? '连线从源节点指向目标节点；节点自动去重。'
+                                : '选择后按该字段拆分为多条系列，常用于多系列柱/折线图。'
+                          }}
+                        </div>
+                      </template>
+
+                      <label>{{
+                        chartType === 'radar'
+                          ? '指标系列（可多选）'
+                          : chartType === 'heatmap' || chartType === 'sankey' || chartType === 'graph'
+                            ? '数值字段（取第一个）'
+                            : chartType === 'boxplot'
+                              ? '分布数值字段'
+                              : chartType === 'waterfall'
+                                ? '增减值字段'
+                                : '纵轴字段（Y 轴）'
+                      }}</label>
                       <el-select
                         v-model="widgetValueFields"
                         multiple
@@ -468,15 +588,28 @@
                       </el-select>
                       <div class="designer-hint">支持多个数值字段；多个字段会自动生成多条系列。</div>
 
+                      <template v-if="chartType === 'scatter'">
+                        <label>点大小字段（可选）</label>
+                        <el-select v-model="widgetSizeField" clearable filterable allow-create placeholder="不映射点大小">
+                          <el-option
+                            v-for="field in widgetValueFieldOptions"
+                            :key="field.name"
+                            :label="field.label || field.name"
+                            :value="field.name"
+                          />
+                        </el-select>
+                        <div class="designer-hint">按数值大小映射散点符号大小。</div>
+                      </template>
+
                       <label>数值字段聚合方式</label>
-                      <div v-if="selectedWidget.encode.values?.length" class="designer-value-agg-list">
+                      <div v-if="selectedWidget.encode.measures?.length" class="designer-value-agg-list">
                         <div
-                          v-for="(value, index) in selectedWidget.encode.values"
-                          :key="`${value.field}-${index}`"
+                          v-for="(measure, index) in selectedWidget.encode.measures"
+                          :key="`${measure.field}-${index}`"
                           class="designer-value-agg-row"
                         >
-                          <span class="designer-value-agg-field">{{ value.name || value.field || `字段 ${index + 1}` }}</span>
-                          <el-select v-model="value.agg" size="small" @change="commitHistory">
+                          <span class="designer-value-agg-field">{{ measure.name || measure.field || `字段 ${index + 1}` }}</span>
+                          <el-select v-model="measure.agg" size="small" @change="commitHistory">
                             <el-option value="sum" label="求和 sum" />
                             <el-option value="avg" label="平均 avg" />
                             <el-option value="min" label="最小 min" />
@@ -562,6 +695,61 @@
                   <div class="designer-hint">明细表展示数据集列，可配置排序、返回行数上限和显示列。</div>
                 </template>
 
+                <template v-else-if="selectedWidget.type === 'pivot'">
+                  <template v-if="selectedWidget.encode">
+                    <label>行维度</label>
+                    <el-select v-model="widgetRowField" clearable filterable allow-create placeholder="选择行维度">
+                      <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                    </el-select>
+
+                    <label>列维度（可选）</label>
+                    <el-select v-model="widgetColumnField" clearable filterable allow-create placeholder="不展开列">
+                      <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                    </el-select>
+                    <div class="designer-hint">按行维度分组，列维度横向展开；数值字段聚合后展示在交叉单元格。</div>
+
+                    <label>数值字段</label>
+                    <el-select
+                      v-model="widgetValueFields"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      filterable
+                      allow-create
+                      placeholder="可选择一个或多个数值字段"
+                    >
+                      <el-option
+                        v-for="field in widgetValueFieldOptions"
+                        :key="field.name"
+                        :label="field.label || field.name"
+                        :value="field.name"
+                      />
+                    </el-select>
+
+                    <label>数值字段聚合方式</label>
+                    <div v-if="selectedWidget.encode.measures?.length" class="designer-value-agg-list">
+                      <div
+                        v-for="(measure, index) in selectedWidget.encode.measures"
+                        :key="`${measure.field}-${index}`"
+                        class="designer-value-agg-row"
+                      >
+                        <span class="designer-value-agg-field">{{ measure.name || measure.field || `字段 ${index + 1}` }}</span>
+                        <el-select v-model="measure.agg" size="small" @change="commitHistory">
+                          <el-option value="sum" label="求和 sum" />
+                          <el-option value="avg" label="平均 avg" />
+                          <el-option value="min" label="最小 min" />
+                          <el-option value="max" label="最大 max" />
+                          <el-option value="count" label="计数 count" />
+                          <el-option value="none" label="不聚合 none" />
+                        </el-select>
+                      </div>
+                    </div>
+
+                    <label>返回行数上限</label>
+                    <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
+                  </template>
+                </template>
+
                 <template v-else-if="selectedWidget.type === 'kpi'">
                   <template v-if="selectedWidget.encode">
                     <label>数值字段</label>
@@ -590,6 +778,34 @@
                   <label>HTML 内容</label>
                   <el-input v-model="selectedWidget.html" type="textarea" :rows="10" spellcheck="false" />
                   <div class="designer-hint">说明文本不绑定数据集，内容会经过安全过滤后展示。</div>
+                </template>
+
+                <template v-if="['table', 'pivot', 'kpi'].includes(selectedWidget.type)">
+                  <label>条件格式</label>
+                  <div v-if="selectedWidget.formatRules?.length" class="designer-format-rule-list">
+                    <div v-for="(rule, index) in selectedWidget.formatRules" :key="rule.id || index" class="designer-format-rule">
+                      <el-select v-model="rule.field" clearable placeholder="全部数值" style="flex: 1; min-width: 110px">
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                      </el-select>
+                      <el-select v-model="rule.operator" style="width: 96px">
+                        <el-option value="gt" label="大于" />
+                        <el-option value="gte" label="大于等于" />
+                        <el-option value="lt" label="小于" />
+                        <el-option value="lte" label="小于等于" />
+                        <el-option value="eq" label="等于" />
+                        <el-option value="neq" label="不等于" />
+                        <el-option value="between" label="介于" />
+                      </el-select>
+                      <el-input-number v-model="rule.value" :controls="false" style="width: 82px" />
+                      <el-input-number v-if="rule.operator === 'between'" v-model="rule.value2" :controls="false" style="width: 82px" />
+                      <el-color-picker v-model="rule.color" size="small" title="文字颜色" />
+                      <el-color-picker v-model="rule.background" size="small" title="背景色" />
+                      <el-checkbox v-model="rule.bold">加粗</el-checkbox>
+                      <el-button link type="danger" @click="removeFormatRule(index)">删除</el-button>
+                    </div>
+                  </div>
+                  <el-button size="small" @click="addFormatRule">添加条件格式</el-button>
+                  <div class="designer-hint">按数值条件设置文字颜色、背景色或加粗；字段为空时对全部数值单元格生效。</div>
                 </template>
               </div>
             </el-tab-pane>
@@ -1355,6 +1571,27 @@
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.designer-format-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.designer-format-rule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.designer-format-rule :deep(.el-checkbox__label) {
+  padding-left: 4px;
+  font-size: 12px;
 }
 
 .designer-property-empty {

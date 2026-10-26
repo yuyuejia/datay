@@ -62,7 +62,7 @@ public class DashboardDimensionValidator {
         if (targets.isEmpty()) {
             return false;
         }
-        // 直接字段筛选由前端基于数据集结果处理，不依赖维度模型。
+        // 直接字段筛选由服务端基于数据集字段/指标维度执行，不依赖维度模型清洗。
         if (targets.stream().anyMatch(target -> {
             String field = asString(target.get("field"));
             return field != null && !field.isBlank();

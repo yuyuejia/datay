@@ -90,6 +90,7 @@ type DesignerVm = {
       datasetId?: string;
       encode?: any;
       echartsOption?: any;
+      formatRules?: any[];
       html?: string;
       layout: WidgetLayout;
     }>;
@@ -103,11 +104,19 @@ type DesignerVm = {
   customOptionText: string;
   customOptionError: string;
   widgetValueFields: string[];
+  chartType: string;
+  chartSubtype: string;
+  chartOrientation: string;
+  chartCombo: boolean;
+  hasChartAxes: boolean;
+  setChartType: (type: string) => void;
   chartLegendVisible: boolean;
   chartDataLabelVisible: boolean;
   chartAxesVisible: boolean;
   chartGridLinesVisible: boolean;
   addWidget: (type: string, chartType?: string) => void;
+  addFormatRule: () => void;
+  removeFormatRule: (index: number) => void;
   applyCustomOption: () => void;
   resetCustomOption: () => void;
   addFilter: () => void;
@@ -184,7 +193,12 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(pie.datasetId).toBe('ds1');
     expect(pie.layout.w).toBe(8);
     expect(pie.layout.h).toBe(8);
-    expect(pie.encode).toEqual({ categoryField: '', values: [{ field: '', agg: 'sum' }], limit: 100, groupBy: true });
+    expect(pie.encode).toEqual({
+      dimensions: [{ field: '', role: 'x' }],
+      measures: [{ field: '', agg: 'sum', role: 'value' }],
+      limit: 100,
+      groupBy: true,
+    });
     expect(pie.echartsOption.series[0].type).toBe('pie');
     expect(pie.echartsOption.xAxis).toBeUndefined();
     expect(pie.echartsOption.yAxis).toBeUndefined();
@@ -192,7 +206,7 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(kpi.datasetId).toBe('ds1');
     expect(kpi.layout.w).toBe(6);
     expect(kpi.layout.h).toBe(4);
-    expect(kpi.encode).toEqual({ values: [{ field: '', agg: 'sum' }] });
+    expect(kpi.encode).toEqual({ measures: [{ field: '', agg: 'sum', role: 'value' }] });
 
     expect(table.datasetId).toBe('ds1');
     expect(table.layout.w).toBe(12);
@@ -387,8 +401,8 @@ describe('AnalysisDashboardDesigner history', () => {
     await vm.$nextTick();
 
     expect(vm.spec.widgets[0].encode).toEqual({
-      categoryField: 'region',
-      values: [{ field: 'amount', agg: 'sum' }],
+      dimensions: [{ field: 'region', role: 'x' }],
+      measures: [{ field: 'amount', agg: 'sum', role: 'y' }],
       limit: 100,
       groupBy: true,
     });
@@ -399,7 +413,10 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addWidget('echarts', 'bar');
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].encode).toMatchObject({ categoryField: '', values: [{ field: '', agg: 'sum' }] });
+    expect(vm.spec.widgets[0].encode).toMatchObject({
+      dimensions: [{ field: '', role: 'x' }],
+      measures: [{ field: '', agg: 'sum', role: 'y' }],
+    });
 
     (vm as any).datasetData = {
       ds1: {
@@ -410,7 +427,10 @@ describe('AnalysisDashboardDesigner history', () => {
     await flushPromises();
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].encode).toMatchObject({ categoryField: 'region', values: [{ field: 'amount', agg: 'sum' }] });
+    expect(vm.spec.widgets[0].encode).toMatchObject({
+      dimensions: [{ field: 'region', role: 'x' }],
+      measures: [{ field: 'amount', agg: 'sum', role: 'y' }],
+    });
   });
 
   it('KPI 使用默认数值字段，表格不强加分类字段', async () => {
@@ -427,7 +447,9 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.addWidget('table');
     await vm.$nextTick();
 
-    expect(vm.spec.widgets[0].encode).toEqual({ values: [{ field: 'amount', agg: 'sum' }] });
+    expect(vm.spec.widgets[0].encode).toEqual({
+      measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+    });
     expect(vm.spec.widgets[1].encode).toEqual({ limit: 100 });
   });
 
@@ -447,16 +469,15 @@ describe('AnalysisDashboardDesigner history', () => {
     await vm.$nextTick();
 
     expect(vm.spec.widgets[0].encode).toMatchObject({
-      values: [
-        { name: 'amount', field: 'amount', agg: 'sum' },
-        { name: 'quantity', field: 'quantity', agg: 'sum' },
+      measures: [
+        { name: 'amount', field: 'amount', agg: 'sum', role: 'y' },
+        { name: 'quantity', field: 'quantity', agg: 'sum', role: 'y' },
       ],
-      seriesField: null,
     });
 
     vm.widgetValueFields = ['amount'];
     await vm.$nextTick();
-    expect(vm.spec.widgets[0].encode.values).toHaveLength(1);
+    expect(vm.spec.widgets[0].encode.measures).toHaveLength(1);
   });
 
   it('自定义设置可应用和恢复 ECharts 配置', async () => {
@@ -507,6 +528,163 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(line.echartsOption.series[0]).toMatchObject({ type: 'line' });
     expect(area.echartsOption.series[0]).toMatchObject({ type: 'line' });
     expect(area.echartsOption.series[0].areaStyle).toBeDefined();
+  });
+
+  it('支持环形图、仪表盘以及横向和百分比堆积配置', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    (vm as any).datasetData = {
+      ds1: {
+        columns: ['region', 'amount'],
+        rows: [{ region: '华东', amount: 120.5 }],
+      },
+    };
+    await vm.$nextTick();
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    expect(vm.chartType).toBe('bar');
+    expect(vm.chartSubtype).toBe('grouped');
+    expect(vm.chartOrientation).toBe('vertical');
+
+    vm.chartSubtype = 'stackedPercent';
+    vm.chartOrientation = 'horizontal';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.subtype).toBe('stackedPercent');
+    expect(vm.spec.widgets[0].chart?.orientation).toBe('horizontal');
+
+    vm.setChartType('donut');
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.type).toBe('donut');
+    expect(vm.spec.widgets[0].encode?.measures?.[0]?.role).toBe('value');
+    expect(vm.spec.widgets[0].echartsOption?.series?.[0]?.radius).toEqual(['42%', '68%']);
+    expect(vm.hasChartAxes).toBe(false);
+
+    vm.setChartType('gauge');
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.type).toBe('gauge');
+    expect(vm.spec.widgets[0].encode?.dimensions).toBeUndefined();
+    expect(vm.spec.widgets[0].encode?.groupBy).toBe(false);
+    expect(vm.spec.widgets[0].echartsOption?.series?.[0]?.type).toBe('gauge');
+    expect(vm.hasChartAxes).toBe(false);
+  });
+
+  it('双轴组合按度量生成柱状和折线系列', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    (vm as any).datasetData = {
+      ds1: {
+        columns: ['region', 'amount', 'quantity'],
+        rows: [{ region: '华东', amount: 120.5, quantity: 8 }],
+      },
+    };
+    await vm.$nextTick();
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+    vm.widgetValueFields = ['amount', 'quantity'];
+    await vm.$nextTick();
+
+    vm.chartCombo = true;
+    await vm.$nextTick();
+
+    expect(vm.spec.widgets[0].chart?.series).toHaveLength(2);
+    expect(vm.spec.widgets[0].chart?.series?.[0]).toMatchObject({ measure: 'amount', type: 'bar', axis: 'left' });
+    expect(vm.spec.widgets[0].chart?.series?.[1]).toMatchObject({ measure: 'quantity', type: 'line', axis: 'right' });
+
+    vm.chartCombo = false;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.series).toBeUndefined();
+  });
+
+  it('支持高级图表和透视表默认配置', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    (vm as any).datasetData = {
+      ds1: {
+        columns: ['region', 'channel', 'amount'],
+        rows: [
+          { region: '华东', channel: '官网', amount: 120.5 },
+          { region: '华东', channel: 'APP', amount: 60 },
+        ],
+      },
+    };
+    await vm.$nextTick();
+
+    vm.addWidget('echarts', 'scatter');
+    vm.addWidget('echarts', 'heatmap');
+    vm.addWidget('echarts', 'waterfall');
+    vm.addWidget('echarts', 'sankey');
+    vm.addWidget('echarts', 'graph');
+    vm.addWidget('echarts', 'boxplot');
+    vm.addWidget('pivot');
+    await vm.$nextTick();
+
+    const [scatter, heatmap, waterfall, sankey, graph, boxplot, pivot] = vm.spec.widgets;
+    expect(scatter.chart).toMatchObject({ type: 'scatter' });
+    expect(scatter.echartsOption?.series?.[0]?.type).toBe('scatter');
+    expect(scatter.echartsOption?.xAxis).toMatchObject({ type: 'value' });
+
+    expect(heatmap.chart).toMatchObject({ type: 'heatmap' });
+    expect(heatmap.encode?.dimensions).toEqual([
+      { field: 'region', role: 'x' },
+      { field: 'channel', role: 'series' },
+    ]);
+    expect(heatmap.echartsOption?.series?.[0]?.type).toBe('heatmap');
+
+    expect(pivot.type).toBe('pivot');
+    expect(pivot.layout).toMatchObject({ w: 12, h: 8 });
+    expect(pivot.encode?.dimensions).toEqual([
+      { field: 'region', role: 'row' },
+      { field: 'channel', role: 'column' },
+    ]);
+    expect(pivot.encode?.measures).toEqual([{ field: 'amount', agg: 'sum', role: 'value' }]);
+
+    expect(waterfall.chart).toMatchObject({ type: 'waterfall' });
+    expect(waterfall.encode?.groupBy).toBe(true);
+    expect(sankey.chart).toMatchObject({ type: 'sankey' });
+    expect(sankey.encode?.dimensions).toEqual([
+      { field: 'region', role: 'x' },
+      { field: 'channel', role: 'series' },
+    ]);
+    expect(graph.chart).toMatchObject({ type: 'graph' });
+    expect(boxplot.chart).toMatchObject({ type: 'boxplot' });
+    expect(boxplot.encode?.groupBy).toBe(false);
+
+    vm.addFormatRule();
+    await vm.$nextTick();
+    expect(pivot.formatRules).toHaveLength(1);
+    vm.removeFormatRule(0);
+    await vm.$nextTick();
+    expect(pivot.formatRules).toHaveLength(0);
+  });
+
+  it('新建柱状图始终展示双轴组合选项，少于两个度量时禁用', async () => {
+    const fullWrapper = mount(AnalysisDashboardDesigner, {
+      global: {
+        provide: {
+          alertService: { showError: vi.fn() },
+        },
+        stubs: {
+          'font-awesome-icon': true,
+          DesignerCanvas: true,
+          DashboardStage: true,
+          DashboardFilters: true,
+          WidgetPaletteIcon: true,
+        },
+      },
+    });
+    await flushPromises();
+    const fullVm = fullWrapper.vm as unknown as DesignerVm;
+    fullVm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    fullVm.addWidget('echarts', 'bar');
+    await fullVm.$nextTick();
+
+    const findCombo = () => fullWrapper.findAll('.el-checkbox').find(item => item.text().includes('双轴组合'));
+    expect(findCombo()).toBeTruthy();
+    expect(findCombo()!.classes()).toContain('is-disabled');
+
+    fullVm.widgetValueFields = ['amount', 'quantity'];
+    await fullVm.$nextTick();
+    expect(findCombo()!.classes()).not.toContain('is-disabled');
+
+    fullWrapper.unmount();
   });
 
   it('撤销和重做组件的添加', async () => {

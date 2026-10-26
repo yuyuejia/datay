@@ -1,14 +1,29 @@
 import * as echarts from 'echarts/core';
-import { BarChart, GaugeChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
+import {
+  BarChart,
+  BoxplotChart,
+  FunnelChart,
+  GaugeChart,
+  GraphChart,
+  HeatmapChart,
+  LineChart,
+  PieChart,
+  RadarChart,
+  SankeyChart,
+  ScatterChart,
+  TreemapChart,
+} from 'echarts/charts';
 import {
   DataZoomComponent,
   DatasetComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
+  RadarComponent,
   TitleComponent,
   ToolboxComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -24,7 +39,16 @@ echarts.use([
   PieChart,
   ScatterChart,
   GaugeChart,
+  FunnelChart,
+  RadarChart,
+  HeatmapChart,
+  TreemapChart,
+  GraphChart,
+  SankeyChart,
+  BoxplotChart,
   GridComponent,
+  RadarComponent,
+  VisualMapComponent,
   TooltipComponent,
   LegendComponent,
   TitleComponent,

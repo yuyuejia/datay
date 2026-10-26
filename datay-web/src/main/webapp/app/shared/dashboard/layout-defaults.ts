@@ -157,44 +157,17 @@ export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout
   };
 }
 
-const migrateEncode = (widget: DashboardSpec['widgets'][number]): DashboardSpec['widgets'][number] => {
-  if (!widget.encode) {
-    return { ...widget };
-  }
-  const encode = { ...(widget.encode as Record<string, any>) };
-  if (!Array.isArray(encode.values) || encode.values.length === 0) {
-    const values: Array<Record<string, any>> = [];
-    if (typeof encode.valueField === 'string' && encode.valueField.trim()) {
-      values.push({ field: encode.valueField.trim(), agg: 'sum' });
-    } else if (Array.isArray(encode.series)) {
-      for (const series of encode.series) {
-        if (series?.field) {
-          values.push({ field: String(series.field), ...(series.name ? { name: String(series.name) } : {}), agg: 'sum' });
-        }
-      }
-    }
-    if (values.length > 0) {
-      encode.values = values;
-    }
-  }
-  delete encode.valueField;
-  delete encode.series;
-  return { ...widget, encode };
-};
-
 /** 读取看板定义时补齐布局默认值，保证设计态与浏览态使用同一套栅格。 */
 export function normalizeDashboardSpec(raw: DashboardSpec): DashboardSpec {
   return {
     ...raw,
+    version: 2,
     layout: normalizeDashboardLayout(raw.layout),
     datasets: (raw.datasets ?? []).map(dataset => ({ ...dataset })),
-    widgets: (raw.widgets ?? []).map(widget => {
-      const migrated = migrateEncode(widget);
-      return {
-        ...migrated,
-        layout: { ...(migrated.layout ?? { x: 0, y: 0, w: 12, h: 8 }) },
-      };
-    }),
+    widgets: (raw.widgets ?? []).map(widget => ({
+      ...widget,
+      layout: { ...(widget.layout ?? { x: 0, y: 0, w: 12, h: 8 }) },
+    })),
     filters: (raw.filters ?? []).map(filter => ({ ...filter })),
   };
 }

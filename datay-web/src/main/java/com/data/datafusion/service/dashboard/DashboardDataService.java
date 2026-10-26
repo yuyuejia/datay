@@ -7,9 +7,11 @@ import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.service.DimensionValueService;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class DashboardDataService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DashboardDataService.class);
+
+    /** 已保存看板的批量查询结果缓存；设计页预览不缓存，避免草稿互相污染。 */
+    private static final long QUERY_CACHE_TTL_MS = 30_000L;
+    private static final int QUERY_CACHE_MAX_ENTRIES = 256;
+    private final Map<String, CacheEntry> queryCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
+                return size() > QUERY_CACHE_MAX_ENTRIES;
+            }
+        }
+    );
 
     private final AnalysisDashboardRepository dashboardRepository;
     private final DashboardSpecValidator specValidator;
@@ -120,12 +134,89 @@ public class DashboardDataService {
         List<Map<String, Object>> queries,
         Map<String, Object> filterValues
     ) {
+        String cacheKey = queryCacheKey(dashboardId, datasetIds, queries, filterValues);
+        Map<String, Object> cached = cachedResult(cacheKey);
+        if (cached != null) {
+            LOG.debug("Dashboard query cache hit: {}", dashboardId);
+            return cached;
+        }
         AnalysisDashboard dashboard = dashboardRepository
             .findById(dashboardId)
             .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
         Map<String, Object> spec = datasetResolver.resolveSpec(specValidator.parse(dashboard.getSpec()));
-        return queryAll(spec, dashboard.getDataSourceId(), datasetIds, queries, filterValues);
+        Map<String, Object> result = queryAll(spec, dashboard.getDataSourceId(), datasetIds, queries, filterValues);
+        putCachedResult(cacheKey, result);
+        return result;
     }
+
+    /** 清除某个看板的查询缓存；看板保存/删除后可主动调用。 */
+    public void evictDashboardCache(String dashboardId) {
+        if (dashboardId == null || dashboardId.isBlank()) {
+            return;
+        }
+        synchronized (queryCache) {
+            queryCache.keySet().removeIf(key -> key.startsWith(dashboardId + "|"));
+        }
+    }
+
+    /** 清空全部查询缓存，供测试或运维手动刷新使用。 */
+    public void clearQueryCache() {
+        queryCache.clear();
+    }
+
+    private Map<String, Object> cachedResult(String key) {
+        CacheEntry entry = queryCache.get(key);
+        if (entry == null) {
+            return null;
+        }
+        if (entry.expiresAt() < System.currentTimeMillis()) {
+            queryCache.remove(key);
+            return null;
+        }
+        return entry.result();
+    }
+
+    private void putCachedResult(String key, Map<String, Object> result) {
+        if (result == null || hasErrors(result.get("errors")) || hasErrors(result.get("widgetErrors"))) {
+            return;
+        }
+        queryCache.put(key, new CacheEntry(result, System.currentTimeMillis() + QUERY_CACHE_TTL_MS));
+    }
+
+    private boolean hasErrors(Object raw) {
+        return raw instanceof Map<?, ?> map && !map.isEmpty();
+    }
+
+    private String queryCacheKey(
+        String dashboardId,
+        List<String> datasetIds,
+        List<Map<String, Object>> queries,
+        Map<String, Object> filterValues
+    ) {
+        List<String> ids = datasetIds == null ? new ArrayList<>() : new ArrayList<>(datasetIds);
+        Collections.sort(ids);
+        List<String> queryParts = new ArrayList<>();
+        for (Map<String, Object> query : queries == null ? List.<Map<String, Object>>of() : queries) {
+            queryParts.add(
+                String.join(
+                    "|",
+                    String.valueOf(query.get("id")),
+                    String.valueOf(query.get("datasetId")),
+                    String.valueOf(query.get("sortField")),
+                    String.valueOf(query.get("sortOrder")),
+                    String.valueOf(query.get("limit")),
+                    String.valueOf(query.get("offset")),
+                    String.valueOf(query.get("groupFields")),
+                    String.valueOf(query.get("aggregations"))
+                )
+            );
+        }
+        Collections.sort(queryParts);
+        Map<String, Object> filters = filterValues == null ? Map.of() : new TreeMap<>(filterValues);
+        return dashboardId + "|" + ids + "|" + queryParts + "|" + filters;
+    }
+
+    private record CacheEntry(Map<String, Object> result, long expiresAt) {}
 
     public Map<String, Object> queryWidgets(
         Map<String, Object> spec,
@@ -215,11 +306,23 @@ public class DashboardDataService {
         if (sortOrder != null && !"asc".equalsIgnoreCase(sortOrder) && !"desc".equalsIgnoreCase(sortOrder)) {
             throw new IllegalArgumentException("排序方向只能是 asc 或 desc：" + sortOrder);
         }
+        List<String> groupFields = DatasetQueryService.asStringList(query.get("groupFields"));
+        List<DatasetQueryOptions.Aggregation> aggregations = new ArrayList<>();
+        for (Map<String, Object> item : DatasetQueryService.asMapList(query.get("aggregations"))) {
+            String field = DatasetQueryService.asString(item.get("field"));
+            if (field == null || field.isBlank()) {
+                continue;
+            }
+            String agg = DatasetQueryService.asString(item.get("agg"));
+            aggregations.add(new DatasetQueryOptions.Aggregation(field.trim(), agg == null ? "sum" : agg.trim()));
+        }
         return new DatasetQueryOptions(
             DatasetQueryService.asString(query.get("sortField")),
             sortOrder,
             limit == null ? null : limit.intValue(),
-            offset == null ? null : offset.intValue()
+            offset == null ? null : offset.intValue(),
+            groupFields,
+            aggregations
         );
     }
 

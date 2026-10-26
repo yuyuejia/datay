@@ -25,14 +25,21 @@ public class DashboardSpecValidator {
 
     public static final String DATASET_METRIC = "METRIC";
     public static final String DATASET_SQL = "SQL";
-    public static final int SPEC_VERSION = 1;
+    public static final int SPEC_VERSION = 2;
 
     public static final String WIDGET_ECHARTS = "echarts";
     public static final String WIDGET_HTML = "html";
     public static final String WIDGET_TABLE = "table";
     public static final String WIDGET_KPI = "kpi";
+    public static final String WIDGET_PIVOT = "pivot";
 
-    private static final Set<String> WIDGET_TYPES = Set.of(WIDGET_ECHARTS, WIDGET_HTML, WIDGET_TABLE, WIDGET_KPI);
+    private static final Set<String> WIDGET_TYPES = Set.of(
+        WIDGET_ECHARTS,
+        WIDGET_HTML,
+        WIDGET_TABLE,
+        WIDGET_KPI,
+        WIDGET_PIVOT
+    );
 
     private static final String LAYOUT_MODE_STANDARD = "standard";
     private static final String LAYOUT_MODE_SCREEN = "screen";
@@ -69,8 +76,88 @@ public class DashboardSpecValidator {
     private static final String BINDING_SQL_PARAM = "sqlParam";
 
     private static final Set<String> AGGREGATIONS = Set.of("sum", "avg", "min", "max", "count", "none");
-    private static final Set<String> CHART_TYPES = Set.of("bar", "line", "pie", "area", "gauge");
-    private static final Set<String> SERIES_TYPES = Set.of("bar", "line", "pie", "gauge");
+
+    /**
+     * v2 图表类型。
+     *
+     * <p>P0 覆盖基础图表；P1 追加 scatter/radar/funnel/heatmap/treemap。
+     */
+    private static final Set<String> CHART_TYPES = Set.of(
+        "bar",
+        "line",
+        "area",
+        "pie",
+        "donut",
+        "gauge",
+        "scatter",
+        "radar",
+        "funnel",
+        "heatmap",
+        "treemap",
+        "waterfall",
+        "sankey",
+        "graph",
+        "boxplot"
+    );
+
+    private static final Set<String> CHART_DIMENSION_ROLES = Set.of("x", "series");
+
+    private static final Set<String> NODE_LINK_CHART_TYPES = Set.of("sankey", "graph");
+
+    private static final Set<String> PIVOT_DIMENSION_ROLES = Set.of("row", "column");
+
+    private static final Set<String> ECHARTS_OPTION_SERIES_TYPES = Set.of(
+        "bar",
+        "line",
+        "area",
+        "pie",
+        "gauge",
+        "scatter",
+        "radar",
+        "funnel",
+        "heatmap",
+        "treemap",
+        "graph",
+        "sankey",
+        "boxplot",
+        "waterfall"
+    );
+
+    private static final Map<String, String> CHART_SUBTYPES = Map.of(
+        "grouped",
+        "grouped",
+        "stacked",
+        "stacked",
+        "stackedpercent",
+        "stackedPercent",
+        "smooth",
+        "smooth",
+        "step",
+        "step"
+    );
+
+    private static final Set<String> CHART_ORIENTATIONS = Set.of("vertical", "horizontal");
+
+    private static final Set<String> CARTESIAN_SERIES_TYPES = Set.of("bar", "line", "area");
+
+    private static final Set<String> DIMENSION_ROLES = Set.of("x", "series", "row", "column");
+
+    private static final Set<String> MEASURE_ROLES = Set.of("y", "value", "size");
+
+    private static final Set<String> TRANSFORM_TYPES = Set.of("percentOfTotal");
+
+    private static final Set<String> FORMAT_RULE_OPERATORS = Set.of(
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "eq",
+        "neq",
+        "between"
+    );
+
+    private static final int MAX_FORMAT_RULES = 50;
+
 
     private static final int MAX_SPEC_JSON_LENGTH = 1_000_000;
     private static final int MAX_DATASETS = 50;
@@ -127,7 +214,7 @@ public class DashboardSpecValidator {
     }
 
     /**
-     * 当前仅支持 v1；不再读取无 version 的历史 spec。
+     * 当前仅支持 v2；不再读取无 version 的历史 spec。
      */
     private void assertVersion(Object raw) {
         int version;
@@ -338,15 +425,16 @@ public class DashboardSpecValidator {
             if (WIDGET_ECHARTS.equals(type)) {
                 Map<String, Object> option = asMap(widget.get("echartsOption"));
                 widget.put("echartsOption", normalizeEchartsOption(option));
-                Map<String, Object> encode = normalizeEncode(widget);
+                Map<String, Object> encode = normalizeEncode(widget, type);
                 if (encode.isEmpty()) {
                     throw new IllegalArgumentException("图表组件 " + id + " 缺少 encode");
                 }
                 widget.put("encode", encode);
-                normalizeWidgetChart(widget, option);
+                Map<String, Object> chart = normalizeWidgetChart(widget, encode);
+                validateChartEncoding(id, chart, encode);
                 validateEncodeFields(id, datasetId, encode, datasetFields.get(datasetId), true);
             } else if (WIDGET_KPI.equals(type)) {
-                Map<String, Object> encode = normalizeEncode(widget);
+                Map<String, Object> encode = normalizeEncode(widget, type);
                 if (encode.isEmpty()) {
                     throw new IllegalArgumentException("指标卡组件 " + id + " 缺少 encode");
                 }
@@ -360,11 +448,23 @@ public class DashboardSpecValidator {
                 }
                 widget.put("html", html == null ? "" : html);
             } else if (WIDGET_TABLE.equals(type)) {
-                Map<String, Object> encode = normalizeEncode(widget);
+                Map<String, Object> encode = normalizeEncode(widget, type);
                 if (!encode.isEmpty()) {
                     widget.put("encode", encode);
                     validateEncodeFields(id, datasetId, encode, datasetFields.get(datasetId), false);
                 }
+            } else if (WIDGET_PIVOT.equals(type)) {
+                Map<String, Object> encode = normalizeEncode(widget, type);
+                if (encode.isEmpty()) {
+                    throw new IllegalArgumentException("透视表组件 " + id + " 缺少 encode");
+                }
+                widget.put("encode", encode);
+                normalizeWidgetFormat(widget);
+                validatePivotEncoding(id, encode);
+                validateEncodeFields(id, datasetId, encode, datasetFields.get(datasetId), true);
+            }
+            if (widget.containsKey("formatRules")) {
+                widget.put("formatRules", normalizeFormatRules(id, widget.get("formatRules"), datasetFields.get(datasetId)));
             }
             result.add(widget);
         }
@@ -372,110 +472,485 @@ public class DashboardSpecValidator {
     }
 
     /**
-     * 兼容早期 v1 草稿中的 encode.valueField / encode.series，一次性迁移为 values[]。
-     * 这是持久化数据修复，不恢复 v0 dataRef/bindings 协议。
+     * v2 encode：dimensions[] + measures[]。
+     *
+     * <p>v1 的 categoryField / values / seriesField 不再兼容，避免新旧两套映射同时存在。
      */
-    private Map<String, Object> normalizeEncode(Map<String, Object> widget) {
+    private Map<String, Object> normalizeEncode(Map<String, Object> widget, String widgetType) {
+        String id = asString(widget.get("id"));
         Map<String, Object> encode = asMap(widget.get("encode"));
-        List<Map<String, Object>> values = asMapList(encode.get("values"));
-        if (values.isEmpty()) {
-            List<Map<String, Object>> migrated = new ArrayList<>();
-            String valueField = asString(encode.get("valueField"));
-            if (valueField != null && !valueField.isBlank()) {
-                Map<String, Object> value = new LinkedHashMap<>();
-                value.put("field", valueField.trim());
-                value.put("agg", "sum");
-                migrated.add(value);
-            } else {
-                for (Map<String, Object> series : asMapList(encode.get("series"))) {
-                    String field = asString(series.get("field"));
-                    if (field == null || field.isBlank()) {
-                        continue;
-                    }
-                    Map<String, Object> value = new LinkedHashMap<>();
-                    value.put("field", field.trim());
-                    String name = asString(series.get("name"));
-                    if (name != null && !name.isBlank()) {
-                        value.put("name", name);
-                    }
-                    value.put("agg", "sum");
-                    migrated.add(value);
-                }
-            }
-            if (!migrated.isEmpty()) {
-                encode.put("values", migrated);
+        if (encode.isEmpty()) {
+            return encode;
+        }
+        for (String deprecated : List.of("categoryField", "values", "seriesField", "valueField", "series")) {
+            if (encode.containsKey(deprecated)) {
+                throw new IllegalArgumentException(
+                    "组件 " + id + " 使用了已废弃的 encode." + deprecated + "，请改用 encode.dimensions / encode.measures"
+                );
             }
         }
-        encode.remove("valueField");
-        encode.remove("series");
+        String defaultDimensionRole = WIDGET_PIVOT.equals(widgetType) ? "row" : "x";
+        List<Map<String, Object>> dimensions = normalizeDimensions(id, encode.get("dimensions"), defaultDimensionRole);
+        String defaultMeasureRole = WIDGET_KPI.equals(widgetType) || WIDGET_PIVOT.equals(widgetType) ? "value" : "y";
+        List<Map<String, Object>> measures = normalizeMeasures(id, encode.get("measures"), defaultMeasureRole);
+        if (!dimensions.isEmpty()) {
+            encode.put("dimensions", dimensions);
+        } else {
+            encode.remove("dimensions");
+        }
+        if (!measures.isEmpty()) {
+            encode.put("measures", measures);
+        } else {
+            encode.remove("measures");
+        }
+
+        String sortOrder = asString(encode.get("sortOrder"));
+        if (sortOrder != null && !sortOrder.isBlank()) {
+            sortOrder = sortOrder.trim().toLowerCase();
+            if (!Set.of("asc", "desc").contains(sortOrder)) {
+                throw new IllegalArgumentException("组件 " + id + " 的 encode.sortOrder 只能是 asc 或 desc");
+            }
+            encode.put("sortOrder", sortOrder);
+        }
+        Long limit = asLong(encode.get("limit"));
+        if (limit != null) {
+            if (limit < 1 || limit > 10000) {
+                throw new IllegalArgumentException("组件 " + id + " 的 encode.limit 必须在 1-10000 之间");
+            }
+            encode.put("limit", limit);
+        }
+        Long pageSize = asLong(encode.get("pageSize"));
+        if (pageSize != null) {
+            if (pageSize < 5 || pageSize > 1000) {
+                throw new IllegalArgumentException("组件 " + id + " 的 encode.pageSize 必须在 5-1000 之间");
+            }
+            encode.put("pageSize", pageSize);
+        }
+        if (encode.containsKey("groupBy")) {
+            Object rawGroupBy = encode.get("groupBy");
+            encode.put("groupBy", rawGroupBy instanceof Boolean ? rawGroupBy : Boolean.parseBoolean(String.valueOf(rawGroupBy)));
+        } else if (WIDGET_ECHARTS.equals(widgetType)) {
+            encode.put("groupBy", true);
+        }
+        List<Map<String, Object>> transforms = normalizeTransforms(id, encode.get("transform"), measures);
+        if (!transforms.isEmpty()) {
+            encode.put("transform", transforms);
+        } else {
+            encode.remove("transform");
+        }
+        List<Map<String, Object>> columns = asMapList(encode.get("columns"));
+        if (!columns.isEmpty()) {
+            encode.put("columns", columns);
+        } else {
+            encode.remove("columns");
+        }
         return encode;
     }
 
+    private List<Map<String, Object>> normalizeDimensions(String widgetId, Object raw, String defaultRole) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Set<String> fields = new LinkedHashSet<>();
+        for (Map<String, Object> item : asMapList(raw)) {
+            String field = trimToNull(asString(item.get("field")));
+            if (field == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.dimensions[].field 不能为空");
+            }
+            if (!fields.add(field)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.dimensions 字段重复：" + field);
+            }
+            String role = trimToNull(asString(item.get("role")));
+            role = role == null ? defaultRole : role.toLowerCase();
+            if (!DIMENSION_ROLES.contains(role)) {
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的维度 " + field + " 缺少合法 role（x/series/row/column）"
+                );
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("field", field);
+            normalized.put("role", role);
+            String name = trimToNull(asString(item.get("name")));
+            if (name != null) {
+                normalized.put("name", name);
+            }
+            result.add(normalized);
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> normalizeMeasures(String widgetId, Object raw, String defaultRole) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Set<String> fields = new LinkedHashSet<>();
+        for (Map<String, Object> item : asMapList(raw)) {
+            String field = trimToNull(asString(item.get("field")));
+            if (field == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures[].field 不能为空");
+            }
+            if (!fields.add(field)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures 字段重复：" + field);
+            }
+            String agg = trimToNull(asString(item.get("agg")));
+            agg = agg == null ? null : agg.toLowerCase();
+            if (agg == null || !AGGREGATIONS.contains(agg)) {
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的字段 " + field + " 缺少合法 agg（sum/avg/min/max/count/none）"
+                );
+            }
+            String role = trimToNull(asString(item.get("role")));
+            role = role == null ? defaultRole : role.toLowerCase();
+            if (!MEASURE_ROLES.contains(role)) {
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的度量 " + field + " 缺少合法 role（y/value）"
+                );
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("field", field);
+            normalized.put("agg", agg.trim().toLowerCase());
+            normalized.put("role", role);
+            String name = trimToNull(asString(item.get("name")));
+            if (name != null) {
+                normalized.put("name", name);
+            }
+            if (item.get("format") instanceof Map<?, ?>) {
+                normalized.put("format", item.get("format"));
+            }
+            result.add(normalized);
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> normalizeTransforms(String widgetId, Object raw, List<Map<String, Object>> measures) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Set<String> measureFields = new LinkedHashSet<>();
+        for (Map<String, Object> measure : measures) {
+            String field = asString(measure.get("field"));
+            if (field != null) {
+                measureFields.add(field);
+            }
+        }
+        for (Map<String, Object> item : asMapList(raw)) {
+            String type = trimToNull(asString(item.get("type")));
+            if (type == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.transform[].type 不能为空");
+            }
+            type = type.toLowerCase();
+            if (!TRANSFORM_TYPES.contains(type)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 不支持的数据变换：" + type);
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("type", type);
+            String measure = trimToNull(asString(item.get("measure")));
+            if (measure != null) {
+                if (!measureFields.isEmpty() && !measureFields.contains(measure)) {
+                    throw new IllegalArgumentException(
+                        "组件 " + widgetId + " 的数据变换引用了未声明的度量：" + measure
+                    );
+                }
+                normalized.put("measure", measure);
+            }
+            result.add(normalized);
+        }
+        return result;
+    }
+
     /**
-     * 确保 echarts 组件声明 chart.type；缺省时从 series[0].type 推导。
+     * v2 图表声明：chart.type 是唯一权威来源，echartsOption 只负责样式覆盖。
      */
-    private void normalizeWidgetChart(Map<String, Object> widget, Map<String, Object> option) {
+    private Map<String, Object> normalizeWidgetChart(Map<String, Object> widget, Map<String, Object> encode) {
+        String widgetId = asString(widget.get("id"));
         Map<String, Object> chart = asMap(widget.get("chart"));
-        String chartType = asString(chart.get("type"));
-        if (chartType == null || chartType.isBlank()) {
-            for (Map<String, Object> series : asMapList(option.get("series"))) {
-                chartType = asString(series.get("type"));
-                if (chartType != null && !chartType.isBlank()) {
+        String chartType = trimToNull(asString(chart.get("type")));
+        if (chartType == null) {
+            for (Map<String, Object> series : asMapList(chart.get("series"))) {
+                chartType = trimToNull(asString(series.get("type")));
+                if (chartType != null) {
                     break;
                 }
             }
         }
-        if (chartType == null || chartType.isBlank()) {
-            throw new IllegalArgumentException("图表组件 " + widget.get("id") + " 缺少 chart.type");
+        if (chartType == null) {
+            throw new IllegalArgumentException("图表组件 " + widgetId + " 缺少 chart.type");
         }
-        chartType = chartType.trim().toLowerCase();
+        chartType = chartType.toLowerCase();
         if (!CHART_TYPES.contains(chartType)) {
             throw new IllegalArgumentException("不支持的图表类型：" + chartType);
         }
         chart.put("type", chartType);
+
+        String subtype = trimToNull(asString(chart.get("subtype")));
+        if (subtype != null) {
+            String canonicalSubtype = CHART_SUBTYPES.get(subtype.toLowerCase());
+            if (canonicalSubtype == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 不支持图表子类型：" + subtype);
+            }
+            chart.put("subtype", canonicalSubtype);
+        } else {
+            chart.remove("subtype");
+        }
+        String orientation = trimToNull(asString(chart.get("orientation")));
+        if (orientation != null) {
+            orientation = orientation.toLowerCase();
+            if (!CHART_ORIENTATIONS.contains(orientation)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的图表方向只能是 vertical 或 horizontal");
+            }
+            chart.put("orientation", orientation);
+        } else if ("bar".equals(chartType)) {
+            chart.put("orientation", "vertical");
+        } else {
+            chart.remove("orientation");
+        }
+
+        List<Map<String, Object>> series = normalizeChartSeries(widgetId, chart.get("series"), chartType, encode);
+        if (!series.isEmpty()) {
+            chart.put("series", series);
+        } else {
+            chart.remove("series");
+        }
         widget.put("chart", chart);
-        for (Map<String, Object> series : asMapList(option.get("series"))) {
-            String seriesType = asString(series.get("type"));
-            if (seriesType != null && !seriesType.isBlank() && !SERIES_TYPES.contains(seriesType.trim().toLowerCase())) {
+
+        // echartsOption 允许保留样式模板，但 series 类型不能超出当前渲染器能力。
+        for (Map<String, Object> seriesOption : asMapList(asMap(widget.get("echartsOption")).get("series"))) {
+            String seriesType = trimToNull(asString(seriesOption.get("type")));
+            if (seriesType != null && !ECHARTS_OPTION_SERIES_TYPES.contains(seriesType.toLowerCase())) {
                 throw new IllegalArgumentException("不支持的 ECharts series 类型：" + seriesType);
+            }
+        }
+        return chart;
+    }
+
+    private List<Map<String, Object>> normalizeChartSeries(
+        String widgetId,
+        Object raw,
+        String chartType,
+        Map<String, Object> encode
+    ) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Set<String> measureFields = new LinkedHashSet<>();
+        for (Map<String, Object> measure : asMapList(encode.get("measures"))) {
+            String field = asString(measure.get("field"));
+            if (field != null) {
+                measureFields.add(field);
+            }
+        }
+        boolean cartesian = Set.of("bar", "line", "area").contains(chartType);
+        for (Map<String, Object> item : asMapList(raw)) {
+            String measure = trimToNull(asString(item.get("measure")));
+            if (measure == null) {
+                measure = trimToNull(asString(item.get("field")));
+            }
+            if (measure == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 chart.series[].measure 不能为空");
+            }
+            if (!measureFields.contains(measure)) {
+                throw new IllegalArgumentException(
+                    "组件 " + widgetId + " 的 chart.series 引用了未声明的 measure：" + measure
+                );
+            }
+            String seriesType = trimToNull(asString(item.get("type")));
+            seriesType = seriesType == null ? chartType : seriesType.toLowerCase();
+            if (!CARTESIAN_SERIES_TYPES.contains(seriesType)) {
+                throw new IllegalArgumentException("不支持的 chart.series 类型：" + seriesType);
+            }
+            if (!cartesian) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 只有柱状/折线/面积图支持 chart.series");
+            }
+            String axis = trimToNull(asString(item.get("axis")));
+            axis = axis == null ? "left" : axis.toLowerCase();
+            if (!Set.of("left", "right").contains(axis)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 chart.series[].axis 只能是 left 或 right");
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("measure", measure);
+            normalized.put("type", seriesType);
+            normalized.put("axis", axis);
+            String name = trimToNull(asString(item.get("name")));
+            if (name != null) {
+                normalized.put("name", name);
+            }
+            String stack = trimToNull(asString(item.get("stack")));
+            if (stack != null) {
+                normalized.put("stack", stack);
+            }
+            if (item.containsKey("smooth")) {
+                normalized.put("smooth", Boolean.parseBoolean(String.valueOf(item.get("smooth"))));
+            }
+            if (item.containsKey("step")) {
+                Object step = item.get("step");
+                if (step instanceof Boolean || step instanceof String) {
+                    normalized.put("step", step);
+                }
+            }
+            result.add(normalized);
+        }
+        return result;
+    }
+
+    private void validateChartEncoding(String widgetId, Map<String, Object> chart, Map<String, Object> encode) {
+        String chartType = asString(chart.get("type"));
+        List<Map<String, Object>> dimensions = asMapList(encode.get("dimensions"));
+        List<Map<String, Object>> measures = asMapList(encode.get("measures"));
+        if (measures.isEmpty()) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures 至少需要一个度量字段");
+        }
+        for (Map<String, Object> dimension : dimensions) {
+            String role = asString(dimension.get("role"));
+            if (!CHART_DIMENSION_ROLES.contains(role)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的图表维度 role 只能是 x 或 series");
+            }
+        }
+        boolean hasX = dimensions.stream().anyMatch(dimension -> "x".equals(asString(dimension.get("role"))));
+        boolean hasSeries = dimensions.stream().anyMatch(dimension -> "series".equals(asString(dimension.get("role"))));
+        if (!"gauge".equals(chartType) && !hasX) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 缺少 role=x 的维度字段");
+        }
+        if (("heatmap".equals(chartType) || NODE_LINK_CHART_TYPES.contains(chartType)) && !hasSeries) {
+            String chartLabel = "heatmap".equals(chartType) ? "热力图" : "sankey".equals(chartType) ? "桑基图" : "关系图";
+            throw new IllegalArgumentException("组件 " + widgetId + " 的" + chartLabel + "需要 role=series 的维度字段");
+        }
+        if ("scatter".equals(chartType)) {
+            boolean hasY = measures.stream().anyMatch(measure -> "y".equals(asString(measure.get("role"))));
+            if (!hasY) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的散点图至少需要一个 role=y 的度量字段");
+            }
+        }
+        String subtype = asString(chart.get("subtype"));
+        if (subtype != null && !subtype.isBlank()) {
+            switch (subtype) {
+                case "grouped", "stacked", "stackedPercent" -> {
+                    if (!"bar".equals(chartType) && !"area".equals(chartType)) {
+                        throw new IllegalArgumentException("组件 " + widgetId + " 的子类型 " + subtype + " 仅支持柱状图/面积图");
+                    }
+                }
+                case "smooth", "step" -> {
+                    if (!"line".equals(chartType) && !"area".equals(chartType)) {
+                        throw new IllegalArgumentException("组件 " + widgetId + " 的子类型 " + subtype + " 仅支持折线图/面积图");
+                    }
+                }
+                default -> {
+                    // normalizeWidgetChart 已校验枚举
+                }
+            }
+        }
+        if ("horizontal".equals(asString(chart.get("orientation"))) && !"bar".equals(chartType)) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 只有柱状图支持横向展示");
+        }
+    }
+
+    private List<Map<String, Object>> normalizeFormatRules(
+        String widgetId,
+        Object raw,
+        Set<String> fields
+    ) {
+        List<Map<String, Object>> rules = asMapList(raw);
+        if (rules.size() > MAX_FORMAT_RULES) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 的条件格式规则不能超过 " + MAX_FORMAT_RULES + " 条");
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> item : rules) {
+            String operator = trimToNull(asString(item.get("operator")));
+            operator = operator == null ? null : operator.toLowerCase();
+            if (operator == null || !FORMAT_RULE_OPERATORS.contains(operator)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的条件格式 operator 不合法");
+            }
+            Double value = asDouble(item.get("value"));
+            Double value2 = asDouble(item.get("value2"));
+            if (value == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的条件格式缺少 value");
+            }
+            if ("between".equals(operator) && value2 == null) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 between 条件格式缺少 value2");
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            String id = trimToNull(asString(item.get("id")));
+            if (id != null) {
+                normalized.put("id", id);
+            }
+            String field = trimToNull(asString(item.get("field")));
+            if (field != null) {
+                if (fields != null && !fields.isEmpty() && !fields.contains(field)) {
+                    throw new IllegalArgumentException(
+                        "组件 " + widgetId + " 的条件格式引用了不存在的字段：" + field
+                    );
+                }
+                normalized.put("field", field);
+            }
+            normalized.put("operator", operator);
+            normalized.put("value", value);
+            if (value2 != null) {
+                normalized.put("value2", value2);
+            }
+            String colorRaw = trimToNull(asString(item.get("color")));
+            if (colorRaw != null) {
+                String color = normalizeColor(colorRaw, null);
+                if (color == null) {
+                    throw new IllegalArgumentException("组件 " + widgetId + " 的条件格式 color 不合法");
+                }
+                normalized.put("color", color);
+            }
+            String backgroundRaw = trimToNull(asString(item.get("background")));
+            if (backgroundRaw != null) {
+                String background = normalizeColor(backgroundRaw, null);
+                if (background == null) {
+                    throw new IllegalArgumentException("组件 " + widgetId + " 的条件格式 background 不合法");
+                }
+                normalized.put("background", background);
+            }
+            if (item.containsKey("bold")) {
+                normalized.put("bold", Boolean.parseBoolean(String.valueOf(item.get("bold"))));
+            }
+            result.add(normalized);
+        }
+        return result;
+    }
+
+    private void validatePivotEncoding(String widgetId, Map<String, Object> encode) {
+        List<Map<String, Object>> dimensions = asMapList(encode.get("dimensions"));
+        List<Map<String, Object>> measures = asMapList(encode.get("measures"));
+        boolean hasRow = dimensions.stream().anyMatch(dimension -> "row".equals(asString(dimension.get("role"))));
+        if (!hasRow) {
+            throw new IllegalArgumentException("透视表组件 " + widgetId + " 需要 role=row 的维度字段");
+        }
+        for (Map<String, Object> dimension : dimensions) {
+            String role = asString(dimension.get("role"));
+            if (!PIVOT_DIMENSION_ROLES.contains(role)) {
+                throw new IllegalArgumentException("透视表组件 " + widgetId + " 的维度 role 只能是 row 或 column");
+            }
+        }
+        if (measures.isEmpty()) {
+            throw new IllegalArgumentException("透视表组件 " + widgetId + " 的 encode.measures 至少需要一个度量字段");
+        }
+        for (Map<String, Object> measure : measures) {
+            String role = asString(measure.get("role"));
+            if (!"value".equals(role)) {
+                throw new IllegalArgumentException("透视表组件 " + widgetId + " 的度量 role 只能是 value");
             }
         }
     }
 
     /**
-     * 校验 v1 encode 结构、聚合方式与字段存在性。
+     * 校验 v2 encode 的字段引用与聚合方式。
      */
     private void validateEncodeFields(
         String widgetId,
         String datasetId,
         Map<String, Object> encode,
         Set<String> fields,
-        boolean requireValues
+        boolean requireMeasures
     ) {
-        List<Map<String, Object>> values = asMapList(encode.get("values"));
-        if (requireValues && values.isEmpty()) {
-            throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.values 至少需要一个数值字段");
+        List<Map<String, Object>> measures = asMapList(encode.get("measures"));
+        if (requireMeasures && measures.isEmpty()) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures 至少需要一个度量字段");
         }
-        Set<String> valueFields = new LinkedHashSet<>();
-        for (Map<String, Object> value : values) {
-            String field = asString(value.get("field"));
+        for (Map<String, Object> measure : measures) {
+            String field = asString(measure.get("field"));
+            String agg = asString(measure.get("agg"));
             if (field == null || field.isBlank()) {
-                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.values[].field 不能为空");
+                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.measures[].field 不能为空");
             }
-            String trimmed = field.trim();
-            if (!valueFields.add(trimmed)) {
-                throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.values 字段重复：" + trimmed);
-            }
-            String agg = asString(value.get("agg"));
             if (agg == null || !AGGREGATIONS.contains(agg)) {
                 throw new IllegalArgumentException(
-                    "组件 " + widgetId + " 的字段 " + trimmed + " 缺少合法 agg（sum/avg/min/max/count/none）"
+                    "组件 " + widgetId + " 的字段 " + field + " 缺少合法 agg（sum/avg/min/max/count/none）"
                 );
             }
-        }
-        String sortOrder = asString(encode.get("sortOrder"));
-        if (sortOrder != null && !Set.of("asc", "desc").contains(sortOrder)) {
-            throw new IllegalArgumentException("组件 " + widgetId + " 的 encode.sortOrder 只能是 asc 或 desc");
         }
         List<Map<String, Object>> columns = asMapList(encode.get("columns"));
         for (Map<String, Object> column : columns) {
@@ -492,18 +967,17 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("组件 " + widgetId + " 的列宽必须在 40-2000 之间：" + field);
             }
         }
-        Long pageSize = asLong(encode.get("pageSize"));
-        if (pageSize != null && (pageSize < 5 || pageSize > 1000)) {
-            throw new IllegalArgumentException("组件 " + widgetId + " 的 pageSize 必须在 5-1000 之间");
-        }
         if (fields == null || fields.isEmpty()) {
             return;
         }
         List<String> referenced = new ArrayList<>();
-        referenced.add(asString(encode.get("categoryField")));
-        referenced.add(asString(encode.get("seriesField")));
+        for (Map<String, Object> dimension : asMapList(encode.get("dimensions"))) {
+            referenced.add(asString(dimension.get("field")));
+        }
+        for (Map<String, Object> measure : measures) {
+            referenced.add(asString(measure.get("field")));
+        }
         referenced.add(asString(encode.get("sortField")));
-        referenced.addAll(valueFields);
         for (Map<String, Object> column : columns) {
             referenced.add(asString(column.get("field")));
         }
@@ -688,7 +1162,7 @@ public class DashboardSpecValidator {
     }
 
     /**
-     * 规范化 v1 filters[].targets[]：支持直接字段（客户端）与 pushdown（服务端）。
+     * 规范化 filters[].targets[]：直接字段与 pushdown 统一由服务端执行。
      */
     private List<Map<String, Object>> normalizeFilterTargets(
         String filterId,
@@ -724,15 +1198,8 @@ public class DashboardSpecValidator {
                     datasetTypes,
                     datasetFields
                 );
-                String mode = asString(item.get("mode"));
-                if ("server".equalsIgnoreCase(mode)) {
-                    if (!DATASET_SQL.equals(datasetTypes.get(datasetId))) {
-                        throw new IllegalArgumentException("筛选器 " + filterId + " 的指标数据集字段目标只支持 mode=client，服务端过滤请配置 pushdown");
-                    }
-                    target.put("mode", "server");
-                } else {
-                    target.put("mode", "client");
-                }
+                // 所有直接字段目标统一走服务端过滤；mode 仅保留为兼容字段。
+                target.put("mode", "server");
                 target.put("field", trimmedField);
             }
             result.add(target);
@@ -970,6 +1437,14 @@ public class DashboardSpecValidator {
         return raw == null ? null : String.valueOf(raw);
     }
 
+    static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     static Long asLong(Object raw) {
         if (raw instanceof Number number) {
             return number.longValue();
@@ -977,6 +1452,20 @@ public class DashboardSpecValidator {
         if (raw instanceof String text && !text.isBlank()) {
             try {
                 return Long.parseLong(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    static Double asDouble(Object raw) {
+        if (raw instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (raw instanceof String text && !text.isBlank()) {
+            try {
+                return Double.parseDouble(text.trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }

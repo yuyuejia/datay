@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import type { DashboardSpec, DatasetResult, FilterValues } from './types';
+import type { Aggregation, DashboardSpec, DatasetResult, FilterValues } from './types';
 
 const baseApiUrl = 'api/analysis-dashboards';
 
@@ -35,6 +35,10 @@ export interface DashboardQuery {
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  /** 服务端聚合分组字段。 */
+  groupFields?: string[];
+  /** 服务端聚合度量。 */
+  aggregations?: Array<{ field: string; agg: Aggregation }>;
 }
 
 /**
