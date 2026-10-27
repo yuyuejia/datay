@@ -2,6 +2,7 @@ package com.data.datafusion.service.jobevent;
 
 import cn.hutool.core.net.NetUtil;
 import com.data.datafusion.config.SpringUtil;
+import com.data.datafusion.config.WorkerExecutionProperties;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
 import com.data.datafusion.job.ITask;
@@ -24,10 +25,11 @@ public class StartJobEventHandler implements Runnable {
     // 使用ThreadPoolExecutor以便获取线程池状态
     private final ThreadPoolExecutor jobExecutor;
 
-    public static int WORK_THREAD_COUNT = 100;
+    /** 实际并发执行线程数，来源于 development.worker.thread-count。 */
+    private final int workerThreadCount;
 
-    /** 待执行队列容量，避免一次性从事件队列取走过多任务。 */
-    public static final int JOB_QUEUE_CAPACITY = 1000;
+    /** 实际待执行队列容量，来源于 development.worker.queue-capacity。 */
+    private final int queueCapacity;
 
     /** 同优先级任务按提交顺序执行。 */
     private final AtomicLong submitSequence = new AtomicLong();
@@ -40,19 +42,20 @@ public class StartJobEventHandler implements Runnable {
 
     public StartJobEventHandler() {
         // 创建可配置的线程池，支持任务停止和状态监控
-        int corePoolSize = WORK_THREAD_COUNT;
-        int maxPoolSize = WORK_THREAD_COUNT;
-        int queueCapacity = JOB_QUEUE_CAPACITY;
+        WorkerExecutionProperties properties = WorkerExecutionProperties.get();
+        this.workerThreadCount = properties.getThreadCount();
+        this.queueCapacity = properties.getQueueCapacity();
         long keepAliveTime = 60L;
 
         this.jobExecutor = new ThreadPoolExecutor(
-            corePoolSize,
-            maxPoolSize,
+            workerThreadCount,
+            workerThreadCount,
             keepAliveTime,
             TimeUnit.SECONDS,
             new PriorityBlockingQueue<>(queueCapacity, PrioritizedFutureTask::compare),
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
+        log.info("任务执行线程池初始化: threadCount={}, queueCapacity={}", workerThreadCount, queueCapacity);
     }
 
     @Override
@@ -107,7 +110,7 @@ public class StartJobEventHandler implements Runnable {
      * @return true表示可以继续接收新任务
      */
     private boolean hasAvailableCapacity() {
-        return jobExecutor.getQueue().size() < JOB_QUEUE_CAPACITY;
+        return jobExecutor.getQueue().size() < queueCapacity;
     }
 
     private static int normalizePriority(Integer priority) {

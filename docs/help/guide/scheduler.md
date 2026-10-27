@@ -84,6 +84,34 @@ docker compose -f src/main/docker/scheduler-cluster.yml up -d
 docker compose -f src/main/docker/scheduler-cluster.yml up -d --scale worker=3
 ```
 
+## 并发与容量配置
+
+单机同一时刻真正并发执行的任务数、待执行队列，以及 Quartz 触发线程数都可以配置：
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `development.worker.thread-count` | 50 | 单节点同时执行的任务数上限，超出后进入待执行队列 |
+| `development.worker.queue-capacity` | 50 | 待执行队列容量，满后 worker 暂停从事件队列取任务（背压） |
+| `development.scheduler.thread-count` | 10 | Quartz 触发线程数，决定同秒大量任务到期时并发拉起实例的能力 |
+
+```yaml
+development:
+  scheduler:
+    thread-count: 30
+  worker:
+    thread-count: 200
+    queue-capacity: 2000
+```
+
+也可以用环境变量覆盖：`DEVELOPMENT_SCHEDULER_THREAD_COUNT`、`DEVELOPMENT_WORKER_THREAD_COUNT`、
+`DEVELOPMENT_WORKER_QUEUE_CAPACITY`。
+
+调优建议：
+
+- 触发线程数建议不超过数据库连接池（Hikari `maximum-pool-size`，默认 10），避免触发阶段打满连接池；
+- worker 线程数按 CPU / 内存与任务类型调整。几十个并发 ETL 在 2C4G 上就不现实，应改用 docker 模式或多 worker 副本；
+- 若显式配置了 `spring.quartz.properties.org.quartz.threadPool.threadCount`，则以该值为准。
+
 ## ETL 任务执行模式
 
 ETL 任务默认在 worker 进程内执行；也可以通过配置切换为 **docker 模式**：任务在独立的

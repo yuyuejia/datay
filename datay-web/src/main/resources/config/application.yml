@@ -280,6 +280,17 @@ datay:
 # 部署与执行配置（development.*）
 # ===================================================================
 development:
+  # 调度并发配置
+  scheduler:
+    # Quartz 触发线程数：同一时间点大量 Cron 任务到期时，并发拉起任务实例的能力。
+    # 每次触发都会读写数据库，建议不超过数据库连接池（Hikari maximum-pool-size）容量。
+    thread-count: ${DEVELOPMENT_SCHEDULER_THREAD_COUNT:10}
+  # Worker 任务执行并发配置（同时适用于 standalone 与 master/worker 部署）
+  worker:
+    # 单节点同时执行的任务数上限；超过后进入待执行队列排队。
+    thread-count: ${DEVELOPMENT_WORKER_THREAD_COUNT:50}
+    # 待执行队列容量；队列满后 worker 暂停从事件队列取任务，形成背压。
+    queue-capacity: ${DEVELOPMENT_WORKER_QUEUE_CAPACITY:50}
   # ETL 任务执行方式：local 在当前 worker 进程内执行，docker 在独立容器中执行
   etl:
     mode: ${DATAY_ETL_MODE:local}
