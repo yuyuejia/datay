@@ -6,6 +6,7 @@ import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.mapper.DataSourceMapper;
 import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProviderFactory;
+import com.data.metadata.util.ConnectionPoolManager;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,7 @@ public class DataSourceService {
         normalizeType(dataSourceDTO);
         DataSource dataSource = dataSourceMapper.toEntity(dataSourceDTO);
         dataSource = dataSourceRepository.save(dataSource);
+        evictConnectionPools(dataSource.getUrl(), dataSource.getUsername());
         return dataSourceMapper.toDto(dataSource);
     }
 
@@ -80,8 +82,17 @@ public class DataSourceService {
     public DataSourceDTO update(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to update DataSource : {}", dataSourceDTO);
         normalizeType(dataSourceDTO);
+        Optional<DataSource> previous = dataSourceDTO.getId() == null
+            ? Optional.empty()
+            : dataSourceRepository.findById(dataSourceDTO.getId());
+        String previousUrl = previous.map(DataSource::getUrl).orElse(null);
+        String previousUsername = previous.map(DataSource::getUsername).orElse(null);
+
         DataSource dataSource = dataSourceMapper.toEntity(dataSourceDTO);
         dataSource = dataSourceRepository.save(dataSource);
+
+        evictConnectionPools(previousUrl, previousUsername);
+        evictConnectionPools(dataSource.getUrl(), dataSource.getUsername());
         return dataSourceMapper.toDto(dataSource);
     }
 
@@ -98,11 +109,16 @@ public class DataSourceService {
         return dataSourceRepository
             .findById(dataSourceDTO.getId())
             .map(existingDataSource -> {
-                dataSourceMapper.partialUpdate(existingDataSource, dataSourceDTO);
+                String previousUrl = existingDataSource.getUrl();
+                String previousUsername = existingDataSource.getUsername();
 
-                return existingDataSource;
+                dataSourceMapper.partialUpdate(existingDataSource, dataSourceDTO);
+                DataSource saved = dataSourceRepository.save(existingDataSource);
+
+                evictConnectionPools(previousUrl, previousUsername);
+                evictConnectionPools(saved.getUrl(), saved.getUsername());
+                return saved;
             })
-            .map(dataSourceRepository::save)
             .map(dataSourceMapper::toDto);
     }
 
@@ -164,7 +180,26 @@ public class DataSourceService {
      */
     public void delete(String id) {
         LOG.debug("Request to delete DataSource : {}", id);
+        Optional<DataSource> dataSource = dataSourceRepository.findById(id);
         dataSourceRepository.deleteById(id);
+        dataSource.ifPresent(entity -> evictConnectionPools(entity.getUrl(), entity.getUsername()));
+    }
+
+    /**
+     * 数据源新增、修改或删除后关闭其旧连接池。
+     *
+     * <p>连接池按 URL、用户名与密码指纹缓存；配置变更后若继续复用旧池，会出现
+     * 「配置已改但仍连旧库/旧密码」的问题。关闭失败只记录日志，不影响数据源本身的操作。
+     */
+    private void evictConnectionPools(String url, String username) {
+        if (url == null) {
+            return;
+        }
+        try {
+            ConnectionPoolManager.closePool(url, username);
+        } catch (Exception e) {
+            LOG.warn("Failed to close connection pool for data source {} / {}", url, username, e);
+        }
     }
 
     /**

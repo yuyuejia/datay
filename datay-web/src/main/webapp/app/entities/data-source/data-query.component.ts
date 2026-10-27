@@ -90,6 +90,7 @@ export default defineComponent({
     const treeRef = ref();
     const treeData = ref<any[]>([]);
     const treeLoading = ref(false);
+    const treeError = ref('');
 
     const sqlCode = ref('');
     const editorContainer = ref<HTMLElement | null>(null);
@@ -314,8 +315,17 @@ export default defineComponent({
       e.preventDefault();
     };
 
+    const describeLoadError = (err: any): string => {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const raw = data?.detail || data?.message || data?.error || (status ? `请求失败（HTTP ${status}）` : err?.message) || '加载失败';
+      const message = String(raw).replace(/\s+/g, ' ').trim();
+      return message.length > 300 ? `${message.slice(0, 300)}…` : message;
+    };
+
     const loadSchemas = async () => {
       treeLoading.value = true;
+      treeError.value = '';
       try {
         const res = await dataSourceService().getSchemas(dataSourceId.value);
         const schemas = res.data || res || [];
@@ -327,7 +337,8 @@ export default defineComponent({
           isLeaf: false,
         }));
       } catch (err) {
-        alertService.showHttpError(err.response);
+        treeData.value = [];
+        treeError.value = describeLoadError(err);
       } finally {
         treeLoading.value = false;
       }
@@ -354,7 +365,11 @@ export default defineComponent({
           });
           resolve(tableNodes);
         } catch (err) {
-          alertService.showHttpError(err.response);
+          if (err?.response) {
+            alertService.showHttpError(err.response);
+          } else {
+            alertService.showError(describeLoadError(err));
+          }
           resolve([]);
         }
       } else {
@@ -751,6 +766,7 @@ export default defineComponent({
       treeRef,
       treeData,
       treeLoading,
+      treeError,
       sqlCode,
       hasSelection,
       resultColumns,
@@ -766,6 +782,7 @@ export default defineComponent({
       applyAiSql,
       startResize,
       handleNodeDblClick,
+      loadSchemas,
       loadTables,
       executeQuery,
       generateDataset,

@@ -25,41 +25,49 @@
           <span>数据库</span>
         </div>
         <div class="sidebar-content" v-loading="treeLoading">
-          <el-tree
-            ref="treeRef"
-            :data="treeData"
-            :props="{ label: 'label', children: 'children', isLeaf: 'isLeaf' }"
-            node-key="id"
-            lazy
-            :load="loadTables"
-            highlight-current
-            class="schema-tree"
-          >
-            <template #default="{ node, data }">
-              <span
-                class="custom-tree-node"
-                :class="{ 'is-table': data?.type === 'table' }"
-                @dblclick.stop="handleNodeDblClick(data)"
-                @contextmenu.stop.prevent="openContextMenu($event, data)"
-              >
-                <font-awesome-icon :icon="data?.type === 'schema' ? 'database' : 'table'" class="node-icon" />
-                <span class="node-label">{{ node.label }}</span>
-                <span v-if="data?.type === 'table'" class="node-actions" @click.stop>
-                  <el-tooltip content="预览数据" placement="top">
-                    <button class="node-action-btn" @click.stop="previewTable(data)">
-                      <font-awesome-icon icon="eye" />
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="更多操作" placement="top">
-                    <button class="node-action-btn" @click.stop="openContextMenu($event, data)">
-                      <font-awesome-icon icon="ellipsis-vertical" />
-                    </button>
-                  </el-tooltip>
+          <div v-if="treeError && !treeLoading" class="tree-error">
+            <font-awesome-icon icon="exclamation-circle" class="tree-error-icon" />
+            <div class="tree-error-title">数据库加载失败</div>
+            <div class="tree-error-message" :title="treeError">{{ treeError }}</div>
+            <el-button size="small" type="primary" plain @click="loadSchemas">重试</el-button>
+          </div>
+          <template v-else>
+            <el-tree
+              ref="treeRef"
+              :data="treeData"
+              :props="{ label: 'label', children: 'children', isLeaf: 'isLeaf' }"
+              node-key="id"
+              lazy
+              :load="loadTables"
+              highlight-current
+              class="schema-tree"
+            >
+              <template #default="{ node, data }">
+                <span
+                  class="custom-tree-node"
+                  :class="{ 'is-table': data?.type === 'table' }"
+                  @dblclick.stop="handleNodeDblClick(data)"
+                  @contextmenu.stop.prevent="openContextMenu($event, data)"
+                >
+                  <font-awesome-icon :icon="data?.type === 'schema' ? 'database' : 'table'" class="node-icon" />
+                  <span class="node-label">{{ node.label }}</span>
+                  <span v-if="data?.type === 'table'" class="node-actions" @click.stop>
+                    <el-tooltip content="预览数据" placement="top">
+                      <button class="node-action-btn" @click.stop="previewTable(data)">
+                        <font-awesome-icon icon="eye" />
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="更多操作" placement="top">
+                      <button class="node-action-btn" @click.stop="openContextMenu($event, data)">
+                        <font-awesome-icon icon="ellipsis-vertical" />
+                      </button>
+                    </el-tooltip>
+                  </span>
                 </span>
-              </span>
-            </template>
-          </el-tree>
-          <el-empty v-if="!treeLoading && treeData.length === 0" description="暂无数据库" />
+              </template>
+            </el-tree>
+            <el-empty v-if="!treeLoading && treeData.length === 0" description="暂无数据库" />
+          </template>
         </div>
       </div>
 
@@ -409,6 +417,37 @@
 
 .schema-tree {
   background: transparent;
+}
+
+.tree-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.tree-error-icon {
+  font-size: 28px;
+  color: var(--el-color-danger, #f56c6c);
+}
+
+.tree-error-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.tree-error-message {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary, #909399);
+  overflow-wrap: anywhere;
 }
 
 .custom-tree-node {

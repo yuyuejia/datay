@@ -8,8 +8,13 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,7 +43,7 @@ public class ConnectionPoolManager {
      * 获取数据库连接（使用连接池）- 带版本信息
      */
     public static Connection getConnection(String url, String user, String password, String version) throws SQLException {
-        String poolKey = generatePoolKey(url, user, version);
+        String poolKey = generatePoolKey(url, user, password, version);
         return getConnectionFromPool(poolKey, url, user, password, version);
     }
 
@@ -46,7 +51,7 @@ public class ConnectionPoolManager {
      * 获取数据库连接（使用连接池）- 带版本信息
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo, String version) throws SQLException {
-        String poolKey = generatePoolKey(datasourceInfo.getUrl(), datasourceInfo.getUsername(), version);
+        String poolKey = generatePoolKey(datasourceInfo.getUrl(), datasourceInfo.getUsername(), datasourceInfo.getPassword(), version);
         return getConnectionFromPool(poolKey, datasourceInfo.getUrl(), datasourceInfo.getUsername(), datasourceInfo.getPassword(), version);
     }
 
@@ -67,7 +72,12 @@ public class ConnectionPoolManager {
         String driverJarPath,
         String testQuery
     ) throws SQLException {
-        String poolKey = generatePoolKey(datasourceInfo.getUrl(), datasourceInfo.getUsername(), "default");
+        String poolKey = generatePoolKey(
+            datasourceInfo.getUrl(),
+            datasourceInfo.getUsername(),
+            datasourceInfo.getPassword(),
+            "default"
+        );
         if (driverClassName != null && !driverClassName.isBlank()) {
             poolKey = poolKey + "|" + driverClassName;
         }
@@ -328,9 +338,6 @@ public class ConnectionPoolManager {
      */
     private static void loadDriverJars(File dir, DriverClassLoader classLoader, String dbType, String version) {
         if (dir == null || !dir.exists()) {
-            System.err.println(
-                "Driver path not found: " + (dir == null ? "n/a" : dir.getPath()) + " for " + dbType
-            );
             return;
         }
         if (dir.isFile()) {
@@ -363,10 +370,39 @@ public class ConnectionPoolManager {
     }
 
     /**
-     * 生成连接池键（带版本信息）
+     * 生成连接池键（带版本信息和密码指纹）。
+     *
+     * <p>连接池键必须包含密码指纹：同一个 URL、用户名在密码变更后是不同的连接配置，
+     * 若沿用旧键会继续复用旧密码建立的连接，表现为「配置已更新但连接仍失败/仍成功」。
+     * 这里只保存密码的 SHA-256 摘要前缀，不落明文密码。
      */
-    private static String generatePoolKey(String url, String user, String version) {
-        return url + "|" + user + "|" + version;
+    private static String generatePoolKey(String url, String user, String password, String version) {
+        return poolKeyPrefix(url, user, version) + "|" + credentialFingerprint(password);
+    }
+
+    /**
+     * 连接池键的公共前缀（不含密码指纹），用于按数据源关闭其全部连接池。
+     */
+    private static String poolKeyPrefix(String url, String user, String version) {
+        return String.valueOf(url) + "|" + String.valueOf(user) + "|" + version;
+    }
+
+    /**
+     * 计算密码指纹，用于区分同一 URL + 用户名下的不同凭据。
+     */
+    private static String credentialFingerprint(String password) {
+        String secret = password == null ? "" : password;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                builder.append(Character.forDigit((digest[i] >> 4) & 0xF, 16));
+                builder.append(Character.forDigit(digest[i] & 0xF, 16));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return Integer.toHexString(secret.hashCode());
+        }
     }
 
     /**
@@ -393,21 +429,45 @@ public class ConnectionPoolManager {
     }
 
     /**
-     * 关闭连接池（带版本信息）
+     * 关闭连接池（带版本信息）：关闭该 URL + 用户名 + 版本下所有密码指纹的连接池。
      */
     public static void closePool(String url, String user, String version) {
-        String poolKey = generatePoolKey(url, user, version);
-        HikariDataSource dataSource = dataSourcePool.remove(poolKey);
-        if (dataSource != null) {
-            dataSource.close();
-        }
+        closePoolsMatching(poolKeyPrefix(url, user, version) + "|");
     }
 
     /**
-     * 关闭连接池（不带版本信息，向后兼容）
+     * 关闭连接池（不带版本信息）：关闭该 URL + 用户名下所有版本、所有密码指纹的连接池。
+     *
+     * <p>数据源被修改或删除时调用，确保后续连接使用最新的地址与凭据。
      */
     public static void closePool(String url, String user) {
-        closePool(url, user, "default");
+        closePoolsMatching(String.valueOf(url) + "|" + String.valueOf(user) + "|");
+    }
+
+    /**
+     * 关闭所有键以指定前缀开头的连接池。
+     */
+    private static void closePoolsMatching(String prefix) {
+        List<String> keys = new ArrayList<>();
+        for (String key : dataSourcePool.keySet()) {
+            if (key.startsWith(prefix)) {
+                keys.add(key);
+            }
+        }
+        for (String key : keys) {
+            closeQuietly(dataSourcePool.remove(key));
+        }
+    }
+
+    private static void closeQuietly(HikariDataSource dataSource) {
+        if (dataSource == null) {
+            return;
+        }
+        try {
+            dataSource.close();
+        } catch (Exception e) {
+            System.err.println("Failed to close connection pool " + dataSource.getPoolName() + ": " + e.getMessage());
+        }
     }
 
     /**
@@ -415,9 +475,7 @@ public class ConnectionPoolManager {
      */
     public static void closeAllPools() {
         for (HikariDataSource dataSource : dataSourcePool.values()) {
-            if (dataSource != null) {
-                dataSource.close();
-            }
+            closeQuietly(dataSource);
         }
         dataSourcePool.clear();
         driverClassLoaders.clear();
@@ -427,16 +485,17 @@ public class ConnectionPoolManager {
      * 获取连接池统计信息（带版本信息）
      */
     public static Map<String, Object> getPoolStats(String url, String user, String version) {
-        String poolKey = generatePoolKey(url, user, version);
-        HikariDataSource dataSource = dataSourcePool.get(poolKey);
-
-        if (dataSource != null) {
-            Map<String, Object> stats = new java.util.HashMap<>();
-            stats.put("activeConnections", dataSource.getHikariPoolMXBean().getActiveConnections());
-            stats.put("idleConnections", dataSource.getHikariPoolMXBean().getIdleConnections());
-            stats.put("totalConnections", dataSource.getHikariPoolMXBean().getTotalConnections());
-            stats.put("threadsAwaitingConnection", dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection());
-            return stats;
+        String prefix = poolKeyPrefix(url, user, version) + "|";
+        for (Map.Entry<String, HikariDataSource> entry : dataSourcePool.entrySet()) {
+            if (entry.getKey().startsWith(prefix) && entry.getValue() != null) {
+                HikariDataSource dataSource = entry.getValue();
+                Map<String, Object> stats = new java.util.HashMap<>();
+                stats.put("activeConnections", dataSource.getHikariPoolMXBean().getActiveConnections());
+                stats.put("idleConnections", dataSource.getHikariPoolMXBean().getIdleConnections());
+                stats.put("totalConnections", dataSource.getHikariPoolMXBean().getTotalConnections());
+                stats.put("threadsAwaitingConnection", dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection());
+                return stats;
+            }
         }
 
         return java.util.Collections.emptyMap();
