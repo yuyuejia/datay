@@ -112,6 +112,77 @@ development:
 - worker 线程数按 CPU / 内存与任务类型调整。几十个并发 ETL 在 2C4G 上就不现实，应改用 docker 模式或多 worker 副本；
 - 若显式配置了 `spring.quartz.properties.org.quartz.threadPool.threadCount`，则以该值为准。
 
+### 单节点容量实测（4G 内存）
+
+以下数据来自实际测量（JDK 17；`-XX:MaxRAM=4g` 时默认 `MaxHeapSize` 约 1G，`MaxRAMPercentage=25`；
+入口脚本启用 `-XX:+AlwaysPreTouch`，堆启动即全部占用）。测量方法为批量分配后 GC 的堆增量，
+Quartz 部分为真实 `scheduleJob` 注册 2 万 / 5 万个 Cron 任务。
+
+单对象堆占用：
+
+| 对象 | 实测占用 |
+| --- | --- |
+| `JobInstance` 本体（无 `jobContext`） | 332 B |
+| `JobInstance` + 2KB / 10KB / 50KB `jobContext` | 2.36KB / 10.36KB / 50.36KB |
+| `JobStatusEvent` 包一层 | 约 +80 B |
+| Quartz 注册一个 Cron 任务（JobDetail + CronTrigger + RAMJobStore） | **约 11.7KB** |
+
+单节点容量（按 1G 堆、扣除应用基线约 400MB、可用约 600MB 估算）：
+
+| 维度 | 4G 默认（堆约 1G） | 4G 显式 `-Xmx2g` |
+| --- | --- | --- |
+| 同时执行任务 | 50（线程数上限） | 50 |
+| 在途实例（排队 + 执行） | 不超过 1 万，`jobContext` ≤50KB 才安全 | 1 万 × 100KB 仍可 |
+| 注册中的 Cron 任务 | 稳态约 5 万；含启动峰值实际 1–3 万 | 稳态约 12 万；实际 3–7 万 |
+| 本地 ETL 并发建议 | 10–20 | 20–30 |
+
+`jobContext` 与在途实例内存（1 万条队列）：
+
+| `jobContext` | 单条实例 | 1 万条占用 | 1G 堆 |
+| --- | --- | --- | --- |
+| 2KB | 2.44KB | 24MB | 可用 |
+| 4KB | 4.44KB | 44MB | 可用 |
+| 10KB | 10.44KB | 104MB | 可用 |
+| 50KB | 50.44KB | 504MB | 接近上限 |
+| 100KB | 100.44KB | 约 1.0GB | 有 OOM 风险 |
+| 200KB | 200.44KB | 约 2.0GB | 不可用 |
+
+注册中的 Cron 任务还受启动阶段影响：`QuartzService.initJobScheduler()` 会把所有 ONLINE 任务连同
+`jobContext` 一次性加载再逐个注册，启动峰值约为 `N × (11.7KB + Job 实体 + jobContext)`：
+
+| `jobContext` | 1G 堆可注册 | 2G 堆可注册 |
+| --- | --- | --- |
+| 2KB | 约 4.3 万 | 约 10 万 |
+| 10KB | 约 2.7 万 | 约 6.8 万 |
+| 50KB | 约 0.97 万 | 约 2.4 万 |
+| 100KB | 约 0.54 万 | 约 1.3 万 |
+
+因此建议单节点在线 Cron 任务控制在 **1 万以内**（`jobContext` 较小时可到 2–3 万）；更大规模应增加
+master 分片，而不是继续加内存。
+
+4G 单节点的推荐配置：
+
+```yaml
+development:
+  scheduler:
+    thread-count: 10
+  worker:
+    thread-count: 20        # 纯 SQL/Shell 可回到 50；本地 ETL 建议 10–20
+    queue-capacity: 50
+```
+
+```bash
+JAVA_OPTS="-Xmx2g -Xms2g"
+```
+
+注意：
+
+- 4G 机器不建议 `-Xmx3g`：`AlwaysPreTouch` 会立即占满，加上 Metaspace、CodeCache、线程栈与直接内存，
+  留给系统和其他进程的空间过小；
+- 执行侧待执行队列使用 `PriorityBlockingQueue(queueCapacity, ...)`，该参数只是初始容量，队列本身无界，
+  真正限制在途数量的是容量 1 万的 `startJobQueue` / `jobStatusQueue`；
+- 状态队列也可能同时压入最多 1 万条事件引用，极端情况下在途内存会接近翻倍。
+
 ## ETL 任务执行模式
 
 ETL 任务默认在 worker 进程内执行；也可以通过配置切换为 **docker 模式**：任务在独立的
