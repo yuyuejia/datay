@@ -3,6 +3,7 @@ import { type Ref, defineComponent, inject, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type AccountService from '../account.service';
 import TenantSwitchService from '@/account/tenant-switch.service';
+import { clearStoredToken } from '@/shared/config/axios-interceptor';
 
 export default defineComponent({
   setup() {
@@ -47,6 +48,9 @@ export default defineComponent({
     const doLogin = async () => {
       const data = { username: login.value, password: password.value, rememberMe: rememberMe.value };
       try {
+        // Drop any stale/expired token before authenticating. Otherwise it is sent as a Bearer
+        // header and the resource-server filter rejects /api/authenticate with 401, blocking login.
+        clearStoredToken();
         const result = await axios.post('api/authenticate', data);
         const bearerToken = result.headers.authorization;
         if (bearerToken && bearerToken.slice(0, 7) === 'Bearer ') {

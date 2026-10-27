@@ -103,6 +103,25 @@ describe('LoginForm Component', () => {
     expect(localStorage.getItem('jhi-authenticationToken')).toEqual(jwtSecret);
   });
 
+  it('should clear stale tokens before authenticating even if login fails', async () => {
+    // GIVEN
+    localStorage.setItem('jhi-authenticationToken', 'expired-token');
+    sessionStorage.setItem('jhi-authenticationToken', 'expired-token');
+    loginForm.login = 'login';
+    loginForm.password = 'pwd';
+    loginForm.rememberMe = false;
+    axiosStub.post.rejects();
+
+    // WHEN
+    loginForm.doLogin();
+    await loginForm.$nextTick();
+
+    // THEN
+    expect(localStorage.getItem('jhi-authenticationToken')).toBeNull();
+    expect(sessionStorage.getItem('jhi-authenticationToken')).toBeNull();
+    expect(loginForm.authenticationError).toBeTruthy();
+  });
+
   it('should store token if authentication is OK in session', async () => {
     // GIVEN
     loginForm.login = 'login';
