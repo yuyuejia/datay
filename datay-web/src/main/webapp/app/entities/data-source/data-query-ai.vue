@@ -216,7 +216,8 @@
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 1000;
+  /* 必须高于顶部导航（.app-topbar 的 1030），否则抽屉头部会被菜单栏盖住 */
+  z-index: 1040;
   background: rgba(0, 0, 0, 0.4);
   transition: opacity 0.3s ease;
 }
@@ -227,7 +228,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 1001;
+  z-index: 1041;
   width: 520px;
   max-width: 100vw;
   display: flex;
