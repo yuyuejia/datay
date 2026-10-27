@@ -47,6 +47,7 @@
   - [StreamJdbcOutput 输出](components/StreamJdbcOutput.md)
   - [StreamSqlUnit 流式 SQL](components/StreamSqlUnit.md)
   - [DataTransform 转换](components/DataTransform.md)
+  - [JDBCLookup 跨库关联](components/JDBCLookup.md)
   - [Join 关联](components/Join.md)
   - [DorisStreamLoad 写入](components/DorisStreamLoad.md)
   - [HttpListener 监听](components/HttpListener.md)
