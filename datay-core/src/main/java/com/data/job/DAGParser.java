@@ -9,11 +9,25 @@ import java.util.*;
 // DAG解析器
 public class DAGParser {
 
+    /** 连线队列默认容量（批次数）。 */
+    public static final int DEFAULT_QUEUE_CAPACITY = 10;
+
+    /** 单条连线队列容量上限，避免误配置导致内存溢出。 */
+    public static final int MAX_QUEUE_CAPACITY = 100000;
+
     private final Map<String, Component> components = new HashMap<>();
 
     private final Map<String, List<String>> edges = new HashMap<>();
 
+    /** 解析后的连线（含已解析的队列容量）。 */
+    private final List<Connection> resolvedConnections = new ArrayList<>();
+
+    /** 流程级默认队列容量，未在连线上单独配置时使用。 */
+    private int defaultQueueCapacity = DEFAULT_QUEUE_CAPACITY;
+
     public void parse(String json) throws IllegalArgumentException {
+
+        resolvedConnections.clear();
 
         JSONObject jsonObj = JSONObject.parse(json);
         if (jsonObj == null) {
@@ -26,6 +40,12 @@ public class DAGParser {
         JSONArray connections = jsonObj.getJSONArray("connections");
         if (connections == null) {
             connections = new JSONArray();
+        }
+
+        // 流程级默认队列容量：flowConfig.queueCapacity，缺省 10
+        JSONObject flowConfig = jsonObj.getJSONObject("flowConfig");
+        if (flowConfig != null) {
+            defaultQueueCapacity = normalizeQueueCapacity(flowConfig.getInteger("queueCapacity"), DEFAULT_QUEUE_CAPACITY);
         }
 
         for (JSONObject unit : units.toList(JSONObject.class)) {
@@ -63,12 +83,44 @@ public class DAGParser {
             if (source == null || target == null) {
                 continue;
             }
-            source.getOutput().add(new Connection(sourceId, targetId, sourcePort, label));
-            target.getInput().add(new Connection(sourceId, targetId, sourcePort, label));
+            // 连线队列容量：连线配置优先，缺省使用流程级默认值（10）
+            int queueCapacity = normalizeQueueCapacity(connection.getInteger("queueCapacity"), defaultQueueCapacity);
+            Connection resolved = new Connection(sourceId, targetId, sourcePort, label, queueCapacity);
+            source.getOutput().add(resolved);
+            target.getInput().add(resolved);
+            resolvedConnections.add(resolved);
             List<String> targets = edges.getOrDefault(sourceId, new ArrayList<>());
             targets.add(targetId);
             edges.put(sourceId, targets);
         }
+    }
+
+    /**
+     * 归一化队列容量：非正数回退到默认值，超过上限时截断。
+     *
+     * @param value    配置值
+     * @param fallback 回退值
+     * @return 合法容量
+     */
+    public static int normalizeQueueCapacity(Integer value, int fallback) {
+        if (value == null || value <= 0) {
+            return fallback;
+        }
+        return Math.min(value, MAX_QUEUE_CAPACITY);
+    }
+
+    /**
+     * 解析后的连线列表，队列容量已按「连线配置 > 流程默认值」解析完成。
+     */
+    public List<Connection> getResolvedConnections() {
+        return resolvedConnections;
+    }
+
+    /**
+     * 流程级默认队列容量。
+     */
+    public int getDefaultQueueCapacity() {
+        return defaultQueueCapacity;
     }
 
     public List<Component> topologicalSort() {

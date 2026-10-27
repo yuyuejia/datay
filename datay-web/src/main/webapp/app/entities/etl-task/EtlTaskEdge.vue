@@ -39,6 +39,12 @@ const openEditor = event => {
     props.data.onEditLabel(props.id);
   }
 };
+
+const tooltip = computed(() => {
+  const capacity = props.data?.queueCapacity;
+  const base = '双击设置连线标签与队列大小';
+  return capacity ? `${base}（当前队列大小：${capacity}）` : base;
+});
 </script>
 
 <template>
@@ -48,7 +54,7 @@ const openEditor = event => {
       class="etl-edge-label"
       :class="{ 'is-empty': !labelText }"
       :style="{ transform: `translate(-50%, -50%) translate(${pathData[1]}px, ${pathData[2]}px)` }"
-      title="双击设置连线标签"
+      :title="tooltip"
       @dblclick="openEditor"
       @click.stop
     >

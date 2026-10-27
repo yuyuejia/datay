@@ -257,6 +257,11 @@ public class ETLTaskService {
             if (etlEdge.getName() != null && !etlEdge.getName().trim().isEmpty()) {
                 connection.put("label", etlEdge.getName().trim());
             }
+            // 连线队列容量透传给引擎；未配置时由引擎按默认值 10 处理
+            Integer queueCapacity = parseQueueCapacity(etlEdge.getConfig());
+            if (queueCapacity != null) {
+                connection.put("queueCapacity", queueCapacity);
+            }
             connections.add(connection);
         }
         // 生成最终的 JSON 结构
@@ -265,6 +270,28 @@ public class ETLTaskService {
         etlJobJson.put("version", "1.0.0");
 
         return JSONUtil.toJsonStr(etlJobJson);
+    }
+
+    /**
+     * 解析连线配置中的队列容量。
+     *
+     * <p>连线 config 为 JSON 字符串，格式如 {@code {"queueCapacity": 20}}。缺失或非法时返回 {@code null}，
+     * 由引擎使用默认容量。
+     *
+     * @param edgeConfig 连线配置 JSON
+     * @return 合法的队列容量，未配置时返回 null
+     */
+    private Integer parseQueueCapacity(String edgeConfig) {
+        if (edgeConfig == null || edgeConfig.isBlank()) {
+            return null;
+        }
+        try {
+            Integer queueCapacity = JSONUtil.parseObj(edgeConfig).getInt("queueCapacity", null);
+            return queueCapacity != null && queueCapacity > 0 ? queueCapacity : null;
+        } catch (Exception e) {
+            LOG.warn("解析连线配置失败，忽略队列容量设置: {}", edgeConfig, e);
+            return null;
+        }
     }
 
     /**

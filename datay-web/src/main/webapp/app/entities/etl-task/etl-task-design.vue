@@ -11,7 +11,6 @@ import ETLTaskNode from './etl-task-node.vue';
 import EtlTaskEdge from './EtlTaskEdge.vue';
 import DynamicParameterHelp from './DynamicParameterHelp.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
-import { ElMessageBox } from 'element-plus';
 
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
@@ -49,6 +48,8 @@ const edges = ref([]);
 let skipNextCanvasFit = false;
 
 const DEBUG_ROW_LIMIT = 100;
+// 连线队列默认容量（批次数），与引擎 DAGParser.DEFAULT_QUEUE_CAPACITY 保持一致
+const DEFAULT_QUEUE_CAPACITY = 10;
 const debugResults = ref({});
 const debugRunning = ref(false);
 // 各节点调试获取到的上游表清单缓存，避免每次打开配置界面都自动执行调试
@@ -78,26 +79,37 @@ const deleteNode = nodeId => {
   removeNodes([nodeId]);
 };
 
+const normalizeQueueCapacity = value => {
+  const capacity = Number(value);
+  return Number.isFinite(capacity) && capacity > 0 ? Math.floor(capacity) : DEFAULT_QUEUE_CAPACITY;
+};
+
+const edgeSettingsVisible = ref(false);
+const edgeSettings = reactive({ id: '', label: '', queueCapacity: DEFAULT_QUEUE_CAPACITY });
+
+// 双击连线：同时设置标签与队列容量
 const editEdgeLabel = edgeId => {
   const edge = edges.value.find(item => item.id === edgeId);
   if (!edge) {
     return;
   }
-  ElMessageBox.prompt('请输入连线标签，供属性路由（RouteOnAttribute）等组件按标签分流', '设置连线标签', {
-    inputValue: edge.label || edge.data?.label || '',
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputPlaceholder: '例如：vip / normal / other',
-  })
-    .then(({ value }) => {
-      const label = (value || '').trim();
-      setEdges(
-        edges.value.map(item =>
-          item.id === edgeId ? { ...item, label, data: { ...(item.data || {}), label, onEditLabel: editEdgeLabel } } : item,
-        ),
-      );
-    })
-    .catch(() => {});
+  edgeSettings.id = edgeId;
+  edgeSettings.label = edge.label || edge.data?.label || '';
+  edgeSettings.queueCapacity = normalizeQueueCapacity(edge.data?.queueCapacity);
+  edgeSettingsVisible.value = true;
+};
+
+const saveEdgeSettings = () => {
+  const label = (edgeSettings.label || '').trim();
+  const queueCapacity = normalizeQueueCapacity(edgeSettings.queueCapacity);
+  setEdges(
+    edges.value.map(item =>
+      item.id === edgeSettings.id
+        ? { ...item, label, data: { ...(item.data || {}), label, queueCapacity, onEditLabel: editEdgeLabel } }
+        : item,
+    ),
+  );
+  edgeSettingsVisible.value = false;
 };
 
 const loadComponents = async () => {
@@ -203,15 +215,30 @@ const retrieveETLTask = async eTLTaskId => {
       position: { x: parseFloat(node.xAxis), y: parseFloat(node.yAxis) },
     }));
 
-    const convertedEdges = (res.edges || []).map(edge => ({
-      id: edge.code.toString(),
-      source: edge.source.toString(),
-      target: edge.target.toString(),
-      type: 'etl',
-      label: edge.name || '',
-      markerEnd: MarkerType.ArrowClosed,
-      data: { label: edge.name || '', onEditLabel: editEdgeLabel },
-    }));
+    const convertedEdges = (res.edges || []).map(edge => {
+      let edgeConfig = {};
+      if (edge.config) {
+        try {
+          edgeConfig = JSON.parse(edge.config);
+        } catch (error) {
+          console.warn('解析连线配置失败，使用默认队列容量', edge.config, error);
+          edgeConfig = {};
+        }
+      }
+      return {
+        id: edge.code.toString(),
+        source: edge.source.toString(),
+        target: edge.target.toString(),
+        type: 'etl',
+        label: edge.name || '',
+        markerEnd: MarkerType.ArrowClosed,
+        data: {
+          label: edge.name || '',
+          queueCapacity: normalizeQueueCapacity(edgeConfig.queueCapacity),
+          onEditLabel: editEdgeLabel,
+        },
+      };
+    });
 
     nodes.value = convertedNodes;
     edges.value = convertedEdges;
@@ -335,7 +362,7 @@ onConnect(connection => {
     ...connection,
     type: 'etl',
     markerEnd: { type: MarkerType.ArrowClosed },
-    data: { label: '', onEditLabel: editEdgeLabel },
+    data: { label: '', queueCapacity: DEFAULT_QUEUE_CAPACITY, onEditLabel: editEdgeLabel },
   });
 });
 
@@ -435,6 +462,7 @@ const buildTaskPayload = () => {
     source: edge.source,
     target: edge.target,
     name: (edge.label || edge.data?.label || '').trim(),
+    config: JSON.stringify({ queueCapacity: normalizeQueueCapacity(edge.data?.queueCapacity) }),
   }));
 
   return { ...eTLTask.value, nodes: updatedNodes, edges: updatedEdges };
@@ -1030,6 +1058,25 @@ const cancelTask = () => {
         <el-button @click="closeConfigModal">取消</el-button>
       </template>
     </app-modal>
+
+    <el-dialog v-model="edgeSettingsVisible" title="连线设置" width="420px" append-to-body>
+      <el-form label-position="top" class="edge-settings-form">
+        <el-form-item label="连线标签">
+          <el-input v-model="edgeSettings.label" placeholder="例如：vip / normal / other" clearable />
+          <small class="form-text text-muted">供属性路由（RouteOnAttribute）等组件按标签分流。</small>
+        </el-form-item>
+        <el-form-item label="队列大小（queueCapacity）">
+          <el-input-number v-model="edgeSettings.queueCapacity" :min="1" :max="100000" :step="1" controls-position="right" />
+          <small class="form-text text-muted">
+            该连线最多积压的批次数，默认 {{ DEFAULT_QUEUE_CAPACITY }}。越大吞吐越高，内存占用也越大。
+          </small>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="edgeSettingsVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveEdgeSettings">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

@@ -6,6 +6,7 @@ import com.data.status.StatusStorageStrategyFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -17,8 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 // 主程序执行流程
 public class ETLFlowTask {
-
-    private static final Integer QUEUE_SIZE = 20;
 
     private ExecutorService executor; // 将executor提升为类变量
     private List<Component> order = new ArrayList<>();
@@ -93,14 +92,21 @@ public class ETLFlowTask {
             .sum();
         executor = Executors.newFixedThreadPool(Math.max(totalThreads, 1));
 
-        for (Map.Entry<String, List<String>> entry : parser.getEdges().entrySet()) {
-            for (String targetId : entry.getValue()) {
-                // 调试模式下只创建实际运行节点之间的队列，避免下游未运行导致队列阻塞
-                if (!runNodeIds.contains(entry.getKey()) || !runNodeIds.contains(targetId)) {
-                    continue;
-                }
-                getContext().getConnections().put(entry.getKey() + "_" + targetId, new LinkedBlockingQueue<>(QUEUE_SIZE));
+        // 按连线创建缓冲队列：容量取自连线配置，缺省为流程默认值（10）。
+        // 同源同目标的多条连线共用一条队列，容量取其中最大值。
+        Map<String, Integer> queueCapacities = new HashMap<>();
+        for (Connection connection : parser.getResolvedConnections()) {
+            // 调试模式下只创建实际运行节点之间的队列，避免下游未运行导致队列阻塞
+            if (!runNodeIds.contains(connection.getSourceId()) || !runNodeIds.contains(connection.getTargetId())) {
+                continue;
             }
+            String key = connection.getSourceId() + "_" + connection.getTargetId();
+            int capacity = DAGParser.normalizeQueueCapacity(connection.getQueueCapacity(), parser.getDefaultQueueCapacity());
+            queueCapacities.merge(key, capacity, Math::max);
+        }
+        for (Map.Entry<String, Integer> entry : queueCapacities.entrySet()) {
+            getContext().getConnections().put(entry.getKey(), new LinkedBlockingQueue<>(entry.getValue()));
+            log("队列 " + entry.getKey() + " 容量=" + entry.getValue());
         }
         // 使用AtomicBoolean确保线程安全
         AtomicBoolean hasFailure = new AtomicBoolean(false);
