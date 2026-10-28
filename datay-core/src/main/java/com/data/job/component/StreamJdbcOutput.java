@@ -205,7 +205,7 @@ public class StreamJdbcOutput extends FlowComponent {
                 }
                 
                 if (!tableExists) {
-                    String targetDbType = DBUtils.getDBType(this.datasource.getUrl());
+                    String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
                     if (flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA) != null) {
                         logInfo("表 " + schema + "." + table + " 不存在，从flowfile属性获取表元数据");
                         TableMeta sourceTable = (TableMeta) flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
@@ -230,7 +230,10 @@ public class StreamJdbcOutput extends FlowComponent {
                 // 处理overwrite模式（非dropIfTableExists为true的情况）
                 if ("overwrite".equals(this.model) && !Boolean.TRUE.equals(this.dropIfTableExists)) {
                     logInfo("清空表 " + schema + "." + table);
-                    DBUtils.execute(targetConn, String.format("DELETE FROM %s", qualifiedTableName(schema, table)));
+                    String clearSql = isTruncateTarget()
+                        ? String.format("TRUNCATE TABLE %s", qualifiedTableName(schema, table))
+                        : String.format("DELETE FROM %s", qualifiedTableName(schema, table));
+                    DBUtils.execute(targetConn, clearSql);
                 }
             } catch (SQLException e) {
                 logError("获取表元数据失败，" + e.getMessage());
@@ -244,7 +247,7 @@ public class StreamJdbcOutput extends FlowComponent {
     }
 
     private void migrateData(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
-        String targetDbType = DBUtils.getDBType(this.datasource.getUrl());
+        String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
         String eventType;
         if ("auto".equals(this.model)) {
             eventType = getEventType(flowFile);
@@ -268,6 +271,18 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private boolean isQuackTarget() {
         return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("quack:");
+    }
+
+    /**
+     * 清空表时是否使用 TRUNCATE。Doris 等 OLAP 引擎对全表 DELETE 支持有限，
+     * 且 TRUNCATE 语义与「覆盖写」一致。
+     */
+    private boolean isTruncateTarget() {
+        if (this.datasource == null) {
+            return false;
+        }
+        String dbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
+        return "DORIS".equalsIgnoreCase(dbType) || "STARROCKS".equalsIgnoreCase(dbType);
     }
 
     private boolean isDuckLakeTarget() {

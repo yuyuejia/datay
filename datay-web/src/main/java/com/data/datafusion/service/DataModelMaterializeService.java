@@ -94,10 +94,10 @@ public class DataModelMaterializeService {
 
         DataSourceDTO ds = dsOpt.get();
         try (Connection conn = DBUtils.getConnection(toDatasourceInfo(ds))) {
-            String dbType = DBUtils.getDBType(ds.getUrl());
+            String dbType = DBUtils.getDBType(ds.getType(), ds.getUrl());
             String catalog = resolveCatalog(dbType);
             boolean exists;
-            if ("mysql".equalsIgnoreCase(dbType)) {
+            if ("mysql".equalsIgnoreCase(dbType) || "doris".equalsIgnoreCase(dbType)) {
                 exists = DBUtils.tableExists(conn, request.getSchemaName(), null, request.getTableName());
             } else if (catalog != null) {
                 exists = DBUtils.tableExists(conn, catalog, request.getSchemaName(), request.getTableName());
@@ -126,7 +126,7 @@ public class DataModelMaterializeService {
         }
 
         DataSourceDTO ds = dsOpt.get();
-        String dbType = DBUtils.getDBType(ds.getUrl());
+        String dbType = DBUtils.getDBType(ds.getType(), ds.getUrl());
 
         List<ColumnMeta> columns = new ArrayList<>();
         for (MaterializeFieldDTO fieldDTO : request.getFields()) {
@@ -162,12 +162,12 @@ public class DataModelMaterializeService {
         }
 
         DataSourceDTO ds = dsOpt.get();
-        String dbType = DBUtils.getDBType(ds.getUrl());
+        String dbType = DBUtils.getDBType(ds.getType(), ds.getUrl());
         String catalog = resolveCatalog(dbType);
 
         try (Connection conn = DBUtils.getConnection(toDatasourceInfo(ds))) {
             boolean exists;
-            if ("mysql".equalsIgnoreCase(dbType)) {
+            if ("mysql".equalsIgnoreCase(dbType) || "doris".equalsIgnoreCase(dbType)) {
                 exists = DBUtils.tableExists(conn, request.getSchemaName(), null, request.getTableName());
             } else if (catalog != null) {
                 exists = DBUtils.tableExists(conn, catalog, request.getSchemaName(), request.getTableName());

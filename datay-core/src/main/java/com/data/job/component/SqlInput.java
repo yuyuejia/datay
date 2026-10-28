@@ -66,7 +66,7 @@ public class SqlInput extends FlowComponent {
 
         try (Connection srcConn = DBUtils.getConnection(datasource.getUrl(), datasource.getUsername(), datasource.getPassword())) {
             // 获取数据库类型
-            String sourceDBType = DBUtils.getDBType(datasource.getUrl());
+            String sourceDBType = DBUtils.getDBType(datasource.getType(), datasource.getUrl());
 
             logInfo("执行SQL语句: " + sqlToExecute);
 

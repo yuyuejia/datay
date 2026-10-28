@@ -134,7 +134,7 @@ public class JdbcOutput extends FlowComponent {
         if (targetTableMeta == null) {
             if (!DBUtils.tableExists(targetConn, schema, tableName)) {
                 // 表不存在，根据源表元数据创建目标表
-                String targetDbType = DBUtils.getDBType(this.sourceId.getUrl());
+                String targetDbType = DBUtils.getDBType(this.sourceId.getType(), this.sourceId.getUrl());
                 targetTableMeta = DatabaseConverter.convert(sourceTableMeta.getDbType(), targetDbType, sourceTableMeta);
                 targetTableMeta.setDbType(targetDbType);
                 targetTableMeta.setTable(tableName);

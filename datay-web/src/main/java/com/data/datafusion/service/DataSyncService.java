@@ -241,8 +241,8 @@ public class DataSyncService {
                     if (!DBUtils.tableExists(tConnection, tableConfigDTO.getDesSchemaName(), tableConfigDTO.getDesTableName())) {
                         // 转换并创建目标表
                         TableMeta targetTable = DatabaseConverter.convert(
-                            DBUtils.getDBType(source.get().getUrl()),
-                            DBUtils.getDBType(target.get().getUrl()),
+                            DBUtils.getDBType(source.get().getType(), source.get().getUrl()),
+                            DBUtils.getDBType(target.get().getType(), target.get().getUrl()),
                             srcTable
                         );
                         targetTable.setTable(tableConfigDTO.getDesTableName());
@@ -250,7 +250,7 @@ public class DataSyncService {
                         if (quackTarget) {
                             targetTable.setCatalog(DBUtils.QUACK_CATALOG);
                         }
-                        String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.get().getUrl()), targetTable);
+                        String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.get().getType(), target.get().getUrl()), targetTable);
                         DBUtils.execute(tConnection, ddl);
                     }
                 }

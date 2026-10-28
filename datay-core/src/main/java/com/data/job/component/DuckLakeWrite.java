@@ -254,7 +254,7 @@ public class DuckLakeWrite extends FlowComponent {
     }
 
     private void migrateData(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
-        String targetDbType = DBUtils.getDBType(this.datasource.getUrl());
+        String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
         String eventType = null;
         if ("auto".equals(this.model)) {
             eventType = getEventType(flowFile);

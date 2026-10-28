@@ -242,7 +242,7 @@ public class DataModelResource {
         if (dsOpt.isEmpty()) {
             throw new BadRequestAlertException("数据源不存在", ENTITY_NAME, "datasource not found");
         }
-        String dbType = DBUtils.getDBType(dsOpt.get().getUrl());
+        String dbType = DBUtils.getDBType(dsOpt.get().getType(), dsOpt.get().getUrl());
         List<String> types = DatabaseConverter.getSupportedTypes(dbType);
         return ResponseEntity.ok().body(types);
     }
@@ -273,7 +273,7 @@ public class DataModelResource {
         String dbType = "mysql";
         Optional<DataSourceDTO> dsDTO = dataSourceService.findOne(dataSourceId);
         if (dsDTO.isPresent()) {
-            dbType = DBUtils.getDBType(dsDTO.get().getUrl());
+            dbType = DBUtils.getDBType(dsDTO.get().getType(), dsDTO.get().getUrl());
         }
 
         List<MaterializeFieldDTO> fields = materializeService.prepareMaterializeFields(modelFields, dbType);

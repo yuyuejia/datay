@@ -315,11 +315,11 @@ public class DataModelHarnessTools {
             object(properties("dataSourceId", string("目标数据源 ID")), "dataSourceId"),
             (args, context) -> {
                 String dataSourceId = DatayHarnessArgs.reqStr(args, "dataSourceId");
-                String url = dataSourceService
+                String dbType = dataSourceService
                     .findOne(dataSourceId)
-                    .orElseThrow(() -> new IllegalArgumentException("数据源不存在: " + dataSourceId))
-                    .getUrl();
-                return DatabaseConverter.getSupportedTypes(DBUtils.getDBType(url));
+                    .map(ds -> DBUtils.getDBType(ds.getType(), ds.getUrl()))
+                    .orElseThrow(() -> new IllegalArgumentException("数据源不存在: " + dataSourceId));
+                return DatabaseConverter.getSupportedTypes(dbType);
             }
         );
     }
@@ -336,7 +336,7 @@ public class DataModelHarnessTools {
                 String dataSourceId = DatayHarnessArgs.reqStr(args, "dataSourceId");
                 String dbType = dataSourceService
                     .findOne(dataSourceId)
-                    .map(ds -> DBUtils.getDBType(ds.getUrl()))
+                    .map(ds -> DBUtils.getDBType(ds.getType(), ds.getUrl()))
                     .orElse("mysql");
                 return materializeService.prepareMaterializeFields(modelFieldService.findByModelId(id), dbType);
             }

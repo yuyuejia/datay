@@ -19,6 +19,7 @@ import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
+import com.data.metadata.DatabaseConverter;
 import com.data.metadata.IndexMeta;
 import com.data.metadata.TableMeta;
 import com.zaxxer.hikari.pool.HikariProxyConnection;
@@ -770,8 +771,32 @@ public class DBUtils {
         return JdbcMetadata.getTableIndexes(conn, catalog, schema, table);
     }
 
+    /**
+     * 解析数据库类型，优先使用数据源声明的类型。
+     *
+     * <p>Doris、StarRocks 等数据库复用 MySQL 协议，仅凭 {@code jdbc:mysql://} 无法与 MySQL
+     * 区分，此时必须使用数据源自身的类型标识；仅当声明类型没有注册方言转换器时（如历史数据
+     * 缺失类型标识），才回退到 URL 推断。
+     *
+     * @param declaredType 数据源类型，可为空
+     * @param jdbcUrl      JDBC 连接串
+     * @return 规范化的数据库类型（大写），无法识别时返回 {@code Unknown}
+     */
+    public static String getDBType(String declaredType, String jdbcUrl) {
+        if (declaredType != null && !declaredType.trim().isEmpty()) {
+            String normalized = declaredType.trim().toUpperCase(Locale.ROOT);
+            if (DatabaseConverter.getConverter(normalized) != null) {
+                return normalized;
+            }
+        }
+        return jdbcUrl == null ? "Unknown" : getDBType(jdbcUrl);
+    }
+
     // 根据 JDBC URL 判断数据库类型
     public static String getDBType(String jdbcUrl) {
+        if (jdbcUrl == null) {
+            return "Unknown";
+        }
         if (jdbcUrl.startsWith("jdbc:mysql:")) {
             return DBType.MYSQL.toString();
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {

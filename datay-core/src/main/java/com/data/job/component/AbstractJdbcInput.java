@@ -95,7 +95,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
             try {
                 for (String tableName : tables) {
                     try {
-                        String sourceDBType = DBUtils.getDBType(datasource.getUrl());
+                        String sourceDBType = DBUtils.getDBType(datasource.getType(), datasource.getUrl());
                         TableMeta srcTable = DBUtils.getTableMetaData(srcConn, resolveSchema(), tableName.trim());
                         srcTable.setDbType(sourceDBType);
 
