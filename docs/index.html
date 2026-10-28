@@ -54,13 +54,13 @@
               一个 JAR，内嵌 DuckDB，拒绝 Hadoop / Spark / Flink / ClickHouse 组件地狱。
             </p>
             <div class="hero-actions">
-              <a class="btn btn-primary btn-lg" href="https://datay.yuyuejia.com.cn/download/datay-web-1.0.2.jar">下载 JAR</a>
+              <a class="btn btn-primary btn-lg" href="https://datay.yuyuejia.com.cn/download/datay-web.jar">下载 JAR</a>
               <a class="btn btn-outline btn-lg" href="help">阅读文档</a>
               <a class="btn btn-ghost btn-lg" href="#quickstart">快速开始</a>
             </div>
             <ul class="hero-badges">
               <li>Java 17 · 零依赖启动</li>
-              <li>20+ 数据源</li>
+              <li>30+ 数据源</li>
               <li>流批一体</li>
               <li>智能问数</li>
             </ul>
@@ -73,10 +73,10 @@
 
       <section class="stats">
         <div class="container stats-grid">
-          <div class="stat"><b>2 核 4G</b><span>跑通全链路</span></div>
-          <div class="stat"><b>1 个 JAR</b><span>内嵌 DuckDB</span></div>
-          <div class="stat"><b>20+</b><span>数据源支持</span></div>
-          <div class="stat"><b>5 大能力</b><span>一体化平台</span></div>
+          <div class="stat"><b>资源要求门槛低</b><span>2 核 4G跑通全链路</span></div>
+          <div class="stat"><b>自研流批一体引擎</b><span>数据进得来、算得动</span></div>
+          <div class="stat"><b>自研分布式调度</b><span>任务调得准、跑得稳</span></div>
+          <div class="stat"><b>AI 原生</b><span>AI嵌入数据每一个流程</span></div>
         </div>
       </section>
 
@@ -84,7 +84,7 @@
         <div class="container">
           <div class="section-head">
             <h2>为什么是 DataY？</h2>
-            <p>用最极致的硬件利用，交付最完整的数据能力。</p>
+            <p>用最极致的技术栈精简，交付最完整的数据能力。</p>
           </div>
           <div class="compare">
             <div class="compare-col compare-old">
@@ -98,9 +98,9 @@
             <div class="compare-col compare-new">
               <h3>DataY</h3>
               <ul>
-                <li>一个 JAR，内嵌 DuckDB，拒绝组件地狱</li>
+                <li>自研流批一体数据集成框架，负责「进得来、算得动」</li>
+                <li>自研分布式调度框架，负责「调得准、跑得稳」</li>
                 <li>2 核 4G 即可跑通数据集成 → 数仓 → 问数</li>
-                <li>零依赖启动，10 分钟搭好开发环境</li>
               </ul>
             </div>
           </div>
@@ -204,7 +204,7 @@
                 <li>Cron 定时调度，Quartz 引擎精准到秒，支持动态上下线</li>
                 <li>依赖调度：父子任务自动拓扑排序，父任务成功后触发子任务</li>
                 <li>手动触发、暂停 / 恢复、失败重试，实例全生命周期监控</li>
-                <li>调度 master 与执行 worker 可分离部署，Redis 队列分发与 Leader 选举</li>
+                <li>调度 master 与执行 worker 可分离部署，支持横向扩展</li>
               </ul>
               <div class="cap-links">
                 <a href="help#/guide/scheduler">任务调度与实例</a>
@@ -292,7 +292,7 @@
           </div>
           <div class="qs-code">
             <pre><code># 方式一：下载运行包（推荐）
-wget https://datay.yuyuejia.com.cn/download/datay-web-1.0.2.jar
+wget https://datay.yuyuejia.com.cn/download/datay-web.jar
 
 # 启动（单机模式，调度 + 执行合一）
 java -jar datay-web-1.0.2.jar \
