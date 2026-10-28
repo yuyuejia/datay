@@ -32,6 +32,7 @@ const {
   setEdges,
   screenToFlowPosition,
   removeNodes,
+  removeEdges,
 } = useVueFlow();
 const etlComponentService = new ETLComponentService();
 const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
@@ -79,6 +80,10 @@ const deleteNode = nodeId => {
   removeNodes([nodeId]);
 };
 
+const deleteEdge = edgeId => {
+  removeEdges([edgeId]);
+};
+
 const normalizeQueueCapacity = value => {
   const capacity = Number(value);
   return Number.isFinite(capacity) && capacity > 0 ? Math.floor(capacity) : DEFAULT_QUEUE_CAPACITY;
@@ -105,7 +110,7 @@ const saveEdgeSettings = () => {
   setEdges(
     edges.value.map(item =>
       item.id === edgeSettings.id
-        ? { ...item, label, data: { ...(item.data || {}), label, queueCapacity, onEditLabel: editEdgeLabel } }
+        ? { ...item, label, data: { ...(item.data || {}), label, queueCapacity, onEditLabel: editEdgeLabel, onDeleteEdge: deleteEdge } }
         : item,
     ),
   );
@@ -236,6 +241,7 @@ const retrieveETLTask = async eTLTaskId => {
           label: edge.name || '',
           queueCapacity: normalizeQueueCapacity(edgeConfig.queueCapacity),
           onEditLabel: editEdgeLabel,
+          onDeleteEdge: deleteEdge,
         },
       };
     });
@@ -362,7 +368,7 @@ onConnect(connection => {
     ...connection,
     type: 'etl',
     markerEnd: { type: MarkerType.ArrowClosed },
-    data: { label: '', queueCapacity: DEFAULT_QUEUE_CAPACITY, onEditLabel: editEdgeLabel },
+    data: { label: '', queueCapacity: DEFAULT_QUEUE_CAPACITY, onEditLabel: editEdgeLabel, onDeleteEdge: deleteEdge },
   });
 });
 
