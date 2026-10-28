@@ -88,14 +88,14 @@ datay/
 
 ## 一键部署
 
-**方式一：直接下载运行包（v1.0.2）**
+**方式一：直接下载运行包**
 
 ```bash
 # 下载
-wget https://datay.yuyuejia.com.cn/download/datay-web-1.0.2.jar -O datay-web-1.0.2.jar
+wget https://datay.yuyuejia.com.cn/download/datay-web.jar -O datay-web.jar
 
 # 启动（单机模式，调度+执行合一），AI 能力需要提供 AI API Key，默认为 Deepseek 原厂Key
-java -jar datay-web-1.0.2.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
+java -jar datay-web.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
 # 浏览器打开 http://localhost:8080，默认账号 admin/admin
 ```
