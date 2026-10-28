@@ -162,3 +162,5 @@ metadata.ducklake.wal
 *.db.wal
 *.duckdb
 *.duckdb.wal
+*.ducklake
+*.ducklake.wal
