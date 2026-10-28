@@ -1,4 +1,4 @@
-~~# 一个 JAR，打通 MySQL、PostgreSQL 和本地文件：用 DuckDB 做跨库分析
+# 一个 JAR，打通 MySQL、PostgreSQL 和本地文件：用 DuckDB 做跨库分析
 
 ## 一、先说痛点：数据越来越多，分析却越来越麻烦
 

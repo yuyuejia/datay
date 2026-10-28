@@ -14,12 +14,14 @@
 | 需要多台服务器起步                        | **2 核 4G** 即可跑通数据集成 → 数仓 → 问数的完整链路 |
 | 技术栈多，运维门槛高，需要专职大数据工程师            | 零依赖启动，10 分钟搭好开发环境 |
 
-DataY 不是某个单点工具，而是覆盖数据全链路的**一体化数据平台**：
+**DataY = DataX + Nifi + DolphinScheduler**，但它不是三个工具的拼盘，而是把这三类能力重新设计成一套运行时：
 
-```
-数据集成 ──▶ 维度建模 ──▶ 任务调度 ──▶ 高性能数仓 ──▶ 智能问数
-  ETL/CDC     星型/雪花     Cron/DAG      DuckDB      自然语言
-```
+- 自研流批一体数据集成框架，负责「进得来、算得动」；
+- 自研分布式调度框架，负责「调得准、跑得稳」；
+- 轻量数据湖 DuckLake，负责「存得下、查得快」；
+- AI 原生能力，负责「用得上、可自动化」。
+
+这里的“轻量”指的是**运行资源门槛低**，不是能力轻量。它不依赖 Hadoop、Spark 这类重型组件，一个 JAR 就能启动，默认内嵌 DuckDB 作为高性能分析引擎。开发机 2 核 4G 就能跑通从数据接入到报表查询的完整链路。
 
 ## 项目结构
 
@@ -30,14 +32,14 @@ datay/
 ├── pom.xml          # Maven 父模块
 ├── datay-core/      # 轻量、高性能、流批一体的数据集成引擎
 ├── datay-web/       # 可视化数据平台（任务设计 + 调度 + 数仓 + 问数）
-└── site/            # 产品主页 + 帮助文档
+└── docs/            # 产品主页 + 帮助文档
 ```
 
 ## 五大能力，一个平台
 
 ### 🔌 数据集成（Data Integration）
 
-- 支持 MySQL / PostgreSQL / Oracle / SAP HANA / Doris / ClickHouse / DuckDB 等十余种数据源
+- 支持 MySQL / PostgreSQL / Oracle / SAP HANA / Doris / ClickHouse / DuckDB 等二十余种数据源
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
 - 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
@@ -76,8 +78,6 @@ datay/
 - 同一端点提供**指标智能问数**能力（`metric_query_guide` / `list_metrics` / `describe_metrics` / `sample_dimension_values` / `query_metric_data` / `retrieve_metric_context`），与内置问数助手共用同一套实现与口径
 - 同一端点也提供**指标定义管理**（`metric_*`：增删改查、SQL 预览、指标目录维护），与页面保存走同一套校验
 - Claude Desktop / Cursor / DSH 等 MCP 客户端接上后，可自行完成「建数据源 → 建 ETL 任务并试跑 → 上线调度 → 建模并物化落表 → 一句话问指标」
-- 复用平台既有鉴权与租户隔离：Bearer 令牌 + `X-Tenant-Id`/`X-Tenant-Code`，写操作可用开关一键降级为只读（问数不受影响）
-- 文档见 [DataY MCP Harness](datay-web/docs/datay-mcp-harness.md)
 
 
 ## 环境要求
@@ -159,16 +159,10 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 
 ## 支持的数据源
 
-- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB, 达梦（DM）, SAP HANA
+- **关系型数据库**: MySQL系, Oracle, PostgreSQL系, SQL Server, MariaDB, 达梦（DM）, SAP HANA
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
-- **文件系统**: 本地文件、MinIO对象存储
+- **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, MongoDB Change Streams
-
-## 开源协议
-
-本项目采用 [Apache License 2.0](LICENSE)。
-
-该协议适用于仓库内的全部自有代码，包括 `datay-core` 引擎、`datay-web` 后端（Spring Boot）与 Vue 前端；各模块不设单独的授权范围。`datay-web/package.json` 中的 `private: true` 仅表示该 npm 包不发布到公共 registry，与授权无关。第三方依赖、JDBC 驱动及随附组件仍遵循各自许可证。
 
 ## 联系方式
 
