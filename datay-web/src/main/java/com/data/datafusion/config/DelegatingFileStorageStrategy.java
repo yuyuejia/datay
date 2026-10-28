@@ -42,25 +42,48 @@ public class DelegatingFileStorageStrategy implements FileStorageStrategy {
 
     private String toTenantPath(String path) {
         String prefix = tenantPrefix();
-        if (path == null || path.isEmpty()) {
+        String normalized = normalizePath(path);
+        if (normalized.isEmpty()) {
             return prefix;
         }
-        String trimmed = path.startsWith("/") ? path.substring(1) : path;
-        return prefix + "/" + trimmed;
+        // 兼容历史数据中可能保存的物理路径（含反斜杠、盘符或 data/files 前缀）
+        String marker = prefix + "/";
+        int index = normalized.lastIndexOf(marker);
+        if (index >= 0) {
+            normalized = normalized.substring(index + marker.length());
+        } else if (normalized.equals(prefix)) {
+            return prefix;
+        }
+        return prefix + "/" + normalized;
+    }
+
+    /**
+     * 统一路径分隔符并去掉开头的 ./ 和 /，保证 Windows/Linux 下路径格式一致。
+     */
+    private static String normalizePath(String path) {
+        if (path == null) {
+            return "";
+        }
+        String normalized = path.replace('\\', '/');
+        while (normalized.startsWith("./")) {
+            normalized = normalized.substring(2);
+        }
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
     }
 
     private String stripTenantPrefix(String path) {
         String prefix = tenantPrefix();
-        if (path == null) {
-            return null;
+        String normalized = normalizePath(path);
+        if (normalized.startsWith(prefix + "/")) {
+            return normalized.substring(prefix.length() + 1);
         }
-        if (path.startsWith(prefix + "/")) {
-            return path.substring(prefix.length() + 1);
-        }
-        if (path.equals(prefix)) {
+        if (normalized.equals(prefix)) {
             return "";
         }
-        return path;
+        return normalized;
     }
 
     @Override

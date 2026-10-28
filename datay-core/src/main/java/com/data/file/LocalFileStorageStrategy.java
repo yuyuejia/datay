@@ -18,10 +18,26 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
     public LocalFileStorageStrategy(String basePath) {
         this.basePath = basePath;
         try {
-            Files.createDirectories(Paths.get(basePath));
+            Files.createDirectories(baseDir());
         } catch (IOException e) {
             throw new RuntimeException("Failed to create base directory: " + basePath, e);
         }
+    }
+
+    private Path baseDir() {
+        return Paths.get(basePath).toAbsolutePath().normalize();
+    }
+
+    /**
+     * 把存储相对路径解析为绝对路径，并防止通过 ../ 或绝对路径逃逸出存储根目录。
+     */
+    private Path resolve(String path) {
+        Path base = baseDir();
+        Path resolved = path == null || path.isEmpty() ? base : base.resolve(path).normalize();
+        if (!resolved.startsWith(base)) {
+            throw new IllegalArgumentException("Path is outside of storage root: " + path);
+        }
+        return resolved;
     }
 
     @Override
@@ -32,7 +48,7 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
     @Override
     public void upload(String path, InputStream inputStream, long size, String contentType) {
         try {
-            Path fullPath = Paths.get(basePath, path);
+            Path fullPath = resolve(path);
             Files.createDirectories(fullPath.getParent());
             Files.copy(inputStream, fullPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
@@ -43,7 +59,7 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
     @Override
     public InputStream download(String path) {
         try {
-            File file = Paths.get(basePath, path).toFile();
+            File file = resolve(path).toFile();
             if (!file.exists()) {
                 throw new RuntimeException("File not found: " + path);
             }
@@ -56,7 +72,7 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
     @Override
     public void delete(String path) {
         try {
-            Path fullPath = Paths.get(basePath, path);
+            Path fullPath = resolve(path);
             File file = fullPath.toFile();
             if (file.isDirectory()) {
                 deleteDirectory(file);
@@ -84,21 +100,23 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
 
     @Override
     public boolean exists(String path) {
-        return Paths.get(basePath, path).toFile().exists();
+        return resolve(path).toFile().exists();
     }
 
     @Override
     public List<FileInfo> list(String prefix) {
         List<FileInfo> result = new ArrayList<>();
         try {
-            Path rootPath = Paths.get(basePath, prefix == null ? "" : prefix);
+            Path base = baseDir();
+            Path rootPath = resolve(prefix == null ? "" : prefix);
             if (!Files.exists(rootPath)) {
                 return result;
             }
             try (Stream<Path> paths = Files.list(rootPath)) {
                 paths.forEach(p -> {
                     File file = p.toFile();
-                    String relativePath = p.toString().replace(basePath, "").replaceFirst("^/", "");
+                    // 统一使用 / 作为返回路径分隔符，避免 Windows 下返回带盘符或反斜杠的物理路径
+                    String relativePath = base.relativize(p).toString().replace(File.separatorChar, '/');
                     result.add(new FileInfo(
                         relativePath,
                         file.getName(),
@@ -117,7 +135,7 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
     @Override
     public void mkdir(String path) {
         try {
-            Files.createDirectories(Paths.get(basePath, path));
+            Files.createDirectories(resolve(path));
         } catch (IOException e) {
             throw new RuntimeException("Failed to create directory: " + path, e);
         }

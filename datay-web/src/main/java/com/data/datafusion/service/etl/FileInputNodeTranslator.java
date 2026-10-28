@@ -79,8 +79,33 @@ public class FileInputNodeTranslator implements ETLNodeTranslator {
      */
     private static String toTenantPath(String path) {
         String prefix = tenantPrefix();
-        String trimmed = path.startsWith("/") ? path.substring(1) : path;
-        return prefix + "/" + trimmed;
+        String normalized = normalizePath(path);
+        if (normalized.isEmpty()) {
+            return prefix;
+        }
+        // 兼容历史数据中可能保存的物理路径（含反斜杠、盘符或 data/files 前缀）
+        String marker = prefix + "/";
+        int index = normalized.lastIndexOf(marker);
+        if (index >= 0) {
+            normalized = normalized.substring(index + marker.length());
+        } else if (normalized.equals(prefix)) {
+            return prefix;
+        }
+        return prefix + "/" + normalized;
+    }
+
+    private static String normalizePath(String path) {
+        if (path == null) {
+            return "";
+        }
+        String normalized = path.replace('\\', '/');
+        while (normalized.startsWith("./")) {
+            normalized = normalized.substring(2);
+        }
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
     }
 
     private static String tenantPrefix() {
