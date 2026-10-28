@@ -1,13 +1,12 @@
 package com.data.datafusion.ai.tool;
 
+import com.data.datasource.DataSourceConnection;
+import com.data.datasource.DataSourceProviderFactory;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
-import com.data.metadata.util.DBUtils;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,9 +18,9 @@ import org.springframework.stereotype.Component;
 /**
  * 数据库元数据查询工具（只读）。
  *
- * <p>让模型在生成 SQL 前先「看表」：可以列 schema、列表、列字段。
+ * <p>让模型在生成 SQL 前先「看表」：可以列 catalog、schema、表、字段。
  * 相比把整库 schema 一次性塞进提示词，按需查询能显著降低 token 消耗，
- * 也支持在表非常多时逐级下钻。
+ * 也支持在表非常多时逐级下钻。DuckDB 等支持 {@code ATTACH} 的数据源会返回挂载库 catalog。
  */
 @Component
 public class DatabaseSchemaQueryTool implements AiTool {
@@ -50,13 +49,15 @@ public class DatabaseSchemaQueryTool implements AiTool {
     @Override
     public String description() {
         return """
-            查询当前数据源的数据库结构元数据，用于在编写 SQL 前确认可用的 schema、表和字段。
-            通过 objectType 参数选择查询层级：
-            - schemas：列出所有 schema；
-            - tables：列出指定 schema 下的表（需提供 schema）；
-            - columns：列出指定表和 schema 下的字段及类型（需提供 schema 和 table）。
-            建议先查 schemas，再查 tables，最后查 columns，逐级下钻。
-            """;
+        查询当前数据源的数据库结构元数据，用于在编写 SQL 前确认可用的 catalog、schema、表和字段。
+        通过 objectType 参数选择查询层级：
+        - catalogs：列出所有 catalog（数据库实例 / ATTACH 挂载库，如 DuckDB 的 mysql_db）；
+        - schemas：列出指定 catalog 下的 schema；catalog 缺省时使用数据源默认 catalog；
+        - tables：列出指定 catalog + schema 下的表（需提供 schema）；
+        - columns：列出指定 catalog + schema + table 下的字段及类型（需提供 schema 和 table）。
+        建议先查 catalogs，再查 schemas，然后查 tables，最后查 columns，逐级下钻。
+        DuckDB 等支持 ATTACH 的数据源，跨库查询时需要使用 catalog.schema.table 全限定名。
+        """;
     }
 
     @Override
@@ -68,13 +69,18 @@ public class DatabaseSchemaQueryTool implements AiTool {
 
         Map<String, Object> objectType = new LinkedHashMap<>();
         objectType.put("type", "string");
-        objectType.put("enum", List.of("schemas", "tables", "columns"));
-        objectType.put("description", "查询层级：schemas 列 schema，tables 列表，columns 列字段");
+        objectType.put("enum", List.of("catalogs", "schemas", "tables", "columns"));
+        objectType.put("description", "查询层级：catalogs 列 catalog，schemas 列 schema，tables 列表，columns 列字段");
         props.put("objectType", objectType);
+
+        Map<String, Object> catalog = new LinkedHashMap<>();
+        catalog.put("type", "string");
+        catalog.put("description", "catalog / 数据库实例名称，可选；缺省时使用数据源默认 catalog。DuckDB ATTACH 场景需显式传入");
+        props.put("catalog", catalog);
 
         Map<String, Object> schemaName = new LinkedHashMap<>();
         schemaName.put("type", "string");
-        schemaName.put("description", "schema/catalog 名称，objectType 为 tables 或 columns 时必填");
+        schemaName.put("description", "schema / 数据库名称，objectType 为 tables 或 columns 时必填");
         props.put("schema", schemaName);
 
         Map<String, Object> table = new LinkedHashMap<>();
@@ -105,6 +111,7 @@ public class DatabaseSchemaQueryTool implements AiTool {
         }
 
         String objectType = asString(arguments.get("objectType"));
+        String catalog = asString(arguments.get("catalog"));
         String schema = asString(arguments.get("schema"));
         String table = asString(arguments.get("table"));
         String search = asString(arguments.get("search"));
@@ -113,15 +120,28 @@ public class DatabaseSchemaQueryTool implements AiTool {
             return Map.of("error", "缺少参数 objectType");
         }
 
-        try (Connection connection = DBUtils.getConnection(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
             switch (objectType) {
-                case "schemas":
-                    return Map.of("schemas", limit(DBUtils.getSchemas(connection)));
+                case "catalogs": {
+                    List<String> catalogs = limit(connection.getCatalogs());
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    result.put("total", catalogs.size());
+                    result.put("catalogs", catalogs);
+                    return result;
+                }
+                case "schemas": {
+                    List<String> schemas = limit(connection.getSchemas(catalog));
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    putCatalog(result, catalog);
+                    result.put("total", schemas.size());
+                    result.put("schemas", schemas);
+                    return result;
+                }
                 case "tables": {
                     if (isBlank(schema)) {
                         return Map.of("error", "objectType=tables 时必须提供 schema");
                     }
-                    List<TableMeta> tables = DBUtils.getTableList(connection, schema, MAX_LIST_SIZE, search);
+                    List<TableMeta> tables = connection.getTables(catalog, schema, MAX_LIST_SIZE, search);
                     List<Map<String, Object>> simplified = new ArrayList<>();
                     for (TableMeta meta : tables) {
                         Map<String, Object> item = new LinkedHashMap<>();
@@ -137,13 +157,18 @@ public class DatabaseSchemaQueryTool implements AiTool {
                         }
                         simplified.add(item);
                     }
-                    return Map.of("schema", schema, "total", simplified.size(), "tables", simplified);
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    putCatalog(result, catalog);
+                    result.put("schema", schema);
+                    result.put("total", simplified.size());
+                    result.put("tables", simplified);
+                    return result;
                 }
                 case "columns": {
                     if (isBlank(schema) || isBlank(table)) {
                         return Map.of("error", "objectType=columns 时必须提供 schema 和 table");
                     }
-                    TableMeta meta = DBUtils.getTableMetaData(connection, schema, table);
+                    TableMeta meta = connection.getTableMeta(catalog, schema, table);
                     List<Map<String, Object>> columns = new ArrayList<>();
                     for (ColumnMeta column : meta.columns()) {
                         Map<String, Object> item = new LinkedHashMap<>();
@@ -158,14 +183,26 @@ public class DatabaseSchemaQueryTool implements AiTool {
                         }
                         columns.add(item);
                     }
-                    return Map.of("schema", schema, "table", table, "total", columns.size(), "columns", columns);
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    putCatalog(result, isBlank(meta.getCatalog()) ? catalog : meta.getCatalog());
+                    result.put("schema", schema);
+                    result.put("table", table);
+                    result.put("total", columns.size());
+                    result.put("columns", columns);
+                    return result;
                 }
                 default:
                     return Map.of("error", "不支持的 objectType: " + objectType);
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             LOG.warn("AI tool list_database_objects failed", e);
             return Map.of("error", "查询数据库元数据失败: " + e.getMessage());
+        }
+    }
+
+    private static void putCatalog(Map<String, Object> result, String catalog) {
+        if (!isBlank(catalog)) {
+            result.put("catalog", catalog);
         }
     }
 

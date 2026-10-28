@@ -18,7 +18,7 @@ import { getSqlDialect } from '@/shared/sql/sql-dialect';
 interface TableNode {
   id: string;
   label: string;
-  type: 'schema' | 'table';
+  type: 'catalog' | 'schema' | 'table';
   name: string;
   schema?: string;
   catalog?: string;
@@ -164,6 +164,11 @@ export default defineComponent({
           resultData.value = rows;
         }
         affectedRows.value = res.affectedRows || (Array.isArray(rows) ? rows.length : null);
+
+        // DuckDB 的 ATTACH / DETACH 会改变 catalog 结构，执行后立即刷新左侧目录
+        if (/\b(ATTACH|DETACH)\b/i.test(activeSql)) {
+          await loadSchemas();
+        }
       } catch (err: any) {
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
@@ -323,19 +328,48 @@ export default defineComponent({
       return message.length > 300 ? `${message.slice(0, 300)}…` : message;
     };
 
+    const supportsCatalogTree = () => {
+      const type = (dataSourceType.value || '').toUpperCase();
+      return type.includes('DUCKDB') || type.includes('DUCKLAKE');
+    };
+
+    const buildSchemaNodes = (schemas: any[], catalog?: string) =>
+      (Array.isArray(schemas) ? schemas : []).map((item: any) => {
+        const schema = typeof item === 'string' ? item : (item.schema ?? item.schemaName ?? item.name ?? String(item));
+        return {
+          id: `schema:${catalog ? catalog + '.' : ''}${schema}`,
+          label: schema,
+          type: 'schema',
+          name: schema,
+          catalog,
+          isLeaf: false,
+        };
+      });
+
     const loadSchemas = async () => {
       treeLoading.value = true;
       treeError.value = '';
       try {
+        if (supportsCatalogTree()) {
+          const catalogRes = await dataSourceService().getCatalogs(dataSourceId.value);
+          const catalogs = (catalogRes.data || catalogRes || []) as any[];
+          const catalogNames = (Array.isArray(catalogs) ? catalogs : [])
+            .map((item: any) => (typeof item === 'string' ? item : (item.catalog ?? item.name)))
+            .filter((name: any): name is string => typeof name === 'string' && name.length > 0);
+          if (catalogNames.length > 0) {
+            treeData.value = catalogNames.map((catalog: string) => ({
+              id: `catalog:${catalog}`,
+              label: catalog,
+              type: 'catalog',
+              name: catalog,
+              isLeaf: false,
+            }));
+            return;
+          }
+        }
+
         const res = await dataSourceService().getSchemas(dataSourceId.value);
-        const schemas = res.data || res || [];
-        treeData.value = schemas.map((schema: string) => ({
-          id: `schema:${schema}`,
-          label: schema,
-          type: 'schema',
-          name: schema,
-          isLeaf: false,
-        }));
+        treeData.value = buildSchemaNodes(res.data || res || []);
       } catch (err) {
         treeData.value = [];
         treeError.value = describeLoadError(err);
@@ -345,16 +379,31 @@ export default defineComponent({
     };
 
     const loadTables = async (node: any, resolve: (data: any[]) => void) => {
+      if (node.data?.type === 'catalog' && node.data?.name) {
+        try {
+          const res = await dataSourceService().getSchemas(dataSourceId.value, node.data.name);
+          resolve(buildSchemaNodes(res.data || res || [], node.data.name));
+        } catch (err: any) {
+          if (err?.response) {
+            alertService.showHttpError(err.response);
+          } else {
+            alertService.showError(describeLoadError(err));
+          }
+          resolve([]);
+        }
+        return;
+      }
+
       if (node.data?.type === 'schema' && node.data?.name) {
         try {
-          const res = await dataSourceService().getTables(dataSourceId.value, node.data.name);
+          const res = await dataSourceService().getTables(dataSourceId.value, node.data.name, undefined, undefined, node.data.catalog);
           const tables = res.data || res || [];
           const tableNodes = tables.map((table: any) => {
             const tableName = typeof table === 'string' ? table : (table.table ?? table.tableName ?? table.name ?? table);
-            const catalog = table?.catalog;
+            const catalog = table?.catalog ?? node.data.catalog;
             const schema = table?.schema ?? node.data.name;
             return {
-              id: `table:${schema}.${tableName}`,
+              id: `table:${catalog ? catalog + '.' : ''}${schema}.${tableName}`,
               label: tableName,
               type: 'table',
               name: tableName,
@@ -364,7 +413,7 @@ export default defineComponent({
             };
           });
           resolve(tableNodes);
-        } catch (err) {
+        } catch (err: any) {
           if (err?.response) {
             alertService.showHttpError(err.response);
           } else {
@@ -480,7 +529,7 @@ export default defineComponent({
     };
 
     const fetchColumns = async (data: TableNode): Promise<ColumnInfo[]> => {
-      const res = await dataSourceService().getFields(dataSourceId.value, data.schema ?? '', data.name);
+      const res = await dataSourceService().getFields(dataSourceId.value, data.schema ?? '', data.name, data.catalog);
       const list = res.data || res || [];
       return Array.isArray(list) ? (list as ColumnInfo[]) : [];
     };
@@ -535,7 +584,7 @@ export default defineComponent({
       tab.metaLoading = true;
       tab.metaError = '';
       try {
-        const res = await dataSourceService().getTableDetail(dataSourceId.value, tab.schema, tab.table);
+        const res = await dataSourceService().getTableDetail(dataSourceId.value, tab.schema, tab.table, tab.catalog);
         tab.detail = res.data || res || null;
       } catch (err: any) {
         tab.metaError = err.response?.data?.message || err.response?.data?.detail || err.message || '获取表信息失败';

@@ -81,9 +81,12 @@ public class SqlTaskAssistant implements AiAssistant {
         sb.append("SQL 任务常用于数据加工与调度，语句可能是查询，也可能是建表、写入、更新等 DDL/DML。\n\n");
         sb.append("工作方式：\n");
         sb.append("1. 先判断信息是否充分。若不清楚有哪些表、哪些字段，主动调用工具去查，不要凭经验猜测表名与字段名。\n");
-        sb.append("2. 典型的探索路径：list_database_objects(schemas) → list_database_objects(tables) → list_database_objects(columns)。\n");
-        sb.append("3. 写出 SQL 后，调用 validate_sql 自检语法；若有错误，依据报错修正后重新校验。\n");
-        sb.append("4. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
+        sb.append(
+            "2. 典型的探索路径：list_database_objects(catalogs) → list_database_objects(schemas, catalog) → list_database_objects(tables, catalog, schema) → list_database_objects(columns, catalog, schema, table)。单库数据源可跳过 catalogs，直接查 schemas。\n"
+        );
+        sb.append("3. DuckDB 等支持 ATTACH 的数据源，先用 catalogs 确认已挂载的库；跨库查询必须使用 catalog.schema.table 全限定名。\n");
+        sb.append("4. 写出 SQL 后，调用 validate_sql 自检语法；若有错误，依据报错修正后重新校验。\n");
+        sb.append("5. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
         sb.append("硬性约束：\n");
         sb.append("- 允许生成 DDL（CREATE/ALTER/DROP/TRUNCATE 等）与 DML（INSERT/UPDATE/DELETE/MERGE 等），也允许 SELECT。\n");
         sb.append("- 不要调用试跑工具执行写操作；validate_sql 仅做解析校验，不会真正执行。\n");

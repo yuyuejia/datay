@@ -1,5 +1,6 @@
 package com.data.metadata.util;
 
+import com.data.datasource.provider.DuckLakeDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.TableMeta;
 import org.junit.jupiter.api.Assumptions;
@@ -72,6 +73,40 @@ public class DuckLakeAttachTest {
                 tables.stream().anyMatch(t -> t.getTable() != null && t.getTable().startsWith("ducklake_")),
                 "不应暴露 ducklake_* 元数据表"
             );
+        }
+    }
+
+    @Test
+    public void exposesDuckLakeAndAttachedCatalogs() throws Exception {
+        String[] meta = createDuckLake();
+
+        Path attachedDb = Files.createTempDirectory("ducklake-attached").resolve("attached.duckdb");
+        try (Connection c = DriverManager.getConnection("jdbc:duckdb:" + attachedDb); Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE attached_orders (id int)");
+        }
+
+        try (Connection conn = DBUtils.getConnection(duckLakeInfo(meta[0], meta[1], null, null))) {
+            String scratchCatalog = conn.getCatalog();
+            try (Statement st = conn.createStatement()) {
+                st.execute("ATTACH '" + attachedDb.toString().replace("'", "''") + "' AS attached_db");
+            }
+
+            DuckLakeDataSourceProvider provider = new DuckLakeDataSourceProvider();
+            List<String> catalogs = provider.getCatalogs(conn);
+
+            assertTrue(catalogs.contains("ducklake"), "应包含 DuckLake catalog");
+            assertTrue(catalogs.contains("attached_db"), "应包含额外挂载的 catalog");
+            assertFalse(
+                catalogs.stream().anyMatch(c -> c.startsWith("__ducklake_metadata_")),
+                "不应展示 DuckLake 内部元数据 catalog"
+            );
+            if (scratchCatalog != null) {
+                assertFalse(catalogs.contains(scratchCatalog), "不应展示 DuckLake 本地 scratch catalog");
+            }
+
+            assertTrue(provider.getSchemas(conn, "attached_db").contains("main"));
+            List<TableMeta> tables = provider.getTables(conn, "attached_db", "main", null, null);
+            assertTrue(tables.stream().anyMatch(t -> "attached_orders".equals(t.getTable())));
         }
     }
 

@@ -97,46 +97,105 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         return DBUtils.wrapQuackQuery(sql);
     }
 
+    /**
+     * 列出 DuckDB 中可见的 catalog。
+     *
+     * <p>普通 DuckDB 会返回主库以及通过 {@code ATTACH} 挂载的所有库（过滤系统库 system/temp）；
+     * DuckLake 连接返回 {@code ducklake} 以及额外挂载的库（过滤 DuckLake 本地 scratch 库）；
+     * Quack 连接只暴露 {@code quack} catalog，保持原有行为。
+     */
+    @Override
+    public List<String> getCatalogs(Connection conn) throws SQLException {
+        if (isQuackConnection(conn)) {
+            return List.of(QUACK_CATALOG);
+        }
+        Set<String> catalogs = new LinkedHashSet<>();
+        String duckLakeScratchCatalog = null;
+        if (isDuckLakeConnection(conn)) {
+            catalogs.add(DUCKLAKE_CATALOG);
+            // DuckLake 使用独立本地 DuckDB 文件作为 scratch 库，不应展示给用户
+            duckLakeScratchCatalog = conn.getCatalog();
+        }
+        for (String catalog : JdbcMetadata.getCatalogs(conn)) {
+            if (catalog == null || catalog.isBlank()) {
+                continue;
+            }
+            if ("system".equalsIgnoreCase(catalog) || "temp".equalsIgnoreCase(catalog)) {
+                continue;
+            }
+            if (catalog.startsWith("__ducklake_metadata_")) {
+                // DuckLake 内部元数据 catalog，不对用户展示
+                continue;
+            }
+            if (duckLakeScratchCatalog != null && duckLakeScratchCatalog.equals(catalog)) {
+                continue;
+            }
+            catalogs.add(catalog);
+        }
+        return new ArrayList<>(catalogs);
+    }
+
     @Override
     public List<String> getSchemas(Connection conn) throws SQLException {
+        return getSchemas(conn, null);
+    }
+
+    @Override
+    public List<String> getSchemas(Connection conn, String catalog) throws SQLException {
         DatabaseMetaData metaData = conn.getMetaData();
-        return new ArrayList<>(getDistinctSchemas(metaData, resolveDuckCatalog(metaData)));
+        String targetCatalog = resolveDuckCatalog(conn, catalog);
+        return new ArrayList<>(getDistinctSchemas(metaData, targetCatalog));
     }
 
     @Override
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        DatabaseMetaData metaData = conn.getMetaData();
-        String catalog = resolveDuckCatalog(metaData);
+        return getTables(conn, null, schema, limit, search);
+    }
+
+    @Override
+    public List<TableMeta> getTables(Connection conn, String catalog, String schema, Integer limit, String search) throws SQLException {
+        String targetCatalog = resolveDuckCatalog(conn, catalog);
         // Quack 远程目录不会向本地 JDBC 元数据暴露表信息，改由 quack.query 在远端查询
-        if (QUACK_CATALOG.equals(catalog)) {
+        if (QUACK_CATALOG.equals(targetCatalog)) {
             return getQuackTableList(conn, schema, limit, search);
         }
-        return JdbcMetadata.readTableList(conn, catalog, schema, new String[] { "TABLE", "BASE TABLE" }, limit, search, true);
+        return JdbcMetadata.readTableList(conn, targetCatalog, schema, new String[] { "TABLE", "BASE TABLE" }, limit, search, true);
     }
 
     @Override
     public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
-        String catalog = resolveDuckCatalog(conn.getMetaData());
-        TableMeta tableMeta = QUACK_CATALOG.equals(catalog)
+        return getTableMeta(conn, null, schema, table);
+    }
+
+    @Override
+    public TableMeta getTableMeta(Connection conn, String catalog, String schema, String table) throws SQLException {
+        String targetCatalog = resolveDuckCatalog(conn, catalog);
+        TableMeta tableMeta = QUACK_CATALOG.equals(targetCatalog)
             ? getQuackTableMetaData(conn, schema, table)
-            : JdbcMetadata.readTableMeta(conn, catalog, schema, table);
+            : JdbcMetadata.readTableMeta(conn, targetCatalog, schema, table);
         tableMeta.setDbType(typeName());
+        tableMeta.setCatalog(targetCatalog);
         return tableMeta;
     }
 
     @Override
     public TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
-        String catalog = resolveDuckCatalog(conn.getMetaData());
-        if (QUACK_CATALOG.equals(catalog)) {
+        return getTableDetail(conn, null, schema, table);
+    }
+
+    @Override
+    public TableMeta getTableDetail(Connection conn, String catalog, String schema, String table) throws SQLException {
+        String targetCatalog = resolveDuckCatalog(conn, catalog);
+        if (QUACK_CATALOG.equals(targetCatalog)) {
             TableMeta tableMeta = getQuackTableMetaData(conn, schema, table);
             tableMeta.setDbType(typeName());
             return tableMeta;
         }
-        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, catalog, schema, table);
+        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, targetCatalog, schema, table);
         tableMeta.setDbType(typeName());
-        tableMeta.setCatalog(catalog);
-        tableMeta.setComment(JdbcMetadata.getTableComment(conn, catalog, schema, table));
-        tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, catalog, schema, table));
+        tableMeta.setCatalog(targetCatalog);
+        tableMeta.setComment(JdbcMetadata.getTableComment(conn, targetCatalog, schema, table));
+        tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, targetCatalog, schema, table));
         return tableMeta;
     }
 
@@ -187,6 +246,16 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         } catch (Exception e) {
             return "memory";
         }
+    }
+
+    /**
+     * 解析目标 catalog：显式传入时优先使用，否则回退到连接默认 catalog。
+     */
+    private static String resolveDuckCatalog(Connection conn, String catalog) throws SQLException {
+        if (catalog != null && !catalog.isBlank()) {
+            return catalog;
+        }
+        return resolveDuckCatalog(conn.getMetaData());
     }
 
     private static Set<String> getDistinctSchemas(DatabaseMetaData metaData, String catalog) throws SQLException {

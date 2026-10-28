@@ -27,9 +27,26 @@ public interface DataSourceConnection extends AutoCloseable {
     int executeUpdate(String statement, List<Object> params) throws Exception;
 
     /**
+     * 列出 catalog（数据库实例 / 挂载库）。默认无 catalog 概念，返回空列表。
+     *
+     * <p>DuckDB 等支持 {@code ATTACH} 的数据源会返回主库与已挂载库；
+     * 普通关系型数据库可继续按 {@link #getSchemas()} 使用 schema/数据库概念。
+     */
+    default List<String> getCatalogs() throws Exception {
+        return List.of();
+    }
+
+    /**
      * 列出 schema / 数据库 / 命名空间。
      */
     List<String> getSchemas() throws Exception;
+
+    /**
+     * 列出指定 catalog 下的 schema。默认忽略 catalog，退化为 {@link #getSchemas()}。
+     */
+    default List<String> getSchemas(String catalog) throws Exception {
+        return getSchemas();
+    }
 
     /**
      * 列出指定 schema 下的表清单。
@@ -41,9 +58,23 @@ public interface DataSourceConnection extends AutoCloseable {
     List<TableMeta> getTables(String schema, Integer limit, String search) throws Exception;
 
     /**
+     * 列出指定 catalog + schema 下的表清单。默认忽略 catalog。
+     */
+    default List<TableMeta> getTables(String catalog, String schema, Integer limit, String search) throws Exception {
+        return getTables(schema, limit, search);
+    }
+
+    /**
      * 获取表结构（字段清单等）。
      */
     TableMeta getTableMeta(String schema, String table) throws Exception;
+
+    /**
+     * 获取指定 catalog 下表结构。默认忽略 catalog。
+     */
+    default TableMeta getTableMeta(String catalog, String schema, String table) throws Exception {
+        return getTableMeta(schema, table);
+    }
 
     /**
      * 获取表详细信息（字段、索引、注释等）。默认与 {@link #getTableMeta} 相同，
@@ -51,6 +82,13 @@ public interface DataSourceConnection extends AutoCloseable {
      */
     default TableMeta getTableDetail(String schema, String table) throws Exception {
         return getTableMeta(schema, table);
+    }
+
+    /**
+     * 获取指定 catalog 下表的详细信息。默认忽略 catalog。
+     */
+    default TableMeta getTableDetail(String catalog, String schema, String table) throws Exception {
+        return getTableDetail(schema, table);
     }
 
     /**

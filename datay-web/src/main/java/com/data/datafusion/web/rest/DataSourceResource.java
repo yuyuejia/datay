@@ -239,16 +239,38 @@ public class DataSourceResource {
         return ResponseEntity.ok().body(result);
     }
 
+    //根据数据库id获取catalog信息（DuckDB 已 ATTACH 的库等）
+    @GetMapping("/{id}/catalogs")
+    public ResponseEntity<List<String>> getCatalogs(@PathVariable("id") String id) throws SQLException {
+        LOG.debug("REST request to get DataSource catalogs : {}", id);
+        List<String> catalogs = new ArrayList<>();
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isPresent()) {
+            DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+            try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+                catalogs = connection.getCatalogs();
+            } catch (SQLException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new SQLException(e.getMessage(), e);
+            }
+        }
+        return ResponseEntity.ok().body(catalogs);
+    }
+
     //根据数据库id获取schema信息
     @GetMapping("/{id}/schemas")
-    public ResponseEntity<List<String>> getSchema(@PathVariable("id") String id) throws SQLException {
+    public ResponseEntity<List<String>> getSchema(
+        @PathVariable("id") String id,
+        @RequestParam(value = "catalog", required = false) String catalog
+    ) throws SQLException {
         LOG.debug("REST request to get DataSource schemas : {}", id);
         List<String> schemas = new ArrayList<>();
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
             try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-                schemas = connection.getSchemas();
+                schemas = connection.getSchemas(catalog);
             } catch (SQLException e) {
                 throw e;
             } catch (Exception e) {
@@ -263,6 +285,7 @@ public class DataSourceResource {
     public ResponseEntity<List<TableMeta>> getTables(
         @PathVariable("id") String id,
         @PathVariable("schema") String schema,
+        @RequestParam(value = "catalog", required = false) String catalog,
         @RequestParam(value = "limit", required = false) Integer limit,
         @RequestParam(value = "search", required = false) String search
     ) throws SQLException {
@@ -272,7 +295,7 @@ public class DataSourceResource {
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
             try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-                tables = connection.getTables(schema, limit, search);
+                tables = connection.getTables(catalog, schema, limit, search);
             } catch (SQLException e) {
                 throw e;
             } catch (Exception e) {
@@ -287,7 +310,8 @@ public class DataSourceResource {
     public ResponseEntity<List<ColumnMeta>> getColumns(
         @PathVariable("id") String id,
         @PathVariable("schema") String schema,
-        @PathVariable("table") String table
+        @PathVariable("table") String table,
+        @RequestParam(value = "catalog", required = false) String catalog
     ) throws SQLException {
         LOG.debug("REST request to get DataSource columns : {}", id);
         List<ColumnMeta> columns = new ArrayList<>();
@@ -295,7 +319,7 @@ public class DataSourceResource {
         if (dataSourceDTO.isPresent()) {
             DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
             try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-                columns = connection.getTableMeta(schema, table).columns();
+                columns = connection.getTableMeta(catalog, schema, table).columns();
             } catch (SQLException e) {
                 throw e;
             } catch (Exception e) {
@@ -325,7 +349,8 @@ public class DataSourceResource {
     public ResponseEntity<Map<String, Object>> getTableDetail(
         @PathVariable("id") String id,
         @PathVariable("schema") String schema,
-        @PathVariable("table") String table
+        @PathVariable("table") String table,
+        @RequestParam(value = "catalog", required = false) String catalog
     ) throws SQLException {
         LOG.debug("REST request to get DataSource table detail : {} {}.{}", id, schema, table);
         Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
@@ -335,7 +360,7 @@ public class DataSourceResource {
         DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
         TableMeta tableMeta;
         try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
-            tableMeta = connection.getTableDetail(schema, table);
+            tableMeta = connection.getTableDetail(catalog, schema, table);
         } catch (SQLException e) {
             throw e;
         } catch (Exception e) {

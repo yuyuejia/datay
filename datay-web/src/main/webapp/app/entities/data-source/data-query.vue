@@ -23,6 +23,11 @@
       <div class="query-sidebar">
         <div class="sidebar-header">
           <span>数据库</span>
+          <el-tooltip content="刷新目录" placement="bottom">
+            <button class="sidebar-refresh-btn" :disabled="treeLoading" @click="loadSchemas">
+              <font-awesome-icon icon="sync" :spin="treeLoading" />
+            </button>
+          </el-tooltip>
         </div>
         <div class="sidebar-content" v-loading="treeLoading">
           <div v-if="treeError && !treeLoading" class="tree-error">
@@ -49,8 +54,16 @@
                   @dblclick.stop="handleNodeDblClick(data)"
                   @contextmenu.stop.prevent="openContextMenu($event, data)"
                 >
-                  <font-awesome-icon :icon="data?.type === 'schema' ? 'database' : 'table'" class="node-icon" />
-                  <span class="node-label">{{ node.label }}</span>
+                  <font-awesome-icon
+                    :icon="data?.type === 'table' ? 'table' : data?.type === 'schema' ? 'cubes' : 'database'"
+                    class="node-icon"
+                  />
+                  <span
+                    class="node-label"
+                    :title="data?.type === 'table' ? [data.catalog, data.schema, data.name].filter(Boolean).join('.') : node.label"
+                  >
+                    {{ node.label }}
+                  </span>
                   <span v-if="data?.type === 'table'" class="node-actions" @click.stop>
                     <el-tooltip content="预览数据" placement="top">
                       <button class="node-action-btn" @click.stop="previewTable(data)">
@@ -402,11 +415,39 @@
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 10px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
   font-weight: 600;
   font-size: 14px;
   color: var(--el-text-color-primary, #303133);
+}
+
+.sidebar-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidebar-refresh-btn:hover:not(:disabled) {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
+}
+
+.sidebar-refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .sidebar-content {

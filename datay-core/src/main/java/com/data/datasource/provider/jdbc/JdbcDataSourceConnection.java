@@ -77,8 +77,18 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     }
 
     @Override
+    public List<String> getCatalogs() throws SQLException {
+        return provider.getCatalogs(connection);
+    }
+
+    @Override
     public List<String> getSchemas() throws SQLException {
         return provider.getSchemas(connection);
+    }
+
+    @Override
+    public List<String> getSchemas(String catalog) throws SQLException {
+        return provider.getSchemas(connection, catalog);
     }
 
     @Override
@@ -87,13 +97,28 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     }
 
     @Override
+    public List<TableMeta> getTables(String catalog, String schema, Integer limit, String search) throws SQLException {
+        return provider.getTables(connection, catalog, schema, limit, search);
+    }
+
+    @Override
     public TableMeta getTableMeta(String schema, String table) throws SQLException {
         return provider.getTableMeta(connection, schema, table);
     }
 
     @Override
+    public TableMeta getTableMeta(String catalog, String schema, String table) throws SQLException {
+        return provider.getTableMeta(connection, catalog, schema, table);
+    }
+
+    @Override
     public TableMeta getTableDetail(String schema, String table) throws SQLException {
         return provider.getTableDetail(connection, schema, table);
+    }
+
+    @Override
+    public TableMeta getTableDetail(String catalog, String schema, String table) throws SQLException {
+        return provider.getTableDetail(connection, catalog, schema, table);
     }
 
     @Override

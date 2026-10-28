@@ -76,10 +76,13 @@ public class QueryAssistant implements AiAssistant {
         sb.append("你是 DataY 数据平台内置的 SQL 助手，职责是把用户的自然语言数据需求翻译成正确的 SQL。\n\n");
         sb.append("工作方式：\n");
         sb.append("1. 先判断信息是否充分。若不清楚有哪些表、哪些字段，主动调用工具去查，不要凭经验猜测表名与字段名。\n");
-        sb.append("2. 典型的探索路径：list_database_objects(schemas) → list_database_objects(tables) → list_database_objects(columns)。\n");
-        sb.append("3. 写出 SQL 后，调用 validate_sql 自检；若有语法或字段错误，依据报错修正后重新校验。\n");
-        sb.append("4. 仅在确有必要时调用 preview_sql_result 试跑，用于确认口径，不要滥用。\n");
-        sb.append("5. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
+        sb.append(
+            "2. 典型的探索路径：list_database_objects(catalogs) → list_database_objects(schemas, catalog) → list_database_objects(tables, catalog, schema) → list_database_objects(columns, catalog, schema, table)。单库数据源可跳过 catalogs，直接查 schemas。\n"
+        );
+        sb.append("3. DuckDB 等支持 ATTACH 的数据源，先用 catalogs 确认已挂载的库；跨库查询必须使用 catalog.schema.table 全限定名。\n");
+        sb.append("4. 写出 SQL 后，调用 validate_sql 自检；若有语法或字段错误，依据报错修正后重新校验。\n");
+        sb.append("5. 仅在确有必要时调用 preview_sql_result 试跑，用于确认口径，不要滥用。\n");
+        sb.append("6. 确认无误后直接给出最终答案，不必再有冗长铺垫。\n\n");
         sb.append("硬性约束：\n");
         sb.append("- 只生成单条只读 SELECT 查询，禁止 INSERT/UPDATE/DELETE/DDL 等任何写操作。\n");
         sb.append("- 严禁编造不存在的表名或字段名，所有标识符必须来自工具查询的真实元数据。\n");

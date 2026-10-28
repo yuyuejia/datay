@@ -111,10 +111,10 @@ export default class DataSourceService {
     });
   }
 
-  getSchemas(id: string): Promise<any> {
+  getCatalogs(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/${id}/schemas`)
+        .get(`${baseApiUrl}/${id}/catalogs`)
         .then(res => {
           resolve(res);
         })
@@ -124,14 +124,10 @@ export default class DataSourceService {
     });
   }
 
-  getTables(dataSourceId: string, schema: string, limit?: number, search?: string): Promise<any> {
+  getSchemas(id: string, catalog?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
-      const params = new URLSearchParams();
-      if (limit) params.set('limit', String(limit));
-      if (search) params.set('search', search);
-      const queryString = params.toString();
       axios
-        .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables${queryString ? '?' + queryString : ''}`)
+        .get(`${baseApiUrl}/${id}/schemas`, { params: catalog ? { catalog } : {} })
         .then(res => {
           resolve(res);
         })
@@ -141,10 +137,29 @@ export default class DataSourceService {
     });
   }
 
-  getFields(dataSourceId: string, schema: string, table: string): Promise<any> {
+  getTables(dataSourceId: string, schema: string, limit?: number, search?: string, catalog?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      const params: Record<string, string | number> = {};
+      if (catalog) params.catalog = catalog;
+      if (limit) params.limit = limit;
+      if (search) params.search = search;
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables`, { params })
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  getFields(dataSourceId: string, schema: string, table: string, catalog?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/columns`)
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}/columns`, {
+          params: catalog ? { catalog } : {},
+        })
         .then(res => {
           resolve(res);
         })
@@ -167,10 +182,12 @@ export default class DataSourceService {
     });
   }
 
-  getTableDetail(dataSourceId: string, schema: string, table: string): Promise<any> {
+  getTableDetail(dataSourceId: string, schema: string, table: string, catalog?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/${dataSourceId}/schemas/${schema}/tables/${table}/meta`)
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}/meta`, {
+          params: catalog ? { catalog } : {},
+        })
         .then(res => {
           resolve(res);
         })

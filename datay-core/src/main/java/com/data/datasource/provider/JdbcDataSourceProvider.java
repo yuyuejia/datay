@@ -202,6 +202,13 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 列出 catalog。默认无 catalog 概念，返回空列表；DuckDB 等支持挂载库的数据源可覆写。
+     */
+    public List<String> getCatalogs(Connection conn) throws SQLException {
+        return Collections.emptyList();
+    }
+
+    /**
      * 列出 schema。默认读取标准 {@code DatabaseMetaData.getSchemas()}。
      */
     public List<String> getSchemas(Connection conn) throws SQLException {
@@ -209,10 +216,24 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 列出指定 catalog 下的 schema。默认忽略 catalog。
+     */
+    public List<String> getSchemas(Connection conn, String catalog) throws SQLException {
+        return getSchemas(conn);
+    }
+
+    /**
      * 列出表。默认以 schema 作为 schema 参数读取普通表。
      */
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
         return JdbcMetadata.readTableList(conn, null, schema, new String[] { "TABLE" }, limit, search, false);
+    }
+
+    /**
+     * 列出指定 catalog + schema 下的表。默认忽略 catalog。
+     */
+    public List<TableMeta> getTables(Connection conn, String catalog, String schema, Integer limit, String search) throws SQLException {
+        return getTables(conn, schema, limit, search);
     }
 
     /**
@@ -225,6 +246,13 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 读取指定 catalog 下的表结构。默认忽略 catalog。
+     */
+    public TableMeta getTableMeta(Connection conn, String catalog, String schema, String table) throws SQLException {
+        return getTableMeta(conn, schema, table);
+    }
+
+    /**
      * 读取表详细信息（结构 + 注释 + 索引）。默认以 {@code (schema, null, table)} 组合读取。
      */
     public TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
@@ -234,6 +262,13 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
         tableMeta.setComment(JdbcMetadata.getTableComment(conn, schema, null, table));
         tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, schema, null, table));
         return tableMeta;
+    }
+
+    /**
+     * 读取指定 catalog 下表的详细信息。默认忽略 catalog。
+     */
+    public TableMeta getTableDetail(Connection conn, String catalog, String schema, String table) throws SQLException {
+        return getTableDetail(conn, schema, table);
     }
 
     /**
