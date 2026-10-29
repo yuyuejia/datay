@@ -6,6 +6,7 @@ import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
@@ -132,7 +133,7 @@ public class DorisStreamLoad extends FlowComponent {
         String streamLoadUrl = buildStreamLoadUrl(targetTable);
 
         // 构建请求体（JSON格式）
-        String jsonData = buildJsonData(records, eventType);
+        String jsonData = buildJsonData(targetTable, records, eventType);
 
         final HttpClientBuilder httpClientBuilder = HttpClients
                 .custom()
@@ -193,24 +194,32 @@ public class DorisStreamLoad extends FlowComponent {
     }
 
     /**
-     * 构建JSON数据
+     * 构建JSON数据。
+     * <p>按目标表列类型做一次规范化：MySQL Binlog 的字符列是 {@code byte[]}，日期时间列按 UTC
+     * 承载墙上时间，直接序列化会导致乱码或时区偏移；二进制列不在目标表中时也会被丢弃。</p>
      */
-    private String buildJsonData(JSONArray records, String eventType) {
-        // 对于DELETE操作，需要特殊处理
-//        if ("DELETE".equals(eventType)) {
-//            JSONArray deleteRecords = new JSONArray();
-//            for (Object record : records) {
-//                JSONObject jsonRecord = (JSONObject) record;
-//                // DELETE操作只需要包含标识列（通常是主键）
-//                JSONObject deleteRecord = new JSONObject();
-//                // 这里需要根据实际表结构确定标识列，简化处理使用所有列
-//                deleteRecord.putAll(jsonRecord);
-//                deleteRecords.add(deleteRecord);
-//            }
-//            return deleteRecords.toJSONString();
-//        }
+    private String buildJsonData(TableMeta targetTable, JSONArray records, String eventType) {
+        if (targetTable == null || targetTable.columns() == null || targetTable.columns().isEmpty()) {
+            return records.toJSONString();
+        }
 
-        return records.toJSONString();
+        JSONArray normalized = new JSONArray(records.size());
+        for (Object item : records) {
+            if (!(item instanceof JSONObject)) {
+                normalized.add(item);
+                continue;
+            }
+            JSONObject record = (JSONObject) item;
+            JSONObject row = new JSONObject();
+            for (ColumnMeta column : targetTable.columns()) {
+                String name = column.getName();
+                if (record.containsKey(name)) {
+                    row.put(name, DBUtils.normalizeParameter(column.getType(), record.get(name)));
+                }
+            }
+            normalized.add(row);
+        }
+        return normalized.toJSONString();
     }
 
     /**
