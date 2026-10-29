@@ -382,7 +382,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      */
     protected String buildQuery(TableMeta srcTable, String tableIncrColumn) {
         StringBuilder query = new StringBuilder();
-        query.append("/* bip_streaming_export */ SELECT * FROM ").append(srcTable.getSchema()).append(".").append(srcTable.getTable());
+        query.append("SELECT * FROM ").append(srcTable.getSchema()).append(".").append(srcTable.getTable());
 
         // 处理where条件，替换${ytenantid}为实际的ytenantId值
         String processedWhere = where;

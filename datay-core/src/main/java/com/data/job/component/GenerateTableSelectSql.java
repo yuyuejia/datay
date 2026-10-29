@@ -146,7 +146,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         
         // 如果不启用分区或表数据量较小，生成普通SQL
         if (!enablePartition) {
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
             return sqlList;
         }
         
@@ -154,7 +154,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         List<ColumnMeta> primaryKeys = getPrimaryKeyColumns(tableMeta);
         if (primaryKeys.isEmpty()) {
             logInfo("表 " + tableMeta.getTable() + " 没有主键，使用普通查询");
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
             return sqlList;
         }
         
@@ -166,7 +166,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         Object[] minMaxValues = getPrimaryKeyMinMax(conn, tableMeta, primaryKey);
         if (minMaxValues == null) {
             logInfo("无法获取表 " + tableMeta.getTable() + " 的主键范围，使用普通查询");
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
             return sqlList;
         }
         
@@ -247,7 +247,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         } else {
             // 其他类型使用普通查询
             logInfo("表 " + tableMeta.getTable() + " 的主键类型不支持分区，使用普通查询");
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + tableName);
+            sqlList.add("SELECT * FROM " + tableName);
         }
         
         return sqlList;
@@ -266,7 +266,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         // 检查字符是否在有效范围内（0-9, a-z）
         if (!(isValidCharRange(minChar)&& isValidCharRange(maxChar))) {
             logInfo("表 " + tableName + " 的主键字符范围超出0-9,a-z，使用普通查询");
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + tableName);
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
         
@@ -276,7 +276,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         int charRange = maxVal - minVal;
 
         if (charRange <= 1) {
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + tableName);
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
 
@@ -291,10 +291,10 @@ public class GenerateTableSelectSql extends FlowComponent {
             if(i == 0){
                 startChar = minStr;
             }
-            String sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= '%s' AND %s < '%s'", tableName, pkName, startChar, pkName, endChar);
+            String sql = String.format("SELECT * FROM %s WHERE %s >= '%s' AND %s < '%s'", tableName, pkName, startChar, pkName, endChar);
             if(i == tablePartitionCount - 1){
                 endChar = maxStr;
-                sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= '%s' AND %s <= '%s'", tableName, pkName, startChar, pkName, endChar);
+                sql = String.format("SELECT * FROM %s WHERE %s >= '%s' AND %s <= '%s'", tableName, pkName, startChar, pkName, endChar);
             }
             sqlList.add(sql);
         }
@@ -340,7 +340,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         long range = max - min;
 
         if (range == 0 ) {
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + tableName);
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
 
@@ -350,10 +350,10 @@ public class GenerateTableSelectSql extends FlowComponent {
         for (int i = 0; i < tablePartitionCount; i++) {
             long start = min + i * partitionSize;
             long end = start + partitionSize;
-            String sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= %d AND %s < %d", tableName, pkName, start, pkName, end);
+            String sql = String.format("SELECT * FROM %s WHERE %s >= %d AND %s < %d", tableName, pkName, start, pkName, end);
             if(i == tablePartitionCount - 1){
                 end = max;
-                sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= %d AND %s <= %d", tableName, pkName, start, pkName, end);
+                sql = String.format("SELECT * FROM %s WHERE %s >= %d AND %s <= %d", tableName, pkName, start, pkName, end);
             }
             sqlList.add(sql);
         }
@@ -372,7 +372,7 @@ public class GenerateTableSelectSql extends FlowComponent {
         }
 
         if (range == 0 ) {
-            sqlList.add("/* bip_streaming_export */ SELECT * FROM " + tableName);
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
 
@@ -382,10 +382,10 @@ public class GenerateTableSelectSql extends FlowComponent {
         for (int i = 0; i < tablePartitionCount; i++) {
             long start = min + i * partitionSize;
             long end = start + partitionSize;
-            String sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= '%d' AND %s < '%d'", tableName, pkName, start, pkName, end);
+            String sql = String.format("SELECT * FROM %s WHERE %s >= '%d' AND %s < '%d'", tableName, pkName, start, pkName, end);
             if(i == tablePartitionCount - 1){
                 end = max;
-                sql = String.format("/* bip_streaming_export */ SELECT * FROM %s WHERE %s >= '%d' AND %s <= '%d'", tableName, pkName, start, pkName, end);
+                sql = String.format("SELECT * FROM %s WHERE %s >= '%d' AND %s <= '%d'", tableName, pkName, start, pkName, end);
             }
             sqlList.add(sql);
         }
