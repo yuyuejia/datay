@@ -20,8 +20,17 @@
       <el-input id="incrColumn" name="incrColumn" v-model="formData.incrColumn" placeholder="请输入增量同步字段名" />
       <small class="form-text text-muted"> 用于增量同步的字段，多表用逗号分隔对应 </small>
     </el-form-item>
-    <el-form-item label="过滤条件">
-      <el-input type="textarea" id="where" name="where" v-model="formData.where" :rows="3" placeholder="请输入WHERE条件，如 status=1" />
+    <el-form-item>
+      <template #label>过滤条件 <DynamicParameterHelp /></template>
+      <el-input
+        type="textarea"
+        id="where"
+        name="where"
+        v-model="formData.where"
+        :rows="3"
+        placeholder="例如 stat_date >= '${attr:start_date}'，支持 ${attr:属性名}、#{...} 动态参数"
+      />
+      <small class="form-text text-muted">支持 ${attr:属性名}、${属性名}、#{...} 等动态参数；字符串和日期需要自行加引号</small>
     </el-form-item>
   </el-form>
 </template>
@@ -31,6 +40,7 @@ import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
+import DynamicParameterHelp from '../DynamicParameterHelp.vue';
 
 const props = defineProps({
   node: Object,

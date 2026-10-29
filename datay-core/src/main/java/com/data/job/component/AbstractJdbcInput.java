@@ -1,6 +1,7 @@
 package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.data.expression.ParameterUtil;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -102,7 +103,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
                         String tableIncrColumn = incrColumns.get(tableName.trim());
 
                         beforeMigrateTable(srcTable);
-                        migrateData(srcConn, srcTable, tableIncrColumn);
+                        migrateData(srcConn, srcTable, tableIncrColumn, flowFile);
                     } catch (SQLException e) {
                         logInfo("处理表 " + tableName + " 时发生错误: " + e.getMessage());
                         throw new RuntimeException("数据迁移失败", e);
@@ -220,7 +221,17 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      * 流式读取单表数据并分批交给子类处理。
      */
     protected void migrateData(Connection srcConn, TableMeta srcTable, String tableIncrColumn) throws SQLException {
-        String srcQuery = buildQuery(srcTable, tableIncrColumn);
+        migrateData(srcConn, srcTable, tableIncrColumn, null);
+    }
+
+    /**
+     * 流式读取单表数据并分批交给子类处理。
+     *
+     * @param flowFile 触发本次读取的 FlowFile，用于解析 WHERE 条件中的动态参数
+     */
+    protected void migrateData(Connection srcConn, TableMeta srcTable, String tableIncrColumn, FlowFile flowFile)
+            throws SQLException {
+        String srcQuery = buildQuery(srcTable, tableIncrColumn, flowFile);
         logInfo("执行查询: " + srcQuery);
 
         try (Statement srcStmt = DBUtils.createStreamStatement(srcTable.getDbType(), srcConn);
@@ -378,17 +389,24 @@ public abstract class AbstractJdbcInput extends FlowComponent {
     }
 
     /**
-     * 构建查询语句，支持增量同步与 ytenantId 占位符替换（多表版本）。
+     * 构建查询语句，支持增量同步与 where 动态参数替换（多表版本）。
      */
     protected String buildQuery(TableMeta srcTable, String tableIncrColumn) {
+        return buildQuery(srcTable, tableIncrColumn, null);
+    }
+
+    /**
+     * 构建查询语句，支持增量同步与 where 动态参数替换（多表版本）。
+     *
+     * @param flowFile 触发本次读取的 FlowFile，用于解析 where 中的动态参数；为 null 时仍会解析
+     *                 {@code #{...}} 内置参数，属性类参数保持原样
+     */
+    protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile) {
         StringBuilder query = new StringBuilder();
         query.append("SELECT * FROM ").append(srcTable.getSchema()).append(".").append(srcTable.getTable());
 
-        // 处理where条件，替换${ytenantid}为实际的ytenantId值
-        String processedWhere = where;
-        if (where != null && ytenantId != null) {
-            processedWhere = where.replace("${ytenantid}", ytenantId);
-        }
+        // 处理 where 条件，支持 ${ytenantid} 以及 ${attr:属性名}、${属性名}、${FLOW_FILE_DATA}、#{...} 等动态参数
+        String processedWhere = resolveWhere(where, flowFile);
 
         // 如果where条件不为空，添加where条件
         if (processedWhere != null && !processedWhere.trim().isEmpty()) {
@@ -418,6 +436,43 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         }
 
         return query.toString();
+    }
+
+    /**
+     * 解析 where 条件中的动态参数。
+     *
+     * <p>支持的参数语法与其他组件保持一致：{@code ${ytenantid}}（兼容旧配置）、
+     * {@code ${attr:属性名}}、{@code ${属性名}}、{@code ${FLOW_FILE_DATA}} 以及 {@code #{...}}
+     * 内置参数。参数值来自触发本次读取的 FlowFile；无法解析的参数保持原样并记录告警。</p>
+     *
+     * <p>注意：参数值直接拼接进 SQL，字符串/日期需要自行加引号，例如
+     * {@code stat_date >= '${attr:start_date}'}；请确保参数来源可信。</p>
+     *
+     * @param where    配置的 where 条件
+     * @param flowFile 触发本次读取的 FlowFile，可为 null
+     * @return 替换参数后的 where 条件
+     */
+    protected String resolveWhere(String where, FlowFile flowFile) {
+        if (where == null || where.trim().isEmpty()) {
+            return where;
+        }
+
+        String resolved = where;
+        // 兼容旧的租户占位符，取值来自组件配置的 ytenantId
+        if (ytenantId != null) {
+            resolved = resolved.replace("${ytenantid}", ytenantId);
+        }
+
+        try {
+            ParameterUtil.ReplacementResult result = ParameterUtil.replaceParametersStrict(resolved, flowFile, null);
+            if (result.hasUnresolved()) {
+                logWarn("where 条件中存在未解析的动态参数，将按原样拼接: " + result.getUnresolvedParameters());
+            }
+            return result.getText();
+        } catch (Exception e) {
+            logWarn("where 条件动态参数替换失败，按原条件执行: " + e.getMessage());
+            return resolved;
+        }
     }
 
     // 自动注入参数的setters

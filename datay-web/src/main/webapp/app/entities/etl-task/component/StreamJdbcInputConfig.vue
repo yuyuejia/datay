@@ -46,9 +46,16 @@
           </div>
         </div>
     </el-form-item>
-      <el-form-item label="where">
-      <el-input id="where" name="where" v-model="formData.where" />
-    </el-form-item>
+      <el-form-item>
+        <template #label>where <DynamicParameterHelp /></template>
+        <el-input
+          id="where"
+          name="where"
+          v-model="formData.where"
+          placeholder="例如 stat_date >= '${attr:start_date}'，支持 ${attr:属性名}、#{...} 动态参数"
+        />
+        <small class="form-text text-muted">支持 ${attr:属性名}、${属性名}、#{...} 等动态参数；字符串和日期需要自行加引号</small>
+      </el-form-item>
     </div>
   </el-form>
 </template>
@@ -60,6 +67,7 @@ import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
 import DataSourceTableSelector from '@/components/DataSourceTableSelector.vue'; // 引入组件
 import DataSourceTableFieldSelector from '@/components/DataSourceTableFieldSelector.vue'; // 引入组件
+import DynamicParameterHelp from '../DynamicParameterHelp.vue';
 
 const props = defineProps({
   node: Object,

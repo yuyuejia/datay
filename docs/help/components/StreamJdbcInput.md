@@ -12,6 +12,7 @@ StreamJdbcInput 是一个数据输入组件，该组件特别适合需要处理�
 - ✅ **批量处理**: 每10,000条记录批量发送到下游
 - ✅ **状态持久化**: 自动保存增量同步状态
 - ✅ **条件过滤**: 支持自定义WHERE条件过滤数据
+- ✅ **动态参数**: WHERE 条件支持 `${attr:属性名}`、`${FLOW_FILE_DATA}`、`#{...}` 等动态参数
 
 ## 配置参数
 
@@ -27,7 +28,37 @@ StreamJdbcInput 是一个数据输入组件，该组件特别适合需要处理�
 | 参数名 | 类型 | 必填 | 描述 | 示例 |
 |--------|------|------|------|------|
 | `incrColumn` | String | ❌ | 增量字段配置，支持JSON格式多表配置 | `"{\"user\": \"id\", \"order\": \"update_time\"}"` |
-| `where` | String | ❌ | 自定义WHERE条件，支持多表通用条件 | `"status = 'active'"` |
+| `where` | String | ❌ | 自定义WHERE条件，支持多表通用条件与动态参数 | `"status = '${attr:status}'"` |
+
+## WHERE 动态参数
+
+`where` 条件支持 DataY 通用动态参数语法，运行时根据触发本次读取的 FlowFile 解析：
+
+| 参数语法 | 说明 |
+|----------|------|
+| `${attr:属性名}` | 只取 FlowFile 属性，例如 `${attr:stat_date}` |
+| `${属性名}` | 取 FlowFile 属性，例如 `${stat_date}` |
+| `${FLOW_FILE_DATA}` | 当前 FlowFile 的完整数据内容 |
+| `#{...}` | 内置参数，例如 `#{UUID}`、`#{TIMESTAMP}`、`#{NOW - 1d, yyyy-MM-dd}` |
+| `${ytenantid}` | 兼容旧配置，取组件配置的 `ytenantId` |
+
+示例：
+
+```json
+{
+  ".id": "c125de36",
+  ".name": "StreamJdbcInput",
+  "table": "orders",
+  "where": "stat_date >= '${attr:start_date}' AND status = '${attr:status}'"
+}
+```
+
+注意事项：
+
+1. 动态参数会先替换为字符串再拼接进 SQL，因此字符串和日期需要自行加引号，例如 `stat_date >= '${attr:start_date}'`。
+2. 源组件在查询前还没有数据行，因此不支持从数据行字段取值的 `${字段名}`；请使用 FlowFile 属性或 `#{...}` 内置参数。
+3. 未解析的参数会保持原样并记录 WARN 日志，最终可能由数据库报 SQL 语法错误，请先在调试页确认属性名。
+4. 参数值直接进入 SQL，请确保配置和上游数据可信，避免 SQL 注入风险。
 
 ## 数据源配置 (DatasourceInfo)
 
