@@ -44,6 +44,7 @@
   - [PostgresCDCInput CDC](components/PostgresCDCInput.md)
   - [MongoCDCInput CDC](components/MongoCDCInput.md)
   - [OracleCDCInput CDC](components/OracleCDCInput.md)
+  - [SqlSink 写入](components/SqlSink.md)
   - [StreamJdbcOutput 输出](components/StreamJdbcOutput.md)
   - [StreamSqlUnit 流式 SQL](components/StreamSqlUnit.md)
   - [DataTransform 转换](components/DataTransform.md)

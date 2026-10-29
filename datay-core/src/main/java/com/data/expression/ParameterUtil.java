@@ -8,9 +8,13 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,6 +22,8 @@ import java.util.regex.Pattern;
 public class ParameterUtil {
 
     private static final Random random = new Random();
+    /** 区分“字段不存在”和“字段值为 null”。 */
+    private static final Object MISSING_VALUE = new Object();
     
     public static List<ParameterInfo> parseParameters(String expression) {
         // 创建ANTLR输入流
@@ -85,31 +91,260 @@ public class ParameterUtil {
      * @return 替换参数后的文本
      */
     public static String replaceParameters(String text, FlowFile flowFile, Map<String, Object> variables) {
+        return replaceParametersStrict(text, flowFile, variables).getText();
+    }
+
+    /**
+     * 替换文本中的动态参数，并返回未解析的参数。
+     *
+     * <p>与 {@link #replaceParameters(String, FlowFile, Map)} 的替换规则一致，但不会忽略缺失的
+     * 参数：调用方可以根据 {@link ReplacementResult#getUnresolvedParameters()} 决定报错或降级处理。
+     * {@code ${字段名}} 支持 {@code __before.amount} 这样的嵌套路径。</p>
+     *
+     * @param text      原始文本
+     * @param flowFile  当前 FlowFile，可为 null
+     * @param variables 优先匹配的变量集合，可为 null
+     * @return 替换结果与未解析参数
+     */
+    public static ReplacementResult replaceParametersStrict(
+        String text,
+        FlowFile flowFile,
+        Map<String, Object> variables
+    ) {
         if (text == null || text.trim().isEmpty()) {
-            return text;
+            return new ReplacementResult(text, Collections.emptyList());
         }
-        Map<String, Object> attributes = flowFile.getAttributeMap();
+
+        Map<String, Object> attributes = flowFile == null ? null : flowFile.getAttributeMap();
         List<ParameterInfo> parameters = parseParameters(text);
-        // 获取并打印解析结果
+        Set<String> unresolved = new LinkedHashSet<>();
+
         for (ParameterInfo param : parameters) {
-            if(param.getType() == ParameterType.DOLLAR_CURLY_ATTR||param.getType() == ParameterType.DOLLAR_CURLY) {
-                Object value = null;
-                if(variables != null && variables.containsKey(param.getName())) {
-                    value = variables.get(param.getName());
-                } else if(attributes != null && attributes.containsKey(param.getName())) {
-                    value = attributes.get(param.getName());
-                }else if(param.getName().equals("FLOW_FILE_DATA")) {
-                    value = flowFile.getData();
-                }
-                if(value != null) {
-                    text = text.replace(param.getFullMatch(), String.valueOf(value));
-                }
-            }else if(param.getType() == ParameterType.HASH_CURLY) {
-                String replacement = getParameterValue(param.getName(), param.getType());
-                text = text.replace(param.getFullMatch(), replacement);
+            Object value = resolveParameterValue(param, flowFile, variables, attributes);
+            if (value == MISSING_VALUE) {
+                unresolved.add(param.getFullMatch());
+                continue;
+            }
+            text = text.replace(param.getFullMatch(), String.valueOf(value));
+        }
+        return new ReplacementResult(text, new ArrayList<>(unresolved));
+    }
+
+    /**
+     * 将 SQL 中的动态参数转换为 JDBC {@code ?} 占位符。
+     *
+     * <p>返回的 SQL 可以直接交给 {@link java.sql.PreparedStatement}，参数顺序与
+     * {@link #resolveParameterValues(List, FlowFile, Map)} 返回的值顺序一致。</p>
+     *
+     * @param text 包含动态参数的 SQL 模板
+     * @return 参数化 SQL 与参数定义
+     */
+    public static ParameterizedSql prepareParameterizedSql(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new ParameterizedSql(text, Collections.emptyList());
+        }
+
+        List<ParameterInfo> parameters = parseParameters(text);
+        if (parameters.isEmpty()) {
+            return new ParameterizedSql(text, parameters);
+        }
+
+        StringBuilder sql = new StringBuilder(text.length());
+        int cursor = 0;
+        for (ParameterInfo param : parameters) {
+            String fullMatch = param.getFullMatch();
+            int index = text.indexOf(fullMatch, cursor);
+            if (index < 0) {
+                throw new IllegalArgumentException("无法定位 SQL 动态参数：" + fullMatch);
+            }
+            sql.append(text, cursor, index).append('?');
+            cursor = index + fullMatch.length();
+        }
+        sql.append(text, cursor, text.length());
+        return new ParameterizedSql(sql.toString(), parameters);
+    }
+
+    /**
+     * 按参数定义解析当前行/FlowFile 的绑定值。
+     *
+     * @param parameters 参数定义，来自 {@link #prepareParameterizedSql(String)}
+     * @param flowFile   当前 FlowFile
+     * @param variables  当前行字段
+     * @return 绑定值及未解析参数
+     */
+    public static ParameterValues resolveParameterValues(
+        List<ParameterInfo> parameters,
+        FlowFile flowFile,
+        Map<String, Object> variables
+    ) {
+        if (parameters == null || parameters.isEmpty()) {
+            return new ParameterValues(Collections.emptyList(), Collections.emptyList());
+        }
+
+        Map<String, Object> attributes = flowFile == null ? null : flowFile.getAttributeMap();
+        List<Object> values = new ArrayList<>(parameters.size());
+        Set<String> unresolved = new LinkedHashSet<>();
+        for (ParameterInfo param : parameters) {
+            Object value = resolveParameterValue(param, flowFile, variables, attributes);
+            if (value == MISSING_VALUE) {
+                unresolved.add(param.getFullMatch());
+                values.add(null);
+            } else {
+                values.add(value);
             }
         }
-        return text;
+        return new ParameterValues(values, new ArrayList<>(unresolved));
+    }
+
+    private static Object resolveParameterValue(
+        ParameterInfo param,
+        FlowFile flowFile,
+        Map<String, Object> variables,
+        Map<String, Object> attributes
+    ) {
+        if (param.getType() == ParameterType.HASH_CURLY) {
+            String replacement = getParameterValue(param.getName(), param.getType());
+            if (("#{" + param.getName() + "}").equals(replacement)) {
+                return MISSING_VALUE;
+            }
+            return replacement;
+        }
+        Object value = resolveDollarParameter(param, flowFile, variables, attributes);
+        return value == null ? MISSING_VALUE : value;
+    }
+
+    private static Object resolveDollarParameter(
+        ParameterInfo param,
+        FlowFile flowFile,
+        Map<String, Object> variables,
+        Map<String, Object> attributes
+    ) {
+        String name = param.getName();
+        if (param.getType() == ParameterType.DOLLAR_CURLY) {
+            if (variables != null) {
+                if (variables.containsKey(name)) {
+                    return variables.get(name);
+                }
+                Object nestedValue = resolveNestedValue(variables, name);
+                if (nestedValue != MISSING_VALUE) {
+                    return nestedValue;
+                }
+            }
+            if (attributes != null && attributes.containsKey(name)) {
+                return attributes.get(name);
+            }
+            if ("FLOW_FILE_DATA".equals(name) && flowFile != null) {
+                return flowFile.getData();
+            }
+            return null;
+        }
+
+        if (attributes != null && attributes.containsKey(name)) {
+            return attributes.get(name);
+        }
+        if ("FLOW_FILE_DATA".equals(name) && flowFile != null) {
+            return flowFile.getData();
+        }
+        return null;
+    }
+
+    /**
+     * 按点号路径读取嵌套变量，例如 {@code __before.amount}。
+     */
+    private static Object resolveNestedValue(Map<String, Object> variables, String name) {
+        if (variables == null || name == null || !name.contains(".")) {
+            return MISSING_VALUE;
+        }
+        Object current = variables;
+        for (String part : name.split("\\.")) {
+            if (!(current instanceof Map)) {
+                return MISSING_VALUE;
+            }
+            Map<?, ?> map = (Map<?, ?>) current;
+            if (!map.containsKey(part)) {
+                return MISSING_VALUE;
+            }
+            current = map.get(part);
+        }
+        return current;
+    }
+
+    /**
+     * 动态参数替换结果。
+     */
+    public static final class ReplacementResult {
+
+        private final String text;
+        private final List<String> unresolvedParameters;
+
+        private ReplacementResult(String text, List<String> unresolvedParameters) {
+            this.text = text;
+            this.unresolvedParameters = unresolvedParameters;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public List<String> getUnresolvedParameters() {
+            return unresolvedParameters;
+        }
+
+        public boolean hasUnresolved() {
+            return !unresolvedParameters.isEmpty();
+        }
+    }
+
+    /**
+     * 参数化后的 SQL 与参数定义。
+     */
+    public static final class ParameterizedSql {
+
+        private final String sql;
+        private final List<ParameterInfo> parameters;
+
+        private ParameterizedSql(String sql, List<ParameterInfo> parameters) {
+            this.sql = sql;
+            this.parameters = parameters;
+        }
+
+        public String getSql() {
+            return sql;
+        }
+
+        public List<ParameterInfo> getParameters() {
+            return parameters;
+        }
+
+        public boolean hasParameters() {
+            return !parameters.isEmpty();
+        }
+    }
+
+    /**
+     * 当前行的 JDBC 绑定值。
+     */
+    public static final class ParameterValues {
+
+        private final List<Object> values;
+        private final List<String> unresolvedParameters;
+
+        private ParameterValues(List<Object> values, List<String> unresolvedParameters) {
+            this.values = values;
+            this.unresolvedParameters = unresolvedParameters;
+        }
+
+        public List<Object> getValues() {
+            return values;
+        }
+
+        public List<String> getUnresolvedParameters() {
+            return unresolvedParameters;
+        }
+
+        public boolean hasUnresolved() {
+            return !unresolvedParameters.isEmpty();
+        }
     }
     
     /**

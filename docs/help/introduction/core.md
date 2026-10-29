@@ -109,7 +109,7 @@ public class Example {
 
 - **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`MqttConsumer`
 - **处理组件**：`DuckDBSql`、`StreamSqlUnit`、`SqlTask`、`JavaScriptComponent`
-- **输出组件**：`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
+- **输出组件**：`SqlSink`、`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
 - **路由组件**：`HashRouter`、`RandomRouter`
 - **其他组件**：`HttpListener`、`GenerateFlowFile`
 

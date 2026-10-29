@@ -137,6 +137,7 @@ public class Example {
 - [DecisionComponent](docs/component/DecisionComponent.md) : 按行调用 Ollama 决策模型接口（/v1/systemone）
 
 ### 输出组件
+- [SqlSink](docs/component/SqlSink.md) : 通用 SQL 写入,支持 SQL 模板、动态参数绑定与原子累加
 - [StreamJdbcOutput](docs/component/StreamJdbcOutput.md) : JDBC数据源输出
 - [DuckDBWrite](docs/component/DuckDBWrite.md) : DuckDB写入
 - [DuckLakeWrite](docs/component/DuckLakeWrite.md) : DuckLake写入

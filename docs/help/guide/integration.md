@@ -30,7 +30,7 @@
 
 - **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`MqttConsumer`
 - **处理组件**：`DuckDBSql`、`StreamSqlUnit`、`Join`、`DataTransform`、`JavaScriptComponent`
-- **输出组件**：`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
+- **输出组件**：`SqlSink`、`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**：`HttpListener`、`GenerateFlowFile`
 
 ## 方式二：数据同步
