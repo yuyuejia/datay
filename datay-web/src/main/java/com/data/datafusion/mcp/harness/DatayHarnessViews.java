@@ -1,5 +1,6 @@
 package com.data.datafusion.mcp.harness;
 
+import com.data.datafusion.service.dto.DataApiDTO;
 import com.data.datafusion.service.dto.DataModelDTO;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.ETLNodeDTO;
@@ -70,6 +71,27 @@ public final class DatayHarnessViews {
         view.put("connectionMode", dto.getConnectionMode());
         view.put("description", dto.getDescription());
         view.put("createTime", dto.getCreateTime());
+        view.put("updateTime", dto.getUpdateTime());
+        return view;
+    }
+
+    /**
+     * 数据服务视图。
+     *
+     * <p>刻意不返回 {@code sqlText} 与 {@code apiConfig}：后者可能夹带上游 Token、请求头等凭据，
+     * 且体积较大；需要时由 {@code dataapi_describe} 按来源类型给出必要片段。
+     */
+    public static Map<String, Object> dataApi(DataApiDTO dto) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("id", dto.getId());
+        view.put("name", dto.getName());
+        view.put("code", dto.getCode());
+        view.put("description", dto.getDescription());
+        view.put("sourceType", dto.getSourceType());
+        view.put("status", dto.getStatus());
+        view.put("dataSourceId", dto.getDataSourceId());
+        view.put("schemaName", dto.getSchemaName());
+        view.put("tableName", dto.getTableName());
         view.put("updateTime", dto.getUpdateTime());
         return view;
     }

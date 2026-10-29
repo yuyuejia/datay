@@ -28,6 +28,8 @@ import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.TenantRepository;
 import com.data.datafusion.repository.UserRepository;
+import com.data.datafusion.service.DataApiExecuteService;
+import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.DataModelMaterializeService;
 import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceQueryService;
@@ -110,6 +112,7 @@ class DatayHarnessMcpWiringTest {
                 DatayHarnessToolRegistry.class,
                 DatayHarnessMetaTools.class,
                 DataSourceHarnessTools.class,
+                DataApiHarnessTools.class,
                 EtlTaskHarnessTools.class,
                 DataModelHarnessTools.class,
                 MetricHarnessTools.class,
@@ -120,6 +123,8 @@ class DatayHarnessMcpWiringTest {
             .withBean(MetricDirectoryService.class, () -> mock(MetricDirectoryService.class))
             .withBean(DataSourceService.class, () -> mock(DataSourceService.class))
             .withBean(DataSourceQueryService.class, () -> mock(DataSourceQueryService.class))
+            .withBean(DataApiService.class, () -> mock(DataApiService.class))
+            .withBean(DataApiExecuteService.class, () -> mock(DataApiExecuteService.class))
             .withBean(DefaultWarehouseConfigService.class, () -> mock(DefaultWarehouseConfigService.class))
             .withBean(ETLTaskService.class, () -> mock(ETLTaskService.class))
             .withBean(JobInstanceService.class, () -> mock(JobInstanceService.class))
@@ -290,6 +295,10 @@ class DatayHarnessMcpWiringTest {
             "datasource_query",
             "datasource_default_warehouse",
             "datasource_set_default_warehouse",
+            "dataapi_list",
+            "dataapi_describe",
+            "dataapi_query",
+            "dataapi_call",
             "etl_task_list",
             "etl_task_get",
             "etl_task_create",

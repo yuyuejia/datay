@@ -55,9 +55,11 @@ public class DatayHarnessMcpServerConfig {
     private static final String TENANT_CODE_HEADER = "X-Tenant-Code";
 
     private static final String INSTRUCTIONS =
-        "DataY 平台管理工具集：可对数据源、ETL 任务、数据模型等对象执行查询、创建、修改、删除与运行类操作，" +
+        "DataY 平台管理工具集：可对数据源、ETL 任务、数据模型、数据服务等对象执行查询、创建、修改、删除与运行类操作，" +
         "并提供指标智能问数能力（metric 分组：metric_query_guide / list_metrics / describe_metrics / " +
         "sample_dimension_values / query_metric_data / retrieve_metric_context）。" +
+        "需要调用平台上已发布的数据服务（对外地址 /open-api/data/{code}）时，先 dataapi_list 找到服务编码，" +
+        "再 dataapi_describe 确认所需参数；TABLE/SQL 来源用只读的 dataapi_query 取数，API 来源用 dataapi_call 代理调用。" +
         "遇到指标数据类问题（如「上个月各门店销售额」）时，先调用 metric_query_guide 获取推荐流程，再按提示逐步拆解。" +
         "所有调用都需要 Bearer Token 鉴权，默认作用于令牌所属用户的默认租户，也可以通过 X-Tenant-Id / X-Tenant-Code 指定租户。" +
         "带副作用（mutating=true）的工具受服务端 datay.mcp.harness.allow-mutating-tools 开关控制；指标问数工具全部只读，不受该开关影响。";

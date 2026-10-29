@@ -33,6 +33,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -135,29 +136,69 @@ public class DataApiExecuteService {
 
         TenantContext.setTenantId(tenantId);
         try {
-            DataApiDTO api = dataApiService
-                .findByCode(code)
-                .orElseThrow(() -> new DataApiAccessException(404, "服务不存在或未发布：" + code));
-            if (!DataApi.STATUS_ENABLED.equals(api.getStatus())) {
-                throw new DataApiAccessException(404, "服务不存在或未发布：" + code);
-            }
-
-            if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
-                return invokeFromApi(api, params);
-            }
-
-            DataSourceDTO dataSource = dataSourceService
-                .findOne(api.getDataSourceId())
-                .orElseThrow(() -> new DataApiAccessException(500, "服务绑定的数据源不存在"));
-
-            DatasourceInfo datasourceInfo = DataSourceQueryService.toDatasourceInfo(dataSource);
-            if (DataApi.SOURCE_TYPE_TABLE.equals(api.getSourceType())) {
-                return invokeFromTable(api, datasourceInfo, params);
-            }
-            return invokeFromSql(api, datasourceInfo, params);
+            return invokeApiInCurrentTenant(code, params);
         } finally {
             TenantContext.clear();
         }
+    }
+
+    /**
+     * 在调用方已生效的 {@link TenantContext} 中执行指定编码的数据服务。
+     *
+     * <p>供 MCP Harness 这类「令牌已在更外层完成鉴权、租户已按 {@code X-Tenant-Id}/{@code X-Tenant-Code}
+     * 解析」的入口复用，避免为了再次解析用户而回传明文令牌。</p>
+     *
+     * @param code   服务编码。
+     * @param params 调用参数，允许为 {@code null}。
+     * @return 统一返回体 {@code {code, message, data, columns, total, pageNum, pageSize}}。
+     */
+    public Map<String, Object> invokeApiInCurrentTenant(String code, Map<String, Object> params) {
+        Map<String, Object> effectiveParams = params == null ? Map.of() : params;
+        DataApiDTO api = dataApiService
+            .findByCode(code)
+            .orElseThrow(() -> new DataApiAccessException(404, "服务不存在或未发布：" + code));
+        if (!DataApi.STATUS_ENABLED.equals(api.getStatus())) {
+            throw new DataApiAccessException(404, "服务不存在或未发布：" + code);
+        }
+
+        if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
+            return invokeFromApi(api, effectiveParams);
+        }
+
+        DataSourceDTO dataSource = dataSourceService
+            .findOne(api.getDataSourceId())
+            .orElseThrow(() -> new DataApiAccessException(500, "服务绑定的数据源不存在"));
+
+        DatasourceInfo datasourceInfo = DataSourceQueryService.toDatasourceInfo(dataSource);
+        if (DataApi.SOURCE_TYPE_TABLE.equals(api.getSourceType())) {
+            return invokeFromTable(api, datasourceInfo, effectiveParams);
+        }
+        return invokeFromSql(api, datasourceInfo, effectiveParams);
+    }
+
+    /**
+     * 提取模板中引用的参数名，形如 {@code ${startDate}}。
+     *
+     * <p>SQL 语句与 API 配置（URL / 请求头 / 请求体）共用同一套占位符语法，
+     * 因此管理类工具可以据此告诉 Agent「调这个服务需要传哪些参数」。
+     *
+     * @param templates 待扫描的模板文本，允许为 {@code null}。
+     * @return 去重后按首次出现顺序排列的参数名。
+     */
+    public static List<String> extractParameterNames(String... templates) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        if (templates != null) {
+            for (String template : templates) {
+                if (template == null || template.isEmpty()) {
+                    continue;
+                }
+                Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
+                while (matcher.find()) {
+                    names.add(matcher.group(1));
+                }
+            }
+        }
+        return new ArrayList<>(names);
     }
 
     // ------------------------------------------------------------------ table

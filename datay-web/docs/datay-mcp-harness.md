@@ -2,7 +2,7 @@
 
 DataY Harness 通过 MCP（Model Context Protocol）把两类能力暴露给 AI Agent：
 
-1. **平台对象管理**：**数据源**、**ETL 任务**、**数据模型**的增删改查与运行类动作；
+1. **平台对象管理**：**数据源**、**数据服务**、**ETL 任务**、**数据模型**的增删改查与运行类动作；
 2. **指标智能问数**：指标清单、元数据、维度取值与取数查询（只读）。
 
 接上之后，Claude Desktop / Cursor / DSH 等客户端可以直接
@@ -80,6 +80,22 @@ DataY Harness 通过 MCP（Model Context Protocol）把两类能力暴露给 AI 
 | `datasource_query` | ✔ | 在数据源上执行 SQL（可 DDL/DML，故按写操作对待） |
 | `datasource_default_warehouse` | | 查询当前租户的默认数仓 |
 | `datasource_set_default_warehouse` | ✔ | 设置默认数仓（需 `ROLE_ADMIN` / `ROLE_TENANT_ADMIN`） |
+
+### 数据服务（dataapi_*）
+
+把「已发布的数据服务」暴露给 Agent。数据服务本身就是对外 REST 接口 `/open-api/data/{code}`，
+这里调用时复用同一个执行服务（`DataApiExecuteService`），取数逻辑、参数绑定与只读约束完全一致。
+
+| 工具 | 写 | 说明 |
+| --- | --- | --- |
+| `dataapi_list` | | 分页列出数据服务，返回编码、名称、来源类型（TABLE / SQL / API）与启用状态 |
+| `dataapi_describe` | | 按编码查看详情与**所需参数**；SQL 来源附带 `sqlText`，API 来源只给方法、提取路径与是否配置前置取 Token，**不回传请求地址与请求头** |
+| `dataapi_query` | | 调用 **TABLE / SQL** 来源的服务取数；表来源支持同名字段等值过滤与 `pageNum` / `pageSize` 分页 |
+| `dataapi_call` | ✔ | 调用 **API** 来源的服务，代理请求上游系统，可能产生副作用，受写开关控制 |
+
+参数统一通过 `params` 传入（也可平铺在顶层），键为服务配置中的 `${name}` 占位符名。
+TABLE 与 SQL 来源是取数、归入只读工具，**关闭写开关后仍然可用**；API 来源归入写工具，
+避免只读部署下被 Agent 借道触发外部副作用。
 
 ### ETL 任务（etl_task_*）
 
@@ -195,7 +211,7 @@ query_metric_data         {metricCodes:["sales_amount"],
 7. **执行与清理**：结果序列化为 JSON 返回；无论成败都清理 `TenantContext` 与 `SecurityContextHolder`，
    避免线程复用造成串租户。
 
-出参裁剪：`DatayHarnessViews` 统一裁剪响应，数据源**永不返回密码**，任务列表不返回完整设计图。
+出参裁剪：`DatayHarnessViews` 统一裁剪响应，数据源**永不返回密码**，数据服务列表不返回 `sqlText` / `apiConfig`（后者可能含上游凭据），任务列表不返回完整设计图。
 
 ### 只读部署
 
@@ -207,8 +223,8 @@ datay:
 ```
 
 或启动参数 `--DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS=false`。此时全部写工具返回明确错误，
-只保留查询、元数据浏览、试跑调试，以及**全部指标问数能力**（`metric` 分组工具均为只读，
-不受该开关影响）。
+只保留查询、元数据浏览、试跑调试、TABLE / SQL 来源的数据服务取数（`dataapi_query`），
+以及**全部指标问数能力**（`metric` 分组工具均为只读，不受该开关影响）。
 
 ---
 
@@ -295,5 +311,6 @@ mvn -pl datay-web test -Dtest='com.data.datafusion.mcp.**'
 | `DatayHarnessToolRegistryTest` | 注册、查找、重名拒绝、目录分组（含显式分组与按名前缀推导） |
 | `DatayHarnessExecutorTest` | 令牌/租户/写开关/权限校验、上下文绑定与清理、参数错误映射 |
 | `DatayHarnessMcpEndpointTest` | 真实 servlet 上的 `initialize → tools/list` 协议流程与 401 鉴权 |
-| `DatayHarnessMcpWiringTest` | 三套 MCP 端点共存无 bean 歧义；56 个工具全部注册且名称唯一；指标问数工具只读且逐字复用 `AiTool` 说明与 schema；**harness 的 `@Bean` 不得顶替 `AiTool` 组件**；写开关读取配置属性 |
+| `DatayHarnessMcpWiringTest` | 三套 MCP 端点共存无 bean 歧义；60 个工具全部注册且名称唯一；指标问数工具只读且逐字复用 `AiTool` 说明与 schema；**harness 的 `@Bean` 不得顶替 `AiTool` 组件**；写开关读取配置属性 |
+| `DataApiHarnessToolsTest` | 数据服务工具：列表/详情不泄露 `sqlText` 与 `apiConfig`、占位符参数提取、TABLE/SQL 与 API 来源的读写分流、参数平铺合并、业务异常映射 |
 | `MetricAdminHarnessToolsTest` | 指标 CRUD：部分更新保留未提交字段、新建字段搬运、删除回执、SQL 预览草稿模式、读写标记与分组 |
