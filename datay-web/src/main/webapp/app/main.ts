@@ -8,6 +8,8 @@ import App from './app.vue';
 import router from './router';
 import { useStore } from '@/store';
 import { setupAxiosInterceptors } from '@/shared/config/axios-interceptor';
+import { isEmbedMode } from '@/shared/config/embed';
+import { consumeUrlToken } from '@/shared/auth/url-token';
 
 import { initFortAwesome } from '@/shared/config/config';
 import AppModal from '@/shared/ui/AppModal.vue';
@@ -19,6 +21,9 @@ import AccountService from '@/account/account.service';
 import '../content/scss/global.scss';
 import '../content/scss/vendor.scss';
 import '@/shared/dashboard/dashboard-theme.scss';
+
+// 尽早消费 URL 中的 JWT：在路由守卫读取登录态之前完成存储，并立即从地址栏清除。
+consumeUrlToken();
 
 const pinia = createPinia();
 
@@ -43,6 +48,12 @@ const app = createApp({
         return;
       }
       if (!store.authenticated && !to.meta.public) {
+        if (isEmbedMode()) {
+          // 嵌入模式下不把 iframe 跳到登录页，通知父应用重新获取 token。
+          window.parent?.postMessage({ type: 'datay:auth-required' }, '*');
+          next(false);
+          return;
+        }
         if (to.path !== '/login') {
           sessionStorage.setItem('jhi-redirect-url', to.fullPath);
         }
@@ -66,6 +77,11 @@ const app = createApp({
         if (status === 401) {
           // Store logged out state.
           store.logout();
+          if (isEmbedMode()) {
+            // 嵌入场景下不弹登录框、不跳登录页，由父应用重新获取 token 后刷新 iframe。
+            window.parent?.postMessage({ type: 'datay:auth-required' }, '*');
+            return Promise.reject(error);
+          }
           if (!url.endsWith('api/account') && !url.endsWith('api/authenticate')) {
             if (router.currentRoute.value.path !== '/login') {
               sessionStorage.setItem('jhi-redirect-url', router.currentRoute.value.fullPath);

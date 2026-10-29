@@ -5,6 +5,7 @@ import static org.springframework.security.web.util.matcher.AntPathRequestMatche
 
 import com.data.datafusion.security.*;
 import com.data.datafusion.web.filter.SpaWebFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -36,6 +37,13 @@ public class SecurityConfiguration {
     private final JHipsterProperties jHipsterProperties;
 
     private final TenantFilter tenantFilter;
+
+    /**
+     * 允许通过 iframe 嵌入本站的父页面来源。默认 {@code *} 表示允许所有来源。
+     * 生产环境可通过 {@code datay.embed.allowed-origins} 收紧为具体域名。
+     */
+    @Value("${datay.embed.allowed-origins:*}")
+    private String embedAllowedOrigins;
 
     public SecurityConfiguration(Environment env, JHipsterProperties jHipsterProperties, TenantFilter tenantFilter) {
         this.env = env;
@@ -98,8 +106,14 @@ public class SecurityConfiguration {
             .addFilterAfter(new SpaWebFilter(), BasicAuthenticationFilter.class)
             .headers(headers ->
                 headers
-                    .contentSecurityPolicy(csp -> csp.policyDirectives(jHipsterProperties.getSecurity().getContentSecurityPolicy()))
-                    .frameOptions(FrameOptionsConfig::sameOrigin)
+                    .contentSecurityPolicy(csp ->
+                        csp.policyDirectives(
+                            withFrameAncestors(jHipsterProperties.getSecurity().getContentSecurityPolicy(), embedAllowedOrigins)
+                        )
+                    )
+                    // 允许被 iframe 嵌入：现代浏览器以 CSP frame-ancestors 为准，
+                    // 去掉 X-Frame-Options 才能支持跨域父页面。
+                    .frameOptions(FrameOptionsConfig::disable)
                     .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                     .permissionsPolicyHeader(permissions ->
                         permissions.policy(
@@ -110,7 +124,7 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
                 authz
-                    .requestMatchers(mvc.pattern("/index.html"), mvc.pattern("/dashboard.html"), mvc.pattern("/*.js"), mvc.pattern("/*.txt"), mvc.pattern("/*.json"), mvc.pattern("/*.map"), mvc.pattern("/*.css")).permitAll()
+                    .requestMatchers(mvc.pattern("/index.html"), mvc.pattern("/dashboard.html"), mvc.pattern("/embed-demo.html"), mvc.pattern("/*.js"), mvc.pattern("/*.txt"), mvc.pattern("/*.json"), mvc.pattern("/*.map"), mvc.pattern("/*.css")).permitAll()
                     .requestMatchers(mvc.pattern("/*.ico"), mvc.pattern("/*.png"), mvc.pattern("/content/images/*.svg"),mvc.pattern("/*.svg"), mvc.pattern("/*.webapp")).permitAll()
                     .requestMatchers(mvc.pattern("/assets/**")).permitAll()
                     .requestMatchers(mvc.pattern("/swagger-ui/**")).permitAll()
@@ -141,6 +155,21 @@ public class SecurityConfiguration {
             http.authorizeHttpRequests(authz -> authz.requestMatchers(antMatcher("/h2-console/**")).permitAll());
         }
         return http.build();
+    }
+
+    /**
+     * 在现有 CSP 后追加 {@code frame-ancestors}，用于控制哪些父页面可以通过 iframe 嵌入本站。
+     *
+     * <p>如果 CSP 中已经声明了 {@code frame-ancestors}，则保持原样，避免重复指令。
+     */
+    static String withFrameAncestors(String contentSecurityPolicy, String allowedOrigins) {
+        String base = contentSecurityPolicy == null ? "" : contentSecurityPolicy.trim();
+        if (base.contains("frame-ancestors")) {
+            return base;
+        }
+        String origins = allowedOrigins == null || allowedOrigins.isBlank() ? "*" : allowedOrigins.trim();
+        String directive = "frame-ancestors " + origins;
+        return base.isEmpty() ? directive : base + "; " + directive;
     }
 
     @Bean

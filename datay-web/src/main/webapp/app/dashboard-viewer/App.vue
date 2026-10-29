@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-viewer" :class="viewerClasses" :style="backgroundStyle">
-    <div v-if="!isScreenMode" class="dashboard-viewer-topbar">
+    <div v-if="!isScreenMode && !isEmbedded" class="dashboard-viewer-topbar">
       <div class="dashboard-viewer-brand">
         <span class="dashboard-viewer-title">{{ brandTitle }}</span>
         <el-tag v-if="isPreview" size="small" type="warning">设计预览</el-tag>
@@ -110,6 +110,7 @@ import {
   resolveScreenTheme,
 } from '@/shared/dashboard/layout-defaults';
 import { cleanupDashboardPreviewDrafts, readDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
+import { isEmbedMode } from '@/shared/config/embed';
 import type { DashboardSpec, FilterValues } from '@/shared/dashboard/types';
 import { useDashboardAutoRefresh } from '@/shared/dashboard/useDashboardAutoRefresh';
 import { useDashboardBackgroundImage } from '@/shared/dashboard/useDashboardBackgroundImage';
@@ -125,6 +126,7 @@ const isPreview = ref(false);
 const screenFiltersOpen = ref(false);
 
 const isScreenMode = computed(() => spec.value?.layout?.mode === 'screen');
+const isEmbedded = isEmbedMode();
 watchEffect(() => {
   if (!isScreenMode.value || !(spec.value?.filters?.length ?? 0)) {
     screenFiltersOpen.value = false;
@@ -145,6 +147,7 @@ const refreshSeconds = computed(() => spec.value?.layout?.screen?.autoRefreshSec
 
 const viewerClasses = computed(() => ({
   'is-screen': isScreenMode.value,
+  'is-embed': isEmbedded,
   'dashboard-theme-dark': isDarkTheme.value,
   'dashboard-theme-light': !isDarkTheme.value,
 }));
@@ -260,6 +263,11 @@ onMounted(async () => {
 .dashboard-viewer {
   min-height: 100vh;
   padding-bottom: 24px;
+}
+
+/* 嵌入模式：隐藏顶部工具栏，铺满 iframe */
+.dashboard-viewer.is-embed {
+  padding-bottom: 0;
 }
 
 .dashboard-viewer.is-screen {

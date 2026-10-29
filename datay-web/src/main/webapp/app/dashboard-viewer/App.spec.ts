@@ -108,6 +108,7 @@ const DashboardStageStub = defineComponent({
 
 describe('dashboard viewer screen settings', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     window.history.pushState({}, '', '/dashboard.html?id=db1');
   });
 
@@ -174,6 +175,25 @@ describe('dashboard viewer screen settings', () => {
 
     expect(wrapper.find('.dashboard-viewer-filters-toggle').exists()).toBe(false);
     expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it('hides the topbar in embed mode', async () => {
+    window.history.pushState({}, '', '/dashboard.html?id=standard&embed=1');
+    const wrapper = mount(DashboardViewer, {
+      global: {
+        stubs: {
+          DashboardStage: DashboardStageStub,
+          DashboardCanvas: true,
+          DashboardFilters: true,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.classes()).toContain('is-embed');
+    expect(wrapper.find('.dashboard-viewer-topbar').exists()).toBe(false);
 
     wrapper.unmount();
   });

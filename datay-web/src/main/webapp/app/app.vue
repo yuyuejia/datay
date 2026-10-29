@@ -1,8 +1,8 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'app-embed': isEmbedded }">
     <!-- <ribbon></ribbon> -->
     <template v-if="!isLoginPage">
-      <div ref="topbarRef" class="app-topbar">
+      <div v-if="!isEmbedded" ref="topbarRef" class="app-topbar">
         <div id="app-header">
           <jhi-navbar></jhi-navbar>
         </div>
@@ -39,5 +39,10 @@
   z-index: 1030;
   background: #fff;
   box-shadow: 0 2px 6px rgb(15 29 69 / 6%);
+}
+
+/* 嵌入模式：没有顶栏，去掉内容区多余的顶部留白 */
+#app.app-embed .jh-card {
+  padding: 0;
 }
 </style>

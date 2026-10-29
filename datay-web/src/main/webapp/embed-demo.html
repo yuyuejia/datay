@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataY 嵌入演示</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --border: #dbe2ea;
+        --text: #1f2937;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --danger: #dc2626;
+        --success: #15803d;
+        --warning: #b45309;
+        --shadow: 0 12px 32px rgb(15 23 42 / 8%);
+        --radius: 14px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1120;
+          --surface: #111827;
+          --surface-2: #0f172a;
+          --border: #263244;
+          --text: #e5e7eb;
+          --muted: #94a3b8;
+          --primary: #3b82f6;
+          --primary-hover: #60a5fa;
+          --danger: #f87171;
+          --success: #4ade80;
+          --warning: #fbbf24;
+          --shadow: 0 16px 40px rgb(0 0 0 / 35%);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        line-height: 1.5;
+      }
+
+      .page {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 20px;
+        gap: 16px;
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        color: #fff;
+        font-weight: 700;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        border-radius: 11px;
+        place-items: center;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .subtitle {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .badge {
+        padding: 5px 10px;
+        color: var(--muted);
+        font-size: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+      }
+
+      .layout {
+        display: grid;
+        flex: 1;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 16px;
+        min-height: 0;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .card-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 0;
+        padding: 18px;
+        overflow: auto;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field > span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 520px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 9px 11px;
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        outline: none;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+      }
+
+      textarea {
+        min-height: 88px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        resize: vertical;
+        word-break: break-all;
+      }
+
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .checkbox input {
+        width: auto;
+      }
+
+      details {
+        padding: 10px 12px;
+        background: var(--surface-2);
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+      }
+
+      summary {
+        color: var(--muted);
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      details[open] summary {
+        margin-bottom: 12px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 2px;
+      }
+
+      button {
+        padding: 9px 14px;
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--primary);
+        border: 0;
+        border-radius: 9px;
+        transition:
+          background 0.15s ease,
+          transform 0.05s ease;
+      }
+
+      button:hover {
+        background: var(--primary-hover);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+      }
+
+      button.secondary:hover {
+        background: var(--border);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .hint code {
+        padding: 1px 5px;
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+      }
+
+      .log {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 150px;
+        padding: 10px 12px;
+        overflow: auto;
+        font-size: 12px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+
+      .log-line {
+        display: flex;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .log-line .time {
+        flex: none;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        opacity: 0.7;
+      }
+
+      .log-line.info .message {
+        color: var(--text);
+      }
+
+      .log-line.success .message {
+        color: var(--success);
+      }
+
+      .log-line.warning .message {
+        color: var(--warning);
+      }
+
+      .log-line.error .message {
+        color: var(--danger);
+      }
+
+      .preview-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .url-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 7px 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+
+      .url-bar .label {
+        flex: none;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .url-bar code {
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .frame-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 420px;
+        overflow: hidden;
+        background:
+          linear-gradient(45deg, rgb(148 163 184 / 12%) 25%, transparent 25%) 0 0 / 20px 20px,
+          linear-gradient(-45deg, rgb(148 163 184 / 12%) 25%, transparent 25%) 0 10px / 20px 20px,
+          var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+
+      .placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .placeholder strong {
+        color: var(--text);
+        font-size: 14px;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        min-height: 420px;
+        background: #fff;
+        border: 0;
+      }
+
+      .snippet {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .snippet textarea {
+        min-height: 70px;
+      }
+
+      .snippet-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="brand">
+          <div class="brand-mark">D</div>
+          <div>
+            <h1>DataY 嵌入演示</h1>
+            <p class="subtitle">通过 URL 传递 JWT，实现 iframe 免登录嵌入</p>
+          </div>
+        </div>
+        <span class="badge" id="origin-badge"></span>
+      </header>
+
+      <div class="layout">
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">嵌入配置</h2>
+            <button type="button" class="secondary" id="reset-btn">重置</button>
+          </div>
+          <div class="card-body">
+            <label class="field">
+              <span>DataY 服务地址</span>
+              <input id="base-url" placeholder="http://localhost:8080" />
+            </label>
+
+            <div class="row">
+              <label class="field">
+                <span>嵌入页面</span>
+                <select id="target-type">
+                  <option value="dashboard">独立看板</option>
+                  <option value="app">主应用（可指定路由）</option>
+                </select>
+              </label>
+              <label class="field" id="dashboard-key-row">
+                <span>看板参数类型</span>
+                <select id="dashboard-key">
+                  <option value="id">看板 ID</option>
+                  <option value="code">看板编码</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field" id="dashboard-value-row">
+              <span>看板 ID / 编码</span>
+              <input id="dashboard-value" placeholder="例如 db1 或 sales_overview" />
+            </label>
+
+            <label class="field" id="app-route-row" hidden>
+              <span>主应用路由路径</span>
+              <input id="app-route" list="app-route-presets" value="/" placeholder="/data-source" />
+              <datalist id="app-route-presets">
+                <option value="/"></option>
+                <option value="/data-source"></option>
+                <option value="/data-sync"></option>
+                <option value="/etl-task"></option>
+                <option value="/data-model"></option>
+                <option value="/metric"></option>
+                <option value="/metric-ai"></option>
+                <option value="/data-api"></option>
+                <option value="/analysis-dashboard"></option>
+                <option value="/analysis-dataset"></option>
+                <option value="/file-management"></option>
+                <option value="/job-instance"></option>
+                <option value="/job"></option>
+                <option value="/dag-job"></option>
+                <option value="/service-config"></option>
+                <option value="/alert-center"></option>
+                <option value="/admin/user-management"></option>
+                <option value="/admin/tenant-management"></option>
+                <option value="/admin/role-management"></option>
+                <option value="/admin/role-data-scope"></option>
+                <option value="/admin/docs"></option>
+                <option value="/admin/configuration"></option>
+                <option value="/admin/health"></option>
+                <option value="/admin/logs"></option>
+                <option value="/admin/metrics"></option>
+              </datalist>
+            </label>
+
+            <label class="field">
+              <span>JWT Token（嵌入前提前获取）</span>
+              <textarea id="token" placeholder="粘贴 JWT，或展开下方用账号密码获取"></textarea>
+            </label>
+
+            <div class="row">
+              <label class="field">
+                <span>Token 位置</span>
+                <select id="token-position">
+                  <option value="hash">Hash（推荐，不进服务端日志）</option>
+                  <option value="query">Query（兼容）</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>附加参数</span>
+                <input id="extra-query" placeholder="例如 tab=home" />
+              </label>
+            </div>
+
+            <details>
+              <summary>没有 token？用账号密码现取一个</summary>
+              <div class="row">
+                <label class="field">
+                  <span>用户名</span>
+                  <input id="username" autocomplete="username" />
+                </label>
+                <label class="field">
+                  <span>密码</span>
+                  <input id="password" type="password" autocomplete="current-password" />
+                </label>
+              </div>
+              <label class="checkbox">
+                <input id="remember-me" type="checkbox" checked />
+                记住我（换取更长有效期的 token）
+              </label>
+            </details>
+
+            <div class="actions">
+              <button type="button" id="embed-with-token">使用 Token 嵌入</button>
+              <button type="button" id="login-and-embed">登录并嵌入</button>
+              <button type="button" class="secondary" id="reload-btn" disabled>刷新 iframe</button>
+            </div>
+
+            <p class="hint">
+              推荐使用 <code>#token=</code>：hash 不会发送到服务端。页面加载后 DataY 会立即把 token
+              写入会话存储并从地址栏清除。嵌入模式请保留 <code>embed=1</code>。主应用模式可填写
+              <code>/data-source</code>、<code>/etl-task</code>、<code>/metric</code>、
+              <code>/admin/user-management</code> 等菜单路由，也支持带查询参数的路径。
+            </p>
+
+            <div class="log" id="log" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">嵌入预览</h2>
+            <span class="badge" id="frame-status">未加载</span>
+          </div>
+          <div class="preview-body">
+            <div class="url-bar">
+              <span class="label">URL</span>
+              <code id="current-url">—</code>
+            </div>
+
+            <div class="frame-wrap" id="frame-wrap">
+              <div class="placeholder" id="placeholder">
+                <strong>还没有嵌入内容</strong>
+                <span>填写 token 后点击「使用 Token 嵌入」，或使用账号密码登录后嵌入。</span>
+              </div>
+              <iframe id="preview-frame" title="DataY 嵌入预览" hidden></iframe>
+            </div>
+
+            <div class="snippet">
+              <span class="hint">iframe 代码（包含 token，请妥善保管）</span>
+              <textarea id="snippet" readonly placeholder="嵌入后这里会生成 iframe 代码"></textarea>
+              <div class="snippet-actions">
+                <button type="button" class="secondary" id="copy-snippet" disabled>复制代码</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+
+        var state = {
+          lastToken: '',
+          lastSrc: '',
+        };
+
+        function now() {
+          return new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        }
+
+        function log(message, level) {
+          var line = document.createElement('div');
+          line.className = 'log-line ' + (level || 'info');
+
+          var time = document.createElement('span');
+          time.className = 'time';
+          time.textContent = now();
+
+          var text = document.createElement('span');
+          text.className = 'message';
+          text.textContent = message;
+
+          line.appendChild(time);
+          line.appendChild(text);
+          $('log').appendChild(line);
+          $('log').scrollTop = $('log').scrollHeight;
+        }
+
+        function setStatus(text, tone) {
+          var badge = $('frame-status');
+          badge.textContent = text;
+          badge.style.color =
+            tone === 'error' ? 'var(--danger)' : tone === 'success' ? 'var(--success)' : tone === 'warning' ? 'var(--warning)' : '';
+        }
+
+        function defaultBaseUrl() {
+          if (window.location.protocol === 'file:') {
+            return 'http://localhost:8080';
+          }
+          return window.location.origin;
+        }
+
+        function normalizeBase(value) {
+          var result = (value || '').trim().replace(/\/+$/, '');
+          if (result && !/^https?:\/\//i.test(result)) {
+            result = 'http://' + result;
+          }
+          return result;
+        }
+
+        function decodeJwt(token) {
+          var parts = token.split('.');
+          if (parts.length !== 3) {
+            return null;
+          }
+          try {
+            var normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            var padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+            var binary = atob(padded);
+            var bytes = Uint8Array.from(binary, function (char) {
+              return char.charCodeAt(0);
+            });
+            return JSON.parse(new TextDecoder().decode(bytes));
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function describeToken(token) {
+          var payload = decodeJwt(token);
+          if (!payload) {
+            return 'token 结构无法解析，仍会交给 DataY 后端校验';
+          }
+          var parts = [];
+          if (payload.sub) {
+            parts.push('用户 ' + payload.sub);
+          }
+          if (payload.tenantCode) {
+            parts.push('租户 ' + payload.tenantCode);
+          }
+          if (typeof payload.exp === 'number') {
+            parts.push('过期时间 ' + new Date(payload.exp * 1000).toLocaleString('zh-CN'));
+          }
+          return parts.length ? parts.join('，') : 'token 已解析';
+        }
+
+        function maskToken(url) {
+          return url.replace(/#token=([^&]+)/, '#token=***').replace(/([?&])token=([^&]+)/, '$1token=***');
+        }
+
+        function buildSrc(token) {
+          var base = normalizeBase($('base-url').value);
+          if (!base) {
+            throw new Error('请填写 DataY 服务地址');
+          }
+
+          var targetType = $('target-type').value;
+          var params = new URLSearchParams();
+          var path = '/';
+
+          if (targetType === 'dashboard') {
+            var key = $('dashboard-key').value;
+            var value = $('dashboard-value').value.trim();
+            if (!value) {
+              throw new Error('请填写看板 ID 或编码');
+            }
+            params.set(key, value);
+            path = '/dashboard.html';
+          } else {
+            // 主应用使用 history 模式，路由路径直接拼在 pathname 上。
+            var route = $('app-route').value.trim() || '/';
+            var hashIndex = route.indexOf('#');
+            if (hashIndex >= 0) {
+              route = route.slice(0, hashIndex);
+            }
+
+            var queryIndex = route.indexOf('?');
+            var pathname = queryIndex >= 0 ? route.slice(0, queryIndex) : route;
+            var routeQuery = queryIndex >= 0 ? route.slice(queryIndex + 1) : '';
+
+            if (!pathname) {
+              pathname = '/';
+            }
+            if (pathname.charAt(0) !== '/') {
+              pathname = '/' + pathname;
+            }
+            path = pathname;
+
+            if (routeQuery) {
+              new URLSearchParams(routeQuery).forEach(function (value, key) {
+                params.set(key, value);
+              });
+            }
+          }
+
+          $('extra-query')
+            .value.split('&')
+            .map(function (pair) {
+              return pair.trim();
+            })
+            .filter(Boolean)
+            .forEach(function (pair) {
+              var index = pair.indexOf('=');
+              if (index > 0) {
+                params.set(pair.slice(0, index), pair.slice(index + 1));
+              }
+            });
+
+          // 嵌入标记固定为 1，token 只放在用户选择的位置，避免重复泄漏。
+          params.set('embed', '1');
+          params.delete('token');
+
+          var position = $('token-position').value;
+          if (position === 'query') {
+            params.set('token', token);
+            return base + path + '?' + params.toString();
+          }
+
+          return base + path + '?' + params.toString() + '#token=' + encodeURIComponent(token);
+        }
+
+        function updateSnippet(src) {
+          $('snippet').value =
+            '<iframe\n' +
+            '  src="' +
+            src +
+            '"\n' +
+            '  width="100%"\n' +
+            '  height="720"\n' +
+            '  frameborder="0"\n' +
+            '  allowfullscreen\n' +
+            '></iframe>';
+          $('copy-snippet').disabled = false;
+        }
+
+        function embed(token, source) {
+          token = (token || '').trim();
+          if (!token) {
+            throw new Error('请先填写 JWT token');
+          }
+
+          var src = buildSrc(token);
+          state.lastToken = token;
+          state.lastSrc = src;
+
+          $('placeholder').hidden = true;
+          $('preview-frame').hidden = false;
+          $('preview-frame').src = src;
+          $('reload-btn').disabled = false;
+          $('current-url').textContent = maskToken(src);
+          $('current-url').title = src;
+          updateSnippet(src);
+          setStatus('加载中', 'warning');
+          log('开始嵌入（' + (source || 'token') + '）：' + maskToken(src), 'info');
+          log(describeToken(token), 'info');
+        }
+
+        function loginAndEmbed() {
+          var base = normalizeBase($('base-url').value);
+          var username = $('username').value.trim();
+          var password = $('password').value;
+
+          if (!base) {
+            throw new Error('请填写 DataY 服务地址');
+          }
+          if (!username || !password) {
+            throw new Error('请填写用户名和密码，或直接粘贴 token');
+          }
+
+          log('正在调用 ' + base + '/api/authenticate 获取 token…', 'info');
+
+          return fetch(base + '/api/authenticate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: username,
+              password: password,
+              rememberMe: $('remember-me').checked,
+            }),
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error('登录失败：HTTP ' + response.status);
+              }
+              var authorization = response.headers.get('Authorization');
+              if (authorization && authorization.indexOf('Bearer ') === 0) {
+                return authorization.slice(7);
+              }
+              return response.json().then(function (body) {
+                if (body && body.id_token) {
+                  return body.id_token;
+                }
+                throw new Error('响应中没有找到 token');
+              });
+            })
+            .then(function (token) {
+              $('token').value = token;
+              log('已获取 token', 'success');
+              embed(token, '账号密码');
+            })
+            .catch(function (error) {
+              setStatus('获取 token 失败', 'error');
+              log(error.message, 'error');
+              if (window.location.protocol === 'file:') {
+                log(
+                  '当前页面通过 file:// 打开，浏览器会阻止跨域登录请求。请通过 DataY 的 /embed-demo.html 打开，或直接粘贴 token。',
+                  'warning',
+                );
+              } else {
+                log('如果是跨域访问，需要在 DataY 侧开启 CORS；同源访问则无需额外配置。', 'warning');
+              }
+              throw error;
+            });
+        }
+
+        function syncTargetFields() {
+          var isDashboard = $('target-type').value === 'dashboard';
+          $('dashboard-key-row').hidden = !isDashboard;
+          $('dashboard-value-row').hidden = !isDashboard;
+          $('app-route-row').hidden = isDashboard;
+        }
+
+        function prefillFromQuery() {
+          var params = new URLSearchParams(window.location.search);
+          var base = params.get('base');
+          var id = params.get('id');
+          var code = params.get('code');
+          var token = params.get('token');
+          var route = params.get('route') || params.get('path');
+          var target = params.get('target');
+
+          $('base-url').value = base || defaultBaseUrl();
+
+          if (route || target === 'app') {
+            $('target-type').value = 'app';
+            $('app-route').value = route || '/';
+          } else if (code && !id) {
+            $('dashboard-key').value = 'code';
+            $('dashboard-value').value = code;
+          } else if (id) {
+            $('dashboard-key').value = 'id';
+            $('dashboard-value').value = id;
+          }
+
+          if (token) {
+            $('token').value = token;
+          }
+        }
+
+        function bindEvents() {
+          $('target-type').addEventListener('change', syncTargetFields);
+
+          $('embed-with-token').addEventListener('click', function () {
+            try {
+              embed($('token').value, '粘贴 token');
+            } catch (error) {
+              setStatus('嵌入失败', 'error');
+              log(error.message, 'error');
+            }
+          });
+
+          $('login-and-embed').addEventListener('click', function () {
+            loginAndEmbed().catch(function () {
+              // 错误已在 loginAndEmbed 中记录
+            });
+          });
+
+          $('reload-btn').addEventListener('click', function () {
+            if (!state.lastToken) {
+              return;
+            }
+            try {
+              embed(state.lastToken, '刷新');
+            } catch (error) {
+              log(error.message, 'error');
+            }
+          });
+
+          $('copy-snippet').addEventListener('click', function () {
+            var text = $('snippet').value;
+            if (!text) {
+              return;
+            }
+
+            var fallbackCopy = function () {
+              $('snippet').select();
+              document.execCommand('copy');
+              log('iframe 代码已复制到剪贴板', 'success');
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard
+                .writeText(text)
+                .then(function () {
+                  log('iframe 代码已复制到剪贴板', 'success');
+                })
+                .catch(fallbackCopy);
+            } else {
+              fallbackCopy();
+            }
+          });
+
+          $('reset-btn').addEventListener('click', function () {
+            $('base-url').value = defaultBaseUrl();
+            $('target-type').value = 'dashboard';
+            $('dashboard-key').value = 'id';
+            $('dashboard-value').value = '';
+            $('app-route').value = '/';
+            $('token').value = '';
+            $('token-position').value = 'hash';
+            $('extra-query').value = '';
+            $('username').value = '';
+            $('password').value = '';
+            $('remember-me').checked = true;
+            $('snippet').value = '';
+            $('copy-snippet').disabled = true;
+            $('reload-btn').disabled = true;
+            $('current-url').textContent = '—';
+            $('current-url').title = '';
+            $('preview-frame').src = 'about:blank';
+            $('preview-frame').hidden = true;
+            $('placeholder').hidden = false;
+            state.lastToken = '';
+            state.lastSrc = '';
+            setStatus('未加载', '');
+            syncTargetFields();
+            log('已重置配置', 'info');
+          });
+
+          $('preview-frame').addEventListener('load', function () {
+            if ($('preview-frame').hidden) {
+              return;
+            }
+            setStatus('已加载', 'success');
+          });
+
+          window.addEventListener('message', function (event) {
+            if (!event.data || event.data.type !== 'datay:auth-required') {
+              return;
+            }
+
+            try {
+              var expectedOrigin = new URL(normalizeBase($('base-url').value)).origin;
+              if (event.origin !== expectedOrigin) {
+                return;
+              }
+            } catch (error) {
+              return;
+            }
+
+            setStatus('需要重新认证', 'warning');
+            log('收到 datay:auth-required：token 已失效。', 'warning');
+
+            if ($('username').value.trim() && $('password').value) {
+              log('检测到已填写账号密码，正在自动重新获取 token…', 'info');
+              loginAndEmbed().catch(function () {
+                // 错误已在 loginAndEmbed 中记录
+              });
+            } else {
+              log('请重新获取 token 后点击「使用 Token 嵌入」。', 'warning');
+            }
+          });
+        }
+
+        function init() {
+          $('origin-badge').textContent = '当前页面：' + window.location.origin;
+          prefillFromQuery();
+          bindEvents();
+          syncTargetFields();
+
+          if ($('token').value.trim()) {
+            log('已从 URL 预填 token，点击「使用 Token 嵌入」即可预览。', 'info');
+          } else {
+            log('准备就绪。推荐先通过 /api/authenticate 获取 token，再粘贴到左侧。', 'info');
+          }
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>

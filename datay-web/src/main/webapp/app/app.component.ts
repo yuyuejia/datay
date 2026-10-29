@@ -8,6 +8,7 @@ import TabView from '@/core/tab-view/tab-view.vue';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { useStore } from '@/store';
 import { useTabStore } from '@/shared/config/store/tab-store';
+import { isEmbedMode } from '@/shared/config/embed';
 import '@/shared/config/dayjs';
 
 export default defineComponent({
@@ -64,15 +65,16 @@ export default defineComponent({
 
     const isLoginPage = computed(() => route.name === 'Login');
 
+    // 嵌入模式：隐藏顶栏（导航 + 菜单页签），让页面在 iframe 中铺满。
+    const isEmbedded = isEmbedMode();
+
     // 把顶栏（导航 + 菜单页签）的实际高度写入 CSS 变量，供页面计算可视高度。
     const topbarRef = ref<HTMLElement | null>(null);
     let topbarObserver: ResizeObserver | undefined;
 
     const syncTopbarHeight = () => {
-      const height = topbarRef.value?.getBoundingClientRect().height;
-      if (height) {
-        document.documentElement.style.setProperty('--app-topbar-height', `${height}px`);
-      }
+      const height = topbarRef.value?.getBoundingClientRect().height ?? 0;
+      document.documentElement.style.setProperty('--app-topbar-height', `${height}px`);
     };
 
     const observeTopbar = () => {
@@ -97,6 +99,7 @@ export default defineComponent({
       isListPage,
       isTopLevelListPage,
       isLoginPage,
+      isEmbedded,
       topbarRef,
       tenantVersion,
       authenticated,

@@ -41,6 +41,7 @@ let config = defineConfig({
       input: {
         app: fileURLToPath(new URL('./src/main/webapp/index.html', import.meta.url)),
         dashboard: fileURLToPath(new URL('./src/main/webapp/dashboard.html', import.meta.url)),
+        embedDemo: fileURLToPath(new URL('./src/main/webapp/embed-demo.html', import.meta.url)),
       },
     },
   },
