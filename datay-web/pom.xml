@@ -378,6 +378,16 @@
                     <exclude>config/**/*.yml</exclude>
                 </excludes>
             </resource>
+            <!-- 随包分发根目录的 LICENSE / NOTICE，保留三方声明（含 Eclipse Paho） -->
+            <resource>
+                <directory>${project.basedir}/..</directory>
+                <targetPath>META-INF</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>NOTICE</include>
+                </includes>
+            </resource>
         </resources>
         <plugins>
             <plugin>
