@@ -106,7 +106,6 @@ public class ETLFlowTask {
         }
         for (Map.Entry<String, Integer> entry : queueCapacities.entrySet()) {
             getContext().getConnections().put(entry.getKey(), new LinkedBlockingQueue<>(entry.getValue()));
-            log("队列 " + entry.getKey() + " 容量=" + entry.getValue());
         }
         // 使用AtomicBoolean确保线程安全
         AtomicBoolean hasFailure = new AtomicBoolean(false);
