@@ -42,6 +42,7 @@ datay/
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
 - 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
+- 支持跨库数据比对：按主键关联两侧表，DuckDB SQL 计算差异，结果文件写入本地或 MinIO，可按任务执行实例 ID 获取结果
 
 ### 📐 维度建模（Dimensional Modeling）
 

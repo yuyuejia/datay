@@ -49,6 +49,10 @@ const ETLTaskUpdate = () => import("@/entities/etl-task/etl-task-update.vue");
 const ETLTaskDetails = () => import("@/entities/etl-task/etl-task-details.vue");
 const ETLTaskDesign = () => import("@/entities/etl-task/etl-task-design.vue");
 
+const DataCompareList = () => import("@/entities/data-compare/data-compare.vue");
+const DataCompareEdit = () =>
+  import("@/entities/data-compare/data-compare-update.vue");
+
 const ETLComponent = () => import("@/entities/etl-component/etl-component.vue");
 const ETLComponentUpdate = () =>
   import("@/entities/etl-component/etl-component-update.vue");
@@ -329,6 +333,24 @@ export default {
       path: "etl-task/:eTLTaskId/design",
       name: "ETLTaskDesign",
       component: ETLTaskDesign,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-compare",
+      name: "DataCompare",
+      component: DataCompareList,
+      meta: { listPage: true, authorities: [Authority.USER] },
+    },
+    {
+      path: "data-compare/new",
+      name: "DataCompareCreate",
+      component: DataCompareEdit,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-compare/:id/edit",
+      name: "DataCompareEdit",
+      component: DataCompareEdit,
       meta: { authorities: [Authority.USER] },
     },
     {

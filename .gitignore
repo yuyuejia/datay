@@ -158,6 +158,7 @@ etl_status.json
 metadata.ducklake
 metadata.ducklake.wal
 
+/data/
 .opencode/
 *.db.wal
 *.duckdb

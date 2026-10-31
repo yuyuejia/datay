@@ -38,6 +38,13 @@ public interface JobInstanceRepository extends JpaRepository<JobInstance, String
 
     Page<JobInstance> findAllByJobCode(String jobCode, Pageable pageable);
 
+    Page<JobInstance> findByJobCodeOrderByCreateTimeDesc(String jobCode, Pageable pageable);
+
+    Optional<JobInstance> findFirstByJobCodeOrderByCreateTimeDesc(String jobCode);
+
+    /** 租户过滤器生效的实例编码查询，用于数据比对结果访问。 */
+    Optional<JobInstance> findFirstByInstanceCode(String instanceCode);
+
     /**
      * 查询所有顶层任务实例（不含 DAG 编排生成的子任务实例）。
      */

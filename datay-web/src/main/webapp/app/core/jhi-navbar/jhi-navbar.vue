@@ -78,6 +78,9 @@
                 <el-dropdown-item command="/data-sync">
                   <span>数据迁移</span>
                 </el-dropdown-item>
+                <el-dropdown-item command="/data-compare">
+                  <span>数据比对</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>

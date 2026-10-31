@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 数据比对任务定义 -->
+    <changeSet id="20261031000000-1-data-compare-task" author="datafusion">
+        <createTable tableName="dp_data_compare_task">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="task_desc" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="left_data_source_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="left_schema" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="left_table" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="left_where" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="right_data_source_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="right_schema" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="right_table" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="right_where" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="key_columns" type="varchar(2000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="compare_columns" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ignore_case" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="trim_whitespace" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="output_format" type="varchar(20)" defaultValue="CSV">
+                <constraints nullable="true"/>
+            </column>
+            <column name="output_dir" type="varchar(500)" defaultValue="data-compare">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_run_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creater" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_data_compare_task" indexName="idx_data_compare_task_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_data_compare_task" indexName="idx_data_compare_task_job">
+            <column name="job_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

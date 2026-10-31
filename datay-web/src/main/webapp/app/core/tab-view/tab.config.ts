@@ -33,6 +33,7 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   // 数据集成
   ETLTask: { path: '/etl-task', title: '数据集成', componentName: 'ETLTask', closable: true },
   DataSync: { path: '/data-sync', title: '数据迁移', componentName: 'DataSync', closable: true },
+  DataCompare: { path: '/data-compare', title: '数据比对', componentName: 'DataCompare', closable: true },
   // 数据模型
   DataModel: { path: '/data-model', title: '维度建模', componentName: 'DataModel', closable: true },
   Metric: { path: '/metric', title: '指标管理', componentName: 'Metric', closable: true },

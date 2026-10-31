@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20261031020000-1-data-compare-options" author="datafusion">
+        <addColumn tableName="dp_data_compare_task">
+            <column name="compare_record_count" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="true"/>
+            </column>
+            <column name="compare_detail" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <update tableName="dp_data_compare_task">
+            <column name="compare_record_count" valueBoolean="true"/>
+            <where>compare_record_count IS NULL</where>
+        </update>
+        <update tableName="dp_data_compare_task">
+            <column name="compare_detail" valueBoolean="true"/>
+            <where>compare_detail IS NULL</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

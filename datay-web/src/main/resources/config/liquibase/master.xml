@@ -55,6 +55,10 @@
     <include file="config/liquibase/changelog/20261024000000_add_job_priority.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261025000000_added_entity_AnalysisDataset.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261026000000_added_entity_RoleDatasetScope.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261031000000_added_data_compare.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261031010000_add_data_compare_table_configs.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261031020000_add_data_compare_options.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261031030000_default_compare_record_count_only.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

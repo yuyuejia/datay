@@ -161,12 +161,7 @@ public class DuckDBSql extends FlowComponent {
             for (int i = 0; i < sqlStatements.size(); i++) {
                 String currentSql = sqlStatements.get(i);
                 try {
-                    this.logInfo(
-                            "执行第 " +
-                            (i + 1) +
-                            " 条SQL语句: " +
-                            (currentSql.length() > 100 ? currentSql.substring(0, 100) + "..." : currentSql)
-                        );
+                    this.logInfo("执行第 " + (i + 1) + " 条SQL语句: " + maskSensitiveSql(currentSql));
 
                     boolean hasResultSet = stmt.execute(currentSql);
                     int affectedRows = stmt.getUpdateCount();
@@ -193,6 +188,20 @@ public class DuckDBSql extends FlowComponent {
                 " 条，总共影响行数: " +
                 totalAffectedRows
             );
+    }
+
+    /**
+     * 对日志中的敏感 SQL 做脱敏，避免 CREATE SECRET / ACCESS_KEY / PASSWORD 泄露凭证。
+     */
+    static String maskSensitiveSql(String sql) {
+        if (sql == null) {
+            return "";
+        }
+        String upper = sql.toUpperCase();
+        if (upper.contains("SECRET") || upper.contains("ACCESS_KEY") || upper.contains("PASSWORD")) {
+            return "***（包含敏感凭证的 SQL 已隐藏）***";
+        }
+        return sql.length() > 100 ? sql.substring(0, 100) + "..." : sql;
     }
 
     // 自动注入方法
