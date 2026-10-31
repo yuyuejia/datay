@@ -1,8 +1,9 @@
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, flushPromises, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import DataSync from './data-sync.vue';
 import DataSyncService from './data-sync.service';
+import DataSourceService from '@/entities/data-source/data-source.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type DataSyncComponentType = InstanceType<typeof DataSync>;
@@ -20,11 +21,15 @@ describe('Component Tests', () => {
 
   describe('DataSync Management Component', () => {
     let dataSyncServiceStub: SinonStubbedInstance<DataSyncService>;
+    let dataSourceServiceStub: SinonStubbedInstance<DataSourceService>;
     let mountOptions: MountingOptions<DataSyncComponentType>['global'];
 
     beforeEach(() => {
       dataSyncServiceStub = sinon.createStubInstance<DataSyncService>(DataSyncService);
       dataSyncServiceStub.retrieve.resolves({ headers: {} });
+
+      dataSourceServiceStub = sinon.createStubInstance<DataSourceService>(DataSourceService);
+      dataSourceServiceStub.retrieve.resolves({ headers: {}, data: [] });
 
       alertService = new AlertService();
 
@@ -42,6 +47,7 @@ describe('Component Tests', () => {
         provide: {
           alertService,
           dataSyncService: () => dataSyncServiceStub,
+          dataSourceService: () => dataSourceServiceStub,
         },
       };
     });
@@ -59,6 +65,31 @@ describe('Component Tests', () => {
         // THEN
         expect(dataSyncServiceStub.retrieve.calledOnce).toBeTruthy();
         expect(comp.dataSyncs[0]).toEqual(expect.objectContaining({ id: 123 }));
+      });
+
+      it('should resolve data source names for source and target columns', async () => {
+        // GIVEN
+        dataSyncServiceStub.retrieve.resolves({
+          headers: {},
+          data: [{ id: '1', source: 'ds-1', target: 'ds-2' }],
+        });
+        dataSourceServiceStub.retrieve.resolves({
+          headers: {},
+          data: [
+            { id: 'ds-1', name: 'MySQL 订单库' },
+            { id: 'ds-2', name: 'Doris 数仓' },
+          ],
+        });
+
+        // WHEN
+        const wrapper = shallowMount(DataSync, { global: mountOptions });
+        const comp = wrapper.vm;
+        await flushPromises();
+
+        // THEN
+        expect(comp.dataSourceLabel('ds-1')).toBe('MySQL 订单库');
+        expect(comp.dataSourceLabel('ds-2')).toBe('Doris 数仓');
+        expect(comp.dataSourceLabel(undefined)).toBe('-');
       });
 
       it('should calculate the sort attribute for an id', async () => {

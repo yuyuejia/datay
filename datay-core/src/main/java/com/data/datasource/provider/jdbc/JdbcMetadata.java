@@ -160,6 +160,15 @@ public final class JdbcMetadata {
                     // 时间类型的 DECIMAL_DIGITS 表示小数秒精度，如 DATETIME2(7) / DATETIME(3) / TIME(6)
                     precision = size;
                     scale = decimalDigits;
+                    // MySQL Connector/J 对 DATETIME(3)/TIME(3) 返回 DECIMAL_DIGITS=0，
+                    // 但 COLUMN_SIZE 会保留小数秒：DATETIME(p)=19+1+p，TIME(p)=8+1+p。
+                    // 缺少 scale 时从 COLUMN_SIZE 兜底，避免目标 MySQL 丢失毫秒并发生进位。
+                    if (scale <= 0 && size > 0) {
+                        int derivedScale = resolveTemporalScale(baseType, size);
+                        if (derivedScale > 0) {
+                            scale = derivedScale;
+                        }
+                    }
                 }
 
                 ColumnMeta column = new ColumnMeta(name, type, size, precision, scale);
@@ -180,6 +189,23 @@ public final class JdbcMetadata {
             tableMeta.setSchema(catalog);
         }
         return tableMeta;
+    }
+
+    /**
+     * 从时间类型的 COLUMN_SIZE 推导小数秒精度。
+     *
+     * <p>MySQL Connector/J 对 {@code DATETIME(3)} / {@code TIME(3)} 返回
+     * {@code DECIMAL_DIGITS=0}，但 {@code COLUMN_SIZE} 分别保留为 23 / 12。这里只在
+     * 类型名精确为 DATETIME/TIMESTAMP/TIME 时兜底，避免影响带时区类型。
+     */
+    static int resolveTemporalScale(String baseType, int size) {
+        if ("TIME".equals(baseType)) {
+            return size > 9 ? Math.min(size - 9, 9) : 0;
+        }
+        if ("DATETIME".equals(baseType) || "TIMESTAMP".equals(baseType)) {
+            return size > 20 ? Math.min(size - 20, 9) : 0;
+        }
+        return 0;
     }
 
     /**

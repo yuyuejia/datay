@@ -1,7 +1,9 @@
 import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
 
 import DataSyncService from './data-sync.service';
+import DataSourceService from '@/entities/data-source/data-source.service';
 import { type IDataSync } from '@/shared/model/data-sync.model';
+import { type IDataSource } from '@/shared/model/data-source.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -11,6 +13,7 @@ export default defineComponent({
   setup() {
     const dateFormat = useDateFormat();
     const dataSyncService = inject('dataSyncService', () => new DataSyncService());
+    const dataSourceService = inject('dataSourceService', () => new DataSourceService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
@@ -21,8 +24,29 @@ export default defineComponent({
     const totalItems = ref(0);
 
     const dataSyncs: Ref<IDataSync[]> = ref([]);
+    const dataSourceNames = ref<Record<string, string>>({});
 
     const isFetching = ref(false);
+
+    const loadDataSources = async () => {
+      try {
+        const res = await dataSourceService().retrieve({ page: 0, size: 1000, sort: ['id,asc'] });
+        const names: Record<string, string> = {};
+        (res.data || []).forEach((item: IDataSource) => {
+          if (item.id) {
+            names[item.id] = item.name || item.id;
+          }
+        });
+        dataSourceNames.value = names;
+      } catch {
+        // 数据源加载失败时不影响迁移任务列表展示
+      }
+    };
+
+    const dataSourceLabel = (id?: string | null): string => {
+      if (!id) return '-';
+      return dataSourceNames.value[id] || id;
+    };
 
     const clear = () => {
       page.value = 1;
@@ -60,7 +84,7 @@ export default defineComponent({
     };
 
     onMounted(async () => {
-      await retrieveDataSyncs();
+      await Promise.all([retrieveDataSyncs(), loadDataSources()]);
     });
 
     const removeId: Ref<string> = ref(null);
@@ -222,6 +246,7 @@ export default defineComponent({
 
     return {
       dataSyncs,
+      dataSourceLabel,
       handleSyncList,
       isFetching,
       retrieveDataSyncs,

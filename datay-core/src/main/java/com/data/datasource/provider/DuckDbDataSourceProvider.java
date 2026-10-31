@@ -175,6 +175,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
             : JdbcMetadata.readTableMeta(conn, targetCatalog, schema, table);
         tableMeta.setDbType(typeName());
         tableMeta.setCatalog(targetCatalog);
+        applyTemporalScale(tableMeta);
         return tableMeta;
     }
 
@@ -189,6 +190,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         if (QUACK_CATALOG.equals(targetCatalog)) {
             TableMeta tableMeta = getQuackTableMetaData(conn, schema, table);
             tableMeta.setDbType(typeName());
+            applyTemporalScale(tableMeta);
             return tableMeta;
         }
         TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, targetCatalog, schema, table);
@@ -196,7 +198,27 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         tableMeta.setCatalog(targetCatalog);
         tableMeta.setComment(JdbcMetadata.getTableComment(conn, targetCatalog, schema, table));
         tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, targetCatalog, schema, table));
+        applyTemporalScale(tableMeta);
         return tableMeta;
+    }
+
+    /**
+     * DuckDB JDBC 不返回 TIMESTAMP/TIME 的小数秒精度，按微秒（6 位）补齐，
+     * 避免迁移到 MySQL 时生成 DATETIME/TIME 丢失毫秒甚至发生进位。
+     */
+    private static void applyTemporalScale(TableMeta tableMeta) {
+        if (tableMeta == null) {
+            return;
+        }
+        for (ColumnMeta column : tableMeta.columns()) {
+            String type = column.getType() == null ? "" : column.getType().toUpperCase(java.util.Locale.ROOT);
+            if (
+                column.getScale() <= 0 &&
+                ("TIME".equals(type) || "DATETIME".equals(type) || type.startsWith("TIMESTAMP"))
+            ) {
+                column.setScale(6);
+            }
+        }
     }
 
     @Override

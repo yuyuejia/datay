@@ -3,12 +3,17 @@ package com.data.datasource.provider;
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -48,5 +53,61 @@ public class MysqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
         return JdbcMetadata.readTableList(conn, schema, null, new String[] { "TABLE" }, limit, search, false);
+    }
+
+    @Override
+    public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
+        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, schema, null, table);
+        tableMeta.setDbType(typeName());
+        normalizeTinyInt1Columns(conn, schema, table, tableMeta);
+        return tableMeta;
+    }
+
+    @Override
+    public TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
+        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, schema, null, table);
+        tableMeta.setDbType(typeName());
+        tableMeta.setComment(JdbcMetadata.getTableComment(conn, schema, null, table));
+        tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, schema, null, table));
+        normalizeTinyInt1Columns(conn, schema, table, tableMeta);
+        return tableMeta;
+    }
+
+    /**
+     * MySQL Connector/J 默认会把 {@code TINYINT(1)} 元数据报告为 {@code BIT(1)}。
+     * 数据迁移需要把它统一成 {@code TINYINT(1)}（0/1 整数语义），同时保留真正的
+     * {@code BIT(1)} 列。这里借助 information_schema 的 COLUMN_TYPE 做精确还原。
+     */
+    private static void normalizeTinyInt1Columns(Connection conn, String schema, String table, TableMeta tableMeta) {
+        if (schema == null || table == null || tableMeta == null) {
+            return;
+        }
+        Map<String, String> columnTypes = new HashMap<>();
+        try (
+            PreparedStatement statement = conn.prepareStatement(
+                "select COLUMN_NAME, COLUMN_TYPE from information_schema.columns where TABLE_SCHEMA = ? and TABLE_NAME = ?"
+            )
+        ) {
+            statement.setString(1, schema);
+            statement.setString(2, table);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    columnTypes.put(rs.getString("COLUMN_NAME").toLowerCase(Locale.ROOT), rs.getString("COLUMN_TYPE"));
+                }
+            }
+        } catch (SQLException ignored) {
+            // 元数据增强失败时保持 JDBC 原始结果，不影响迁移主流程
+            return;
+        }
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (column.getName() == null || !"BIT".equalsIgnoreCase(column.getType())) {
+                continue;
+            }
+            String columnType = columnTypes.get(column.getName().toLowerCase(Locale.ROOT));
+            if (columnType != null && columnType.toLowerCase(Locale.ROOT).startsWith("tinyint(1)")) {
+                column.setType("TINYINT");
+                column.setLength(1);
+            }
+        }
     }
 }

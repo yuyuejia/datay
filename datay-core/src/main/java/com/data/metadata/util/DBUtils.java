@@ -365,6 +365,12 @@ public class DBUtils {
         if (value instanceof byte[]) {
             return new String((byte[]) value, java.nio.charset.StandardCharsets.UTF_8);
         }
+        if (value instanceof java.sql.Blob) {
+            return new String(blobToByteArray((java.sql.Blob) value), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        if (value instanceof java.nio.ByteBuffer) {
+            return new String(byteBufferToByteArray((java.nio.ByteBuffer) value), java.nio.charset.StandardCharsets.UTF_8);
+        }
         return value.toString();
     }
 
@@ -458,6 +464,13 @@ public class DBUtils {
     public static Object normalizeParameter(String fieldType, Object value) {
         if (value == null) {
             return null;
+        }
+        // DuckDB 等驱动会把 BLOB 返回为 java.sql.Blob / ByteBuffer，先统一成 byte[]，
+        // 避免 MySQL 写入空 BLOB、PostgreSQL 走大对象接口、DuckDB 写入 Blob.toString()。
+        if (value instanceof java.sql.Blob) {
+            value = blobToByteArray((java.sql.Blob) value);
+        } else if (value instanceof java.nio.ByteBuffer) {
+            value = byteBufferToByteArray((java.nio.ByteBuffer) value);
         }
         String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
         if ("BIT".equals(type)) {
@@ -592,10 +605,50 @@ public class DBUtils {
         if (value instanceof byte[]) {
             return (byte[]) value;
         }
+        if (value instanceof java.sql.Blob) {
+            return blobToByteArray((java.sql.Blob) value);
+        }
+        if (value instanceof java.nio.ByteBuffer) {
+            return byteBufferToByteArray((java.nio.ByteBuffer) value);
+        }
         if (value instanceof String) {
             return ((String) value).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
         return value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static byte[] blobToByteArray(java.sql.Blob blob) {
+        try {
+            long length = blob.length();
+            if (length == 0) {
+                return new byte[0];
+            }
+            if (length > 0 && length <= Integer.MAX_VALUE) {
+                return blob.getBytes(1, (int) length);
+            }
+        } catch (Exception ignored) {
+            // 回退到流式读取
+        }
+        try (
+            java.io.InputStream input = blob.getBinaryStream();
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()
+        ) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            return output.toByteArray();
+        } catch (Exception e) {
+            return new byte[0];
+        }
+    }
+
+    private static byte[] byteBufferToByteArray(java.nio.ByteBuffer buffer) {
+        java.nio.ByteBuffer copy = buffer.duplicate();
+        byte[] bytes = new byte[copy.remaining()];
+        copy.get(bytes);
+        return bytes;
     }
 
     /**

@@ -317,6 +317,9 @@ public class MysqlConverter implements TypeConverter {
             if (scale > 0) {
                 sb.append("(").append(scale).append(")");
             }
+        } else if ("TINYINT".equals(typeUpper) && column.getLength() == 1) {
+            // 保留 MySQL 的 TINYINT(1) 语义，避免被当成 BIT(1)
+            sb.append("TINYINT(1)");
         } else if (typeUpper.matches("DECIMAL|NUMERIC")) {
             // 处理精度和小数位
             if (column.getPrecision() <= 0) {

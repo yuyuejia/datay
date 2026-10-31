@@ -65,10 +65,22 @@
             </template>
           </el-dropdown>
         </li>
-        <li v-if="authenticated" class="nav-item">
-          <router-link class="nav-link" to="/etl-task">
-            <span>数据集成</span>
-          </router-link>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="integration-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
+              <span class="no-bold">数据集成</span>
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/etl-task">
+                  <span>ETL 任务</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/data-sync">
+                  <span>数据迁移</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </li>
         <li v-if="authenticated" class="nav-item dropdown pointer">
           <el-dropdown trigger="click" id="model-menu" @command="goToMenu" popper-class="jh-dropdown-menu">

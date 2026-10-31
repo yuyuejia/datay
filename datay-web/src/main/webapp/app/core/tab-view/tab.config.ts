@@ -32,6 +32,7 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   FileManagement: { path: '/file-management', title: '文件管理', componentName: 'FileManagement', closable: true },
   // 数据集成
   ETLTask: { path: '/etl-task', title: '数据集成', componentName: 'ETLTask', closable: true },
+  DataSync: { path: '/data-sync', title: '数据迁移', componentName: 'DataSync', closable: true },
   // 数据模型
   DataModel: { path: '/data-model', title: '维度建模', componentName: 'DataModel', closable: true },
   Metric: { path: '/metric', title: '指标管理', componentName: 'Metric', closable: true },

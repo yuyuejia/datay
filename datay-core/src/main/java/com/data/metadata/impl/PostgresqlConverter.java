@@ -138,22 +138,37 @@ public class PostgresqlConverter implements TypeConverter {
     @Override
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
         String upperType = columnMeta.getType().toUpperCase();
-        String type = commonDataType2ColumnType.get(upperType);
+        // DuckDB 等驱动返回的类型名会带精度，如 DECIMAL(18,4)；查表前先去参数。
+        String baseType = DatabaseConverter.stripTypeParameters(upperType);
+        String type = commonDataType2ColumnType.get(baseType);
         if (type == null) {
-            if (upperType.startsWith("INTERVAL")) {
+            if (baseType.startsWith("INTERVAL")) {
                 type = PostgresType.INTERVAL.name();
             } else {
                 System.out.println("postgresql not found type:" + upperType);
                 type = PostgresType.VARCHAR.name();
             }
         }
-        if ("NUMBER".equals(upperType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 20 && columnMeta.getPrecision() > 0) {
+        if ("NUMBER".equals(baseType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 20 && columnMeta.getPrecision() > 0) {
             type = PostgresType.BIGINT.name();
+        }
+        int precision = columnMeta.getPrecision();
+        int scale = columnMeta.getScale();
+        if ("DECIMAL".equals(baseType) || "NUMERIC".equals(baseType)) {
+            int[] precisionScale = DatabaseConverter.parseTypePrecisionScale(upperType);
+            if (precisionScale != null) {
+                if (precision <= 0) {
+                    precision = precisionScale[0];
+                }
+                if (scale <= 0) {
+                    scale = precisionScale[1];
+                }
+            }
         }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
         column.setLength(columnMeta.getLength());
-        column.setPrecision(columnMeta.getPrecision());
-        column.setScale(columnMeta.getScale());
+        column.setPrecision(precision);
+        column.setScale(scale);
         column.setNullable(columnMeta.isNullable());
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());

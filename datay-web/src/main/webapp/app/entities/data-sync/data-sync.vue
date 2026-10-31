@@ -1,34 +1,41 @@
 <template>
   <div>
     <h2 id="page-heading" data-cy="DataSyncHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
-      <span id="data-sync-heading">数据同步</span>
+      <span id="data-sync-heading">数据迁移</span>
       <div class="d-flex align-items-center">
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon> <span>刷新列表</span>
         </el-button>
         <router-link :to="{ name: 'DataSyncCreate' }" custom v-slot="{ navigate }">
-          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-sync">
+          <el-button
+            type="primary"
+            @click="navigate"
+            id="jh-create-entity"
+            data-cy="entityCreateButton"
+            class="jh-create-entity create-data-sync"
+          >
             <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span>创建新数据同步</span>
+            <span>创建新数据迁移</span>
           </el-button>
         </router-link>
       </div>
     </h2>
     <br />
     <div class="alert alert-warning" v-if="!isFetching && dataSyncs && dataSyncs.length === 0">
-      <span>未找到数据同步</span>
+      <span>未找到数据迁移</span>
     </div>
     <div v-if="dataSyncs && dataSyncs.length > 0" class="list-page-scroll">
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="dataSyncs" style="width: 100%" @sort-change="handleSortChange">
         <el-table-column prop="jobName" label="任务名称" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="jobDesc" label="任务描述" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="type" label="类型" sortable="custom" width="150"></el-table-column>
-        <!-- <el-table-column prop="source" label="Source" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="target" label="Target" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="cron" label="定时表达式" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="status" label="状态" sortable="custom" width="150"></el-table-column>
-        <!-- <el-table-column prop="lastStatus" label="Last Status" sortable="custom" width="150"></el-table-column> -->
+        <el-table-column prop="type" label="类型" sortable="custom" width="140"></el-table-column>
+        <el-table-column label="源库" min-width="170" show-overflow-tooltip>
+          <template #default="scope">{{ dataSourceLabel(scope.row.source) }}</template>
+        </el-table-column>
+        <el-table-column label="目标库" min-width="170" show-overflow-tooltip>
+          <template #default="scope">{{ dataSourceLabel(scope.row.target) }}</template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
@@ -61,7 +68,7 @@
         <span id="datafusionApp.dataSync.delete.question" data-cy="dataSyncDeleteDialogHeading">确认删除</span>
       </template>
       <div class="modal-body">
-        <p id="jhi-delete-dataSync-heading">你确定要删除数据同步 {{ removeId }} 吗？</p>
+        <p id="jhi-delete-dataSync-heading">你确定要删除数据迁移 {{ removeId }} 吗？</p>
       </div>
       <template #modal-footer>
         <div>
