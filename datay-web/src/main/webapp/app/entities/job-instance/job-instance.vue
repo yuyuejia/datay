@@ -40,7 +40,9 @@
         <!-- <el-table-column prop="instanceCode" label="Instance Code" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="jobName" label="任务名称" sortable="custom" width="420" show-overflow-tooltip></el-table-column>
         <!-- <el-table-column prop="jobCode" label="Job Code" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" width="110">
+          <template #default="scope">{{ jobTypeLabel(scope.row.type) }}</template>
+        </el-table-column>
         <!-- <el-table-column prop="jobContext" label="Job Context" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="status" label="状态" sortable="custom" width="150">
           <template #default="scope">
@@ -151,7 +153,7 @@
                 <div class="d-flex align-items-center flex-wrap" style="gap: 8px">
                   <el-tag :type="getStatusType(sub.instance.status)" size="small">{{ sub.instance.status }}</el-tag>
                   <strong>{{ sub.instance.jobName || '-' }}</strong>
-                  <span class="text-muted">{{ sub.instance.type }}</span>
+                  <span class="text-muted">{{ jobTypeLabel(sub.instance.type) }}</span>
                   <span class="text-muted">开始：{{ formatDateTime(sub.instance.startTime) || '-' }}</span>
                   <span class="text-muted">结束：{{ formatDateTime(sub.instance.endTime) || '-' }}</span>
                 </div>

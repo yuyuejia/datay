@@ -21,6 +21,8 @@ public final class TaskConstants {
 
     public static final String TASK_TYPE_ETL = "ETL";
 
+    public static final String TASK_TYPE_DATA_COMPARE = "DATA_COMPARE";
+
     public static final String TASK_STATUS_APPENDING = "APPENDING";
     public static final String TASK_STATUS_RUNNING = "RUNNING";
     public static final String TASK_STATUS_WAITING = "WAITING";

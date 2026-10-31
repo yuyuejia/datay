@@ -4,6 +4,7 @@ import JobInstanceService from './job-instance.service';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { jobTypeLabel } from '@/shared/job/job-type';
 
 export default defineComponent({
   name: 'JobInstance',
@@ -451,6 +452,7 @@ export default defineComponent({
       activeSubTaskPanels,
       handleSortChange,
       formatDateTime,
+      jobTypeLabel,
       getStatusType,
       canStop,
       prepareStopJobInstance,

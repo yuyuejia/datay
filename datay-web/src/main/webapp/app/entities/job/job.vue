@@ -3,9 +3,15 @@
     <h2 id="page-heading" data-cy="JobHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="job-heading">Job 列表</span>
       <div class="d-flex align-items-center">
-        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 类型 / 状态搜索" clearable/>
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 类型 / 状态搜索" clearable />
         <router-link :to="{ name: 'JobCreate' }" custom v-slot="{ navigate }">
-          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-job">
+          <el-button
+            type="primary"
+            @click="navigate"
+            id="jh-create-entity"
+            data-cy="entityCreateButton"
+            class="jh-create-entity create-job"
+          >
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>创建 Job</span>
           </el-button>
@@ -25,7 +31,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="jobName" label="名称" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="type" label="类型" sortable="custom" width="100"></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" width="110">
+          <template #default="scope">{{ jobTypeLabel(scope.row.type) }}</template>
+        </el-table-column>
         <el-table-column prop="cron" label="调度表达式" sortable="custom" width="150"></el-table-column>
         <el-table-column prop="jobContext" label="配置" sortable="custom" width="250" show-overflow-tooltip>
           <template #default="scope">
@@ -76,9 +84,7 @@
       <template #modal-footer>
         <div>
           <el-button @click="closeDialog()">取消</el-button>
-          <el-button type="primary" id="jhi-confirm-delete-job" data-cy="entityConfirmDeleteButton" @click="removeJob()">
-            删除
-          </el-button>
+          <el-button type="primary" id="jhi-confirm-delete-job" data-cy="entityConfirmDeleteButton" @click="removeJob()"> 删除 </el-button>
         </div>
       </template>
     </app-modal>
@@ -99,6 +105,8 @@
   </div>
 </template>
 
+<script lang="ts" src="./job.component.ts"></script>
+
 <style scoped>
 .single-line-overflow {
   display: inline-block;
@@ -108,5 +116,3 @@
   text-overflow: ellipsis;
 }
 </style>
-
-<script lang="ts" src="./job.component.ts"></script>

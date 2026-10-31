@@ -11,6 +11,7 @@ import { type IDataSource } from '@/shared/model/data-source.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { type IDataModel } from '@/shared/model/data-model.model';
 import { useDateFormat } from '@/shared/composables';
+import { jobTypeLabel } from '@/shared/job/job-type';
 
 interface TypeDistributionItem {
   type: string;
@@ -196,6 +197,7 @@ export default defineComponent({
       statusText,
       statusClass,
       formatTime,
+      jobTypeLabel,
     };
   },
 });

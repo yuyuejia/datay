@@ -157,7 +157,7 @@
               </div>
               <div class="task-table-row" v-for="instance in failedInstances" :key="instance.id">
                 <span class="col-name" :title="instance.jobName">{{ instance.jobName || '-' }}</span>
-                <span class="col-type">{{ instance.type || '-' }}</span>
+                <span class="col-type">{{ jobTypeLabel(instance.type) }}</span>
                 <span class="col-time">{{ formatTime(instance.startTime) || '-' }}</span>
                 <span class="col-status">
                   <span class="status-badge" :class="statusClass(instance.status)">{{ statusText(instance.status) }}</span>
@@ -187,7 +187,7 @@
               </div>
               <div class="task-table-row" v-for="instance in runningInstances" :key="instance.id">
                 <span class="col-name" :title="instance.jobName">{{ instance.jobName || '-' }}</span>
-                <span class="col-type">{{ instance.type || '-' }}</span>
+                <span class="col-type">{{ jobTypeLabel(instance.type) }}</span>
                 <span class="col-time">{{ formatTime(instance.startTime) || '-' }}</span>
                 <span class="col-status">
                   <span class="status-badge" :class="statusClass(instance.status)">{{ statusText(instance.status) }}</span>

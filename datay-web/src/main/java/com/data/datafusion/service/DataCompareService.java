@@ -316,6 +316,7 @@ public class DataCompareService {
         String jobJson = buildJobJson(leftDataSource, rightDataSource, leftSchema, rightSchema, plans, compareDetail);
         jobJson = attachResultMetadata(jobJson, task, outputDir, resultFormat, plans);
 
+        job.setType(TaskConstants.TASK_TYPE_DATA_COMPARE);
         job.setJobContext(jobJson);
         job.setUpdateTime(ZonedDateTime.now());
         job = jobService.save(job);
@@ -349,7 +350,7 @@ public class DataCompareService {
     private Job saveJob(DataCompareTask task) {
         Job job = task.getJobId() == null ? new Job() : jobService.findOneJob(task.getJobId()).orElseGet(Job::new);
         job.setJobName(task.getTaskName());
-        job.setType(TaskConstants.TASK_TYPE_ETL);
+        job.setType(TaskConstants.TASK_TYPE_DATA_COMPARE);
         job.setStatus(task.getStatus() == null ? TaskConstants.TASK_STATUS_OFFLINE : task.getStatus());
         job.setUpdateTime(ZonedDateTime.now());
         if (job.getCreateTime() == null) {

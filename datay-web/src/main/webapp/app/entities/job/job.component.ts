@@ -4,6 +4,7 @@ import JobService from './job.service';
 import { type IJob } from '@/shared/model/job.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { jobTypeLabel } from '@/shared/job/job-type';
 
 export default defineComponent({
   name: 'Job',
@@ -166,6 +167,7 @@ export default defineComponent({
       totalItems,
       changeOrder,
       handleSortChange,
+      jobTypeLabel,
     };
   },
 });
