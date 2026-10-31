@@ -285,7 +285,9 @@ public class DataCompareService {
                     DataCompareSqlBuilder.tableName(DataCompareSqlBuilder.SUMMARY_TABLE, suffix)
                 );
             } else {
-                // 仅记录数对比：不读取字段、不生成明细文件。
+                // 仅记录数对比：不读取数据，但执行前校验两侧表存在，避免 ETL 启动后才失败。
+                leftColumnCache.computeIfAbsent(leftTable, key -> readColumns(leftDataSource, leftSchema, key));
+                rightColumnCache.computeIfAbsent(rightTable, key -> readColumns(rightDataSource, rightSchema, key));
                 compareSql = sqlBuilder.buildCountSummarySql(suffix);
                 exportSql = sqlBuilder.buildSummaryExportSql(
                     storage,
