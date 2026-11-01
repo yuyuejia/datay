@@ -34,7 +34,6 @@
           :data="pagedDataSources"
           v-loading="loading"
           max-height="44vh"
-          size="small"
           border
           stripe
           highlight-current-row
