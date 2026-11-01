@@ -76,8 +76,7 @@
           <div>
             <h4 class="section-title">比对表</h4>
             <p class="section-hint">
-              <template v-if="form.compareDetail">选择需要比对的左侧表，右侧表默认同名，可手动修改</template>
-              <template v-else>当前为仅记录数对比，选择需要比对的左侧表即可</template>
+              选择需要比对的左侧表，右侧表默认同名，可下拉选择或手动输入
               <span v-if="form.tables.length" class="selected-count">已选 {{ form.tables.length }} 张表</span>
             </p>
           </div>
@@ -127,17 +126,59 @@
           </el-table-column>
           <el-table-column label="右侧表" min-width="180">
             <template #default="scope">
-              <el-input v-model="scope.row.rightTable" placeholder="默认与左侧表同名" />
+              <el-select
+                v-model="scope.row.rightTable"
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                :loading="rightTableLoading"
+                :disabled="!form.rightDataSourceId || !form.rightSchema"
+                placeholder="默认与左侧表同名"
+                class="right-table-select"
+              >
+                <el-option v-for="table in rightTableOptions" :key="table" :value="table" :label="table" />
+              </el-select>
             </template>
           </el-table-column>
-          <el-table-column v-if="form.compareDetail" label="主键字段" min-width="220">
+          <el-table-column v-if="form.compareDetail" label="主键字段" min-width="260">
             <template #default="scope">
-              <el-input v-model="scope.row.keyColumns" placeholder="多个字段用逗号分隔，例如 id,tenant_id" />
+              <el-select
+                :model-value="splitColumns(scope.row.keyColumns)"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                collapse-tags
+                collapse-tags-tooltip
+                :loading="leftFieldsLoading[scope.row.leftTable]"
+                :disabled="!form.leftDataSourceId || !form.leftSchema"
+                placeholder="请选择主键字段"
+                class="field-column-select"
+                @update:model-value="value => updateColumns(scope.row, 'keyColumns', value)"
+              >
+                <el-option v-for="field in leftTableFields[scope.row.leftTable] || []" :key="field" :value="field" :label="field" />
+              </el-select>
             </template>
           </el-table-column>
-          <el-table-column v-if="form.compareDetail" label="比对字段" min-width="250">
+          <el-table-column v-if="form.compareDetail" label="比对字段" min-width="300">
             <template #default="scope">
-              <el-input v-model="scope.row.compareColumns" placeholder="为空则自动比对两侧所有公共非主键字段" />
+              <el-select
+                :model-value="splitColumns(scope.row.compareColumns)"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                collapse-tags
+                collapse-tags-tooltip
+                :loading="leftFieldsLoading[scope.row.leftTable]"
+                :disabled="!form.leftDataSourceId || !form.leftSchema"
+                placeholder="为空则自动比对两侧所有公共非主键字段"
+                class="field-column-select"
+                @update:model-value="value => updateColumns(scope.row, 'compareColumns', value)"
+              >
+                <el-option v-for="field in leftTableFields[scope.row.leftTable] || []" :key="field" :value="field" :label="field" />
+              </el-select>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" fixed="right">
@@ -248,6 +289,11 @@
 }
 
 .table-list {
+  width: 100%;
+}
+
+.right-table-select,
+.field-column-select {
   width: 100%;
 }
 
