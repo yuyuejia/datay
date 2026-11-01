@@ -161,8 +161,6 @@ public class DuckDBSql extends FlowComponent {
             for (int i = 0; i < sqlStatements.size(); i++) {
                 String currentSql = sqlStatements.get(i);
                 try {
-                    this.logInfo("执行第 " + (i + 1) + " 条SQL语句: " + maskSensitiveSql(currentSql));
-
                     boolean hasResultSet = stmt.execute(currentSql);
                     int affectedRows = stmt.getUpdateCount();
 
