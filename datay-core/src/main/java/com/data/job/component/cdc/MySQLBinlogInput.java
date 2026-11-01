@@ -49,6 +49,11 @@ public class MySQLBinlogInput extends FlowComponent {
     /** 快照分批大小。 */
     private Integer snapshotFetchSize = 10000;
 
+    /** 连续重连失败的最大次数，超过后任务失败；默认 5。 */
+    private Integer reconnectMaxAttempts = MySQLBinlogCollector.DEFAULT_RECONNECT_MAX_ATTEMPTS;
+    /** 两次重连之间的等待时间（毫秒）；默认 3000。 */
+    private Long reconnectIntervalMs = MySQLBinlogCollector.DEFAULT_RECONNECT_INTERVAL_MS;
+
     private final BlockingQueue<BinlogEvent> queue = new ArrayBlockingQueue<>(1000);
 
     // 采集器实例
@@ -130,6 +135,12 @@ public class MySQLBinlogInput extends FlowComponent {
             if (serverId != null) {
                 collector.setServerId(serverId);
             }
+            if (reconnectMaxAttempts != null) {
+                collector.setReconnectMaxAttempts(reconnectMaxAttempts);
+            }
+            if (reconnectIntervalMs != null) {
+                collector.setReconnectIntervalMs(reconnectIntervalMs);
+            }
             if (databaseNamePattern != null && !databaseNamePattern.isEmpty()) {
                 collector.setDatabaseNamePattern(Pattern.compile(databaseNamePattern));
             }
@@ -163,8 +174,8 @@ public class MySQLBinlogInput extends FlowComponent {
 
             started = true;
         } catch (Exception e) {
-            logError("启动Binlog采集器失败: ", e.getMessage());
-            throw new RuntimeException("启动Binlog采集器失败", e);
+            logError("MySQL Binlog采集失败: ", e.getMessage());
+            throw new RuntimeException("MySQL Binlog采集失败: " + e.getMessage(), e);
         }
     }
 
@@ -274,11 +285,16 @@ public class MySQLBinlogInput extends FlowComponent {
     /**
      * 停止采集器
      */
-    public void stop() {
-        if (collector != null && collector.isRunning()) {
+    public synchronized void stop() {
+        // 重连等待期间 running=false，因此不能只在 isRunning() 时停止，
+        // 否则手动停止后采集器仍会继续重试直到耗尽次数。
+        if (collector != null) {
+            boolean active = started || collector.isRunning();
             collector.stop();
             started = false;
-            logInfo("MySQL Binlog采集组件已停止");
+            if (active) {
+                logInfo("MySQL Binlog采集组件已停止");
+            }
         }
         super.stop();
     }
@@ -318,5 +334,13 @@ public class MySQLBinlogInput extends FlowComponent {
 
     public void setSnapshotFetchSize(Integer snapshotFetchSize) {
         this.snapshotFetchSize = snapshotFetchSize;
+    }
+
+    public void setReconnectMaxAttempts(Integer reconnectMaxAttempts) {
+        this.reconnectMaxAttempts = reconnectMaxAttempts;
+    }
+
+    public void setReconnectIntervalMs(Long reconnectIntervalMs) {
+        this.reconnectIntervalMs = reconnectIntervalMs;
     }
 }

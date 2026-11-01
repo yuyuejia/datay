@@ -53,6 +53,16 @@
       <el-input-number :controls="false" id="snapshotFetchSize" name="snapshotFetchSize" v-model="formData.snapshotFetchSize" :min="1" />
         <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
     </el-form-item>
+
+      <el-form-item label="最大重连次数">
+      <el-input-number :controls="false" id="reconnectMaxAttempts" name="reconnectMaxAttempts" v-model="formData.reconnectMaxAttempts" :min="0" placeholder="默认 5" />
+        <small class="form-text text-muted"> 连接异常时自动重连的最大次数，默认 5；0 表示不重连，超过后任务失败 </small>
+    </el-form-item>
+
+      <el-form-item label="重连间隔（毫秒）">
+      <el-input-number :controls="false" id="reconnectIntervalMs" name="reconnectIntervalMs" v-model="formData.reconnectIntervalMs" :min="0" :step="500" placeholder="默认 3000" />
+        <small class="form-text text-muted"> 两次重连之间的等待时间，默认 3000 毫秒 </small>
+    </el-form-item>
     </div>
   </el-form>
 </template>
@@ -150,6 +160,8 @@ const formData = reactive({
   binlogPosition: props.node?.data?.config?.binlogPosition || null,
   snapshot: props.node?.data?.config?.snapshot || false,
   snapshotFetchSize: props.node?.data?.config?.snapshotFetchSize || 10000,
+  reconnectMaxAttempts: props.node?.data?.config?.reconnectMaxAttempts ?? 5,
+  reconnectIntervalMs: props.node?.data?.config?.reconnectIntervalMs ?? 3000,
 });
 
 // 处理数据源选择事件

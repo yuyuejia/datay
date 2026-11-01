@@ -34,6 +34,18 @@ public class MySQLBinlogCollector {
     /** MySQL server_id 为无符号 32 位整数。 */
     private static final long MAX_SERVER_ID = 4294967295L;
 
+    /** 默认最大重连次数：连续失败超过该次数后终止任务。 */
+    public static final int DEFAULT_RECONNECT_MAX_ATTEMPTS = 5;
+
+    /** 默认重连间隔（毫秒）。 */
+    public static final long DEFAULT_RECONNECT_INTERVAL_MS = 3000L;
+
+    /**
+     * 连接稳定判定阈值：连接存活达到该时长后，下一次断线会重新累计重连次数，
+     * 避免“连上后短暂断开”被误判为连续失败，也避免长期运行后的偶发断线直接耗尽重试次数。
+     */
+    private static final long STABLE_CONNECTION_MILLIS = 10_000L;
+
     private final BinaryLogClient client;
     private final BinlogEventHandler eventHandler;
 
@@ -54,6 +66,18 @@ public class MySQLBinlogCollector {
     private volatile boolean running = false;
     private String lastBinlogFile;
     private long lastBinlogPosition;
+
+    /** 是否收到停止请求；用于区分“手动停止”和“连接异常”。 */
+    private volatile boolean stopped = false;
+
+    /** 最近一次成功建立连接的时间；0 表示当前这轮连接未成功建立。 */
+    private volatile long connectedAt = 0L;
+
+    /** 连续重连失败的最大次数，超过后任务失败。 */
+    private volatile int reconnectMaxAttempts = DEFAULT_RECONNECT_MAX_ATTEMPTS;
+
+    /** 两次重连之间的等待时间（毫秒）。 */
+    private volatile long reconnectIntervalMs = DEFAULT_RECONNECT_INTERVAL_MS;
 
     // 伪装成从库的唯一标识，默认 1000，可配置
     private long serverId = DEFAULT_SERVER_ID;
@@ -134,6 +158,7 @@ public class MySQLBinlogCollector {
                 public void onConnect(BinaryLogClient client) {
                     log.info("成功连接到MySQL服务器: {}:{}", host, port);
                     running = true;
+                    connectedAt = System.currentTimeMillis();
                 }
 
                 @Override
@@ -157,7 +182,11 @@ public class MySQLBinlogCollector {
     }
 
     /**
-     * 启动Binlog采集
+     * 启动Binlog采集。
+     *
+     * <p>连接异常（包括初始连接失败和中途通信中断）不会直接吞掉：会按
+     * {@link #reconnectMaxAttempts} 进行重连，只有连续失败次数超过上限后才抛出异常，
+     * 由上层 ETL 流程将任务状态置为 FAILED。手动调用 {@link #stop()} 属于正常停止，不会重连。</p>
      */
     public void start() {
         if (running) {
@@ -165,31 +194,107 @@ public class MySQLBinlogCollector {
             return;
         }
 
-        try {
-            log.info("开始启动MySQL Binlog采集器，连接: {}:{}，server-id: {}", host, port, serverId);
-            client.connect();
-        } catch (IOException e) {
-            log.error("启动Binlog采集器失败: {}", e.getMessage(), e);
-            throw new RuntimeException("启动Binlog采集器失败", e);
+        if (stopped) {
+            // 启动前已经收到停止请求（如任务在提交后立即被取消），直接退出，避免取消后仍建立连接。
+            return;
+        }
+        int failedAttempts = 0;
+
+        while (!stopped) {
+            connectedAt = 0L;
+            boolean connectThrew = false;
+            try {
+                log.info("开始启动MySQL Binlog采集器，连接: {}:{}，server-id: {}", host, port, serverId);
+                client.connect();
+            } catch (Exception e) {
+                connectThrew = true;
+                if (stopped) {
+                    log.info("MySQL Binlog采集器已停止，忽略连接异常");
+                    break;
+                }
+                log.error("MySQL Binlog连接失败: {}", e.getMessage(), e);
+            }
+
+            if (stopped) {
+                break;
+            }
+
+            // client.connect() 在通信中断时会正常返回（异常由 LifecycleListener 接收），
+            // 因此这里需要主动判断：不是主动停止就按连接异常处理并重连。
+            long connectedFor = connectedAt > 0 ? System.currentTimeMillis() - connectedAt : 0L;
+            if (connectedAt > 0 && connectedFor >= STABLE_CONNECTION_MILLIS) {
+                // 上一次连接稳定运行过，重新累计连续失败次数
+                failedAttempts = 0;
+            }
+            failedAttempts++;
+
+            if (failedAttempts > reconnectMaxAttempts) {
+                int performedReconnects = Math.max(0, failedAttempts - 1);
+                String reason =
+                    "MySQL Binlog连接异常，重连 " +
+                    performedReconnects +
+                    " 次后仍未恢复（最大重连次数 " +
+                    reconnectMaxAttempts +
+                    "），任务终止";
+                log.error(reason);
+                running = false;
+                throw new RuntimeException(reason);
+            }
+
+            long waitMillis = Math.max(0L, reconnectIntervalMs);
+            log.warn(
+                "MySQL Binlog连接已断开（{}），{} ms 后进行第 {}/{} 次重连",
+                connectThrew ? "连接失败" : "通信中断或服务端关闭",
+                waitMillis,
+                failedAttempts,
+                reconnectMaxAttempts
+            );
+            if (!sleepBeforeReconnect(waitMillis)) {
+                break;
+            }
+        }
+
+        if (stopped) {
+            running = false;
         }
     }
 
     /**
-     * 停止Binlog采集
+     * 停止Binlog采集。可安全地在重连等待期间调用。
      */
-    public void stop() {
-        if (!running) {
-            log.warn("Binlog采集器已经停止");
+    public synchronized void stop() {
+        if (stopped) {
             return;
         }
-
+        stopped = true;
         try {
             log.info("停止MySQL Binlog采集器");
             client.disconnect();
-            running = false;
         } catch (IOException e) {
             log.error("停止Binlog采集器失败: {}", e.getMessage(), e);
+        } finally {
+            running = false;
         }
+    }
+
+    /**
+     * 重连等待，期间可被 {@link #stop()} 快速打断。
+     *
+     * @return true 表示等待结束且未收到停止请求
+     */
+    private boolean sleepBeforeReconnect(long millis) {
+        long remaining = millis;
+        while (remaining > 0 && !stopped) {
+            long sleep = Math.min(remaining, 200L);
+            try {
+                Thread.sleep(sleep);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            remaining -= sleep;
+        }
+        return !stopped;
     }
 
     /**
@@ -515,5 +620,34 @@ public class MySQLBinlogCollector {
         }
         this.serverId = serverId;
         this.client.setServerId(serverId);
+    }
+
+    /**
+     * 设置连续重连失败的最大次数，超过后 {@link #start()} 抛出异常。
+     *
+     * @param maxAttempts 最大重连次数，0 表示不重连；默认 {@value #DEFAULT_RECONNECT_MAX_ATTEMPTS}
+     */
+    public void setReconnectMaxAttempts(int maxAttempts) {
+        if (maxAttempts < 0) {
+            throw new IllegalArgumentException("reconnectMaxAttempts 不能小于 0，当前值: " + maxAttempts);
+        }
+        this.reconnectMaxAttempts = maxAttempts;
+    }
+
+    /**
+     * 设置两次重连之间的等待时间。
+     *
+     * @param intervalMs 等待时间（毫秒），小于 0 时按 0 处理；默认 {@value #DEFAULT_RECONNECT_INTERVAL_MS}
+     */
+    public void setReconnectIntervalMs(long intervalMs) {
+        this.reconnectIntervalMs = Math.max(0L, intervalMs);
+    }
+
+    public int getReconnectMaxAttempts() {
+        return reconnectMaxAttempts;
+    }
+
+    public long getReconnectIntervalMs() {
+        return reconnectIntervalMs;
     }
 }
