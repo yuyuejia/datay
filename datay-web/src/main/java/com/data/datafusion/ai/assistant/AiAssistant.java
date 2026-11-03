@@ -20,9 +20,28 @@ import java.util.Set;
 public interface AiAssistant {
 
     /**
+     * 结构化产物类型，用于决定 {@link #extractSpec(String)} 的抽取结果落到哪个响应字段。
+     */
+    enum SpecType {
+        /** 不产出结构化产物，只返回自然语言或 SQL。 */
+        NONE,
+        /** 看板定义，落到 dashboardSpec。 */
+        DASHBOARD,
+        /** ETL 任务定义，落到 etlTaskSpec。 */
+        ETL_TASK,
+    }
+
+    /**
      * 助手唯一标识，前端通过该值选择助手，建议小写中划线风格。
      */
     String id();
+
+    /**
+     * 结构化产物类型，默认不产出。
+     */
+    default SpecType specType() {
+        return SpecType.NONE;
+    }
 
     /**
      * 助手展示名称。

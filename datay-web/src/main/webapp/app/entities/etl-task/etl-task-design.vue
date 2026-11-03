@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, inject, provide, computed, watch, markRaw } from 'vue';
+import { ref, reactive, onMounted, inject, provide, computed, watch, markRaw, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -10,6 +10,8 @@ import ETLTaskService from '../etl-task/etl-task.service';
 import ETLTaskNode from './etl-task-node.vue';
 import EtlTaskEdge from './EtlTaskEdge.vue';
 import DynamicParameterHelp from './DynamicParameterHelp.vue';
+import EtlTaskAiAssistant from './etl-task-ai-assistant.vue';
+import { buildAiTaskContext, buildFlowNodes, buildFlowEdges } from './etl-task-ai-spec';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 import '@vue-flow/core/dist/style.css';
@@ -42,6 +44,7 @@ const etlComponents = ref([]);
 const eTLTask = ref({});
 const configEntity = ref(null);
 const vueFlowInstance = ref(null);
+const aiPanelVisible = ref(false);
 
 const nodes = ref([]);
 const edges = ref([]);
@@ -75,6 +78,8 @@ const componentGroupMap = computed(() => {
   }
   return map;
 });
+
+const aiTaskContext = computed(() => buildAiTaskContext(eTLTask.value, nodes.value, edges.value));
 
 const deleteNode = nodeId => {
   removeNodes([nodeId]);
@@ -859,6 +864,33 @@ const saveTask = async () => {
   }
 };
 
+const applyAiSpec = async spec => {
+  if (!spec || !Array.isArray(spec.nodes) || spec.nodes.length === 0) {
+    alertService.showError('AI 返回的任务定义中没有节点');
+    return;
+  }
+  const { nodes: builtNodes, keyToId } = buildFlowNodes(spec, type => componentGroupMap.value[type] || '其他', deleteNode);
+  const builtEdges = buildFlowEdges(spec, keyToId, DEFAULT_QUEUE_CAPACITY, editEdgeLabel, deleteEdge).map(edge => ({
+    ...edge,
+    markerEnd: { type: MarkerType.ArrowClosed },
+  }));
+
+  if (spec.taskName && !String(eTLTask.value.taskName || '').trim()) {
+    eTLTask.value.taskName = spec.taskName;
+  }
+  if (spec.taskDesc && !String(eTLTask.value.taskDesc || '').trim()) {
+    eTLTask.value.taskDesc = spec.taskDesc;
+  }
+  if (spec.cron && !String(eTLTask.value.cron || '').trim()) {
+    eTLTask.value.cron = spec.cron;
+  }
+
+  nodes.value = builtNodes;
+  edges.value = builtEdges;
+  await nextTick();
+  fitCanvasView();
+};
+
 const cancelTask = () => {
   router.push({ name: 'ETLTask' });
 };
@@ -885,6 +917,10 @@ const cancelTask = () => {
         </div>
       </div>
       <div class="header-actions">
+        <el-button @click="aiPanelVisible = true">
+          <font-awesome-icon icon="wand-magic-sparkles" class="mr-1" />
+          <span>AI 设计</span>
+        </el-button>
         <DynamicParameterHelp />
         <el-button type="primary" @click="saveTask">
           <font-awesome-icon icon="save" class="mr-1" />
@@ -937,6 +973,13 @@ const cancelTask = () => {
         </VueFlow>
       </div>
     </div>
+    <EtlTaskAiAssistant
+      :visible="aiPanelVisible"
+      :current-task="aiTaskContext"
+      :has-canvas-content="nodes.length > 0"
+      @close="aiPanelVisible = false"
+      @apply="applyAiSpec"
+    />
     <app-modal ref="configEntity" id="configEntity" class="config-modal" size="lg">
       <template #modal-title>
         <div class="config-modal-title">

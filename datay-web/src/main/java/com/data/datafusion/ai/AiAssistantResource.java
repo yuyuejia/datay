@@ -117,6 +117,9 @@ public class AiAssistantResource {
                 request.getContextData()
             );
             return ResponseEntity.ok(AiGenerateResponse.from(result));
+        } catch (IllegalArgumentException e) {
+            LOG.warn("AI generation rejected for assistant {}: {}", assistant.get().id(), e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (IllegalStateException e) {
             LOG.warn("AI generation failed for assistant {}: {}", assistant.get().id(), e.getMessage());
             return ResponseEntity.status(502).body(Map.of("message", e.getMessage()));

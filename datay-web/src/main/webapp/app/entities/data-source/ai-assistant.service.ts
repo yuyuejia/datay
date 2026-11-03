@@ -37,6 +37,10 @@ export interface AiGenerateResult {
   data?: AiMetricQueryData;
   /** 看板设计类助手生成的结构化看板定义。 */
   dashboardSpec?: Record<string, any>;
+  /** ETL 设计类助手生成的结构化任务定义。 */
+  etlTaskSpec?: Record<string, any>;
+  /** 结构化产物校验警告，例如缺少必填配置、组件暂无帮助文档等。 */
+  warnings?: string[];
   promptTokens?: number;
   completionTokens?: number;
 }

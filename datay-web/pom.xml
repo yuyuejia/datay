@@ -388,6 +388,18 @@
                     <include>NOTICE</include>
                 </includes>
             </resource>
+            <!--
+              随包分发帮助文档，供 AI 助手读取组件功能与配置说明。
+              文档源文件仍维护在仓库根目录 docs/help/components 下，构建时复制到 classpath。
+            -->
+            <resource>
+                <directory>${project.basedir}/../docs/help/components</directory>
+                <targetPath>docs/help/components</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>*.md</include>
+                </includes>
+            </resource>
         </resources>
         <plugins>
             <plugin>

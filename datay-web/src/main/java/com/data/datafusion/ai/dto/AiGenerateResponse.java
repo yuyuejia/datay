@@ -16,6 +16,10 @@ public class AiGenerateResponse {
     private String explanation;
     /** 看板设计产物：完整看板 spec 对象，供设计页预览与保存。 */
     private Map<String, Object> dashboardSpec;
+    /** ETL 任务设计产物：完整任务定义对象，供设计页应用到画布。 */
+    private Map<String, Object> etlTaskSpec;
+    /** 结构化产物校验警告，例如缺少必填配置、组件暂无帮助文档等。 */
+    private List<String> warnings;
     private int rounds;
     private boolean converged;
     private List<Map<String, Object>> toolCalls;
@@ -43,6 +47,11 @@ public class AiGenerateResponse {
         response.code = result.getSql();
         response.explanation = result.getExplanation();
         response.dashboardSpec = result.getDashboardSpec();
+        response.etlTaskSpec = result.getEtlTaskSpec();
+        Object rawWarnings = result.getArtifacts().get(AiResult.ARTIFACT_WARNINGS);
+        if (rawWarnings instanceof List<?> list) {
+            response.warnings = list.stream().map(String::valueOf).toList();
+        }
         response.rounds = result.getRounds();
         response.converged = result.isConverged();
         response.promptTokens = result.getPromptTokens();
@@ -86,6 +95,14 @@ public class AiGenerateResponse {
 
     public Map<String, Object> getDashboardSpec() {
         return dashboardSpec;
+    }
+
+    public Map<String, Object> getEtlTaskSpec() {
+        return etlTaskSpec;
+    }
+
+    public List<String> getWarnings() {
+        return warnings;
     }
 
     public int getRounds() {

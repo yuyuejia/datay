@@ -13,10 +13,15 @@ public class AiResult {
     /** 指标问数产物在 artifacts 中的键：一次指标查询的 columns / rows / sql。 */
     public static final String ARTIFACT_METRIC_QUERY = "metricQuery";
 
+    /** 结构化产物校验警告在 artifacts 中的键。 */
+    public static final String ARTIFACT_WARNINGS = "warnings";
+
     private String sql;
     private String explanation;
     /** 看板设计产物：由看板设计助手抽取的完整 spec 对象。 */
     private Map<String, Object> dashboardSpec;
+    /** ETL 任务设计产物：由 ETL 设计助手抽取的任务定义对象。 */
+    private Map<String, Object> etlTaskSpec;
     private int rounds;
     private boolean converged;
     private List<ToolTrace> toolCalls = new ArrayList<>();
@@ -80,6 +85,14 @@ public class AiResult {
 
     public void setDashboardSpec(Map<String, Object> dashboardSpec) {
         this.dashboardSpec = dashboardSpec;
+    }
+
+    public Map<String, Object> getEtlTaskSpec() {
+        return etlTaskSpec;
+    }
+
+    public void setEtlTaskSpec(Map<String, Object> etlTaskSpec) {
+        this.etlTaskSpec = etlTaskSpec;
     }
 
     public int getRounds() {

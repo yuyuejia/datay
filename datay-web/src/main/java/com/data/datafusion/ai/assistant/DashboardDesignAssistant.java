@@ -1,6 +1,6 @@
 package com.data.datafusion.ai.assistant;
 
-import com.data.datafusion.ai.DashboardJsonExtractor;
+import com.data.datafusion.ai.JsonObjectExtractor;
 import com.data.datafusion.ai.tool.DimensionInfoTool;
 import com.data.datafusion.ai.tool.ListAnalysisDatasetsTool;
 import com.data.datafusion.ai.tool.MetricCatalogTool;
@@ -86,6 +86,11 @@ public class DashboardDesignAssistant implements AiAssistant {
     @Override
     public String id() {
         return ID;
+    }
+
+    @Override
+    public SpecType specType() {
+        return SpecType.DASHBOARD;
     }
 
     @Override
@@ -300,7 +305,7 @@ public class DashboardDesignAssistant implements AiAssistant {
 
     @Override
     public Map<String, Object> extractSpec(String content) {
-        String json = DashboardJsonExtractor.extract(content);
+        String json = JsonObjectExtractor.extract(content);
         if (json == null || json.isBlank()) {
             return null;
         }

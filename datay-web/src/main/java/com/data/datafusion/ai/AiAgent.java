@@ -203,7 +203,11 @@ public class AiAgent {
         if (spec != null) {
             spec = assistant.postProcessSpec(spec, artifacts);
         }
-        result.setDashboardSpec(spec);
+        if (assistant.specType() == AiAssistant.SpecType.DASHBOARD) {
+            result.setDashboardSpec(spec);
+        } else if (assistant.specType() == AiAssistant.SpecType.ETL_TASK) {
+            result.setEtlTaskSpec(spec);
+        }
         result.setRounds(rounds);
         result.setConverged(converged);
         result.setToolCalls(traces);
