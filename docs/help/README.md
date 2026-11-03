@@ -16,6 +16,7 @@
 | **快速开始** | 环境要求、一键部署、应用市场初始化数据应用、首次登录 | [开始阅读](quickstart/README.md) |
 | **使用指南** | 各功能模块的使用介绍：数据源、集成、开发、调度、告警、建模、指标、问数、数据权限 | [开始阅读](guide/README.md) |
 | **场景案例** | 端到端实战、批量同步、CDC 实时同步、文件 / HTTP / 飞书接入 | [开始阅读](cases/README.md) |
+| **集成模板市场** | 常用数据集成模板下载，导入后快速使用 | [浏览模板](../templates.html ':ignore :target=_self') |
 | **ETL 组件介绍** | 输入 / 处理 / 输出 / 其他组件的配置说明 | [开始阅读](components/README.md) |
 
 ---
@@ -37,6 +38,7 @@
 ## 快速入口
 
 - 想马上跑起来：[快速开始](quickstart/README.md)
+- 想下载常用模板：[集成模板市场](../templates.html ':ignore :target=_self')
 - 想跟着做一遍：[电商指标问数闭环](cases/ecommerce.md)
 - 想了解设计：[产品介绍](introduction/README.md)
 

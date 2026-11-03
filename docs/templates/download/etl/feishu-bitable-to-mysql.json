@@ -1,0 +1,76 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "飞书多维表格同步到 MySQL",
+    "taskCode": "tmpl_feishu_bitable_to_mysql",
+    "taskDesc": "读取飞书多维表格记录并写入 MySQL。导入后填写飞书应用 App ID / App Secret、appToken、tableId；目标表字段名需要与多维表格字段名一致。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "读取飞书多维表格",
+        "code": "n1",
+        "desc": "分页读取飞书多维表格记录",
+        "type": "FeishuBitableInput",
+        "config": {
+          "appId": "cli_xxxxxxxxxxxxxxxx",
+          "appSecret": "",
+          "appToken": "bas_xxxxxxxxxxxxxxxx",
+          "tableId": "tblxxxxxxxxxxxxxxxx",
+          "viewId": "",
+          "pageSize": 100,
+          "incrColumn": "",
+          "createdTimeField": "created_time",
+          "modifiedTimeField": "last_modified_time",
+          "recordIdField": "record_id",
+          "baseUrl": "https://open.feishu.cn"
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 MySQL",
+        "code": "n2",
+        "desc": "写入模板-MySQL目标库 target.feishu_records，模式 append",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "tmpl-mysql-target",
+          "schema": "target",
+          "table": "feishu_records",
+          "model": "append"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-target",
+        "name": "模板-MySQL目标库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/target?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}

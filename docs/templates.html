@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>集成模板市场 · DataY</title>
+    <meta
+      name="description"
+      content="DataY 集成模板市场：下载 MySQL、PostgreSQL、MongoDB、Oracle CDC、HTTP、飞书多维表格等常用数据集成模板，导入系统即可快速使用。"
+    />
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/style.css" />
+    <link rel="stylesheet" href="assets/templates.css" />
+  </head>
+  <body>
+    <header class="site-header" id="top">
+      <div class="container header-inner">
+        <a class="brand" href="index.html">
+          <img src="assets/logo.svg" alt="DataY" width="32" height="32" />
+          <span class="brand-name">DataY</span>
+        </a>
+        <nav class="nav" id="nav">
+          <a href="index.html#capabilities">功能介绍</a>
+          <a class="nav-active" href="templates.html">集成模板市场</a>
+          <a href="index.html#contact">联系我们</a>
+          <a class="nav-doc" href="help">帮助文档</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            class="btn btn-ghost"
+            href="http://datay-demo.yuyuejia.com.cn/"
+            target="_blank"
+            rel="noopener"
+            >在线演示</a
+          >
+          <div class="repo-links">
+            <a
+              class="repo-link"
+              href="https://github.com/yuyuejia/datay"
+              target="_blank"
+              rel="noopener"
+              title="GitHub"
+              aria-label="GitHub"
+            >
+              <img
+                src="assets/img/github.png"
+                alt="GitHub"
+                width="20"
+                height="20"
+              />
+            </a>
+            <a
+              class="repo-link"
+              href="https://gitee.com/yuyuejia/datay"
+              target="_blank"
+              rel="noopener"
+              title="Gitee"
+              aria-label="Gitee"
+            >
+              <img
+                src="assets/img/gitee.png"
+                alt="Gitee"
+                width="20"
+                height="20"
+              />
+            </a>
+            <a
+              class="repo-link"
+              href="https://cnb.cool/yuyuejia/datay"
+              target="_blank"
+              rel="noopener"
+              title="CNB"
+              aria-label="CNB"
+            >
+              <img src="assets/img/cnb.png" alt="CNB" width="20" height="20" />
+            </a>
+          </div>
+        </div>
+        <button class="nav-toggle" id="navToggle" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="market-hero">
+        <div class="container market-hero-inner">
+          <span class="pill">集成模板市场 · 下载即用</span>
+          <h1>常用集成模板，<br />下载后导入就能跑。</h1>
+          <p class="lead">
+            覆盖<strong
+              >批量同步、CDC 实时同步、HTTP / 飞书接入、完整数据应用</strong
+            >等常见场景。 每份模板都带好了组件编排和关键参数，下载后导入
+            DataY，改一下数据源即可执行。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-lg" href="#usage">查看使用步骤</a>
+            <a class="btn btn-outline btn-lg" href="#templates">浏览模板</a>
+            <a class="btn btn-ghost btn-lg" href="help#/cases/README"
+              >场景案例</a
+            >
+          </div>
+          <ul class="hero-badges">
+            <li>16 个 ETL 单任务模板</li>
+            <li>2 个完整数据应用</li>
+            <li>覆盖 17 个场景案例</li>
+            <li>JSON 文件，开箱可导入</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="usage-section" id="usage">
+        <div class="container">
+          <div class="section-head">
+            <h2>四步用起来</h2>
+            <p>先看模板属于哪一类，再走对应的导入入口。</p>
+          </div>
+
+          <div class="usage-grid">
+            <div class="usage-step">
+              <span class="usage-step__index">1</span>
+              <h3>下载模板</h3>
+              <p>在下方模板列表选择场景，点击「下载模板」得到 JSON 文件。</p>
+            </div>
+            <div class="usage-step">
+              <span class="usage-step__index">2</span>
+              <h3>选择导入入口</h3>
+              <p>ETL 单任务从「数据集成」导入；完整应用从「应用市场」导入。</p>
+            </div>
+            <div class="usage-step">
+              <span class="usage-step__index">3</span>
+              <h3>配置数据源</h3>
+              <p>按模板提示创建或选择数据源，修改表名、连接地址和账号密码。</p>
+            </div>
+            <div class="usage-step">
+              <span class="usage-step__index">4</span>
+              <h3>执行或上线</h3>
+              <p>先执行一次验证数据，再按需配置 Cron 上线调度。</p>
+            </div>
+          </div>
+
+          <div class="import-paths">
+            <div class="import-path">
+              <div class="import-path__icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <ellipse cx="12" cy="5" rx="8" ry="3" />
+                  <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+                  <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+                </svg>
+              </div>
+              <div>
+                <h4>ETL 单任务模板</h4>
+                <p>导入后只新增一个 ETL 任务，不复制模型、指标等其它资产。</p>
+                <code>数据集成 → 导入任务</code>
+              </div>
+            </div>
+            <div class="import-path">
+              <div class="import-path__icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </div>
+              <div>
+                <h4>完整数据应用资产包</h4>
+                <p>
+                  一次初始化数据源、模型、指标、ETL、SQL
+                  任务、编排任务与分析看板。
+                </p>
+                <code>数据应用 → 应用市场 → 导入资产包文件</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="market-section" id="templates">
+        <div class="container">
+          <div class="market-toolbar">
+            <div
+              class="market-filters"
+              id="marketFilters"
+              role="group"
+              aria-label="按场景筛选"
+            >
+              <button
+                class="filter-chip active"
+                type="button"
+                data-filter="all"
+              >
+                全部 <span>18</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="batch">
+                批量同步 <span>5</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="cdc">
+                CDC 实时同步 <span>7</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="http">
+                HTTP 与飞书 <span>4</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="app">
+                完整应用 <span>2</span>
+              </button>
+            </div>
+            <label class="market-search">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                id="marketSearch"
+                type="search"
+                placeholder="搜索模板名称、说明或组件…"
+                autocomplete="off"
+              />
+            </label>
+          </div>
+          <p class="market-result" id="marketResult">共 18 个模板</p>
+
+          <div class="template-group" data-group="etl">
+            <div class="template-group__head">
+              <h2>单任务 ETL 模板</h2>
+              <p>从「数据集成 → 导入任务」导入</p>
+            </div>
+
+            <div class="template-grid">
+              <article
+                class="template-card"
+                data-category="batch"
+                data-name="MySQL 全量同步到 MySQL"
+                data-keywords="mysql 全量 同步 streamjdbcinput streamjdbcoutput overwrite 库表"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <ellipse cx="12" cy="5" rx="8" ry="3" />
+                      <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+                      <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 全量同步到 MySQL</h3>
+                    <span class="template-badge">批量同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  最基础的库表全量同步：从 MySQL 源库读取整表，覆盖写入 MySQL
+                  目标库，目标表不存在时自动建表。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">MySQL</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>MySQL 5.7+，源表可读，目标库可写</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>核对源/目标数据源、schema 和表名</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-to-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysql-to-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="batch"
+                data-name="MySQL 大数据量表全量同步"
+                data-keywords="mysql 大表 分区 全量 generatetableselectsql sqlinput 并行"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <ellipse cx="12" cy="5" rx="8" ry="3" />
+                      <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+                      <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 大数据量表全量同步</h3>
+                    <span class="template-badge">批量同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  按主键把大表拆成多个分区查询，再并行写入目标表。适合百万级以上单表迁移。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >GenerateTableSelectSql</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">SqlInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  >
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>源表有数值型主键，目标库可写</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>调整分区数量、并行度和表名</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-bigtable-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a
+                    class="btn btn-ghost"
+                    href="help#/cases/mysql-bigtable-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="batch"
+                data-name="MySQL 经 DuckDB SQL 处理后写入 MySQL"
+                data-keywords="mysql duckdb sql streamsqlunit 清洗 转换 过滤"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 7h16M4 12h10M4 17h13" />
+                      <path d="m17 9 3 3-3 3" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 经 DuckDB SQL 处理后写入 MySQL</h3>
+                    <span class="template-badge">批量同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  在同步链路中插入 StreamSqlUnit，用 DuckDB SQL
+                  完成清洗、字段转换和过滤后再写入 MySQL。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">StreamSqlUnit</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  >
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>源表字段与模板 SQL 中的字段一致</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 SQL、源表与目标表</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-sqlunit-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a
+                    class="btn btn-ghost"
+                    href="help#/cases/mysql-sqlunit-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="batch"
+                data-name="MySQL 同步到 Apache Doris"
+                data-keywords="mysql doris streamload 分析库 数仓"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 20h18" />
+                      <rect x="5" y="11" width="3.5" height="6" rx="1" />
+                      <rect x="10.5" y="7" width="3.5" height="10" rx="1" />
+                      <rect x="16" y="4" width="3.5" height="13" rx="1" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 同步到 Apache Doris</h3>
+                    <span class="template-badge">批量同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  从 MySQL 读取业务表，通过 Doris Stream Load 高效写入
+                  Doris，适合构建分析库。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >DorisStreamLoad</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">Doris</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>Doris 可访问，配置 FE HTTP 端点</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 Doris 数据源与目标表</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-doris.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysql-doris"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="batch"
+                data-name="MySQL 同步到 DuckLake 数据湖"
+                data-keywords="mysql ducklake 数据湖 入湖 ducklakewrite"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 9h16v10H4z" />
+                      <path d="M4 9l4-5h8l4 5" />
+                      <path d="M9 14h6" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 同步到 DuckLake 数据湖</h3>
+                    <span class="template-badge">批量同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  从 MySQL 读取业务表，覆盖写入本地
+                  DuckLake，适合单机数据湖与离线分析场景。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">DuckLakeWrite</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckLake</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>DuckLake 数据源（含 S3 / 元数据库）可用</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 DuckLake 连接与目标表</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-ducklake.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysql-ducklake"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="http"
+                data-name="HTTP 监听写入 MySQL"
+                data-keywords="http listener 监听 webhook 实时 写入 mysql httplistener"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 12a8 8 0 0 1 8-8" />
+                      <path d="M20 12a8 8 0 0 1-8 8" />
+                      <path d="m8 12 4-4 4 4" />
+                      <path d="M12 8v8" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>HTTP 监听写入 MySQL</h3>
+                    <span class="template-badge">HTTP 与飞书</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  启动 HTTP 监听端口，外部系统 POST 数据后实时写入 MySQL，适合
+                  webhook、事件回调等轻量接入。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">HTTP</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">HttpListener</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">MySQL</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>监听端口未被占用，目标表存在</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改端口、路径、目标数据源与表名</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/http-to-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/http-to-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="http"
+                data-name="HTTP 接口分页循环同步到 MySQL"
+                data-keywords="http 分页 循环 接口 httpinvoke generatesequencenumber 页码"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M17 2.1 21 6l-4 3.9" />
+                      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                      <path d="M7 21.9 3 18l4-3.9" />
+                      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>HTTP 接口分页循环同步到 MySQL</h3>
+                    <span class="template-badge">HTTP 与飞书</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  先获取总页数，再生成页码序列逐页调用接口，最后把全部记录写入
+                  MySQL。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node flow-node--accent">HttpInvoke</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >GenerateSequenceNumber</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">HttpInvoke</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">MySQL</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>接口支持分页，返回 JSON</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>替换接口地址、请求头、分页字段与目标表</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/http-loop-to-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/http-loop-to-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="http"
+                data-name="飞书多维表格同步到 MySQL"
+                data-keywords="飞书 多维表格 bitable feishu 同步 mysql feishubitableinput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                      <path d="M3 9h18M9 9v11" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>飞书多维表格同步到 MySQL</h3>
+                    <span class="template-badge">HTTP 与飞书</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  读取飞书多维表格记录并写入
+                  MySQL，适合把表格里的线索、工单、库存沉淀到数据库。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">飞书多维表格</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >FeishuBitableInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">MySQL</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>飞书应用开通多维表格权限</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>填写 App ID / Secret、appToken、tableId</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/feishu-bitable-to-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a
+                    class="btn btn-ghost"
+                    href="help#/cases/feishu-bitable-to-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="http"
+                data-name="MySQL 同步到飞书多维表格"
+                data-keywords="mysql 飞书 多维表格 bitable 回写 feishubitableoutput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 4h16v16H4z" />
+                      <path d="m8 12 3 3 5-6" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL 同步到飞书多维表格</h3>
+                    <span class="template-badge">HTTP 与飞书</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  从 MySQL
+                  读取数据并批量写入飞书多维表格，适合把数据库结果回写给业务同学查看。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >FeishuBitableOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">飞书多维表格</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>应用已添加为多维表格协作者</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>填写飞书凭证、表格标识与字段映射</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-to-feishu-bitable.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a
+                    class="btn btn-ghost"
+                    href="help#/cases/mysql-to-feishu-bitable"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="MySQL CDC 实时同步到 MySQL"
+                data-keywords="mysql cdc binlog 实时 同步 mysql mysqlbinloginput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL CDC 实时同步到 MySQL</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  通过 Binlog 实时捕获 MySQL 变更并写入 MySQL
+                  目标库，支持先全量快照再增量同步。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >MySQLBinlogInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">MySQL</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>binlog_format=ROW，账号具备 REPLICATION 权限</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改库名、表名、serverId 与目标数据源</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-cdc-to-mysql.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysqlCDC-mysql"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="MySQL CDC 实时同步到 DuckDB"
+                data-keywords="mysql cdc binlog 实时 duckdb mysqlbinloginput 数仓"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL CDC 实时同步到 DuckDB</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  通过 Binlog 捕获 MySQL 变更并写入本地 DuckDB
+                  数仓，适合单机实时明细层。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >MySQLBinlogInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckDB</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>MySQL 开启 ROW 格式 Binlog</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改库表、serverId 与 DuckDB 路径</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-cdc-to-duckdb.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysqlCDC-duckdb"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="MySQL CDC 实时同步到 DuckLake"
+                data-keywords="mysql cdc binlog 实时 ducklake 入湖 mysqlbinloginput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MySQL CDC 实时同步到 DuckLake</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  通过 Binlog 捕获 MySQL 变更并实时写入
+                  DuckLake，适合实时入湖场景。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MySQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >MySQLBinlogInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">DuckLakeWrite</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckLake</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>MySQL 开启 Binlog，DuckLake 可写</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>配置 DuckLake 数据源与 S3 参数</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mysql-cdc-to-ducklake.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mysqlCDC-ducklake"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="PostgreSQL CDC 实时同步到 DuckDB"
+                data-keywords="postgresql pg cdc 逻辑复制 duckdb postgrescdcinput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>PostgreSQL CDC 实时同步到 DuckDB</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  基于逻辑复制捕获 PostgreSQL 变更并写入
+                  DuckDB，支持断点续传和首次全量快照。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">PostgreSQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >PostgresCDCInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckDB</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>wal_level=logical，账号具备 REPLICATION 权限</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 schema、表名、publication 与 slot</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/postgres-cdc-to-duckdb.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/postgresCDC-duckdb"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="PostgreSQL CDC 实时同步到 DuckLake"
+                data-keywords="postgresql pg cdc 逻辑复制 ducklake 入湖 postgrescdcinput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>PostgreSQL CDC 实时同步到 DuckLake</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  基于逻辑复制捕获 PostgreSQL
+                  变更并实时入湖，适合业务库到数据湖的实时同步。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">PostgreSQL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >PostgresCDCInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">DuckLakeWrite</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckLake</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>PostgreSQL 开启逻辑复制，DuckLake 可写</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 schema、表名与 DuckLake 连接</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/postgres-cdc-to-ducklake.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a
+                    class="btn btn-ghost"
+                    href="help#/cases/postgresCDC-ducklake"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="MongoDB CDC 实时同步到 DuckDB"
+                data-keywords="mongodb mongo cdc change streams duckdb mongocdcinput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>MongoDB CDC 实时同步到 DuckDB</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  基于 Change Streams 捕获 MongoDB 集合变更并写入
+                  DuckDB，适合文档数据实时入仓。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">MongoDB</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">MongoCDCInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckDB</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>MongoDB 副本集或分片集群</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改数据库、集合与目标数据源</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/mongo-cdc-to-duckdb.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/mongoCDC-duckdb"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card"
+                data-category="cdc"
+                data-name="Oracle CDC 实时同步到 DuckDB"
+                data-keywords="oracle cdc logminer 实时 duckdb oraclecdcinput"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 12h4l3-7 4 14 3-7h4" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>Oracle CDC 实时同步到 DuckDB</h3>
+                    <span class="template-badge">CDC 实时同步</span>
+                  </div>
+                </div>
+                <p class="template-desc">
+                  基于 LogMiner 捕获 Oracle 变更并写入 DuckDB，无需额外部署
+                  Debezium / GoldenGate。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">Oracle</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent">OracleCDCInput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node flow-node--accent"
+                    >StreamJdbcOutput</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DuckDB</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>前置条件</dt>
+                    <dd>归档日志、补充日志与 LOGMINING 权限</dd>
+                  </div>
+                  <div>
+                    <dt>导入后</dt>
+                    <dd>修改 schema、表名与目标数据源</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/etl/oracle-cdc-to-duckdb.json"
+                    download
+                    >下载模板</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/oracleCDC-duckdb"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据集成 → 导入任务</strong>
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="template-group" data-group="app">
+            <div class="template-group__head">
+              <h2>完整数据应用</h2>
+              <p>从「数据应用 → 应用市场 → 导入资产包文件」导入</p>
+            </div>
+
+            <div class="template-grid">
+              <article
+                class="template-card template-card--app"
+                data-category="app"
+                data-name="DataY 快速入门应用"
+                data-keywords="快速入门 quickstart 全链路 示例 模型 指标 看板"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 2 3 7v10l9 5 9-5V7z" />
+                      <path d="M12 22V12M3 7l9 5 9-5" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>DataY 快速入门应用</h3>
+                    <span class="template-badge template-badge--app"
+                      >完整应用 · 快速入门</span
+                    >
+                  </div>
+                </div>
+                <p class="template-desc">
+                  开箱即用的入门资产包：2 个 DuckDB 数据源、5 个数据模型、12 个
+                  ETL、2 个 SQL 任务、1 个编排任务、4
+                  个指标、分析数据集与看板，跑通「数据源 → ETL → 建模 → 指标 →
+                  看板」全链路。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">数据源</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">ETL</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">模型 / 指标</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">看板</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>包含</dt>
+                    <dd>5 数据源 · 5 模型 · 12 ETL · 2 SQL · 1 编排 · 看板</dd>
+                  </div>
+                  <div>
+                    <dt>适合</dt>
+                    <dd>第一次使用 DataY，想快速跑通完整链路</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/app/datay-quickstart-app.json"
+                    download
+                    >下载应用资产包</a
+                  >
+                  <a class="btn btn-ghost" href="help#/quickstart/README"
+                    >查看指南</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据应用 → 应用市场 → 导入资产包文件</strong>
+                </p>
+              </article>
+
+              <article
+                class="template-card template-card--app"
+                data-category="app"
+                data-name="电商销售分析应用"
+                data-keywords="电商 零售 销售 指标 维度建模 分析看板 ecommerce"
+              >
+                <div class="template-card__head">
+                  <div class="template-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M3 20h18" />
+                      <rect x="5" y="11" width="3.5" height="6" rx="1" />
+                      <rect x="10.5" y="7" width="3.5" height="10" rx="1" />
+                      <rect x="16" y="4" width="3.5" height="13" rx="1" />
+                    </svg>
+                  </div>
+                  <div class="template-card__title">
+                    <h3>电商销售分析应用</h3>
+                    <span class="template-badge template-badge--app"
+                      >完整应用 · 零售电商</span
+                    >
+                  </div>
+                </div>
+                <p class="template-desc">
+                  面向零售电商的完整业务场景：业务源库 → ETL 同步 → 维度建模 →
+                  12 个销售指标 → DWS / ADS 汇总 →
+                  统一日更编排任务，覆盖从数据接入到指标分析的完整闭环。
+                </p>
+                <div class="template-flow">
+                  <span class="flow-node">ODS</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DWD</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">DWS / ADS</span
+                  ><span class="flow-arrow">→</span>
+                  <span class="flow-node">指标</span>
+                </div>
+                <dl class="template-meta">
+                  <div>
+                    <dt>包含</dt>
+                    <dd>
+                      2 数据源 · 9 模型 · 12 指标 · 7 ETL · 3 SQL · 1 编排
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>适合</dt>
+                    <dd>零售、电商行业的销售分析与指标口径演示</dd>
+                  </div>
+                </dl>
+                <div class="template-card__actions">
+                  <a
+                    class="btn btn-primary"
+                    href="templates/download/app/ecommerce-sales-app.json"
+                    download
+                    >下载应用资产包</a
+                  >
+                  <a class="btn btn-ghost" href="help#/cases/ecommerce"
+                    >查看案例</a
+                  >
+                </div>
+                <p class="template-import">
+                  导入：<strong>数据应用 → 应用市场 → 导入资产包文件</strong>
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div class="market-empty" id="marketEmpty">
+            没有找到匹配的模板，试试其它关键词或分类。
+          </div>
+
+          <div class="market-note">
+            <strong>关于数据源匹配：</strong>
+            模板中的「模板-MySQL源库」「模板-DuckDB数仓」等只是占位数据源。导入时会按<strong
+              >名称 + 类型 + 地址</strong
+            >匹配当前租户里已有的数据源；
+            匹配不到会在导入结果中给出警告，导入后双击画布节点重新选择数据源即可。模板不会包含真实密码或密钥，请导入后自行填写。
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <img src="assets/logo.svg" alt="DataY" width="28" height="28" />
+          <span>DataY · 轻量数据平台</span>
+        </div>
+        <div class="footer-links">
+          <a href="index.html">产品首页</a>
+          <a href="templates.html">集成模板市场</a>
+          <a href="help">帮助文档</a>
+          <a
+            href="https://github.com/yuyuejia/datay"
+            target="_blank"
+            rel="noopener"
+            >GitHub</a
+          >
+          <a
+            href="https://gitee.com/yuyuejia/datay"
+            target="_blank"
+            rel="noopener"
+            >Gitee</a
+          >
+          <a
+            href="https://cnb.cool/yuyuejia/datay"
+            target="_blank"
+            rel="noopener"
+            >CNB</a
+          >
+          <a
+            href="https://github.com/yuyuejia/datay/issues"
+            target="_blank"
+            rel="noopener"
+            >问题反馈</a
+          >
+          <a
+            href="http://datay-demo.yuyuejia.com.cn/"
+            target="_blank"
+            rel="noopener"
+            >在线演示</a
+          >
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var toggle = document.getElementById("navToggle");
+        var nav = document.getElementById("nav");
+        if (toggle && nav) {
+          toggle.addEventListener("click", function () {
+            nav.classList.toggle("open");
+          });
+          nav.addEventListener("click", function (e) {
+            if (e.target.tagName === "A") {
+              nav.classList.remove("open");
+            }
+          });
+        }
+
+        var filters = document.getElementById("marketFilters");
+        var searchInput = document.getElementById("marketSearch");
+        var cards = Array.prototype.slice.call(
+          document.querySelectorAll(".template-card"),
+        );
+        var groups = Array.prototype.slice.call(
+          document.querySelectorAll(".template-group"),
+        );
+        var result = document.getElementById("marketResult");
+        var empty = document.getElementById("marketEmpty");
+        var activeFilter = "all";
+
+        function applyFilter() {
+          var keyword = (
+            searchInput && searchInput.value ? searchInput.value : ""
+          )
+            .trim()
+            .toLowerCase();
+          var visible = 0;
+
+          cards.forEach(function (card) {
+            var categoryMatch =
+              activeFilter === "all" ||
+              card.getAttribute("data-category") === activeFilter;
+            var text = (
+              card.getAttribute("data-name") +
+              " " +
+              (card.getAttribute("data-keywords") || "") +
+              " " +
+              card.textContent
+            ).toLowerCase();
+            var keywordMatch = !keyword || text.indexOf(keyword) !== -1;
+            var show = categoryMatch && keywordMatch;
+            card.style.display = show ? "" : "none";
+            if (show) {
+              visible++;
+            }
+          });
+
+          groups.forEach(function (group) {
+            var hasVisible =
+              group.querySelectorAll(
+                '.template-card:not([style*="display: none"])',
+              ).length > 0;
+            group.style.display = hasVisible ? "" : "none";
+          });
+
+          if (result) {
+            result.textContent = "共 " + visible + " 个模板";
+          }
+          if (empty) {
+            empty.style.display = visible === 0 ? "block" : "none";
+          }
+        }
+
+        if (filters) {
+          filters.addEventListener("click", function (event) {
+            var chip = event.target.closest(".filter-chip");
+            if (!chip) {
+              return;
+            }
+            activeFilter = chip.getAttribute("data-filter");
+            Array.prototype.forEach.call(
+              filters.querySelectorAll(".filter-chip"),
+              function (item) {
+                item.classList.toggle("active", item === chip);
+              },
+            );
+            applyFilter();
+          });
+        }
+
+        if (searchInput) {
+          searchInput.addEventListener("input", applyFilter);
+        }
+
+        applyFilter();
+      })();
+    </script>
+  </body>
+</html>

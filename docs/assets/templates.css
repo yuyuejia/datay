@@ -1,0 +1,496 @@
+/* 集成模板市场页面样式（依赖 assets/style.css 中的基础变量与组件） */
+
+.nav .nav-active {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.market-hero {
+  position: relative;
+  padding: 68px 0 44px;
+  background:
+    radial-gradient(
+      1000px 420px at 12% -12%,
+      #e5edff 0%,
+      rgba(229, 237, 255, 0) 62%
+    ),
+    linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+  overflow: hidden;
+}
+
+.market-hero-inner {
+  max-width: 820px;
+}
+
+.market-hero h1 {
+  font-size: 42px;
+  line-height: 1.2;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+
+.market-hero .lead {
+  max-width: 720px;
+  margin: 0 0 26px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.market-hero .lead strong {
+  color: var(--ink);
+}
+
+.market-hero .hero-badges {
+  margin-top: 22px;
+}
+
+/* 使用步骤 */
+.usage-section {
+  padding: 52px 0 8px;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.usage-step {
+  position: relative;
+  padding: 24px 22px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(20, 40, 90, 0.04);
+}
+
+.usage-step__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: rgba(47, 107, 255, 0.1);
+  color: var(--brand-dark);
+  font-weight: 800;
+}
+
+.usage-step h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.usage-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.import-paths {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.import-path {
+  display: flex;
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px dashed rgba(47, 107, 255, 0.35);
+  border-radius: 14px;
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.import-path__icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--brand-dark);
+  box-shadow: 0 2px 8px rgba(20, 40, 90, 0.08);
+}
+
+.import-path h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.import-path p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.import-path code {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--brand-dark);
+  font-size: 13px;
+}
+
+/* 工具栏 */
+.market-section {
+  padding: 46px 0 76px;
+}
+
+.market-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.market-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.filter-chip:hover {
+  border-color: rgba(47, 107, 255, 0.4);
+  color: var(--brand);
+}
+
+.filter-chip.active {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(47, 107, 255, 0.24);
+}
+
+.filter-chip span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.market-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 340px;
+}
+
+.market-search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.market-search input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12);
+}
+
+.market-search svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  color: #9aa6b8;
+  pointer-events: none;
+}
+
+.market-result {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* 分组标题 */
+.template-group + .template-group {
+  margin-top: 44px;
+}
+
+.template-group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.template-group__head h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.template-group__head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* 卡片 */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(20, 40, 90, 0.04);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.template-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.template-card--app {
+  border-color: rgba(47, 107, 255, 0.3);
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 60%);
+}
+
+.template-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.template-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eaf0ff, #dbe6ff);
+  color: var(--brand-dark);
+}
+
+.template-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.template-card__title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.template-card__title h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.template-badge {
+  align-self: flex-start;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(47, 107, 255, 0.08);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.template-badge--app {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
+.template-desc {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.template-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.flow-node {
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--bg-alt);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.flow-node--accent {
+  background: rgba(47, 107, 255, 0.1);
+  color: var(--brand-dark);
+}
+
+.flow-arrow {
+  color: #9aa6b8;
+  font-size: 13px;
+}
+
+.template-meta {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-alt);
+  font-size: 13px;
+}
+
+.template-meta div {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 8px;
+}
+
+.template-meta dt {
+  color: #8a94a6;
+}
+
+.template-meta dd {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.template-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.template-card__actions .btn {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.template-import {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  color: #8a94a6;
+  font-size: 12px;
+}
+
+.template-import strong {
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.market-empty {
+  display: none;
+  padding: 48px 24px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* 底部提示 */
+.market-note {
+  margin-top: 44px;
+  padding: 22px 24px;
+  border-left: 3px solid var(--brand);
+  border-radius: 0 12px 12px 0;
+  background: rgba(47, 107, 255, 0.05);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.market-note strong {
+  color: var(--ink);
+}
+
+@media (max-width: 1080px) {
+  .template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .usage-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .import-paths {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .market-hero {
+    padding: 48px 0 36px;
+  }
+
+  .market-hero h1 {
+    font-size: 30px;
+  }
+
+  .market-hero .lead {
+    font-size: 16px;
+  }
+
+  .usage-grid,
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-toolbar {
+    align-items: stretch;
+  }
+
+  .market-search {
+    max-width: none;
+  }
+
+  .template-card {
+    padding: 20px;
+  }
+}

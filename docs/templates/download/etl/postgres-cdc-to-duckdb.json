@@ -1,0 +1,78 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "PostgreSQL CDC 实时同步到 DuckDB",
+    "taskCode": "tmpl_postgres_cdc_to_duckdb",
+    "taskDesc": "基于逻辑复制捕获 PostgreSQL 变更并写入 DuckDB。前置要求：wal_level=logical，采集账号具备 REPLICATION 权限。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "采集 PostgreSQL 变更",
+        "code": "n1",
+        "desc": "通过逻辑复制采集 public.orders 的增量变更",
+        "type": "PostgresCDCInput",
+        "config": {
+          "sourceId": "tmpl-pg-source",
+          "schema": "public",
+          "tableNamePattern": "orders",
+          "publicationName": "datay_pub_orders",
+          "slotName": "datay_slot_orders",
+          "snapshot": true,
+          "snapshotFetchSize": 10000
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 DuckDB 数仓",
+        "code": "n2",
+        "desc": "写入模板-DuckDB数仓 main 下与上游同名的表，模式 auto",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "tmpl-duckdb-dw",
+          "schema": "main",
+          "table": "",
+          "model": "auto"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-pg-source",
+        "name": "模板-PostgreSQL源库",
+        "type": "POSTGRESQL",
+        "url": "jdbc:postgresql://127.0.0.1:5432/demo"
+      },
+      {
+        "oldId": "tmpl-duckdb-dw",
+        "name": "模板-DuckDB数仓",
+        "type": "DUCKDB",
+        "url": "jdbc:duckdb:./data/template_dw.duckdb"
+      }
+    ],
+    "models": []
+  }
+}

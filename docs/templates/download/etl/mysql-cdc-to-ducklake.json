@@ -1,0 +1,80 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "MySQL CDC 实时同步到 DuckLake",
+    "taskCode": "tmpl_mysql_cdc_to_ducklake",
+    "taskDesc": "通过 Binlog 捕获 MySQL 变更并实时写入 DuckLake。适合实时入湖场景；导入后配置好 DuckLake 数据源和 S3 参数。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "采集 MySQL Binlog",
+        "code": "n1",
+        "desc": "采集 source 库 orders 表的增量变更",
+        "type": "MySQLBinlogInput",
+        "config": {
+          "sourceId": "tmpl-mysql-source",
+          "schema": "source",
+          "databaseNamePattern": "source",
+          "tableNamePattern": "orders",
+          "serverId": 1003,
+          "snapshot": true,
+          "snapshotFetchSize": 10000,
+          "reconnectMaxAttempts": 5,
+          "reconnectIntervalMs": 3000
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 DuckLake",
+        "code": "n2",
+        "desc": "写入模板-DuckLake main.orders，模式 auto",
+        "type": "DuckLakeWrite",
+        "config": {
+          "sourceId": "tmpl-ducklake",
+          "schema": "main",
+          "table": "orders",
+          "model": "auto"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-source",
+        "name": "模板-MySQL源库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/source?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      },
+      {
+        "oldId": "tmpl-ducklake",
+        "name": "模板-DuckLake",
+        "type": "DUCKLAKE",
+        "url": "ducklake:./data/template_lake.ducklake"
+      }
+    ],
+    "models": []
+  }
+}

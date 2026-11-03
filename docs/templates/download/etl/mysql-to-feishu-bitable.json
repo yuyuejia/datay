@@ -1,0 +1,72 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "MySQL 同步到飞书多维表格",
+    "taskCode": "tmpl_mysql_to_feishu_bitable",
+    "taskDesc": "从 MySQL 读取数据并批量写入飞书多维表格。导入后填写飞书应用凭证和表格标识，并确保应用已添加为多维表格协作者。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "读取 MySQL 数据",
+        "code": "n1",
+        "desc": "从模板-MySQL源库 source.user 读取数据",
+        "type": "StreamJdbcInput",
+        "config": {
+          "sourceId": "tmpl-mysql-source",
+          "schema": "source",
+          "table": "user"
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入飞书多维表格",
+        "code": "n2",
+        "desc": "按 record_id 新增或更新飞书多维表格记录",
+        "type": "FeishuBitableOutput",
+        "config": {
+          "appId": "cli_xxxxxxxxxxxxxxxx",
+          "appSecret": "",
+          "appToken": "bas_xxxxxxxxxxxxxxxx",
+          "tableId": "tblxxxxxxxxxxxxxxxx",
+          "batchSize": 500,
+          "recordIdField": "record_id",
+          "excludeFields": "",
+          "baseUrl": "https://open.feishu.cn"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-source",
+        "name": "模板-MySQL源库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/source?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}

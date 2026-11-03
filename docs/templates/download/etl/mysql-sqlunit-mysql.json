@@ -1,0 +1,94 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "MySQL 经 DuckDB SQL 处理后写入 MySQL",
+    "taskCode": "tmpl_mysql_sqlunit_to_mysql",
+    "taskDesc": "在同步链路中插入 StreamSqlUnit，用 DuckDB SQL 完成清洗、字段转换和过滤，再写入 MySQL。适合数据标准化、脱敏前处理和轻量聚合场景。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "读取原始数据",
+        "code": "n1",
+        "desc": "从模板-MySQL源库 source.raw_data 读取数据",
+        "type": "StreamJdbcInput",
+        "config": {
+          "sourceId": "tmpl-mysql-source",
+          "schema": "source",
+          "table": "raw_data"
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "SQL 清洗转换",
+        "code": "n2",
+        "desc": "在 DuckDB 临时表 input_table 上执行清洗 SQL",
+        "type": "StreamSqlUnit",
+        "config": {
+          "sql": "SELECT id, TRIM(name) AS clean_name, COALESCE(email, 'unknown') AS email, CAST(age AS INTEGER) AS age_int FROM input_table WHERE age IS NOT NULL AND age <> ''"
+        },
+        "xAxis": "420",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入清洗结果",
+        "code": "n2",
+        "desc": "写入模板-MySQL目标库 target.clean_data，模式 append",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "tmpl-mysql-target",
+          "schema": "target",
+          "table": "clean_data",
+          "model": "append"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      },
+      {
+        "name": "",
+        "code": "e2",
+        "source": "n2",
+        "target": "n3",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-source",
+        "name": "模板-MySQL源库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/source?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      },
+      {
+        "oldId": "tmpl-mysql-target",
+        "name": "模板-MySQL目标库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/target?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}

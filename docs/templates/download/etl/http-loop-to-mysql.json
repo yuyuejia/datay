@@ -1,0 +1,132 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "HTTP 接口分页循环同步到 MySQL",
+    "taskCode": "tmpl_http_loop_to_mysql",
+    "taskDesc": "先调用接口获取总页数，再生成页码序列逐页调用分页接口，最后写入 MySQL。导入后替换接口地址、请求头、分页字段路径和目标表。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "获取总页数",
+        "code": "n1",
+        "desc": "调用接口并从响应中取 totalPages",
+        "type": "HttpInvoke",
+        "config": {
+          "url": "https://api.example.com/records",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": "{}",
+          "timeout": 30000,
+          "retryCount": 1,
+          "retryInterval": 1000,
+          "sslVerify": false,
+          "paginationEnabled": false,
+          "dataPath": "$.totalPages"
+        },
+        "xAxis": "100",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "生成页码序列",
+        "code": "n2",
+        "desc": "按总页数生成 1..N 的页码序列",
+        "type": "GenerateSequenceNumber",
+        "config": {
+          "mode": "SEQUENCE",
+          "startValue": "1",
+          "countValue": "${FLOW_FILE_DATA}",
+          "length": 0,
+          "dataFormat": "TEXT"
+        },
+        "xAxis": "380",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "按页码获取数据",
+        "code": "n3",
+        "desc": "用页码序列逐页调用接口",
+        "type": "HttpInvoke",
+        "config": {
+          "url": "https://api.example.com/records?page=${FLOW_FILE_DATA}",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": "{}",
+          "timeout": 30000,
+          "retryCount": 1,
+          "retryInterval": 1000,
+          "sslVerify": false,
+          "paginationEnabled": false,
+          "dataPath": "$.data"
+        },
+        "xAxis": "660",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 MySQL",
+        "code": "n2",
+        "desc": "写入模板-MySQL目标库 target.api_records，模式 overwrite",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "tmpl-mysql-target",
+          "schema": "target",
+          "table": "api_records",
+          "model": "overwrite"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      },
+      {
+        "name": "",
+        "code": "e2",
+        "source": "n2",
+        "target": "n3",
+        "config": null,
+        "status": "0"
+      },
+      {
+        "name": "",
+        "code": "e3",
+        "source": "n3",
+        "target": "n4",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-target",
+        "name": "模板-MySQL目标库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/target?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}

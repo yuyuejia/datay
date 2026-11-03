@@ -1,0 +1,78 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "PostgreSQL CDC 实时同步到 DuckLake",
+    "taskCode": "tmpl_postgres_cdc_to_ducklake",
+    "taskDesc": "基于逻辑复制捕获 PostgreSQL 变更并实时入湖。适合 PostgreSQL 业务库到 DuckLake 的实时同步。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "采集 PostgreSQL 变更",
+        "code": "n1",
+        "desc": "通过逻辑复制采集 public.orders 的增量变更",
+        "type": "PostgresCDCInput",
+        "config": {
+          "sourceId": "tmpl-pg-source",
+          "schema": "public",
+          "tableNamePattern": "orders",
+          "publicationName": "datay_pub_orders_lake",
+          "slotName": "datay_slot_orders_lake",
+          "snapshot": true,
+          "snapshotFetchSize": 10000
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 DuckLake",
+        "code": "n2",
+        "desc": "写入模板-DuckLake main.orders，模式 auto",
+        "type": "DuckLakeWrite",
+        "config": {
+          "sourceId": "tmpl-ducklake",
+          "schema": "main",
+          "table": "orders",
+          "model": "auto"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-pg-source",
+        "name": "模板-PostgreSQL源库",
+        "type": "POSTGRESQL",
+        "url": "jdbc:postgresql://127.0.0.1:5432/demo"
+      },
+      {
+        "oldId": "tmpl-ducklake",
+        "name": "模板-DuckLake",
+        "type": "DUCKLAKE",
+        "url": "ducklake:./data/template_lake.ducklake"
+      }
+    ],
+    "models": []
+  }
+}

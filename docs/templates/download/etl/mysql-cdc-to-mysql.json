@@ -1,0 +1,80 @@
+{
+  "format": "datay-etl-task",
+  "version": "1.0",
+  "task": {
+    "taskName": "MySQL CDC 实时同步到 MySQL",
+    "taskCode": "tmpl_mysql_cdc_to_mysql",
+    "taskDesc": "通过 Binlog 实时捕获 MySQL 变更并写入 MySQL 目标库。前置要求：MySQL 开启 binlog_format=ROW，采集账号具备 REPLICATION 权限。",
+    "dir": "/集成模板",
+    "type": "ETL",
+    "cron": "",
+    "retryCount": 0,
+    "timeoutSeconds": 0,
+    "priority": 2,
+    "project": "template",
+    "nodes": [
+      {
+        "label": "采集 MySQL Binlog",
+        "code": "n1",
+        "desc": "采集 source 库 orders 表的增量变更，首次运行先做全量快照",
+        "type": "MySQLBinlogInput",
+        "config": {
+          "sourceId": "tmpl-mysql-source",
+          "schema": "source",
+          "databaseNamePattern": "source",
+          "tableNamePattern": "orders",
+          "serverId": 1001,
+          "snapshot": true,
+          "snapshotFetchSize": 10000,
+          "reconnectMaxAttempts": 5,
+          "reconnectIntervalMs": 3000
+        },
+        "xAxis": "120",
+        "yAxis": "160",
+        "status": "0"
+      },
+      {
+        "label": "写入 MySQL 目标库",
+        "code": "n2",
+        "desc": "写入模板-MySQL目标库 target 下与上游同名的表，模式 auto",
+        "type": "StreamJdbcOutput",
+        "config": {
+          "sourceId": "tmpl-mysql-target",
+          "schema": "target",
+          "table": "",
+          "model": "auto"
+        },
+        "xAxis": "560",
+        "yAxis": "160",
+        "status": "0"
+      }
+    ],
+    "edges": [
+      {
+        "name": "",
+        "code": "e1",
+        "source": "n1",
+        "target": "n2",
+        "config": null,
+        "status": "0"
+      }
+    ]
+  },
+  "references": {
+    "dataSources": [
+      {
+        "oldId": "tmpl-mysql-source",
+        "name": "模板-MySQL源库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/source?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      },
+      {
+        "oldId": "tmpl-mysql-target",
+        "name": "模板-MySQL目标库",
+        "type": "MYSQL",
+        "url": "jdbc:mysql://127.0.0.1:3306/target?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      }
+    ],
+    "models": []
+  }
+}

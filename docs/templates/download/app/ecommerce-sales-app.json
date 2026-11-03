@@ -1,0 +1,1754 @@
+{
+  "packageFormat": "datay-app-package",
+  "formatVersion": "1.0",
+  "meta": {
+    "name": "电商销售分析应用",
+    "code": "ecommerce_sales_app",
+    "description": "面向零售电商的完整业务场景资产包：业务源库（DuckDB 模拟 ODS）→ ETL 同步 → 数仓维度建模（日期时间维度、区域/商品分类层级维度、门店/商品/客户维度与销售订单明细事实表）→ 12 个销售指标（含「有效销售额」业务限定演示）→ DWS 门店日销售汇总与 ADS 品类销售排行汇总层，并由统一日更编排任务串起「初始化 ODS → 6 个维度同步 → 订单事实同步 → 日汇总 → 品类排行」全链路。",
+    "category": "零售电商",
+    "version": "1.0.0",
+    "source": "SYSTEM"
+  },
+  "dataSources": [
+    {
+      "oldId": 1601,
+      "key": "电商业务库(DuckDB)|DUCKDB|jdbc:duckdb:./data/ecommerce_ods.duckdb",
+      "name": "电商业务库(DuckDB)",
+      "description": "零售电商业务源库（模拟 ODS 贴源层），含 ods_date / ods_region / ods_category / ods_store / ods_product / ods_customer / ods_order_item 七张样例表，由 SQL 任务 ec_ods_init 生成。",
+      "type": "DUCKDB",
+      "url": "jdbc:duckdb:./data/ecommerce_ods.duckdb",
+      "hostname": "",
+      "port": "",
+      "schemaName": "main",
+      "database": null,
+      "username": "",
+      "password": "",
+      "connectionMode": null,
+      "extraParams": {}
+    },
+    {
+      "oldId": 1600,
+      "key": "电商数仓(DuckDB)|DUCKDB|jdbc:duckdb:./data/ecommerce.duckdb",
+      "name": "电商数仓(DuckDB)",
+      "description": "零售电商本地数仓：维度表、事实表与汇总表都落在 main schema，由 ETL 任务与 SQL 任务写入。",
+      "type": "DUCKDB",
+      "url": "jdbc:duckdb:./data/ecommerce.duckdb",
+      "hostname": "",
+      "port": "",
+      "schemaName": "main",
+      "database": null,
+      "username": "",
+      "password": "",
+      "connectionMode": null,
+      "extraParams": {}
+    }
+  ],
+  "modelDirectories": [
+    {
+      "oldId": 1000,
+      "name": "01-DIM 维度层",
+      "parentOldId": null,
+      "sortOrder": 1
+    },
+    {
+      "oldId": 1001,
+      "name": "02-FACT 事实层",
+      "parentOldId": null,
+      "sortOrder": 2
+    },
+    {
+      "oldId": 1002,
+      "name": "公共维度",
+      "parentOldId": 1000,
+      "sortOrder": 1
+    },
+    {
+      "oldId": 1003,
+      "name": "商品维度",
+      "parentOldId": 1000,
+      "sortOrder": 2
+    },
+    {
+      "oldId": 1006,
+      "name": "门店区域",
+      "parentOldId": 1000,
+      "sortOrder": 3
+    },
+    {
+      "oldId": 1004,
+      "name": "销售域",
+      "parentOldId": 1001,
+      "sortOrder": 1
+    },
+    {
+      "oldId": 1005,
+      "name": "汇总层",
+      "parentOldId": 1001,
+      "sortOrder": 2
+    }
+  ],
+  "models": [
+    {
+      "oldId": 3000,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1002,
+      "name": "日期维度",
+      "code": "dim_date",
+      "description": "时间维度，粒度为 年/季/月/日，覆盖 2024-01-01 ~ 2026-12-31；date_key 为 yyyyMMdd 整数，供事实表时间外键关联。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "TIME",
+      "timeLevels": "YEAR,QUARTER,MONTH,DAY",
+      "timeStart": "2024-01-01",
+      "timeEnd": "2026-12-31",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_date",
+      "displayFieldName": "month_name",
+      "fields": [
+        {
+          "oldId": 4000,
+          "fieldName": "year_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "年ID，如 2025",
+          "sortOrder": 1,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4001,
+          "fieldName": "year_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "年名称，如 2025年",
+          "sortOrder": 2,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4002,
+          "fieldName": "quarter_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "季度ID，如 2025Q1",
+          "sortOrder": 3,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4003,
+          "fieldName": "quarter_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "季度名称，如 2025年Q1",
+          "sortOrder": 4,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4004,
+          "fieldName": "month_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "月ID，如 202501",
+          "sortOrder": 5,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4005,
+          "fieldName": "month_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "月名称，如 2025-01（维度默认展示字段）",
+          "sortOrder": 6,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4006,
+          "fieldName": "day_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "日ID，如 20250115",
+          "sortOrder": 7,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 4
+        },
+        {
+          "oldId": 4007,
+          "fieldName": "day_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "日名称，如 2025-01-15",
+          "sortOrder": 8,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 4
+        },
+        {
+          "oldId": 4008,
+          "fieldName": "date_key",
+          "fieldType": "BIGINT",
+          "description": "日期主键（yyyyMMdd），事实表时间外键与之同类型",
+          "sortOrder": 9,
+          "isPrimaryKey": true,
+          "fieldRole": "MEMBER_ID"
+        },
+        {
+          "oldId": 4009,
+          "fieldName": "hierarchy",
+          "fieldType": "VARCHAR",
+          "fieldLength": 500,
+          "description": "层级路径：年/季/月/日",
+          "sortOrder": 10,
+          "fieldRole": "HIERARCHY"
+        }
+      ]
+    },
+    {
+      "oldId": 3001,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1006,
+      "name": "区域维度",
+      "code": "dim_region",
+      "description": "三级层级维度：大区 / 省 / 城市，末级成员为城市，成员键 member_id 用于事实表区域外键关联。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "HIERARCHY",
+      "levelCount": 3,
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_region",
+      "displayFieldName": "member_name",
+      "fields": [
+        {
+          "oldId": 4100,
+          "fieldName": "region_manager",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "大区负责人",
+          "sortOrder": 1
+        },
+        {
+          "oldId": 4101,
+          "fieldName": "level1_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "大区ID",
+          "sortOrder": 2,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4102,
+          "fieldName": "level1_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "大区名称",
+          "sortOrder": 3,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4103,
+          "fieldName": "level2_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "省ID",
+          "sortOrder": 4,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4104,
+          "fieldName": "level2_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "省名称",
+          "sortOrder": 5,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4105,
+          "fieldName": "level3_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "城市ID",
+          "sortOrder": 6,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4106,
+          "fieldName": "level3_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "城市名称",
+          "sortOrder": 7,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4107,
+          "fieldName": "member_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "末级成员ID（城市ID）",
+          "sortOrder": 8,
+          "isPrimaryKey": true,
+          "fieldRole": "MEMBER_ID"
+        },
+        {
+          "oldId": 4108,
+          "fieldName": "member_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "末级成员名称（城市名称）",
+          "sortOrder": 9,
+          "fieldRole": "MEMBER_NAME"
+        },
+        {
+          "oldId": 4109,
+          "fieldName": "hierarchy",
+          "fieldType": "VARCHAR",
+          "fieldLength": 500,
+          "description": "层级路径：大区/省/城市",
+          "sortOrder": 10,
+          "fieldRole": "HIERARCHY"
+        }
+      ]
+    },
+    {
+      "oldId": 3002,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1003,
+      "name": "商品分类维度",
+      "code": "dim_category",
+      "description": "三级层级维度：一级分类 / 二级分类 / 三级分类，末级成员为三级分类，供品类销售排行分析。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "HIERARCHY",
+      "levelCount": 3,
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_category",
+      "displayFieldName": "member_name",
+      "fields": [
+        {
+          "oldId": 4150,
+          "fieldName": "level1_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "一级分类ID",
+          "sortOrder": 1,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4151,
+          "fieldName": "level1_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "一级分类名称",
+          "sortOrder": 2,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 1
+        },
+        {
+          "oldId": 4152,
+          "fieldName": "level2_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "二级分类ID",
+          "sortOrder": 3,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4153,
+          "fieldName": "level2_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "二级分类名称",
+          "sortOrder": 4,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 2
+        },
+        {
+          "oldId": 4154,
+          "fieldName": "level3_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "三级分类ID",
+          "sortOrder": 5,
+          "fieldRole": "LEVEL_ID",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4155,
+          "fieldName": "level3_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "三级分类名称",
+          "sortOrder": 6,
+          "fieldRole": "LEVEL_NAME",
+          "levelIndex": 3
+        },
+        {
+          "oldId": 4156,
+          "fieldName": "member_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "末级成员ID（三级分类ID）",
+          "sortOrder": 7,
+          "isPrimaryKey": true,
+          "fieldRole": "MEMBER_ID"
+        },
+        {
+          "oldId": 4157,
+          "fieldName": "member_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "末级成员名称（三级分类名称）",
+          "sortOrder": 8,
+          "fieldRole": "MEMBER_NAME"
+        },
+        {
+          "oldId": 4158,
+          "fieldName": "hierarchy",
+          "fieldType": "VARCHAR",
+          "fieldLength": 500,
+          "description": "层级路径：一级/二级/三级分类",
+          "sortOrder": 9,
+          "fieldRole": "HIERARCHY"
+        }
+      ]
+    },
+    {
+      "oldId": 3003,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1006,
+      "name": "门店维度",
+      "code": "dim_store",
+      "description": "零售门店主数据，含门店类型、所在城市、所属区域（region_key 关联区域维度）。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "NORMAL",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_store",
+      "displayFieldName": "store_name",
+      "fields": [
+        {
+          "oldId": 4200,
+          "fieldName": "store_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "门店ID（成员主键）",
+          "sortOrder": 1,
+          "isPrimaryKey": true
+        },
+        {
+          "oldId": 4201,
+          "fieldName": "store_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 128,
+          "description": "门店名称（默认展示字段）",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4202,
+          "fieldName": "store_type",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "门店类型：旗舰店/标准店/社区店",
+          "sortOrder": 3
+        },
+        {
+          "oldId": 4203,
+          "fieldName": "city",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "所在城市",
+          "sortOrder": 4
+        },
+        {
+          "oldId": 4204,
+          "fieldName": "region_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "所属城市区域键，对应 dim_region.member_id",
+          "sortOrder": 5
+        },
+        {
+          "oldId": 4205,
+          "fieldName": "open_date",
+          "fieldType": "DATE",
+          "description": "开业日期",
+          "sortOrder": 6
+        }
+      ]
+    },
+    {
+      "oldId": 3004,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1003,
+      "name": "商品维度",
+      "code": "dim_product",
+      "description": "商品主数据，含品牌、标准单价与所属三级分类（category_key 关联商品分类维度）。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "NORMAL",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_product",
+      "displayFieldName": "product_name",
+      "fields": [
+        {
+          "oldId": 4210,
+          "fieldName": "product_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "商品ID（成员主键）",
+          "sortOrder": 1,
+          "isPrimaryKey": true
+        },
+        {
+          "oldId": 4211,
+          "fieldName": "product_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 128,
+          "description": "商品名称（默认展示字段）",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4212,
+          "fieldName": "category_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "三级分类键，对应 dim_category.member_id",
+          "sortOrder": 3
+        },
+        {
+          "oldId": 4213,
+          "fieldName": "brand",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "品牌",
+          "sortOrder": 4
+        },
+        {
+          "oldId": 4214,
+          "fieldName": "unit_price",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "标准单价（元）",
+          "sortOrder": 5
+        },
+        {
+          "oldId": 4215,
+          "fieldName": "product_status",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "商品状态：ON_SALE/OFF_SALE",
+          "sortOrder": 6
+        }
+      ]
+    },
+    {
+      "oldId": 3005,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1002,
+      "name": "客户维度",
+      "code": "dim_customer",
+      "description": "电商客户主数据，含性别、年龄、会员等级与常驻城市。",
+      "modelType": "DIMENSION",
+      "dimensionKind": "NORMAL",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dim_customer",
+      "displayFieldName": "customer_name",
+      "fields": [
+        {
+          "oldId": 4220,
+          "fieldName": "customer_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "客户ID（成员主键）",
+          "sortOrder": 1,
+          "isPrimaryKey": true
+        },
+        {
+          "oldId": 4221,
+          "fieldName": "customer_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 128,
+          "description": "客户名称（默认展示字段）",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4222,
+          "fieldName": "gender",
+          "fieldType": "VARCHAR",
+          "fieldLength": 8,
+          "description": "性别",
+          "sortOrder": 3
+        },
+        {
+          "oldId": 4223,
+          "fieldName": "age",
+          "fieldType": "INTEGER",
+          "description": "年龄",
+          "sortOrder": 4
+        },
+        {
+          "oldId": 4224,
+          "fieldName": "member_level",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "会员等级：普通/银牌/金牌/钻石",
+          "sortOrder": 5
+        },
+        {
+          "oldId": 4225,
+          "fieldName": "register_date",
+          "fieldType": "DATE",
+          "description": "注册日期",
+          "sortOrder": 6
+        },
+        {
+          "oldId": 4226,
+          "fieldName": "city",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "常驻城市",
+          "sortOrder": 7
+        }
+      ]
+    },
+    {
+      "oldId": 3100,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1004,
+      "name": "销售订单明细事实表",
+      "code": "fact_sales_order",
+      "description": "DWD 销售明细事实表，一行一个订单明细行；时间外键 order_date_key 为 yyyyMMdd（BIGINT），并关联区域/品类/门店/商品/客户维度，度量含件数、成交金额、成本与优惠。",
+      "modelType": "DWD",
+      "timeFieldName": "order_date_key",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "fact_sales_order",
+      "fields": [
+        {
+          "oldId": 4300,
+          "fieldName": "order_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "订单号",
+          "sortOrder": 1
+        },
+        {
+          "oldId": 4301,
+          "fieldName": "order_item_id",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "订单明细行号",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4302,
+          "fieldName": "order_date_key",
+          "fieldType": "BIGINT",
+          "description": "下单日期键（yyyyMMdd），关联 dim_date.date_key",
+          "sortOrder": 3,
+          "dimensionModelOldId": 3000,
+          "dimensionFieldOldId": 4005
+        },
+        {
+          "oldId": 4303,
+          "fieldName": "store_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "门店键，关联 dim_store.store_id",
+          "sortOrder": 4,
+          "dimensionModelOldId": 3003,
+          "dimensionFieldOldId": 4201
+        },
+        {
+          "oldId": 4304,
+          "fieldName": "region_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "区域键（由门店冗余），关联 dim_region.member_id",
+          "sortOrder": 5,
+          "dimensionModelOldId": 3001,
+          "dimensionFieldOldId": 4108
+        },
+        {
+          "oldId": 4305,
+          "fieldName": "category_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "三级分类键（由商品冗余），关联 dim_category.member_id",
+          "sortOrder": 6,
+          "dimensionModelOldId": 3002,
+          "dimensionFieldOldId": 4157
+        },
+        {
+          "oldId": 4306,
+          "fieldName": "product_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "商品键，关联 dim_product.product_id",
+          "sortOrder": 7,
+          "dimensionModelOldId": 3004,
+          "dimensionFieldOldId": 4211
+        },
+        {
+          "oldId": 4307,
+          "fieldName": "customer_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "客户键，关联 dim_customer.customer_id",
+          "sortOrder": 8,
+          "dimensionModelOldId": 3005,
+          "dimensionFieldOldId": 4221
+        },
+        {
+          "oldId": 4308,
+          "fieldName": "order_status",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "订单状态：PAID 已支付 / UNPAID 未支付 / REFUND 已退款",
+          "sortOrder": 9
+        },
+        {
+          "oldId": 4309,
+          "fieldName": "quantity",
+          "fieldType": "LONG",
+          "description": "销售件数",
+          "sortOrder": 10
+        },
+        {
+          "oldId": 4310,
+          "fieldName": "order_amount",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "成交金额（已扣优惠，元）",
+          "sortOrder": 11
+        },
+        {
+          "oldId": 4311,
+          "fieldName": "cost_amount",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "成本金额（元）",
+          "sortOrder": 12
+        },
+        {
+          "oldId": 4312,
+          "fieldName": "discount_amount",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "优惠金额（元）",
+          "sortOrder": 13
+        }
+      ]
+    },
+    {
+      "oldId": 3200,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1005,
+      "name": "门店日销售汇总",
+      "code": "dws_sales_store_day",
+      "description": "DWS 汇总层：按统计日期 + 门店 + 区域汇总销售额、销量、订单数与毛利，物理表由 SQL 任务 ec_dws_store_day 生成。",
+      "modelType": "DWS",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "dws_sales_store_day",
+      "fields": [
+        {
+          "oldId": 4400,
+          "fieldName": "stat_date_key",
+          "fieldType": "BIGINT",
+          "description": "统计日期键（yyyyMMdd）",
+          "sortOrder": 1
+        },
+        {
+          "oldId": 4401,
+          "fieldName": "stat_date",
+          "fieldType": "VARCHAR",
+          "fieldLength": 32,
+          "description": "统计日期（yyyy-MM-dd）",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4402,
+          "fieldName": "store_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "门店ID",
+          "sortOrder": 3
+        },
+        {
+          "oldId": 4403,
+          "fieldName": "store_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 128,
+          "description": "门店名称",
+          "sortOrder": 4
+        },
+        {
+          "oldId": 4404,
+          "fieldName": "region_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "所属区域（城市）ID",
+          "sortOrder": 5
+        },
+        {
+          "oldId": 4405,
+          "fieldName": "region_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 128,
+          "description": "所属区域（城市）名称",
+          "sortOrder": 6
+        },
+        {
+          "oldId": 4406,
+          "fieldName": "sales_amount",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "销售额（元）",
+          "sortOrder": 7
+        },
+        {
+          "oldId": 4407,
+          "fieldName": "sales_quantity",
+          "fieldType": "LONG",
+          "description": "销量（件）",
+          "sortOrder": 8
+        },
+        {
+          "oldId": 4408,
+          "fieldName": "order_count",
+          "fieldType": "LONG",
+          "description": "订单数（去重订单号）",
+          "sortOrder": 9
+        },
+        {
+          "oldId": 4409,
+          "fieldName": "gross_profit",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "毛利（元）",
+          "sortOrder": 10
+        }
+      ]
+    },
+    {
+      "oldId": 3300,
+      "dataSourceOldId": 1600,
+      "directoryOldId": 1005,
+      "name": "品类销售排行",
+      "code": "ads_category_sales_rank",
+      "description": "ADS 汇总层：按三级分类（含一级/二级分类名称）汇总销售额、销量、毛利与订单数，并给出销售额名次，物理表由 SQL 任务 ec_ads_category_rank 生成。",
+      "modelType": "ADS",
+      "isRegistered": false,
+      "project": "retail",
+      "schemaName": "main",
+      "tableName": "ads_category_sales_rank",
+      "fields": [
+        {
+          "oldId": 4450,
+          "fieldName": "category_key",
+          "fieldType": "VARCHAR",
+          "fieldLength": 64,
+          "description": "三级分类ID",
+          "sortOrder": 1
+        },
+        {
+          "oldId": 4451,
+          "fieldName": "level1_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "一级分类名称",
+          "sortOrder": 2
+        },
+        {
+          "oldId": 4452,
+          "fieldName": "level2_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "二级分类名称",
+          "sortOrder": 3
+        },
+        {
+          "oldId": 4453,
+          "fieldName": "level3_name",
+          "fieldType": "VARCHAR",
+          "fieldLength": 255,
+          "description": "三级分类名称",
+          "sortOrder": 4
+        },
+        {
+          "oldId": 4454,
+          "fieldName": "sales_amount",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "销售额（元）",
+          "sortOrder": 5
+        },
+        {
+          "oldId": 4455,
+          "fieldName": "sales_quantity",
+          "fieldType": "LONG",
+          "description": "销量（件）",
+          "sortOrder": 6
+        },
+        {
+          "oldId": 4456,
+          "fieldName": "gross_profit",
+          "fieldType": "DECIMAL",
+          "fieldPrecision": 18,
+          "fieldScale": 2,
+          "description": "毛利（元）",
+          "sortOrder": 7
+        },
+        {
+          "oldId": 4457,
+          "fieldName": "order_count",
+          "fieldType": "LONG",
+          "description": "订单数（去重订单号）",
+          "sortOrder": 8
+        },
+        {
+          "oldId": 4458,
+          "fieldName": "rank_no",
+          "fieldType": "INTEGER",
+          "description": "销售额排行名次（1 为最高）",
+          "sortOrder": 9
+        }
+      ]
+    }
+  ],
+  "metricDirectories": [
+    {
+      "oldId": 2510,
+      "name": "销售指标",
+      "parentOldId": null,
+      "sortOrder": 1
+    }
+  ],
+  "metrics": [
+    {
+      "oldId": 2610,
+      "directoryOldId": 2510,
+      "name": "销售额",
+      "code": "sales_amount",
+      "description": "统计口径：全部订单明细的成交金额合计，含未支付与已退款订单（SUM(order_amount)）；如需剔除异常订单请使用「有效销售额」。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "SUM(order_amount)",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": true,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2611,
+      "directoryOldId": 2510,
+      "name": "销量",
+      "code": "sales_quantity",
+      "description": "统计口径：全部订单明细的销售件数合计（SUM(quantity)）。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "SUM(quantity)",
+      "unit": "件",
+      "dataType": "LONG",
+      "isAdditive": true,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2612,
+      "directoryOldId": 2510,
+      "name": "成本",
+      "code": "cost_amount",
+      "description": "统计口径：全部订单明细的销售成本合计（SUM(cost_amount)）。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "SUM(cost_amount)",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": true,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2613,
+      "directoryOldId": 2510,
+      "name": "毛利",
+      "code": "gross_profit",
+      "description": "统计口径：成交金额 - 成本金额，逐明细行相减后求和（SUM(order_amount - cost_amount)）。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "SUM(order_amount - cost_amount)",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": true,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2614,
+      "directoryOldId": 2510,
+      "name": "订单数",
+      "code": "order_count",
+      "description": "统计口径：按订单号去重计数（COUNT(DISTINCT order_id)），同一订单的多行明细只计一单。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "COUNT(DISTINCT order_id)",
+      "unit": "单",
+      "dataType": "LONG",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2615,
+      "directoryOldId": 2510,
+      "name": "客户数",
+      "code": "customer_count",
+      "description": "统计口径：按下单客户去重计数（COUNT(DISTINCT customer_key)）。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "COUNT(DISTINCT customer_key)",
+      "unit": "人",
+      "dataType": "LONG",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2616,
+      "directoryOldId": 2510,
+      "name": "有效销售额",
+      "code": "paid_sales_amount",
+      "description": "统计口径：仅统计已支付订单（order_status = PAID）的成交金额合计，通过业务限定排除未支付与已退款订单。",
+      "metricType": "ATOMIC",
+      "status": "ENABLED",
+      "factModelOldId": 3100,
+      "formula": "SUM(order_amount)",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": true,
+      "filterConfig": {
+        "conditions": [
+          {
+            "type": "FACT_FIELD",
+            "factFieldName": "order_status",
+            "operator": "EQ",
+            "value": "PAID",
+            "logic": "AND"
+          }
+        ]
+      }
+    },
+    {
+      "oldId": 2620,
+      "directoryOldId": 2510,
+      "name": "毛利率",
+      "code": "gross_profit_rate",
+      "description": "统计口径：毛利 / 销售额，反映整体盈利能力。",
+      "metricType": "DERIVED",
+      "status": "ENABLED",
+      "formula": "${gross_profit} / ${sales_amount}",
+      "unit": "%",
+      "dataType": "DECIMAL",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2621,
+      "directoryOldId": 2510,
+      "name": "客单价",
+      "code": "avg_order_amount",
+      "description": "统计口径：销售额 / 订单数，即平均每单成交金额。",
+      "metricType": "DERIVED",
+      "status": "ENABLED",
+      "formula": "${sales_amount} / ${order_count}",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2622,
+      "directoryOldId": 2510,
+      "name": "件单价",
+      "code": "avg_item_price",
+      "description": "统计口径：销售额 / 销量，即平均每件商品的成交金额。",
+      "metricType": "DERIVED",
+      "status": "ENABLED",
+      "formula": "${sales_amount} / ${sales_quantity}",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2623,
+      "directoryOldId": 2510,
+      "name": "单均毛利",
+      "code": "profit_per_order",
+      "description": "统计口径：毛利 / 订单数，即平均每单贡献的毛利。",
+      "metricType": "DERIVED",
+      "status": "ENABLED",
+      "formula": "${gross_profit} / ${order_count}",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": false,
+      "filterConfig": null
+    },
+    {
+      "oldId": 2624,
+      "directoryOldId": 2510,
+      "name": "客均消费",
+      "code": "sales_per_customer",
+      "description": "统计口径：销售额 / 客户数，即平均每位下单客户的消费金额。",
+      "metricType": "DERIVED",
+      "status": "ENABLED",
+      "formula": "${sales_amount} / ${customer_count}",
+      "unit": "元",
+      "dataType": "DECIMAL",
+      "isAdditive": false,
+      "filterConfig": null
+    }
+  ],
+  "etlTasks": [
+    {
+      "oldId": 6001,
+      "jobOldId": 7001,
+      "taskName": "同步日期维度",
+      "taskCode": "ec_etl_dim_date",
+      "taskDesc": "源库 main.ods_date → 数仓 main.dim_date（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6101,
+          "label": "读取日期维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_date"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6102,
+          "label": "写入日期维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3000,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6201,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6002,
+      "jobOldId": 7002,
+      "taskName": "同步区域维度",
+      "taskCode": "ec_etl_dim_region",
+      "taskDesc": "源库 main.ods_region → 数仓 main.dim_region（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6111,
+          "label": "读取区域维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_region"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6112,
+          "label": "写入区域维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3001,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6211,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6003,
+      "jobOldId": 7003,
+      "taskName": "同步商品分类维度",
+      "taskCode": "ec_etl_dim_category",
+      "taskDesc": "源库 main.ods_category → 数仓 main.dim_category（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6121,
+          "label": "读取商品分类维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_category"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6122,
+          "label": "写入商品分类维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3002,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6221,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6004,
+      "jobOldId": 7004,
+      "taskName": "同步门店维度",
+      "taskCode": "ec_etl_dim_store",
+      "taskDesc": "源库 main.ods_store → 数仓 main.dim_store（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6131,
+          "label": "读取门店维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_store"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6132,
+          "label": "写入门店维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3003,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6231,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6005,
+      "jobOldId": 7005,
+      "taskName": "同步商品维度",
+      "taskCode": "ec_etl_dim_product",
+      "taskDesc": "源库 main.ods_product → 数仓 main.dim_product（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6141,
+          "label": "读取商品维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_product"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6142,
+          "label": "写入商品维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3004,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6241,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6006,
+      "jobOldId": 7006,
+      "taskName": "同步客户维度",
+      "taskCode": "ec_etl_dim_customer",
+      "taskDesc": "源库 main.ods_customer → 数仓 main.dim_customer（全量覆盖写入）。",
+      "dir": "/零售电商/维度同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6151,
+          "label": "读取客户维度(源库)",
+          "code": "n1",
+          "desc": "",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "table": "ods_customer"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6152,
+          "label": "写入客户维度",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3005,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6251,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    },
+    {
+      "oldId": 6007,
+      "jobOldId": 7007,
+      "taskName": "同步销售订单事实",
+      "taskCode": "ec_etl_fact_sales_order",
+      "taskDesc": "自定义 SQL 抽取：源库 main.ods_order_item 关联 ods_product / ods_store 补齐品类键与区域键，写入数仓 main.fact_sales_order（全量覆盖写入）。",
+      "dir": "/零售电商/事实同步",
+      "type": "ETL",
+      "cron": "0 0 2 * * ?",
+      "project": "retail",
+      "nodes": [
+        {
+          "oldId": 6161,
+          "label": "自定义 SQL 抽取订单明细(源库)",
+          "code": "n1",
+          "desc": "关联商品与门店，补齐 category_key / region_key",
+          "type": "SqlInput",
+          "config": {
+            "sourceId": 1601,
+            "schema": "main",
+            "sql": "SELECT\n  i.order_id AS order_id,\n  i.order_item_id AS order_item_id,\n  i.order_date_key AS order_date_key,\n  i.store_key AS store_key,\n  s.region_key AS region_key,\n  p.category_key AS category_key,\n  i.product_key AS product_key,\n  i.customer_key AS customer_key,\n  i.order_status AS order_status,\n  i.quantity AS quantity,\n  i.order_amount AS order_amount,\n  i.cost_amount AS cost_amount,\n  i.discount_amount AS discount_amount\nFROM main.ods_order_item i\nLEFT JOIN main.ods_product p ON i.product_key = p.product_id\nLEFT JOIN main.ods_store s ON i.store_key = s.store_id"
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 6162,
+          "label": "写入销售订单明细事实表",
+          "code": "n2",
+          "desc": "",
+          "type": "ModelWrite",
+          "config": {
+            "modelId": 3100,
+            "model": "overwrite"
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 6261,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    }
+  ],
+  "sqlJobs": [
+    {
+      "oldId": 7010,
+      "jobName": "初始化电商业务源库样例数据（ec_ods_init）",
+      "jobGroup": "datafusion",
+      "type": "SQL",
+      "cron": "0 0 1 * * ?",
+      "jobContext": {
+        "dataSourceId": 1601,
+        "schema": "main",
+        "sql": "-- ec_ods_init 初始化业务源库（ODS 贴源层）样例数据\n-- 1) 日期贴源表：按天生成 2024-01-01 ~ 2026-12-31，列与 dim_date 模型字段完全一致\nCREATE OR REPLACE TABLE ods_date AS\nSELECT\n  CAST(strftime(d, '%Y') AS VARCHAR) AS year_id,\n  CAST(strftime(d, '%Y') || '年' AS VARCHAR) AS year_name,\n  CAST(strftime(d, '%Y') || 'Q' || CAST(quarter(d) AS VARCHAR) AS VARCHAR) AS quarter_id,\n  CAST(strftime(d, '%Y') || '年Q' || CAST(quarter(d) AS VARCHAR) AS VARCHAR) AS quarter_name,\n  CAST(strftime(d, '%Y%m') AS VARCHAR) AS month_id,\n  CAST(strftime(d, '%Y-%m') AS VARCHAR) AS month_name,\n  CAST(strftime(d, '%Y%m%d') AS VARCHAR) AS day_id,\n  CAST(strftime(d, '%Y-%m-%d') AS VARCHAR) AS day_name,\n  CAST(strftime(d, '%Y%m%d') AS BIGINT) AS date_key,\n  CAST(strftime(d, '%Y') || '年/' || strftime(d, '%Y') || '年Q' || CAST(quarter(d) AS VARCHAR) || '/' || strftime(d, '%Y-%m') || '/' || strftime(d, '%Y-%m-%d') AS VARCHAR) AS hierarchy\nFROM (SELECT UNNEST(generate_series(DATE '2024-01-01', DATE '2026-12-31', INTERVAL 1 DAY)) AS d) t;\n\n-- 2) 区域贴源表：3 个大区 x 3 个省/市 = 9 行，列与 dim_region 模型字段完全一致\nCREATE OR REPLACE TABLE ods_region AS\nSELECT\n  CAST(region_manager AS VARCHAR) AS region_manager,\n  CAST(level1_id AS VARCHAR) AS level1_id,\n  CAST(level1_name AS VARCHAR) AS level1_name,\n  CAST(level2_id AS VARCHAR) AS level2_id,\n  CAST(level2_name AS VARCHAR) AS level2_name,\n  CAST(level3_id AS VARCHAR) AS level3_id,\n  CAST(level3_name AS VARCHAR) AS level3_name,\n  CAST(member_id AS VARCHAR) AS member_id,\n  CAST(member_name AS VARCHAR) AS member_name,\n  CAST(hierarchy AS VARCHAR) AS hierarchy\nFROM (VALUES\n  ('陈明', 'R01', '华东大区', 'R0101', '江苏省', 'R010101', '南京市', 'R010101', '南京市', '华东大区/江苏省/南京市'),\n  ('陈明', 'R01', '华东大区', 'R0102', '浙江省', 'R010201', '杭州市', 'R010201', '杭州市', '华东大区/浙江省/杭州市'),\n  ('陈明', 'R01', '华东大区', 'R0103', '上海市', 'R010301', '上海市', 'R010301', '上海市', '华东大区/上海市/上海市'),\n  ('林伟', 'R02', '华南大区', 'R0201', '广东省', 'R020101', '广州市', 'R020101', '广州市', '华南大区/广东省/广州市'),\n  ('林伟', 'R02', '华南大区', 'R0202', '福建省', 'R020201', '厦门市', 'R020201', '厦门市', '华南大区/福建省/厦门市'),\n  ('林伟', 'R02', '华南大区', 'R0203', '广西壮族自治区', 'R020301', '南宁市', 'R020301', '南宁市', '华南大区/广西壮族自治区/南宁市'),\n  ('王强', 'R03', '华北大区', 'R0301', '北京市', 'R030101', '北京市', 'R030101', '北京市', '华北大区/北京市/北京市'),\n  ('王强', 'R03', '华北大区', 'R0302', '天津市', 'R030201', '天津市', 'R030201', '天津市', '华北大区/天津市/天津市'),\n  ('王强', 'R03', '华北大区', 'R0303', '河北省', 'R030301', '石家庄市', 'R030301', '石家庄市', '华北大区/河北省/石家庄市')\n) AS t(region_manager, level1_id, level1_name, level2_id, level2_name, level3_id, level3_name, member_id, member_name, hierarchy);\n\n-- 3) 商品分类贴源表：9 行三级分类，列与 dim_category 模型字段完全一致\nCREATE OR REPLACE TABLE ods_category AS\nSELECT\n  CAST(level1_id AS VARCHAR) AS level1_id,\n  CAST(level1_name AS VARCHAR) AS level1_name,\n  CAST(level2_id AS VARCHAR) AS level2_id,\n  CAST(level2_name AS VARCHAR) AS level2_name,\n  CAST(level3_id AS VARCHAR) AS level3_id,\n  CAST(level3_name AS VARCHAR) AS level3_name,\n  CAST(member_id AS VARCHAR) AS member_id,\n  CAST(member_name AS VARCHAR) AS member_name,\n  CAST(hierarchy AS VARCHAR) AS hierarchy\nFROM (VALUES\n  ('C01', '电子产品', 'C0101', '手机通讯', 'C010101', '智能手机', 'C010101', '智能手机', '电子产品/手机通讯/智能手机'),\n  ('C01', '电子产品', 'C0101', '手机通讯', 'C010102', '手机配件', 'C010102', '手机配件', '电子产品/手机通讯/手机配件'),\n  ('C01', '电子产品', 'C0102', '电脑办公', 'C010201', '笔记本电脑', 'C010201', '笔记本电脑', '电子产品/电脑办公/笔记本电脑'),\n  ('C02', '家居生活', 'C0201', '厨房用品', 'C020101', '锅具', 'C020101', '锅具', '家居生活/厨房用品/锅具'),\n  ('C02', '家居生活', 'C0201', '厨房用品', 'C020102', '水具', 'C020102', '水具', '家居生活/厨房用品/水具'),\n  ('C02', '家居生活', 'C0202', '家纺', 'C020201', '床上用品', 'C020201', '床上用品', '家居生活/家纺/床上用品'),\n  ('C03', '服饰鞋包', 'C0301', '男装', 'C030101', '衬衫', 'C030101', '衬衫', '服饰鞋包/男装/衬衫'),\n  ('C03', '服饰鞋包', 'C0301', '男装', 'C030102', '休闲裤', 'C030102', '休闲裤', '服饰鞋包/男装/休闲裤'),\n  ('C03', '服饰鞋包', 'C0302', '女装', 'C030201', '连衣裙', 'C030201', '连衣裙', '服饰鞋包/女装/连衣裙')\n) AS t(level1_id, level1_name, level2_id, level2_name, level3_id, level3_name, member_id, member_name, hierarchy);\n\n-- 4) 门店贴源表：6 家门店，region_key 指向区域维度末级成员\nCREATE OR REPLACE TABLE ods_store AS\nSELECT\n  CAST(store_id AS VARCHAR) AS store_id,\n  CAST(store_name AS VARCHAR) AS store_name,\n  CAST(store_type AS VARCHAR) AS store_type,\n  CAST(city AS VARCHAR) AS city,\n  CAST(region_key AS VARCHAR) AS region_key,\n  CAST(open_date AS DATE) AS open_date\nFROM (VALUES\n  ('ST01', '上海旗舰店', '旗舰店', '上海市', 'R010301', DATE '2021-03-18'),\n  ('ST02', '南京新街口店', '标准店', '南京市', 'R010101', DATE '2022-06-10'),\n  ('ST03', '杭州西湖店', '标准店', '杭州市', 'R010201', DATE '2022-09-22'),\n  ('ST04', '广州天河店', '旗舰店', '广州市', 'R020101', DATE '2021-11-05'),\n  ('ST05', '厦门中山路店', '社区店', '厦门市', 'R020201', DATE '2023-04-15'),\n  ('ST06', '北京朝阳店', '社区店', '北京市', 'R030101', DATE '2023-08-28')\n) AS t(store_id, store_name, store_type, city, region_key, open_date);\n\n-- 5) 商品贴源表：12 个商品，category_key 指向三级分类\nCREATE OR REPLACE TABLE ods_product AS\nSELECT\n  CAST(product_id AS VARCHAR) AS product_id,\n  CAST(product_name AS VARCHAR) AS product_name,\n  CAST(category_key AS VARCHAR) AS category_key,\n  CAST(brand AS VARCHAR) AS brand,\n  CAST(unit_price AS DECIMAL(18, 2)) AS unit_price,\n  CAST(product_status AS VARCHAR) AS product_status\nFROM (VALUES\n  ('P001', '智能手机 Pro 12', 'C010101', '华为', 5999.00, 'ON_SALE'),\n  ('P002', '智能手机 Air 5', 'C010101', '小米', 2999.00, 'ON_SALE'),\n  ('P003', '65W 氮化镓充电器', 'C010102', '华为', 199.00, 'ON_SALE'),\n  ('P004', '手机保护壳', 'C010102', '小米', 79.00, 'ON_SALE'),\n  ('P005', '轻薄笔记本 14 英寸', 'C010201', '联想', 5699.00, 'ON_SALE'),\n  ('P006', '游戏笔记本 16 英寸', 'C010201', '华硕', 7299.00, 'ON_SALE'),\n  ('P007', '不粘炒锅 32cm', 'C020101', '苏泊尔', 399.00, 'ON_SALE'),\n  ('P008', '保温杯 500ml', 'C020102', '膳魔师', 259.00, 'ON_SALE'),\n  ('P009', '全棉四件套 1.8m', 'C020201', '水星家纺', 899.00, 'ON_SALE'),\n  ('P010', '男士长袖衬衫', 'C030101', '优衣库', 249.00, 'ON_SALE'),\n  ('P011', '男士休闲裤', 'C030102', '优衣库', 299.00, 'ON_SALE'),\n  ('P012', '女士连衣裙', 'C030201', '太平鸟', 499.00, 'ON_SALE')\n) AS t(product_id, product_name, category_key, brand, unit_price, product_status);\n\n-- 6) 客户贴源表：8 位客户\nCREATE OR REPLACE TABLE ods_customer AS\nSELECT\n  CAST(customer_id AS VARCHAR) AS customer_id,\n  CAST(customer_name AS VARCHAR) AS customer_name,\n  CAST(gender AS VARCHAR) AS gender,\n  CAST(age AS INTEGER) AS age,\n  CAST(member_level AS VARCHAR) AS member_level,\n  CAST(register_date AS DATE) AS register_date,\n  CAST(city AS VARCHAR) AS city\nFROM (VALUES\n  ('C001', '张伟', '男', 32, '金牌', DATE '2021-05-12', '上海市'),\n  ('C002', '李娜', '女', 28, '银牌', DATE '2022-03-08', '南京市'),\n  ('C003', '王芳', '女', 35, '钻石', DATE '2020-11-20', '杭州市'),\n  ('C004', '刘洋', '男', 41, '金牌', DATE '2021-09-01', '广州市'),\n  ('C005', '陈静', '女', 26, '普通', DATE '2023-02-14', '厦门市'),\n  ('C006', '杨帆', '男', 30, '银牌', DATE '2022-07-30', '北京市'),\n  ('C007', '赵磊', '男', 38, '金牌', DATE '2020-08-18', '石家庄市'),\n  ('C008', '周敏', '女', 33, '普通', DATE '2023-06-05', '天津市')\n) AS t(customer_id, customer_name, gender, age, member_level, register_date, city);\n\n-- 7) 订单明细贴源表：50 笔订单 / 80 行明细，覆盖 2025 全年、6 家门店、12 个商品、8 位客户，\n--    含 44 笔 PAID、3 笔 UNPAID、3 笔 REFUND，供业务限定（有效销售额）演示\nCREATE OR REPLACE TABLE ods_order_item AS\nSELECT\n  CAST(order_item_id AS VARCHAR) AS order_item_id,\n  CAST(order_id AS VARCHAR) AS order_id,\n  CAST(order_date_key AS BIGINT) AS order_date_key,\n  CAST(store_key AS VARCHAR) AS store_key,\n  CAST(product_key AS VARCHAR) AS product_key,\n  CAST(customer_key AS VARCHAR) AS customer_key,\n  CAST(order_status AS VARCHAR) AS order_status,\n  CAST(quantity AS BIGINT) AS quantity,\n  CAST(order_amount AS DECIMAL(18, 2)) AS order_amount,\n  CAST(cost_amount AS DECIMAL(18, 2)) AS cost_amount,\n  CAST(discount_amount AS DECIMAL(18, 2)) AS discount_amount\nFROM (VALUES\n  ('SO2025000101', 'SO20250001', 20250105, 'ST01', 'P001', 'C001', 'PAID', 1, 5399.10, 3719.38, 599.90),\n  ('SO2025000102', 'SO20250001', 20250105, 'ST01', 'P006', 'C001', 'PAID', 1, 7299.00, 4817.34, 0.00),\n  ('SO2025000201', 'SO20250002', 20250112, 'ST02', 'P008', 'C006', 'PAID', 2, 518.00, 341.88, 0.00),\n  ('SO2025000202', 'SO20250002', 20250112, 'ST02', 'P001', 'C006', 'PAID', 1, 5999.00, 4199.30, 0.00),\n  ('SO2025000301', 'SO20250003', 20250119, 'ST03', 'P003', 'C003', 'PAID', 3, 597.00, 417.90, 0.00),\n  ('SO2025000302', 'SO20250003', 20250119, 'ST03', 'P008', 'C003', 'PAID', 1, 259.00, 191.66, 0.00),\n  ('SO2025000401', 'SO20250004', 20250126, 'ST04', 'P010', 'C008', 'PAID', 1, 249.00, 184.26, 0.00),\n  ('SO2025000402', 'SO20250004', 20250126, 'ST04', 'P003', 'C008', 'PAID', 2, 378.10, 246.76, 19.90),\n  ('SO2025000501', 'SO20250005', 20250202, 'ST05', 'P005', 'C005', 'UNPAID', 1, 5414.05, 3533.38, 284.95),\n  ('SO2025000502', 'SO20250005', 20250202, 'ST05', 'P010', 'C005', 'UNPAID', 3, 747.00, 493.02, 0.00),\n  ('SO2025000601', 'SO20250006', 20250209, 'ST06', 'P012', 'C002', 'PAID', 3, 1497.00, 988.02, 0.00),\n  ('SO2025000602', 'SO20250006', 20250209, 'ST06', 'P005', 'C002', 'PAID', 1, 5699.00, 3989.30, 0.00),\n  ('SO2025000701', 'SO20250007', 20250216, 'ST01', 'P007', 'C007', 'PAID', 1, 399.00, 279.30, 0.00),\n  ('SO2025000702', 'SO20250007', 20250216, 'ST01', 'P012', 'C007', 'PAID', 2, 898.20, 738.52, 99.80),\n  ('SO2025000801', 'SO20250008', 20250223, 'ST02', 'P002', 'C004', 'PAID', 2, 5398.20, 4438.52, 599.80),\n  ('SO2025000802', 'SO20250008', 20250223, 'ST02', 'P007', 'C004', 'PAID', 3, 1137.15, 742.14, 59.85),\n  ('SO2025000901', 'SO20250009', 20250302, 'ST03', 'P009', 'C001', 'PAID', 3, 2562.15, 1672.14, 134.85),\n  ('SO2025000902', 'SO20250009', 20250302, 'ST03', 'P002', 'C001', 'PAID', 1, 2999.00, 1979.34, 0.00),\n  ('SO2025001001', 'SO20250010', 20250309, 'ST04', 'P004', 'C006', 'REFUND', 1, 79.00, 52.14, 0.00),\n  ('SO2025001002', 'SO20250010', 20250309, 'ST04', 'P009', 'C006', 'REFUND', 2, 1798.00, 1258.60, 0.00),\n  ('SO2025001101', 'SO20250011', 20250316, 'ST05', 'P011', 'C003', 'PAID', 2, 598.00, 418.60, 0.00),\n  ('SO2025001102', 'SO20250011', 20250316, 'ST05', 'P004', 'C003', 'PAID', 3, 237.00, 175.38, 0.00),\n  ('SO2025001201', 'SO20250012', 20250323, 'ST06', 'P006', 'C008', 'PAID', 1, 7299.00, 5401.26, 0.00),\n  ('SO2025001202', 'SO20250012', 20250323, 'ST06', 'P011', 'C008', 'PAID', 1, 284.05, 185.38, 14.95),\n  ('SO2025001301', 'SO20250013', 20250330, 'ST01', 'P001', 'C005', 'PAID', 1, 5699.05, 3719.38, 299.95),\n  ('SO2025001302', 'SO20250013', 20250330, 'ST01', 'P006', 'C005', 'PAID', 1, 7299.00, 4817.34, 0.00),\n  ('SO2025001401', 'SO20250014', 20250406, 'ST02', 'P008', 'C002', 'PAID', 2, 518.00, 341.88, 0.00),\n  ('SO2025001402', 'SO20250014', 20250406, 'ST02', 'P001', 'C002', 'PAID', 1, 5399.10, 4199.30, 599.90),\n  ('SO2025001501', 'SO20250015', 20250413, 'ST03', 'P003', 'C007', 'PAID', 3, 537.30, 417.90, 59.70),\n  ('SO2025001502', 'SO20250015', 20250413, 'ST03', 'P008', 'C007', 'PAID', 1, 259.00, 191.66, 0.00),\n  ('SO2025001601', 'SO20250016', 20250420, 'ST04', 'P010', 'C004', 'PAID', 1, 249.00, 184.26, 0.00),\n  ('SO2025001602', 'SO20250016', 20250420, 'ST04', 'P003', 'C004', 'PAID', 2, 378.10, 246.76, 19.90),\n  ('SO2025001701', 'SO20250017', 20250427, 'ST05', 'P005', 'C001', 'PAID', 1, 5414.05, 3533.38, 284.95),\n  ('SO2025001702', 'SO20250017', 20250427, 'ST05', 'P010', 'C001', 'PAID', 3, 747.00, 493.02, 0.00),\n  ('SO2025001801', 'SO20250018', 20250504, 'ST06', 'P012', 'C006', 'UNPAID', 3, 1497.00, 988.02, 0.00),\n  ('SO2025001802', 'SO20250018', 20250504, 'ST06', 'P005', 'C006', 'UNPAID', 1, 5699.00, 3989.30, 0.00),\n  ('SO2025001901', 'SO20250019', 20250511, 'ST01', 'P007', 'C003', 'PAID', 1, 399.00, 279.30, 0.00),\n  ('SO2025001902', 'SO20250019', 20250511, 'ST01', 'P012', 'C003', 'PAID', 2, 998.00, 738.52, 0.00),\n  ('SO2025002001', 'SO20250020', 20250518, 'ST02', 'P002', 'C008', 'PAID', 2, 5998.00, 4438.52, 0.00),\n  ('SO2025002002', 'SO20250020', 20250518, 'ST02', 'P007', 'C008', 'PAID', 3, 1137.15, 742.14, 59.85),\n  ('SO2025002101', 'SO20250021', 20250525, 'ST03', 'P009', 'C005', 'PAID', 3, 2562.15, 1672.14, 134.85),\n  ('SO2025002102', 'SO20250021', 20250525, 'ST03', 'P002', 'C005', 'PAID', 1, 2699.10, 1979.34, 299.90),\n  ('SO2025002201', 'SO20250022', 20250601, 'ST04', 'P004', 'C002', 'PAID', 1, 71.10, 52.14, 7.90),\n  ('SO2025002202', 'SO20250022', 20250601, 'ST04', 'P009', 'C002', 'PAID', 2, 1798.00, 1258.60, 0.00),\n  ('SO2025002301', 'SO20250023', 20250608, 'ST05', 'P011', 'C007', 'PAID', 2, 598.00, 418.60, 0.00),\n  ('SO2025002302', 'SO20250023', 20250608, 'ST05', 'P004', 'C007', 'PAID', 3, 237.00, 175.38, 0.00),\n  ('SO2025002401', 'SO20250024', 20250615, 'ST06', 'P006', 'C004', 'PAID', 1, 7299.00, 5401.26, 0.00),\n  ('SO2025002402', 'SO20250024', 20250615, 'ST06', 'P011', 'C004', 'PAID', 1, 284.05, 185.38, 14.95),\n  ('SO2025002501', 'SO20250025', 20250622, 'ST01', 'P001', 'C001', 'PAID', 1, 5699.05, 3719.38, 299.95),\n  ('SO2025002502', 'SO20250025', 20250622, 'ST01', 'P006', 'C001', 'PAID', 1, 7299.00, 4817.34, 0.00),\n  ('SO2025002601', 'SO20250026', 20250629, 'ST02', 'P008', 'C006', 'PAID', 2, 518.00, 341.88, 0.00),\n  ('SO2025002602', 'SO20250026', 20250629, 'ST02', 'P001', 'C006', 'PAID', 1, 5999.00, 4199.30, 0.00),\n  ('SO2025002701', 'SO20250027', 20250706, 'ST03', 'P003', 'C003', 'REFUND', 3, 597.00, 417.90, 0.00),\n  ('SO2025002702', 'SO20250027', 20250706, 'ST03', 'P008', 'C003', 'REFUND', 1, 259.00, 191.66, 0.00),\n  ('SO2025002801', 'SO20250028', 20250713, 'ST04', 'P010', 'C008', 'PAID', 1, 249.00, 184.26, 0.00),\n  ('SO2025002802', 'SO20250028', 20250713, 'ST04', 'P003', 'C008', 'PAID', 2, 358.20, 246.76, 39.80),\n  ('SO2025002901', 'SO20250029', 20250720, 'ST05', 'P005', 'C005', 'PAID', 1, 5129.10, 3533.38, 569.90),\n  ('SO2025002902', 'SO20250029', 20250720, 'ST05', 'P010', 'C005', 'PAID', 3, 747.00, 493.02, 0.00),\n  ('SO2025003001', 'SO20250030', 20250727, 'ST06', 'P012', 'C002', 'PAID', 3, 1497.00, 988.02, 0.00),\n  ('SO2025003002', 'SO20250030', 20250727, 'ST06', 'P005', 'C002', 'PAID', 1, 5699.00, 3989.30, 0.00),\n  ('SO2025003101', 'SO20250031', 20250803, 'ST01', 'P007', 'C007', 'PAID', 1, 399.00, 279.30, 0.00),\n  ('SO2025003201', 'SO20250032', 20250810, 'ST02', 'P002', 'C004', 'PAID', 2, 5998.00, 4438.52, 0.00),\n  ('SO2025003301', 'SO20250033', 20250817, 'ST03', 'P009', 'C001', 'PAID', 3, 2562.15, 1672.14, 134.85),\n  ('SO2025003401', 'SO20250034', 20250824, 'ST04', 'P004', 'C006', 'UNPAID', 1, 79.00, 52.14, 0.00),\n  ('SO2025003501', 'SO20250035', 20250831, 'ST05', 'P011', 'C003', 'PAID', 2, 598.00, 418.60, 0.00),\n  ('SO2025003601', 'SO20250036', 20250907, 'ST06', 'P006', 'C008', 'PAID', 1, 6569.10, 5401.26, 729.90),\n  ('SO2025003701', 'SO20250037', 20250914, 'ST01', 'P001', 'C005', 'PAID', 1, 5699.05, 3719.38, 299.95),\n  ('SO2025003801', 'SO20250038', 20250921, 'ST02', 'P008', 'C002', 'PAID', 2, 518.00, 341.88, 0.00),\n  ('SO2025003901', 'SO20250039', 20250928, 'ST03', 'P003', 'C007', 'PAID', 3, 597.00, 417.90, 0.00),\n  ('SO2025004001', 'SO20250040', 20251005, 'ST04', 'P010', 'C004', 'PAID', 1, 249.00, 184.26, 0.00),\n  ('SO2025004101', 'SO20250041', 20251012, 'ST05', 'P005', 'C001', 'PAID', 1, 5414.05, 3533.38, 284.95),\n  ('SO2025004201', 'SO20250042', 20251019, 'ST06', 'P012', 'C006', 'PAID', 3, 1497.00, 988.02, 0.00),\n  ('SO2025004301', 'SO20250043', 20251026, 'ST01', 'P007', 'C003', 'PAID', 1, 359.10, 279.30, 39.90),\n  ('SO2025004401', 'SO20250044', 20251102, 'ST02', 'P002', 'C008', 'PAID', 2, 5998.00, 4438.52, 0.00),\n  ('SO2025004501', 'SO20250045', 20251109, 'ST03', 'P009', 'C005', 'REFUND', 3, 2562.15, 1672.14, 134.85),\n  ('SO2025004601', 'SO20250046', 20251116, 'ST04', 'P004', 'C002', 'PAID', 1, 79.00, 52.14, 0.00),\n  ('SO2025004701', 'SO20250047', 20251123, 'ST05', 'P011', 'C007', 'PAID', 2, 598.00, 418.60, 0.00),\n  ('SO2025004801', 'SO20250048', 20251130, 'ST06', 'P006', 'C004', 'PAID', 1, 7299.00, 5401.26, 0.00),\n  ('SO2025004901', 'SO20250049', 20251207, 'ST01', 'P001', 'C001', 'PAID', 1, 5699.05, 3719.38, 299.95),\n  ('SO2025005001', 'SO20250050', 20251214, 'ST02', 'P008', 'C006', 'PAID', 2, 466.20, 341.88, 51.80)\n) AS t(order_item_id, order_id, order_date_key, store_key, product_key, customer_key, order_status, quantity, order_amount, cost_amount, discount_amount);"
+      },
+      "status": "OFFLINE",
+      "project": "retail"
+    },
+    {
+      "oldId": 7011,
+      "jobName": "生成门店日销售汇总（ec_dws_store_day）",
+      "jobGroup": "datafusion",
+      "type": "SQL",
+      "cron": "0 0 3 * * ?",
+      "jobContext": {
+        "dataSourceId": 1600,
+        "schema": "main",
+        "sql": "-- ec_dws_store_day 门店日销售汇总：按 统计日期 + 门店 + 区域 汇总销售额 / 销量 / 订单数 / 毛利\nCREATE OR REPLACE TABLE dws_sales_store_day AS\nSELECT\n  f.order_date_key AS stat_date_key,\n  d.day_name AS stat_date,\n  s.store_id AS store_key,\n  s.store_name AS store_name,\n  s.region_key AS region_key,\n  r.member_name AS region_name,\n  CAST(SUM(f.order_amount) AS DECIMAL(18, 2)) AS sales_amount,\n  CAST(SUM(f.quantity) AS BIGINT) AS sales_quantity,\n  CAST(COUNT(DISTINCT f.order_id) AS BIGINT) AS order_count,\n  CAST(SUM(f.order_amount - f.cost_amount) AS DECIMAL(18, 2)) AS gross_profit\nFROM main.fact_sales_order f\nLEFT JOIN main.dim_store s ON f.store_key = s.store_id\nLEFT JOIN main.dim_region r ON f.region_key = r.member_id\nLEFT JOIN main.dim_date d ON f.order_date_key = d.date_key\nGROUP BY 1, 2, 3, 4, 5, 6"
+      },
+      "status": "OFFLINE",
+      "project": "retail"
+    },
+    {
+      "oldId": 7012,
+      "jobName": "生成品类销售排行（ec_ads_category_rank）",
+      "jobGroup": "datafusion",
+      "type": "SQL",
+      "cron": "0 0 4 * * ?",
+      "jobContext": {
+        "dataSourceId": 1600,
+        "schema": "main",
+        "sql": "-- ec_ads_category_rank 品类销售排行：按三级分类汇总销售额 / 销量 / 毛利 / 订单数，并按销售额给出名次\nCREATE OR REPLACE TABLE ads_category_sales_rank AS\nSELECT\n  c.member_id AS category_key,\n  c.level1_name AS level1_name,\n  c.level2_name AS level2_name,\n  c.level3_name AS level3_name,\n  CAST(SUM(f.order_amount) AS DECIMAL(18, 2)) AS sales_amount,\n  CAST(SUM(f.quantity) AS BIGINT) AS sales_quantity,\n  CAST(SUM(f.order_amount - f.cost_amount) AS DECIMAL(18, 2)) AS gross_profit,\n  CAST(COUNT(DISTINCT f.order_id) AS BIGINT) AS order_count,\n  CAST(RANK() OVER (ORDER BY SUM(f.order_amount) DESC) AS INTEGER) AS rank_no\nFROM main.fact_sales_order f\nLEFT JOIN main.dim_category c ON f.category_key = c.member_id\nGROUP BY 1, 2, 3, 4"
+      },
+      "status": "OFFLINE",
+      "project": "retail"
+    }
+  ],
+  "dagJobs": [
+    {
+      "oldId": 7100,
+      "jobName": "电商销售分析日更编排（ec_daily_orchestration）",
+      "jobGroup": "datafusion",
+      "type": "DAG",
+      "cron": "0 30 1 * * ?",
+      "jobContext": {
+        "jobs": [
+          {
+            "id": 7010
+          },
+          {
+            "id": 7001
+          },
+          {
+            "id": 7002
+          },
+          {
+            "id": 7003
+          },
+          {
+            "id": 7004
+          },
+          {
+            "id": 7005
+          },
+          {
+            "id": 7006
+          },
+          {
+            "id": 7007
+          },
+          {
+            "id": 7011
+          },
+          {
+            "id": 7012
+          }
+        ],
+        "jobDepends": [
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7001,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7002,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7003,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7004,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7005,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7010,
+            "childJobCode": 7006,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7001,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7002,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7003,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7004,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7005,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7006,
+            "childJobCode": 7007,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7007,
+            "childJobCode": 7011,
+            "lastInterval": 0
+          },
+          {
+            "parentJobCode": 7011,
+            "childJobCode": 7012,
+            "lastInterval": 0
+          }
+        ],
+        "nodeLayout": [
+          {
+            "jobId": 7010,
+            "label": "初始化电商业务源库样例数据（ec_ods_init）",
+            "xAxis": 60,
+            "yAxis": 280
+          },
+          {
+            "jobId": 7001,
+            "label": "同步日期维度",
+            "xAxis": 380,
+            "yAxis": 60
+          },
+          {
+            "jobId": 7002,
+            "label": "同步区域维度",
+            "xAxis": 380,
+            "yAxis": 150
+          },
+          {
+            "jobId": 7003,
+            "label": "同步商品分类维度",
+            "xAxis": 380,
+            "yAxis": 240
+          },
+          {
+            "jobId": 7004,
+            "label": "同步门店维度",
+            "xAxis": 380,
+            "yAxis": 330
+          },
+          {
+            "jobId": 7005,
+            "label": "同步商品维度",
+            "xAxis": 380,
+            "yAxis": 420
+          },
+          {
+            "jobId": 7006,
+            "label": "同步客户维度",
+            "xAxis": 380,
+            "yAxis": 510
+          },
+          {
+            "jobId": 7007,
+            "label": "同步销售订单事实",
+            "xAxis": 720,
+            "yAxis": 280
+          },
+          {
+            "jobId": 7011,
+            "label": "生成门店日销售汇总（ec_dws_store_day）",
+            "xAxis": 1040,
+            "yAxis": 280
+          },
+          {
+            "jobId": 7012,
+            "label": "生成品类销售排行（ec_ads_category_rank）",
+            "xAxis": 1360,
+            "yAxis": 280
+          }
+        ]
+      },
+      "status": "OFFLINE",
+      "project": "retail"
+    }
+  ],
+  "otherJobs": [],
+  "jobDepends": [],
+  "summary": {
+    "dataSources": 2,
+    "modelDirectories": 7,
+    "models": 9,
+    "modelFields": 80,
+    "metricDirectories": 1,
+    "metrics": 12,
+    "etlTasks": 7,
+    "sqlJobs": 3,
+    "dagJobs": 1,
+    "otherJobs": 0,
+    "jobDepends": 0,
+    "total": 122
+  }
+}

@@ -5,6 +5,9 @@
 - **快速开始**
   - [部署与启动](quickstart/README.md)
 
+- **集成模板市场**
+  - [浏览模板市场](../templates.html ':ignore :target=_self')
+
 - **使用指南**
   - [指南总览](guide/README.md)
   - [数据源管理](guide/datasource.md)
