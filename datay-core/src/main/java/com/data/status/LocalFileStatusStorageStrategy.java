@@ -3,8 +3,18 @@ package com.data.status;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONWriter;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,60 +53,111 @@ public class LocalFileStatusStorageStrategy implements StatusStorageStrategy {
 
     @Override
     public boolean saveStatus(Map<String, Object> status, String jobCode) {
-        File statusFile = new File(getStatusFileName(jobCode));
+        Path statusPath = Path.of(getStatusFileName(jobCode));
+        Path parent = statusPath.getParent();
+        Path tempFile = null;
 
-        File parent = statusFile.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            System.err.println("状态保存到本地文件失败: 无法创建目录 " + parent);
-            return false;
-        }
+        try {
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
 
-        try (
-            FileOutputStream fos = new FileOutputStream(statusFile);
-            OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
-            BufferedWriter writer = new BufferedWriter(osw)
-        ) {
-            //fastjson2 序列化,格式化输出
+            // 先在内存中完成序列化，再写临时文件，避免序列化异常破坏已有状态文件
             String jsonString = JSON.toJSONString(
                 status,
                 JSONWriter.Feature.PrettyFormat // 美化格式
             );
 
-            writer.write(jsonString);
-            writer.flush();
+            // 临时文件必须与目标文件在同一目录，保证后续 move 是同一文件系统内的原子替换
+            tempFile = Files.createTempFile(parent, statusPath.getFileName().toString() + ".", ".tmp");
+            try (FileChannel channel = FileChannel.open(tempFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(jsonString.getBytes(StandardCharsets.UTF_8));
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                // 确保数据真正落盘后再替换正式文件
+                channel.force(true);
+            }
+
+            try {
+                Files.move(tempFile, statusPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException | FileAlreadyExistsException e) {
+                // 极少数文件系统不支持原子 move，或 ATOMIC_MOVE 下未覆盖已有文件，退化为同目录替换
+                System.err.println("当前文件系统不支持原子移动，回退为普通替换: " + statusPath);
+                Files.move(tempFile, statusPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            forceDirectory(parent);
             return true;
         } catch (IOException e) {
             System.err.println("状态保存到本地文件失败: " + e.getMessage());
             return false;
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException ignored) {
+                    // 临时文件清理失败不影响已提交的状态
+                }
+            }
+        }
+    }
+
+    /**
+     * 尽力对目录执行 fsync，保证 rename 后的目录项也已落盘。
+     * 部分平台/文件系统不支持对目录 fsync，此时忽略即可。
+     */
+    private void forceDirectory(Path directory) {
+        if (directory == null) {
+            return;
+        }
+        try (FileChannel directoryChannel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            directoryChannel.force(true);
+        } catch (IOException ignored) {
+            // 目录 fsync 不是所有平台都支持，rename 本身已保证文件内容的原子可见性
         }
     }
 
     @Override
     public Map<String, Object> loadStatus(String jobCode) {
-        String fileName = getStatusFileName(jobCode);
-        File statusFile = new File(fileName);
-        if (!statusFile.exists()) {
-            return null; // 如果状态文件不存在，返回null
-        }
+        Path statusPath = Path.of(getStatusFileName(jobCode));
 
-        try (
-            FileInputStream fis = new FileInputStream(statusFile);
-            InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
-            BufferedReader reader = new BufferedReader(isr)
-        ) {
-            StringBuilder jsonContent = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                jsonContent.append(line);
+        try {
+            String jsonContent = Files.readString(statusPath, StandardCharsets.UTF_8);
+            if (jsonContent.isBlank()) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.EMPTY_CONTENT,
+                    "本地状态文件为空，可能已损坏: " + statusPath
+                );
             }
 
-            if (!jsonContent.isEmpty()) {
-                return JSON.parseObject(jsonContent.toString(), Map.class);
+            Map<String, Object> status;
+            try {
+                status = JSON.parseObject(jsonContent, Map.class);
+            } catch (Exception e) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.INVALID_CONTENT,
+                    "本地状态文件内容不是合法 JSON: " + statusPath,
+                    e
+                );
             }
+            if (status == null) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.INVALID_CONTENT,
+                    "本地状态文件内容为空，可能已损坏: " + statusPath
+                );
+            }
+            return status;
+        } catch (NoSuchFileException e) {
+            // 只有文件不存在才表示首次运行
+            return null;
         } catch (IOException e) {
-            System.err.println("从本地文件恢复状态失败: " + e.getMessage());
+            // 文件存在但读取失败时不能返回 null，避免被误判为“没有历史状态”
+            throw new StatusStorageException(
+                StatusStorageException.Reason.READ_FAILED,
+                "从本地文件读取状态失败: " + statusPath,
+                e
+            );
         }
-        return null;
     }
 
     @Override

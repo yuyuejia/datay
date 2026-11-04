@@ -24,6 +24,8 @@ public interface StatusStorageStrategy {
      *
      * @param jobCode 任务编码
      * @return 状态数据，不存在时返回 null
+     * @throws StatusStorageException 状态存储读取失败、内容为空或内容非法时抛出；调用方应让任务失败，
+     *                                不能把读取失败误判为“没有历史状态”
      */
     Map<String, Object> loadStatus(String jobCode);
 

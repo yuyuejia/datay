@@ -9,9 +9,11 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
+import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ import java.util.Map;
  */
 public class MinioStatusStorageStrategy implements StatusStorageStrategy {
 
-    private MinioClient minioClient;
+    private final MinioClient minioClient;
     private final String bucketName;
     private static final String STATUS_OBJECT_PREFIX = "etl-status/";
     private static final String STATUS_OBJECT_SUFFIX = ".json";
@@ -37,6 +39,14 @@ public class MinioStatusStorageStrategy implements StatusStorageStrategy {
         } catch (Exception e) {
             throw new RuntimeException("MinIO客户端初始化失败", e);
         }
+    }
+
+    /**
+     * 测试用构造器：直接注入 MinioClient，避免测试依赖真实 MinIO 服务。
+     */
+    MinioStatusStorageStrategy(MinioClient minioClient, String bucketName) {
+        this.minioClient = minioClient;
+        this.bucketName = bucketName;
     }
 
     private void ensureBucketExists() throws Exception {
@@ -72,21 +82,73 @@ public class MinioStatusStorageStrategy implements StatusStorageStrategy {
 
     @Override
     public Map<String, Object> loadStatus(String jobCode) {
+        String objectName = getObjectName(jobCode);
         try {
-            String objectName = getObjectName(jobCode);
-
-            InputStream stream = minioClient.getObject(GetObjectArgs.builder().bucket(bucketName).object(objectName).build());
-
-            String jsonContent = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-            stream.close();
-
-            if (jsonContent.length() > 0) {
-                return JSON.parseObject(jsonContent, Map.class);
+            byte[] content;
+            try (InputStream stream = minioClient.getObject(GetObjectArgs.builder().bucket(bucketName).object(objectName).build())) {
+                content = stream.readAllBytes();
             }
+
+            if (content.length == 0) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.EMPTY_CONTENT,
+                    "MinIO状态对象为空，可能已损坏: " + objectName
+                );
+            }
+
+            Map<String, Object> status;
+            try {
+                status = JSON.parseObject(new String(content, StandardCharsets.UTF_8), Map.class);
+            } catch (Exception e) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.INVALID_CONTENT,
+                    "MinIO状态对象内容不是合法 JSON: " + objectName,
+                    e
+                );
+            }
+            if (status == null) {
+                throw new StatusStorageException(
+                    StatusStorageException.Reason.INVALID_CONTENT,
+                    "MinIO状态对象内容为空，可能已损坏: " + objectName
+                );
+            }
+            return status;
+        } catch (ErrorResponseException e) {
+            // 对象不存在才表示“没有历史状态”，其它错误必须让任务失败，避免误判为首次运行
+            if (isNoSuchKey(e)) {
+                return null;
+            }
+            throw new StatusStorageException(
+                StatusStorageException.Reason.STORAGE_UNAVAILABLE,
+                "从MinIO恢复状态失败: " + e.getMessage(),
+                e
+            );
+        } catch (StatusStorageException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new StatusStorageException(
+                StatusStorageException.Reason.READ_FAILED,
+                "从MinIO读取状态失败: " + e.getMessage(),
+                e
+            );
         } catch (Exception e) {
-            System.err.println("从MinIO恢复状态失败: " + e.getMessage());
+            throw new StatusStorageException(
+                StatusStorageException.Reason.STORAGE_UNAVAILABLE,
+                "从MinIO恢复状态失败: " + e.getMessage(),
+                e
+            );
         }
-        return null;
+    }
+
+    /**
+     * 判断 MinIO 错误是否为“对象不存在”。不同 S3 兼容实现可能返回 NoSuchKey 或 NoSuchObject。
+     */
+    private boolean isNoSuchKey(ErrorResponseException e) {
+        if (e.errorResponse() == null || e.errorResponse().code() == null) {
+            return false;
+        }
+        String code = e.errorResponse().code();
+        return "NoSuchKey".equals(code) || "NoSuchObject".equals(code);
     }
 
     @Override
