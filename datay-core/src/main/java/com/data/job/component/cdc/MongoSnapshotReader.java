@@ -11,6 +11,7 @@ import com.mongodb.client.MongoCursor;
 import org.bson.Document;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +43,17 @@ public class MongoSnapshotReader {
      * 按指定集合范围执行历史全量快照读取并下发。
      */
     public void snapshot(List<CdcSnapshotReader.TableRef> tables) {
+        snapshot(tables, Collections.emptyMap());
+    }
+
+    /**
+     * 按指定集合范围执行历史全量快照读取并下发，并把增量起始 resumeToken 与
+     * {@code snapshotDone} 放进同一个 FlowFile 状态中持久化。
+     *
+     * @param tables      需要快照的集合
+     * @param startStatus 快照对应的增量起始位点，key 不带组件 id 前缀，可为空
+     */
+    public void snapshot(List<CdcSnapshotReader.TableRef> tables, Map<String, Object> startStatus) {
         if (tables == null || tables.isEmpty()) {
             throw new IllegalStateException("快照集合范围为空，请检查 database / collection / collectionNamePattern 配置");
         }
@@ -51,7 +63,7 @@ public class MongoSnapshotReader {
                 lastTable = snapshotCollection(conn, ref.getSchema(), ref.getTable());
             }
         }
-        markSnapshotDone(lastTable);
+        markSnapshotDone(lastTable, startStatus);
     }
 
     private TableMeta snapshotCollection(MongoConnection conn, String database, String collection) {
@@ -92,15 +104,23 @@ public class MongoSnapshotReader {
     }
 
     /**
-     * 快照完成后标记状态，避免任务重启重复全量。
+     * 快照完成后标记状态，避免任务重启重复全量。起始位点与 {@code snapshotDone}
+     * 写入同一个 FlowFile，确保下游一次状态保存中同时落盘。
      */
-    private void markSnapshotDone(TableMeta tableMeta) {
+    private void markSnapshotDone(TableMeta tableMeta, Map<String, Object> startStatus) {
         FlowFile marker = new FlowFile();
         marker.setJsonArray(new JSONArray());
         if (tableMeta != null) {
             marker.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
             marker.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
             marker.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
+        }
+        if (startStatus != null && !startStatus.isEmpty()) {
+            for (Map.Entry<String, Object> entry : startStatus.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    marker.setStatus(component.getId() + "." + entry.getKey(), entry.getValue());
+                }
+            }
         }
         marker.setStatus(component.getId() + ".snapshotDone", true);
         component.writeRecords(marker);

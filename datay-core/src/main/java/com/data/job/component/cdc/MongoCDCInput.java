@@ -12,7 +12,9 @@ import com.data.metadata.TableMeta;
 import org.bson.BsonTimestamp;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -165,13 +167,14 @@ public class MongoCDCInput extends FlowComponent {
             boolean hasCheckpoint = resume != null;
             if (Boolean.TRUE.equals(snapshot) && !hasCheckpoint && getStatus("snapshotDone") == null) {
                 org.bson.BsonDocument startToken = collector.prepare();
-                if (startToken != null && !startToken.isEmpty()) {
-                    collector.setStartResumeToken(startToken);
-                } else {
-                    logWarn("未能获取变更流起始 resumeToken，全量快照与增量交界处可能存在重复或遗漏");
+                if (startToken == null || startToken.isEmpty()) {
+                    throw new IllegalStateException("未能获取变更流起始 resumeToken，无法保证全量快照与增量同步的一致性");
                 }
+                collector.setStartResumeToken(startToken);
+                Map<String, Object> startStatus = new LinkedHashMap<>();
+                startStatus.put("resumeToken", startToken.toJson());
                 logInfo("开始读取历史全量数据（snapshot），集合范围=" + collector.getTargetTables());
-                new MongoSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables());
+                new MongoSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables(), startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
             } else if (startAtOperationTime != null) {
                 collector.setStartAtOperationTime(new BsonTimestamp(startAtOperationTime.intValue(), 1));

@@ -13,7 +13,9 @@ import com.data.metadata.util.DBUtils;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Pattern;
@@ -156,11 +158,15 @@ public class MySQLBinlogInput extends FlowComponent {
             if (Boolean.TRUE.equals(snapshot) && !hasCheckpoint && getStatus("snapshotDone") == null) {
                 // 首次全量快照：先记录当前 binlog 位点，全量读取后从该位点启动增量
                 String[] position = queryCurrentBinlogPosition();
+                long startPosition = Long.parseLong(position[1]);
+                Map<String, Object> startStatus = new LinkedHashMap<>();
+                startStatus.put("binlogFile", position[0]);
+                startStatus.put("binlogPosition", startPosition);
                 List<CdcSnapshotReader.TableRef> snapshotTables = resolveSnapshotTables();
                 logInfo("开始读取历史全量数据（snapshot），起始位点 " + position[0] + ":" + position[1] + "，表范围=" + snapshotTables);
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(snapshotTables);
+                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(snapshotTables, startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
-                collector.startFromPosition(position[0], Long.parseLong(position[1]));
+                collector.startFromPosition(position[0], startPosition);
             } else if (binlogFileStatus != null && binlogPositionStatus != null) {
                 logInfo("从状态启动Binlog采集:", binlogFileStatus.toString(), binlogPositionStatus.toString());
                 collector.startFromPosition(binlogFileStatus.toString(), Long.parseLong(binlogPositionStatus.toString()));

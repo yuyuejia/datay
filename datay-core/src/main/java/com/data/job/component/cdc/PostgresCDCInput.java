@@ -11,7 +11,9 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 
 import java.sql.Connection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -148,8 +150,10 @@ public class PostgresCDCInput extends FlowComponent {
             if (Boolean.TRUE.equals(snapshot) && lsn == null && getStatus("snapshotDone") == null) {
                 long consistentLsn = collector.prepare();
                 collector.setStartLsn(consistentLsn);
-                logInfo("开始读取历史全量数据（snapshot），表范围=" + collector.getTargetTables());
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables());
+                Map<String, Object> startStatus = new LinkedHashMap<>();
+                startStatus.put("binlogPosition", consistentLsn);
+                logInfo("开始读取历史全量数据（snapshot），起始 LSN=" + consistentLsn + "，表范围=" + collector.getTargetTables());
+                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables(), startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
             }
 
