@@ -73,7 +73,10 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="/etl-task">
-                  <span>ETL 任务</span>
+                  <span>批量任务</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/etl-task-realtime">
+                  <span>实时任务</span>
                 </el-dropdown-item>
                 <el-dropdown-item command="/data-sync">
                   <span>数据迁移</span>

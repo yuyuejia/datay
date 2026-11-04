@@ -23,6 +23,12 @@ public final class TaskConstants {
 
     public static final String TASK_TYPE_DATA_COMPARE = "DATA_COMPARE";
 
+    /** ETL 批量任务类型。 */
+    public static final String ETL_TASK_KIND_BATCH = "BATCH";
+
+    /** ETL 实时任务类型。 */
+    public static final String ETL_TASK_KIND_STREAM = "STREAM";
+
     public static final String TASK_STATUS_APPENDING = "APPENDING";
     public static final String TASK_STATUS_RUNNING = "RUNNING";
     public static final String TASK_STATUS_WAITING = "WAITING";

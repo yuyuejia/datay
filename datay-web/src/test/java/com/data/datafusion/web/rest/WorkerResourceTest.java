@@ -1,6 +1,7 @@
 package com.data.datafusion.web.rest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.data.datafusion.domain.JobInstance;
@@ -127,7 +128,7 @@ public class WorkerResourceTest {
             subJob.setParentInstanceCode("parent-123");
             Mockito.when(jobInstanceService.findOneJobInstanceByInstanceCode("2001-999")).thenReturn(subJob);
 
-            Map<String, Object> body = workerResource.getTaskLog("2001", "2001-999", 0, 10000).getBody();
+            Map<String, Object> body = workerResource.getTaskLog("2001", "2001-999", 0, 10000, 0).getBody();
             assertEquals(Boolean.TRUE, body.get("success"));
             assertEquals("sub node log\n", body.get("content"));
         });
@@ -144,11 +145,34 @@ public class WorkerResourceTest {
                 Files.write(logRoot.resolve(node).resolve("100-1.log"), ("node-" + node + "\n").getBytes(StandardCharsets.UTF_8));
             }
 
-            Map<String, Object> body = workerResource.getTaskLog("100", "100-1", 0, 10000).getBody();
+            Map<String, Object> body = workerResource.getTaskLog("100", "100-1", 0, 10000, 0).getBody();
             assertEquals(Boolean.TRUE, body.get("success"));
             String content = (String) body.get("content");
             assertTrue(content.contains("node-2001\n"));
             assertTrue(content.contains("node-2002\n"));
+        });
+    }
+
+    @Test
+    public void testTailLinesReturnsOnlyLatestLinesAndAdvancesOffset() throws Exception {
+        withUserDir(() -> {
+            Path dir = Files.createDirectories(tempDir.resolve("log").resolve("3001"));
+            StringBuilder content = new StringBuilder();
+            for (int i = 1; i <= 20; i++) {
+                content.append("line-").append(i).append("\n");
+            }
+            Path logFile = dir.resolve("3001-1.log");
+            Files.write(logFile, content.toString().getBytes(StandardCharsets.UTF_8));
+
+            Map<String, Object> body = workerResource.getTaskLog("3001", "3001-1", 0, 10000, 5).getBody();
+
+            assertEquals(Boolean.TRUE, body.get("success"));
+            String tail = (String) body.get("content");
+            assertTrue(tail.startsWith("line-16\n"), "tail should start from the 16th line");
+            assertTrue(tail.contains("line-20"), "tail should contain the latest line");
+            assertFalse(tail.contains("line-15"), "tail should not contain older lines");
+            assertEquals(logFile.toFile().length(), body.get("newOffset"));
+            assertEquals(5, body.get("tailLines"));
         });
     }
 

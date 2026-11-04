@@ -28,4 +28,24 @@ describe('Tab Config', () => {
   it('should resolve the data migration route to its tab definition', () => {
     expect(findTabDefinitionByPath('/data-sync')?.name).toBe('DataSync');
   });
+
+  it('should register batch and real-time ETL task tabs', () => {
+    expect(TAB_DEFINITIONS.ETLTask).toEqual({
+      path: '/etl-task',
+      title: '批量任务',
+      componentName: 'ETLTask',
+      closable: true,
+    });
+    expect(TAB_DEFINITIONS.ETLTaskRealtime).toEqual({
+      path: '/etl-task-realtime',
+      title: '实时任务',
+      componentName: 'ETLTask',
+      closable: true,
+    });
+  });
+
+  it('should resolve real-time ETL task routes to the real-time tab', () => {
+    expect(findTabDefinitionByPath('/etl-task-realtime')?.name).toBe('ETLTaskRealtime');
+    expect(findTabDefinitionByPath('/etl-task-realtime/123/design')?.name).toBe('ETLTaskRealtime');
+  });
 });

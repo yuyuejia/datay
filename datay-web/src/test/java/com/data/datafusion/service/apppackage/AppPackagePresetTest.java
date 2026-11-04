@@ -68,12 +68,14 @@ class AppPackagePresetTest {
         AppPackageContent content = load("app-packages/datay-quickstart-app.json");
 
         AppPackageEtlTask cdc = content.getEtlTasks().stream().filter(task -> "qs_etl_mysql_cdc".equals(task.taskCode)).findFirst().orElseThrow();
+        assertThat(cdc.type).isEqualTo(TaskConstants.ETL_TASK_KIND_STREAM);
         assertThat(cdc.nodes).extracting(node -> node.type).contains("MySQLBinlogInput", "StreamJdbcOutput");
 
         AppPackageEtlTask decision = content.getEtlTasks().stream().filter(task -> "qs_etl_decision_demo".equals(task.taskCode)).findFirst().orElseThrow();
         assertThat(decision.nodes).extracting(node -> node.type).contains("GenerateFlowFile", "DecisionComponent", "StreamJdbcOutput");
 
         AppPackageEtlTask postgresLake = content.getEtlTasks().stream().filter(task -> "qs_etl_pg_cdc_ducklake".equals(task.taskCode)).findFirst().orElseThrow();
+        assertThat(postgresLake.type).isEqualTo(TaskConstants.ETL_TASK_KIND_STREAM);
         assertThat(postgresLake.nodes).extracting(node -> node.type).contains("PostgresCDCInput", "DuckLakeWrite");
     }
 

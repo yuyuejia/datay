@@ -31,7 +31,8 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   DataSource: { path: '/data-source', title: '数据源管理', componentName: 'DataSource', closable: true },
   FileManagement: { path: '/file-management', title: '文件管理', componentName: 'FileManagement', closable: true },
   // 数据集成
-  ETLTask: { path: '/etl-task', title: '数据集成', componentName: 'ETLTask', closable: true },
+  ETLTask: { path: '/etl-task', title: '批量任务', componentName: 'ETLTask', closable: true },
+  ETLTaskRealtime: { path: '/etl-task-realtime', title: '实时任务', componentName: 'ETLTask', closable: true },
   DataSync: { path: '/data-sync', title: '数据迁移', componentName: 'DataSync', closable: true },
   DataCompare: { path: '/data-compare', title: '数据比对', componentName: 'DataCompare', closable: true },
   // 数据模型

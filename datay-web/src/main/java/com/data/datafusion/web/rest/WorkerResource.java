@@ -43,6 +43,12 @@ public class WorkerResource {
     /** 读取失败日志时最多检查的文件数，避免 DAG 子任务过多时读取过量文件。 */
     private static final int MAX_FAILURE_LOG_FILES = 100;
 
+    /** 实时任务日志首次加载时最多返回的行数。 */
+    private static final int MAX_TAIL_LOG_LINES = 5000;
+
+    /** 实时任务日志首次加载时最多从文件末尾读取的字节数。 */
+    private static final long MAX_TAIL_LOG_BYTES = 8 * 1024 * 1024L;
+
     // 存储每个任务的最后读取位置
     private static Map<String, Long> lastReadPositions = new HashMap<>();
 
@@ -97,7 +103,8 @@ public class WorkerResource {
         @RequestParam String jobCode,
         @RequestParam String jobInstanceCode,
         @RequestParam(required = false, defaultValue = "0") long offset,
-        @RequestParam(required = false, defaultValue = "10485760") long maxSize
+        @RequestParam(required = false, defaultValue = "10485760") long maxSize,
+        @RequestParam(required = false, defaultValue = "0") int tailLines
     ) {
         Map<String, Object> result = new HashMap<>();
 
@@ -133,6 +140,26 @@ public class WorkerResource {
 
                 // 获取文件大小
                 long fileSize = logFile.length();
+
+                // 首次加载实时任务日志时只返回文件末尾的若干行，避免长日志一次性读入
+                if (tailLines > 0 && offset <= 0) {
+                    int effectiveTailLines = Math.min(tailLines, MAX_TAIL_LOG_LINES);
+                    String tailContent = readTailLines(
+                        logFile,
+                        effectiveTailLines,
+                        Math.min(fileSize, Math.min(actualMaxSize, MAX_TAIL_LOG_BYTES))
+                    );
+                    result.put("success", true);
+                    result.put("message", "获取日志成功");
+                    result.put("content", tailContent);
+                    result.put("newOffset", fileSize);
+                    result.put("fileSize", fileSize);
+                    result.put("readSize", fileSize);
+                    result.put("maxSize", actualMaxSize);
+                    result.put("hasMore", false);
+                    result.put("tailLines", effectiveTailLines);
+                    return ResponseEntity.ok(result);
+                }
 
                 // 如果offset为0，表示从头开始读取
                 // 如果offset大于文件大小，说明文件被截断或重新创建，从头开始读取
@@ -523,6 +550,31 @@ public class WorkerResource {
 
             return "";
         }
+    }
+
+    /**
+     * 读取日志文件末尾的指定行数，最多读取 {@code maxBytes} 字节。
+     *
+     * <p>从文件末尾向前读取，避免长日志一次性载入内存；返回内容最多包含 {@code maxLines} 行。</p>
+     */
+    private String readTailLines(File logFile, int maxLines, long maxBytes) throws IOException {
+        if (maxLines <= 0 || maxBytes <= 0 || logFile.length() <= 0) {
+            return "";
+        }
+        String tailContent = readLastContent(logFile, maxBytes);
+        if (tailContent.isEmpty()) {
+            return "";
+        }
+        String[] lines = tailContent.split("\\R");
+        int start = Math.max(0, lines.length - maxLines);
+        StringBuilder content = new StringBuilder();
+        for (int i = start; i < lines.length; i++) {
+            if (content.length() > 0) {
+                content.append('\n');
+            }
+            content.append(lines[i]);
+        }
+        return content.toString();
     }
 
     /**

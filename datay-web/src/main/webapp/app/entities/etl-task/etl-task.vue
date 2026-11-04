@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
-      <span id="etl-task-heading">数据集成</span>
+      <span id="etl-task-heading">{{ pageTitle }}</span>
       <div class="d-flex align-items-center">
         <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按任务名称 / 描述搜索" clearable />
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
@@ -12,7 +12,7 @@
           <span>导入任务</span>
         </el-button>
         <input ref="fileInput" type="file" accept=".json,application/json" style="display: none" @change="onFileSelected" />
-        <router-link :to="{ name: 'ETLTaskDesignNew' }" custom v-slot="{ navigate }">
+        <router-link :to="{ name: createRouteName }" custom v-slot="{ navigate }">
           <el-button
             type="primary"
             @click="navigate"
@@ -21,13 +21,13 @@
             class="jh-create-entity create-etl-task"
           >
             <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span>创建 ETL 任务</span>
+            <span>{{ createButtonText }}</span>
           </el-button>
         </router-link>
       </div>
     </h2>
     <div class="alert alert-warning" v-if="!isFetching && eTLTasks && eTLTasks.length === 0">
-      <span>未找到 ETL 任务</span>
+      <span>未找到{{ pageTitle }}</span>
     </div>
     <div v-if="eTLTasks && eTLTasks.length > 0" class="list-page-scroll">
       <el-table
@@ -38,15 +38,13 @@
       >
         <el-table-column prop="taskName" label="任务名称" sortable="custom" width="300"></el-table-column>
         <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
-        <el-table-column prop="status" label="状态" sortable="custom" width="100">
+        <el-table-column v-if="!isRealtimeTask" prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
+        <el-table-column prop="status" label="状态" :sortable="isRealtimeTask ? false : 'custom'" width="100">
           <template #default="scope">
-            <span :class="'status-badge status-' + (scope.row.status?.toLowerCase() || '')">
-              {{ scope.row.status }}
-            </span>
+            <span :class="rowStatusClass(scope.row)">{{ rowStatus(scope.row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" sortable="custom" width="90">
+        <el-table-column v-if="!isRealtimeTask" prop="priority" label="优先级" sortable="custom" width="90">
           <template #default="scope">
             <el-tag size="small" :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'">
               {{ scope.row.priority === 3 ? '高' : scope.row.priority === 1 ? '低' : '中' }}
@@ -66,7 +64,7 @@
         <el-table-column label="操作" fixed="right" min-width="360">
           <template #default="scope">
             <div class="btn-group">
-              <router-link :to="{ name: 'ETLTaskDesign', params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
+              <router-link :to="{ name: editRouteName, params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
                 <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
                   <span class="d-none d-md-inline">编辑</span>
                 </el-button>
@@ -75,9 +73,21 @@
                 <span class="d-none d-md-inline">立即执行</span>
               </el-button>
               <el-button
+                v-if="isRealtimeTask"
+                type="danger"
+                size="small"
+                :loading="terminatingTaskId === scope.row.id"
+                :disabled="!!terminatingTaskId && terminatingTaskId !== scope.row.id"
+                @click="terminateETLTask(scope.row)"
+                class="terminate"
+                data-cy="entityTerminateButton"
+              >
+                <span class="d-none d-md-inline">终止</span>
+              </el-button>
+              <el-button
                 type="warning"
                 size="small"
-                v-if="scope.row.status === 'OFFLINE'"
+                v-if="!isRealtimeTask && scope.row.status === 'OFFLINE'"
                 @click="onlineETLTask(scope.row)"
                 class="online"
                 data-cy="entityOnlineButton"
@@ -243,15 +253,19 @@
     </app-modal>
     <app-modal ref="logModal" id="logModal" size="xl" scrollable>
       <template #modal-title>
-        <span>任务日志 - {{ currentLogInstance?.instanceCode }}</span>
+        <span>{{ isRealtimeLog ? '实时任务日志' : '任务日志' }} - {{ currentLogInstance?.instanceCode }}</span>
       </template>
       <div class="modal-body">
-        <div v-if="isLogLoading" class="text-center">
+        <div v-if="isRealtimeLog" class="log-hint">
+          最近一次执行实例日志，最多显示最近 {{ logMaxLines }} 行；自动刷新间隔 3 秒，滚动到底部时跟随最新日志。
+        </div>
+        <div v-if="isLogLoading && !logContent" class="text-center">
           <font-awesome-icon icon="spinner" spin></font-awesome-icon>
           <span>正在加载日志...</span>
         </div>
         <pre
-          v-else
+          v-show="!isLogLoading || logContent"
+          ref="logContentRef"
           class="log-content"
           style="
             max-height: 400px;
@@ -263,12 +277,14 @@
             white-space: pre-wrap;
             word-break: break-all;
           "
+          @scroll="handleLogScroll"
           >{{ logContent || '暂无日志内容' }}</pre
         >
       </div>
       <template #modal-footer>
-        <div>
-          <el-button type="primary" @click="refreshLog" :disabled="isLogLoading">刷新</el-button>
+        <div class="log-footer">
+          <el-switch v-if="isRealtimeLog" v-model="logAutoRefresh" active-text="自动刷新" @change="handleLogAutoRefreshChange" />
+          <el-button type="primary" @click="handleLogRefresh" :disabled="isLogLoading">刷新</el-button>
           <el-button @click="closeLogModal()">关闭</el-button>
         </div>
       </template>
@@ -463,5 +479,18 @@
 .online-cron-tip {
   margin-top: 12px;
   margin-bottom: 0;
+}
+
+.log-hint {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.log-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

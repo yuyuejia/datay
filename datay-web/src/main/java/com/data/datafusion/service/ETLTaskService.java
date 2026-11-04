@@ -335,8 +335,38 @@ public class ETLTaskService {
      */
     @Transactional(readOnly = true)
     public Page<ETLTaskDTO> findAll(Pageable pageable, String search) {
-        LOG.debug("Request to get all ETLTasks with search: {}", search);
-        return eTLTaskRepository.findAll(buildSearchSpecification(search), pageable).map(eTLTaskMapper::toDto);
+        return findAll(pageable, search, null);
+    }
+
+    /**
+     * Get all the eTLTasks with an optional keyword search and task type filter.
+     *
+     * @param pageable the pagination information.
+     * @param search   the optional keyword used to filter by task name or description.
+     * @param type     the optional task type: {@code STREAM} for real-time tasks, {@code BATCH} for batch tasks.
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<ETLTaskDTO> findAll(Pageable pageable, String search, String type) {
+        LOG.debug("Request to get all ETLTasks with search: {}, type: {}", search, type);
+        Specification<ETLTask> specification = buildSearchSpecification(search);
+        if (StringUtils.hasText(type)) {
+            String normalizedType = type.trim().toUpperCase(Locale.ROOT);
+            if (TaskConstants.ETL_TASK_KIND_STREAM.equals(normalizedType)) {
+                specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(criteriaBuilder.upper(root.get("type")), normalizedType)
+                );
+            } else if (TaskConstants.ETL_TASK_KIND_BATCH.equals(normalizedType)) {
+                // 历史任务的 type 为空，默认归入批量任务
+                specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.or(
+                        criteriaBuilder.isNull(root.get("type")),
+                        criteriaBuilder.notEqual(criteriaBuilder.upper(root.get("type")), TaskConstants.ETL_TASK_KIND_STREAM)
+                    )
+                );
+            }
+        }
+        return eTLTaskRepository.findAll(specification, pageable).map(eTLTaskMapper::toDto);
     }
 
     private Specification<ETLTask> buildSearchSpecification(String search) {

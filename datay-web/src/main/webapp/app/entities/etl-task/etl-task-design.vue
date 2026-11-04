@@ -67,6 +67,10 @@ const route = useRoute();
 const router = useRouter();
 
 const isCreateMode = computed(() => !route.params.eTLTaskId);
+const taskKind = computed(() => (route.meta.taskKind === 'STREAM' ? 'STREAM' : 'BATCH'));
+const isRealtimeTask = computed(() => taskKind.value === 'STREAM');
+const listRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtime' : 'ETLTask'));
+const designRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtimeDesign' : 'ETLTaskDesign'));
 
 const nodeTypes = { etl: markRaw(ETLTaskNode) };
 const edgeTypes = { etl: markRaw(EtlTaskEdge) };
@@ -134,16 +138,26 @@ const expandedGroups = reactive({
   数据输入: true,
   数据处理: true,
   数据输出: true,
+  实时输入: true,
 });
 
-const groupOrder = ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'];
+const groupOrder = computed(() =>
+  isRealtimeTask.value
+    ? ['实时输入', '数据输入', '数据输出', '数据处理', '调试组件', 'DuckDB 组件', '其他']
+    : ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'],
+);
 
 const componentSearch = ref('');
+
+/** 批量任务不展示实时输入组件；实时任务保留全部组件。 */
+const visibleComponents = computed(() =>
+  isRealtimeTask.value ? etlComponents.value : etlComponents.value.filter(comp => comp.group !== '实时输入'),
+);
 
 const groupedComponents = computed(() => {
   const keyword = componentSearch.value.trim().toLowerCase();
   const map = {};
-  for (const comp of etlComponents.value) {
+  for (const comp of visibleComponents.value) {
     if (
       keyword &&
       !String(comp.name || '')
@@ -162,8 +176,8 @@ const groupedComponents = computed(() => {
     map[g].push(comp);
   }
   const sortedGroups = Object.keys(map).sort((a, b) => {
-    const ia = groupOrder.indexOf(a);
-    const ib = groupOrder.indexOf(b);
+    const ia = groupOrder.value.indexOf(a);
+    const ib = groupOrder.value.indexOf(b);
     if (ia === -1 && ib === -1) return a.localeCompare(b);
     if (ia === -1) return 1;
     if (ib === -1) return -1;
@@ -184,7 +198,7 @@ const loadTaskData = async () => {
   if (route.params.eTLTaskId) {
     await retrieveETLTask(route.params.eTLTaskId);
   } else {
-    eTLTask.value = { taskName: '', taskDesc: '', cron: '' };
+    eTLTask.value = { taskName: '', taskDesc: '', cron: '', type: taskKind.value };
     nodes.value = [];
     edges.value = [];
   }
@@ -846,6 +860,8 @@ const saveTask = async () => {
   }
   try {
     const payload = buildTaskPayload();
+    // 按当前菜单入口归类，保存后任务归属于对应的批量 / 实时列表
+    eTLTask.value.type = taskKind.value;
     eTLTask.value.nodes = payload.nodes;
     eTLTask.value.edges = payload.edges;
 
@@ -853,7 +869,7 @@ const saveTask = async () => {
       const res = await eTLTaskService().create(eTLTask.value);
       alertService.showSuccess('任务创建成功');
       skipNextCanvasFit = true;
-      router.push({ name: 'ETLTaskDesign', params: { eTLTaskId: res.id } });
+      router.push({ name: designRouteName.value, params: { eTLTaskId: res.id } });
     } else {
       await eTLTaskService().update(eTLTask.value);
       alertService.showSuccess('任务保存成功');
@@ -864,11 +880,41 @@ const saveTask = async () => {
   }
 };
 
-const applyAiSpec = async spec => {
-  if (!spec || !Array.isArray(spec.nodes) || spec.nodes.length === 0) {
+const applyAiSpec = async rawSpec => {
+  if (!rawSpec || !Array.isArray(rawSpec.nodes) || rawSpec.nodes.length === 0) {
     alertService.showError('AI 返回的任务定义中没有节点');
     return;
   }
+
+  // 批量任务不允许引入实时输入组件，应用 AI 结果时同步过滤
+  let spec = rawSpec;
+  if (!isRealtimeTask.value) {
+    const realtimeCodes = new Set(etlComponents.value.filter(comp => comp.group === '实时输入').map(comp => comp.code));
+    const nodeKey = (node, index) => String(node?.key || node?.id || `n${index + 1}`);
+    const rejectedKeys = new Set();
+    const rejectedLabels = [];
+    rawSpec.nodes.forEach((node, index) => {
+      if (node && node.type && realtimeCodes.has(node.type)) {
+        rejectedKeys.add(nodeKey(node, index));
+        rejectedLabels.push(node.label || node.type);
+      }
+    });
+    if (rejectedKeys.size > 0) {
+      spec = {
+        ...rawSpec,
+        nodes: rawSpec.nodes.filter((node, index) => !rejectedKeys.has(nodeKey(node, index))),
+        edges: (rawSpec.edges || []).filter(
+          edge => edge && !rejectedKeys.has(String(edge.source)) && !rejectedKeys.has(String(edge.target)),
+        ),
+      };
+      alertService.showWarning(`批量任务不支持实时输入组件，已忽略：${rejectedLabels.join('、')}`);
+      if (spec.nodes.length === 0) {
+        alertService.showError('AI 返回的节点均为实时输入组件，无法应用到批量任务');
+        return;
+      }
+    }
+  }
+
   const { nodes: builtNodes, keyToId } = buildFlowNodes(spec, type => componentGroupMap.value[type] || '其他', deleteNode);
   const builtEdges = buildFlowEdges(spec, keyToId, DEFAULT_QUEUE_CAPACITY, editEdgeLabel, deleteEdge).map(edge => ({
     ...edge,
@@ -892,7 +938,7 @@ const applyAiSpec = async spec => {
 };
 
 const cancelTask = () => {
-  router.push({ name: 'ETLTask' });
+  router.push({ name: listRouteName.value });
 };
 </script>
 
@@ -900,11 +946,11 @@ const cancelTask = () => {
   <div class="design-container">
     <div class="header">
       <div class="header-left">
-        <router-link :to="{ name: 'ETLTask' }" class="back-link">
+        <router-link :to="{ name: listRouteName }" class="back-link">
           <font-awesome-icon icon="arrow-left" />
           <span>返回</span>
         </router-link>
-        <h3 class="header-title">任务设计</h3>
+        <h3 class="header-title">{{ isRealtimeTask ? '实时任务设计' : '批量任务设计' }}</h3>
       </div>
       <div class="header-form">
         <div class="form-item">

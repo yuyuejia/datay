@@ -45,6 +45,8 @@ export default defineComponent({
         route.name === 'ETLTaskDesign' ||
         route.name === 'ETLTaskDesignNew' ||
         route.name === 'ETLTaskCreate' ||
+        route.name === 'ETLTaskRealtimeDesign' ||
+        route.name === 'ETLTaskRealtimeDesignNew' ||
         route.name === 'DagJobDesign' ||
         route.name === 'DagJobDesignNew' ||
         route.name === 'DataSourceQuery' ||

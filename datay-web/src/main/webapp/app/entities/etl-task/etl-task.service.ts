@@ -178,7 +178,27 @@ export default class ETLTaskService {
     });
   }
 
-  getTaskLog(jobCode: string, jobInstanceCode: string, offset: number = 0, maxSize: number = 10485760): Promise<any> {
+  /** 终止运行中的任务实例。 */
+  stopTaskInstance(instanceCode: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`api/worker/${instanceCode}/stop`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  getTaskLog(
+    jobCode: string,
+    jobInstanceCode: string,
+    offset: number = 0,
+    maxSize: number = 10485760,
+    tailLines: number = 0,
+  ): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`api/worker/log`, {
@@ -187,6 +207,7 @@ export default class ETLTaskService {
             jobInstanceCode,
             offset,
             maxSize,
+            tailLines,
           },
         })
         .then(res => {

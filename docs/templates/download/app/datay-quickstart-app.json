@@ -1949,7 +1949,7 @@
       "taskCode": "qs_etl_mysql_cdc",
       "taskDesc": "MySQLBinlogInput 读取 MySQL Binlog（首次 snapshot 全量 + 后续增量），StreamJdbcOutput 以 auto 模式同步到入门数仓 main.ods_order_cdc。需本地 MySQL 开启 binlog ROW 并创建 quickstart.ods_order；初始化时可将「入门MySQL(CDC演示)」绑定到已有 MySQL 数据源。独立演示任务，未纳入每日编排。",
       "dir": "/快速入门/CDC演示",
-      "type": "ETL",
+      "type": "STREAM",
       "cron": "0 0 2 * * ?",
       "project": "quickstart",
       "nodes": [
@@ -2089,7 +2089,7 @@
       "taskCode": "qs_etl_pg_cdc_ducklake",
       "taskDesc": "PostgresCDCInput 读取 PostgreSQL 逻辑复制变更（snapshot + 增量），DuckLakeWrite(auto) 写入入门 DuckLake main.ods_order_cdc_lake。需 wal_level=logical、REPLICATION 权限，源表设置 REPLICA IDENTITY FULL；独立演示任务，未纳入每日编排。",
       "dir": "/快速入门/CDC演示",
-      "type": "ETL",
+      "type": "STREAM",
       "cron": "0 0 2 * * ?",
       "project": "quickstart",
       "nodes": [

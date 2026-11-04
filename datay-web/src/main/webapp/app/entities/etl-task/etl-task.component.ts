@@ -1,4 +1,5 @@
-import { type Ref, computed, defineComponent, inject, ref, watch, onMounted, onUnmounted } from 'vue';
+import { type Ref, computed, defineComponent, inject, nextTick, ref, watch, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 
 import ETLTaskService from './etl-task.service';
@@ -21,6 +22,7 @@ export default defineComponent({
     CronExpressionSelector,
   },
   setup() {
+    const route = useRoute();
     const dateFormat = useDateFormat();
     const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
     const etlTaskStateService = inject('etlTaskStateService', () => new EtlTaskStateService());
@@ -33,6 +35,21 @@ export default defineComponent({
     const reverse = ref(true);
     const totalItems = ref(0);
     const search = ref('');
+
+    /** 当前菜单对应的任务类型：批量任务 / 实时任务。 */
+    const taskKind = computed<'BATCH' | 'STREAM'>(() => (route.meta.taskKind === 'STREAM' ? 'STREAM' : 'BATCH'));
+    const isRealtimeTask = computed(() => taskKind.value === 'STREAM');
+    const pageTitle = computed(() => (isRealtimeTask.value ? '实时任务' : '批量任务'));
+    const createButtonText = computed(() => (isRealtimeTask.value ? '创建实时任务' : '创建批量任务'));
+    const createRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtimeDesignNew' : 'ETLTaskDesignNew'));
+    const editRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtimeDesign' : 'ETLTaskDesign'));
+
+    /** 实时任务展示最近一次实例状态，批量任务仍展示任务自身状态。 */
+    const rowStatus = (task: IETLTask): string => ((isRealtimeTask.value ? task.lastStatus : task.status) || '-') as string;
+    const rowStatusClass = (task: IETLTask) => {
+      const status = rowStatus(task);
+      return ['status-badge', status === '-' ? '' : `status-${status.toLowerCase()}`];
+    };
 
     const eTLTasks: Ref<IETLTask[]> = ref([]);
 
@@ -47,6 +64,156 @@ export default defineComponent({
     const currentLogInstance: Ref<IJobInstance> = ref<IJobInstance>({});
     const logContent = ref('');
     const isLogLoading = ref(false);
+
+    // 实时任务日志：直接展示最近一次实例，默认滚动到最新并定时增量刷新
+    const LOG_MAX_LINES = 5000;
+    const LOG_REFRESH_INTERVAL_MS = 3000;
+    const logContentRef = ref<HTMLElement | null>(null);
+    const logOffset = ref(0);
+    const logAutoRefresh = ref(false);
+    const isRealtimeLog = ref(false);
+    let logAutoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+    let logStickToBottom = true;
+    let logRefreshing = false;
+
+    const isLogNearBottom = () => {
+      const el = logContentRef.value;
+      if (!el) {
+        return true;
+      }
+      return el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    };
+
+    const scrollLogToBottom = async (force = false) => {
+      await nextTick();
+      const el = logContentRef.value;
+      if (el && (force || logStickToBottom)) {
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+
+    const handleLogScroll = () => {
+      logStickToBottom = isLogNearBottom();
+    };
+
+    const limitLogLines = (content: string): string => {
+      if (!content) {
+        return '';
+      }
+      const lines = content.split(/\r?\n/);
+      if (lines.length <= LOG_MAX_LINES) {
+        return content;
+      }
+      return lines.slice(lines.length - LOG_MAX_LINES).join('\n');
+    };
+
+    const appendLogContent = (chunk: string) => {
+      if (!chunk) {
+        return;
+      }
+      logContent.value = limitLogLines(`${logContent.value}${chunk}`);
+    };
+
+    const stopLogAutoRefresh = () => {
+      if (logAutoRefreshTimer) {
+        clearInterval(logAutoRefreshTimer);
+        logAutoRefreshTimer = null;
+      }
+      logAutoRefresh.value = false;
+    };
+
+    const refreshRealtimeLog = async (silent = false) => {
+      const instance = currentLogInstance.value;
+      if (!instance?.instanceCode || !instance?.jobCode || logRefreshing) {
+        return;
+      }
+      logRefreshing = true;
+      if (!silent) {
+        isLogLoading.value = true;
+      }
+      try {
+        const stickToBottom = isLogNearBottom();
+        const logData = await eTLTaskService().getTaskLog(
+          instance.jobCode,
+          instance.instanceCode,
+          logOffset.value,
+          10485760,
+          logOffset.value === 0 ? LOG_MAX_LINES : 0,
+        );
+        if (logData.success) {
+          logOffset.value = Number(logData.newOffset ?? logOffset.value);
+          if (logData.content) {
+            appendLogContent(logData.content);
+            logStickToBottom = stickToBottom;
+            await scrollLogToBottom();
+          }
+        } else if (!silent) {
+          alertService.showError(logData.message || '加载日志失败');
+        }
+      } catch (err) {
+        if (!silent) {
+          alertService.showHttpError(err.response);
+        }
+      } finally {
+        logRefreshing = false;
+        if (!silent) {
+          isLogLoading.value = false;
+        }
+      }
+    };
+
+    const startLogAutoRefresh = () => {
+      stopLogAutoRefresh();
+      logAutoRefresh.value = true;
+      logAutoRefreshTimer = setInterval(() => {
+        void refreshRealtimeLog(true);
+      }, LOG_REFRESH_INTERVAL_MS);
+    };
+
+    const handleLogAutoRefreshChange = (enabled: boolean) => {
+      if (enabled) {
+        startLogAutoRefresh();
+      } else {
+        stopLogAutoRefresh();
+      }
+    };
+
+    const openLatestRealtimeLog = async (task: IETLTask) => {
+      currentTask.value = task;
+      currentLogInstance.value = {};
+      logContent.value = '';
+      logOffset.value = 0;
+      isRealtimeLog.value = true;
+      isLogLoading.value = true;
+      try {
+        const res = await eTLTaskService().getTaskInstances(task.id, {
+          page: 0,
+          size: 1,
+          sort: ['createTime,desc', 'id,desc'],
+        });
+        const latestInstance = (res.data || [])[0];
+        if (!latestInstance) {
+          alertService.showInfo('当前任务还没有执行实例', { variant: 'info' });
+          return;
+        }
+        currentLogInstance.value = latestInstance;
+        logModal.value.show();
+        const logData = await eTLTaskService().getTaskLog(latestInstance.jobCode, latestInstance.instanceCode, 0, 10485760, LOG_MAX_LINES);
+        if (logData.success) {
+          logContent.value = limitLogLines(logData.content || '');
+          logOffset.value = Number(logData.newOffset || 0);
+          logStickToBottom = true;
+        } else {
+          logContent.value = logData.message || '暂无日志内容';
+        }
+        startLogAutoRefresh();
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        isLogLoading.value = false;
+        await scrollLogToBottom(true);
+      }
+    };
 
     const formatDateTime = (timestamp: number | string): string => {
       if (!timestamp) return '';
@@ -83,6 +250,7 @@ export default defineComponent({
           size: itemsPerPage.value,
           sort: sort(),
           search: search.value,
+          type: taskKind.value,
         };
         const res = await eTLTaskService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
@@ -121,6 +289,7 @@ export default defineComponent({
       if (searchTimer) {
         clearTimeout(searchTimer);
       }
+      stopLogAutoRefresh();
     });
 
     const prepareViewInstances = async (task: IETLTask) => {
@@ -148,6 +317,9 @@ export default defineComponent({
     };
 
     const prepareViewLog = async (instance: IJobInstance) => {
+      stopLogAutoRefresh();
+      isRealtimeLog.value = false;
+      logOffset.value = 0;
       currentLogInstance.value = instance;
       logContent.value = '';
       isLogLoading.value = true;
@@ -184,7 +356,18 @@ export default defineComponent({
       }
     };
 
+    const handleLogRefresh = async () => {
+      if (isRealtimeLog.value) {
+        await refreshRealtimeLog(false);
+        return;
+      }
+      await refreshLog();
+    };
+
     const closeLogModal = () => {
+      stopLogAutoRefresh();
+      isRealtimeLog.value = false;
+      logOffset.value = 0;
       logModal.value.hide();
       logContent.value = '';
       currentLogInstance.value = null;
@@ -217,8 +400,65 @@ export default defineComponent({
         await eTLTaskService().run(id);
         const message = 'ETL Task has been triggered to run once';
         alertService.showInfo(message, { variant: 'success' });
+        // 刷新列表以展示最新一次实例的执行状态
+        await retrieveETLTasks();
       } catch (error) {
         alertService.showHttpError(error.response);
+      }
+    };
+
+    // ---------------- 终止运行中的实时任务 ----------------
+
+    /** 可终止的实例状态：与任务实例页面保持一致。 */
+    const TERMINATABLE_STATUSES = ['RUNNING', 'STARTING'];
+    const terminatingTaskId: Ref<string | null> = ref(null);
+
+    const terminateETLTask = async (task: IETLTask) => {
+      if (!task?.id || terminatingTaskId.value) {
+        return;
+      }
+      try {
+        await ElMessageBox.confirm(`确定要终止任务「${task.taskName || task.id}」当前运行中的实例吗？`, '终止任务', {
+          confirmButtonText: '终止',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
+      } catch {
+        // 用户取消终止
+        return;
+      }
+      terminatingTaskId.value = task.id;
+      try {
+        const res = await eTLTaskService().getTaskInstances(task.id, {
+          page: 0,
+          size: 50,
+          sort: ['createTime,desc'],
+        });
+        const runningInstances = (res.data || []).filter((instance: IJobInstance) => {
+          const status = (instance.status || '').toUpperCase();
+          return TERMINATABLE_STATUSES.includes(status);
+        });
+        if (runningInstances.length === 0) {
+          alertService.showInfo('当前任务没有运行中的实例', { variant: 'info' });
+          return;
+        }
+        const results = await Promise.allSettled(
+          runningInstances.map((instance: IJobInstance) => eTLTaskService().stopTaskInstance(instance.instanceCode)),
+        );
+        const failedCount = results.filter(result => result.status === 'rejected').length;
+        const stoppedCount = runningInstances.length - failedCount;
+        if (failedCount === 0) {
+          alertService.showSuccess(`已终止 ${stoppedCount} 个运行中的实例`);
+        } else if (stoppedCount > 0) {
+          alertService.showWarning(`已终止 ${stoppedCount} 个实例，${failedCount} 个实例终止失败`);
+        } else {
+          alertService.showError('终止失败，请稍后重试');
+        }
+        await retrieveETLTasks();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        terminatingTaskId.value = null;
       }
     };
 
@@ -374,6 +614,8 @@ export default defineComponent({
         alertService.showError('所选文件不是合法的 ETL 任务文件');
         return;
       }
+      // 按当前菜单入口归类，保证导入后出现在对应任务列表
+      transfer.task.type = taskKind.value;
       try {
         const result = await eTLTaskService().importTask(transfer);
         importResult.value = result;
@@ -401,7 +643,11 @@ export default defineComponent({
     const handleRowCommand = (command: string, task: IETLTask) => {
       switch (command) {
         case 'logs':
-          prepareViewInstances(task);
+          if (isRealtimeTask.value) {
+            openLatestRealtimeLog(task);
+          } else {
+            prepareViewInstances(task);
+          }
           break;
         case 'state':
           openStateManager(task);
@@ -577,6 +823,14 @@ export default defineComponent({
     });
 
     return {
+      taskKind,
+      isRealtimeTask,
+      pageTitle,
+      createButtonText,
+      createRouteName,
+      editRouteName,
+      rowStatus,
+      rowStatusClass,
       eTLTasks,
       handleSyncList,
       isFetching,
@@ -590,6 +844,8 @@ export default defineComponent({
       closeDialog,
       removeETLTask,
       runETLTask,
+      terminateETLTask,
+      terminatingTaskId,
       onlineETLTask,
       onlineModal,
       onlineTask,
@@ -629,8 +885,15 @@ export default defineComponent({
       currentLogInstance,
       logContent,
       isLogLoading,
+      logContentRef,
+      logAutoRefresh,
+      isRealtimeLog,
+      logMaxLines: LOG_MAX_LINES,
       prepareViewLog,
       refreshLog,
+      handleLogRefresh,
+      handleLogScroll,
+      handleLogAutoRefreshChange,
       closeLogModal,
       formatDateTime,
       stateModal,

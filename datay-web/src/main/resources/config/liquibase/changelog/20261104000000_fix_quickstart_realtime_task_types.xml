@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        快速入门资产包中的 CDC 演示任务属于实时任务。
+        已导入旧版本资产包的租户，其任务类型仍为 ETL，这里按任务编码纠正为 STREAM。
+    -->
+    <changeSet id="20261104000000-1" author="datay">
+        <update tableName="dp_etl_task">
+            <column name="type" value="STREAM"/>
+            <where>task_code IN ('qs_etl_mysql_cdc', 'qs_etl_pg_cdc_ducklake')</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

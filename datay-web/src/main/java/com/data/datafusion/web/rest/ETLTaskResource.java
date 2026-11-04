@@ -26,7 +26,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -171,17 +173,43 @@ public class ETLTaskResource {
      *
      * @param pageable the pagination information.
      * @param search   the optional keyword used to filter by task name or description.
+     * @param type     the optional task type: {@code BATCH} for batch tasks, {@code STREAM} for real-time tasks.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of eTLTasks in body.
      */
     @GetMapping("")
     public ResponseEntity<List<ETLTaskDTO>> getAllETLTasks(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
-        @RequestParam(value = "search", required = false) String search
+        @RequestParam(value = "search", required = false) String search,
+        @RequestParam(value = "type", required = false) String type
     ) {
-        LOG.debug("REST request to get a page of ETLTasks with search: {}", search);
-        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable, search);
+        LOG.debug("REST request to get a page of ETLTasks with search: {}, type: {}", search, type);
+        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable, search, type);
+        // 实时任务没有固定结束时间，列表状态展示最近一次任务实例的执行状态
+        page
+            .getContent()
+            .stream()
+            .filter(task -> TaskConstants.ETL_TASK_KIND_STREAM.equalsIgnoreCase(task.getType()))
+            .forEach(task -> task.setLastStatus(findLatestInstanceStatus(task.getJobId())));
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * 查询任务最近一次实例的执行状态。
+     *
+     * @param jobId 调度 Job 的 ID
+     * @return 最近一次实例的状态，没有实例时返回 null
+     */
+    private String findLatestInstanceStatus(String jobId) {
+        if (!StringUtils.hasText(jobId)) {
+            return null;
+        }
+        return jobInstanceService
+            .findAllByJobCode(jobId, PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "createTime")))
+            .stream()
+            .findFirst()
+            .map(JobInstanceDTO::getStatus)
+            .orElse(null);
     }
 
     /**
