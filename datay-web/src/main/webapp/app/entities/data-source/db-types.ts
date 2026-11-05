@@ -268,7 +268,7 @@ export const dbTypes: DbType[] = [
         defaultPort: '9494',
         description: '通过 Quack 远程协议连接 DuckDB 服务',
         network: true,
-        hostLabel: 'Quack 服务地址',
+        hostLabel: '服务地址',
         urlPrefix: 'quack:',
         urlTemplate: 'quack:{host}:{port}',
         extraParamsTemplate: [

@@ -63,7 +63,7 @@
             </el-radio-group>
             <small class="text-muted d-block">简易模式自动生成 JDBC URL，自定义模式手动填写 JDBC URL</small>
           </el-form-item>
-            <el-form-item v-if="showFileField" label="数据库文件路径">
+            <el-form-item v-if="showFileField" label="文件路径">
             <el-input name="filePath" id="data-source-file-path" data-cy="filePath" placeholder="留空表示内存数据库，例如 /data/analytics.duckdb" v-model="filePath" @input="updateUrl" />
               <small class="text-muted">无需填写主机、端口、用户名和密码</small>
           </el-form-item>

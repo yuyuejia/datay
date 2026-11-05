@@ -92,26 +92,28 @@
         </el-row>
         <el-form-item label="计算公式" required>
           <el-input type="textarea" class="code-area" v-model="formula" :rows="3" placeholder="SQL 聚合表达式，例如：SUM(amount * quantity)" />
-          <div class="ref-insert">
-            <el-select v-model="selectedFieldCode" :disabled="!metric.factModelId" style="width: 280px" :placeholder="loadingFields ? &quot;加载中...&quot; : &quot;选择要插入的事实表字段&quot;">
-            <el-option v-for="field in factFields" :key="field.fieldName" :value="field.fieldName" :label="`${field.fieldName} (${field.fieldType})`" />
-          </el-select>
-            <el-button
-              type="primary"
-              size="small"
-              @click="insertFieldRef(selectedFieldCode)"
-              >插入</el-button
-            >
-          </div>
-          <div class="agg-functions">
-            <span class="agg-label">常用聚合函数：</span>
-            <el-button
-              v-for="fn in aggFunctions"
-              :key="fn.value"
-              size="small"
-              @click="insertAggFunction(fn)"
-              >{{ fn.label }}</el-button
-            >
+          <div class="formula-tools">
+            <div class="ref-insert">
+              <el-select v-model="selectedFieldCode" :disabled="!metric.factModelId" style="width: 280px" :placeholder="loadingFields ? &quot;加载中...&quot; : &quot;选择要插入的事实表字段&quot;">
+              <el-option v-for="field in factFields" :key="field.fieldName" :value="field.fieldName" :label="`${field.fieldName} (${field.fieldType})`" />
+            </el-select>
+              <el-button
+                type="primary"
+                size="small"
+                @click="insertFieldRef(selectedFieldCode)"
+                >插入</el-button
+              >
+            </div>
+            <div class="agg-functions">
+              <span class="agg-label">常用聚合函数：</span>
+              <el-button
+                v-for="fn in aggFunctions"
+                :key="fn.value"
+                size="small"
+                @click="insertAggFunction(fn)"
+                >{{ fn.label }}</el-button
+              >
+            </div>
           </div>
           <div class="filter-hint">
             直接使用字段名作为 SQL 片段参与计算，示列：
@@ -362,6 +364,15 @@
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+.formula-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
 .ref-insert {
   display: flex;
   align-items: center;
@@ -373,7 +384,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
 }
 
 .agg-label {
