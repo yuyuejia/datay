@@ -227,7 +227,7 @@ public class Join extends FlowComponent {
                 for (int i = 0; i < targetTable.columns().size(); i++) {
                     ColumnMeta column = targetTable.columns().get(i);
                     Object value = record.get(column.getName());
-                    DBUtils.appendValue(appender, column.getType(), value);
+                    DBUtils.appendValue(appender, column, value);
                 }
                 appender.endRow();
             }

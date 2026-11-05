@@ -351,7 +351,6 @@ public class StreamJdbcOutput extends FlowComponent {
                 JSONObject record = (JSONObject) o;
                 for (int i = 0; i < targetTable.columns().size(); ++i) {
                     ColumnMeta column = targetTable.columns().get(i);
-                    String fieldType = column.getType();
                     Object value;
                     if (columnMapping != null) {
                         String sourceColumnName = columnMapping.getOrDefault(column.getName(), column.getName());
@@ -359,7 +358,7 @@ public class StreamJdbcOutput extends FlowComponent {
                     } else {
                         value = record.get(column.getName());
                     }
-                    DBUtils.appendValue(appender, fieldType, value);
+                    DBUtils.appendValue(appender, column, value);
                 }
                 appender.endRow();
             }

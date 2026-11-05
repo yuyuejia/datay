@@ -29,6 +29,7 @@ import org.duckdb.DuckDBAppender;
 import java.lang.reflect.Field;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -306,6 +307,33 @@ public class DBUtils {
         }
 
         throw new IllegalArgumentException("无法解析日期时间格式: " + trimmed);
+    }
+
+    /**
+     * 按列元数据把值写入 DuckDB Appender。
+     *
+     * <p>DuckDB 的 Appender 对 {@code DECIMAL} 要求 BigDecimal 的 scale 与目标列完全一致：
+     * 例如 {@code DECIMAL(10,2)} 列必须写入 scale=2 的 BigDecimal。Oracle、PostgreSQL 等
+     * 驱动对整数金额常返回 scale=0 的 BigDecimal（如 {@code 60}），直接写入会报
+     * {@code invalid decimal scale}。这里按目标列 scale 统一归一化，避免跨库同步时
+     * 因驱动返回的 scale 不同而失败。</p>
+     */
+    public static void appendValue(DuckDBAppender appender, ColumnMeta column, Object value) throws SQLException {
+        if (value == null) {
+            appender.appendNull();
+            return;
+        }
+        String type = column == null || column.getType() == null ? "" : column.getType().toUpperCase().trim();
+        if (type.startsWith("DECIMAL") || type.startsWith("NUMERIC")) {
+            int scale = column.getScale();
+            if (scale < 0) {
+                // DuckDB 裸 DECIMAL 的默认 scale 为 3
+                scale = 3;
+            }
+            appender.append(toBigDecimal(value).setScale(scale, RoundingMode.HALF_UP));
+            return;
+        }
+        appendValue(appender, column == null ? null : column.getType(), value);
     }
 
     public static void appendValue(DuckDBAppender appender, String fieldType, Object value) throws SQLException {
@@ -781,7 +809,10 @@ public class DBUtils {
             int scale = metaData.getScale(i);
 
             ColumnMeta column = new ColumnMeta(columnName, columnType);
+            // 对结果集列来说，getPrecision 对字符串是长度、对 DECIMAL/NUMERIC 是精度。
+            // 同时写入 length 与 precision，避免 DECIMAL 结果集落到目标库时丢失精度/小数位。
             column.setLength(columnSize);
+            column.setPrecision(columnSize);
             column.setScale(scale);
             column.setNullable(metaData.isNullable(i) == ResultSetMetaData.columnNullable);
 

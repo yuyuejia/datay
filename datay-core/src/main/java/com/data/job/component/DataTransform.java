@@ -213,7 +213,7 @@ public class DataTransform extends FlowComponent {
                 appender.beginRow();
                 JSONObject record = (JSONObject) item;
                 for (ColumnMeta column : targetTable.columns()) {
-                    DBUtils.appendValue(appender, column.getType(), record.get(column.getName()));
+                    DBUtils.appendValue(appender, column, record.get(column.getName()));
                 }
                 appender.endRow();
             }

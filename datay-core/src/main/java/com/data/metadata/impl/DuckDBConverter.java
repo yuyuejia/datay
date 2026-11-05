@@ -144,7 +144,7 @@ public class DuckDBConverter implements TypeConverter {
         // 精度/小数位兜底：部分 JDBC 驱动只在类型名里给出 DECIMAL(18,2)，ColumnMeta 的 precision 为空
         int precision = columnMeta.getPrecision();
         int scale = columnMeta.getScale();
-        if (("DECIMAL".equals(baseType) || "NUMERIC".equals(baseType))) {
+        if (DuckDBType.DECIMAL.name().equals(type)) {
             int[] precisionScale = DatabaseConverter.parseTypePrecisionScale(upperType);
             if (precisionScale != null) {
                 if (precision <= 0) {
@@ -155,6 +155,17 @@ public class DuckDBConverter implements TypeConverter {
                 }
             } else if (precision <= 0 && columnMeta.getLength() > 0) {
                 precision = columnMeta.getLength();
+            }
+            // Oracle NUMBER 等类型可能既不携带 precision 也不携带 scale（JDBC 返回 -127），
+            // 此时生成裸 DECIMAL 会使用 DuckDB 默认 scale，Appender 写入时容易因 scale 不一致失败。
+            // 统一补成明确的 DECIMAL(38,10)，既保留小数能力，也保证 DDL 与写入 scale 一致。
+            if (precision <= 0) {
+                precision = 38;
+                if (scale < 0) {
+                    scale = 10;
+                }
+            } else if (scale < 0) {
+                scale = 0;
             }
         }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
@@ -308,20 +319,30 @@ public class DuckDBConverter implements TypeConverter {
         //            sb.append(column.getType()).append("(").append(length).append(")");
         //        } else
         if (typeUpper.matches("DECIMAL|NUMERIC")) {
-            if(column.getPrecision() > 38){
-                column.setPrecision(18);
+            int precision = column.getPrecision();
+            int scale = column.getScale();
+            if (precision > 38) {
+                precision = 18;
+                column.setPrecision(precision);
             }
-            // 处理精度和小数位
-            if (column.getPrecision() <= 0) {
-                sb.append(column.getType());
-            } else {
-                sb.append(column.getType()).append("(").append(column.getPrecision());
-                if (column.getScale() <= 0) {
-                    sb.append(")");
-                } else {
-                    sb.append(",").append(column.getScale()).append(")");
+            // 处理精度和小数位：未知 precision/scale 时补成 DuckDB 可用的明确值，
+            // 保证 DDL 中声明的 scale 与 Appender 写入时使用的 scale 一致。
+            if (precision <= 0) {
+                precision = 38;
+                column.setPrecision(precision);
+                if (scale < 0) {
+                    scale = 10;
+                    column.setScale(scale);
                 }
+            } else if (scale < 0) {
+                scale = 0;
+                column.setScale(scale);
             }
+            sb.append(column.getType()).append("(").append(precision);
+            if (scale > 0) {
+                sb.append(",").append(scale);
+            }
+            sb.append(")");
         } else if (typeUpper.matches("BIT") && column.getLength() == 1) {
             // BIT类型必须明确指定长度
             sb.append(DuckDBType.TINYINT.name());

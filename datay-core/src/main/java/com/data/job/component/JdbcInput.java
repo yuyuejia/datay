@@ -137,9 +137,8 @@ public class JdbcInput extends AbstractJdbcInput {
                 appender.beginRow();
                 for (int i = 0; i < targetTable.columns().size(); ++i) {
                     ColumnMeta column = targetTable.columns().get(i);
-                    String fieldType = column.getType();
                     Object value = record.get(column.getName());
-                    DBUtils.appendValue(appender, fieldType, value);
+                    DBUtils.appendValue(appender, column, value);
                 }
                 appender.endRow();
             }
