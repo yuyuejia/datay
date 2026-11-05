@@ -5,7 +5,10 @@ import com.alibaba.fastjson2.JSONObject;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.ColumnMeta;
+import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
+import com.data.metadata.TypeConverter;
 import com.data.metadata.util.DBUtils;
 
 import java.sql.Connection;
@@ -114,6 +117,10 @@ public class CdcSnapshotReader {
         component.logInfo("读取历史全量数据，表 " + schema + "." + table);
         TableMeta tableMeta = DBUtils.getTableMetaData(conn, schema, table);
         tableMeta.setDbType(dbType);
+        TypeConverter sourceConverter = DatabaseConverter.getConverter(dbType);
+        if (sourceConverter != null) {
+            sourceConverter.enrichSourceTableMeta(conn, schema, table, tableMeta);
+        }
 
         long total = 0;
         String sql = "SELECT * FROM " + schema + "." + table;
@@ -127,7 +134,12 @@ public class CdcSnapshotReader {
                 JSONObject record = new JSONObject();
                 for (int i = 1; i <= columnCount; i++) {
                     String columnName = rs.getMetaData().getColumnName(i);
-                    record.put(columnName, normalizeValue(rs.getObject(i)));
+                    ColumnMeta column = tableMeta.columns().get(i - 1);
+                    Object value = rs.getObject(i);
+                    if (sourceConverter != null) {
+                        value = sourceConverter.normalizeSourceValue(column, value);
+                    }
+                    record.put(columnName, normalizeValue(value));
                 }
                 batch.add(record);
                 total++;
@@ -188,9 +200,6 @@ public class CdcSnapshotReader {
     private Object normalizeValue(Object value) {
         if (value == null) {
             return null;
-        }
-        if (value instanceof org.postgresql.util.PGobject) {
-            return ((org.postgresql.util.PGobject) value).getValue();
         }
         if (value instanceof java.util.UUID) {
             return value.toString();

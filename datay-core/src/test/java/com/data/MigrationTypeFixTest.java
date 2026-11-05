@@ -32,6 +32,21 @@ public class MigrationTypeFixTest {
     }
 
     @Test
+    public void postgresqlShouldKeepZeroScaleAndWidenUnsignedIntegers() {
+        ColumnMeta decimal = new ColumnMeta("amount", "DECIMAL(20,0)", 20, 20, 0);
+        ColumnMeta decimalTarget = DatabaseConverter.convert("mysql", "postgresql", decimal);
+        TableMeta decimalTable = new TableMeta("t_amount");
+        decimalTable.addColumn(decimalTarget);
+        String ddl = DatabaseConverter.generateTableDDL("postgresql", decimalTable);
+        assertTrue(ddl.contains("NUMERIC(20,0)"), ddl);
+
+        assertEquals("SMALLINT", DatabaseConverter.convert("mysql", "postgresql", new ColumnMeta("a", "TINYINT UNSIGNED", 3, 0, 0)).getType());
+        assertEquals("INTEGER", DatabaseConverter.convert("mysql", "postgresql", new ColumnMeta("b", "SMALLINT UNSIGNED", 5, 0, 0)).getType());
+        assertEquals("BIGINT", DatabaseConverter.convert("mysql", "postgresql", new ColumnMeta("c", "INT UNSIGNED", 10, 0, 0)).getType());
+        assertEquals("NUMERIC", DatabaseConverter.convert("mysql", "postgresql", new ColumnMeta("d", "BIGINT UNSIGNED", 20, 0, 0)).getType());
+    }
+
+    @Test
     public void mysqlShouldEmitTinyInt1ForLengthOneTinyInt() {
         DatabaseConverter.register("mysql", new MysqlConverter());
         TableMeta table = new TableMeta("t_flag");

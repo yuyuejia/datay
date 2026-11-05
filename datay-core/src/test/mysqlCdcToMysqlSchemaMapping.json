@@ -1,0 +1,40 @@
+{
+  "units": [
+    {
+      ".id": "MySQLBinlogInput",
+      ".name": "MySQLBinlogInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/cdc_src_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "cdc_src_db"
+      },
+      "databaseNamePattern": "cdc_src_db",
+      "tableNamePattern": "cdc_schema_verify",
+      "serverId": 4493
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:13306/cdc_dst_db?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08%3A00&forceConnectionTimeZoneToSession=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "Datay@12345",
+        "dbschema": "cdc_dst_db"
+      },
+      "schema": "cdc_dst_db",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "MySQLBinlogInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

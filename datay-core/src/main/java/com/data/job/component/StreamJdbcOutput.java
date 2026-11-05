@@ -315,17 +315,40 @@ public class StreamJdbcOutput extends FlowComponent {
     private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,
                                       String targetDbType, String eventType) throws SQLException {
         String writeSQL = DatabaseConverter.generateWriteSQL(targetDbType, targetTable, eventType);
-        try (PreparedStatement targetStmt = targetConn.prepareStatement(writeSQL)) {
-            JSONArray records = flowFile.getJsonArray();
-
-            for (Object o : records) {
-                JSONObject record = (JSONObject) o;
-                setStatementParameters(targetStmt, targetTable, record, eventType);
-                targetStmt.addBatch();
+        PreparedStatement deleteStmt = null;
+        try {
+            // 只有 UPDATE 才需要处理「主键变更」，避免 INSERT/DELETE 额外 prepared statement 开销
+            if ("UPDATE".equals(eventType)) {
+                deleteStmt = targetConn.prepareStatement(DatabaseConverter.generateWriteSQL(targetDbType, targetTable, "delete"));
             }
+            try (PreparedStatement targetStmt = targetConn.prepareStatement(writeSQL)) {
+                JSONArray records = flowFile.getJsonArray();
+                boolean hasPendingBatch = false;
 
-            targetStmt.executeBatch();
-            this.logInfo("已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable() + "，写入模式：" + eventType);
+                for (Object o : records) {
+                    JSONObject record = (JSONObject) o;
+                    // UPDATE 修改主键时，after 镜像会落到新主键上；先按 before 镜像删除旧主键，
+                    // 否则目标端会残留一条旧记录，导致结果集与源库不一致。
+                    if (deleteStmt != null && primaryKeyChanged(targetTable, record)) {
+                        if (hasPendingBatch) {
+                            targetStmt.executeBatch();
+                            hasPendingBatch = false;
+                        }
+                        setDeleteParameters(deleteStmt, targetTable, record.getJSONObject("__before"), targetDbType);
+                        deleteStmt.executeUpdate();
+                    }
+                    setStatementParameters(targetStmt, targetTable, record, eventType, targetDbType);
+                    targetStmt.addBatch();
+                    hasPendingBatch = true;
+                }
+
+                targetStmt.executeBatch();
+                this.logInfo("已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable() + "，写入模式：" + eventType);
+            }
+        } finally {
+            if (deleteStmt != null) {
+                deleteStmt.close();
+            }
         }
     }
 
@@ -377,6 +400,12 @@ public class StreamJdbcOutput extends FlowComponent {
         }
 
         String sql = sqlAttr.toString();
+        String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
+        Object sourceSchemaAttr = flowFile.getAttribute(FlowFile.ATTRIBUTE_DATABASE);
+        String sourceSchema = sourceSchemaAttr == null ? null : sourceSchemaAttr.toString();
+        String targetSchema = getTargetSchema(flowFile);
+        sql = DatabaseConverter.translateDDL(targetDbType, sql, sourceSchema, targetSchema);
+        DatabaseConverter.prepareDDLConnection(targetDbType, targetConn, targetSchema);
 
         // 如果没有记录数据，直接执行SQL
         try (Statement stmt = targetConn.createStatement()) {
@@ -384,6 +413,9 @@ public class StreamJdbcOutput extends FlowComponent {
             int updateCount = stmt.getUpdateCount();
             this.logInfo("已成功执行DDL语句，影响行数：" + updateCount);
         }
+        // DDL 会改变目标表结构，清空元数据缓存，让后续数据事件按新结构绑定参数
+        this.tableMetaMap.clear();
+        this.tableExistsCache.clear();
     }
 
     /**
@@ -400,21 +432,22 @@ public class StreamJdbcOutput extends FlowComponent {
     /**
      * 根据事件类型设置PreparedStatement参数
      */
-    private void setStatementParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String eventType)
-        throws SQLException {
+    private void setStatementParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String eventType,
+                                        String targetDbType) throws SQLException {
         if ("DELETE".equals(eventType)) {
             // DELETE语句只需要设置WHERE条件中的参数（通常是主键）
-            setDeleteParameters(stmt, tableMeta, record);
+            setDeleteParameters(stmt, tableMeta, record, targetDbType);
         } else {
             // INSERT/UPDATE/REPLACE语句需要设置所有列的值
-            setInsertUpdateParameters(stmt, tableMeta, record);
+            setInsertUpdateParameters(stmt, tableMeta, record, targetDbType);
         }
     }
 
     /**
      * 设置DELETE语句的参数（只设置WHERE条件中的列）
      */
-    private void setDeleteParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record) throws SQLException {
+    private void setDeleteParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType)
+        throws SQLException {
         List<ColumnMeta> primaryKeys = getPrimaryKeyColumns(tableMeta);
         if (primaryKeys.isEmpty()) {
             // 如果没有主键，使用所有列作为WHERE条件
@@ -424,31 +457,41 @@ public class StreamJdbcOutput extends FlowComponent {
         for (int i = 0; i < primaryKeys.size(); i++) {
             ColumnMeta column = primaryKeys.get(i);
             Object value = record.get(column.getName());
-            stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
+            setParameter(stmt, i + 1, column, value, targetDbType);
         }
     }
 
     /**
      * 设置INSERT/UPDATE/REPLACE语句的参数（设置所有列的值）
      */
-    private void setInsertUpdateParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record) throws SQLException {
+    private void setInsertUpdateParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType)
+        throws SQLException {
         // 如果设置了字段映射，根据字段映射设置value
         if (header_map != null && !header_map.isEmpty()) {
-            setInsertUpdateParametersWithMapping(stmt, tableMeta, record);
+            setInsertUpdateParametersWithMapping(stmt, tableMeta, record, targetDbType);
         } else {
             // 没有字段映射时使用原来的逻辑
             for (int i = 0; i < tableMeta.columns().size(); i++) {
                 ColumnMeta column = tableMeta.columns().get(i);
                 Object value = record.get(column.getName());
-                stmt.setObject(i + 1, DBUtils.normalizeParameter(column.getType(), value));
+                setParameter(stmt, i + 1, column, value, targetDbType);
             }
         }
     }
 
     /**
+     * 按目标库方言绑定单个参数，具体差异下沉到数据源方言实现。
+     */
+    private void setParameter(PreparedStatement stmt, int index, ColumnMeta column, Object value, String targetDbType)
+        throws SQLException {
+        DatabaseConverter.bindParameter(targetDbType, stmt, index, column, value);
+    }
+
+    /**
      * 根据字段映射设置INSERT/UPDATE/REPLACE语句的参数
      */
-    private void setInsertUpdateParametersWithMapping(PreparedStatement stmt, TableMeta tableMeta, JSONObject record) throws SQLException {
+    private void setInsertUpdateParametersWithMapping(PreparedStatement stmt, TableMeta tableMeta, JSONObject record,
+                                                      String targetDbType) throws SQLException {
         // 创建字段映射关系：目标字段名 -> 源字段名
         Map<String, String> columnMapping = new HashMap<>();
         for (Map<String, Object> mapping : header_map) {
@@ -473,8 +516,34 @@ public class StreamJdbcOutput extends FlowComponent {
             
             // 从记录中获取源字段的值
             Object value = record.get(sourceColumnName);
-            stmt.setObject(i + 1, DBUtils.normalizeParameter(targetColumn.getType(), value));
+            setParameter(stmt, i + 1, targetColumn, value, targetDbType);
         }
+    }
+
+    /**
+     * UPDATE 事件的主键是否发生变化。
+     * <p>CDC 的 UPDATE 事件会把变更前镜像放在 {@code __before} 中。</p>
+     */
+    private boolean primaryKeyChanged(TableMeta tableMeta, JSONObject record) {
+        JSONObject before = record.getJSONObject("__before");
+        if (before == null) {
+            return false;
+        }
+        for (ColumnMeta column : getPrimaryKeyColumns(tableMeta)) {
+            String oldValue = stringValue(before.get(column.getName()));
+            String newValue = stringValue(record.get(column.getName()));
+            if (!java.util.Objects.equals(oldValue, newValue)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String stringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return value.toString();
     }
 
     /**

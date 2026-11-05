@@ -407,11 +407,17 @@ public class DBUtils {
         return (
             type.equals("VARCHAR") ||
             type.equals("CHAR") ||
+            type.equals("BPCHAR") ||
+            type.equals("CHARACTER") ||
+            type.equals("CHARACTER VARYING") ||
+            type.equals("NAME") ||
+            type.equals("CITEXT") ||
             type.equals("TEXT") ||
             type.endsWith("TEXT") ||
             type.equals("STRING") ||
             type.equals("CLOB") ||
             type.equals("JSON") ||
+            type.equals("JSONB") ||
             type.equals("UUID")
         );
     }

@@ -8,6 +8,7 @@ import com.data.metadata.util.DBUtils;
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.*;
 import com.github.shyiko.mysql.binlog.event.deserialization.EventDeserializer;
+import com.github.shyiko.mysql.binlog.event.deserialization.json.JsonBinary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,9 +16,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -381,9 +385,102 @@ public class MySQLBinlogCollector {
                 log.warn("未找到表元数据: {}.{}", eventData.getDatabase(), eventData.getTable());
                 return;
             }
+            com.data.metadata.DatabaseConverter.enrichSourceTableMeta(
+                "mysql", connection, eventData.getDatabase(), eventData.getTable(), tableInfo
+            );
             tableMapCache.put(eventData.getTableId(), tableInfo);
         }
         log.debug("处理TABLE_MAP事件: {}.{}", eventData.getDatabase(), eventData.getTable());
+    }
+
+    /**
+     * 将 Binlog 中的 ENUM 下标 / SET 位图转换为源库展示值。
+     */
+    private Object decodeColumnValue(ColumnMeta column, Object value) {
+        if (value == null || column == null || column.getTypeDefinition() == null) {
+            return value;
+        }
+        String definition = column.getTypeDefinition().trim();
+        String upper = definition.toUpperCase();
+        try {
+            // 固定长度 BINARY(n)：Binlog 会去掉尾部 0x00，按列长度补回，保持与源库一致
+            if (value instanceof byte[] && ("BINARY".equalsIgnoreCase(column.getType()) || upper.startsWith("BINARY("))) {
+                byte[] bytes = (byte[]) value;
+                if (column.getLength() > bytes.length) {
+                    byte[] padded = new byte[column.getLength()];
+                    System.arraycopy(bytes, 0, padded, 0, bytes.length);
+                    return padded;
+                }
+                return bytes;
+            }
+            // MySQL Binlog 的 JSON 列是 MySQL 内部二进制格式，需要按 JsonBinary 解析成文本
+            if (value instanceof byte[] && (upper.startsWith("JSON") || "JSON".equalsIgnoreCase(column.getType()))) {
+                return JsonBinary.parseAsString((byte[]) value);
+            }
+            // Binlog 连接器按有符号数返回 UNSIGNED 整数，需要按列定义还原为无符号值
+            if (value instanceof Number && upper.contains("UNSIGNED")) {
+                return normalizeUnsigned(definition, (Number) value);
+            }
+            if (upper.startsWith("ENUM(")) {
+                List<String> members = parseTypeMembers(definition);
+                int index = value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(value.toString());
+                return index >= 1 && index <= members.size() ? members.get(index - 1) : "";
+            }
+            if (upper.startsWith("SET(")) {
+                long mask = value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
+                List<String> members = parseTypeMembers(definition);
+                List<String> selected = new ArrayList<>();
+                for (int i = 0; i < members.size(); i++) {
+                    if ((mask & (1L << i)) != 0) {
+                        selected.add(members.get(i));
+                    }
+                }
+                return String.join(",", selected);
+            }
+        } catch (Exception e) {
+            log.debug("解析 {} 列值失败: {}", column.getName(), e.getMessage());
+        }
+        return value;
+    }
+
+    /**
+     * 将 Binlog 中的有符号值还原为 MySQL UNSIGNED 整数。
+     */
+    private Object normalizeUnsigned(String definition, Number value) {
+        String base = definition.trim().toLowerCase();
+        long raw = value.longValue();
+        if (base.startsWith("tinyint")) {
+            return (int) (raw & 0xFFL);
+        }
+        if (base.startsWith("smallint")) {
+            return (int) (raw & 0xFFFFL);
+        }
+        if (base.startsWith("mediumint")) {
+            return (int) (raw & 0xFFFFFFL);
+        }
+        if (base.startsWith("int")) {
+            return raw & 0xFFFFFFFFL;
+        }
+        if (base.startsWith("bigint")) {
+            java.math.BigInteger result = java.math.BigInteger.valueOf(raw);
+            return raw < 0 ? result.add(java.math.BigInteger.ONE.shiftLeft(64)) : result;
+        }
+        return value;
+    }
+
+    /**
+     * 解析 {@code enum('a','b')} / {@code set('x','y')} 中的成员列表。
+     */
+    private List<String> parseTypeMembers(String definition) {
+        List<String> members = new ArrayList<>();
+        int open = definition.indexOf('(');
+        int close = definition.lastIndexOf(')');
+        String body = open >= 0 && close > open ? definition.substring(open + 1, close) : definition;
+        Matcher matcher = Pattern.compile("'((?:[^']|'')*)'").matcher(body);
+        while (matcher.find()) {
+            members.add(matcher.group(1).replace("''", "'"));
+        }
+        return members;
     }
 
     /**
@@ -459,6 +556,8 @@ public class MySQLBinlogCollector {
                 return;
             }
         }
+        // DDL 后表结构已变化，清空 TABLE_MAP 缓存，后续行事件重新读取最新元数据
+        tableMapCache.clear();
         BinlogEvent binlogEvent = new BinlogEvent(BinlogEvent.EventType.QUERY, data.getDatabase(), null);
         binlogEvent.setBinlogFileName(getLastBinlogFile());
         binlogEvent.setBinlogPosition(getLastBinlogPosition());
@@ -471,7 +570,10 @@ public class MySQLBinlogCollector {
      */
     private String extractDdlTableName(String sql) {
         java.util.regex.Matcher matcher = java.util.regex.Pattern
-            .compile("(?i)\\b(?:alter|create|truncate|drop)\\s+table\\s+(?:if\\s+(?:not\\s+)?exists\\s+)?[`\"']?([\\w$]+)[`\"']?")
+            .compile(
+                "(?i)\\b(?:alter|create|truncate|drop)\\s+table\\s+(?:if\\s+(?:not\\s+)?exists\\s+)?" +
+                "(?:[`\"']?[\\w$]+[`\"']?\\s*\\.\\s*)?[`\"']?([\\w$]+)[`\"']?"
+            )
             .matcher(sql);
         if (matcher.find()) {
             return matcher.group(1);
@@ -549,7 +651,7 @@ public class MySQLBinlogCollector {
                 System.out.println(tableInfo);
             }
             ColumnMeta columnMeta = tableInfo.columns().get(i);
-            result.put(columnMeta.getName(), row[i]);
+            result.put(columnMeta.getName(), decodeColumnValue(columnMeta, row[i]));
             i = includedColumns.nextSetBit(i + 1);
         }
         return result;

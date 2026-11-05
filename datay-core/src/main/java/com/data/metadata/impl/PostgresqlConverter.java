@@ -1,7 +1,12 @@
 package com.data.metadata.impl;
 
 import com.data.metadata.*;
+import com.data.metadata.util.DBUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -78,6 +83,7 @@ public class PostgresqlConverter implements TypeConverter {
         // 数值类型映射
         commonDataType2ColumnType.put(AllDataType.TINYINT.name(), PostgresType.SMALLINT.name());
         commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), PostgresType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), PostgresType.INTEGER.name());
         commonDataType2ColumnType.put(AllDataType.INT.name(), PostgresType.INTEGER.name());
         commonDataType2ColumnType.put(AllDataType.INTEGER.name(), PostgresType.INTEGER.name());
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), PostgresType.BIGINT.name());
@@ -133,13 +139,19 @@ public class PostgresqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.UUID.name(), PostgresType.UUID.name());
         commonDataType2ColumnType.put(AllDataType.BIT.name(), PostgresType.BIT.name());
         commonDataType2ColumnType.put(AllDataType.VARBIT.name(), PostgresType.BYTEA.name());
+        // MySQL 专有类型：PostgreSQL 没有 YEAR/ENUM/SET，按可读值落库
+        commonDataType2ColumnType.put(AllDataType.YEAR.name(), PostgresType.SMALLINT.name());
+        commonDataType2ColumnType.put(AllDataType.ENUM.name(), PostgresType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.SET.name(), PostgresType.VARCHAR.name());
     }
 
     @Override
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
         String upperType = columnMeta.getType().toUpperCase();
+        // PostgreSQL 没有 UNSIGNED，先去掉后缀按基础类型查表，再按需要向上拓宽整数类型。
+        String normalizedType = upperType.replace(" UNSIGNED", "").trim();
         // DuckDB 等驱动返回的类型名会带精度，如 DECIMAL(18,4)；查表前先去参数。
-        String baseType = DatabaseConverter.stripTypeParameters(upperType);
+        String baseType = DatabaseConverter.stripTypeParameters(normalizedType);
         String type = commonDataType2ColumnType.get(baseType);
         if (type == null) {
             if (baseType.startsWith("INTERVAL")) {
@@ -152,8 +164,39 @@ public class PostgresqlConverter implements TypeConverter {
         if ("NUMBER".equals(baseType) && columnMeta.getScale() <= 0 && columnMeta.getPrecision() <= 20 && columnMeta.getPrecision() > 0) {
             type = PostgresType.BIGINT.name();
         }
+        boolean unsigned = upperType.endsWith(" UNSIGNED");
+        if (unsigned) {
+            switch (baseType) {
+                case "TINYINT":
+                    type = PostgresType.SMALLINT.name();
+                    break;
+                case "SMALLINT":
+                case "MEDIUMINT":
+                    type = PostgresType.INTEGER.name();
+                    break;
+                case "INT":
+                case "INTEGER":
+                    type = PostgresType.BIGINT.name();
+                    break;
+                case "BIGINT":
+                    type = PostgresType.NUMERIC.name();
+                    break;
+                default:
+                    break;
+            }
+        }
+        // 单 bit 在 PostgreSQL 中按布尔落库（generateColumnDDL 也按此规则生成），
+        // 让下游参数绑定拿到真实的 BOOLEAN 类型，而不是 BYTE/SMALLINT。
+        if (PostgresType.BIT.name().equals(type) && columnMeta.getLength() <= 1) {
+            type = PostgresType.BOOLEAN.name();
+        }
         int precision = columnMeta.getPrecision();
         int scale = columnMeta.getScale();
+        if (unsigned && "BIGINT".equals(baseType)) {
+            // BIGINT UNSIGNED 最大 18446744073709551615，共 20 位
+            precision = 20;
+            scale = 0;
+        }
         if ("DECIMAL".equals(baseType) || "NUMERIC".equals(baseType)) {
             int[] precisionScale = DatabaseConverter.parseTypePrecisionScale(upperType);
             if (precisionScale != null) {
@@ -173,7 +216,121 @@ public class PostgresqlConverter implements TypeConverter {
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
+        column.setTypeDefinition(columnMeta.getTypeDefinition());
         return column;
+    }
+
+    /**
+     * PostgreSQL 的 BOOLEAN / BIT / JSONB 列不接受驱动按 VARCHAR/INTEGER 推断的参数类型，
+     * 需要以 {@link Types#OTHER}（未指定类型）下发文本，由服务端按目标列类型解析。
+     */
+    @Override
+    public void bindParameter(PreparedStatement statement, int index, ColumnMeta column, Object value) throws SQLException {
+        if (value != null) {
+            String type = column.getType() == null ? "" : column.getType().toUpperCase().trim();
+            if ("BOOLEAN".equals(type) || "BOOL".equals(type)) {
+                statement.setObject(index, toBoolean(value), Types.OTHER);
+                return;
+            }
+            if ("BIT".equals(type) || type.startsWith("BIT(") || "VARBIT".equals(type)) {
+                statement.setObject(index, toBitString(value, column.getLength()), Types.OTHER);
+                return;
+            }
+            if ("JSON".equals(type) || "JSONB".equals(type)) {
+                String json;
+                if (value instanceof byte[]) {
+                    json = new String((byte[]) value, StandardCharsets.UTF_8);
+                } else if (value instanceof java.util.Map || value instanceof java.util.List) {
+                    json = com.alibaba.fastjson2.JSON.toJSONString(value);
+                } else {
+                    json = value.toString();
+                }
+                statement.setObject(index, json, Types.OTHER);
+                return;
+            }
+        }
+        statement.setObject(index, DBUtils.normalizeParameter(column.getType(), value));
+    }
+
+    @Override
+    public Object normalizeSourceValue(ColumnMeta column, Object value) {
+        // PostgreSQL 的 jsonb/uuid/interval 等类型会以 PGobject 返回，转为文本便于下游处理
+        if (value instanceof org.postgresql.util.PGobject) {
+            return ((org.postgresql.util.PGobject) value).getValue();
+        }
+        return value;
+    }
+
+    private Boolean toBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof java.util.BitSet) {
+            java.util.BitSet bits = (java.util.BitSet) value;
+            return bits.length() > 0 && bits.get(0);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue() != 0;
+        }
+        String text = value.toString().trim().toLowerCase();
+        return "true".equals(text) || "1".equals(text) || "yes".equals(text) || "t".equals(text);
+    }
+
+    /**
+     * MySQL Binlog 的 BIT(n) 以 {@link java.util.BitSet}（低位在前）返回，
+     * PostgreSQL bit(n) 使用从左到右的二进制字符串，这里统一转换为定长位串。
+     */
+    private String toBitString(Object value, int length) {
+        int width = length;
+        if (width <= 0) {
+            if (value instanceof java.util.BitSet) {
+                width = Math.max(1, ((java.util.BitSet) value).length());
+            } else if (value instanceof byte[]) {
+                width = Math.max(1, ((byte[]) value).length * 8);
+            } else if (value instanceof Number) {
+                width = Math.max(1, Long.SIZE - Long.numberOfLeadingZeros(((Number) value).longValue()));
+            } else {
+                width = Math.max(1, value.toString().trim().length());
+            }
+        }
+        StringBuilder bits = new StringBuilder(width);
+        if (value instanceof java.util.BitSet) {
+            java.util.BitSet bitSet = (java.util.BitSet) value;
+            for (int i = width - 1; i >= 0; i--) {
+                bits.append(bitSet.get(i) ? '1' : '0');
+            }
+            return bits.toString();
+        }
+        if (value instanceof byte[]) {
+            // 快照经 JDBC 读取 BIT(n) 时通常返回大端字节数组
+            StringBuilder raw = new StringBuilder();
+            for (byte b : (byte[]) value) {
+                for (int i = 7; i >= 0; i--) {
+                    raw.append(((b >> i) & 1) == 1 ? '1' : '0');
+                }
+            }
+            String text = raw.toString();
+            if (text.length() > width) {
+                return text.substring(text.length() - width);
+            }
+            return "0".repeat(width - text.length()) + text;
+        }
+        if (value instanceof Number) {
+            long number = ((Number) value).longValue();
+            for (int i = width - 1; i >= 0; i--) {
+                bits.append(((number >> i) & 1L) == 1L ? '1' : '0');
+            }
+            return bits.toString();
+        }
+        String text = value.toString().trim();
+        if (text.matches("[01]+")) {
+            int padding = width - text.length();
+            for (int i = 0; i < padding; i++) {
+                bits.append('0');
+            }
+            return padding >= 0 ? bits.append(text).toString() : text.substring(text.length() - width);
+        }
+        return toBoolean(value) ? "1".repeat(width) : "0".repeat(width);
     }
 
     @Override
@@ -341,8 +498,9 @@ public class PostgresqlConverter implements TypeConverter {
                 sb.append(column.getType());
             } else {
                 sb.append(column.getType()).append("(").append(column.getPrecision());
-                if (column.getScale() <= 0) {
-                    sb.append(",").append(4).append(")");
+                if (column.getScale() < 0) {
+                    // 未知小数位时交给 PostgreSQL 使用默认精度
+                    sb.append(")");
                 } else {
                     sb.append(",").append(column.getScale()).append(")");
                 }

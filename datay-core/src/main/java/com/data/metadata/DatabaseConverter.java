@@ -1,7 +1,11 @@
 package com.data.metadata;
 
 import com.data.metadata.impl.*;
+import com.data.metadata.util.DBUtils;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -148,6 +152,50 @@ public class DatabaseConverter {
                 return converter.generateDeleteSQL(tableMeta);
             default:
                 throw new IllegalArgumentException("不支持的写入模式: " + writeMode);
+        }
+    }
+
+    /**
+     * 按目标数据库方言绑定 SQL 参数。
+     *
+     * <p>方言未注册时退化为通用值归一化，避免影响非标准数据源。</p>
+     */
+    public static void bindParameter(String dbType, PreparedStatement statement, int index, ColumnMeta column, Object value)
+        throws SQLException {
+        TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
+        if (converter == null) {
+            statement.setObject(index, DBUtils.normalizeParameter(column.getType(), value));
+            return;
+        }
+        converter.bindParameter(statement, index, column, value);
+    }
+
+    /**
+     * 补充源表元数据（由对应数据库方言实现）。
+     */
+    public static void enrichSourceTableMeta(String dbType, Connection connection, String schema, String table,
+        TableMeta tableMeta) throws SQLException {
+        TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
+        if (converter != null) {
+            converter.enrichSourceTableMeta(connection, schema, table, tableMeta);
+        }
+    }
+
+    /**
+     * 按目标数据库方言翻译 DDL。
+     */
+    public static String translateDDL(String dbType, String sql, String sourceSchema, String targetSchema) {
+        TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
+        return converter == null ? sql : converter.translateDDL(sql, sourceSchema, targetSchema);
+    }
+
+    /**
+     * 按目标数据库方言准备 DDL 执行连接。
+     */
+    public static void prepareDDLConnection(String dbType, Connection connection, String targetSchema) throws SQLException {
+        TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
+        if (converter != null) {
+            converter.prepareDDLConnection(connection, targetSchema);
         }
     }
 

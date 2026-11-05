@@ -13,6 +13,12 @@ public class ColumnMeta {
     private int precision;
     private int scale;
 
+    /**
+     * 源库原始类型定义，例如 MySQL 的 {@code enum('a','b')} / {@code set('x','y')}。
+     * 用于 CDC 解析 Binlog 中的枚举下标、集合位图，其它场景可为空。
+     */
+    private String typeDefinition;
+
     private boolean isPrimaryKey;
 
     public void setPrimaryKey(boolean isPrimaryKey) {
@@ -21,6 +27,14 @@ public class ColumnMeta {
 
     public boolean isPrimaryKey() {
         return isPrimaryKey;
+    }
+
+    public String getTypeDefinition() {
+        return typeDefinition;
+    }
+
+    public void setTypeDefinition(String typeDefinition) {
+        this.typeDefinition = typeDefinition;
     }
 
     public ColumnMeta(String name, String type, int length, int precision, int scale) {

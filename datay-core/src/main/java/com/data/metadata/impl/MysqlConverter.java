@@ -1,11 +1,20 @@
 package com.data.metadata.impl;
 
 import com.data.metadata.*;
+import com.data.metadata.util.DBUtils;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MysqlConverter implements TypeConverter {
 
@@ -116,6 +125,128 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put("FLOAT", MysqlType.DOUBLE.name());
         // MySQL 侧用 TINYINT 表示 0/1，避免 BIT 在链路中类型不兼容
         commonDataType2ColumnType.put("BIT", MysqlType.TINYINT.name());
+    }
+
+    @Override
+    public Object normalizeSourceValue(ColumnMeta column, Object value) {
+        // MySQL Connector/J 默认 yearIsDateType=true，YEAR 会读成 java.sql.Date，
+        // 下游按 SMALLINT 等数值类型落库时需还原为年份。
+        if (value != null && column != null && "YEAR".equalsIgnoreCase(column.getType()) && value instanceof java.util.Date) {
+            if (value instanceof java.sql.Date) {
+                return ((java.sql.Date) value).toLocalDate().getYear();
+            }
+            return new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate().getYear();
+        }
+        return value;
+    }
+
+    /**
+     * 补齐 information_schema 中才有的原始类型定义（ENUM/SET 成员列表等）。
+     */
+    @Override
+    public void enrichSourceTableMeta(Connection connection, String schema, String table, TableMeta tableMeta)
+        throws SQLException {
+        String sql =
+            "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS " +
+            "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, schema);
+            stmt.setString(2, table);
+            try (ResultSet rs = stmt.executeQuery()) {
+                HashMap<String, String> definitions = new HashMap<>();
+                while (rs.next()) {
+                    definitions.put(rs.getString(1), rs.getString(2));
+                }
+                for (ColumnMeta column : tableMeta.columns()) {
+                    String definition = definitions.get(column.getName());
+                    if (definition != null) {
+                        column.setTypeDefinition(definition);
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void bindParameter(PreparedStatement statement, int index, ColumnMeta column, Object value) throws SQLException {
+        if (value != null) {
+            String type = column.getType() == null ? "" : column.getType().toUpperCase().trim();
+            if ("BIT".equals(type) || type.startsWith("BIT(")) {
+                statement.setBytes(index, toBitBytes(value, column.getLength()));
+                return;
+            }
+            // Connector/J 对 BIGINT UNSIGNED 超出 long 的值以 BigInteger 返回，
+            // 用 BigDecimal 下发可避免驱动按有符号 long 截断。
+            if (value instanceof BigInteger) {
+                statement.setBigDecimal(index, new BigDecimal((BigInteger) value));
+                return;
+            }
+        }
+        statement.setObject(index, DBUtils.normalizeParameter(column.getType(), value));
+    }
+
+    /**
+     * DDL 中的库名替换为目标库名，支持 source.t / `source`.`t` 两种写法。
+     */
+    @Override
+    public String translateDDL(String sql, String sourceSchema, String targetSchema) {
+        if (
+            sql == null ||
+            sourceSchema == null ||
+            sourceSchema.isBlank() ||
+            targetSchema == null ||
+            targetSchema.isBlank() ||
+            sourceSchema.equalsIgnoreCase(targetSchema)
+        ) {
+            return sql;
+        }
+        Pattern pattern = Pattern.compile("(?i)(?<![\\w$`])(`?)" + Pattern.quote(sourceSchema) + "\\1\\s*\\.");
+        return pattern.matcher(sql).replaceAll(Matcher.quoteReplacement("`" + targetSchema + "`."));
+    }
+
+    @Override
+    public void prepareDDLConnection(Connection connection, String targetSchema) throws SQLException {
+        if (targetSchema != null && !targetSchema.isBlank()) {
+            connection.setCatalog(targetSchema);
+        }
+    }
+
+    /**
+     * MySQL BIT(n) 使用大端字节数组写入；Binlog 的 BitSet 为低位在前。
+     */
+    private byte[] toBitBytes(Object value, int length) {
+        int width = length > 0 ? length : 1;
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        long number;
+        if (value instanceof java.util.BitSet) {
+            java.util.BitSet bits = (java.util.BitSet) value;
+            number = 0L;
+            for (int i = 0; i < Math.min(width, 64); i++) {
+                if (bits.get(i)) {
+                    number |= 1L << i;
+                }
+            }
+        } else if (value instanceof Number) {
+            number = ((Number) value).longValue();
+        } else if (value instanceof Boolean) {
+            number = ((Boolean) value) ? 1L : 0L;
+        } else {
+            String text = value.toString().trim();
+            number = "true".equalsIgnoreCase(text) || "1".equals(text) ? 1L : 0L;
+        }
+        int byteCount = Math.max(1, (width + 7) / 8);
+        byte[] bytes = new byte[byteCount];
+        for (int i = 0; i < byteCount; i++) {
+            bytes[i] = (byte) ((number >> (8 * i)) & 0xFF);
+        }
+        // 转为大端
+        byte[] bigEndian = new byte[byteCount];
+        for (int i = 0; i < byteCount; i++) {
+            bigEndian[i] = bytes[byteCount - 1 - i];
+        }
+        return bigEndian;
     }
 
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
@@ -332,6 +463,9 @@ public class MysqlConverter implements TypeConverter {
                     sb.append(",").append(column.getScale()).append(")");
                 }
             }
+        } else if ("ENUM".equals(typeUpper) || "SET".equals(typeUpper)) {
+            // ENUM/SET 必须带成员列表；拿不到 COLUMN_TYPE 时退化为 VARCHAR，避免生成非法 DDL
+            sb.append(column.getTypeDefinition() != null ? column.getTypeDefinition() : "VARCHAR(255)");
         } else {
             // 其他类型不添加长度（如TEXT/BLOB等）
             sb.append(column.getType());
