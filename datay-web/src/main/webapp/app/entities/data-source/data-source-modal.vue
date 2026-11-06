@@ -26,6 +26,19 @@
             <el-form-item label="名称">
             <el-input name="name" id="data-source-name" data-cy="name" v-model="dataSource.name" />
           </el-form-item>
+            <el-form-item label="描述">
+              <el-input
+                name="description"
+                id="data-source-description"
+                data-cy="description"
+                type="textarea"
+                :rows="2"
+                maxlength="255"
+                show-word-limit
+                placeholder="可选，用于备注该数据源的用途"
+                v-model="dataSource.description"
+              />
+            </el-form-item>
             <el-form-item label="类型">
             <el-select name="type" id="data-source-type" data-cy="type" v-model="dataSource.type" @change="onTypeChange" disabled placeholder="请选择数据库类型">
             <el-option v-for="dbType in dbTypes" :key="dbType.name" :value="dbType.name" :label="dbType.displayName" />
