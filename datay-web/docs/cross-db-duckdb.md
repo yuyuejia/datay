@@ -1,6 +1,5 @@
 # 跨库同步别再写脚本了：把 DuckDB 当“数据交换站”，一套 SQL 打通多源到目标库
 
-> 从业务痛点到落地流程，再到 DataY 的一体化实现。
 
 周五 17:50，业务群里弹出一条消息：
 
@@ -547,28 +546,6 @@ CREATE TABLE `order_detail` (
 | 5 | Dave | Mouse | 90.75 | 60.75 | 2026-08-05 |
 
 汇总结果：**GMV 522.25，毛利 342.25**，与预期一致。重复订单取了最新一条，取消订单被过滤，小数精度完整保留。
-
-### 实测中发现并修复的两个问题
-
-这次验证还真的踩到了两个跨库 `DECIMAL` 的坑：
-
-**问题一：DuckDB Appender 的 DECIMAL scale 必须完全匹配。**
-
-Oracle、PostgreSQL 对整数金额常返回 `BigDecimal("60")`（scale=0），而目标列是 `DECIMAL(10,2)`，直接 append 会报 `invalid decimal scale`。原来的异常兜底又会退化成字符串写入，最终报一个看起来毫不相关的 `expected VARCHAR` 错误。
-
-修复方式：新增按 `ColumnMeta` 写入 Appender 的重载，按目标列 scale 归一化 `BigDecimal` 后再写入。
-
-**问题二：ResultSet 元数据只取了 length，没取 precision。**
-
-DuckDB SQL 的结果集是 `DECIMAL(18,2)`，但 `getTableMetaFromResultSet` 只把 precision 写进了 length，导致自动建表时生成 `DECIMAL(10,0)`，小数位被抹掉。
-
-修复方式：同时写入 `length` 和 `precision`，并在 DuckDB 类型转换时补齐未知 precision/scale 的默认值，保证 DDL 与 Appender 使用同一个 scale。
-
-这两个问题都补了回归测试。对使用者来说，最终效果就是：
-
-> **跨库 DECIMAL 进入 DuckDB、经过 SQL 计算、再落到目标库，精度和 scale 都能保住。**
-
-> 验证环境：DataY Core 1.0.5、DuckDB JDBC 1.5.3、Java 17+；MySQL / PostgreSQL / Oracle 均使用 Docker 本地实例。
 
 ---
 
