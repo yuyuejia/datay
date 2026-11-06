@@ -8,6 +8,7 @@ import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProviderFactory;
 import com.data.metadata.util.ConnectionPoolManager;
 import jakarta.persistence.criteria.Predicate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +50,13 @@ public class DataSourceService {
     public DataSourceDTO save(DataSourceDTO dataSourceDTO) {
         LOG.debug("Request to save DataSource : {}", dataSourceDTO);
         normalizeType(dataSourceDTO);
+        ZonedDateTime now = ZonedDateTime.now();
+        if (dataSourceDTO.getCreateTime() == null) {
+            dataSourceDTO.setCreateTime(now);
+        }
+        if (dataSourceDTO.getUpdateTime() == null) {
+            dataSourceDTO.setUpdateTime(now);
+        }
         DataSource dataSource = dataSourceMapper.toEntity(dataSourceDTO);
         dataSource = dataSourceRepository.save(dataSource);
         evictConnectionPools(dataSource.getUrl(), dataSource.getUsername());

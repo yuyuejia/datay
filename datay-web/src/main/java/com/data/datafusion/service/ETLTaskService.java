@@ -104,6 +104,7 @@ public class ETLTaskService {
      */
     public ETLTaskDTO save(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to save ETLTask : {}", eTLTaskDTO);
+        fillTimestampsIfAbsent(eTLTaskDTO);
         normalizeScheduling(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
         normalizeScheduling(eTLTask);
@@ -126,6 +127,7 @@ public class ETLTaskService {
      */
     public ETLTaskDTO saveWithoutJob(ETLTaskDTO eTLTaskDTO) {
         LOG.debug("Request to save ETLTask without job : {}", eTLTaskDTO);
+        fillTimestampsIfAbsent(eTLTaskDTO);
         normalizeScheduling(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
         normalizeScheduling(eTLTask);
@@ -134,6 +136,19 @@ public class ETLTaskService {
         eTLTaskDTO.setId(eTLTask.getId());
         updateNodesAndEdges(eTLTaskDTO);
         return eTLTaskMapper.toDto(eTLTask);
+    }
+
+    /**
+     * 创建任务时补齐时间字段，避免不同入口（界面、导入、MCP、应用包）遗漏创建时间。
+     */
+    private static void fillTimestampsIfAbsent(ETLTaskDTO eTLTaskDTO) {
+        ZonedDateTime now = ZonedDateTime.now();
+        if (eTLTaskDTO.getCreateTime() == null) {
+            eTLTaskDTO.setCreateTime(now);
+        }
+        if (eTLTaskDTO.getUpdateTime() == null) {
+            eTLTaskDTO.setUpdateTime(now);
+        }
     }
 
     /**
