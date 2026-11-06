@@ -17,4 +17,9 @@ public class StarRocksDataSourceProvider extends MysqlDataSourceProvider {
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.STARROCKS);
     }
+
+    @Override
+    public boolean useTruncateForOverwrite() {
+        return true;
+    }
 }

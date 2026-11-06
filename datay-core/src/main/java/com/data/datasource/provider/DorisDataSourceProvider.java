@@ -32,4 +32,9 @@ public class DorisDataSourceProvider extends MysqlDataSourceProvider {
         props.put("characterEncoding", "UTF-8");
         return props;
     }
+
+    @Override
+    public boolean useTruncateForOverwrite() {
+        return true;
+    }
 }

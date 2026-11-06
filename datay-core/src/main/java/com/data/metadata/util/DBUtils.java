@@ -942,6 +942,23 @@ public class DBUtils {
     }
 
     /**
+     * 按数据源配置解析对应的 JDBC Provider：优先使用显式类型，缺失或非 JDBC 时按 URL 前缀识别。
+     */
+    public static JdbcDataSourceProvider resolveJdbcProvider(DatasourceInfo datasourceInfo) {
+        if (datasourceInfo == null) {
+            return null;
+        }
+        DataSourceProvider provider = null;
+        if (datasourceInfo.getType() != null && !datasourceInfo.getType().isBlank()) {
+            provider = DataSourceProviderFactory.provider(datasourceInfo.getType());
+        }
+        if (!(provider instanceof JdbcDataSourceProvider) && datasourceInfo.getUrl() != null) {
+            provider = DataSourceProviderFactory.providerForUrl(datasourceInfo.getUrl());
+        }
+        return provider instanceof JdbcDataSourceProvider jdbcProvider ? jdbcProvider : null;
+    }
+
+    /**
      * 按 JDBC URL 解析对应的数据源 Provider，用于把库表元数据、连通性测试、表存在性等
      * 与具体数据库相关的能力委托到各数据源 Provider 实现。
      */

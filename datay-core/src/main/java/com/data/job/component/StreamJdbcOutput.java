@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
@@ -10,9 +11,6 @@ import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
-import com.zaxxer.hikari.pool.HikariProxyConnection;
-import org.duckdb.DuckDBAppender;
-import org.duckdb.DuckDBConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -204,6 +202,7 @@ public class StreamJdbcOutput extends FlowComponent {
                     tableExistsCache.put(tableKey, false); // 更新缓存
                 }
                 
+                String catalog = targetCatalog();
                 if (!tableExists) {
                     String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
                     if (flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA) != null) {
@@ -213,7 +212,7 @@ public class StreamJdbcOutput extends FlowComponent {
                         targetTable.setDbType(targetDbType);
                         targetTable.setTable(table);
                         targetTable.setSchema(schema);
-                        targetTable.setCatalog(resolveTargetCatalog());
+                        targetTable.setCatalog(catalog);
                     }
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
@@ -222,15 +221,15 @@ public class StreamJdbcOutput extends FlowComponent {
                     logInfo("表 " + schema + "." + table + " 已存在");
                     targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
                 }
-                if (targetTable != null && resolveTargetCatalog() != null) {
-                    // Quack/DuckLake 目标需带上远程 catalog 限定，写入才会落到远端
-                    targetTable.setCatalog(resolveTargetCatalog());
+                if (targetTable != null && catalog != null) {
+                    // 需要显式 catalog 的数据源（由 Provider 决定）在建表后补上 catalog 限定
+                    targetTable.setCatalog(catalog);
                 }
 
                 // 处理overwrite模式（非dropIfTableExists为true的情况）
                 if ("overwrite".equals(this.model) && !Boolean.TRUE.equals(this.dropIfTableExists)) {
                     logInfo("清空表 " + schema + "." + table);
-                    String clearSql = isTruncateTarget()
+                    String clearSql = useTruncateForOverwrite()
                         ? String.format("TRUNCATE TABLE %s", qualifiedTableName(schema, table))
                         : String.format("DELETE FROM %s", qualifiedTableName(schema, table));
                     DBUtils.execute(targetConn, clearSql);
@@ -258,58 +257,45 @@ public class StreamJdbcOutput extends FlowComponent {
             eventType = this.model.toUpperCase();
         }
 
-        if ("duckdb".equalsIgnoreCase(targetDbType) && !isQuackTarget() && canUseDuckDBAppender(eventType)) {
-            migrateDataWithDuckDBAppender(targetConn, targetTable, flowFile);
-        } else {
-            migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
+        JdbcDataSourceProvider provider = jdbcProvider();
+        if (provider != null && provider.supportsTableWrite(datasource, targetTable, eventType)) {
+            String writeMode = provider.writeTable(
+                datasource,
+                targetConn,
+                targetTable,
+                flowFile.getJsonArray(),
+                eventType,
+                buildColumnMapping()
+            );
+            this.logInfo(
+                "已成功通过 " + writeMode + " 写入 " + flowFile.getJsonArray().size() + " 条记录到表 " +
+                targetTable.getTable() + "，写入模式：" + eventType
+            );
+            return;
         }
+        migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
     }
 
-    private boolean canUseDuckDBAppender(String eventType) {
-        return "INSERT".equals(eventType) || "APPEND".equals(eventType) || "OVERWRITE".equals(eventType);
+    private JdbcDataSourceProvider jdbcProvider() {
+        return DBUtils.resolveJdbcProvider(datasource);
     }
 
-    private boolean isQuackTarget() {
-        return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("quack:");
+    private String targetCatalog() {
+        JdbcDataSourceProvider provider = jdbcProvider();
+        return provider == null ? null : provider.targetCatalog(datasource);
     }
 
-    /**
-     * 清空表时是否使用 TRUNCATE。Doris 等 OLAP 引擎对全表 DELETE 支持有限，
-     * 且 TRUNCATE 语义与「覆盖写」一致。
-     */
-    private boolean isTruncateTarget() {
-        if (this.datasource == null) {
-            return false;
-        }
-        String dbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
-        return "DORIS".equalsIgnoreCase(dbType) || "STARROCKS".equalsIgnoreCase(dbType);
+    private boolean useTruncateForOverwrite() {
+        JdbcDataSourceProvider provider = jdbcProvider();
+        return provider != null && provider.useTruncateForOverwrite();
     }
 
-    private boolean isDuckLakeTarget() {
-        return this.datasource != null && this.datasource.getUrl() != null && this.datasource.getUrl().startsWith("ducklake:");
-    }
-
-    /**
-     * 目标 catalog：Quack/DuckLake 需要显式限定 catalog，否则会落到默认的 memory catalog。
-     */
-    private String resolveTargetCatalog() {
-        if (isQuackTarget()) {
-            return DBUtils.QUACK_CATALOG;
-        }
-        if (isDuckLakeTarget()) {
-            return DBUtils.DUCKLAKE_CATALOG;
-        }
-        return null;
-    }
-
-    /**
-     * 生成带 catalog 限定的表名（仅 DuckLake 需要，Quack 有独立的远程执行逻辑）。
-     */
     private String qualifiedTableName(String schema, String table) {
-        if (isDuckLakeTarget()) {
-            return DBUtils.DUCKLAKE_CATALOG + "." + schema + "." + table;
+        JdbcDataSourceProvider provider = jdbcProvider();
+        if (provider == null) {
+            return schema == null || schema.isBlank() ? table : schema + "." + table;
         }
-        return schema + "." + table;
+        return provider.qualifiedTableName(datasource, schema, table);
     }
 
     private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,
@@ -352,46 +338,24 @@ public class StreamJdbcOutput extends FlowComponent {
         }
     }
 
-    private void migrateDataWithDuckDBAppender(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
-        DuckDBConnection duckDBConnection = (DuckDBConnection) DBUtils.getRawConnection((HikariProxyConnection) targetConn);
-        JSONArray records = flowFile.getJsonArray();
-
-        Map<String, String> columnMapping = null;
-        if (header_map != null && !header_map.isEmpty()) {
-            columnMapping = new HashMap<>();
-            for (Map<String, Object> mapping : header_map) {
-                String inColumn = (String) mapping.get("source");
-                String outColumn = (String) mapping.get("target");
-                if (inColumn != null && outColumn != null) {
-                    columnMapping.put(outColumn, inColumn);
-                }
+    /**
+     * 目标字段 -> 源字段映射，未配置时返回 null。
+     */
+    private Map<String, String> buildColumnMapping() {
+        if (header_map == null || header_map.isEmpty()) {
+            return null;
+        }
+        Map<String, String> columnMapping = new HashMap<>();
+        for (Map<String, Object> mapping : header_map) {
+            Object inColumn = mapping.get("source");
+            Object outColumn = mapping.get("target");
+            if (inColumn != null && outColumn != null) {
+                columnMapping.put(outColumn.toString(), inColumn.toString());
             }
         }
-
-        try (DuckDBAppender appender = duckDBConnection.createAppender(targetTable.getSchema(), targetTable.getTable())) {
-            for (Object o : records) {
-                appender.beginRow();
-                JSONObject record = (JSONObject) o;
-                for (int i = 0; i < targetTable.columns().size(); ++i) {
-                    ColumnMeta column = targetTable.columns().get(i);
-                    Object value;
-                    if (columnMapping != null) {
-                        String sourceColumnName = columnMapping.getOrDefault(column.getName(), column.getName());
-                        value = record.get(sourceColumnName);
-                    } else {
-                        value = record.get(column.getName());
-                    }
-                    DBUtils.appendValue(appender, column, value);
-                }
-                appender.endRow();
-            }
-        }
-        this.logInfo("已成功通过 DuckDBAppender 写入 " + records.size() + " 条记录到表 " + targetTable.getTable());
+        return columnMapping.isEmpty() ? null : columnMapping;
     }
 
-    /**
-     * 执行query事件类型的SQL语句
-     */
     private void executeDDLSQL(Connection targetConn, FlowFile flowFile) throws SQLException {
         // 从flowfile属性获取SQL语句
         Object sqlAttr = flowFile.getAttribute(FlowFile.ATTRIBUTE_QUERY);

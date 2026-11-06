@@ -1,5 +1,6 @@
 package com.data.datasource.provider;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
@@ -66,6 +67,56 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         Map<String, String> props = new LinkedHashMap<>();
         props.put("jdbc_stream_results", "true");
         return props;
+    }
+
+    /**
+     * 普通 DuckDB 使用 {@link DuckDbTableWriter}（Appender / 集合写入）；
+     * Quack 与 DuckLake 仍走通用 JDBC 写入。
+     */
+    @Override
+    public boolean supportsTableWrite(DatasourceInfo info, TableMeta table, String eventType) {
+        if (!isNativeDuckDb(info)) {
+            return false;
+        }
+        return DuckDbTableWriter.INSTANCE.supports(table, eventType);
+    }
+
+    @Override
+    public String writeTable(DatasourceInfo info, Connection connection, TableMeta table, JSONArray records,
+                             String eventType, Map<String, String> columnMapping) throws SQLException {
+        return DuckDbTableWriter.INSTANCE.write(connection, table, records, eventType, columnMapping);
+    }
+
+    private boolean isNativeDuckDb(DatasourceInfo info) {
+        if (info == null || info.getUrl() == null) {
+            return false;
+        }
+        return !info.getUrl().startsWith("quack:") && !info.getUrl().startsWith("ducklake:");
+    }
+
+    @Override
+    public String targetCatalog(DatasourceInfo info) {
+        if (info == null || info.getUrl() == null) {
+            return null;
+        }
+        if (info.getUrl().startsWith("quack:")) {
+            return QUACK_CATALOG;
+        }
+        if (info.getUrl().startsWith("ducklake:")) {
+            return DUCKLAKE_CATALOG;
+        }
+        return null;
+    }
+
+    /**
+     * DuckLake 需要显式 catalog 限定；Quack 的远程查询由 Quack 自身包装，表名仍用 schema.table。
+     */
+    @Override
+    public String qualifiedTableName(DatasourceInfo info, String schema, String table) {
+        if (info != null && info.getUrl() != null && info.getUrl().startsWith("ducklake:")) {
+            return DUCKLAKE_CATALOG + "." + schema + "." + table;
+        }
+        return schema == null || schema.isBlank() ? table : schema + "." + table;
     }
 
     @Override

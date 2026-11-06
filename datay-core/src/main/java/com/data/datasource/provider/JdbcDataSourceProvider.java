@@ -1,5 +1,6 @@
 package com.data.datasource.provider;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProvider;
 import com.data.datasource.DataSourceTypeDescriptor;
@@ -28,6 +29,8 @@ import java.util.Map;
  * <ul>
  *   <li>基于 {@link JdbcDataSourceConnection} 的连接与查询能力；</li>
  *   <li>按类型解析方言（DDL / 写 SQL 生成）；</li>
+ *   <li>数据库特定的表写入能力（{@link #supportsTableWrite(DatasourceInfo, TableMeta, String)} /
+ *       {@link #writeTable(DatasourceInfo, Connection, TableMeta, JSONArray, String, Map)}）、catalog/表名限定与清表方式；</li>
  *   <li>标准的库表元数据读取（{@link JdbcMetadata}），以及连通性测试查询。</li>
  * </ul>
  *
@@ -97,6 +100,56 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     @Override
     public TypeConverter typeConverter(String type) {
         return DatabaseConverter.getConverter(type);
+    }
+
+    /**
+     * 当前数据源是否对该事件类型提供专用表写入能力。
+     *
+     * <p>默认 {@code false}，由 ETL Sink 使用通用逐行 JDBC 写入；数据库特有的高效写入方式
+     * （如 DuckDB Appender / 集合写入）由对应 Provider 覆写。</p>
+     */
+    public boolean supportsTableWrite(DatasourceInfo info, TableMeta table, String eventType) {
+        return false;
+    }
+
+    /**
+     * 执行数据库特有的表写入。仅当 {@link #supportsTableWrite(DatasourceInfo, TableMeta, String)}
+     * 返回 {@code true} 时由 ETL Sink 调用，默认实现直接拒绝。
+     *
+     * @param info          目标数据源配置
+     * @param connection    目标库连接
+     * @param table         目标表元数据
+     * @param records       待写入记录
+     * @param eventType     INSERT / UPDATE / DELETE / APPEND / OVERWRITE 等写入模式
+     * @param columnMapping 目标字段 -> 源字段映射，可为 {@code null}
+     * @return 写入方式描述，用于调用方日志
+     */
+    public String writeTable(DatasourceInfo info, Connection connection, TableMeta table, JSONArray records,
+                             String eventType, Map<String, String> columnMapping) throws SQLException {
+        throw new UnsupportedOperationException("当前数据源未提供专用表写入能力: " + typeName());
+    }
+
+    /**
+     * 新建表 / 写入表时需要限定的 catalog。默认 {@code null}，表示使用 schema.table；
+     * Quack、DuckLake 等需要显式 catalog 的数据源覆写。
+     */
+    public String targetCatalog(DatasourceInfo info) {
+        return null;
+    }
+
+    /**
+     * 生成 DDL / 写入使用的表名。默认 {@code schema.table}；需要带 catalog 的数据源覆写。
+     */
+    public String qualifiedTableName(DatasourceInfo info, String schema, String table) {
+        return schema == null || schema.isBlank() ? table : schema + "." + table;
+    }
+
+    /**
+     * overwrite 模式清空表时是否使用 {@code TRUNCATE}。默认 {@code false}（使用 DELETE）；
+     * Doris、StarRocks 等 OLAP 引擎覆写为 {@code true}。
+     */
+    public boolean useTruncateForOverwrite() {
+        return false;
     }
 
     // ------------------------------------------------------------------ JDBC 标准能力
