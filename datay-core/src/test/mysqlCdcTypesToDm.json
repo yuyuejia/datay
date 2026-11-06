@@ -1,0 +1,41 @@
+{
+  "units": [
+    {
+      ".id": "MySQLBinlogInput",
+      ".name": "MySQLBinlogInput",
+      "sourceId": {
+        "url": "jdbc:mysql://127.0.0.1:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "1234qwer",
+        "dbschema": "test"
+      },
+      "databaseNamePattern": "test",
+      "tableNamePattern": "cdc_dm_verify",
+      "serverId": 4499
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "type": "dm",
+        "url": "jdbc:dm://127.0.0.1:5236",
+        "driver": "dm.jdbc.driver.DmDriver",
+        "username": "SYSDBA",
+        "password": "Dameng123",
+        "dbschema": "SYSDBA"
+      },
+      "schema": "SYSDBA",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "MySQLBinlogInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

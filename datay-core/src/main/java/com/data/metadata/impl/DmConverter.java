@@ -1,8 +1,14 @@
 package com.data.metadata.impl;
 
 import com.data.metadata.*;
+import com.data.metadata.util.DBUtils;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +51,7 @@ public class DmConverter implements TypeConverter {
         DatabaseConverter.register(DBType.DM.name(), new DmConverter());
 
         // 数值类型
+        commonDataType2ColumnType.put(AllDataType.LARGEINT.name(), DmType.NUMBER.name());
         commonDataType2ColumnType.put(AllDataType.TINYINT.name(), DmType.TINYINT.name());
         commonDataType2ColumnType.put(AllDataType.SMALLINT.name(), DmType.SMALLINT.name());
         commonDataType2ColumnType.put(AllDataType.MEDIUMINT.name(), DmType.INT.name());
@@ -77,8 +84,12 @@ public class DmConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.NCLOB.name(), DmType.CLOB.name());
         commonDataType2ColumnType.put(AllDataType.XML.name(), DmType.CLOB.name());
         commonDataType2ColumnType.put(AllDataType.JSON.name(), DmType.CLOB.name());
+        commonDataType2ColumnType.put(AllDataType.ENUM.name(), DmType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.SET.name(), DmType.VARCHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), DmType.VARCHAR.name());
 
         // 二进制类型
+        commonDataType2ColumnType.put(AllDataType.RAW.name(), DmType.VARBINARY.name());
         commonDataType2ColumnType.put(AllDataType.BINARY.name(), DmType.VARBINARY.name());
         commonDataType2ColumnType.put(AllDataType.VARBINARY.name(), DmType.VARBINARY.name());
         commonDataType2ColumnType.put(AllDataType.BYTEA.name(), DmType.BLOB.name());
@@ -123,29 +134,96 @@ public class DmConverter implements TypeConverter {
 
     @Override
     public ColumnMeta toTargetColumnType(ColumnMeta columnMeta) {
-        String upperType = columnMeta.getType().toUpperCase();
-        String type = commonDataType2ColumnType.get(upperType);
+        String upperType = columnMeta.getType() == null ? "" : columnMeta.getType().toUpperCase().trim();
+        boolean unsigned = upperType.endsWith(" UNSIGNED");
+        String normalizedType = unsigned
+            ? upperType.substring(0, upperType.length() - " UNSIGNED".length()).trim()
+            : upperType;
+        // 驱动可能返回带精度的类型名（如 DECIMAL(20,6)），查表前先去掉参数
+        String baseType = DatabaseConverter.stripTypeParameters(normalizedType).toUpperCase();
+        String type = commonDataType2ColumnType.get(baseType);
         if (type == null) {
-            if (upperType.startsWith("INTERVAL")) {
+            if (baseType.startsWith("INTERVAL")) {
                 type = DmType.VARCHAR.name();
                 columnMeta.setLength(100);
-            } else if (upperType.startsWith("DECIMAL") || upperType.startsWith("NUMERIC")) {
+            } else if (baseType.startsWith("DECIMAL") || baseType.startsWith("NUMERIC")) {
                 type = DmType.NUMBER.name();
-            } else if (upperType.startsWith("INT")) {
+            } else if (baseType.startsWith("INT")) {
                 type = DmType.BIGINT.name();
             } else {
                 System.out.println("dm not found type:" + upperType);
                 type = DmType.VARCHAR.name();
             }
         }
+
+        int precision = columnMeta.getPrecision();
+        int scale = columnMeta.getScale();
+
+        // 达梦 BIT 只能存储 0/1；MySQL BIT(n) 按达梦官方迁移规则拓宽为整数类型
+        if (("BIT".equals(baseType) || "VARBIT".equals(baseType)) && !unsigned) {
+            int width = columnMeta.getLength();
+            if (width <= 1) {
+                type = DmType.BIT.name();
+            } else if (width <= 7) {
+                type = DmType.TINYINT.name();
+            } else if (width <= 15) {
+                type = DmType.SMALLINT.name();
+            } else if (width <= 31) {
+                type = DmType.INT.name();
+            } else if (width <= 63) {
+                type = DmType.BIGINT.name();
+            } else {
+                type = DmType.NUMBER.name();
+                precision = 20;
+                scale = 0;
+            }
+        }
+
+        // MySQL 无符号整数需要向上拓宽，避免超出达梦对应整型的取值范围
+        if (unsigned) {
+            switch (baseType) {
+                case "TINYINT":
+                    type = DmType.SMALLINT.name();
+                    break;
+                case "SMALLINT":
+                case "MEDIUMINT":
+                    type = DmType.INT.name();
+                    break;
+                case "INT":
+                case "INTEGER":
+                    type = DmType.BIGINT.name();
+                    break;
+                case "BIGINT":
+                    type = DmType.NUMBER.name();
+                    precision = 20;
+                    scale = 0;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if ("DECIMAL".equals(baseType) || "NUMERIC".equals(baseType)) {
+            int[] parsed = DatabaseConverter.parseTypePrecisionScale(upperType);
+            if (parsed != null) {
+                if (precision <= 0) {
+                    precision = parsed[0];
+                }
+                if (scale <= 0) {
+                    scale = parsed[1];
+                }
+            }
+        }
+
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
         column.setLength(columnMeta.getLength());
-        column.setPrecision(columnMeta.getPrecision());
-        column.setScale(columnMeta.getScale());
+        column.setPrecision(precision);
+        column.setScale(scale);
         column.setNullable(columnMeta.isNullable());
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
+        column.setTypeDefinition(columnMeta.getTypeDefinition());
         return column;
     }
 
@@ -193,7 +271,7 @@ public class DmConverter implements TypeConverter {
         } else if (typeUpper.matches("CHAR|NCHAR|VARCHAR|VARCHAR2|NVARCHAR2|VARBINARY")) {
             int length = column.getLength() > 0 ? column.getLength() : getDefaultLength(typeUpper);
             sb.append(typeUpper).append("(").append(length).append(")");
-        } else if ("TIMESTAMP".equals(typeUpper) && column.getScale() > 0) {
+        } else if (("TIMESTAMP".equals(typeUpper) || "TIME".equals(typeUpper)) && column.getScale() > 0) {
             sb.append(typeUpper).append("(").append(column.getScale()).append(")");
         } else {
             sb.append(typeUpper);
@@ -203,6 +281,106 @@ public class DmConverter implements TypeConverter {
             sb.append(" NOT NULL");
         }
         return String.format("\"%s\" %s", column.getName().toUpperCase(), sb.toString());
+    }
+
+    /**
+     * 达梦 BIT 只接受布尔值；MySQL BIT(n) 落到达梦整数列时，Binlog 的 BitSet
+     * 或快照的 byte[] 需要先还原成对应的数值，否则驱动无法正确绑定。
+     */
+    @Override
+    public void bindParameter(PreparedStatement statement, int index, ColumnMeta column, Object value) throws SQLException {
+        if (value != null) {
+            String type = column.getType() == null ? "" : column.getType().toUpperCase().trim();
+            String baseType = DatabaseConverter.stripTypeParameters(type);
+            if (value instanceof BigInteger) {
+                statement.setBigDecimal(index, new BigDecimal((BigInteger) value));
+                return;
+            }
+            if (value instanceof BigDecimal) {
+                statement.setBigDecimal(index, (BigDecimal) value);
+                return;
+            }
+            if ("BIT".equals(baseType)) {
+                statement.setBoolean(index, toBoolean(value));
+                return;
+            }
+            boolean integerTarget = "TINYINT".equals(baseType) || "SMALLINT".equals(baseType)
+                || "INT".equals(baseType) || "INTEGER".equals(baseType) || "BIGINT".equals(baseType)
+                || "NUMBER".equals(baseType) || "DECIMAL".equals(baseType) || "NUMERIC".equals(baseType);
+            if (integerTarget && (value instanceof BitSet || value instanceof byte[] || value instanceof Boolean)) {
+                BigDecimal number = toNumber(value);
+                if (number != null) {
+                    statement.setBigDecimal(index, number);
+                    return;
+                }
+            }
+        }
+        Object normalized = DBUtils.normalizeParameter(column.getType(), value);
+        // 部分达梦驱动版本对 JDBC 4.2 的 java.time 支持不完整，统一回退到 java.sql 时间类型
+        if (normalized instanceof java.time.LocalDate) {
+            statement.setDate(index, java.sql.Date.valueOf((java.time.LocalDate) normalized));
+            return;
+        }
+        if (normalized instanceof java.time.LocalTime) {
+            // java.sql.Time + setTime 会丢弃小数秒，达梦驱动可直接绑定 LocalTime
+            statement.setObject(index, normalized);
+            return;
+        }
+        if (normalized instanceof java.time.LocalDateTime) {
+            statement.setTimestamp(index, java.sql.Timestamp.valueOf((java.time.LocalDateTime) normalized));
+            return;
+        }
+        statement.setObject(index, normalized);
+    }
+
+    private static BigDecimal toNumber(Object value) {
+        if (value instanceof BitSet) {
+            BitSet bits = (BitSet) value;
+            BigInteger number = BigInteger.ZERO;
+            for (int i = bits.nextSetBit(0); i >= 0; i = bits.nextSetBit(i + 1)) {
+                number = number.setBit(i);
+            }
+            return new BigDecimal(number);
+        }
+        if (value instanceof byte[]) {
+            return new BigDecimal(new BigInteger(1, (byte[]) value));
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? BigDecimal.ONE : BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof BigInteger) {
+            return new BigDecimal((BigInteger) value);
+        }
+        if (value instanceof Number) {
+            return new BigDecimal(value.toString());
+        }
+        return null;
+    }
+
+    private static boolean toBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof BitSet) {
+            BitSet bits = (BitSet) value;
+            return bits.length() > 0 && bits.get(0);
+        }
+        if (value instanceof byte[]) {
+            for (byte b : (byte[]) value) {
+                if (b != 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue() != 0;
+        }
+        String text = value.toString().trim();
+        return "1".equals(text) || "true".equalsIgnoreCase(text) || "t".equalsIgnoreCase(text);
     }
 
     @Override
