@@ -34,6 +34,8 @@ class AppPackageDashboardRewriteTest {
             null,
             null,
             null,
+            null,
+            null,
             null
         );
         ObjectMapper objectMapper = new ObjectMapper();

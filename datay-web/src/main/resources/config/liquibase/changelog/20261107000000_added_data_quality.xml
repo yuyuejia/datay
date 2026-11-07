@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20261107000000-1-data-quality-rule" author="datafusion">
+        <createTable tableName="dp_data_quality_rule">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="rule_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rule_code" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rule_level" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rule_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="default_config" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="severity" type="varchar(20)" defaultValue="ERROR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="true"/>
+            </column>
+            <column name="builtin" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creater" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_data_quality_rule" indexName="idx_dq_rule_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_data_quality_rule" indexName="idx_dq_rule_code">
+            <column name="rule_code"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261107010000-1-data-quality-task" author="datafusion">
+        <createTable tableName="dp_data_quality_task">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="task_desc" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="data_source_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="schema_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="table_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="where_clause" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="rule_configs" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="fail_on_warn" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="sample_limit" type="int" defaultValueNumeric="100">
+                <constraints nullable="true"/>
+            </column>
+            <column name="output_format" type="varchar(20)" defaultValue="CSV">
+                <constraints nullable="true"/>
+            </column>
+            <column name="output_dir" type="varchar(500)" defaultValue="data-quality">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_run_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creater" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_data_quality_task" indexName="idx_dq_task_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_data_quality_task" indexName="idx_dq_task_job">
+            <column name="job_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261107020000-1-seed-data-quality-rules" author="datafusion">
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000001"/>
+            <column name="rule_name" value="表行数下限"/>
+            <column name="rule_code" value="DQ_TABLE_ROW_COUNT_MIN"/>
+            <column name="rule_level" value="TABLE"/>
+            <column name="rule_type" value="ROW_COUNT_MIN"/>
+            <column name="description" value="校验表的总行数不小于指定值。"/>
+            <column name="default_config" value='{"minRows": 1}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000002"/>
+            <column name="rule_name" value="表行数范围"/>
+            <column name="rule_code" value="DQ_TABLE_ROW_COUNT_RANGE"/>
+            <column name="rule_level" value="TABLE"/>
+            <column name="rule_type" value="ROW_COUNT_RANGE"/>
+            <column name="description" value="校验表的总行数处于指定区间。"/>
+            <column name="default_config" value='{"minRows": 0, "maxRows": 1000000}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000003"/>
+            <column name="rule_name" value="组合字段唯一"/>
+            <column name="rule_code" value="DQ_TABLE_COMPOSITE_UNIQUE"/>
+            <column name="rule_level" value="TABLE"/>
+            <column name="rule_type" value="COMPOSITE_UNIQUE"/>
+            <column name="description" value="校验多个字段的组合值在表中唯一。"/>
+            <column name="default_config" value='{"columns": []}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000004"/>
+            <column name="rule_name" value="自定义 SQL"/>
+            <column name="rule_code" value="DQ_CUSTOM_SQL"/>
+            <column name="rule_level" value="TABLE"/>
+            <column name="rule_type" value="CUSTOM_SQL"/>
+            <column name="description" value="通过自定义 SQL 返回检核的无效行数。"/>
+            <column name="default_config" value='{"sql": ""}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000005"/>
+            <column name="rule_name" value="字段非空"/>
+            <column name="rule_code" value="DQ_FIELD_NOT_NULL"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="NOT_NULL"/>
+            <column name="description" value="校验字段不为 NULL，可选择将空白字符串视为空值。"/>
+            <column name="default_config" value='{"trimWhitespace": true}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000006"/>
+            <column name="rule_name" value="字段唯一"/>
+            <column name="rule_code" value="DQ_FIELD_UNIQUE"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="UNIQUE"/>
+            <column name="description" value="校验字段值在表中唯一。"/>
+            <column name="default_config" value='{}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000007"/>
+            <column name="rule_name" value="字段值范围"/>
+            <column name="rule_code" value="DQ_FIELD_RANGE"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="RANGE"/>
+            <column name="description" value="校验数值或日期字段处于指定区间。"/>
+            <column name="default_config" value='{"valueType": "NUMBER"}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000008"/>
+            <column name="rule_name" value="字段枚举值"/>
+            <column name="rule_code" value="DQ_FIELD_ENUM"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="ENUM"/>
+            <column name="description" value="校验字段值属于允许的枚举集合。"/>
+            <column name="default_config" value='{"allowedValues": [], "ignoreCase": false}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000009"/>
+            <column name="rule_name" value="字段正则格式"/>
+            <column name="rule_code" value="DQ_FIELD_REGEX"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="REGEX"/>
+            <column name="description" value="校验字段值匹配指定的正则表达式。"/>
+            <column name="default_config" value='{"pattern": ""}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000010"/>
+            <column name="rule_name" value="字段长度范围"/>
+            <column name="rule_code" value="DQ_FIELD_LENGTH"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="LENGTH"/>
+            <column name="description" value="校验字符串字段长度处于指定区间。"/>
+            <column name="default_config" value='{"minLength": 0, "maxLength": 255}'/>
+            <column name="severity" value="ERROR"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+        <insert tableName="dp_data_quality_rule">
+            <column name="id" value="019a2000-0000-7000-8000-000000000011"/>
+            <column name="rule_name" value="数据时效"/>
+            <column name="rule_code" value="DQ_FIELD_FRESHNESS"/>
+            <column name="rule_level" value="FIELD"/>
+            <column name="rule_type" value="FRESHNESS"/>
+            <column name="description" value="校验时间字段不早于指定的小时数。"/>
+            <column name="default_config" value='{"maxAgeHours": 24}'/>
+            <column name="severity" value="WARN"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="builtin" valueBoolean="true"/>
+            <column name="create_time" valueComputed="now()"/>
+            <column name="update_time" valueComputed="now()"/>
+            <column name="creater" value="system"/>
+        </insert>
+
+    </changeSet>
+
+</databaseChangeLog>

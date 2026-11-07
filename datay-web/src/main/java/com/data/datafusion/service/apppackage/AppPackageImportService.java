@@ -5,6 +5,7 @@ import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.*;
 import com.data.datafusion.service.AnalysisDashboardService;
 import com.data.datafusion.service.AnalysisDatasetService;
+import com.data.datafusion.service.DataQualityTaskService;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.JobService;
 import com.data.datafusion.service.MetricService;
@@ -95,6 +96,10 @@ public class AppPackageImportService {
 
     private final JobService jobService;
 
+    private final DataQualityTaskRepository dataQualityTaskRepository;
+
+    private final DataQualityTaskService dataQualityTaskService;
+
     public AppPackageImportService(
         DataSourceRepository dataSourceRepository,
         DataModelRepository dataModelRepository,
@@ -111,7 +116,9 @@ public class AppPackageImportService {
         AnalysisDatasetService analysisDatasetService,
         AnalysisDashboardService analysisDashboardService,
         ETLTaskService etlTaskService,
-        JobService jobService
+        JobService jobService,
+        DataQualityTaskRepository dataQualityTaskRepository,
+        DataQualityTaskService dataQualityTaskService
     ) {
         this.dataSourceRepository = dataSourceRepository;
         this.dataModelRepository = dataModelRepository;
@@ -129,6 +136,8 @@ public class AppPackageImportService {
         this.analysisDashboardService = analysisDashboardService;
         this.etlTaskService = etlTaskService;
         this.jobService = jobService;
+        this.dataQualityTaskRepository = dataQualityTaskRepository;
+        this.dataQualityTaskService = dataQualityTaskService;
     }
 
     /**
@@ -169,7 +178,10 @@ public class AppPackageImportService {
         Map<String, String> dashboardMap = new LinkedHashMap<>();
         importDashboards(content, strategy, dataSourceMap, datasetMap, metricCodeRename, modelCodeRename, dashboardMap, result);
 
-        // 5. ETL 任务（会同步生成调度 Job）
+        // 5. 数据质量检核任务
+        Map<String, String> dataQualityTaskMap = importDataQualityTasks(content, strategy, dataSourceMap, result);
+
+        // 6. ETL 任务（会同步生成调度 Job）
         Map<String, String> etlTaskMap = new LinkedHashMap<>();
         Map<String, String> jobMap = new LinkedHashMap<>();
         importEtlTasks(content, strategy, dataSourceMap, modelMap, request, etlTaskMap, jobMap, result);
@@ -194,6 +206,7 @@ public class AppPackageImportService {
         result.idMapping.put("datasets", toStringKeyMap(datasetMap));
         result.idMapping.put("dashboards", toStringKeyMap(dashboardMap));
         result.idMapping.put("etlTasks", toStringKeyMap(etlTaskMap));
+        result.idMapping.put("dataQualityTasks", toStringKeyMap(dataQualityTaskMap));
         result.idMapping.put("jobs", toStringKeyMap(jobMap));
         result.idMapping.put("dagJobs", toStringKeyMap(dagJobMap));
         result.nextSteps.addAll(buildNextSteps(content, dagJobMap, jobMap));
@@ -225,6 +238,9 @@ public class AppPackageImportService {
             );
         } else if (!jobMap.isEmpty()) {
             steps.add("本资产包包含 ETL / SQL 任务，请按依赖顺序先执行上游任务，再执行下游任务");
+        }
+        if (!nonNull(content.getDataQualityTasks()).isEmpty()) {
+            steps.add("本资产包预置了数据质量检核任务，可到「数据质量 → 质量检核」中立即执行");
         }
         List<String> dashboardNames = new ArrayList<>();
         for (AppPackageDashboard item : nonNull(content.getDashboards())) {
@@ -1123,6 +1139,79 @@ public class AppPackageImportService {
     }
 
     // ------------------------------------------------------------------ ETL 任务
+
+    private Map<String, String> importDataQualityTasks(
+        AppPackageContent content,
+        String strategy,
+        Map<String, String> dataSourceMap,
+        AppPackageInitResultDTO result
+    ) {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        int created = 0;
+        int overwritten = 0;
+        for (AppPackageDataQualityTask item : nonNull(content.getDataQualityTasks())) {
+            if (item.oldId == null) {
+                continue;
+            }
+            String dataSourceId = dataSourceMap.get(item.dataSourceId);
+            if (dataSourceId == null) {
+                result.warnings.add("数据质量任务引用的数据源不在资产包内：" + item.taskName + " -> dataSourceId=" + item.dataSourceId);
+                continue;
+            }
+            DataQualityTask existing = dataQualityTaskRepository.findFirstByTaskName(item.taskName).orElse(null);
+            boolean overwrite = existing != null && STRATEGY_OVERWRITE.equals(strategy);
+            if (existing != null && !overwrite) {
+                if (STRATEGY_SKIP.equals(strategy)) {
+                    result.warnings.add("数据质量任务名称已存在，按策略跳过：" + item.taskName);
+                    continue;
+                }
+                String newName = uniqueDataQualityTaskName(item.taskName);
+                result.warnings.add("数据质量任务名称已存在，已重命名为：" + item.taskName + " -> " + newName);
+                item.taskName = newName;
+            }
+
+            DataQualityTaskDTO dto = new DataQualityTaskDTO();
+            dto.setTaskName(item.taskName);
+            dto.setTaskDesc(item.taskDesc);
+            dto.setDataSourceId(dataSourceId);
+            dto.setSchemaName(item.schemaName);
+            dto.setTableName(item.tableName);
+            dto.setWhereClause(item.whereClause);
+            dto.setFailOnWarn(item.failOnWarn);
+            dto.setSampleLimit(item.sampleLimit);
+            dto.setOutputFormat(item.outputFormat);
+            dto.setOutputDir(item.outputDir);
+            dto.setRules(item.rules == null ? new ArrayList<>() : item.rules);
+            DataQualityTaskDTO saved;
+            if (overwrite) {
+                dto.setId(existing.getId());
+                dto.setJobId(existing.getJobId());
+                dto.setStatus(existing.getStatus());
+                dto.setCreateTime(existing.getCreateTime());
+                dto.setTenantId(existing.getTenantId());
+                saved = dataQualityTaskService.update(dto);
+                overwritten++;
+            } else {
+                dto.setStatus(IMPORTED_STATUS);
+                saved = dataQualityTaskService.save(dto);
+                created++;
+            }
+            mapping.put(item.oldId, saved.getId());
+        }
+        result.counts.put("dataQualityTasks", created);
+        result.counts.put("dataQualityTasksOverwritten", overwritten);
+        return mapping;
+    }
+
+    private String uniqueDataQualityTaskName(String name) {
+        String candidate = (name == null || name.isBlank() ? "数据质量任务" : name) + " - 副本";
+        int index = 2;
+        while (dataQualityTaskRepository.findFirstByTaskName(candidate).isPresent()) {
+            candidate = (name == null || name.isBlank() ? "数据质量任务" : name) + " - 副本" + index;
+            index++;
+        }
+        return candidate;
+    }
 
     private void importEtlTasks(
         AppPackageContent content,

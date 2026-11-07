@@ -43,11 +43,6 @@
         </li>
       </ul>
       <ul class="navbar-nav ml-auto">
-        <li class="nav-item">
-          <router-link class="nav-link" to="/">
-            <span>首页</span>
-          </router-link>
-        </li>
         <li v-if="authenticated" class="nav-item dropdown pointer">
           <el-dropdown trigger="click" id="datasource-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
             <a href="javascript:void(0)" class="nav-link dropdown-toggle">
@@ -83,6 +78,23 @@
                 </el-dropdown-item>
                 <el-dropdown-item command="/data-compare">
                   <span>数据比对</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </li>
+        <li v-if="authenticated" class="nav-item dropdown pointer">
+          <el-dropdown trigger="click" id="data-quality-menu" @command="goToMenu" popper-class="jh-dropdown-menu">
+            <a href="javascript:void(0)" class="nav-link dropdown-toggle">
+              <span class="no-bold">数据质量</span>
+            </a>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/data-quality/rule">
+                  <span>质量规则</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="/data-quality/task">
+                  <span>质量检核</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>

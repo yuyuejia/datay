@@ -55,6 +55,9 @@ public class AppPackageContent {
     /** ETL 任务。 */
     private List<AppPackageEtlTask> etlTasks = new ArrayList<>();
 
+    /** 数据质量检核任务。 */
+    private List<AppPackageDataQualityTask> dataQualityTasks = new ArrayList<>();
+
     /** SQL 任务。 */
     private List<AppPackageJob> sqlJobs = new ArrayList<>();
 
@@ -158,6 +161,14 @@ public class AppPackageContent {
         this.etlTasks = etlTasks == null ? new ArrayList<>() : etlTasks;
     }
 
+    public List<AppPackageDataQualityTask> getDataQualityTasks() {
+        return dataQualityTasks;
+    }
+
+    public void setDataQualityTasks(List<AppPackageDataQualityTask> dataQualityTasks) {
+        this.dataQualityTasks = dataQualityTasks == null ? new ArrayList<>() : dataQualityTasks;
+    }
+
     public List<AppPackageJob> getSqlJobs() {
         return sqlJobs;
     }
@@ -211,6 +222,7 @@ public class AppPackageContent {
         result.put("datasets", datasets.size());
         result.put("dashboards", dashboards.size());
         result.put("etlTasks", etlTasks.size());
+        result.put("dataQualityTasks", dataQualityTasks.size());
         result.put("sqlJobs", sqlJobs.size());
         result.put("dagJobs", dagJobs.size());
         result.put("otherJobs", otherJobs.size());

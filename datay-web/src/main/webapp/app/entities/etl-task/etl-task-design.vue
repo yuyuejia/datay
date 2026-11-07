@@ -144,14 +144,16 @@ const expandedGroups = reactive({
 const groupOrder = computed(() =>
   isRealtimeTask.value
     ? ['实时输入', '数据输入', '数据输出', '数据处理', '调试组件', 'DuckDB 组件', '其他']
-    : ['数据输入', '数据输出', '数据处理', '实时输入', '调试组件', 'DuckDB 组件', '其他'],
+    : ['数据输入', '数据输出', '数据处理', '数据质量', '实时输入', '调试组件', 'DuckDB 组件', '其他'],
 );
 
 const componentSearch = ref('');
 
-/** 批量任务不展示实时输入组件；实时任务保留全部组件。 */
+/** 批量任务不展示实时输入组件；实时任务不展示批处理才支持的数据质量组件。 */
 const visibleComponents = computed(() =>
-  isRealtimeTask.value ? etlComponents.value : etlComponents.value.filter(comp => comp.group !== '实时输入'),
+  isRealtimeTask.value
+    ? etlComponents.value.filter(comp => comp.group !== '数据质量')
+    : etlComponents.value.filter(comp => comp.group !== '实时输入'),
 );
 
 const groupedComponents = computed(() => {
@@ -1459,6 +1461,7 @@ const cancelTask = () => {
   height: 64vh;
   max-height: 64vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .config-modal-body :deep(.form-actions) {

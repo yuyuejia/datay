@@ -53,6 +53,15 @@ const DataCompareList = () => import("@/entities/data-compare/data-compare.vue")
 const DataCompareEdit = () =>
   import("@/entities/data-compare/data-compare-update.vue");
 
+const DataQualityRuleList = () =>
+  import("@/entities/data-quality-rule/data-quality-rule.vue");
+const DataQualityRuleEdit = () =>
+  import("@/entities/data-quality-rule/data-quality-rule-update.vue");
+const DataQualityTaskList = () =>
+  import("@/entities/data-quality-task/data-quality-task.vue");
+const DataQualityTaskEdit = () =>
+  import("@/entities/data-quality-task/data-quality-task-update.vue");
+
 const ETLComponent = () => import("@/entities/etl-component/etl-component.vue");
 const ETLComponentUpdate = () =>
   import("@/entities/etl-component/etl-component-update.vue");
@@ -369,6 +378,46 @@ export default {
       path: "data-compare/:id/edit",
       name: "DataCompareEdit",
       component: DataCompareEdit,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality",
+      redirect: "/data-quality/rule",
+    },
+    {
+      path: "data-quality/rule",
+      name: "DataQualityRule",
+      component: DataQualityRuleList,
+      meta: { listPage: true, authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality/rule/new",
+      name: "DataQualityRuleCreate",
+      component: DataQualityRuleEdit,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality/rule/:id/edit",
+      name: "DataQualityRuleEdit",
+      component: DataQualityRuleEdit,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality/task",
+      name: "DataQualityTask",
+      component: DataQualityTaskList,
+      meta: { listPage: true, authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality/task/new",
+      name: "DataQualityTaskCreate",
+      component: DataQualityTaskEdit,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-quality/task/:id/edit",
+      name: "DataQualityTaskEdit",
+      component: DataQualityTaskEdit,
       meta: { authorities: [Authority.USER] },
     },
     {

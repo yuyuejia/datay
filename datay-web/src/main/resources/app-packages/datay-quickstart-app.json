@@ -4,9 +4,9 @@
   "meta": {
     "name": "DataY 快速入门应用",
     "code": "datay_quickstart_app",
-    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、可绑定的 MySQL / PostgreSQL CDC 演示数据源与本地 DuckLake 数据源、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、1 个 MySQL Binlog CDC 实时同步演示 ETL、1 个 PostgreSQL CDC 实时入湖（DuckLake）演示 ETL、1 个决策模型工单分派演示 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标、1 个 SQL 分析数据集、1 个标准分析看板和 1 个 1920×1080 暗色大屏看板。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排 → 分析看板」的完整链路；CDC、DuckLake 入湖与决策模型演示任务独立运行，分别依赖本地 MySQL / PostgreSQL / Ollama。",
+    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、可绑定的 MySQL / PostgreSQL CDC 演示数据源与本地 DuckLake 数据源、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、1 个 MySQL Binlog CDC 实时同步演示 ETL、1 个 PostgreSQL CDC 实时入湖（DuckLake）演示 ETL、1 个决策模型工单分派演示 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标、1 个 SQL 分析数据集、1 个标准分析看板和 1 个 1920×1080 暗色大屏看板。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排 → 分析看板」的完整链路；CDC、DuckLake 入湖与决策模型演示任务独立运行，分别依赖本地 MySQL / PostgreSQL / Ollama。新增 1 个数据质量检核任务和 1 个包含 DataQualityCheck 组件的 ETL 任务。",
     "category": "快速入门",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "source": "SYSTEM"
   },
   "dataSources": [
@@ -2140,6 +2140,164 @@
           "status": "0"
         }
       ]
+    },
+    {
+      "oldId": 6013,
+      "jobOldId": 7015,
+      "taskName": "销售事实数据质量检核",
+      "taskCode": "qs_etl_fact_sales_quality",
+      "taskDesc": "读取入门数仓 main.fact_sales_order，使用数据质量检核组件检查订单号非空，质量不达标时任务失败",
+      "dir": "/快速入门/质量检核",
+      "type": "ETL",
+      "cron": "",
+      "project": "quickstart",
+      "nodes": [
+        {
+          "oldId": 5301,
+          "label": "读取销售事实",
+          "code": "n1",
+          "desc": "从入门数仓 main.fact_sales_order 读取全量数据",
+          "type": "StreamJdbcInput",
+          "config": {
+            "sourceId": 9001,
+            "schema": "main",
+            "table": "fact_sales_order",
+            "where": "",
+            "incrColumn": ""
+          },
+          "xAxis": "120",
+          "yAxis": "120",
+          "status": "0"
+        },
+        {
+          "oldId": 5302,
+          "label": "数据质量检核",
+          "code": "n2",
+          "desc": "检查销售事实行数、订单号非空和销售金额范围，结果写入文件存储",
+          "type": "DataQualityCheck",
+          "config": {
+            "checkMode": "FLOW",
+            "failOnError": true,
+            "rules": [
+              {
+                "ruleCode": "QS_DQ_ROW_COUNT_MIN",
+                "ruleName": "销售事实表非空",
+                "ruleLevel": "TABLE",
+                "ruleType": "ROW_COUNT_MIN",
+                "config": {
+                  "minRows": 1
+                },
+                "severity": "ERROR",
+                "maxInvalidRows": 0,
+                "maxInvalidRatio": 0,
+                "ruleId": "019a2000-0000-7000-8000-000000000001"
+              },
+              {
+                "ruleCode": "QS_DQ_ORDER_ID_NOT_NULL",
+                "ruleName": "订单号非空",
+                "ruleLevel": "FIELD",
+                "ruleType": "NOT_NULL",
+                "column": "order_id",
+                "config": {
+                  "trimWhitespace": true
+                },
+                "severity": "ERROR",
+                "maxInvalidRows": 0,
+                "maxInvalidRatio": 0,
+                "ruleId": "019a2000-0000-7000-8000-000000000005"
+              },
+              {
+                "ruleCode": "QS_DQ_AMOUNT_RANGE",
+                "ruleName": "销售金额合法",
+                "ruleLevel": "FIELD",
+                "ruleType": "RANGE",
+                "column": "order_amount",
+                "config": {
+                  "valueType": "NUMBER",
+                  "min": 0
+                },
+                "severity": "ERROR",
+                "maxInvalidRows": 0,
+                "maxInvalidRatio": 0,
+                "ruleId": "019a2000-0000-7000-8000-000000000007"
+              }
+            ]
+          },
+          "xAxis": "480",
+          "yAxis": "120",
+          "status": "0"
+        }
+      ],
+      "edges": [
+        {
+          "oldId": 5401,
+          "name": "",
+          "code": "e1",
+          "source": "n1",
+          "target": "n2",
+          "config": null,
+          "status": "0"
+        }
+      ]
+    }
+  ],
+  "dataQualityTasks": [
+    {
+      "oldId": 9300,
+      "taskName": "入门销售事实质量检核",
+      "taskDesc": "对入门数仓 main.fact_sales_order 执行行数、订单号非空和销售金额范围检核，结果写入文件存储",
+      "dataSourceId": 9001,
+      "schemaName": "main",
+      "tableName": "fact_sales_order",
+      "whereClause": "",
+      "failOnWarn": false,
+      "sampleLimit": 100,
+      "outputFormat": "CSV",
+      "outputDir": "data-quality",
+      "rules": [
+        {
+          "ruleCode": "QS_DQ_ROW_COUNT_MIN",
+          "ruleName": "销售事实表非空",
+          "ruleLevel": "TABLE",
+          "ruleType": "ROW_COUNT_MIN",
+          "config": {
+            "minRows": 1
+          },
+          "severity": "ERROR",
+          "maxInvalidRows": 0,
+          "maxInvalidRatio": 0,
+          "ruleId": "019a2000-0000-7000-8000-000000000001"
+        },
+        {
+          "ruleCode": "QS_DQ_ORDER_ID_NOT_NULL",
+          "ruleName": "订单号非空",
+          "ruleLevel": "FIELD",
+          "ruleType": "NOT_NULL",
+          "column": "order_id",
+          "config": {
+            "trimWhitespace": true
+          },
+          "severity": "ERROR",
+          "maxInvalidRows": 0,
+          "maxInvalidRatio": 0,
+          "ruleId": "019a2000-0000-7000-8000-000000000005"
+        },
+        {
+          "ruleCode": "QS_DQ_AMOUNT_RANGE",
+          "ruleName": "销售金额合法",
+          "ruleLevel": "FIELD",
+          "ruleType": "RANGE",
+          "column": "order_amount",
+          "config": {
+            "valueType": "NUMBER",
+            "min": 0
+          },
+          "severity": "ERROR",
+          "maxInvalidRows": 0,
+          "maxInvalidRatio": 0,
+          "ruleId": "019a2000-0000-7000-8000-000000000007"
+        }
+      ]
     }
   ],
   "sqlJobs": [
@@ -2366,11 +2524,12 @@
     "metrics": 4,
     "datasets": 1,
     "dashboards": 2,
-    "etlTasks": 12,
+    "etlTasks": 13,
+    "dataQualityTasks": 1,
     "sqlJobs": 2,
     "dagJobs": 1,
     "otherJobs": 0,
     "jobDepends": 0,
-    "total": 68
+    "total": 70
   }
 }

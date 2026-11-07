@@ -9,6 +9,7 @@ import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.service.apppackage.model.AppPackageContent;
+import com.data.datafusion.service.apppackage.model.AppPackageDataQualityTask;
 import com.data.datafusion.service.apppackage.model.AppPackageEtlTask;
 import com.data.datafusion.service.apppackage.model.AppPackageMetric;
 import com.data.datafusion.service.apppackage.model.AppPackageModel;
@@ -77,6 +78,30 @@ class AppPackagePresetTest {
         AppPackageEtlTask postgresLake = content.getEtlTasks().stream().filter(task -> "qs_etl_pg_cdc_ducklake".equals(task.taskCode)).findFirst().orElseThrow();
         assertThat(postgresLake.type).isEqualTo(TaskConstants.ETL_TASK_KIND_STREAM);
         assertThat(postgresLake.nodes).extracting(node -> node.type).contains("PostgresCDCInput", "DuckLakeWrite");
+    }
+
+    @Test
+    void quickstartIncludesDataQualityTaskAndEtlComponent() throws IOException {
+        AppPackageContent content = load("app-packages/datay-quickstart-app.json");
+
+        AppPackageDataQualityTask qualityTask = content
+            .getDataQualityTasks()
+            .stream()
+            .filter(task -> "fact_sales_order".equals(task.tableName))
+            .findFirst()
+            .orElseThrow();
+        assertThat(qualityTask.taskName).isEqualTo("入门销售事实质量检核");
+        assertThat(qualityTask.rules).hasSize(3);
+        assertThat(qualityTask.rules).extracting(rule -> rule.getRuleType()).contains("ROW_COUNT_MIN", "NOT_NULL", "RANGE");
+
+        AppPackageEtlTask etlTask = content
+            .getEtlTasks()
+            .stream()
+            .filter(task -> "qs_etl_fact_sales_quality".equals(task.taskCode))
+            .findFirst()
+            .orElseThrow();
+        assertThat(etlTask.nodes).extracting(node -> node.type).contains("StreamJdbcInput", "DataQualityCheck");
+        assertThat(etlTask.nodes).anyMatch(node -> node.config != null && node.config.toString().contains("NOT_NULL"));
     }
 
     @Test
@@ -209,6 +234,13 @@ class AppPackagePresetTest {
         content.getModels().forEach(model -> model.fields.forEach(field -> modelFieldIds.add(field.oldId)));
         Set<String> metricCodes = content.getMetrics().stream().map(metric -> metric.oldId).collect(Collectors.toSet());
         Set<String> metricCodeNames = content.getMetrics().stream().map(metric -> metric.code).collect(Collectors.toSet());
+
+        for (AppPackageDataQualityTask qualityTask : content.getDataQualityTasks()) {
+            if (qualityTask.dataSourceId != null) {
+                assertThat(dataSourceIds).as("%s: dataQualityTask %s dataSourceId", file, qualityTask.taskName).contains(qualityTask.dataSourceId);
+            }
+            assertThat(qualityTask.rules).as("%s: dataQualityTask %s rules", file, qualityTask.taskName).isNotEmpty();
+        }
 
         // 数据源与目录
         for (AppPackageModel model : content.getModels()) {

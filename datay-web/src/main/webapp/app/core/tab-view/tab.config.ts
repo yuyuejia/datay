@@ -35,6 +35,8 @@ export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   ETLTaskRealtime: { path: '/etl-task-realtime', title: '实时任务', componentName: 'ETLTask', closable: true },
   DataSync: { path: '/data-sync', title: '数据迁移', componentName: 'DataSync', closable: true },
   DataCompare: { path: '/data-compare', title: '数据比对', componentName: 'DataCompare', closable: true },
+  DataQualityRule: { path: '/data-quality/rule', title: '质量规则', componentName: 'DataQualityRule', closable: true },
+  DataQualityTask: { path: '/data-quality/task', title: '质量检核', componentName: 'DataQualityTask', closable: true },
   // 数据模型
   DataModel: { path: '/data-model', title: '维度建模', componentName: 'DataModel', closable: true },
   Metric: { path: '/metric', title: '指标管理', componentName: 'Metric', closable: true },
