@@ -67,7 +67,7 @@ public class MysqlCdcToDuckDBPerformanceTest {
     private static final String DUCK_FILE = "./target/mysql-cdc-perf.duckdb";
 
     private static final String SCHEMA = "test";
-    private static final String TABLE = "cdc_perf";
+    private static final String TABLE = MysqlPerfTableSupport.tableName("cdc_perf", "cdc_perf_wide");
 
     private static final int SNAPSHOT_ROWS = Integer.getInteger("perf.snapshotRows", 100_000);
     private static final int SNAPSHOT_FETCH_SIZE = Integer.getInteger("perf.snapshotFetchSize", 10_000);
@@ -95,7 +95,9 @@ public class MysqlCdcToDuckDBPerformanceTest {
         report.append("环境: MySQL binlog ROW -> DuckDB embedded JDBC\n");
         report.append(String.format(
             Locale.ROOT,
-            "参数: snapshotRows=%d, snapshotFetchSize=%d, bulkRows=%d, bulkBatch=%d, updateRows=%d, deleteRows=%d, latencyRows=%d\n",
+            "参数: table=%s, wide=%s, snapshotRows=%d, snapshotFetchSize=%d, bulkRows=%d, bulkBatch=%d, updateRows=%d, deleteRows=%d, latencyRows=%d\n",
+            TABLE,
+            MysqlPerfTableSupport.WIDE,
             SNAPSHOT_ROWS,
             SNAPSHOT_FETCH_SIZE,
             BULK_ROWS,
@@ -124,7 +126,8 @@ public class MysqlCdcToDuckDBPerformanceTest {
         Map<String, Double> metrics = new LinkedHashMap<>();
         String reportText;
         try {
-            String job = Files.readString(Paths.get(System.getProperty("user.dir"), "src/test/mysqlCdcPerfToDuckDB.json"));
+            String jobTemplate = Files.readString(Paths.get(System.getProperty("user.dir"), "src/test/mysqlCdcPerfToDuckDB.json"));
+            String job = "cdc_perf".equals(TABLE) ? jobTemplate : jobTemplate.replace("cdc_perf", TABLE);
             applyDuckDbSettings();
             long jobStart = System.nanoTime();
             jobFuture = executor.submit(() -> {
@@ -152,7 +155,7 @@ public class MysqlCdcToDuckDBPerformanceTest {
 
             // ------------------------------------------------------------ 2. CDC 就绪预热
             awaitTrue(this::binlogDumpActive, 60_000, "等待 MySQL Binlog 采集器就绪超时");
-            executeMysql("INSERT INTO " + SCHEMA + "." + TABLE + " (id, name, amount, created_at) VALUES (-1, 'warmup', 0.00, '2026-01-01 00:00:00')");
+            executeMysql(MysqlPerfTableSupport.warmupInsertSql(SCHEMA, TABLE));
             awaitTrue(() -> duckExists(-1), 30_000, "等待 CDC 预热消息同步到 DuckDB 超时");
             executeMysql("DELETE FROM " + SCHEMA + "." + TABLE + " WHERE id = -1");
             awaitTrue(() -> !duckExists(-1), 30_000, "等待 CDC 预热消息删除同步到 DuckDB 超时");
@@ -358,7 +361,8 @@ public class MysqlCdcToDuckDBPerformanceTest {
         }
 
         System.out.println(reportText);
-        Path reportPath = Paths.get("target", "mysql-cdc-perf-report.txt");
+        String reportName = MysqlPerfTableSupport.WIDE ? "mysql-cdc-perf-wide-report.txt" : "mysql-cdc-perf-report.txt";
+        Path reportPath = Paths.get("target", reportName);
         Files.writeString(reportPath, reportText);
         System.out.println("性能报告已写入: " + reportPath.toAbsolutePath());
     }
@@ -376,14 +380,11 @@ public class MysqlCdcToDuckDBPerformanceTest {
         try (Connection readConn = duckConnection(); Connection writeConn = openMysql()) {
             readConn.setAutoCommit(true);
             try (PreparedStatement insert = writeConn.prepareStatement(
-                "INSERT INTO " + SCHEMA + "." + TABLE + " (id, name, amount, created_at) VALUES (?, ?, ?, ?)"
+                MysqlPerfTableSupport.latencyInsertSql(SCHEMA, TABLE)
             )) {
                 for (int i = 0; i < LATENCY_ROWS; i++) {
                     long id = LATENCY_BASE + i;
-                    insert.setLong(1, id);
-                    insert.setString(2, "lat_" + id);
-                    insert.setBigDecimal(3, java.math.BigDecimal.valueOf(id % 1000).add(new java.math.BigDecimal("0.25")));
-                    insert.setTimestamp(4, java.sql.Timestamp.valueOf("2026-01-01 00:00:00"));
+                    MysqlPerfTableSupport.bindLatencyRow(insert, id);
 
                     long before = System.nanoTime();
                     insert.executeUpdate();
@@ -480,13 +481,7 @@ public class MysqlCdcToDuckDBPerformanceTest {
         deleteStatusFile();
         try (Connection conn = openMysql(); Statement st = conn.createStatement()) {
             st.execute("DROP TABLE IF EXISTS " + SCHEMA + "." + TABLE);
-            st.execute(
-                "CREATE TABLE " + SCHEMA + "." + TABLE + " (" +
-                "id bigint primary key, " +
-                "name varchar(128), " +
-                "amount decimal(12,2), " +
-                "created_at datetime)"
-            );
+            st.execute(MysqlPerfTableSupport.createTableSql(SCHEMA, TABLE));
         }
     }
 
@@ -496,22 +491,13 @@ public class MysqlCdcToDuckDBPerformanceTest {
             for (int offset = 0; offset < count; offset += batchSize) {
                 int rows = Math.min(batchSize, count - offset);
                 StringBuilder sql = new StringBuilder(
-                    "INSERT INTO " + SCHEMA + "." + TABLE + " (id, name, amount, created_at) VALUES "
+                    "INSERT INTO " + SCHEMA + "." + TABLE + " (" + MysqlPerfTableSupport.insertColumns() + ") VALUES "
                 );
                 for (int i = 0; i < rows; i++) {
-                    long id = startId + offset + i;
                     if (i > 0) {
                         sql.append(',');
                     }
-                    sql.append('(')
-                        .append(id)
-                        .append(",'")
-                        .append(prefix)
-                        .append('_')
-                        .append(id)
-                        .append("',")
-                        .append(id % 1000)
-                        .append(".25,'2026-01-01 00:00:00')");
+                    MysqlPerfTableSupport.appendInsertValues(sql, startId + offset + i, prefix);
                 }
                 try (Statement st = conn.createStatement()) {
                     st.executeUpdate(sql.toString());

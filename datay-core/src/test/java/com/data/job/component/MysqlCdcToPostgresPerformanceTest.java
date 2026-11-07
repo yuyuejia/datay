@@ -56,7 +56,7 @@ public class MysqlCdcToPostgresPerformanceTest {
     /** 可选：覆盖任务配置中的 PG URL，用于对比 reWriteBatchedInserts 等驱动参数。 */
     private static final String PG_URL_OVERRIDE = System.getProperty("perf.pgUrl");
 
-    private static final String TABLE = "cdc_pg_perf";
+    private static final String TABLE = MysqlPerfTableSupport.tableName("cdc_pg_perf", "cdc_pg_perf_wide");
 
     private static final int SNAPSHOT_ROWS = Integer.getInteger("perf.snapshotRows", 100_000);
     private static final int SNAPSHOT_FETCH_SIZE = Integer.getInteger("perf.snapshotFetchSize", 10_000);
@@ -83,7 +83,9 @@ public class MysqlCdcToPostgresPerformanceTest {
         report.append("环境: MySQL binlog ROW -> PostgreSQL 18 (localhost)\n");
         report.append(String.format(
             Locale.ROOT,
-            "参数: snapshotRows=%d, snapshotFetchSize=%d, bulkRows=%d, bulkBatch=%d, updateRows=%d, deleteRows=%d, latencyRows=%d\n",
+            "参数: table=%s, wide=%s, snapshotRows=%d, snapshotFetchSize=%d, bulkRows=%d, bulkBatch=%d, updateRows=%d, deleteRows=%d, latencyRows=%d\n",
+            TABLE,
+            MysqlPerfTableSupport.WIDE,
             SNAPSHOT_ROWS,
             SNAPSHOT_FETCH_SIZE,
             BULK_ROWS,
@@ -114,7 +116,11 @@ public class MysqlCdcToPostgresPerformanceTest {
             if (hasPgUrlOverride()) {
                 System.out.println("已使用 PG URL 覆盖: " + PG_URL_OVERRIDE);
             }
-            String job = hasPgUrlOverride() ? jobTemplate.replace(PG_URL, PG_URL_OVERRIDE) : jobTemplate;
+            String jobText = hasPgUrlOverride() ? jobTemplate.replace(PG_URL, PG_URL_OVERRIDE) : jobTemplate;
+            if (!"cdc_pg_perf".equals(TABLE)) {
+                jobText = jobText.replace("cdc_pg_perf", TABLE);
+            }
+            final String job = jobText;
             long jobStart = System.nanoTime();
             jobFuture = executor.submit(() -> {
                 try {
@@ -139,7 +145,7 @@ public class MysqlCdcToPostgresPerformanceTest {
 
             // ------------------------------------------------------------ 2. CDC 就绪预热
             awaitTrue(this::binlogDumpActive, 60_000, "等待 MySQL Binlog 采集器就绪超时");
-            executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, created_at) VALUES (-1, 'warmup', 0.00, '2026-01-01 00:00:00')");
+            executeMysql(MysqlPerfTableSupport.warmupInsertSql("test", TABLE));
             awaitTrue(() -> pgExists(-1), 60_000, "等待 CDC 预热消息同步到 PostgreSQL 超时");
             executeMysql("DELETE FROM test." + TABLE + " WHERE id = -1");
             awaitTrue(() -> !pgExists(-1), 60_000, "等待 CDC 预热消息删除同步到 PostgreSQL 超时");
@@ -304,7 +310,8 @@ public class MysqlCdcToPostgresPerformanceTest {
         }
 
         System.out.println(reportText);
-        Path reportPath = Paths.get("target", "mysql-cdc-postgres-perf-report.txt");
+        String reportName = MysqlPerfTableSupport.WIDE ? "mysql-cdc-postgres-perf-wide-report.txt" : "mysql-cdc-postgres-perf-report.txt";
+        Path reportPath = Paths.get("target", reportName);
         Files.writeString(reportPath, reportText);
         System.out.println("性能报告已写入: " + reportPath.toAbsolutePath());
     }
@@ -320,14 +327,11 @@ public class MysqlCdcToPostgresPerformanceTest {
         long maxId = -1;
 
         try (Connection writeConn = openMysql(); PreparedStatement insert = writeConn.prepareStatement(
-            "INSERT INTO test." + TABLE + " (id, name, amount, created_at) VALUES (?, ?, ?, ?)"
+            MysqlPerfTableSupport.latencyInsertSql("test", TABLE)
         )) {
             for (int i = 0; i < LATENCY_ROWS; i++) {
                 long id = LATENCY_BASE + i;
-                insert.setLong(1, id);
-                insert.setString(2, "lat_" + id);
-                insert.setBigDecimal(3, java.math.BigDecimal.valueOf(id % 1000).add(new java.math.BigDecimal("0.25")));
-                insert.setTimestamp(4, java.sql.Timestamp.valueOf("2026-01-01 00:00:00"));
+                MysqlPerfTableSupport.bindLatencyRow(insert, id);
 
                 long before = System.nanoTime();
                 insert.executeUpdate();
@@ -407,13 +411,7 @@ public class MysqlCdcToPostgresPerformanceTest {
 
         try (Connection conn = openMysql(); Statement st = conn.createStatement()) {
             st.execute("DROP TABLE IF EXISTS test." + TABLE);
-            st.execute(
-                "CREATE TABLE test." + TABLE + " (" +
-                "id bigint primary key, " +
-                "name varchar(128), " +
-                "amount decimal(12,2), " +
-                "created_at datetime)"
-            );
+            st.execute(MysqlPerfTableSupport.createTableSql("test", TABLE));
         }
     }
 
@@ -423,22 +421,13 @@ public class MysqlCdcToPostgresPerformanceTest {
             for (int offset = 0; offset < count; offset += batchSize) {
                 int rows = Math.min(batchSize, count - offset);
                 StringBuilder sql = new StringBuilder(
-                    "INSERT INTO test." + TABLE + " (id, name, amount, created_at) VALUES "
+                    "INSERT INTO test." + TABLE + " (" + MysqlPerfTableSupport.insertColumns() + ") VALUES "
                 );
                 for (int i = 0; i < rows; i++) {
-                    long id = startId + offset + i;
                     if (i > 0) {
                         sql.append(',');
                     }
-                    sql.append('(')
-                        .append(id)
-                        .append(",'")
-                        .append(prefix)
-                        .append('_')
-                        .append(id)
-                        .append("',")
-                        .append(id % 1000)
-                        .append(".25,'2026-01-01 00:00:00')");
+                    MysqlPerfTableSupport.appendInsertValues(sql, startId + offset + i, prefix);
                 }
                 try (Statement st = conn.createStatement()) {
                     st.executeUpdate(sql.toString());
