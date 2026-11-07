@@ -1,5 +1,6 @@
 package com.data.job.component.cdc;
 
+import com.mongodb.MongoSecurityException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
 
@@ -56,6 +57,10 @@ public final class CdcConnectionErrors {
         "no such host",
         "timed out while waiting for a server",
         "failed to connect",
+        "authentication failed",
+        "not authorized",
+        "unauthorized",
+        "auth failed",
     };
 
     private CdcConnectionErrors() {}
@@ -71,7 +76,10 @@ public final class CdcConnectionErrors {
                 String sqlState = sqlException.getSQLState();
                 if (
                     sqlState != null &&
-                    (sqlState.startsWith("08") || sqlState.startsWith("57P"))
+                    (sqlState.startsWith("08") ||
+                        sqlState.startsWith("28") ||
+                        sqlState.startsWith("57P") ||
+                        "3D000".equals(sqlState))
                 ) {
                     return true;
                 }
@@ -88,7 +96,8 @@ public final class CdcConnectionErrors {
                 current instanceof SocketTimeoutException ||
                 current instanceof IOException ||
                 current instanceof MongoTimeoutException ||
-                current instanceof MongoSocketException
+                current instanceof MongoSocketException ||
+                current instanceof MongoSecurityException
             ) {
                 return true;
             }

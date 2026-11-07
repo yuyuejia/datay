@@ -74,12 +74,14 @@ class CdcCollectorReconnectTest {
     }
 
     @Test
-    void connectionFailureClassificationShouldIgnoreNonConnectionErrors() {
+    void shouldClassifyConnectionFailures() {
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("connection closed", "08006")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("server shutdown", "57P01")));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("role does not exist", "28000")));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("database does not exist", "3D000")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new ConnectException("Connection refused")));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("invalid password", "28P01")));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new SQLException("syntax error", "42601")));
-        assertFalse(CdcConnectionErrors.isConnectionFailure(new SQLException("invalid password", "28P01")));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new IllegalStateException("未找到匹配的表")));
     }
 

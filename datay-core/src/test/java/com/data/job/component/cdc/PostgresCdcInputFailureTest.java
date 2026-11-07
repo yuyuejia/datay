@@ -20,7 +20,24 @@ class PostgresCdcInputFailureTest {
 
     @Test
     void unreachablePostgresShouldFailEtlJobEvenIfIgnoreError() throws Exception {
-        String jobCode = "pg-cdc-connect-fail-test";
+        runAndAssertFails(
+            "pg-cdc-connect-fail-test",
+            job("jdbc:postgresql://127.0.0.1:1/test?connectTimeout=1&socketTimeout=1", "postgres")
+        );
+    }
+
+    @Test
+    void postgresAuthenticationFailureShouldFailEtlJobEvenIfIgnoreError() throws Exception {
+        runAndAssertFails(
+            "pg-cdc-auth-fail-test",
+            job(
+                "jdbc:postgresql://127.0.0.1:5432/testdb?connectTimeout=1&socketTimeout=1",
+                "datay_no_such_role_" + System.currentTimeMillis()
+            )
+        );
+    }
+
+    private void runAndAssertFails(String jobCode, String job) throws Exception {
         String instanceCode = jobCode + "-" + System.currentTimeMillis();
         TaskInstance instance = new TaskInstance();
         instance.setId(instanceCode);
@@ -30,7 +47,7 @@ class PostgresCdcInputFailureTest {
 
         ETLFlowTask task = new ETLFlowTask(instance, null);
         try {
-            RuntimeException error = assertThrows(RuntimeException.class, () -> task.runJob(job()));
+            RuntimeException error = assertThrows(RuntimeException.class, () -> task.runJob(job));
 
             assertTrue(error.getMessage().contains("最大重连次数 1"), error.getMessage());
         } finally {
@@ -39,7 +56,7 @@ class PostgresCdcInputFailureTest {
         }
     }
 
-    private String job() {
+    private String job(String url, String username) {
         return """
             {
               "units": [
@@ -47,8 +64,8 @@ class PostgresCdcInputFailureTest {
                   ".id": "PostgresCDCInput",
                   ".name": "PostgresCDCInput",
                   "sourceId": {
-                    "url": "jdbc:postgresql://127.0.0.1:1/test?connectTimeout=1&socketTimeout=1",
-                    "username": "postgres",
+                    "url": "%s",
+                    "username": "%s",
                     "password": "",
                     "dbschema": "public"
                   },
@@ -62,7 +79,7 @@ class PostgresCdcInputFailureTest {
               "connections": [],
               "version": "1.0.0"
             }
-            """;
+            """.formatted(url, username);
     }
 
     private void deleteLogDir(String jobCode) throws IOException {
