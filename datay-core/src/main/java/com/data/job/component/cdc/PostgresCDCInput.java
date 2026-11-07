@@ -47,6 +47,11 @@ public class PostgresCDCInput extends FlowComponent {
     /** 快照分批大小。 */
     private Integer snapshotFetchSize = 10000;
 
+    /** 连续重连失败的最大次数，超过后任务失败；默认 5。 */
+    private Integer reconnectMaxAttempts = PostgresWalCollector.DEFAULT_RECONNECT_MAX_ATTEMPTS;
+    /** 两次重连之间的等待时间（毫秒）；默认 3000。 */
+    private Long reconnectIntervalMs = PostgresWalCollector.DEFAULT_RECONNECT_INTERVAL_MS;
+
     private final BlockingQueue<BinlogEvent> queue = new ArrayBlockingQueue<>(1000);
 
     private PostgresWalCollector collector;
@@ -143,6 +148,12 @@ public class PostgresCDCInput extends FlowComponent {
 
             BinlogEventHandler eventHandler = new DefaultBinlogEventHandler(this, queue);
             collector = new PostgresWalCollector(datasource, schema, publication, slot, tableNamePattern, lsn, eventHandler);
+            if (reconnectMaxAttempts != null) {
+                collector.setReconnectMaxAttempts(reconnectMaxAttempts);
+            }
+            if (reconnectIntervalMs != null) {
+                collector.setReconnectIntervalMs(reconnectIntervalMs);
+            }
             started = true;
             logInfo("启动 PostgreSQL CDC 采集，schema=" + schema + "，publication=" + publication + "，slot=" + slot);
 
@@ -158,8 +169,14 @@ public class PostgresCDCInput extends FlowComponent {
             }
 
             collector.start();
+        } catch (CdcConnectionException e) {
+            started = false;
+            throw e;
         } catch (Exception e) {
             started = false;
+            if (CdcConnectionErrors.isConnectionFailure(e)) {
+                throw new CdcConnectionException("PostgreSQL CDC 采集器连接失败: " + e.getMessage(), e);
+            }
             if (Boolean.FALSE.equals(ignoreError)) {
                 throw new RuntimeException("启动 PostgreSQL CDC 采集器失败", e);
             }
@@ -169,10 +186,11 @@ public class PostgresCDCInput extends FlowComponent {
 
     @Override
     public void stop() {
-        if (collector != null && collector.isRunning()) {
+        // 重连等待期间 running=false，因此不能只在 isRunning() 时停止
+        if (collector != null) {
             collector.stop();
-            started = false;
         }
+        started = false;
         super.stop();
     }
 
@@ -244,6 +262,14 @@ public class PostgresCDCInput extends FlowComponent {
 
     public void setSnapshotFetchSize(Integer snapshotFetchSize) {
         this.snapshotFetchSize = snapshotFetchSize;
+    }
+
+    public void setReconnectMaxAttempts(Integer reconnectMaxAttempts) {
+        this.reconnectMaxAttempts = reconnectMaxAttempts;
+    }
+
+    public void setReconnectIntervalMs(Long reconnectIntervalMs) {
+        this.reconnectIntervalMs = reconnectIntervalMs;
     }
 
     public boolean isStarted() {

@@ -44,6 +44,17 @@ public class OracleLogMinerCollector {
     /** 空轮询间隔，避免无变更时频繁查询。 */
     private static final long IDLE_SLEEP_MS = 50L;
 
+    /** 默认最大重连次数：连续失败超过该次数后终止任务。 */
+    public static final int DEFAULT_RECONNECT_MAX_ATTEMPTS = 5;
+
+    /** 默认重连间隔（毫秒）。 */
+    public static final long DEFAULT_RECONNECT_INTERVAL_MS = 3000L;
+
+    /**
+     * 连接稳定判定阈值：连接存活达到该时长后，下一次断线会重新累计重连次数。
+     */
+    private static final long STABLE_CONNECTION_MILLIS = 10_000L;
+
     private static final String[] UNSUPPORTED_TYPE_KEYWORDS = { "LOB", "BFILE", "LONG", "ROWID", "XMLTYPE" };
 
     private final DatasourceInfo datasourceInfo;
@@ -63,6 +74,18 @@ public class OracleLogMinerCollector {
 
     private volatile boolean running = false;
     private volatile boolean prepared = false;
+
+    /** 是否收到停止请求；用于区分「手动停止」和「连接异常」。 */
+    private volatile boolean stopped = false;
+
+    /** 最近一次成功建立挖掘会话的时间；0 表示当前这轮连接未成功建立。 */
+    private volatile long connectedAt = 0L;
+
+    /** 连续重连失败的最大次数，超过后任务失败。 */
+    private volatile int reconnectMaxAttempts = DEFAULT_RECONNECT_MAX_ATTEMPTS;
+
+    /** 两次重连之间的等待时间（毫秒）。 */
+    private volatile long reconnectIntervalMs = DEFAULT_RECONNECT_INTERVAL_MS;
 
     /** 挖掘会话连接（LogMiner 会话与连接绑定，必须在同一连接上开始/查询/结束）。 */
     private Connection miningConnection;
@@ -113,9 +136,85 @@ public class OracleLogMinerCollector {
 
     /**
      * 启动日志挖掘采集，该方法会阻塞当前线程直到 {@link #stop()} 被调用。
+     *
+     * <p>连接失败（初始连接失败或挖掘过程中断）会按 {@link #reconnectMaxAttempts}
+     * 自动重连；连续失败次数超过上限后抛出 {@link CdcConnectionException}，
+     * 由上层 ETL 流程把任务状态置为 {@code FAILED}。手动停止不会触发重连。
      */
     public void start() {
-        running = true;
+        if (running) {
+            log.warn("Oracle LogMiner 采集器已经在运行中");
+            return;
+        }
+        if (stopped) {
+            return;
+        }
+
+        int failedAttempts = 0;
+        while (!stopped && !Thread.currentThread().isInterrupted()) {
+            running = true;
+            connectedAt = 0L;
+            try {
+                runOnce();
+            } catch (Exception e) {
+                if (stopped) {
+                    break;
+                }
+                if (!CdcConnectionErrors.isConnectionFailure(e)) {
+                    running = false;
+                    throw new RuntimeException("启动 Oracle LogMiner 采集器失败: " + e.getMessage(), e);
+                }
+                log.error("Oracle LogMiner 连接异常: {}", e.getMessage(), e);
+                // 已提交的事务位点不能丢，重连后从中断处继续挖掘
+                if (lastCommittedScn > 0) {
+                    startScn = lastCommittedScn;
+                }
+            }
+
+            if (stopped) {
+                break;
+            }
+
+            long connectedFor = connectedAt > 0 ? System.currentTimeMillis() - connectedAt : 0L;
+            if (connectedAt > 0 && connectedFor >= STABLE_CONNECTION_MILLIS) {
+                failedAttempts = 0;
+            }
+            failedAttempts++;
+
+            if (failedAttempts > reconnectMaxAttempts) {
+                running = false;
+                int performedReconnects = Math.max(0, failedAttempts - 1);
+                String reason =
+                    "Oracle LogMiner 连接异常，重连 " +
+                    performedReconnects +
+                    " 次后仍未恢复（最大重连次数 " +
+                    reconnectMaxAttempts +
+                    "），任务终止";
+                log.error(reason);
+                throw new CdcConnectionException(reason);
+            }
+
+            long waitMillis = Math.max(0L, reconnectIntervalMs);
+            log.warn(
+                "Oracle LogMiner 连接已断开，{} ms 后进行第 {}/{} 次重连",
+                waitMillis,
+                failedAttempts,
+                reconnectMaxAttempts
+            );
+            if (!sleepBeforeReconnect(waitMillis)) {
+                break;
+            }
+        }
+
+        if (stopped || Thread.currentThread().isInterrupted()) {
+            running = false;
+        }
+    }
+
+    /**
+     * 建立一次挖掘会话并持续轮询，直到连接中断或收到停止请求。
+     */
+    private void runOnce() throws Exception {
         try {
             miningConnection = DBUtils.getConnection(datasourceInfo);
             miningConnection.setAutoCommit(true);
@@ -123,10 +222,12 @@ public class OracleLogMinerCollector {
             if (!prepared) {
                 validateSource(miningConnection);
                 resolveTargetTables(miningConnection);
+                prepared = true;
             }
 
             long begin = (startScn != null && startScn > 0) ? startScn : currentScn(miningConnection);
             nextStartScn = begin + 1;
+            connectedAt = System.currentTimeMillis();
             log.info(
                 "Oracle LogMiner 已启动，schema={}，表范围={}，起始 SCN={}，轮询间隔={}ms",
                 schemaName,
@@ -136,23 +237,40 @@ public class OracleLogMinerCollector {
             );
 
             pollLoop();
-        } catch (Exception e) {
-            if (!running) {
-                log.info("Oracle LogMiner 采集器已停止");
-                return;
-            }
-            throw new RuntimeException("启动 Oracle LogMiner 采集器失败: " + e.getMessage(), e);
         } finally {
             closeQuietly();
         }
     }
 
-    private void pollLoop() throws InterruptedException {
-        while (running && !Thread.currentThread().isInterrupted()) {
+    /**
+     * 重连等待，期间可被 {@link #stop()} 快速打断。
+     *
+     * @return true 表示等待结束且未收到停止请求
+     */
+    private boolean sleepBeforeReconnect(long millis) {
+        long remaining = millis;
+        while (remaining > 0 && !stopped) {
+            long sleep = Math.min(remaining, 200L);
+            try {
+                Thread.sleep(sleep);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            remaining -= sleep;
+        }
+        return !stopped;
+    }
+
+    private void pollLoop() throws Exception {
+        while (running && !stopped && !Thread.currentThread().isInterrupted()) {
             long endScn;
             try {
                 endScn = currentScn(miningConnection);
             } catch (SQLException e) {
+                if (CdcConnectionErrors.isConnectionFailure(e)) {
+                    throw e;
+                }
                 log.warn("读取当前 SCN 失败，稍后重试：{}", e.getMessage());
                 sleep();
                 continue;
@@ -175,6 +293,9 @@ public class OracleLogMinerCollector {
                 }
                 eventHandler.flush();
             } catch (Exception e) {
+                if (CdcConnectionErrors.isConnectionFailure(e)) {
+                    throw e;
+                }
                 log.error("挖掘 SCN 区间 [{}, {}] 失败：{}", windowStart, windowEnd, e.getMessage(), e);
                 eventHandler.handleError(null, e);
             }
@@ -601,6 +722,10 @@ public class OracleLogMinerCollector {
     }
 
     public void stop() {
+        if (stopped) {
+            return;
+        }
+        stopped = true;
         running = false;
         try {
             eventHandler.flush();
@@ -609,6 +734,31 @@ public class OracleLogMinerCollector {
         }
         closeQuietly();
         log.info("Oracle LogMiner 采集器已停止");
+    }
+
+    /**
+     * 设置连续重连失败的最大次数，超过后 {@link #start()} 抛出连接异常。
+     */
+    public void setReconnectMaxAttempts(int maxAttempts) {
+        if (maxAttempts < 0) {
+            throw new IllegalArgumentException("reconnectMaxAttempts 不能小于 0，当前值: " + maxAttempts);
+        }
+        this.reconnectMaxAttempts = maxAttempts;
+    }
+
+    /**
+     * 设置两次重连之间的等待时间（毫秒），小于 0 时按 0 处理。
+     */
+    public void setReconnectIntervalMs(long intervalMs) {
+        this.reconnectIntervalMs = Math.max(0L, intervalMs);
+    }
+
+    public int getReconnectMaxAttempts() {
+        return reconnectMaxAttempts;
+    }
+
+    public long getReconnectIntervalMs() {
+        return reconnectIntervalMs;
     }
 
     private void sleep() throws InterruptedException {

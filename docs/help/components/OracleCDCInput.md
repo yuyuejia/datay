@@ -63,7 +63,9 @@ GRANT SELECT ON SYS.V_$DATABASE TO <采集账号>;
 | `pollIntervalMs` | Long | ❌ | 日志挖掘轮询间隔（毫秒），默认 `1000` | `500` |
 | `snapshot` | Boolean | ❌ | 首次运行（无断点）时先读取历史全量数据，再启动增量同步，默认 `false` | `true` |
 | `snapshotFetchSize` | Integer | ❌ | 快照分批大小，默认 `10000` | `5000` |
-| `ignoreError` | Boolean | ❌ | 采集出错时是否仅记录日志而不中断任务，默认 `true` | `false` |
+| `reconnectMaxAttempts` | Integer | ❌ | 连续重连失败的最大次数，超过后任务失败，默认 `5`；`0` 表示不重连 | `5` |
+| `reconnectIntervalMs` | Long | ❌ | 两次重连之间的等待时间（毫秒），默认 `3000` | `3000` |
+| `ignoreError` | Boolean | ❌ | 非连接类采集错误是否仅记录日志而不中断任务，默认 `true`；连接失败始终使任务失败 | `false` |
 
 ## 数据源配置 (DatasourceInfo)
 
@@ -138,6 +140,18 @@ GRANT SELECT ON SYS.V_$DATABASE TO <采集账号>;
 5. **取值与转换**：按表列定义使用 `DBMS_LOGMNR.MINE_VALUE` 提取前后镜像，数值按列 scale 规范化，时间转为 ISO-8601。
 6. **事件下发**：转换为通用 CDC 事件（`BinlogEvent`）交给下游，事务以已提交的最大 SCN 作为位点。
 7. **状态保存**：位点（`binlogPosition` = 已提交 SCN）随 FlowFile 持久化，任务重启自动续采。
+
+## 连接异常与重连
+
+- **初始连接失败**或**日志挖掘过程中断**时，组件按 `reconnectIntervalMs` 的间隔自动重连；
+  重连后从已提交的最大 SCN 继续挖掘。
+- 连续失败次数超过 `reconnectMaxAttempts`（默认 `5`）后，组件抛出连接异常，ETL 任务状态
+  变为 `FAILED`，不会出现「连接已断开但任务显示成功」的情况。
+- 连接失败不受 `ignoreError` 影响，始终向上抛出；手动停止任务属于正常停止，不会触发重连。
+- 单次连接稳定运行超过 10 秒后，下一次断线会重新累计连续失败次数。
+
+> 任务级重试（Job 的 `retryCount`）与组件级重连是两层机制：组件重连耗尽后任务先变为
+> `FAILED`，是否再次整体重试仍由任务的重试配置决定。
 
 ## 首次全量快照（snapshot）
 

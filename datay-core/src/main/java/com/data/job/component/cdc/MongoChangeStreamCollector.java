@@ -44,6 +44,17 @@ public class MongoChangeStreamCollector {
 
     private static final int DEFAULT_META_SAMPLE = 100;
 
+    /** 默认最大重连次数：连续失败超过该次数后终止任务。 */
+    public static final int DEFAULT_RECONNECT_MAX_ATTEMPTS = 5;
+
+    /** 默认重连间隔（毫秒）。 */
+    public static final long DEFAULT_RECONNECT_INTERVAL_MS = 3000L;
+
+    /**
+     * 连接稳定判定阈值：连接存活达到该时长后，下一次断线会重新累计重连次数。
+     */
+    private static final long STABLE_CONNECTION_MILLIS = 10_000L;
+
     private final DatasourceInfo datasourceInfo;
     private final String database;
     private final String collection;
@@ -64,6 +75,18 @@ public class MongoChangeStreamCollector {
 
     private volatile boolean running = false;
     private volatile boolean prepared = false;
+
+    /** 是否收到停止请求；用于区分「手动停止」和「连接异常」。 */
+    private volatile boolean stopped = false;
+
+    /** 最近一次成功建立变更流的时间；0 表示当前这轮连接未成功建立。 */
+    private volatile long connectedAt = 0L;
+
+    /** 连续重连失败的最大次数，超过后任务失败。 */
+    private volatile int reconnectMaxAttempts = DEFAULT_RECONNECT_MAX_ATTEMPTS;
+
+    /** 两次重连之间的等待时间（毫秒）。 */
+    private volatile long reconnectIntervalMs = DEFAULT_RECONNECT_INTERVAL_MS;
 
     private MongoConnection connection;
     private MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor;
@@ -132,15 +155,89 @@ public class MongoChangeStreamCollector {
 
     /**
      * 启动变更流采集，该方法会阻塞当前线程直到 {@link #stop()} 被调用。
+     *
+     * <p>连接失败（初始连接失败或变更流读取中断）会按 {@link #reconnectMaxAttempts}
+     * 自动重连；连续失败次数超过上限后抛出 {@link CdcConnectionException}，
+     * 由上层 ETL 流程把任务状态置为 {@code FAILED}。手动停止不会触发重连。
      */
     public void start() {
-        running = true;
+        if (running) {
+            log.warn("MongoDB 变更流采集器已经在运行中");
+            return;
+        }
+        if (stopped) {
+            return;
+        }
+
+        int failedAttempts = 0;
+        while (!stopped && !Thread.currentThread().isInterrupted()) {
+            running = true;
+            connectedAt = 0L;
+            try {
+                runOnce();
+            } catch (Exception e) {
+                if (stopped) {
+                    break;
+                }
+                if (!CdcConnectionErrors.isConnectionFailure(e)) {
+                    running = false;
+                    throw new RuntimeException("启动 MongoDB 变更流采集器失败: " + e.getMessage(), e);
+                }
+                log.error("MongoDB 变更流连接异常: {}", e.getMessage(), e);
+            }
+
+            if (stopped) {
+                break;
+            }
+
+            long connectedFor = connectedAt > 0 ? System.currentTimeMillis() - connectedAt : 0L;
+            if (connectedAt > 0 && connectedFor >= STABLE_CONNECTION_MILLIS) {
+                failedAttempts = 0;
+            }
+            failedAttempts++;
+
+            if (failedAttempts > reconnectMaxAttempts) {
+                running = false;
+                int performedReconnects = Math.max(0, failedAttempts - 1);
+                String reason =
+                    "MongoDB 变更流连接异常，重连 " +
+                    performedReconnects +
+                    " 次后仍未恢复（最大重连次数 " +
+                    reconnectMaxAttempts +
+                    "），任务终止";
+                log.error(reason);
+                throw new CdcConnectionException(reason);
+            }
+
+            long waitMillis = Math.max(0L, reconnectIntervalMs);
+            log.warn(
+                "MongoDB 变更流连接已断开，{} ms 后进行第 {}/{} 次重连",
+                waitMillis,
+                failedAttempts,
+                reconnectMaxAttempts
+            );
+            if (!sleepBeforeReconnect(waitMillis)) {
+                break;
+            }
+        }
+
+        if (stopped || Thread.currentThread().isInterrupted()) {
+            running = false;
+        }
+    }
+
+    /**
+     * 建立一次变更流并读取事件，直到连接中断或收到停止请求。
+     */
+    private void runOnce() {
         try {
             connection = openConnection();
             if (!prepared) {
                 resolveTargetTables(connection);
+                prepared = true;
             }
             cursor = buildWatch(connection).cursor();
+            connectedAt = System.currentTimeMillis();
             if (resumeToken != null) {
                 log.info("MongoDB 变更流已启动，从 resumeToken 续传，集合范围={}", targetTables);
             } else if (startAtOperationTime != null) {
@@ -149,15 +246,29 @@ public class MongoChangeStreamCollector {
                 log.info("MongoDB 变更流已启动，从当前位置开始，集合范围={}", targetTables);
             }
             readLoop();
-        } catch (Exception e) {
-            if (!running) {
-                log.info("MongoDB 变更流采集器已停止");
-                return;
-            }
-            throw new RuntimeException("启动 MongoDB 变更流采集器失败: " + e.getMessage(), e);
         } finally {
             closeQuietly();
         }
+    }
+
+    /**
+     * 重连等待，期间可被 {@link #stop()} 快速打断。
+     *
+     * @return true 表示等待结束且未收到停止请求
+     */
+    private boolean sleepBeforeReconnect(long millis) {
+        long remaining = millis;
+        while (remaining > 0 && !stopped) {
+            long sleep = Math.min(remaining, 200L);
+            try {
+                Thread.sleep(sleep);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            remaining -= sleep;
+        }
+        return !stopped;
     }
 
     private void readLoop() {
@@ -208,6 +319,10 @@ public class MongoChangeStreamCollector {
                 break;
             default:
                 log.debug("忽略未支持的 MongoDB 变更事件类型：{}", operationType);
+        }
+        // 记录已消费事件的 resumeToken，连接中断后可从该位点继续，避免重复消费
+        if (change.getResumeToken() != null && !change.getResumeToken().isEmpty()) {
+            resumeToken = change.getResumeToken();
         }
     }
 
@@ -339,6 +454,10 @@ public class MongoChangeStreamCollector {
     }
 
     public void stop() {
+        if (stopped) {
+            return;
+        }
+        stopped = true;
         running = false;
         try {
             eventHandler.flush();
@@ -347,6 +466,31 @@ public class MongoChangeStreamCollector {
         }
         closeQuietly();
         log.info("MongoDB 变更流采集器已停止");
+    }
+
+    /**
+     * 设置连续重连失败的最大次数，超过后 {@link #start()} 抛出连接异常。
+     */
+    public void setReconnectMaxAttempts(int maxAttempts) {
+        if (maxAttempts < 0) {
+            throw new IllegalArgumentException("reconnectMaxAttempts 不能小于 0，当前值: " + maxAttempts);
+        }
+        this.reconnectMaxAttempts = maxAttempts;
+    }
+
+    /**
+     * 设置两次重连之间的等待时间（毫秒），小于 0 时按 0 处理。
+     */
+    public void setReconnectIntervalMs(long intervalMs) {
+        this.reconnectIntervalMs = Math.max(0L, intervalMs);
+    }
+
+    public int getReconnectMaxAttempts() {
+        return reconnectMaxAttempts;
+    }
+
+    public long getReconnectIntervalMs() {
+        return reconnectIntervalMs;
     }
 
     private MongoConnection openConnection() {

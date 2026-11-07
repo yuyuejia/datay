@@ -68,10 +68,33 @@
         <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
       </el-form-item>
 
+      <el-form-item label="最大重连次数">
+        <el-input-number
+          id="reconnectMaxAttempts"
+          name="reconnectMaxAttempts"
+          v-model="formData.reconnectMaxAttempts"
+          :min="0"
+          :controls="false"
+        />
+        <small class="form-text text-muted"> 连接异常时自动重连的最大次数，默认 5；0 表示不重连，超过后任务失败 </small>
+      </el-form-item>
+
+      <el-form-item label="重连间隔（毫秒）">
+        <el-input-number
+          id="reconnectIntervalMs"
+          name="reconnectIntervalMs"
+          v-model="formData.reconnectIntervalMs"
+          :min="0"
+          :step="500"
+          :controls="false"
+        />
+        <small class="form-text text-muted"> 两次重连之间的等待时间，默认 3000 毫秒 </small>
+      </el-form-item>
+
       <!-- 忽略错误 -->
       <el-form-item label="忽略错误">
         <el-switch id="ignoreError" name="ignoreError" v-model="formData.ignoreError" />
-        <small class="form-text text-muted"> 采集启动或运行出错时记录日志而不中断任务 </small>
+        <small class="form-text text-muted"> 非连接类采集错误记录日志而不中断任务；数据源连接失败始终使任务失败 </small>
       </el-form-item>
     </div>
   </el-form>
@@ -97,6 +120,8 @@ const formData = reactive({
   pollIntervalMs: props.node?.data?.config?.pollIntervalMs || 1000,
   snapshot: props.node?.data?.config?.snapshot || false,
   snapshotFetchSize: props.node?.data?.config?.snapshotFetchSize || 10000,
+  reconnectMaxAttempts: props.node?.data?.config?.reconnectMaxAttempts ?? 5,
+  reconnectIntervalMs: props.node?.data?.config?.reconnectIntervalMs ?? 3000,
   ignoreError: props.node?.data?.config?.ignoreError ?? true,
 });
 
@@ -150,6 +175,7 @@ GRANT SELECT ON SYS.V_$LOGFILE TO &lt;采集账号&gt;;
   <li><strong>表过滤模式</strong>：正则过滤表名（不区分大小写），留空采集整个 Schema</li>
   <li><strong>起始 SCN</strong>：一般留空，组件自动从上次保存位点续采</li>
   <li><strong>轮询间隔</strong>：周期性挖掘新日志的间隔，默认 1000 毫秒</li>
+  <li><strong>最大重连次数 / 重连间隔</strong>：连接异常时自动重连，超过次数后任务失败</li>
   <li><strong>首次读取历史全量数据</strong>：开启后首次运行先全量后增量</li>
 </ul>
 <p><strong>4. 常见问题</strong></p>

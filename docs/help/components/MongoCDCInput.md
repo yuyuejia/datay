@@ -57,7 +57,9 @@ docker exec datay-mongo-cdc mongosh --eval 'rs.status().ok'
 | `startAtOperationTime` | Long | ❌ | 从指定 operationTime（epoch 秒）开始采集 | `1710000000` |
 | `snapshot` | Boolean | ❌ | 首次运行（无断点）时先读取历史全量数据，再启动增量同步，默认 `false` | `true` |
 | `snapshotFetchSize` | Integer | ❌ | 快照分批大小，默认 `10000` | `5000` |
-| `ignoreError` | Boolean | ❌ | 采集启动失败时是否忽略（不抛出中断任务），默认 `true` | `false` |
+| `reconnectMaxAttempts` | Integer | ❌ | 连续重连失败的最大次数，超过后任务失败，默认 `5`；`0` 表示不重连 | `5` |
+| `reconnectIntervalMs` | Long | ❌ | 两次重连之间的等待时间（毫秒），默认 `3000` | `3000` |
+| `ignoreError` | Boolean | ❌ | 非连接类启动错误是否忽略（不抛出中断任务），默认 `true`；连接失败始终使任务失败 | `false` |
 
 ## 数据源配置 (DatasourceInfo)
 
@@ -124,6 +126,18 @@ docker exec datay-mongo-cdc mongosh --eval 'rs.status().ok'
 5. **读取变更**：循环读取 `ChangeStreamDocument`，转换为通用 CDC 事件（`BinlogEvent`）。
 6. **事件下发**：`insert` 取 `fullDocument` 作为后镜像；`update`/`replace` 取 `fullDocument`（updateLookup）作为后镜像；`delete` 取 `documentKey` 作为前镜像。
 7. **状态保存**：每条变更的 resumeToken 随 FlowFile 持久化，任务重启自动续传。
+
+## 连接异常与重连
+
+- **初始连接失败**或**变更流读取中断**时，组件按 `reconnectIntervalMs` 的间隔自动重连；
+  重连后优先从最后消费的 resumeToken 继续采集。
+- 连续失败次数超过 `reconnectMaxAttempts`（默认 `5`）后，组件抛出连接异常，ETL 任务状态
+  变为 `FAILED`，不会出现「连接已断开但任务显示成功」的情况。
+- 连接失败不受 `ignoreError` 影响，始终向上抛出；手动停止任务属于正常停止，不会触发重连。
+- 单次连接稳定运行超过 10 秒后，下一次断线会重新累计连续失败次数。
+
+> 任务级重试（Job 的 `retryCount`）与组件级重连是两层机制：组件重连耗尽后任务先变为
+> `FAILED`，是否再次整体重试仍由任务的重试配置决定。
 
 ## 变更事件语义
 

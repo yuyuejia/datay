@@ -62,6 +62,11 @@ public class MongoCDCInput extends FlowComponent {
     private Integer snapshotFetchSize = 10000;
     private Boolean ignoreError = true;
 
+    /** 连续重连失败的最大次数，超过后任务失败；默认 5。 */
+    private Integer reconnectMaxAttempts = MongoChangeStreamCollector.DEFAULT_RECONNECT_MAX_ATTEMPTS;
+    /** 两次重连之间的等待时间（毫秒）；默认 3000。 */
+    private Long reconnectIntervalMs = MongoChangeStreamCollector.DEFAULT_RECONNECT_INTERVAL_MS;
+
     private final BlockingQueue<BinlogEvent> queue = new ArrayBlockingQueue<>(1000);
 
     private MongoChangeStreamCollector collector;
@@ -162,6 +167,12 @@ public class MongoCDCInput extends FlowComponent {
                 resume,
                 eventHandler
             );
+            if (reconnectMaxAttempts != null) {
+                collector.setReconnectMaxAttempts(reconnectMaxAttempts);
+            }
+            if (reconnectIntervalMs != null) {
+                collector.setReconnectIntervalMs(reconnectIntervalMs);
+            }
             started = true;
 
             boolean hasCheckpoint = resume != null;
@@ -181,8 +192,14 @@ public class MongoCDCInput extends FlowComponent {
             }
 
             collector.start();
+        } catch (CdcConnectionException e) {
+            started = false;
+            throw e;
         } catch (Exception e) {
             started = false;
+            if (CdcConnectionErrors.isConnectionFailure(e)) {
+                throw new CdcConnectionException("MongoDB CDC 采集器连接失败: " + e.getMessage(), e);
+            }
             if (Boolean.FALSE.equals(ignoreError)) {
                 throw new RuntimeException("启动 MongoDB CDC 采集器失败", e);
             }
@@ -192,10 +209,11 @@ public class MongoCDCInput extends FlowComponent {
 
     @Override
     public void stop() {
-        if (collector != null && collector.isRunning()) {
+        // 重连等待期间 running=false，因此不能只在 isRunning() 时停止
+        if (collector != null) {
             collector.stop();
-            started = false;
         }
+        started = false;
         super.stop();
     }
 
@@ -246,6 +264,14 @@ public class MongoCDCInput extends FlowComponent {
 
     public void setIgnoreError(Boolean ignoreError) {
         this.ignoreError = ignoreError;
+    }
+
+    public void setReconnectMaxAttempts(Integer reconnectMaxAttempts) {
+        this.reconnectMaxAttempts = reconnectMaxAttempts;
+    }
+
+    public void setReconnectIntervalMs(Long reconnectIntervalMs) {
+        this.reconnectIntervalMs = reconnectIntervalMs;
     }
 
     public boolean isStarted() {

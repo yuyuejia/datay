@@ -25,7 +25,9 @@
           "pollIntervalMs": 1000,
           "snapshot": true,
           "snapshotFetchSize": 10000,
-          "ignoreError": true
+          "ignoreError": true,
+          "reconnectMaxAttempts": 5,
+          "reconnectIntervalMs": 3000
         },
         "xAxis": "120",
         "yAxis": "160",

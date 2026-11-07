@@ -79,6 +79,31 @@
         <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
       </el-form-item>
 
+      <el-form-item label="最大重连次数">
+        <el-input-number
+          id="reconnectMaxAttempts"
+          name="reconnectMaxAttempts"
+          v-model="formData.reconnectMaxAttempts"
+          :min="0"
+          :controls="false"
+          style="width: 100%"
+        />
+        <small class="form-text text-muted"> 连接异常时自动重连的最大次数，默认 5；0 表示不重连，超过后任务失败 </small>
+      </el-form-item>
+
+      <el-form-item label="重连间隔（毫秒）">
+        <el-input-number
+          id="reconnectIntervalMs"
+          name="reconnectIntervalMs"
+          v-model="formData.reconnectIntervalMs"
+          :min="0"
+          :step="500"
+          :controls="false"
+          style="width: 100%"
+        />
+        <small class="form-text text-muted"> 两次重连之间的等待时间，默认 3000 毫秒 </small>
+      </el-form-item>
+
       <!-- 断点续传 resumeToken -->
       <el-form-item label="起始 resumeToken">
         <el-input
@@ -106,7 +131,7 @@
       <!-- 启动失败是否忽略 -->
       <el-form-item label="启动失败时忽略错误">
         <el-switch id="ignoreError" name="ignoreError" v-model="formData.ignoreError" />
-        <small class="form-text text-muted"> 开启后采集器启动失败仅记录日志、不中断任务，默认开启 </small>
+        <small class="form-text text-muted"> 开启后非连接类启动错误仅记录日志、不中断任务；数据源连接失败始终使任务失败 </small>
       </el-form-item>
     </div>
   </el-form>
@@ -135,6 +160,8 @@ const formData = reactive({
   startAtOperationTime: props.node?.data?.config?.startAtOperationTime || '',
   snapshot: props.node?.data?.config?.snapshot || false,
   snapshotFetchSize: props.node?.data?.config?.snapshotFetchSize || 10000,
+  reconnectMaxAttempts: props.node?.data?.config?.reconnectMaxAttempts ?? 5,
+  reconnectIntervalMs: props.node?.data?.config?.reconnectIntervalMs ?? 3000,
   ignoreError: props.node?.data?.config?.ignoreError === undefined ? true : props.node?.data?.config?.ignoreError,
 });
 
@@ -159,6 +186,8 @@ const saveConfig = async () => {
     startAtOperationTime: formData.startAtOperationTime,
     snapshot: formData.snapshot,
     snapshotFetchSize: formData.snapshotFetchSize,
+    reconnectMaxAttempts: formData.reconnectMaxAttempts,
+    reconnectIntervalMs: formData.reconnectIntervalMs,
     ignoreError: formData.ignoreError,
   });
 };

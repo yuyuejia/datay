@@ -25,7 +25,9 @@
           "publicationName": "datay_pub_orders",
           "slotName": "datay_slot_orders",
           "snapshot": true,
-          "snapshotFetchSize": 10000
+          "snapshotFetchSize": 10000,
+          "reconnectMaxAttempts": 5,
+          "reconnectIntervalMs": 3000
         },
         "xAxis": "120",
         "yAxis": "160",
