@@ -32,7 +32,13 @@ public class DuckDBFlowBuffer {
 
     private boolean initialized;
 
+    private final boolean appendMode;
+
     public DuckDBFlowBuffer(String sourceTable) {
+        this(sourceTable, true);
+    }
+
+    public DuckDBFlowBuffer(String sourceTable, boolean appendMode) {
         String normalized = sourceTable == null ? "" : sourceTable.trim();
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException("数据质量检核源表不能为空");
@@ -45,6 +51,7 @@ public class DuckDBFlowBuffer {
             this.schema = "main";
             this.table = normalized;
         }
+        this.appendMode = appendMode;
     }
 
     /**
@@ -56,7 +63,7 @@ public class DuckDBFlowBuffer {
      */
     public synchronized boolean append(Connection conn, FlowFile flowFile) throws SQLException {
         JSONArray records = flowFile == null ? null : flowFile.getJsonArray();
-        if (!initialized) {
+        if (!initialized || !appendMode) {
             if ((records == null || records.isEmpty()) && !hasTableMeta(flowFile)) {
                 return false;
             }

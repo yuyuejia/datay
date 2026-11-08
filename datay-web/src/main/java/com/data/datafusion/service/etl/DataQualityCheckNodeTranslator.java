@@ -37,7 +37,7 @@ public class DataQualityCheckNodeTranslator implements ETLNodeTranslator {
             COMPONENT_TYPE,
             "数据质量检核",
             "数据质量",
-            "按表级/字段级规则检核上游数据，结果写入文件存储，质量不达标时任务失败。",
+            "支持流式/全量模式按表级/字段级规则检核数据，结果写入文件存储，质量不达标时任务失败。",
             getClass().getName(),
             10
         );
@@ -55,17 +55,11 @@ public class DataQualityCheckNodeTranslator implements ETLNodeTranslator {
             ? context.getNode().getCode()
             : "dq";
         String safeCode = safe(nodeCode);
-        String checkMode = context.getConfigString("checkMode", "FLOW").trim().toUpperCase();
-        String sourceTable = context.getConfigString("sourceTable", null);
-        if (!"TABLE".equals(checkMode)) {
-            checkMode = "FLOW";
-            // FLOW 模式始终使用节点专属临时表，避免误用/清空上游已有的 DuckDB 表。
-            sourceTable = "dq_data_" + safeCode;
-        } else if (sourceTable == null || sourceTable.isBlank()) {
-            throw new IllegalArgumentException("数据质量检核组件在 TABLE 模式下必须配置 DuckDB 源表");
+        String checkMode = context.getConfigString("checkMode", "STREAM").trim().toUpperCase();
+        if (!"FULL".equals(checkMode)) {
+            checkMode = "STREAM";
         }
         unit.put("checkMode", checkMode);
-        unit.put("sourceTable", sourceTable.trim());
         unit.put("outputDir", firstNonBlank(context.getConfigString("outputDir", null), "data-quality/etl/" + safeCode));
         unit.put("resultPrefix", firstNonBlank(context.getConfigString("resultPrefix", null), "quality_" + safeCode));
         unit.put("tenantPrefix", tenantPrefix());

@@ -2,24 +2,12 @@
   <el-form name="dataQualityCheckForm" label-position="top" class="data-quality-check-form">
     <el-form-item label="检核模式">
       <el-radio-group v-model="formData.checkMode">
-        <el-radio value="FLOW">检核上游数据</el-radio>
-        <el-radio value="TABLE">检核指定 DuckDB 表</el-radio>
+        <el-radio value="STREAM">流式检核</el-radio>
+        <el-radio value="FULL">全量检核</el-radio>
       </el-radio-group>
-      <small class="form-text text-muted"> FLOW 模式会持续接收上游 FlowFile 并写入 DuckDB；TABLE 模式直接检核指定的 DuckDB 表。 </small>
-    </el-form-item>
-
-    <el-form-item v-if="formData.checkMode === 'TABLE'" label="DuckDB 源表" required>
-      <el-select
-        v-model="formData.sourceTable"
-        filterable
-        allow-create
-        default-first-option
-        style="width: 100%"
-        placeholder="如 main.join_result"
-      >
-        <el-option v-for="table in upstreamTables" :key="table.name" :value="table.name" :label="table.name" />
-      </el-select>
-      <small class="form-text text-muted">可选择上游运行后物化到 DuckDB 的表，也可手动输入。</small>
+      <small class="form-text text-muted">
+        流式：逐批检核当前 FlowFile，通过后立即下发；全量：先写入 DuckDB，上游结束后全量检核，通过后再下发。
+      </small>
     </el-form-item>
 
     <el-form-item label="上游字段">
@@ -134,16 +122,14 @@ const upstreamTables = ref<any[]>([]);
 const ruleLibrary = ref<IDataQualityRule[]>([]);
 
 const formData = reactive<any>({
-  checkMode: 'FLOW',
-  sourceTable: '',
+  checkMode: 'STREAM',
   failOnError: true,
   rules: [],
 });
 
 const resetForm = () => {
   const config = props.node?.data?.config || {};
-  formData.checkMode = config.checkMode || 'FLOW';
-  formData.sourceTable = config.sourceTable || '';
+  formData.checkMode = config.checkMode === 'FULL' ? 'FULL' : 'STREAM';
   formData.failOnError = config.failOnError !== false;
   formData.rules = (config.rules || []).map((rule: any) => {
     const matchedRule =
@@ -272,13 +258,8 @@ const saveConfig = () => {
       return;
     }
   }
-  if (formData.checkMode === 'TABLE' && !formData.sourceTable?.trim()) {
-    ElMessage.error('TABLE 模式必须填写 DuckDB 源表');
-    return;
-  }
   emits('save', {
     checkMode: formData.checkMode,
-    sourceTable: formData.checkMode === 'TABLE' ? formData.sourceTable.trim() : undefined,
     failOnError: formData.failOnError,
     failOnWarn: false,
     sampleLimit: 100,

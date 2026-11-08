@@ -2176,7 +2176,7 @@
           "desc": "检查销售事实行数、订单号非空和销售金额范围，结果写入文件存储",
           "type": "DataQualityCheck",
           "config": {
-            "checkMode": "FLOW",
+            "checkMode": "STREAM",
             "failOnError": true,
             "rules": [
               {

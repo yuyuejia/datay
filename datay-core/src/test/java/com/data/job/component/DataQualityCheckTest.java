@@ -1,11 +1,14 @@
 package com.data.job.component;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.Connection;
 import com.data.job.DuckDBEngine;
 import com.data.job.ExecutionContext;
 import com.data.job.FlowFile;
@@ -14,6 +17,7 @@ import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,46 +25,82 @@ import org.junit.jupiter.api.io.TempDir;
 class DataQualityCheckTest {
 
     @Test
-    void shouldWriteResultFileAndFailWhenRuleNotPassed(@TempDir Path tempDir) throws Exception {
-        String instanceCode = "dq-check-fail-" + System.currentTimeMillis();
+    void streamModeShouldFailCurrentBatchAndWriteBatchResult(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-stream-fail-" + System.currentTimeMillis();
         try {
-            DataQualityCheck component = component(tempDir, instanceCode, "NOT_NULL", "ERROR");
-            component.execute(dataFlow());
-            component.upstreamFinish = true;
-            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(endFlow()));
+            DataQualityCheck component = component(tempDir, instanceCode, "STREAM", "NOT_NULL", "ERROR");
+            LinkedBlockingQueue<Object> queue = attachOutput(component);
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(dataFlow()));
             assertTrue(exception.getMessage().contains("数据质量检核未通过"));
-
-            Path summary = tempDir.resolve("tenants/test/data-quality-test").resolve(instanceCode).resolve("quality_summary.csv");
-            assertTrue(Files.exists(summary));
-            assertTrue(Files.readString(summary).contains("FAIL"));
+            assertTrue(queue.isEmpty());
+            assertTrue(Files.exists(summaryPath(tempDir, instanceCode, "quality_batch_1_summary.csv")));
         } finally {
             DuckDBEngine.deleteDBFile(instanceCode);
         }
     }
 
     @Test
-    void shouldPassAndWriteResultFile(@TempDir Path tempDir) throws Exception {
-        String instanceCode = "dq-check-pass-" + System.currentTimeMillis();
+    void streamModeShouldPassAndForwardCurrentBatch(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-stream-pass-" + System.currentTimeMillis();
         try {
-            DataQualityCheck component = component(tempDir, instanceCode, "ROW_COUNT_MIN", "ERROR");
-            component.execute(dataFlow());
-            component.upstreamFinish = true;
-            assertDoesNotThrow(() -> component.execute(endFlow()));
-
-            Path summary = tempDir.resolve("tenants/test/data-quality-test").resolve(instanceCode).resolve("quality_summary.csv");
-            assertTrue(Files.exists(summary));
-            assertTrue(Files.readString(summary).contains("PASS"));
+            DataQualityCheck component = component(tempDir, instanceCode, "STREAM", "NOT_NULL_ID", "ERROR");
+            LinkedBlockingQueue<Object> queue = attachOutput(component);
+            assertDoesNotThrow(() -> component.execute(dataFlow()));
+            assertEquals(1, queue.size());
+            FlowFile forwarded = (FlowFile) queue.poll();
+            assertEquals(2, forwarded.getJsonArray().size());
+            assertFalse(Files.exists(summaryPath(tempDir, instanceCode, "quality_batch_1_summary.csv")));
         } finally {
             DuckDBEngine.deleteDBFile(instanceCode);
         }
     }
 
-    private DataQualityCheck component(Path tempDir, String instanceCode, String ruleType, String severity) {
+    @Test
+    void fullModeShouldFailAfterAllDataArrivesAndNotForwardData(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-full-fail-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "FULL", "NOT_NULL", "ERROR");
+            LinkedBlockingQueue<Object> queue = attachOutput(component);
+            component.execute(dataFlow());
+            assertTrue(queue.isEmpty());
+            component.upstreamFinish = true;
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(endFlow()));
+            assertTrue(exception.getMessage().contains("数据质量检核未通过"));
+            assertTrue(queue.isEmpty());
+            assertTrue(Files.exists(summaryPath(tempDir, instanceCode, "quality_summary.csv")));
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    @Test
+    void fullModeShouldForwardAllDataAfterCheckPassed(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-full-pass-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "FULL", "NOT_NULL_ID", "ERROR");
+            LinkedBlockingQueue<Object> queue = attachOutput(component);
+            component.execute(dataFlow());
+            component.execute(dataFlow());
+            assertTrue(queue.isEmpty());
+            component.upstreamFinish = true;
+            assertDoesNotThrow(() -> component.execute(endFlow()));
+
+            assertEquals(1, queue.size());
+            FlowFile forwarded = (FlowFile) queue.poll();
+            assertEquals(4, forwarded.getJsonArray().size());
+            assertEquals("source_table", forwarded.getAttribute(FlowFile.ATTRIBUTE_TABLE));
+            assertTrue(Files.exists(summaryPath(tempDir, instanceCode, "quality_summary.csv")));
+            assertTrue(Files.readString(summaryPath(tempDir, instanceCode, "quality_summary.csv")).contains("PASS"));
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    private DataQualityCheck component(Path tempDir, String instanceCode, String mode, String ruleType, String severity) {
         DataQualityCheck component = new DataQualityCheck();
         component.setId("dq_check");
         component.setName("DataQualityCheck");
-        component.setCheckMode("FLOW");
-        component.setSourceTable("dq_source");
+        component.setCheckMode(mode);
         component.setRules(ruleJson(ruleType, severity));
         component.setFailOnError(true);
         component.setSampleLimit(10);
@@ -80,9 +120,16 @@ class DataQualityCheckTest {
         return component;
     }
 
+    private LinkedBlockingQueue<Object> attachOutput(DataQualityCheck component) {
+        component.getOutput().add(new Connection("dq_check", "sink", 0));
+        LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
+        component.getContext().getConnections().put("dq_check_sink", queue);
+        return queue;
+    }
+
     private String ruleJson(String ruleType, String severity) {
-        if ("ROW_COUNT_MIN".equals(ruleType)) {
-            return "[{\"ruleCode\":\"count\",\"ruleName\":\"表非空\",\"ruleType\":\"ROW_COUNT_MIN\",\"config\":{\"minRows\":1},\"severity\":\"" +
+        if ("NOT_NULL_ID".equals(ruleType)) {
+            return "[{\"ruleCode\":\"not_null_id\",\"ruleName\":\"ID非空\",\"ruleType\":\"NOT_NULL\",\"column\":\"id\",\"severity\":\"" +
                 severity +
                 "\",\"maxInvalidRows\":0}]";
         }
@@ -92,7 +139,7 @@ class DataQualityCheckTest {
     }
 
     private FlowFile dataFlow() {
-        TableMeta tableMeta = new TableMeta("dq_source", java.util.List.of(new ColumnMeta("id", "BIGINT"), new ColumnMeta("name", "VARCHAR")));
+        TableMeta tableMeta = new TableMeta("source_table", java.util.List.of(new ColumnMeta("id", "BIGINT"), new ColumnMeta("name", "VARCHAR")));
         tableMeta.setDbType("duckdb");
         JSONArray rows = new JSONArray();
         JSONObject row1 = new JSONObject();
@@ -107,7 +154,7 @@ class DataQualityCheckTest {
         FlowFile flowFile = new FlowFile();
         flowFile.setJsonArray(rows);
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
-        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "dq_source");
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "source_table");
         return flowFile;
     }
 
@@ -115,5 +162,9 @@ class DataQualityCheckTest {
         FlowFile flowFile = new FlowFile();
         flowFile.setAttribute("_end", true);
         return flowFile;
+    }
+
+    private Path summaryPath(Path tempDir, String instanceCode, String fileName) {
+        return tempDir.resolve("tenants/test/data-quality-test").resolve(instanceCode).resolve(fileName);
     }
 }

@@ -67,7 +67,8 @@ class DataQualityTaskServiceTest {
         assertThat(job.getJSONArray("units")).hasSize(2);
         assertThat(job.getJSONArray("connections")).hasSize(1);
         String text = job.toString();
-        assertThat(text).contains("StreamJdbcInput", "DataQualityCheck", "dq_source", "data-quality/task1");
+        assertThat(text).contains("StreamJdbcInput", "DataQualityCheck", "data-quality/task1");
+        assertThat(text).contains("\"checkMode\":\"FULL\"");
         assertThat(text).contains("jdbc:mysql://localhost:3306/shop");
         assertThat(text).contains("NOT_NULL", "order_id", "订单号非空");
         assertThat(text).contains("tenants/default");

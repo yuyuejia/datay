@@ -130,7 +130,7 @@ class AppPackageDataQualityImportIT {
             .findOneJob(etlTask.getJobId())
             .orElseThrow()
             .getJobContext();
-        assertThat(jobContext).contains("DataQualityCheck", "dq_data_n2", "\"outputFormat\":\"CSV\"");
+        assertThat(jobContext).contains("DataQualityCheck", "\"checkMode\":\"STREAM\"", "\"outputFormat\":\"CSV\"");
         String inputNodeConfig = etlTaskService
             .findOne(etlTaskId)
             .orElseThrow()
@@ -200,7 +200,7 @@ class AppPackageDataQualityImportIT {
         checkRule.put("config", Map.of("trimWhitespace", true));
 
         Map<String, Object> checkConfig = new LinkedHashMap<>();
-        checkConfig.put("checkMode", "FLOW");
+        checkConfig.put("checkMode", "STREAM");
         checkConfig.put("failOnError", true);
         checkConfig.put("rules", List.of(checkRule));
 

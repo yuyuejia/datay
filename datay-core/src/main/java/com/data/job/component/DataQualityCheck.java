@@ -1,6 +1,7 @@
 package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.data.job.ComponentRegister;
 import com.data.job.DuckDBEngine;
 import com.data.job.FlowComponent;
@@ -8,6 +9,8 @@ import com.data.job.FlowFile;
 import com.data.job.quality.CompiledQualityRule;
 import com.data.job.quality.DataQualityRuleCompiler;
 import com.data.job.quality.DuckDBFlowBuffer;
+import com.data.metadata.TableMeta;
+import com.data.metadata.util.DBUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,6 +20,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,8 +30,8 @@ import java.util.Map;
  *
  * <p>支持两种检核模式：</p>
  * <ul>
- *   <li>{@code FLOW}：消费上游 FlowFile，持续写入 DuckDB 临时表，所有数据到达后执行规则；</li>
- *   <li>{@code TABLE}：直接检核指定的 DuckDB 表。</li>
+ *   <li>{@code STREAM}：逐批检核当前 FlowFile，通过后立即下发到下游（默认）；</li>
+ *   <li>{@code FULL}：上游数据先写入 DuckDB，所有数据到齐后做全量检核，通过后再从 DuckDB 下发。</li>
  * </ul>
  *
  * <p>检核结果写入文件存储（本地 / MinIO）。存在质量不达标的 ERROR 规则时抛出异常，
@@ -37,7 +41,7 @@ import java.util.Map;
     value = "DataQualityCheck",
     name = "数据质量检核",
     group = "数据质量",
-    desc = "按表级/字段级规则检核上游数据或指定 DuckDB 表，结果写入文件存储，质量不达标时任务失败。",
+    desc = "支持流式/全量模式按表级/字段级规则检核数据，结果写入文件存储，质量不达标时任务失败。",
     order = 10
 )
 public class DataQualityCheck extends FlowComponent {
@@ -54,9 +58,15 @@ public class DataQualityCheck extends FlowComponent {
 
     private DuckDBFlowBuffer flowBuffer;
 
-    private String checkMode = "FLOW";
+    private int batchIndex;
 
-    private String sourceTable;
+    /** 全量模式下保留首个上游 FlowFile 的属性，用于检核通过后按原表信息下发。 */
+    private final Map<String, Object> sourceAttributes = new LinkedHashMap<>();
+
+    /** 全量模式下合并上游状态，保证增量水位等状态继续向下游传递。 */
+    private final Map<String, Object> sourceStatus = new LinkedHashMap<>();
+
+    private String checkMode = "STREAM";
 
     private Object rules;
 
@@ -104,34 +114,108 @@ public class DataQualityCheck extends FlowComponent {
         }
         if (flowFile.getAttribute("_end") != null) {
             if (upstreamFinish) {
-                runChecks();
+                if (isFullMode()) {
+                    runFullCheck();
+                } else {
+                    logInfo("流式质量检核完成，共检核 " + batchIndex + " 个批次");
+                }
             }
             return;
         }
 
-        if (isFlowMode()) {
-            materialize(flowFile);
+        if (isFullMode()) {
+            materializeFull(flowFile);
+            return;
         }
+
+        // 流式模式：先检核当前 FlowFile，通过后再下发。
+        runStreamCheck(flowFile);
         forward(flowFile);
     }
 
-    private boolean isFlowMode() {
-        return checkMode == null || checkMode.trim().isEmpty() || "FLOW".equalsIgnoreCase(checkMode.trim());
+    private boolean isFullMode() {
+        return "FULL".equalsIgnoreCase(checkMode == null ? "" : checkMode.trim());
     }
 
-    private void materialize(FlowFile flowFile) {
-        JSONArray records = flowFile.getJsonArray();
-        if (records == null) {
+    /**
+     * 全量模式：上游数据先持续写入 DuckDB，等待上游结束后再做全量检核。
+     */
+    private void materializeFull(FlowFile flowFile) {
+        if (flowFile.getJsonArray() == null) {
             return;
         }
         if (flowBuffer == null) {
-            flowBuffer = new DuckDBFlowBuffer(resolveSourceTable());
+            flowBuffer = new DuckDBFlowBuffer(resolveSourceTable(), true);
         }
+        if (sourceAttributes.isEmpty()) {
+            sourceAttributes.putAll(flowFile.getAttributeMap());
+        }
+        sourceStatus.putAll(flowFile.getStatusMap());
         try (Connection connection = duckDBConnection()) {
             flowBuffer.append(connection, flowFile);
         } catch (SQLException e) {
             throw new RuntimeException("数据质量检核写入 DuckDB 失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 流式模式：对当前 FlowFile 独立检核。通过（或仅 WARN）后由调用方下发。
+     */
+    private void runStreamCheck(FlowFile flowFile) {
+        JSONArray records = flowFile.getJsonArray();
+        if (records == null) {
+            return;
+        }
+        batchIndex++;
+        String table = resolveSourceTable();
+        if (flowBuffer == null) {
+            // 流式模式每个批次替换 DuckDB 表内容，只检核当前 FlowFile。
+            flowBuffer = new DuckDBFlowBuffer(table, false);
+        }
+        try (Connection connection = duckDBConnection()) {
+            flowBuffer.append(connection, flowFile);
+            List<CompiledQualityRule> compiledRules = ruleCompiler.compile(rules, table);
+            List<RuleResult> results = evaluate(connection, compiledRules, table);
+            logSummary("批次 " + batchIndex, results);
+            if (results.stream().anyMatch(result -> !"PASS".equals(result.status()))) {
+                writeResultFiles(connection, results, table, "_batch_" + batchIndex);
+                assertQuality(results);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("数据质量检核执行失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 全量模式：所有数据到齐后统一检核；通过后将 DuckDB 中的数据下发到下游。
+     */
+    private synchronized void runFullCheck() {
+        if (checked) {
+            return;
+        }
+        checked = true;
+        String table = resolveSourceTable();
+        List<CompiledQualityRule> compiledRules = ruleCompiler.compile(rules, table);
+        try (Connection connection = duckDBConnection()) {
+            List<RuleResult> results = evaluate(connection, compiledRules, table);
+            logSummary("全量", results);
+            writeResultFiles(connection, results, table, "");
+            assertQuality(results);
+            emitFullData(connection, table);
+        } catch (SQLException e) {
+            throw new RuntimeException("数据质量检核执行失败: " + e.getMessage(), e);
+        }
+    }
+
+    private void writeResultFiles(Connection connection, List<RuleResult> results, String table, String suffix) throws SQLException {
+        boolean debug = getContext() != null && getContext().isDebugMode();
+        if (debug || !writeResult) {
+            return;
+        }
+        createSummaryTable(connection);
+        insertSummary(connection, results);
+        writeSummaryFile(connection, suffix);
+        writeDetailFiles(connection, results, table, suffix);
     }
 
     /**
@@ -156,27 +240,73 @@ public class DataQualityCheck extends FlowComponent {
         writeRecords(outFile);
     }
 
-    private synchronized void runChecks() {
-        if (checked) {
+    /**
+     * 全量检核通过后，从 DuckDB 分批发回下游。
+     */
+    private void emitFullData(Connection connection, String table) throws SQLException {
+        if (getOutput() == null || getOutput().isEmpty()) {
             return;
         }
-        checked = true;
-        String table = resolveSourceTable();
-        List<CompiledQualityRule> compiledRules = ruleCompiler.compile(rules, table);
-        try (Connection connection = duckDBConnection()) {
-            List<RuleResult> results = evaluate(connection, compiledRules, table);
-            createSummaryTable(connection);
-            insertSummary(connection, results);
-            boolean debug = getContext() != null && getContext().isDebugMode();
-            if (!debug && writeResult) {
-                writeSummaryFile(connection);
-                writeDetailFiles(connection, results, table);
-            }
-            logSummary(results);
-            assertQuality(results);
-        } catch (SQLException e) {
-            throw new RuntimeException("数据质量检核执行失败: " + e.getMessage(), e);
+        String schema = SCHEMA;
+        String tableName = table;
+        int index = table.lastIndexOf('.');
+        if (index > 0) {
+            schema = table.substring(0, index);
+            tableName = table.substring(index + 1);
         }
+        boolean emitted = false;
+        try (Statement statement = connection.createStatement()) {
+            statement.setFetchSize(5000);
+            try (ResultSet rs = statement.executeQuery("SELECT * FROM " + table)) {
+                TableMeta tableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
+                tableMeta.setDbType("duckdb");
+                tableMeta.setSchema(schema);
+                tableMeta.setTable(tableName);
+                JSONArray batch = new JSONArray();
+                while (rs.next()) {
+                    JSONObject record = new JSONObject();
+                    for (int i = 1; i <= tableMeta.columns().size(); i++) {
+                        record.put(rs.getMetaData().getColumnName(i), rs.getObject(i));
+                    }
+                    batch.add(record);
+                    if (batch.size() >= 5000) {
+                        emitted = true;
+                        writeFullBatch(batch, tableMeta);
+                        batch = new JSONArray();
+                    }
+                }
+                if (!batch.isEmpty()) {
+                    emitted = true;
+                    writeFullBatch(batch, tableMeta);
+                } else if (!emitted) {
+                    // 空表也向下游传递表结构，避免下游无法感知表边界。
+                    writeFullBatch(new JSONArray(), tableMeta);
+                }
+            }
+        }
+        logInfo("全量数据检核通过，已从 DuckDB 下发 " + tableName);
+    }
+
+    private void writeFullBatch(JSONArray records, TableMeta tableMeta) {
+        FlowFile outFile = new FlowFile();
+        outFile.setJsonArray(records);
+        for (Map.Entry<String, Object> entry : sourceAttributes.entrySet()) {
+            outFile.setAttribute(entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<String, Object> entry : sourceStatus.entrySet()) {
+            outFile.setStatus(entry.getKey(), entry.getValue());
+        }
+        // 优先沿用上游原始表信息，避免下游把质量组件的 DuckDB 临时表当成目标表。
+        if (outFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA) == null) {
+            outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+        }
+        if (outFile.getAttribute(FlowFile.ATTRIBUTE_TABLE) == null) {
+            outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
+        }
+        if (outFile.getAttribute(FlowFile.ATTRIBUTE_DATABASE) == null) {
+            outFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
+        }
+        writeRecords(outFile);
     }
 
     private List<RuleResult> evaluate(Connection connection, List<CompiledQualityRule> rules, String table) throws SQLException {
@@ -266,13 +396,13 @@ public class DataQualityCheck extends FlowComponent {
         }
     }
 
-    private void writeSummaryFile(Connection connection) throws SQLException {
+    private void writeSummaryFile(Connection connection, String suffix) throws SQLException {
         String format = normalizeFormat();
         if ("minio".equalsIgnoreCase(storageType)) {
             setupMinioSecret(connection);
         }
         // 汇总文件始终保留 CSV，便于结果页读取和预览；PARQUET 作为额外副本输出。
-        String csvLogicalPath = joinPath(outputDir, instanceCode(), resultPrefix + "_summary.csv");
+        String csvLogicalPath = joinPath(outputDir, instanceCode(), resultPrefix + suffix + "_summary.csv");
         String csvTarget = resolveStorageTarget(csvLogicalPath);
         logInfo("写入数据质量汇总文件: " + csvLogicalPath);
         try (Statement statement = connection.createStatement()) {
@@ -281,7 +411,7 @@ public class DataQualityCheck extends FlowComponent {
             );
         }
         if ("PARQUET".equals(format)) {
-            String parquetLogicalPath = joinPath(outputDir, instanceCode(), resultPrefix + "_summary.parquet");
+            String parquetLogicalPath = joinPath(outputDir, instanceCode(), resultPrefix + suffix + "_summary.parquet");
             String parquetTarget = resolveStorageTarget(parquetLogicalPath);
             logInfo("写入数据质量汇总 Parquet 文件: " + parquetLogicalPath);
             try (Statement statement = connection.createStatement()) {
@@ -292,7 +422,7 @@ public class DataQualityCheck extends FlowComponent {
         }
     }
 
-    private void writeDetailFiles(Connection connection, List<RuleResult> results, String table) throws SQLException {
+    private void writeDetailFiles(Connection connection, List<RuleResult> results, String table, String suffix) throws SQLException {
         if (sampleLimit <= 0) {
             return;
         }
@@ -305,7 +435,7 @@ public class DataQualityCheck extends FlowComponent {
             String logicalPath = joinPath(
                 outputDir,
                 instanceCode(),
-                resultPrefix + "_detail_" + index + "_" + safeFileName(result.rule().getKey()) + ".csv"
+                resultPrefix + suffix + "_detail_" + index + "_" + safeFileName(result.rule().getKey()) + ".csv"
             );
             String target = resolveStorageTarget(logicalPath);
             if ("minio".equalsIgnoreCase(storageType)) {
@@ -342,18 +472,16 @@ public class DataQualityCheck extends FlowComponent {
         }
     }
 
-    private void logSummary(List<RuleResult> results) {
+    private void logSummary(String scope, List<RuleResult> results) {
         long pass = results.stream().filter(r -> "PASS".equals(r.status())).count();
         long warn = results.stream().filter(r -> "WARN".equals(r.status())).count();
         long fail = results.stream().filter(r -> "FAIL".equals(r.status())).count();
-        logInfo("数据质量检核完成: 规则数=" + results.size() + ", PASS=" + pass + ", WARN=" + warn + ", FAIL=" + fail);
+        logInfo(scope + " 数据质量检核完成: 规则数=" + results.size() + ", PASS=" + pass + ", WARN=" + warn + ", FAIL=" + fail);
     }
 
     private String resolveSourceTable() {
-        if (sourceTable == null || sourceTable.trim().isEmpty()) {
-            return SCHEMA + ".dq_data_" + safeFileName(getId());
-        }
-        return sourceTable.trim();
+        String prefix = isFullMode() ? "dq_full_" : "dq_stream_";
+        return SCHEMA + "." + prefix + safeFileName(getId());
     }
 
     private String summaryTable() {
@@ -481,14 +609,6 @@ public class DataQualityCheck extends FlowComponent {
 
     public void setCheckMode(String checkMode) {
         this.checkMode = checkMode;
-    }
-
-    public String getSourceTable() {
-        return sourceTable;
-    }
-
-    public void setSourceTable(String sourceTable) {
-        this.sourceTable = sourceTable;
     }
 
     public Object getRules() {

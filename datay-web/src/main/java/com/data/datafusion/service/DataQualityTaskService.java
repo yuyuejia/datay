@@ -288,8 +288,8 @@ public class DataQualityTaskService {
         Map<String, Object> check = new LinkedHashMap<>();
         check.put(".id", "dq_check");
         check.put(".name", "DataQualityCheck");
-        check.put("checkMode", "FLOW");
-        check.put("sourceTable", "dq_source");
+        // 质量检核任务统一使用全量模式：所有数据先落 DuckDB，再执行全量检核。
+        check.put("checkMode", "FULL");
         check.put("rules", JSONUtil.parseArray(JSONUtil.toJsonStr(rules)));
         check.put("failOnError", true);
         check.put("failOnWarn", failOnWarn);

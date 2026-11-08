@@ -9,10 +9,10 @@
 
 | 模式 | 说明 |
 |------|------|
-| `FLOW` | 消费上游 FlowFile，持续写入 DuckDB 临时表，所有数据到达后执行检核 |
-| `TABLE` | 直接检核指定的 DuckDB 表 |
+| `STREAM` | 流式模式（默认）：逐批检核当前 FlowFile，通过后立即下发到下游 |
+| `FULL` | 全量模式：上游数据先写入 DuckDB，上游结束后做全量检核，通过后再从 DuckDB 下发 |
 
-`FLOW` 模式下组件会透传上游数据，因此可以放在流程中间；如果作为最后一个节点，则只执行检核。
+流式模式适合在数据流中间做实时质量门禁；全量模式适合需要跨批次统计行数、唯一性等规则的场景。
 
 ## 配置参数
 
@@ -20,14 +20,15 @@
 |--------|------|------|--------|------|
 | `.id` | String | 是 | - | 组件唯一标识 |
 | `.name` | String | 是 | - | 固定为 `DataQualityCheck` |
-| `checkMode` | String | 否 | `FLOW` | `FLOW` / `TABLE` |
-| `sourceTable` | String | TABLE 模式必填 | `dq_data_<组件id>` | 检核源表，如 `main.join_result` |
+| `checkMode` | String | 否 | `STREAM` | `STREAM` / `FULL` |
 | `rules` | Array | 是 | `[]` | 质量规则列表 |
 | `failOnError` | Boolean | 否 | `true` | ERROR 规则不达标时是否使任务失败 |
 | `outputDir` | String | 否 | `data-quality/etl/<组件id>` | 结果目录（租户相对路径） |
 | `resultPrefix` | String | 否 | `quality_<组件id>` | 结果文件名前缀 |
 
 > WARN 规则仅记录告警，不使任务失败；失败规则抽样明细默认输出 100 行。
+>
+> 流式模式只对未通过的批次写入结果文件；全量模式在上游结束后写入一次完整汇总。
 >
 > 文件存储配置和租户前缀由设计器翻译器自动注入，通常无需手工填写。
 
@@ -75,8 +76,13 @@
 
 ```text
 <outputDir>/<instanceCode>/
+  # 全量模式
   <resultPrefix>_summary.csv
   <resultPrefix>_detail_1_<ruleKey>.csv
+
+  # 流式模式：未通过批次
+  <resultPrefix>_batch_1_summary.csv
+  <resultPrefix>_batch_1_detail_1_<ruleKey>.csv
 ```
 
 汇总文件字段：
@@ -93,7 +99,7 @@ max_invalid_rows, max_invalid_ratio, status, message
 {
   ".id": "dq_check",
   ".name": "DataQualityCheck",
-  "checkMode": "FLOW",
+  "checkMode": "STREAM",
   "rules": [
     {
       "ruleCode": "DQ_FIELD_NOT_NULL",
@@ -122,9 +128,9 @@ max_invalid_rows, max_invalid_ratio, status, message
 1. **任务在检核阶段失败，但结果文件已经生成？**
    这是预期行为。组件会先写入汇总和明细文件，再根据阈值抛出异常，便于排查问题数据。
 
-2. **TABLE 模式找不到表？**
-   TABLE 模式要求上游组件已经把数据物化到 DuckDB。例如先使用 `DuckDBWrite`、`JdbcInput` 或 `StreamSqlUnit`。
-   FLOW 模式不依赖已有表，会自行创建临时表。
+2. **全量模式什么时候下发数据？**
+   全量模式会先把上游所有批次写入 DuckDB，等上游结束后执行全量检核。只有检核通过后，才会从 DuckDB 读取数据并下发到下游。
+   如果检核不通过，任务直接失败，不会向下游输出数据。
 
 3. **自定义 SQL 有什么限制？**
    仅支持单条 `SELECT`，不能包含多条语句。自定义 SQL 需返回 `invalid_rows` 列。

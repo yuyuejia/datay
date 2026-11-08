@@ -109,10 +109,10 @@ class ETLDataQualityCheckIT {
     void shouldExecuteEtlTaskWithQualityCheckAndWriteCsvResult() throws Exception {
         dataSourceId = createDuckDbSource();
 
-        ETLTaskDTO failedTask = createTask("ETL质检失败", "customer_name");
+        ETLTaskDTO failedTask = createTask("ETL质检失败", "customer_name", "STREAM");
         taskIds.add(failedTask.getId());
         DataQualityCheckUnit failedUnit = extractQualityCheckUnit(jobContext(failedTask));
-        assertThat(failedUnit.sourceTable()).isEqualTo("dq_data_dq_check_1");
+        assertThat(failedUnit.checkMode()).isEqualTo("STREAM");
         assertThat(failedUnit.outputFormat()).isEqualTo("CSV");
         assertThat(failedUnit.failOnWarn()).isFalse();
         assertThat(failedUnit.sampleLimit()).isEqualTo(100);
@@ -125,16 +125,17 @@ class ETLDataQualityCheckIT {
         String failedSummaryPath = join(
             failedUnit.outputDir(),
             failedInstance.getInstanceCode(),
-            failedUnit.resultPrefix() + "_summary.csv"
+            failedUnit.resultPrefix() + "_batch_1_summary.csv"
         );
         assertThat(fileStorageStrategy.exists(failedSummaryPath)).isTrue();
         assertThat(readFile(failedSummaryPath)).contains("FAIL").contains("customer_name");
         assertThat(fileStorageStrategy.list(join(failedUnit.outputDir(), failedInstance.getInstanceCode())))
             .anyMatch(file -> file.name().contains("_detail_"));
 
-        ETLTaskDTO passedTask = createTask("ETL质检通过", "order_id");
+        ETLTaskDTO passedTask = createTask("ETL质检通过", "order_id", "FULL");
         taskIds.add(passedTask.getId());
         DataQualityCheckUnit passedUnit = extractQualityCheckUnit(jobContext(passedTask));
+        assertThat(passedUnit.checkMode()).isEqualTo("FULL");
         JobInstance passedInstance = executeAndWait(passedTask);
         assertThat(passedInstance.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_SUCCESSFUL);
         String passedSummaryPath = join(
@@ -164,7 +165,7 @@ class ETLDataQualityCheckIT {
         return dataSourceService.save(dto).getId();
     }
 
-    private ETLTaskDTO createTask(String taskName, String checkColumn) throws Exception {
+    private ETLTaskDTO createTask(String taskName, String checkColumn, String checkMode) throws Exception {
         Map<String, Object> inputConfig = new LinkedHashMap<>();
         inputConfig.put("sourceId", dataSourceId);
         inputConfig.put("schema", "main");
@@ -183,7 +184,7 @@ class ETLDataQualityCheckIT {
         rule.put("config", Map.of("trimWhitespace", true));
 
         Map<String, Object> checkConfig = new LinkedHashMap<>();
-        checkConfig.put("checkMode", "FLOW");
+        checkConfig.put("checkMode", checkMode);
         checkConfig.put("failOnError", true);
         checkConfig.put("rules", List.of(rule));
 
@@ -244,7 +245,7 @@ class ETLDataQualityCheckIT {
         for (JsonNode unit : context.get("units")) {
             if ("DataQualityCheck".equals(unit.path(".name").asText())) {
                 return new DataQualityCheckUnit(
-                    unit.path("sourceTable").asText(),
+                    unit.path("checkMode").asText(),
                     unit.path("outputDir").asText(),
                     unit.path("resultPrefix").asText(),
                     unit.path("outputFormat").asText(),
@@ -279,7 +280,7 @@ class ETLDataQualityCheckIT {
     }
 
     private record DataQualityCheckUnit(
-        String sourceTable,
+        String checkMode,
         String outputDir,
         String resultPrefix,
         String outputFormat,
