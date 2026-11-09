@@ -2,10 +2,13 @@ package com.data.datafusion.service;
 
 import com.data.datafusion.domain.AnalysisDashboard;
 import com.data.datafusion.domain.AnalysisDataset;
+import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
+import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dashboard.DashboardSqlGuard;
+import com.data.datafusion.service.dashboard.DatasetQueryOptions;
 import com.data.datafusion.service.dashboard.DatasetQueryService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.mapper.AnalysisDatasetMapper;
@@ -41,6 +44,7 @@ public class AnalysisDatasetService {
 
     private final AnalysisDatasetRepository repository;
     private final AnalysisDashboardRepository dashboardRepository;
+    private final DataApiRepository dataApiRepository;
     private final AnalysisDatasetMapper mapper;
     private final AnalysisDatasetResolver datasetResolver;
     private final DatasetQueryService datasetQueryService;
@@ -50,6 +54,7 @@ public class AnalysisDatasetService {
     public AnalysisDatasetService(
         AnalysisDatasetRepository repository,
         AnalysisDashboardRepository dashboardRepository,
+        DataApiRepository dataApiRepository,
         AnalysisDatasetMapper mapper,
         AnalysisDatasetResolver datasetResolver,
         DatasetQueryService datasetQueryService,
@@ -58,6 +63,7 @@ public class AnalysisDatasetService {
     ) {
         this.repository = repository;
         this.dashboardRepository = dashboardRepository;
+        this.dataApiRepository = dataApiRepository;
         this.mapper = mapper;
         this.datasetResolver = datasetResolver;
         this.datasetQueryService = datasetQueryService;
@@ -110,22 +116,32 @@ public class AnalysisDatasetService {
 
     @Transactional(readOnly = true)
     public Page<AnalysisDatasetDTO> findAll(Pageable pageable, String search) {
-        return repository.findAll(buildSearchSpecification(search), pageable).map(mapper::toDto);
+        Page<AnalysisDatasetDTO> page = repository.findAll(buildSearchSpecification(search), pageable).map(mapper::toDto);
+        fillPublishedInfo(page.getContent());
+        return page;
     }
 
     @Transactional(readOnly = true)
     public List<AnalysisDatasetDTO> findAllSimple() {
-        return repository.findAll().stream().map(mapper::toDto).collect(Collectors.toList());
+        List<AnalysisDatasetDTO> result = repository.findAll().stream().map(mapper::toDto).collect(Collectors.toList());
+        fillPublishedInfo(result);
+        return result;
     }
 
     @Transactional(readOnly = true)
     public Optional<AnalysisDatasetDTO> findOne(String id) {
-        return repository.findById(id).map(mapper::toDto);
+        return repository.findById(id).map(mapper::toDto).map(dto -> {
+            fillPublishedInfo(List.of(dto));
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
     public Optional<AnalysisDatasetDTO> findByCode(String code) {
-        return repository.findByCode(code).map(mapper::toDto);
+        return repository.findByCode(code).map(mapper::toDto).map(dto -> {
+            fillPublishedInfo(List.of(dto));
+            return dto;
+        });
     }
 
     public void delete(String id) {
@@ -133,9 +149,37 @@ public class AnalysisDatasetService {
         if (references > 0) {
             throw new IllegalArgumentException("数据集正被 " + references + " 个看板引用，请先解除引用后再删除");
         }
+        dataApiRepository
+            .findByDatasetId(id)
+            .ifPresent(api -> {
+                throw new IllegalArgumentException("数据集已发布为数据服务：" + api.getCode() + "，请先删除数据服务后再删除数据集");
+            });
         // 数据集权限规则依附于数据集，删除数据集时一并清理，避免残留孤儿规则
         roleDatasetScopeService.deleteByDatasetId(id);
         repository.deleteById(id);
+    }
+
+    /**
+     * 执行已保存数据集，供对外发布的数据服务复用。
+     *
+     * <p>SQL 数据集的 {@code ${param}} 参数由调用方传入；指标数据集支持 start/end 覆盖时间范围。
+     * 行级权限由 {@link DatasetQueryService} 根据当前 SecurityContext 自动应用。</p>
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> executeForApi(String id, Map<String, Object> params, int pageNum, int pageSize) throws SQLException {
+        AnalysisDataset entity = repository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("数据集不存在：" + id));
+        int effectivePageSize = Math.max(1, Math.min(pageSize, 10000));
+        int effectivePageNum = Math.max(1, pageNum);
+        long offset = (long) (effectivePageNum - 1) * effectivePageSize;
+        DatasetQueryOptions options = new DatasetQueryOptions(
+            null,
+            null,
+            effectivePageSize,
+            offset > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) offset
+        );
+        return datasetQueryService.queryForApi(entity.getId(), params == null ? Map.of() : params, options);
     }
 
     /**
@@ -438,6 +482,36 @@ public class AnalysisDatasetService {
 
     private boolean looksLikeDate(String value) {
         return value.matches("\\d{4}-\\d{2}-\\d{2}([ T].*)?") || value.matches("\\d{4}/\\d{2}/\\d{2}.*");
+    }
+
+    /**
+     * 批量填充数据集对应的已发布数据服务信息。
+     */
+    private void fillPublishedInfo(List<AnalysisDatasetDTO> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+        List<String> datasetIds = dtos
+            .stream()
+            .map(AnalysisDatasetDTO::getId)
+            .filter(id -> id != null && !id.isBlank())
+            .distinct()
+            .collect(Collectors.toList());
+        if (datasetIds.isEmpty()) {
+            return;
+        }
+        Map<String, DataApi> apis = dataApiRepository
+            .findByDatasetIdIn(datasetIds)
+            .stream()
+            .collect(Collectors.toMap(DataApi::getDatasetId, api -> api, (first, second) -> first));
+        for (AnalysisDatasetDTO dto : dtos) {
+            DataApi api = apis.get(dto.getId());
+            if (api != null) {
+                dto.setPublishedApiId(api.getId());
+                dto.setPublishedApiCode(api.getCode());
+                dto.setPublishedApiStatus(api.getStatus());
+            }
+        }
     }
 
     private long countReferences(String datasetId) {

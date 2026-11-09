@@ -12,6 +12,8 @@ import com.data.datafusion.domain.Tenant;
 import com.data.datafusion.domain.User;
 import com.data.datafusion.mcp.McpTokenService;
 import com.data.datafusion.repository.TenantRepository;
+import com.data.datafusion.repository.UserRepository;
+import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.dto.DataApiDTO;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -36,6 +38,8 @@ class DataApiExecuteServiceApiTest {
 
     private DataApiService dataApiService;
 
+    private AnalysisDatasetService analysisDatasetService;
+
     private DataApiExecuteService service;
 
     private HttpServer server;
@@ -47,7 +51,15 @@ class DataApiExecuteServiceApiTest {
         mcpTokenService = mock(McpTokenService.class);
         tenantRepository = mock(TenantRepository.class);
         dataApiService = mock(DataApiService.class);
-        service = new DataApiExecuteService(mcpTokenService, tenantRepository, dataApiService, mock(DataSourceService.class));
+        analysisDatasetService = mock(AnalysisDatasetService.class);
+        service = new DataApiExecuteService(
+            mcpTokenService,
+            tenantRepository,
+            dataApiService,
+            mock(DataSourceService.class),
+            analysisDatasetService,
+            mock(UserRepository.class)
+        );
 
         User user = new User();
         user.setId(1L);
@@ -132,6 +144,57 @@ class DataApiExecuteServiceApiTest {
         assertThatThrownBy(() -> service.invokeApi("mcp_token", "orders", Map.of()))
             .isInstanceOf(DataApiAccessException.class)
             .hasMessageContaining("缺少参数");
+    }
+
+    @Test
+    void shouldExecuteDatasetApiWithPagination() throws Exception {
+        DataApiDTO dto = datasetApi();
+        AnalysisDatasetDTO dataset = new AnalysisDatasetDTO();
+        dataset.setId("ds-1");
+        dataset.setName("订单明细");
+        dataset.setType("SQL");
+        dataset.setStatus("ENABLED");
+        Map<String, Object> params = Map.of("pageNum", "2", "pageSize", "10", "status", "PAID");
+        when(dataApiService.findByCode("orders_dataset")).thenReturn(Optional.of(dto));
+        when(analysisDatasetService.findOne("ds-1")).thenReturn(Optional.of(dataset));
+        when(analysisDatasetService.executeForApi("ds-1", params, 2, 10)).thenReturn(
+            Map.of("columns", List.of("id"), "rows", List.of(Map.of("id", 1)))
+        );
+
+        Map<String, Object> result = service.invokeApi("mcp_token", "orders_dataset", params);
+
+        assertThat(result.get("code")).isEqualTo(0);
+        assertThat(result.get("data")).isEqualTo(List.of(Map.of("id", 1)));
+        assertThat(result.get("pageNum")).isEqualTo(2);
+        assertThat(result.get("pageSize")).isEqualTo(10);
+    }
+
+    @Test
+    void shouldTranslateDatasetParameterErrorsToClientError() throws Exception {
+        AnalysisDatasetDTO dataset = new AnalysisDatasetDTO();
+        dataset.setId("ds-1");
+        dataset.setName("订单明细");
+        dataset.setType("SQL");
+        dataset.setStatus("ENABLED");
+        when(dataApiService.findByCode("orders_dataset")).thenReturn(Optional.of(datasetApi()));
+        when(analysisDatasetService.findOne("ds-1")).thenReturn(Optional.of(dataset));
+        when(analysisDatasetService.executeForApi("ds-1", Map.of(), 1, 1000)).thenThrow(
+            new IllegalArgumentException("缺少参数：status")
+        );
+
+        assertThatThrownBy(() -> service.invokeApi("mcp_token", "orders_dataset", Map.of()))
+            .isInstanceOf(DataApiAccessException.class)
+            .hasMessageContaining("缺少参数");
+    }
+
+    private static DataApiDTO datasetApi() {
+        DataApiDTO dto = new DataApiDTO();
+        dto.setId("10");
+        dto.setCode("orders_dataset");
+        dto.setStatus(DataApi.STATUS_ENABLED);
+        dto.setSourceType(DataApi.SOURCE_TYPE_DATASET);
+        dto.setDatasetId("ds-1");
+        return dto;
     }
 
     private static DataApiDTO api(String apiConfig) {

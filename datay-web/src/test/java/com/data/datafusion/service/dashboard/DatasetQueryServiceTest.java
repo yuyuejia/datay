@@ -369,6 +369,58 @@ class DatasetQueryServiceTest {
         verify(metricQueryService, never()).query(any(), anyList());
     }
 
+    @Test
+    void shouldBindApiSqlParametersAndApplyPagination() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        dataset.put("sql", "SELECT region, amount FROM orders WHERE status = '${status}'");
+        when(datasetResolver.resolveDataset(Map.of("refId", "lib-1"))).thenReturn(dataset);
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows());
+
+        datasetQueryService.queryForApi(
+            "lib-1",
+            Map.of("status", "PAID"),
+            new DatasetQueryOptions(null, null, 10, 0)
+        );
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(any(), sql.capture());
+        assertThat(sql.getValue()).contains("WHERE status = 'PAID'").contains("LIMIT 10");
+    }
+
+    @Test
+    void shouldRejectMissingApiSqlParameter() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        dataset.put("sql", "SELECT region FROM orders WHERE status = '${status}'");
+        when(datasetResolver.resolveDataset(Map.of("refId", "lib-1"))).thenReturn(dataset);
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> datasetQueryService.queryForApi("lib-1", Map.of(), DatasetQueryOptions.NONE))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少参数：status");
+        verify(dataSourceQueryService, never()).executeQuery(any(), any());
+    }
+
+    @Test
+    void shouldOverrideMetricTimeRangeForApi() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        when(datasetResolver.resolveDataset(Map.of("refId", "lib-1"))).thenReturn(dataset);
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(metricQueryService.query(any(), anyList())).thenReturn(rows());
+
+        datasetQueryService.queryForApi(
+            "lib-1",
+            Map.of("start", "2026-01-01", "end", "2026-12-31"),
+            DatasetQueryOptions.NONE
+        );
+
+        ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
+        verify(metricQueryService).query(dto.capture(), anyList());
+        assertThat(dto.getValue().getTimeRange().getStart()).isEqualTo("2026-01-01");
+        assertThat(dto.getValue().getTimeRange().getEnd()).isEqualTo("2026-12-31");
+    }
+
     @SafeVarargs
     private Map<String, Object> rows(Map<String, Object>... rowItems) {
         Map<String, Object> result = new LinkedHashMap<>();

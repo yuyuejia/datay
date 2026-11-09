@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { useDateFormat } from '@/shared/composables';
 import DatasetService from '@/shared/dataset/dataset.service';
+import DataApiService from '@/entities/data-api/data-api.service';
 import type { AnalysisDataset } from '@/shared/dataset/types';
 
 /**
@@ -16,6 +17,7 @@ export default defineComponent({
     const router = useRouter();
     const alertService = inject('alertService', () => useAlertService(), true);
     const service = new DatasetService();
+    const dataApiService = new DataApiService();
     const dateFormat = useDateFormat();
 
     const datasets: Ref<AnalysisDataset[]> = ref([]);
@@ -134,6 +136,27 @@ export default defineComponent({
 
     const typeLabel = (type?: string) => (type === 'SQL' ? 'SQL 数据集' : '指标数据集');
 
+    const publishApi = async (row: AnalysisDataset) => {
+      try {
+        const existing = await dataApiService.findByDataset(row.id as string);
+        if (existing?.id) {
+          router.push({ name: 'DataApiEdit', params: { dataApiId: existing.id } });
+          return;
+        }
+        router.push({
+          name: 'DataApiCreate',
+          query: {
+            sourceType: 'DATASET',
+            datasetId: row.id,
+            name: row.name,
+            code: row.code || '',
+          },
+        });
+      } catch (err: any) {
+        alertService.showHttpError(err.response);
+      }
+    };
+
     return {
       datasets,
       isFetching,
@@ -156,6 +179,7 @@ export default defineComponent({
       remove,
       copyCode,
       typeLabel,
+      publishApi,
       ...dateFormat,
     };
   },

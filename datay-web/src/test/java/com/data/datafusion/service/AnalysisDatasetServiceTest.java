@@ -13,8 +13,10 @@ import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.AnalysisDashboard;
 import com.data.datafusion.domain.AnalysisDataset;
+import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
+import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.service.dashboard.AnalysisDatasetResolver;
 import com.data.datafusion.service.dashboard.DatasetQueryService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
@@ -35,6 +37,7 @@ class AnalysisDatasetServiceTest {
 
     private AnalysisDatasetRepository repository;
     private AnalysisDashboardRepository dashboardRepository;
+    private DataApiRepository dataApiRepository;
     private AnalysisDatasetResolver resolver;
     private DatasetQueryService queryService;
     private RoleDatasetScopeService roleDatasetScopeService;
@@ -44,12 +47,14 @@ class AnalysisDatasetServiceTest {
     void setUp() {
         repository = mock(AnalysisDatasetRepository.class);
         dashboardRepository = mock(AnalysisDashboardRepository.class);
+        dataApiRepository = mock(DataApiRepository.class);
         resolver = mock(AnalysisDatasetResolver.class);
         queryService = mock(DatasetQueryService.class);
         roleDatasetScopeService = mock(RoleDatasetScopeService.class);
         service = new AnalysisDatasetService(
             repository,
             dashboardRepository,
+            dataApiRepository,
             mock(AnalysisDatasetMapper.class),
             resolver,
             queryService,
@@ -68,6 +73,20 @@ class AnalysisDatasetServiceTest {
         assertThatThrownBy(() -> service.delete("lib-1"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("1 个看板引用");
+        verify(repository, never()).deleteById(anyString());
+    }
+
+    @Test
+    void shouldRejectDeleteWhenDatasetPublishedAsApi() {
+        when(dashboardRepository.findAll()).thenReturn(List.of());
+        DataApi api = new DataApi();
+        api.setId("api-1");
+        api.setCode("orders_api");
+        when(dataApiRepository.findByDatasetId("lib-1")).thenReturn(Optional.of(api));
+
+        assertThatThrownBy(() -> service.delete("lib-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("已发布为数据服务");
         verify(repository, never()).deleteById(anyString());
     }
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- 数据服务支持发布分析数据集：新增数据集外键列 -->
+    <changeSet id="20261109000000-1-add-dataset-id" author="datafusion">
+        <addColumn tableName="dp_data_api">
+            <column name="dataset_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="dp_data_api" indexName="idx_data_api_dataset">
+            <column name="tenant_id"/>
+            <column name="dataset_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

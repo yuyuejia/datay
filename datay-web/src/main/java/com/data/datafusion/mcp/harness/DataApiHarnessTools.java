@@ -13,10 +13,13 @@ import static com.data.datafusion.mcp.harness.DatayHarnessSchema.string;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.DataApiAccessException;
 import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
+import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.dto.DataApiDTO;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -56,20 +59,31 @@ public class DataApiHarnessTools {
     private static final String TABLE_PARAMETER_HINT =
         "表来源：参数名与表字段同名时做等值过滤，另支持 pageNum / pageSize 分页；字段清单可用 datasource_columns 查询";
 
+    private static final String DATASET_PARAMETER_HINT =
+        "数据集来源：SQL 数据集需要传入 SQL 中声明的全部 ${param} 参数；指标数据集可选 start / end 覆盖时间范围；" +
+        "另支持 pageNum / pageSize 分页。";
+
     private final DataApiService dataApiService;
 
     private final DataApiExecuteService dataApiExecuteService;
 
-    public DataApiHarnessTools(DataApiService dataApiService, DataApiExecuteService dataApiExecuteService) {
+    private final AnalysisDatasetService analysisDatasetService;
+
+    public DataApiHarnessTools(
+        DataApiService dataApiService,
+        DataApiExecuteService dataApiExecuteService,
+        AnalysisDatasetService analysisDatasetService
+    ) {
         this.dataApiService = dataApiService;
         this.dataApiExecuteService = dataApiExecuteService;
+        this.analysisDatasetService = analysisDatasetService;
     }
 
     @Bean
     DatayHarnessTool dataapiListTool() {
         return DatayHarnessTool.read(
             "dataapi_list",
-            "分页列出当前租户已配置的数据服务（对外地址 /open-api/data/{code}），返回编码、名称、来源类型（TABLE/SQL/API）与启用状态。" +
+            "分页列出当前租户已配置的数据服务（对外地址 /open-api/data/{code}），返回编码、名称、来源类型（TABLE/SQL/DATASET/API）与启用状态。" +
             "只有 status=ENABLED 的服务可以被调用。",
             object(
                 properties(
@@ -92,6 +106,7 @@ public class DataApiHarnessTools {
         return DatayHarnessTool.read(
             "dataapi_describe",
             "按服务编码查看数据服务详情：来源类型、所需参数与 SQL 定义。SQL 来源的参数来自语句里的 ${name} 占位符；" +
+            "DATASET 来源返回数据集名称、类型、参数与调用提示；" +
             "API 来源的参数来自配置中的占位符，只返回请求方法、提取路径与参数，不暴露请求地址与凭据；" +
             "TABLE 来源参数可选，与表字段同名时做等值过滤。",
             object(properties("code", string("服务编码，例如 order_summary")), "code"),
@@ -101,6 +116,8 @@ public class DataApiHarnessTools {
                 view.put("parameters", requiredParameters(dto));
                 if (DataApi.SOURCE_TYPE_SQL.equals(dto.getSourceType())) {
                     view.put("sqlText", dto.getSqlText());
+                } else if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
+                    view.putAll(datasetSourceSummary(dto));
                 } else if (DataApi.SOURCE_TYPE_API.equals(dto.getSourceType())) {
                     view.putAll(apiSourceSummary(dto));
                 } else if (DataApi.SOURCE_TYPE_TABLE.equals(dto.getSourceType())) {
@@ -116,8 +133,8 @@ public class DataApiHarnessTools {
         return DatayHarnessTool.of(
             "dataapi_query",
             GROUP,
-            "调用 TABLE / SQL 来源的数据服务取数（只读）。参数通过 params 传入，键为服务定义中的参数名；" +
-            "表来源可用与字段同名的参数做等值过滤，并识别 pageNum / pageSize 分页。" +
+            "调用 TABLE / SQL / DATASET 来源的数据服务取数（只读）。参数通过 params 传入，键为服务定义中的参数名；" +
+            "表来源可用与字段同名的参数做等值过滤；数据集来源支持 SQL 参数、指标时间范围与 pageNum / pageSize 分页。" +
             "API 来源的服务请改用 dataapi_call。",
             object(
                 properties(
@@ -147,7 +164,7 @@ public class DataApiHarnessTools {
             "dataapi_call",
             "调用 API 来源的数据服务：按服务配置的方法、请求头与请求体代理请求上游系统，可能产生外部副作用，" +
             "因此受服务端写操作开关控制。参数通过 params 传入，会替换配置中的 ${name} 占位符。" +
-            "TABLE / SQL 来源的服务请改用只读的 dataapi_query。",
+            "TABLE / SQL / DATASET 来源的服务请改用只读的 dataapi_query。",
             object(
                 properties(
                     "code", string("服务编码"),
@@ -211,18 +228,70 @@ public class DataApiHarnessTools {
     }
 
     /**
-     * 汇总服务需要的调用参数：SQL 来源取 {@code sqlText}，API 来源扫描整份 {@code apiConfig}
-     * （URL / 请求头 / 请求体里的占位符都在其中）。
+     * 汇总服务需要的调用参数：SQL 来源取 {@code sqlText}，DATASET 来源取数据集 SQL 占位符，
+     * API 来源扫描整份 {@code apiConfig}（URL / 请求头 / 请求体里的占位符都在其中）。
      */
-    static List<String> requiredParameters(DataApiDTO dto) {
+    List<String> requiredParameters(DataApiDTO dto) {
         List<String> names = new ArrayList<>();
         if (DataApi.SOURCE_TYPE_SQL.equals(dto.getSourceType())) {
             names.addAll(DataApiExecuteService.extractParameterNames(dto.getSqlText()));
+        } else if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
+            names.addAll(datasetRequiredParameters(dto));
         } else if (DataApi.SOURCE_TYPE_API.equals(dto.getSourceType())) {
             names.addAll(DataApiExecuteService.extractParameterNames(dto.getApiConfig()));
         }
         names.removeIf(INTERNAL_PARAMETERS::contains);
         return names;
+    }
+
+    /**
+     * DATASET 来源的参数：SQL 数据集取定义中的 SQL 占位符，指标数据集没有必填参数。
+     */
+    private List<String> datasetRequiredParameters(DataApiDTO dto) {
+        AnalysisDatasetDTO dataset = findDataset(dto);
+        if (dataset == null || !AnalysisDataset.TYPE_SQL.equalsIgnoreCase(dataset.getType())) {
+            return List.of();
+        }
+        JSONObject definition = parseDefinition(dataset.getDefinition());
+        return DataApiExecuteService.extractParameterNames(definition == null ? null : definition.getString("sql"));
+    }
+
+    /**
+     * DATASET 来源的安全摘要：只返回数据集名称、类型、参数与调用提示。
+     */
+    private Map<String, Object> datasetSourceSummary(DataApiDTO dto) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        AnalysisDatasetDTO dataset = findDataset(dto);
+        if (dataset == null) {
+            summary.put("datasetMissing", true);
+            return summary;
+        }
+        summary.put("datasetName", dataset.getName());
+        summary.put("datasetType", dataset.getType());
+        summary.put("datasetStatus", dataset.getStatus());
+        summary.put("parameterHint", DATASET_PARAMETER_HINT);
+        if (AnalysisDataset.TYPE_METRIC.equalsIgnoreCase(dataset.getType())) {
+            summary.put("optionalParameters", List.of("start", "end"));
+        }
+        return summary;
+    }
+
+    private AnalysisDatasetDTO findDataset(DataApiDTO dto) {
+        if (dto.getDatasetId() == null || dto.getDatasetId().isBlank()) {
+            return null;
+        }
+        return analysisDatasetService.findOne(dto.getDatasetId()).orElse(null);
+    }
+
+    private static JSONObject parseDefinition(String definition) {
+        if (definition == null || definition.isBlank()) {
+            return null;
+        }
+        try {
+            return JSON.parseObject(definition);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

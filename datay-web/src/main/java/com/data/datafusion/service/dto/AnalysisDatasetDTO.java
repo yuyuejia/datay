@@ -22,6 +22,12 @@ public class AnalysisDatasetDTO implements Serializable {
     private String definition;
     private String fields;
     private String status;
+    /** 已发布的数据服务 id，仅用于列表展示，不落库。 */
+    private String publishedApiId;
+    /** 已发布的数据服务编码，仅用于列表展示，不落库。 */
+    private String publishedApiCode;
+    /** 已发布的数据服务状态，仅用于列表展示，不落库。 */
+    private String publishedApiStatus;
     private ZonedDateTime createTime;
     private ZonedDateTime updateTime;
 
@@ -103,6 +109,30 @@ public class AnalysisDatasetDTO implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getPublishedApiId() {
+        return publishedApiId;
+    }
+
+    public void setPublishedApiId(String publishedApiId) {
+        this.publishedApiId = publishedApiId;
+    }
+
+    public String getPublishedApiCode() {
+        return publishedApiCode;
+    }
+
+    public void setPublishedApiCode(String publishedApiCode) {
+        this.publishedApiCode = publishedApiCode;
+    }
+
+    public String getPublishedApiStatus() {
+        return publishedApiStatus;
+    }
+
+    public void setPublishedApiStatus(String publishedApiStatus) {
+        this.publishedApiStatus = publishedApiStatus;
     }
 
     public ZonedDateTime getCreateTime() {

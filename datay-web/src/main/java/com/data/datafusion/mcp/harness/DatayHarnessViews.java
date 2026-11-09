@@ -88,6 +88,8 @@ public final class DatayHarnessViews {
         view.put("code", dto.getCode());
         view.put("description", dto.getDescription());
         view.put("sourceType", dto.getSourceType());
+        view.put("datasetId", dto.getDatasetId());
+        view.put("datasetName", dto.getDatasetName());
         view.put("status", dto.getStatus());
         view.put("dataSourceId", dto.getDataSourceId());
         view.put("schemaName", dto.getSchemaName());

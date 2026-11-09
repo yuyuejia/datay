@@ -12,7 +12,7 @@ import java.time.ZonedDateTime;
 import org.hibernate.annotations.Filter;
 
 /**
- * 数据服务：将数据源的数据（整表或自定义 SQL）以 API 形式暴露给第三方系统。
+ * 数据服务：将数据源的数据（整表、自定义 SQL、分析数据集或已有 HTTP API）以 API 形式暴露给第三方系统。
  */
 @Entity
 @Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
@@ -29,6 +29,9 @@ public class DataApi implements Serializable, TenantAware {
 
     /** 数据来源类型：注册已存在的 HTTP API（并以数据服务形式对外代理）。 */
     public static final String SOURCE_TYPE_API = "API";
+
+    /** 数据来源类型：发布分析数据集。 */
+    public static final String SOURCE_TYPE_DATASET = "DATASET";
 
     /** 服务状态：启用（可对外访问）。 */
     public static final String STATUS_ENABLED = "ENABLED";
@@ -69,6 +72,9 @@ public class DataApi implements Serializable, TenantAware {
 
     @Column(name = "api_config")
     private String apiConfig;
+
+    @Column(name = "dataset_id", length = 36)
+    private String datasetId;
 
     @Column(name = "status")
     private String status;
@@ -212,6 +218,19 @@ public class DataApi implements Serializable, TenantAware {
         this.apiConfig = apiConfig;
     }
 
+    public String getDatasetId() {
+        return this.datasetId;
+    }
+
+    public DataApi datasetId(String datasetId) {
+        this.setDatasetId(datasetId);
+        return this;
+    }
+
+    public void setDatasetId(String datasetId) {
+        this.datasetId = datasetId;
+    }
+
     public String getStatus() {
         return this.status;
     }
@@ -289,6 +308,7 @@ public class DataApi implements Serializable, TenantAware {
             ", description='" + getDescription() + "'" +
             ", dataSourceId=" + getDataSourceId() +
             ", sourceType='" + getSourceType() + "'" +
+            ", datasetId=" + getDatasetId() +
             ", schemaName='" + getSchemaName() + "'" +
             ", tableName='" + getTableName() + "'" +
             ", status='" + getStatus() + "'" +

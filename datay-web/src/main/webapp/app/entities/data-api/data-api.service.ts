@@ -20,6 +20,18 @@ export default class DataApiService {
     });
   }
 
+  findByDataset(datasetId: string): Promise<IDataApi | null> {
+    return axios
+      .get(`${baseApiUrl}/by-dataset/${encodeURIComponent(datasetId)}`)
+      .then(res => res.data as IDataApi)
+      .catch(err => {
+        if (err?.response?.status === 404) {
+          return null;
+        }
+        throw err;
+      });
+  }
+
   retrieve(paginationQuery?: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

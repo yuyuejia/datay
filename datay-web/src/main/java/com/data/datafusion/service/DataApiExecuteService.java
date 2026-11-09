@@ -4,12 +4,16 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONPath;
+import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.Tenant;
 import com.data.datafusion.domain.User;
 import com.data.datafusion.mcp.McpTokenService;
 import com.data.datafusion.repository.TenantRepository;
+import com.data.datafusion.repository.UserRepository;
+import com.data.datafusion.security.DomainUserDetailsService.UserWithId;
 import com.data.datafusion.security.TenantContext;
+import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.dto.DataApiDTO;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.metadata.ColumnMeta;
@@ -47,13 +51,17 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 /**
  * 数据服务对外调用入口。
  *
  * <p>复用用户的 {@code mcp_token} 鉴权：令牌所属用户默认租户下配置的“数据服务”才会被解析和执行。
- * 表来源类型支持按列等值过滤与分页；SQL 来源类型把 {@code ${param}} 占位符替换为预编译参数后只读执行。</p>
+ * 表来源类型支持按列等值过滤与分页；SQL 来源类型把 {@code ${param}} 占位符替换为预编译参数后只读执行；
+ * 分析数据集来源复用数据集查询链路，并继承 Token 用户的行级数据权限。</p>
  */
 @Service
 public class DataApiExecuteService {
@@ -100,6 +108,10 @@ public class DataApiExecuteService {
 
     private final DataSourceService dataSourceService;
 
+    private final AnalysisDatasetService analysisDatasetService;
+
+    private final UserRepository userRepository;
+
     /** 前置处理 Token 缓存，键为「服务 ID + 前置配置」，值为 Token 与过期时间。 */
     private final Map<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
 
@@ -107,12 +119,16 @@ public class DataApiExecuteService {
         McpTokenService mcpTokenService,
         TenantRepository tenantRepository,
         DataApiService dataApiService,
-        DataSourceService dataSourceService
+        DataSourceService dataSourceService,
+        AnalysisDatasetService analysisDatasetService,
+        UserRepository userRepository
     ) {
         this.mcpTokenService = mcpTokenService;
         this.tenantRepository = tenantRepository;
         this.dataApiService = dataApiService;
         this.dataSourceService = dataSourceService;
+        this.analysisDatasetService = analysisDatasetService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -121,7 +137,8 @@ public class DataApiExecuteService {
      * @param token  用户令牌，形如 {@code mcp_<userId>_<random>}。
      * @param code   服务编码。
      * @param params 调用参数（键为参数名，值为参数值）。表模式中与表字段同名的参数将做等值过滤，
-     *               并识别 {@code pageNum}/{@code pageSize} 分页参数；SQL 模式中用于绑定 SQL 里的占位符。
+     *               并识别 {@code pageNum}/{@code pageSize} 分页参数；SQL 模式中用于绑定 SQL 里的占位符；
+     *               数据集模式中用于绑定数据集 SQL 参数或覆盖指标时间范围。
      * @return 统一返回体 {@code {code, message, data, columns, total, pageNum, pageSize}}。
      */
     public Map<String, Object> invokeApi(String token, String code, Map<String, Object> params) {
@@ -134,12 +151,33 @@ public class DataApiExecuteService {
             .map(Tenant::getId)
             .orElseThrow(() -> new DataApiAccessException(401, "用户未关联任何租户"));
 
+        Authentication previousAuthentication = SecurityContextHolder.getContext().getAuthentication();
         TenantContext.setTenantId(tenantId);
         try {
+            bindUserSecurityContext(user);
             return invokeApiInCurrentTenant(code, params);
         } finally {
             TenantContext.clear();
+            if (previousAuthentication == null) {
+                SecurityContextHolder.clearContext();
+            } else {
+                SecurityContextHolder.getContext().setAuthentication(previousAuthentication);
+            }
         }
+    }
+
+    /**
+     * 把 Token 所属用户及角色写入 SecurityContext，使数据集行级权限在对外 API 调用中生效。
+     */
+    private void bindUserSecurityContext(User user) {
+        userRepository
+            .findOneWithAuthoritiesById(user.getId())
+            .map(UserWithId::fromUser)
+            .ifPresent(principal ->
+                SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
+                )
+            );
     }
 
     /**
@@ -163,6 +201,9 @@ public class DataApiExecuteService {
 
         if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
             return invokeFromApi(api, effectiveParams);
+        }
+        if (DataApi.SOURCE_TYPE_DATASET.equals(api.getSourceType())) {
+            return invokeFromDataset(api, effectiveParams);
         }
 
         DataSourceDTO dataSource = dataSourceService
@@ -329,6 +370,45 @@ public class DataApiExecuteService {
             return buildSuccess(readResult, ((List<?>) readResult.get("rows")).size(), 1, 0);
         } catch (SQLException e) {
             LOG.error("Failed to execute sql data api {}: {}", api.getCode(), sql, e);
+            throw new DataApiAccessException(500, "服务执行失败：" + e.getMessage());
+        }
+    }
+
+    // --------------------------------------------------------------- dataset
+
+    /**
+     * 执行已发布的分析数据集。
+     *
+     * <p>数据集定义在每次调用时读取最新版本；SQL 数据集的 {@code ${param}} 参数必须全部传入，
+     * 指标数据集可通过 start/end 覆盖时间范围。分页参数与表来源保持一致。</p>
+     */
+    private Map<String, Object> invokeFromDataset(DataApiDTO api, Map<String, Object> params) {
+        String datasetId = api.getDatasetId();
+        if (datasetId == null || datasetId.isBlank()) {
+            throw new DataApiAccessException(500, "服务未绑定分析数据集");
+        }
+        AnalysisDatasetDTO dataset = analysisDatasetService
+            .findOne(datasetId)
+            .orElseThrow(() -> new DataApiAccessException(404, "数据集不存在或未发布：" + datasetId));
+        if (!AnalysisDataset.STATUS_ENABLED.equals(dataset.getStatus())) {
+            throw new DataApiAccessException(404, "数据集已停用：" + dataset.getName());
+        }
+
+        int pageNum = parsePositiveInt(toStringValue(params.get("pageNum")), 1);
+        int pageSize = Math.min(Math.max(parsePositiveInt(toStringValue(params.get("pageSize")), 1000), 1), 10000);
+        long maxOffset = Integer.MAX_VALUE - pageSize;
+        if ((long) (pageNum - 1) * pageSize > maxOffset) {
+            pageNum = (int) (maxOffset / pageSize) + 1;
+        }
+
+        try {
+            Map<String, Object> readResult = analysisDatasetService.executeForApi(datasetId, params, pageNum, pageSize);
+            long total = readResult.get("rows") instanceof List<?> rows ? rows.size() : 0;
+            return buildSuccess(readResult, total, pageNum, pageSize);
+        } catch (IllegalArgumentException e) {
+            throw new DataApiAccessException(400, e.getMessage());
+        } catch (SQLException e) {
+            LOG.error("Failed to execute dataset data api {} ({}): {}", api.getCode(), datasetId, e.getMessage(), e);
             throw new DataApiAccessException(500, "服务执行失败：" + e.getMessage());
         }
     }
@@ -703,6 +783,9 @@ public class DataApiExecuteService {
         result.put("message", "success");
         result.put("data", readResult.get("rows"));
         result.put("columns", readResult.get("columns"));
+        if (readResult.get("columnLabels") != null) {
+            result.put("columnLabels", readResult.get("columnLabels"));
+        }
         result.put("total", total);
         if (pageNum > 0) {
             result.put("pageNum", pageNum);

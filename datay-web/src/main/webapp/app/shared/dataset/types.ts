@@ -17,6 +17,10 @@ export interface AnalysisDataset {
   /** 最近一次预览的列信息 JSON 字符串。 */
   fields?: string;
   status?: AnalysisDatasetStatus;
+  /** 已发布的数据服务信息，由后端列表接口返回。 */
+  publishedApiId?: string;
+  publishedApiCode?: string;
+  publishedApiStatus?: string;
   createTime?: string;
   updateTime?: string;
 }

@@ -26,15 +26,15 @@
         <el-col :span="12">
           <el-form-item label="数据来源" required>
             <el-select v-model="dataApi.sourceType" style="width: 100%" @change="onSourceTypeChange">
-            <el-option v-for="opt in sourceTypeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
-          </el-select>
+              <el-option v-for="opt in sourceTypeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="状态" required>
             <el-select v-model="dataApi.status" style="width: 100%">
-            <el-option v-for="opt in statusOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
-          </el-select>
+              <el-option v-for="opt in statusOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
+            </el-select>
           </el-form-item>
         </el-col>
       </el-row>
@@ -43,30 +43,73 @@
         <el-input type="textarea" v-model="dataApi.description" :rows="2" placeholder="服务用途、返回说明等（选填）" />
       </el-form-item>
 
-      <el-row :gutter="20" v-if="dataApi.sourceType !== SOURCE_TYPE_API">
+      <el-row :gutter="20" v-if="dataApi.sourceType !== SOURCE_TYPE_API && dataApi.sourceType !== SOURCE_TYPE_DATASET">
         <el-col :span="24">
           <el-form-item label="数据源" required>
-            <el-select :model-value="dataApi.dataSourceId || ''" style="width: 100%" @change="onDataSourceChange" placeholder="请选择数据源">
-            <el-option v-for="ds in dataSources" :key="ds.id" :value="ds.id" :label="`${ds.name}（${ds.type}）`" />
-          </el-select>
+            <el-select
+              :model-value="dataApi.dataSourceId || ''"
+              style="width: 100%"
+              @change="onDataSourceChange"
+              placeholder="请选择数据源"
+            >
+              <el-option v-for="ds in dataSources" :key="ds.id" :value="ds.id" :label="`${ds.name}（${ds.type}）`" />
+            </el-select>
           </el-form-item>
         </el-col>
       </el-row>
+
+      <div v-if="dataApi.sourceType === SOURCE_TYPE_DATASET" class="source-block">
+        <el-form-item label="分析数据集" required>
+          <el-select v-model="dataApi.datasetId" style="width: 100%" filterable placeholder="请选择要发布的分析数据集">
+            <el-option
+              v-for="dataset in datasets"
+              :key="dataset.id"
+              :value="dataset.id"
+              :label="`${dataset.name}（${dataset.type === 'SQL' ? 'SQL 数据集' : '指标数据集'}）`"
+            />
+          </el-select>
+        </el-form-item>
+        <div v-if="selectedDataset" class="filter-hint">
+          <div class="filter-hint-title">
+            <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
+            {{ selectedDataset.type === 'SQL' ? 'SQL 数据集' : '指标数据集' }}
+            <span v-if="selectedDataset.description"> · {{ selectedDataset.description }}</span>
+          </div>
+          <span v-if="selectedDataset.type === 'SQL'">
+            SQL 中声明的 <code>$&#123;param&#125;</code> 参数需要在调用时全部传入；另支持 pageNum / pageSize 分页。
+          </span>
+          <span v-else>
+            按数据集保存的指标、维度与时间范围执行；调用时可传 start / end 覆盖时间范围，另支持 pageNum / pageSize 分页。
+          </span>
+        </div>
+      </div>
 
       <div v-if="dataApi.sourceType === SOURCE_TYPE_TABLE" class="source-block">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="Schema" required>
-              <el-select :model-value="dataApi.schemaName || ''" :disabled="!dataApi.dataSourceId" style="width: 100%" @change="onSchemaChange" :placeholder="loadingSchemas ? '加载中...' : '请选择 Schema'">
-            <el-option v-for="schema in schemas" :key="schema" :value="schema" :label="schema" />
-          </el-select>
+              <el-select
+                :model-value="dataApi.schemaName || ''"
+                :disabled="!dataApi.dataSourceId"
+                style="width: 100%"
+                @change="onSchemaChange"
+                :placeholder="loadingSchemas ? '加载中...' : '请选择 Schema'"
+              >
+                <el-option v-for="schema in schemas" :key="schema" :value="schema" :label="schema" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="数据表" required>
-              <el-select :model-value="dataApi.tableName || ''" :disabled="!dataApi.schemaName" style="width: 100%" @change="onTableChange" :placeholder="loadingTables ? '加载中...' : '请选择数据表'">
-            <el-option v-for="table in tables" :key="table" :value="table" :label="table" />
-          </el-select>
+              <el-select
+                :model-value="dataApi.tableName || ''"
+                :disabled="!dataApi.schemaName"
+                style="width: 100%"
+                @change="onTableChange"
+                :placeholder="loadingTables ? '加载中...' : '请选择数据表'"
+              >
+                <el-option v-for="table in tables" :key="table" :value="table" :label="table" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -94,7 +137,13 @@
 
       <div v-else-if="dataApi.sourceType === SOURCE_TYPE_SQL" class="source-block">
         <el-form-item label="自定义 SQL" required>
-          <el-input type="textarea" class="code-area" v-model="dataApi.sqlText" :rows="10" placeholder="只读 SQL，例如：SELECT * FROM orders WHERE status = ${status}" />
+          <el-input
+            type="textarea"
+            class="code-area"
+            v-model="dataApi.sqlText"
+            :rows="10"
+            placeholder="只读 SQL，例如：SELECT * FROM orders WHERE status = ${status}"
+          />
         </el-form-item>
         <div class="filter-hint">
           <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
@@ -111,7 +160,13 @@
           </el-button>
           <span class="curl-import-tip">粘贴调用该已有 API 的 cURL 命令，自动填充请求地址、方法、请求头和请求体</span>
           <div v-if="showCurlImport" class="curl-import-panel">
-            <el-input type="textarea" class="code-area" v-model="curlText" :rows="4" placeholder="例如: curl -X GET 'https://api.example.com/orders?status=1' -H 'Authorization: Bearer xxx'" />
+            <el-input
+              type="textarea"
+              class="code-area"
+              v-model="curlText"
+              :rows="4"
+              placeholder="例如: curl -X GET 'https://api.example.com/orders?status=1' -H 'Authorization: Bearer xxx'"
+            />
             <div class="curl-import-actions">
               <el-button type="primary" size="small" @click="applyCurl('main')">解析并填充</el-button>
               <el-button size="small" @click="clearCurlImport">取消</el-button>
@@ -128,8 +183,8 @@
           <el-col :span="6">
             <el-form-item label="请求方法" required>
               <el-select v-model="apiConfig.method" style="width: 100%">
-            <el-option v-for="method in httpMethods" :key="method" :value="method" :label="method" />
-          </el-select>
+                <el-option v-for="method in httpMethods" :key="method" :value="method" :label="method" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -148,11 +203,23 @@
         </el-row>
 
         <el-form-item label="请求头">
-          <el-input type="textarea" class="code-area" v-model="apiHeadersText" :rows="3" placeholder='JSON 格式，如 {"Authorization": "Bearer ${token}"}' />
+          <el-input
+            type="textarea"
+            class="code-area"
+            v-model="apiHeadersText"
+            :rows="3"
+            placeholder='JSON 格式，如 {"Authorization": "Bearer ${token}"}'
+          />
         </el-form-item>
 
         <el-form-item label="请求体" v-if="hasApiBody">
-          <el-input type="textarea" class="code-area" v-model="apiConfig.body" :rows="4" placeholder='JSON 格式，如 {"status": "${status}"}' />
+          <el-input
+            type="textarea"
+            class="code-area"
+            v-model="apiConfig.body"
+            :rows="4"
+            placeholder='JSON 格式，如 {"status": "${status}"}'
+          />
         </el-form-item>
 
         <el-form-item label="数据提取路径">
@@ -174,7 +241,13 @@
               </el-button>
               <span class="curl-import-tip">粘贴获取 Token 的 cURL 命令，自动填充前置请求地址、方法、请求头和请求体</span>
               <div v-if="showPreCurlImport" class="curl-import-panel">
-                <el-input type="textarea" class="code-area" v-model="preCurlText" :rows="4" placeholder="例如: curl -X POST 'https://auth.example.com/token' -H 'Content-Type: application/json' -d '{&quot;appId&quot;:&quot;xxx&quot;}'" />
+                <el-input
+                  type="textarea"
+                  class="code-area"
+                  v-model="preCurlText"
+                  :rows="4"
+                  placeholder="例如: curl -X POST 'https://auth.example.com/token' -H 'Content-Type: application/json' -d '{&quot;appId&quot;:&quot;xxx&quot;}'"
+                />
                 <div class="curl-import-actions">
                   <el-button type="primary" size="small" @click="applyCurl('pre')">解析并填充</el-button>
                   <el-button size="small" @click="clearPreCurlImport">取消</el-button>
@@ -191,18 +264,30 @@
               <el-col :span="6">
                 <el-form-item label="请求方法">
                   <el-select v-model="apiConfig.preProcess.method" style="width: 100%">
-            <el-option v-for="method in httpMethods" :key="method" :value="method" :label="method" />
-          </el-select>
+                    <el-option v-for="method in httpMethods" :key="method" :value="method" :label="method" />
+                  </el-select>
                 </el-form-item>
               </el-col>
             </el-row>
 
             <el-form-item label="前置请求头">
-              <el-input type="textarea" class="code-area" v-model="preHeadersText" :rows="3" placeholder='JSON 格式，如 {"Content-Type": "application/json"}' />
+              <el-input
+                type="textarea"
+                class="code-area"
+                v-model="preHeadersText"
+                :rows="3"
+                placeholder='JSON 格式，如 {"Content-Type": "application/json"}'
+              />
             </el-form-item>
 
             <el-form-item label="前置请求体">
-              <el-input type="textarea" class="code-area" v-model="apiConfig.preProcess.body" :rows="3" placeholder='JSON 格式，如 {"appId": "xxx", "secret": "yyy"}' />
+              <el-input
+                type="textarea"
+                class="code-area"
+                v-model="apiConfig.preProcess.body"
+                :rows="3"
+                placeholder='JSON 格式，如 {"appId": "xxx", "secret": "yyy"}'
+              />
             </el-form-item>
 
             <el-row :gutter="20">

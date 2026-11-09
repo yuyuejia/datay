@@ -1,14 +1,19 @@
 package com.data.datafusion.service;
 
+import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.service.dto.DataApiDTO;
 import com.data.datafusion.service.mapper.DataApiMapper;
 import jakarta.persistence.criteria.Predicate;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -30,9 +35,16 @@ public class DataApiService {
 
     private final DataApiMapper dataApiMapper;
 
-    public DataApiService(DataApiRepository dataApiRepository, DataApiMapper dataApiMapper) {
+    private final AnalysisDatasetRepository analysisDatasetRepository;
+
+    public DataApiService(
+        DataApiRepository dataApiRepository,
+        DataApiMapper dataApiMapper,
+        AnalysisDatasetRepository analysisDatasetRepository
+    ) {
         this.dataApiRepository = dataApiRepository;
         this.dataApiMapper = dataApiMapper;
+        this.analysisDatasetRepository = analysisDatasetRepository;
     }
 
     /**
@@ -45,6 +57,8 @@ public class DataApiService {
         LOG.debug("Request to save DataApi : {}", dataApiDTO);
         validate(dataApiDTO);
         ensureCodeUnique(dataApiDTO.getCode(), null);
+        normalizeSourceFields(dataApiDTO);
+        ensureDatasetUnique(dataApiDTO.getDatasetId(), null);
 
         ZonedDateTime now = ZonedDateTime.now();
         dataApiDTO.setCreateTime(now);
@@ -54,7 +68,9 @@ public class DataApiService {
         }
         DataApi dataApi = dataApiMapper.toEntity(dataApiDTO);
         dataApi = dataApiRepository.save(dataApi);
-        return dataApiMapper.toDto(dataApi);
+        DataApiDTO result = dataApiMapper.toDto(dataApi);
+        fillDatasetInfo(List.of(result));
+        return result;
     }
 
     /**
@@ -68,6 +84,8 @@ public class DataApiService {
         LOG.debug("Request to update DataApi : {}, {}", id, dataApiDTO);
         validate(dataApiDTO);
         ensureCodeUnique(dataApiDTO.getCode(), id);
+        normalizeSourceFields(dataApiDTO);
+        ensureDatasetUnique(dataApiDTO.getDatasetId(), id);
 
         return dataApiRepository
             .findById(id)
@@ -78,7 +96,9 @@ public class DataApiService {
                 dataApiDTO.setUpdateTime(ZonedDateTime.now());
                 DataApi dataApi = dataApiMapper.toEntity(dataApiDTO);
                 dataApi = dataApiRepository.save(dataApi);
-                return dataApiMapper.toDto(dataApi);
+                DataApiDTO result = dataApiMapper.toDto(dataApi);
+                fillDatasetInfo(List.of(result));
+                return result;
             });
     }
 
@@ -92,7 +112,9 @@ public class DataApiService {
     @Transactional(readOnly = true)
     public Page<DataApiDTO> findAll(Pageable pageable, String search) {
         LOG.debug("Request to get all DataApis with search: {}", search);
-        return dataApiRepository.findAll(buildSearchSpecification(search), pageable).map(dataApiMapper::toDto);
+        Page<DataApiDTO> page = dataApiRepository.findAll(buildSearchSpecification(search), pageable).map(dataApiMapper::toDto);
+        fillDatasetInfo(page.getContent());
+        return page;
     }
 
     private Specification<DataApi> buildSearchSpecification(String search) {
@@ -118,7 +140,13 @@ public class DataApiService {
     @Transactional(readOnly = true)
     public Optional<DataApiDTO> findOne(String id) {
         LOG.debug("Request to get DataApi : {}", id);
-        return dataApiRepository.findById(id).map(dataApiMapper::toDto);
+        return dataApiRepository
+            .findById(id)
+            .map(dataApiMapper::toDto)
+            .map(dto -> {
+                fillDatasetInfo(List.of(dto));
+                return dto;
+            });
     }
 
     /**
@@ -130,7 +158,30 @@ public class DataApiService {
     @Transactional(readOnly = true)
     public Optional<DataApiDTO> findByCode(String code) {
         LOG.debug("Request to get DataApi by code : {}", code);
-        return dataApiRepository.findByCode(code).map(dataApiMapper::toDto);
+        return dataApiRepository
+            .findByCode(code)
+            .map(dataApiMapper::toDto)
+            .map(dto -> {
+                fillDatasetInfo(List.of(dto));
+                return dto;
+            });
+    }
+
+    /**
+     * 按数据集 id 查找已发布的数据服务。
+     */
+    @Transactional(readOnly = true)
+    public Optional<DataApiDTO> findByDatasetId(String datasetId) {
+        if (datasetId == null || datasetId.isBlank()) {
+            return Optional.empty();
+        }
+        return dataApiRepository
+            .findByDatasetId(datasetId)
+            .map(dataApiMapper::toDto)
+            .map(dto -> {
+                fillDatasetInfo(List.of(dto));
+                return dto;
+            });
     }
 
     /**
@@ -174,8 +225,74 @@ public class DataApiService {
             if (dto.getApiConfig() == null || dto.getApiConfig().trim().isEmpty()) {
                 throw new IllegalArgumentException("请配置要注册的 API");
             }
+        } else if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
+            if (dto.getDatasetId() == null || dto.getDatasetId().trim().isEmpty()) {
+                throw new IllegalArgumentException("请选择要发布的分析数据集");
+            }
+            // 只校验存在性；数据集停用由执行期统一拦截，避免无法编辑或停用已有服务
+            analysisDatasetRepository
+                .findById(dto.getDatasetId().trim())
+                .orElseThrow(() -> new IllegalArgumentException("数据集不存在：" + dto.getDatasetId()));
         } else {
-            throw new IllegalArgumentException("数据来源类型必须是 TABLE、SQL 或 API");
+            throw new IllegalArgumentException("数据来源类型必须是 TABLE、SQL、DATASET 或 API");
+        }
+    }
+
+    /**
+     * DATASET 来源只保留 datasetId，避免前端残留其他来源的配置。
+     */
+    private void normalizeSourceFields(DataApiDTO dto) {
+        if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
+            dto.setDatasetId(dto.getDatasetId() == null ? null : dto.getDatasetId().trim());
+            dto.setDataSourceId(null);
+            dto.setSchemaName(null);
+            dto.setTableName(null);
+            dto.setSqlText(null);
+            dto.setApiConfig(null);
+        } else {
+            dto.setDatasetId(null);
+        }
+    }
+
+    private void ensureDatasetUnique(String datasetId, String excludeId) {
+        if (datasetId == null || datasetId.isBlank()) {
+            return;
+        }
+        Optional<DataApi> conflict = excludeId == null
+            ? dataApiRepository.findByDatasetId(datasetId)
+            : dataApiRepository.findByDatasetIdAndIdNot(datasetId, excludeId);
+        if (conflict.isPresent()) {
+            throw new IllegalArgumentException("该数据集已发布为数据服务：" + conflict.get().getCode());
+        }
+    }
+
+    /**
+     * 批量填充关联数据集名称与类型，供列表和详情展示。
+     */
+    private void fillDatasetInfo(List<DataApiDTO> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+        List<String> datasetIds = dtos
+            .stream()
+            .filter(dto -> DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType()))
+            .map(DataApiDTO::getDatasetId)
+            .filter(id -> id != null && !id.isBlank())
+            .distinct()
+            .collect(Collectors.toList());
+        if (datasetIds.isEmpty()) {
+            return;
+        }
+        Map<String, AnalysisDataset> datasets = new LinkedHashMap<>();
+        analysisDatasetRepository
+            .findAllById(datasetIds)
+            .forEach(dataset -> datasets.put(dataset.getId(), dataset));
+        for (DataApiDTO dto : dtos) {
+            AnalysisDataset dataset = datasets.get(dto.getDatasetId());
+            if (dataset != null) {
+                dto.setDatasetName(dataset.getName());
+                dto.setDatasetType(dataset.getType());
+            }
         }
     }
 

@@ -20,6 +20,11 @@ public class DataApiDTO implements Serializable {
     private String tableName;
     private String sqlText;
     private String apiConfig;
+    private String datasetId;
+    /** 关联分析数据集名称，仅用于列表展示，不落库。 */
+    private String datasetName;
+    /** 关联分析数据集类型（SQL / METRIC），仅用于列表展示，不落库。 */
+    private String datasetType;
     private String status;
     private String tenantId;
     private ZonedDateTime createTime;
@@ -105,6 +110,30 @@ public class DataApiDTO implements Serializable {
         this.apiConfig = apiConfig;
     }
 
+    public String getDatasetId() {
+        return datasetId;
+    }
+
+    public void setDatasetId(String datasetId) {
+        this.datasetId = datasetId;
+    }
+
+    public String getDatasetName() {
+        return datasetName;
+    }
+
+    public void setDatasetName(String datasetName) {
+        this.datasetName = datasetName;
+    }
+
+    public String getDatasetType() {
+        return datasetType;
+    }
+
+    public void setDatasetType(String datasetType) {
+        this.datasetType = datasetType;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -162,6 +191,7 @@ public class DataApiDTO implements Serializable {
             ", description='" + getDescription() + "'" +
             ", dataSourceId=" + getDataSourceId() +
             ", sourceType='" + getSourceType() + "'" +
+            ", datasetId=" + getDatasetId() +
             ", schemaName='" + getSchemaName() + "'" +
             ", tableName='" + getTableName() + "'" +
             ", status='" + getStatus() + "'" +

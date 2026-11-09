@@ -35,14 +35,25 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+        <el-table-column label="API 服务" width="150">
+          <template #default="scope">
+            <el-tag v-if="scope.row.publishedApiCode" :type="scope.row.publishedApiStatus === 'ENABLED' ? 'success' : 'info'" size="small">
+              {{ scope.row.publishedApiCode }}
+            </el-tag>
+            <span v-else class="text-muted">未发布</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="updateTime" label="更新时间" width="170">
           <template #default="scope">{{ formatDateShort(scope.row.updateTime) || formatDateShort(scope.row.createTime) || '' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="280">
+        <el-table-column label="操作" fixed="right" width="370">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openPreview(scope.row)">预览</el-button>
+              <el-button type="success" size="small" @click="publishApi(scope.row)">
+                {{ scope.row.publishedApiId ? '查看 API' : '发布为 API' }}
+              </el-button>
               <el-button type="info" size="small" @click="edit(scope.row)">编辑</el-button>
               <el-button type="danger" size="small" @click="prepareRemove(scope.row)">删除</el-button>
             </div>

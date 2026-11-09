@@ -121,7 +121,8 @@ public class DatasetQueryService {
                 filterValues,
                 scopeConditions,
                 scopeFields,
-                effectiveOptions
+                effectiveOptions,
+                null
             );
         } else {
             result = queryMetricDataset(dataset, filters, filterValues, scopeConditions, effectiveOptions);
@@ -132,6 +133,123 @@ public class DatasetQueryService {
             result.remove("aggregated");
         }
         attachColumnLabels(dataset, result);
+        return result;
+    }
+
+    /**
+     * 执行已保存数据集，供对外发布的数据服务调用。
+     *
+     * <p>与看板查询的区别在于参数来源：SQL 数据集的 {@code ${param}} 直接由调用方传入，
+     * 不再依赖看板筛选器绑定；未传入的声明参数会报错而不是中和为 {@code 1=1}，避免绕过过滤条件。
+     * 指标数据集支持 {@code start} / {@code end}（也兼容 {@code startDate} / {@code endDate}）覆盖时间范围。</p>
+     */
+    public Map<String, Object> queryForApi(String datasetId, Map<String, Object> params, DatasetQueryOptions options) throws SQLException {
+        if (datasetId == null || datasetId.isBlank()) {
+            throw new IllegalArgumentException("数据集不能为空");
+        }
+        Map<String, Object> dataset = datasetResolver.resolveDataset(Map.of("refId", datasetId));
+        DatasetQueryOptions effectiveOptions = options == null ? DatasetQueryOptions.NONE : options;
+        List<DatasetScopeCondition> scopeConditions = roleDatasetScopeService.resolveConditions(datasetId);
+        Set<String> scopeFields = scopeConditions.isEmpty() ? Set.of() : resolveDatasetFieldNames(dataset);
+        if (!scopeConditions.isEmpty()) {
+            DatasetScopeSqlBuilder.buildPredicate(scopeConditions, scopeFields);
+        }
+
+        Map<String, Object> effectiveParams = params == null ? Map.of() : params;
+        String type = asString(dataset.get("type"));
+        Map<String, Object> result;
+        if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
+            String sql = asString(dataset.get("sql"));
+            Map<String, Object> namedParams = collectApiSqlParams(sql, effectiveParams);
+            result = querySqlDataset(
+                asString(dataset.get("dataSourceId")),
+                dataset,
+                List.of(),
+                Map.of(),
+                scopeConditions,
+                scopeFields,
+                effectiveOptions,
+                namedParams
+            );
+        } else {
+            result = queryMetricDataset(
+                applyApiTimeRange(dataset, effectiveParams),
+                List.of(),
+                Map.of(),
+                scopeConditions,
+                effectiveOptions
+            );
+        }
+        attachColumnLabels(dataset, result);
+        return result;
+    }
+
+    /**
+     * 校验并收集 API 调用传入的 SQL 参数。所有声明占位符都必须有非空值。
+     */
+    private Map<String, Object> collectApiSqlParams(String sql, Map<String, Object> params) {
+        Map<String, Object> namedParams = new LinkedHashMap<>();
+        if (sql == null || sql.isBlank()) {
+            return namedParams;
+        }
+        Set<String> missing = new LinkedHashSet<>();
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(sql);
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            Object value = normalizeApiParam(params.get(name));
+            if (isEmptyValue(value)) {
+                missing.add(name);
+            } else {
+                namedParams.put(name, value);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("缺少参数：" + String.join(", ", missing));
+        }
+        return namedParams;
+    }
+
+    /**
+     * HTTP Query 重复参数会以数组形式传入，这里统一转成 List，便于 SQL 的 IN 场景渲染。
+     */
+    private static Object normalizeApiParam(Object value) {
+        if (value instanceof String[] array) {
+            return Arrays.asList(array);
+        }
+        if (value instanceof Object[] array) {
+            return Arrays.asList(array);
+        }
+        return value;
+    }
+
+    private static Object firstApiValue(Object value) {
+        Object normalized = normalizeApiParam(value);
+        if (normalized instanceof List<?> list) {
+            return list.isEmpty() ? null : list.get(0);
+        }
+        return normalized;
+    }
+
+    /**
+     * 指标数据集时间范围覆盖：支持 start/end，兼容 startDate/endDate。
+     */
+    private Map<String, Object> applyApiTimeRange(Map<String, Object> dataset, Map<String, Object> params) {
+        Object start = firstApiValue(params.containsKey("start") ? params.get("start") : params.get("startDate"));
+        Object end = firstApiValue(params.containsKey("end") ? params.get("end") : params.get("endDate"));
+        if (isEmptyValue(start) && isEmptyValue(end)) {
+            return dataset;
+        }
+        Map<String, Object> result = new LinkedHashMap<>(dataset);
+        Map<String, Object> metricQuery = new LinkedHashMap<>(asMap(dataset.get("metricQuery")));
+        Map<String, Object> timeRange = new LinkedHashMap<>();
+        if (!isEmptyValue(start)) {
+            timeRange.put("start", String.valueOf(start));
+        }
+        if (!isEmptyValue(end)) {
+            timeRange.put("end", String.valueOf(end));
+        }
+        metricQuery.put("timeRange", timeRange);
+        result.put("metricQuery", metricQuery);
         return result;
     }
 
@@ -577,7 +695,8 @@ public class DatasetQueryService {
         Map<String, Object> filterValues,
         List<DatasetScopeCondition> scopeConditions,
         Set<String> scopeFields,
-        DatasetQueryOptions options
+        DatasetQueryOptions options,
+        Map<String, Object> explicitNamedParams
     ) throws SQLException {
         String sql = DashboardSqlGuard.requireReadOnly(asString(dataset.get("sql")));
         String dataSourceId = asString(dataset.get("dataSourceId"));
@@ -596,6 +715,9 @@ public class DatasetQueryService {
         }
 
         Map<String, Object> namedParams = collectSqlParams(dataset, filters, filterValues);
+        if (explicitNamedParams != null) {
+            namedParams.putAll(explicitNamedParams);
+        }
         String effectiveSql = neutralizeEmptyParams(sql, namedParams);
         String renderedSql = renderSql(effectiveSql, namedParams);
         String scopedSql = DatasetScopeSqlBuilder.wrap(renderedSql, scopeConditions, scopeFields);

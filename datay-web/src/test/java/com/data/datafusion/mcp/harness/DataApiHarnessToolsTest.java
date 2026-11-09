@@ -10,9 +10,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.DataApiAccessException;
 import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
+import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.dto.DataApiDTO;
 import java.util.List;
 import java.util.Map;
@@ -35,13 +37,16 @@ class DataApiHarnessToolsTest {
 
     private DataApiExecuteService dataApiExecuteService;
 
+    private AnalysisDatasetService analysisDatasetService;
+
     private DataApiHarnessTools tools;
 
     @BeforeEach
     void setUp() {
         dataApiService = mock(DataApiService.class);
         dataApiExecuteService = mock(DataApiExecuteService.class);
-        tools = new DataApiHarnessTools(dataApiService, dataApiExecuteService);
+        analysisDatasetService = mock(AnalysisDatasetService.class);
+        tools = new DataApiHarnessTools(dataApiService, dataApiExecuteService, analysisDatasetService);
     }
 
     @Test
@@ -123,6 +128,26 @@ class DataApiHarnessToolsTest {
 
         assertThat(asList(result.get("parameters"))).isEmpty();
         assertThat(result).containsKey("parameterHint");
+        assertThat(result).doesNotContainKeys("sqlText", "apiConfig");
+    }
+
+    @Test
+    void shouldDescribeDatasetServiceWithSqlParameters() throws Exception {
+        DataApiDTO dto = dataApi("4", "dataset_api", DataApi.SOURCE_TYPE_DATASET);
+        dto.setDatasetId("ds-1");
+        AnalysisDatasetDTO dataset = new AnalysisDatasetDTO();
+        dataset.setId("ds-1");
+        dataset.setName("订单明细");
+        dataset.setType("SQL");
+        dataset.setStatus("ENABLED");
+        dataset.setDefinition("{\"sql\":\"SELECT * FROM orders WHERE day = ${day}\"}");
+        when(dataApiService.findByCode("dataset_api")).thenReturn(Optional.of(dto));
+        when(analysisDatasetService.findOne("ds-1")).thenReturn(Optional.of(dataset));
+
+        Map<String, Object> result = asMap(tools.dataapiDescribeTool().execute(Map.of("code", "dataset_api"), context()));
+
+        assertThat(asList(result.get("parameters"))).containsExactly("day");
+        assertThat(result).containsEntry("datasetName", "订单明细").containsEntry("datasetType", "SQL");
         assertThat(result).doesNotContainKeys("sqlText", "apiConfig");
     }
 

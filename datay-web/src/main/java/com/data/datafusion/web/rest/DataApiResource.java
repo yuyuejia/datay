@@ -109,6 +109,15 @@ public class DataApiResource {
     }
 
     /**
+     * {@code GET  /api/data-apis/by-dataset/:datasetId} : get the dataApi published for a dataset.
+     */
+    @GetMapping("/by-dataset/{datasetId}")
+    public ResponseEntity<DataApiDTO> getDataApiByDataset(@PathVariable("datasetId") String datasetId) {
+        LOG.debug("REST request to get DataApi by dataset : {}", datasetId);
+        return ResponseUtil.wrapOrNotFound(dataApiService.findByDatasetId(datasetId));
+    }
+
+    /**
      * {@code GET  /api/data-apis/:id} : get the "id" dataApi.
      */
     @GetMapping("/{id}")

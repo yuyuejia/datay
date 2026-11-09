@@ -2,6 +2,7 @@ import { type Ref, computed, defineComponent, inject, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import DataSourceService from '@/entities/data-source/data-source.service';
+import DatasetService from '@/shared/dataset/dataset.service';
 import DataApiService from './data-api.service';
 import {
   DataApi,
@@ -9,6 +10,7 @@ import {
   type IDataApi,
   parseApiConfig,
   DATA_API_SOURCE_TYPE_API,
+  DATA_API_SOURCE_TYPE_DATASET,
   DATA_API_SOURCE_TYPE_SQL,
   DATA_API_SOURCE_TYPE_TABLE,
   DATA_API_STATUS_ENABLED,
@@ -61,6 +63,7 @@ export default defineComponent({
     const isEdit = ref(false);
 
     const dataSources = ref<any[]>([]);
+    const datasets = ref<any[]>([]);
     const schemas = ref<string[]>([]);
     const tables = ref<string[]>([]);
     const columns = ref<any[]>([]);
@@ -81,6 +84,7 @@ export default defineComponent({
     const sourceTypeOptions = [
       { value: DATA_API_SOURCE_TYPE_TABLE, label: '数据源的表' },
       { value: DATA_API_SOURCE_TYPE_SQL, label: '自定义 SQL' },
+      { value: DATA_API_SOURCE_TYPE_DATASET, label: '分析数据集' },
       { value: DATA_API_SOURCE_TYPE_API, label: '已存在的 API' },
     ];
 
@@ -99,6 +103,16 @@ export default defineComponent({
         alertService.showHttpError(error.response);
       }
     };
+
+    const loadDatasets = async () => {
+      try {
+        datasets.value = await new DatasetService().all();
+      } catch (error) {
+        datasets.value = [];
+      }
+    };
+
+    const selectedDataset = computed(() => datasets.value.find((item: any) => String(item.id) === String(dataApi.value.datasetId)));
 
     const fetchSchemas = async () => {
       if (!dataApi.value.dataSourceId) {
@@ -174,6 +188,7 @@ export default defineComponent({
         dataApi.value = res;
         applyApiConfig(res.apiConfig);
         await loadDataSources();
+        await loadDatasets();
         if (res.sourceType === DATA_API_SOURCE_TYPE_TABLE) {
           await fetchSchemas();
           await fetchTables();
@@ -188,17 +203,33 @@ export default defineComponent({
       isEdit.value = true;
       retrieveDataApi(String(route.params.dataApiId));
     } else {
-      dataApi.value.sourceType = DATA_API_SOURCE_TYPE_TABLE;
+      const queryDatasetId = route.query?.datasetId ? String(route.query.datasetId) : null;
+      if (queryDatasetId) {
+        dataApi.value.sourceType = DATA_API_SOURCE_TYPE_DATASET;
+        dataApi.value.datasetId = queryDatasetId;
+        dataApi.value.name = route.query?.name ? String(route.query.name) : '';
+        dataApi.value.code = route.query?.code ? String(route.query.code) : '';
+      } else {
+        dataApi.value.sourceType = DATA_API_SOURCE_TYPE_TABLE;
+      }
       dataApi.value.status = DATA_API_STATUS_ENABLED;
       loadDataSources();
+      loadDatasets();
     }
 
     const onSourceTypeChange = () => {
+      dataApi.value.datasetId = null;
       if (dataApi.value.sourceType === DATA_API_SOURCE_TYPE_SQL) {
         dataApi.value.schemaName = null;
         dataApi.value.tableName = null;
         columns.value = [];
       } else if (dataApi.value.sourceType === DATA_API_SOURCE_TYPE_API) {
+        dataApi.value.schemaName = null;
+        dataApi.value.tableName = null;
+        dataApi.value.sqlText = null;
+        columns.value = [];
+      } else if (dataApi.value.sourceType === DATA_API_SOURCE_TYPE_DATASET) {
+        dataApi.value.dataSourceId = null;
         dataApi.value.schemaName = null;
         dataApi.value.tableName = null;
         dataApi.value.sqlText = null;
@@ -310,6 +341,8 @@ export default defineComponent({
       previousState,
       isEdit,
       dataSources,
+      datasets,
+      selectedDataset,
       schemas,
       tables,
       columns,
@@ -328,6 +361,7 @@ export default defineComponent({
       sourceTypeOptions,
       statusOptions,
       loadDataSources,
+      loadDatasets,
       fetchSchemas,
       fetchTables,
       fetchColumns,
@@ -341,6 +375,7 @@ export default defineComponent({
       dataSourceLabel,
       SOURCE_TYPE_TABLE: DATA_API_SOURCE_TYPE_TABLE,
       SOURCE_TYPE_SQL: DATA_API_SOURCE_TYPE_SQL,
+      SOURCE_TYPE_DATASET: DATA_API_SOURCE_TYPE_DATASET,
       SOURCE_TYPE_API: DATA_API_SOURCE_TYPE_API,
     };
   },
@@ -423,6 +458,11 @@ export default defineComponent({
           this.alertService.showError('请填写自定义 SQL');
           return;
         }
+      } else if (api.sourceType === this.SOURCE_TYPE_DATASET) {
+        if (!api.datasetId) {
+          this.alertService.showError('请选择要发布的分析数据集');
+          return;
+        }
       } else if (api.sourceType === this.SOURCE_TYPE_API) {
         apiConfigPayload = this.buildApiConfig();
         if (!apiConfigPayload) {
@@ -440,6 +480,12 @@ export default defineComponent({
         payload.schemaName = null;
         payload.tableName = null;
         payload.sqlText = null;
+      } else if (api.sourceType === this.SOURCE_TYPE_DATASET) {
+        payload.dataSourceId = null;
+        payload.schemaName = null;
+        payload.tableName = null;
+        payload.sqlText = null;
+        payload.apiConfig = null;
       }
 
       this.isSaving = true;

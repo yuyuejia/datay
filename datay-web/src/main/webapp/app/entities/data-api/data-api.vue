@@ -3,9 +3,15 @@
     <h2 id="page-heading" data-cy="DataApiHeading" class="d-flex align-items-center justify-content-between flex-wrap-nowrap">
       <span id="data-api-heading">数据服务列表</span>
       <div class="d-flex align-items-center">
-        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 编码 / 表 / 描述搜索" clearable/>
+        <el-input class="mr-2" style="width: 280px" v-model="search" placeholder="按名称 / 编码 / 表 / 描述搜索" clearable />
         <router-link :to="{ name: 'DataApiCreate' }" custom v-slot="{ navigate }">
-          <el-button type="primary" @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="jh-create-entity create-data-api">
+          <el-button
+            type="primary"
+            @click="navigate"
+            id="jh-create-entity"
+            data-cy="entityCreateButton"
+            class="jh-create-entity create-data-api"
+          >
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span>新建数据服务</span>
           </el-button>
@@ -23,6 +29,7 @@
           <template #default="scope">
             <el-tag v-if="scope.row.sourceType === 'SQL'" type="warning" size="small">自定义 SQL</el-tag>
             <el-tag v-else-if="scope.row.sourceType === 'API'" type="primary" size="small">已有 API</el-tag>
+            <el-tag v-else-if="scope.row.sourceType === 'DATASET'" type="primary" size="small">分析数据集</el-tag>
             <el-tag v-else type="success" size="small">数据表</el-tag>
           </template>
         </el-table-column>
@@ -73,9 +80,7 @@
       <template #modal-footer>
         <div>
           <el-button @click="closeDialog()">取消</el-button>
-          <el-button type="primary" data-cy="entityConfirmDeleteButton" @click="removeDataApi()">
-            删除
-          </el-button>
+          <el-button type="primary" data-cy="entityConfirmDeleteButton" @click="removeDataApi()"> 删除 </el-button>
         </div>
       </template>
     </app-modal>
@@ -107,12 +112,26 @@
             <tr v-if="docApi.sourceType === 'TABLE'">
               <th>过滤与分页</th>
               <td>
-                Query 中与表字段同名的参数会按等值过滤；<code>pageNum</code>（默认 1）、<code>pageSize</code>（默认 20，最大 1000）用于分页。
+                Query 中与表字段同名的参数会按等值过滤；<code>pageNum</code>（默认 1）、<code>pageSize</code>（默认 20，最大
+                1000）用于分页。
               </td>
             </tr>
             <tr v-else-if="docApi.sourceType === 'SQL'">
               <th>SQL 参数</th>
               <td>SQL 中形如 <code>$&#123;param&#125;</code> 的占位符需在调用时以同名参数传入，服务仅支持只读查询。</td>
+            </tr>
+            <tr v-else-if="docApi.sourceType === 'DATASET'">
+              <th>数据集参数</th>
+              <td>
+                <span v-if="docApi.datasetType === 'SQL'">
+                  SQL 数据集的 <code>$&#123;param&#125;</code> 参数需在调用时全部传入；<code>pageNum</code>（默认
+                  1）、<code>pageSize</code>（默认 1000，最大 10000）用于分页。
+                </span>
+                <span v-else>
+                  指标数据集按保存的指标、维度与时间范围执行；可传 <code>start</code> / <code>end</code> 覆盖时间范围，<code>pageNum</code>
+                  / <code>pageSize</code> 用于分页。
+                </span>
+              </td>
             </tr>
             <tr v-else>
               <th>代理说明</th>

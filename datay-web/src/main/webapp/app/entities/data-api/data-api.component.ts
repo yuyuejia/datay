@@ -2,7 +2,7 @@ import { type Ref, defineComponent, inject, onMounted, onUnmounted, ref, watch }
 
 import DataSourceService from '@/entities/data-source/data-source.service';
 import DataApiService from './data-api.service';
-import { type IDataApi, parseApiConfig } from '@/shared/model/data-api.model';
+import { type IDataApi, parseApiConfig, DATA_API_SOURCE_TYPE_DATASET } from '@/shared/model/data-api.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -180,6 +180,17 @@ export default defineComponent({
           `curl "${url}?param=value&access_token=mcp_xxx"`,
         ].join('\n');
       }
+      if (row.sourceType === DATA_API_SOURCE_TYPE_DATASET) {
+        const paramExample = row.datasetType === 'SQL' ? 'param=value' : 'start=2026-01-01&end=2026-12-31';
+        return [
+          '# Header 鉴权',
+          `curl "${url}?${paramExample}&pageNum=1&pageSize=1000" \\`,
+          '  -H "Authorization: Bearer mcp_xxx"',
+          '',
+          '# Query 鉴权',
+          `curl "${url}?${paramExample}&pageNum=1&pageSize=1000&access_token=mcp_xxx"`,
+        ].join('\n');
+      }
       return [
         '# Header 鉴权',
         `curl "${url}?status=PAID&pageNum=1&pageSize=20" \\`,
@@ -205,6 +216,9 @@ export default defineComponent({
       if (type === 'API') {
         return '已有 API';
       }
+      if (type === DATA_API_SOURCE_TYPE_DATASET) {
+        return '分析数据集';
+      }
       return '数据表';
     };
 
@@ -219,6 +233,9 @@ export default defineComponent({
       if (row.sourceType === 'API') {
         const config = parseApiConfig(row.apiConfig);
         return config?.url || '-';
+      }
+      if (row.sourceType === DATA_API_SOURCE_TYPE_DATASET) {
+        return row.datasetName || row.datasetId || '-';
       }
       return row.schemaName && row.tableName ? `${row.schemaName}.${row.tableName}` : '-';
     };

@@ -9,6 +9,9 @@ export interface IDataApi {
   tableName?: string | null;
   sqlText?: string | null;
   apiConfig?: string | null;
+  datasetId?: string | null;
+  datasetName?: string | null;
+  datasetType?: string | null;
   status?: string | null;
   tenantId?: string | null;
   updateTime?: Date | null;
@@ -71,11 +74,13 @@ export class DataApi implements IDataApi {
     public updateTime?: Date | null,
     public createTime?: Date | null,
     public apiConfig?: string | null,
+    public datasetId?: string | null,
   ) {}
 }
 
-export const DATA_API_SOURCE_TYPE_TABLE = "TABLE";
-export const DATA_API_SOURCE_TYPE_SQL = "SQL";
-export const DATA_API_SOURCE_TYPE_API = "API";
-export const DATA_API_STATUS_ENABLED = "ENABLED";
-export const DATA_API_STATUS_DISABLED = "DISABLED";
+export const DATA_API_SOURCE_TYPE_TABLE = 'TABLE';
+export const DATA_API_SOURCE_TYPE_SQL = 'SQL';
+export const DATA_API_SOURCE_TYPE_API = 'API';
+export const DATA_API_SOURCE_TYPE_DATASET = 'DATASET';
+export const DATA_API_STATUS_ENABLED = 'ENABLED';
+export const DATA_API_STATUS_DISABLED = 'DISABLED';
