@@ -17,6 +17,15 @@
 | --- | --- | --- | --- |
 | `sourceId` / `datasource` | Object | 是 | 查询使用的数据源 |
 | `sql` | String | 否 | 要执行的完整 SQL；留空时使用上游 FlowFile 中的 SQL |
+| `outputTable` | String | 否 | 查询结果输出给下游时携带的表名；留空时使用上游 `_table`，仍缺失则回退为 `sql_query_result` |
+
+### 输出表名解析优先级
+
+1. 配置了 `outputTable`：使用配置值（去除首尾空格）。
+2. 未配置且 `sql` 留空：使用上游 FlowFile 的 `_table` 属性。
+3. 仍无法确定：使用默认表名 `sql_query_result`。
+
+> 多个 `SqlInput` 接入同一个 `Join` 时，必须分别配置不同的 `outputTable`。否则查询结果都会使用默认表名 `sql_query_result`，Join 只能识别到一张表。
 
 ## 动态参数
 
@@ -65,7 +74,7 @@ WHERE id IN (1,2,3)
 2. `_sql` 属性
 3. `_query` 属性
 
-同时需要 `_table` 属性作为结果表名；缺失时回退为 `sql_query_result`。
+结果表名优先取组件配置的 `outputTable`；未配置时读取 FlowFile 的 `_table` 属性，缺失时回退为 `sql_query_result`。
 
 典型用法：
 
@@ -90,6 +99,7 @@ GenerateTableSelectSql → SqlInput
     "password": "password",
     "dbschema": "demo"
   },
+  "outputTable": "orders_result",
   "sql": "SELECT * FROM orders WHERE id IN (${attr:id_condition})"
 }
 ```
@@ -114,6 +124,33 @@ GenerateTableSelectSql → SqlInput
 
 - `_sql` 或文本数据：完整 SQL
 - `_table`：结果表名（可选，缺省为 `sql_query_result`）
+
+如果组件已配置 `outputTable`，则优先使用配置值，忽略上游 `_table`。
+
+## 多个 SqlInput 接入 Join
+
+`Join` 按 FlowFile 携带的表名把上游数据写入 DuckDB。多个 `SqlInput` 作为同一个 `Join` 的上游时，需要给每个 `SqlInput` 配置不同的 `outputTable`：
+
+```json
+[
+  {
+    ".id": "orders_input",
+    ".name": "SqlInput",
+    "sourceId": { "url": "jdbc:mysql://127.0.0.1:3306/demo", "username": "root", "password": "password" },
+    "outputTable": "orders",
+    "sql": "SELECT * FROM orders"
+  },
+  {
+    ".id": "users_input",
+    ".name": "SqlInput",
+    "sourceId": { "url": "jdbc:mysql://127.0.0.1:3306/demo", "username": "root", "password": "password" },
+    "outputTable": "users",
+    "sql": "SELECT * FROM users"
+  }
+]
+```
+
+下游 `Join` 的 `fromTable` / `joins[].table` 即可分别引用 `orders` 和 `users`。
 
 ## 注意事项
 

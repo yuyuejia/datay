@@ -37,6 +37,9 @@ public class SqlInput extends FlowComponent {
     private String sql;
     private DatasourceInfo datasource;
 
+    // 可选配置：查询结果的输出表名；未配置时按上游表名或默认值解析
+    private String outputTable;
+
     // 添加流式读取配置
     private static final int FETCH_SIZE = 10000;
 
@@ -166,13 +169,19 @@ public class SqlInput extends FlowComponent {
     /**
      * 解析查询结果使用的表名。
      *
-     * <p>配置 SQL 时固定为 {@code sql_query_result}；上游 SQL 优先使用 FlowFile 的
-     * {@code _table} 属性，缺失时回退为 {@code sql_query_result}，避免空指针。</p>
+     * <p>优先使用配置的 {@code outputTable}；未配置时，上游 SQL 模式使用 FlowFile 的
+     * {@code _table} 属性；仍缺失时回退为 {@code sql_query_result}，避免空指针。</p>
+     *
+     * <p>多个 SqlInput 接入同一个 Join 时，需要分别配置不同的 {@code outputTable}，
+     * 否则结果都会被写到 {@code sql_query_result}，Join 只能识别到一张表。</p>
      *
      * @param flowFile 当前 FlowFile
      * @return 结果表名
      */
     String resolveResultTableName(FlowFile flowFile) {
+        if (outputTable != null && !outputTable.trim().isEmpty()) {
+            return outputTable.trim();
+        }
         if (sql != null && !sql.trim().isEmpty()) {
             return "sql_query_result";
         }
@@ -301,12 +310,14 @@ public class SqlInput extends FlowComponent {
     /**
      * 发送批量记录到队列
      */
-    private void sendBatchRecords(List<JSONObject> batchRecords, TableMeta tableMeta) {
+    void sendBatchRecords(List<JSONObject> batchRecords, TableMeta tableMeta) {
         JSONArray jsonRecords = new JSONArray();
         jsonRecords.addAll(batchRecords);
         FlowFile flowFile = new FlowFile();
         flowFile.setJsonArray(jsonRecords);
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+        // 同时写入 _table 属性，保证 Join 等下游组件能按表名区分多个上游
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
         writeRecords(flowFile);
     }
 
@@ -317,6 +328,14 @@ public class SqlInput extends FlowComponent {
 
     public void setDatasource(DatasourceInfo datasource) {
         this.datasource = datasource;
+    }
+
+    public void setOutputTable(String outputTable) {
+        this.outputTable = outputTable;
+    }
+
+    public String getOutputTable() {
+        return outputTable;
     }
 
     /**

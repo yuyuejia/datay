@@ -3,12 +3,22 @@ package com.data.job.component;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.Component;
+import com.data.job.ComponentFactory;
+import com.data.job.Connection;
 import com.data.job.FlowFile;
+import com.data.metadata.ColumnMeta;
+import com.data.metadata.TableMeta;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -188,6 +198,62 @@ class SqlInputParameterTest extends ComponentTestBase {
         component.setSql("SELECT 1");
 
         assertEquals("sql_query_result", component.resolveResultTableName(new FlowFile()));
+    }
+
+    @Test
+    void configuredOutputTableTakesPrecedence() {
+        component.setSql("SELECT 1");
+        component.setOutputTable(" configured_result ");
+        FlowFile flowFile = new FlowFile();
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "upstream_result");
+
+        assertEquals("configured_result", component.resolveResultTableName(flowFile));
+    }
+
+    @Test
+    void configuredOutputTableOverridesUpstreamSqlTable() {
+        component.setOutputTable("configured_result");
+        FlowFile flowFile = new FlowFile();
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_SQL, "SELECT 1");
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "upstream_result");
+
+        assertEquals("configured_result", component.resolveResultTableName(flowFile));
+    }
+
+    @Test
+    void factoryBindsOutputTable() {
+        Map<String, Object> params = new HashMap<>();
+        params.put(".id", "factory-sql-input");
+        params.put(".name", "SqlInput");
+        params.put("outputTable", "factory_result");
+
+        Component created = ComponentFactory.create("SqlInput", params);
+
+        assertTrue(created instanceof SqlInput);
+        assertEquals(
+            "factory_result",
+            ((SqlInput) created).resolveResultTableName(new FlowFile())
+        );
+    }
+
+    @Test
+    void outputFlowFileCarriesResultTableName() {
+        TableMeta tableMeta = new TableMeta();
+        tableMeta.setTable("configured_result");
+        tableMeta.addColumn(new ColumnMeta("id", "INT"));
+
+        LinkedBlockingQueue<Object> outputQueue = new LinkedBlockingQueue<>();
+        context.getConnections().put("sql-input-test_sink", outputQueue);
+        component.getOutput().add(new Connection("sql-input-test", "sink", 0));
+
+        JSONObject row = new JSONObject();
+        row.put("id", 1);
+        component.sendBatchRecords(List.of(row), tableMeta);
+
+        FlowFile out = (FlowFile) outputQueue.poll();
+        assertNotNull(out);
+        assertEquals("configured_result", out.getAttribute(FlowFile.ATTRIBUTE_TABLE));
+        assertEquals(tableMeta, out.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA));
     }
 
     @Test
