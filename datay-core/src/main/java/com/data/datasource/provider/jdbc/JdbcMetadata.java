@@ -112,6 +112,9 @@ public final class JdbcMetadata {
             while (pkRs.next()) {
                 primaryKeys.add(pkRs.getString("COLUMN_NAME"));
             }
+        } catch (SQLException | RuntimeException e) {
+            // 部分驱动（如 TDengine）不支持主键元数据，或直接返回 null（会被连接池代理包装为 NPE）。
+            // 主键不是读取表结构的必要条件，忽略后继续读取字段。
         }
 
         try (ResultSet rs = metaData.getColumns(catalog, schema, table, null)) {
@@ -219,7 +222,7 @@ public final class JdbcMetadata {
                     return rs.getString("REMARKS");
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             // ignore remarks failure
         }
         return null;
@@ -248,8 +251,8 @@ public final class JdbcMetadata {
                 }
                 indexMeta.addColumn(columnName);
             }
-        } catch (SQLException e) {
-            // 部分驱动不支持索引元数据，忽略并返回已有结果
+        } catch (SQLException | RuntimeException e) {
+            // 部分驱动不支持索引元数据（或返回 null），忽略并返回已有结果
         }
         return new ArrayList<>(indexMap.values());
     }

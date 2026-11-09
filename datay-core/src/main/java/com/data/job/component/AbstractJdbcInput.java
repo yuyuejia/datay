@@ -13,9 +13,13 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -385,7 +389,24 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         if (value instanceof Number) {
             return ((Number) value).longValue();
         }
-        return Long.parseLong(value.toString());
+
+        // 增量状态通过 FlowFile 持久化后时间类型会变成字符串（如 2026-11-09 10:00:49.0），
+        // 需要先按日期时间解析，不能直接 Long.parseLong，否则时间字段的增量同步会失败。
+        String text = value.toString().trim();
+        try {
+            return Timestamp.valueOf(text).getTime();
+        } catch (IllegalArgumentException ignored) {
+            // 非 "yyyy-MM-dd HH:mm:ss" 格式，继续尝试 ISO 格式
+        }
+        try {
+            return LocalDateTime.parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .atZone(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli();
+        } catch (Exception ignored) {
+            // 非日期格式，按数字时间戳解析
+        }
+        return Long.parseLong(text);
     }
 
     /**

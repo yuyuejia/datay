@@ -790,7 +790,20 @@ public class DBUtils {
         if (provider != null) {
             return provider.getTables(conn, schema, limit, search);
         }
-        return JdbcMetadata.readTableList(conn, null, schema, new String[] { "TABLE" }, limit, search, false);
+        // 通用 JDBC 连接的 URL 无法反查 Provider，这里按驱动能力选择 catalog/schema 型读取：
+        // getSchemas() 有返回视为 schema 型，否则按 catalog 型（如 TDengine 以数据库为 catalog）。
+        // 读取 schema 失败时保持原有 schema 型行为。
+        boolean schemaBased;
+        try {
+            schemaBased = !JdbcMetadata.readSchemas(conn).isEmpty();
+        } catch (SQLException e) {
+            schemaBased = true;
+        }
+        String[] types = new String[] { "TABLE" };
+        if (!schemaBased) {
+            return JdbcMetadata.readTableList(conn, schema, null, types, limit, search, false);
+        }
+        return JdbcMetadata.readTableList(conn, null, schema, types, limit, search, false);
     }
 
     public static TableMeta getTableMetaData(Connection conn, String schema, String table) throws SQLException {

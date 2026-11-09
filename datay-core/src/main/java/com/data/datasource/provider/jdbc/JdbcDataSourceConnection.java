@@ -6,6 +6,7 @@ import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.TableMeta;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -177,7 +179,7 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         while (rs.next() && (maxRows <= 0 || rowCount < maxRows)) {
             Map<String, Object> row = new LinkedHashMap<>();
             for (int i = 1; i <= columnCount; i++) {
-                row.put(meta.getColumnLabel(i), normalizeValue(rs.getObject(i)));
+                row.put(meta.getColumnLabel(i), normalizeValue(rs.getObject(i), meta.getColumnType(i)));
             }
             rows.add(row);
             rowCount++;
@@ -185,7 +187,7 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         return new QueryResult(columns, rows, rowCount);
     }
 
-    private static Object normalizeValue(Object value) throws SQLException {
+    private static Object normalizeValue(Object value, int sqlType) throws SQLException {
         if (value == null) {
             return null;
         }
@@ -206,6 +208,11 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
             return value.toString();
         }
         if (value instanceof byte[]) {
+            // 部分驱动（如 TDengine WebSocket）会把 CHAR/VARCHAR 也返回为 byte[]，
+            // 按列类型解码为字符串，避免查询预览把文本展示成 [BLOB]。
+            if (isCharacterType(sqlType)) {
+                return new String((byte[]) value, StandardCharsets.UTF_8);
+            }
             return "[BLOB]";
         }
         if (value instanceof Clob) {
@@ -218,5 +225,24 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         // 驱动特有类型（如 oracle.sql.TIMESTAMP/RAW/NUMBER、PGobject 等）没有通用序列化支持，
         // 统一降级为其文本表示，避免序列化失败导致查询预览报 500。
         return value.toString();
+    }
+
+    /**
+     * 是否为字符类型（CHAR / VARCHAR / 长文本）。
+     */
+    private static boolean isCharacterType(int sqlType) {
+        switch (sqlType) {
+            case Types.CHAR:
+            case Types.VARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.NCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGNVARCHAR:
+            case Types.CLOB:
+            case Types.NCLOB:
+                return true;
+            default:
+                return false;
+        }
     }
 }

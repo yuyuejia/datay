@@ -3,8 +3,13 @@ package com.data.metadata.util;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URLConnection;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -137,12 +142,12 @@ public class DriverClassLoader extends URLClassLoader {
 
         // 将类名转换为资源路径
         String resourcePath = name.replace('.', '/') + ".class";
+        URL resource = getResource(resourcePath);
+        if (resource == null) {
+            throw new ClassNotFoundException("Class not found in custom classloader: " + name);
+        }
 
-        try (InputStream is = getResourceAsStream(resourcePath)) {
-            if (is == null) {
-                throw new ClassNotFoundException("Class not found in custom classloader: " + name);
-            }
-
+        try (InputStream is = resource.openStream()) {
             // 读取类文件字节码
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[1024];
@@ -153,13 +158,41 @@ public class DriverClassLoader extends URLClassLoader {
 
             byte[] classBytes = baos.toByteArray();
 
-            // 定义类
-            loadedClass = defineClass(name, classBytes, 0, classBytes.length);
+            // 定义类。必须附带与驱动 Jar 对应的 ProtectionDomain/CodeSource：
+            // 部分驱动（如 TDengine）会在静态初始化时读取
+            // Class#getProtectionDomain().getCodeSource().getLocation()，缺省为 null 会直接 NPE。
+            ProtectionDomain protectionDomain = protectionDomainOf(resource);
+            if (protectionDomain != null) {
+                loadedClass = defineClass(name, classBytes, 0, classBytes.length, protectionDomain);
+            } else {
+                loadedClass = defineClass(name, classBytes, 0, classBytes.length);
+            }
             loadedClasses.put(name, loadedClass);
 
             return loadedClass;
         } catch (IOException e) {
             throw new ClassNotFoundException("Error loading class: " + name, e);
+        }
+    }
+
+    /**
+     * 根据类资源 URL 构造 ProtectionDomain，使驱动内
+     * {@code getProtectionDomain().getCodeSource().getLocation()} 能拿到实际 Jar 路径。
+     *
+     * <p>资源位于 Jar 中时使用 {@link JarURLConnection#getJarFileURL()} 作为 CodeSource，
+     * 否则退化为资源自身 URL；无法解析时返回 {@code null}，由调用方使用默认定义方式。
+     */
+    private ProtectionDomain protectionDomainOf(URL resource) {
+        try {
+            URL location = resource;
+            URLConnection connection = resource.openConnection();
+            if (connection instanceof JarURLConnection) {
+                location = ((JarURLConnection) connection).getJarFileURL();
+            }
+            CodeSource codeSource = new CodeSource(location, (Certificate[]) null);
+            return new ProtectionDomain(codeSource, getPermissions(codeSource), this, null);
+        } catch (Exception e) {
+            return null;
         }
     }
 

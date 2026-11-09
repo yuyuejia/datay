@@ -6,6 +6,8 @@ import com.data.metadata.util.DBUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -136,9 +138,11 @@ public class DatabaseConverter {
 
     // 新增：根据写入模式生成相应的SQL语句
     public static String generateWriteSQL(String dbType, TableMeta tableMeta, String writeMode) {
-        TypeConverter converter = converters.get(dbType.toLowerCase());
-        if (converter == null) {
-            throw new IllegalArgumentException("未注册的数据库类型转换器: " + dbType);
+        TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
+        if (converter == null || isGenericConverter(dbType)) {
+            // 通用 JDBC 等未登记方言的数据源没有专用写入 SQL 生成器，
+            // 退化为标准 SQL，至少保证 append/insert 以及有主键时的 update/delete 可用。
+            return generateGenericWriteSQL(tableMeta, writeMode);
         }
 
         switch (writeMode.toLowerCase()) {
@@ -156,6 +160,115 @@ public class DatabaseConverter {
     }
 
     /**
+     * 是否为通用逻辑转换器（其 DDL/写 SQL 方法不生成具体语句）。
+     */
+    private static boolean isGenericConverter(String dbType) {
+        return dbType != null && LogicConverter.LOGIC_CONVERTER_KEY.equalsIgnoreCase(dbType);
+    }
+
+    /**
+     * 为未登记方言的数据源生成标准 SQL。
+     */
+    private static String generateGenericWriteSQL(TableMeta tableMeta, String writeMode) {
+        switch (writeMode.toLowerCase()) {
+            case "overwrite":
+            case "insert":
+            case "append":
+                return buildGenericInsertSQL(tableMeta);
+            case "update":
+                return buildGenericUpdateSQL(tableMeta);
+            case "delete":
+                return buildGenericDeleteSQL(tableMeta);
+            default:
+                throw new IllegalArgumentException("不支持的写入模式: " + writeMode);
+        }
+    }
+
+    private static String buildGenericInsertSQL(TableMeta tableMeta) {
+        StringBuilder sql = new StringBuilder("INSERT INTO ");
+        sql.append(qualifiedTableName(tableMeta)).append(" (");
+        List<ColumnMeta> columns = tableMeta.columns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append(columns.get(i).getName());
+        }
+        sql.append(") VALUES (");
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+        }
+        return sql.append(")").toString();
+    }
+
+    private static String buildGenericUpdateSQL(TableMeta tableMeta) {
+        List<ColumnMeta> primaryKeys = primaryKeyColumns(tableMeta);
+        if (primaryKeys.isEmpty()) {
+            throw new IllegalArgumentException("UPDATE 模式需要目标表定义主键: " + tableMeta.getTable());
+        }
+        List<ColumnMeta> updateColumns = new ArrayList<>();
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (!primaryKeys.contains(column)) {
+                updateColumns.add(column);
+            }
+        }
+        if (updateColumns.isEmpty()) {
+            throw new IllegalArgumentException("UPDATE 模式没有可更新的非主键字段: " + tableMeta.getTable());
+        }
+
+        StringBuilder sql = new StringBuilder("UPDATE ").append(qualifiedTableName(tableMeta)).append(" SET ");
+        for (int i = 0; i < updateColumns.size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append(updateColumns.get(i).getName()).append(" = ?");
+        }
+        appendWherePrimaryKeys(sql, primaryKeys);
+        return sql.toString();
+    }
+
+    private static String buildGenericDeleteSQL(TableMeta tableMeta) {
+        List<ColumnMeta> primaryKeys = primaryKeyColumns(tableMeta);
+        if (primaryKeys.isEmpty()) {
+            throw new IllegalArgumentException("DELETE 模式需要目标表定义主键: " + tableMeta.getTable());
+        }
+        StringBuilder sql = new StringBuilder("DELETE FROM ").append(qualifiedTableName(tableMeta));
+        appendWherePrimaryKeys(sql, primaryKeys);
+        return sql.toString();
+    }
+
+    private static List<ColumnMeta> primaryKeyColumns(TableMeta tableMeta) {
+        List<ColumnMeta> primaryKeys = new ArrayList<>();
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (column.isPrimaryKey()) {
+                primaryKeys.add(column);
+            }
+        }
+        return primaryKeys;
+    }
+
+    private static void appendWherePrimaryKeys(StringBuilder sql, List<ColumnMeta> primaryKeys) {
+        sql.append(" WHERE ");
+        for (int i = 0; i < primaryKeys.size(); i++) {
+            if (i > 0) {
+                sql.append(" AND ");
+            }
+            sql.append(primaryKeys.get(i).getName()).append(" = ?");
+        }
+    }
+
+    private static String qualifiedTableName(TableMeta tableMeta) {
+        String schema = tableMeta.getSchema();
+        if (schema == null || schema.isBlank()) {
+            return tableMeta.getTable();
+        }
+        return schema + "." + tableMeta.getTable();
+    }
+
+    /**
      * 按目标数据库方言绑定 SQL 参数。
      *
      * <p>方言未注册时退化为通用值归一化，避免影响非标准数据源。</p>
@@ -164,10 +277,33 @@ public class DatabaseConverter {
         throws SQLException {
         TypeConverter converter = dbType == null ? null : converters.get(dbType.toLowerCase());
         if (converter == null) {
-            statement.setObject(index, DBUtils.normalizeParameter(column.getType(), value));
+            Object normalized = DBUtils.normalizeParameter(column.getType(), value);
+            // 通用 JDBC 驱动通常不识别 LocalDateTime 的 ISO 形式（如 2026-11-09T11:00），
+            // 统一转成 java.sql.Timestamp，交由驱动的 setTimestamp 正确格式化。
+            if (normalized instanceof LocalDateTime && isTimestampColumn(column.getType())) {
+                normalized = Timestamp.valueOf((LocalDateTime) normalized);
+            }
+            // 字符串使用标准 setString：TDengine WS 驱动的 setObject(String) 会走 NCHAR 分支，
+            // 后续按 byte[] 处理导致 ClassCastException。
+            if (normalized instanceof String) {
+                statement.setString(index, (String) normalized);
+                return;
+            }
+            statement.setObject(index, normalized);
             return;
         }
         converter.bindParameter(statement, index, column, value);
+    }
+
+    /**
+     * 列类型是否为时间戳/日期时间。
+     */
+    private static boolean isTimestampColumn(String columnType) {
+        if (columnType == null) {
+            return false;
+        }
+        String type = columnType.toUpperCase().trim();
+        return type.equals("DATETIME") || type.equals("TIMESTAMP") || type.endsWith("TIMESTAMP") || type.startsWith("DATETIME");
     }
 
     /**
