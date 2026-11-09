@@ -31,8 +31,11 @@ MySQLBinlogInput 是一个基于MySQL二进制日志（Binlog）的数据输入�
 | `serverId` | Long | ❌ | 伪装从库的 server-id，默认 `1000`，多个任务连接同一实例时需保证唯一 | `1001` |
 | `snapshot` | Boolean | ❌ | 首次运行（无断点）时先读取历史全量数据，再启动增量同步，默认 `false` | `true` |
 | `snapshotFetchSize` | Integer | ❌ | 快照分批大小，默认 `10000` | `5000` |
+| `includeEventMeta` | Boolean | ❌ | 是否在增量数据行中追加 `_event_type`（INSERT/UPDATE/DELETE）和 `_timestamp`（Binlog 事件时间，毫秒），默认 `false`；快照行仅追加 `_event_type`；FlowFile 属性始终保留 | `true` |
 
 > 开启 `snapshot` 后，快照读取范围与增量同步范围一致：库由 `databaseNamePattern` 控制（为空回退数据源 schema），表由 `tableNamePattern` 控制；范围外的表不会被读取。
+
+> 开启 `includeEventMeta` 后，增量 INSERT/UPDATE/DELETE 数据行会追加 `_event_type` 和 `_timestamp`（使用 Binlog 事件头时间，不额外生成），并同步扩展表元数据供下游自动建表；快照数据不是 Binlog 事件，没有对应事件时间，因此快照行只追加 `_event_type=INSERT`。若源表已有同名字段，则保留源值不覆盖。
 
 ## 数据源配置 (DatasourceInfo)
 

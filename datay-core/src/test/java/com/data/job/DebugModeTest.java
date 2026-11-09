@@ -147,6 +147,29 @@ public class DebugModeTest {
 
     @Test
     @Timeout(60000)
+    public void testMysqlCdcDebugMockIncludesEventMetaWhenEnabled() throws Exception {
+        String job = """
+            {
+              "units": [
+                {".id": "cdc", ".name": "MySQLBinlogInput", "includeEventMeta": true}
+              ],
+              "connections": [],
+              "version": "1.0.0"
+            }
+            """;
+        ETLFlowTask runner = newDebugTask(10, null);
+        runner.runJob(job);
+
+        DebugResult cdc = runner.getContext().getDebugResults().get("cdc");
+        assertNotNull(cdc, "MySQLBinlogInput 组件应生成模拟数据");
+        assertTrue(cdc.getColumns().contains("_event_type"), "应输出 _event_type 列");
+        assertTrue(cdc.getColumns().contains("_timestamp"), "应输出 _timestamp 列");
+        int eventTypeIndex = cdc.getColumns().indexOf("_event_type");
+        assertEquals("INSERT", cdc.getRows().get(0).get(eventTypeIndex));
+    }
+
+    @Test
+    @Timeout(60000)
     public void testTargetNodeOnlyRunsUpstream() throws Exception {
         ETLFlowTask runner = newDebugTask(10, "log");
         runner.runJob(buildJob());

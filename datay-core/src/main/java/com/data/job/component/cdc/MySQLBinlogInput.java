@@ -51,6 +51,9 @@ public class MySQLBinlogInput extends FlowComponent {
     /** 快照分批大小。 */
     private Integer snapshotFetchSize = 10000;
 
+    /** 是否在输出数据行中追加事件类型和时间戳。 */
+    private Boolean includeEventMeta = false;
+
     /** 连续重连失败的最大次数，超过后任务失败；默认 5。 */
     private Integer reconnectMaxAttempts = MySQLBinlogCollector.DEFAULT_RECONNECT_MAX_ATTEMPTS;
     /** 两次重连之间的等待时间（毫秒）；默认 3000。 */
@@ -82,7 +85,13 @@ public class MySQLBinlogInput extends FlowComponent {
      */
     private void executeDebugMock() {
         TableMeta tableMeta = resolveDebugTableMeta();
+        // 调试模拟数据没有真实 Binlog 事件，时间戳仅用于预览展示
+        long timestamp = System.currentTimeMillis();
         JSONObject row = DebugMockUtils.sampleRow(tableMeta);
+        if (Boolean.TRUE.equals(includeEventMeta)) {
+            CdcEventMeta.appendRecord(row, "INSERT", timestamp);
+            tableMeta = CdcEventMeta.appendColumns(tableMeta);
+        }
         JSONArray rows = new JSONArray();
         rows.add(row);
 
@@ -92,7 +101,7 @@ public class MySQLBinlogInput extends FlowComponent {
         mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
         mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
         mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
-        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, System.currentTimeMillis());
+        mockFlowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, timestamp);
         mockFlowFile.setAttribute("_debugMock", true);
         writeRecords(mockFlowFile);
         logInfo("调试模式：根据组件能力生成模拟 Binlog INSERT 事件，表 " + tableMeta.getSchema() + "." + tableMeta.getTable());
@@ -130,7 +139,11 @@ public class MySQLBinlogInput extends FlowComponent {
     private void startBinlogCollector() {
         try {
             // 创建事件处理器
-            BinlogEventHandler eventHandler = new DefaultBinlogEventHandler(this, queue);
+            BinlogEventHandler eventHandler = new DefaultBinlogEventHandler(
+                this,
+                queue,
+                Boolean.TRUE.equals(includeEventMeta)
+            );
 
             // 创建Binlog采集器
             collector = new MySQLBinlogCollector(datasource, eventHandler);
@@ -164,7 +177,12 @@ public class MySQLBinlogInput extends FlowComponent {
                 startStatus.put("binlogPosition", startPosition);
                 List<CdcSnapshotReader.TableRef> snapshotTables = resolveSnapshotTables();
                 logInfo("开始读取历史全量数据（snapshot），起始位点 " + position[0] + ":" + position[1] + "，表范围=" + snapshotTables);
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(snapshotTables, startStatus);
+                new CdcSnapshotReader(
+                    this,
+                    datasource,
+                    snapshotFetchSize,
+                    Boolean.TRUE.equals(includeEventMeta)
+                ).snapshot(snapshotTables, startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
                 collector.startFromPosition(position[0], startPosition);
             } else if (binlogFileStatus != null && binlogPositionStatus != null) {
@@ -336,6 +354,14 @@ public class MySQLBinlogInput extends FlowComponent {
 
     public void setSnapshot(Boolean snapshot) {
         this.snapshot = snapshot;
+    }
+
+    public void setIncludeEventMeta(Boolean includeEventMeta) {
+        this.includeEventMeta = includeEventMeta;
+    }
+
+    public Boolean getIncludeEventMeta() {
+        return includeEventMeta;
     }
 
     public void setSnapshotFetchSize(Integer snapshotFetchSize) {

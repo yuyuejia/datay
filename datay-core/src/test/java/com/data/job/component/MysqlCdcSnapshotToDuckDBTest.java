@@ -62,6 +62,16 @@ public class MysqlCdcSnapshotToDuckDBTest {
             assertEquals("alice", targetString("select name from main." + TABLE + " where id = 1"));
             assertEquals("bob", targetString("select name from main." + TABLE + " where id = 2"));
             assertTrue(!duckTableExists("cdc_other"), "快照不应读取表范围外的表 cdc_other");
+            assertEquals(2, targetMetaColumnCount(), "目标表应包含 _event_type 和 _timestamp 列");
+            assertEquals(
+                1,
+                targetInt(
+                    "select count(*) from main." +
+                    TABLE +
+                    " where id = 1 and _event_type = 'INSERT' and _timestamp is null"
+                ),
+                "快照行不是 Binlog 事件，_timestamp 应为空"
+            );
 
             // 增量同步
             executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (3, 'carol', 30.00, '2024-01-03 12:00:00')");
@@ -77,6 +87,15 @@ public class MysqlCdcSnapshotToDuckDBTest {
             );
             assertEquals("alice2", targetString("select name from main." + TABLE + " where id = 1"));
             assertEquals("carol", targetString("select name from main." + TABLE + " where id = 3"));
+            assertEquals(
+                1,
+                targetInt(
+                    "select count(*) from main." +
+                    TABLE +
+                    " where id = 3 and _event_type = 'INSERT' and _timestamp is not null"
+                ),
+                "增量 INSERT 应携带 Binlog 事件时间"
+            );
         } finally {
             runner.cancel();
             try {
@@ -156,6 +175,14 @@ public class MysqlCdcSnapshotToDuckDBTest {
 
     private int targetCount() {
         return targetInt("select count(*) from main." + TABLE);
+    }
+
+    private int targetMetaColumnCount() {
+        return targetInt(
+            "select count(*) from information_schema.columns where table_schema = 'main' and table_name = '" +
+            TABLE +
+            "' and column_name in ('_event_type', '_timestamp')"
+        );
     }
 
     private int targetInt(String sql) {

@@ -55,11 +55,18 @@ public class CdcSnapshotReader {
     private final FlowComponent component;
     private final DatasourceInfo datasource;
     private final int fetchSize;
+    /** 是否在输出数据行中追加事件类型和时间戳。 */
+    private final boolean includeEventMeta;
 
     public CdcSnapshotReader(FlowComponent component, DatasourceInfo datasource, Integer fetchSize) {
+        this(component, datasource, fetchSize, false);
+    }
+
+    public CdcSnapshotReader(FlowComponent component, DatasourceInfo datasource, Integer fetchSize, boolean includeEventMeta) {
         this.component = component;
         this.datasource = datasource;
         this.fetchSize = (fetchSize == null || fetchSize <= 0) ? 10000 : fetchSize;
+        this.includeEventMeta = includeEventMeta;
     }
 
     /**
@@ -157,15 +164,26 @@ public class CdcSnapshotReader {
     }
 
     private void emitBatch(TableMeta tableMeta, List<JSONObject> batch) {
+        // 快照数据不是 Binlog 事件，没有对应的 Binlog 事件时间，因此不写入 _timestamp。
+        // FlowFile 的 _timestamp 属性仅表示本次下发时间，供日志/调试使用。
+        long processedAt = System.currentTimeMillis();
+        if (includeEventMeta) {
+            for (JSONObject record : batch) {
+                CdcEventMeta.appendRecord(record, "INSERT", null);
+            }
+        }
         JSONArray records = new JSONArray();
         records.addAll(batch);
         FlowFile flowFile = new FlowFile();
         flowFile.setJsonArray(records);
         flowFile.setAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE, "INSERT");
-        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+        flowFile.setAttribute(
+            FlowFile.ATTRIBUTE_TABLE_METADATA,
+            includeEventMeta ? CdcEventMeta.appendColumns(tableMeta) : tableMeta
+        );
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
         flowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
-        flowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, System.currentTimeMillis());
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TIMESTAMP, processedAt);
         component.writeRecords(flowFile);
     }
 
@@ -178,7 +196,10 @@ public class CdcSnapshotReader {
         FlowFile marker = new FlowFile();
         marker.setJsonArray(new JSONArray());
         if (tableMeta != null) {
-            marker.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
+            marker.setAttribute(
+                FlowFile.ATTRIBUTE_TABLE_METADATA,
+                includeEventMeta ? CdcEventMeta.appendColumns(tableMeta) : tableMeta
+            );
             marker.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableMeta.getTable());
             marker.setAttribute(FlowFile.ATTRIBUTE_DATABASE, tableMeta.getSchema());
         }

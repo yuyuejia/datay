@@ -93,6 +93,7 @@ public class DescribeEtlComponentsTool implements AiTool {
         "databaseNamePattern",
         "startPosition",
         "snapshot",
+        "includeEventMeta",
         "fetchSize",
         "timeout",
         "allowModifySchema"

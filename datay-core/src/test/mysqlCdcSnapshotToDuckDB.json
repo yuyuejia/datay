@@ -12,7 +12,8 @@
       },
       "databaseNamePattern": "test",
       "tableNamePattern": "cdc_demo",
-      "snapshot": true
+      "snapshot": true,
+      "includeEventMeta": true
     },
     {
       ".id": "StreamJdbcOutput",

@@ -339,6 +339,7 @@ CALL ducklake_flush_inlined_data('ducklake', table_name => 'cdc_demo');
 | `binlogPosition` | ❌ | 指定起始位点，与 `binlogFile` 配合使用 |
 | `snapshot` | ❌ | 首次运行是否先全量后增量，默认 `false` |
 | `snapshotFetchSize` | ❌ | 快照分批大小，默认 `10000` |
+| `includeEventMeta` | ❌ | 是否在增量数据行中追加 `_event_type` 和 `_timestamp`（Binlog 事件时间，毫秒），默认 `false`；快照行仅追加 `_event_type` |
 
 `DuckLakeWrite`：
 

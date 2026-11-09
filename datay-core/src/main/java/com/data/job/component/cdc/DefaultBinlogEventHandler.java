@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -21,6 +22,8 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
 
     private final FlowComponent component;
     private final BlockingQueue<BinlogEvent> queue;
+    /** 是否在输出数据行中追加事件类型和时间戳。 */
+    private final boolean includeEventMeta;
 
     // 事件合并缓冲区
     private List<BinlogEvent> eventBuffer = new ArrayList<>();
@@ -32,8 +35,13 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
     private BinlogEvent.EventType currentEventType;
 
     public DefaultBinlogEventHandler(FlowComponent component, BlockingQueue<BinlogEvent> queue) {
+        this(component, queue, false);
+    }
+
+    public DefaultBinlogEventHandler(FlowComponent component, BlockingQueue<BinlogEvent> queue, boolean includeEventMeta) {
         this.component = component;
         this.queue = queue;
+        this.includeEventMeta = includeEventMeta;
     }
 
     @Override
@@ -155,7 +163,10 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
 
         // 设置合并事件的基本信息
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE, firstEvent.getEventType().name());
-        mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, firstEvent.getTableMeta());
+        mergedFlowFile.setAttribute(
+            FlowFile.ATTRIBUTE_TABLE_METADATA,
+            includeEventMeta ? CdcEventMeta.appendColumns(firstEvent.getTableMeta()) : firstEvent.getTableMeta()
+        );
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, firstEvent.getDatabase());
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, firstEvent.getTable());
         mergedFlowFile.setAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE, "true");
@@ -176,6 +187,9 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
 
             if (firstEvent.getEventType() == BinlogEvent.EventType.DELETE) {
                 if (event.getBeforeData() != null) {
+                    if (includeEventMeta) {
+                        CdcEventMeta.appendRecord(event.getBeforeData(), event.getEventType().name(), event.getTimestamp());
+                    }
                     mergedData.add(event.getBeforeData());
                 }
                 continue;
@@ -184,6 +198,9 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
                 // 如果是UPDATE操作，还需要处理beforeData
                 if (firstEvent.getEventType() == BinlogEvent.EventType.UPDATE && event.getBeforeData() != null) {
                     event.getAfterData().put("__before", event.getBeforeData());
+                }
+                if (includeEventMeta) {
+                    CdcEventMeta.appendRecord(event.getAfterData(), event.getEventType().name(), event.getTimestamp());
                 }
 
                 mergedData.add(event.getAfterData());
@@ -201,7 +218,10 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
 
         // 设置事件基本信息
         flowFile.setAttribute(FlowFile.ATTRIBUTE_EVENT_TYPE, event.getEventType().name());
-        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, event.getTableMeta());
+        flowFile.setAttribute(
+            FlowFile.ATTRIBUTE_TABLE_METADATA,
+            includeEventMeta ? CdcEventMeta.appendColumns(event.getTableMeta()) : event.getTableMeta()
+        );
         flowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, event.getDatabase());
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, event.getTable());
         flowFile.setAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE, "true");
@@ -223,15 +243,18 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         // 根据事件类型设置数据
         switch (event.getEventType()) {
             case INSERT:
+                appendEventMeta(event.getAfterData(), event);
                 flowFile.setJsonArray(new JSONArray(event.getAfterData()));
                 break;
             case UPDATE:
                 if (event.getBeforeData() != null) {
                     event.getAfterData().put("__before", event.getBeforeData());
                 }
+                appendEventMeta(event.getAfterData(), event);
                 flowFile.setJsonArray(new JSONArray(event.getAfterData()));
                 break;
             case DELETE:
+                appendEventMeta(event.getBeforeData(), event);
                 flowFile.setJsonArray(new JSONArray(event.getBeforeData()));
                 break;
             case QUERY:
@@ -248,6 +271,16 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         }
 
         return flowFile;
+    }
+
+    /**
+     * 按配置在行数据中追加事件类型和时间戳。
+     * <p>时间戳直接使用 Binlog 事件头中的时间，不使用本地当前时间。
+     */
+    private void appendEventMeta(Map<String, Object> record, BinlogEvent event) {
+        if (includeEventMeta && record != null) {
+            CdcEventMeta.appendRecord(record, event.getEventType().name(), event.getTimestamp());
+        }
     }
 
     @Override

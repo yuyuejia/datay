@@ -1,5 +1,8 @@
 package com.data.job.component;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.data.job.DatasourceInfo;
 import com.data.job.ETLFlowTask;
 import com.data.metadata.util.DBUtils;
@@ -132,6 +135,104 @@ public class MysqlCdcToDuckDBTest {
         if (error != null && !isCancellation(error)) {
             throw new AssertionError("CDC 同步任务异常结束: " + error.getMessage(), error);
         }
+    }
+
+    @Test
+    public void testMysqlCdcToDuckDBWithEventMeta() throws Exception {
+        assumeTrue(supportsRowBinlog(), "本地 MySQL 未开启 binlog ROW 格式或缺少复制权限，跳过测试");
+        resetEnvironment();
+
+        long eventMetaServerId = 2234L;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        AtomicReference<Throwable> jobError = new AtomicReference<>();
+        ETLFlowTask runner = new ETLFlowTask();
+        String job = loadJobWithEventMeta(eventMetaServerId);
+
+        CONNECTOR_LOG.setLevel(Level.ALL);
+        CONNECTOR_LOG.addHandler(connectorHandler);
+        Future<?> jobFuture = executor.submit(() -> {
+            try {
+                runner.runJob(job);
+            } catch (Throwable e) {
+                jobError.set(e);
+            }
+        });
+
+        try {
+            awaitTrue(this::binlogDumpActive, 30000, "等待 MySQL Binlog 采集器就绪超时");
+            awaitTrue(
+                () -> connectorMessages.stream().anyMatch(message -> message.contains("sid:" + eventMetaServerId)),
+                30000,
+                "等待组件以配置的 server-id=" + eventMetaServerId + " 连接 MySQL 超时"
+            );
+
+            long beforeInsert = System.currentTimeMillis();
+            executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (1, 'alice', 10.50, '2024-01-01 10:00:00')");
+            awaitTrue(() -> queryDuckCount() == 1, 30000, "等待 INSERT 同步到 DuckDB 超时");
+            long afterInsert = System.currentTimeMillis();
+
+            assertEquals("INSERT", queryDuckString("select _event_type from main." + TABLE + " where id = 1"));
+            Long insertTimestamp = queryDuckLong("select _timestamp from main." + TABLE + " where id = 1");
+            assertTrue(
+                insertTimestamp != null && insertTimestamp >= beforeInsert - 2000 && insertTimestamp <= afterInsert + 2000,
+                "INSERT 的 _timestamp 应来自 Binlog 事件时间，实际值: " + insertTimestamp
+            );
+            assertEquals(2, queryDuckMetaColumnCount(), "目标表应包含 _event_type 和 _timestamp 列");
+
+            executeMysql("UPDATE test." + TABLE + " SET name = 'alice2' WHERE id = 1");
+            awaitTrue(
+                () -> "UPDATE".equals(queryDuckString("select _event_type from main." + TABLE + " where id = 1")),
+                30000,
+                "等待 UPDATE 事件元数据同步到 DuckDB 超时"
+            );
+            Long updateTimestamp = queryDuckLong("select _timestamp from main." + TABLE + " where id = 1");
+            assertTrue(updateTimestamp != null && updateTimestamp >= insertTimestamp, "UPDATE 的 _timestamp 应不小于 INSERT 事件时间");
+        } finally {
+            CONNECTOR_LOG.removeHandler(connectorHandler);
+            runner.cancel();
+            try {
+                jobFuture.get(15, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+            }
+            executor.shutdownNow();
+            closeDuck();
+            deleteDuckFile();
+        }
+
+        Throwable error = jobError.get();
+        if (error != null && !isCancellation(error)) {
+            throw new AssertionError("CDC 同步任务异常结束: " + error.getMessage(), error);
+        }
+    }
+
+    private String loadJobWithEventMeta(long serverId) throws Exception {
+        String job = new String(java.nio.file.Files.readAllBytes(
+            java.nio.file.Paths.get(System.getProperty("user.dir"), "src/test/mysqlCdcToDuckDB.json")
+        ));
+        JSONObject root = JSON.parseObject(job);
+        JSONArray units = root.getJSONArray("units");
+        for (int i = 0; i < units.size(); i++) {
+            JSONObject unit = units.getJSONObject(i);
+            if ("MySQLBinlogInput".equals(unit.getString(".name"))) {
+                unit.put("serverId", serverId);
+                unit.put("includeEventMeta", true);
+            }
+        }
+        return root.toJSONString();
+    }
+
+    private Long queryDuckLong(String sql) {
+        String value = queryDuckString(sql);
+        return value == null ? null : Long.valueOf(value);
+    }
+
+    private int queryDuckMetaColumnCount() {
+        Integer count = queryDuckInt(
+            "select count(*) from information_schema.columns where table_name = '" +
+            TABLE +
+            "' and column_name in ('_event_type', '_timestamp')"
+        );
+        return count == null ? -1 : count;
     }
 
     private boolean supportsRowBinlog() {

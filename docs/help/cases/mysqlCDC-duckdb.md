@@ -141,6 +141,7 @@ mvn -pl datay-core test -Dtest=MysqlCdcToDuckDBTest
 | `tableNamePattern` | ❌ | 表名过滤正则，为空采集全部 |
 | `binlogFile` | ❌ | 指定起始 Binlog 文件 |
 | `binlogPosition` | ❌ | 指定起始位点 |
+| `includeEventMeta` | ❌ | 是否在增量数据行中追加 `_event_type` 和 `_timestamp`（Binlog 事件时间，毫秒），默认 `false`；快照行仅追加 `_event_type` |
 
 `StreamJdbcOutput`（`model=auto`）写入策略：
 

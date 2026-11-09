@@ -54,6 +54,14 @@
         <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
     </el-form-item>
 
+      <!-- 输出事件元数据 -->
+      <el-form-item label="输出事件元数据">
+      <el-switch id="includeEventMeta" name="includeEventMeta" v-model="formData.includeEventMeta" />
+        <small class="form-text text-muted">
+          开启后增量数据记录额外包含 _event_type（INSERT/UPDATE/DELETE）和 _timestamp（Binlog 事件时间，毫秒）；快照数据仅包含 _event_type；FlowFile 属性不受影响
+        </small>
+    </el-form-item>
+
       <el-form-item label="最大重连次数">
       <el-input-number :controls="false" id="reconnectMaxAttempts" name="reconnectMaxAttempts" v-model="formData.reconnectMaxAttempts" :min="0" placeholder="默认 5" />
         <small class="form-text text-muted"> 连接异常时自动重连的最大次数，默认 5；0 表示不重连，超过后任务失败 </small>
@@ -160,6 +168,7 @@ const formData = reactive({
   binlogPosition: props.node?.data?.config?.binlogPosition || null,
   snapshot: props.node?.data?.config?.snapshot || false,
   snapshotFetchSize: props.node?.data?.config?.snapshotFetchSize || 10000,
+  includeEventMeta: props.node?.data?.config?.includeEventMeta || false,
   reconnectMaxAttempts: props.node?.data?.config?.reconnectMaxAttempts ?? 5,
   reconnectIntervalMs: props.node?.data?.config?.reconnectIntervalMs ?? 3000,
 });
