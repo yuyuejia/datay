@@ -36,30 +36,30 @@ datay/
 
 ## 五大能力，一个平台
 
-### 🔌 数据集成（Data Integration）
+### 数据集成（Data Integration）
 
 - 支持 MySQL / PostgreSQL / Oracle / SAP HANA / Doris / ClickHouse / DuckDB 等二十余种数据源
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
 - 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
-- 支持跨库数据比对：按主键关联两侧表，DuckDB SQL 计算差异，结果文件写入本地或 MinIO，可按任务执行实例 ID 获取结果
+- 支持跨库数据比对：按主键关联两侧表，DuckDB SQL 计算差异，结果文件写入本地或 MinIO
 
-### 📐 维度建模（Dimensional Modeling）
+### 维度建模（Dimensional Modeling）
 
 - 星型 / 雪花模型：可视化定义事实表与维度表的关联，沉淀业务语义层
-- 三种维度类型：普通维度、层级维度（多级自动生成 `levelN_id/name`）、时间维度（年/季/月/日粒度 + 预置日期数据）
+- 三种维度类型：普通维度、层级维度、时间维度
 - 事实表外键字段一键关联维度，指定时间周期字段，指标自动获得业务语义
 - 维度 / 事实模型支持物化建表，数据直接落地到内嵌 DuckDB
 - 为指标管理与智能问数提供统一的维度体系，指标口径不跑偏
 
-### ⏰ 任务调度（Job Scheduler）
+### 任务调度（Job Scheduler）
 
 - Cron 定时调度，Quartz 引擎精准到秒
 - DAG 工作流编排，父子任务自动拓扑排序
 - 支持手动触发、暂停/恢复、失败重试
 - 调度 master 与执行 worker 可分离部署，单机就能跑，集群也能扩
 
-### 🚀 高性能数仓（High-Performance Warehouse）
+### 高性能数仓（High-Performance Warehouse）
 
 - **内嵌 DuckDB**，列存 + 向量化 + 无锁并发，单机就能跑出分布式数仓的性能
 - 与维度建模、指标管理打通，原子指标 / 衍生指标统一口径
@@ -72,10 +72,9 @@ datay/
 - RAG 本地向量索引，指标口径不跑偏
 - 指标管理模块统一维护业务口径，问数有依据
 
-### 🧰 MCP Harness（让 Agent 直接操作平台对象）
+### MCP Harness（让 Agent 直接操作平台对象）
 
 - 通过 MCP 端点 `/mcp/datay` 把**数据源、数据服务、ETL 任务、数据模型**的增删改查与运行类动作暴露给 AI Agent
-- **数据服务调用**（`dataapi_*`）：先列出已发布数据服务、确认所需参数，再按来源类型调用——`TABLE`/`SQL` 走只读的 `dataapi_query`，`API` 来源走受写开关控制的 `dataapi_call`
 - 同一端点提供**指标智能问数**能力（`metric_query_guide` / `list_metrics` / `describe_metrics` / `sample_dimension_values` / `query_metric_data` / `retrieve_metric_context`），与内置问数助手共用同一套实现与口径
 - 同一端点也提供**指标定义管理**（`metric_*`：增删改查、SQL 预览、指标目录维护），与页面保存走同一套校验
 - Claude Desktop / Cursor / DSH 等 MCP 客户端接上后，可自行完成「建数据源 → 建 ETL 任务并试跑 → 上线调度 → 建模并物化落表 → 一句话问指标」
@@ -165,8 +164,33 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, MongoDB Change Streams
 
+## 商业支持
+DataY 开源免费，遵循对应开源协议，个人与企业均可免费下载、评估使用。
+如果您企业需要落地生产环境，可购买作者提供的商业服务，保障业务稳定运行：
+
+✅ 服务清单
+- 私有化部署、高可用架构落地、信创适配
+- 远程技术支持、SLA 应急保障
+- 定制开发：数据源扩展、业务算子、报表大屏、多租户改造、SSO登录
+- 性能调优、压测、CDC/流批链路诊断
+- 培训服务：运维培训、开发培训、数据建模实战
+- 版本代升级、迁移、巡检、年度维保包
+
+⚠️ 重要说明
+- 开源社区 Issue 尽力支持，不承诺响应时效；生产问题请走商业支持通道
+- 商业服务为作者独立提供，不改变开源代码本身协议
+
 ## 联系方式
 
 有问题或建议，请通过项目Issue或加微信号进行反馈，我们会尽快回复您。
 
 <img src="datay-core/docs/images/weixin.png" width="300" height="300" alt="DataY">
+
+## 奖赏
+如果你觉得 DataY 对你有帮助，欢迎给项目 Star、分享推荐给身边同行。
+也可以请作者喝杯咖啡，支持项目持续迭代、修复 Bug、新增数据源与能力。
+
+所有赞赏仅用于激励作者持续投入开发，**不构成任何商业服务、技术承诺或售后保障**。
+如果需要生产级技术支持、定制开发、私有化落地，请查阅上方【商业支持】。
+
+<img src="datay-core/docs/images/zhifu.png" width="300" height="300" alt="DataY">

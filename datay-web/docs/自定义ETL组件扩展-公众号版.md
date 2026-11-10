@@ -589,7 +589,7 @@ DataY 是一套**开源、轻量、一体化的数据平台**，设计原则只�
 **快速开始：**
 
 ```bash
-git clone https://github.com/yuyuejia/datay
+git clone https://gitee.com/yuyuejia/datay
 cd datay
 mvn clean package -DskipTests
 java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
