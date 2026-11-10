@@ -4,6 +4,10 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.expression.ParameterUtil;
+import com.data.job.ComponentField;
+import com.data.job.ComponentFieldOption;
+import com.data.job.ComponentFieldType;
+import com.data.job.ComponentFieldValueFormat;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
@@ -53,12 +57,88 @@ public class SqlSink extends FlowComponent {
         "WITH"
     );
 
+    @ComponentField(
+        key = "sourceId",
+        label = "目标数据源",
+        type = ComponentFieldType.DATASOURCE,
+        required = true,
+        group = "基础配置",
+        order = 10,
+        schemaField = "schema",
+        help = "选择 SQL 要写入的目标关系型数据库"
+    )
     private DatasourceInfo datasource;
+
+    @ComponentField(
+        label = "SQL模板",
+        type = ComponentFieldType.TEXTAREA,
+        required = true,
+        group = "基础配置",
+        order = 20,
+        placeholder = "INSERT INTO ... VALUES (${字段名})",
+        help = "只支持单条 DML（INSERT / UPDATE / DELETE / MERGE），支持 ${字段名}、${attr:属性名}、${FLOW_FILE_DATA}、#{内置参数} 等动态参数"
+    )
     private String sql;
+
+    @ComponentField(
+        label = "批量大小",
+        type = ComponentFieldType.NUMBER,
+        group = "基础配置",
+        order = 30,
+        defaultValue = "500",
+        min = 1,
+        max = 10000,
+        step = 100,
+        help = "每个 JDBC 批次的行数，默认 500"
+    )
     private Integer batchSize = DEFAULT_BATCH_SIZE;
+
+    @ComponentField(
+        label = "事务",
+        type = ComponentFieldType.SWITCH,
+        group = "基础配置",
+        order = 40,
+        defaultValue = "true",
+        help = "开启后一个 FlowFile 内的所有批次在同一事务中提交；Doris 等不支持事务的目标请关闭"
+    )
     private Boolean transaction = true;
+
+    @ComponentField(
+        label = "忽略错误",
+        type = ComponentFieldType.SWITCH,
+        group = "高级配置",
+        order = 40,
+        defaultValue = "false",
+        help = "开启后执行失败只记录日志并跳过"
+    )
     private Boolean ignoreError = false;
+
+    @ComponentField(
+        label = "事件类型过滤",
+        type = ComponentFieldType.MULTI_SELECT,
+        group = "高级配置",
+        order = 10,
+        valueFormat = ComponentFieldValueFormat.ARRAY,
+        options = {
+            @ComponentFieldOption(value = "INSERT", label = "INSERT"),
+            @ComponentFieldOption(value = "UPDATE", label = "UPDATE"),
+            @ComponentFieldOption(value = "DELETE", label = "DELETE")
+        },
+        help = "只处理指定事件类型；不配置表示处理所有事件"
+    )
     private List<String> eventTypes;
+
+    @ComponentField(
+        label = "查询超时（秒）",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 20,
+        defaultValue = "0",
+        min = 0,
+        max = 3600,
+        step = 10,
+        help = "0 表示不设置超时"
+    )
     private Integer queryTimeout = 0;
 
     public SqlSink() {

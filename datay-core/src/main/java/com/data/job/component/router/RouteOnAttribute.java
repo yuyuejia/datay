@@ -2,6 +2,9 @@ package com.data.job.component.router;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentField;
+import com.data.job.ComponentFieldOption;
+import com.data.job.ComponentFieldType;
 import com.data.job.ComponentRegister;
 import com.data.job.Connection;
 import com.data.job.FlowComponent;
@@ -55,15 +58,55 @@ public class RouteOnAttribute extends FlowComponent {
     public static final String DEFAULT_LABEL = "other";
 
     /** 匹配模式：attribute（属性名，默认）、value（属性值）或 data（数据项）。 */
+    @ComponentField(
+        label = "匹配模式",
+        type = ComponentFieldType.RADIO,
+        group = "基础配置",
+        order = 10,
+        defaultValue = "attribute",
+        options = {
+            @ComponentFieldOption(value = "attribute", label = "按属性名"),
+            @ComponentFieldOption(value = "value", label = "按属性值"),
+            @ComponentFieldOption(value = "data", label = "按数据项")
+        }
+    )
     private String matchMode;
 
     /** 属性值模式下用于取值的属性名。 */
+    @ComponentField(
+        label = "属性名",
+        type = ComponentFieldType.INPUT,
+        group = "基础配置",
+        order = 20,
+        required = true,
+        dependsOn = "matchMode",
+        visibleWhen = { "value" },
+        placeholder = "请输入用于取值的 FlowFile 属性名"
+    )
     private String attributeName;
 
     /** 数据项模式下用于匹配的记录字段名。 */
+    @ComponentField(
+        label = "匹配字段名",
+        type = ComponentFieldType.INPUT,
+        group = "基础配置",
+        order = 30,
+        required = true,
+        dependsOn = "matchMode",
+        visibleWhen = { "data" },
+        placeholder = "请输入记录中用于匹配的字段名，如 type"
+    )
     private String dataField;
 
     /** 无匹配连线时的兜底连线标签，默认 other。 */
+    @ComponentField(
+        label = "兜底连线标签",
+        type = ComponentFieldType.INPUT,
+        group = "基础配置",
+        order = 40,
+        defaultValue = "other",
+        placeholder = "未匹配时兜底路由到的连线标签，默认 other"
+    )
     private String defaultLabel;
 
     public RouteOnAttribute() {

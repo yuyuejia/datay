@@ -2,6 +2,9 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentField;
+import com.data.job.ComponentFieldOption;
+import com.data.job.ComponentFieldType;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
@@ -38,10 +41,50 @@ import java.util.Map;
 public class DorisStreamLoad extends FlowComponent {
 
     // 对应job.json参数
+    @ComponentField(
+        label = "Schema",
+        type = ComponentFieldType.SCHEMA,
+        dependsOn = "sourceId",
+        group = "基础配置",
+        order = 20,
+        help = "Doris 数据库 Schema 名称"
+    )
     private String schema;
+
+    @ComponentField(
+        label = "目标表名",
+        type = ComponentFieldType.TABLE,
+        required = true,
+        dependsOn = "sourceId",
+        dataSourceField = "sourceId",
+        schemaField = "schema",
+        group = "基础配置",
+        order = 30,
+        placeholder = "请输入 Doris 表名"
+    )
     private String table;
+
+    @ComponentField(
+        label = "写入模式",
+        type = ComponentFieldType.SELECT,
+        defaultValue = "INSERT",
+        group = "基础配置",
+        order = 40,
+        options = { @ComponentFieldOption(value = "INSERT", label = "INSERT"), @ComponentFieldOption(value = "DELETE", label = "DELETE") },
+        help = "Doris StreamLoad 支持的写入模式"
+    )
     private String model; // 写入模式：insert, update, delete
 
+    @ComponentField(
+        key = "sourceId",
+        label = "Doris 数据源",
+        type = ComponentFieldType.DATASOURCE,
+        required = true,
+        group = "基础配置",
+        order = 10,
+        schemaField = "schema",
+        help = "选择 Doris 数据库数据源"
+    )
     private DatasourceInfo datasource;
 
     private final Map<String, TableMeta> tableMetaMap = new HashMap<>();

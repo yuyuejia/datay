@@ -21,6 +21,8 @@ import com.data.datafusion.service.etl.ETLNodeTranslatorRegistry;
 import com.data.datafusion.service.mapper.ETLEdgeMapper;
 import com.data.datafusion.service.mapper.ETLNodeMapper;
 import com.data.datafusion.service.mapper.ETLTaskMapper;
+import com.data.job.ComponentFactory;
+import com.data.job.ComponentFieldDescriptor;
 import com.data.job.ETLFlowTask;
 import com.data.job.ExceptionUtils;
 import com.data.job.TaskInstance;
@@ -241,26 +243,8 @@ public class ETLTaskService {
             }
             for (String key : config.keySet()) {
                 unit.put(key, config.get(key));
-                if (key.equals("sourceId")) {
-                    Map<String, Object> sourceId = new LinkedHashMap<>();
-                    String dataSourceId = config.get(key).toString();
-                    Optional<DataSourceDTO> sourceOptional = dataSourceService.findOne(dataSourceId);
-                    if (sourceOptional.isEmpty()) {
-                        throw new IllegalArgumentException("数据源不存在: " + dataSourceId);
-                    }
-                    DataSourceDTO source = sourceOptional.get();
-                    sourceId.put("type", source.getType());
-                    sourceId.put("url", source.getUrl());
-                    sourceId.put("driver", DBUtils.getDriverClassName(source.getUrl()));
-                    sourceId.put("username", source.getUsername());
-                    sourceId.put("password", source.getPassword());
-                    sourceId.put("hostname", source.getHostname());
-                    sourceId.put("port", source.getPort());
-                    sourceId.put("extraParams", source.getExtraParams());
-                    sourceId.put("dbschema", config.get("schema") == null ? "" : config.get("schema").toString());
-                    unit.put("sourceId", sourceId);
-                }
             }
+            resolveDatasourceFields(unit, config, etlNode.getType());
             units.add(unit);
         }
         for (ETLEdge etlEdge : etlEdgeList) {
@@ -285,6 +269,68 @@ public class ETLTaskService {
         etlJobJson.put("version", "1.0.0");
 
         return JSONUtil.toJsonStr(etlJobJson);
+    }
+
+    /**
+     * 根据组件字段元数据解析所有 {@code DATASOURCE} 类型字段。
+     * <p>
+     * 设计器保存的是数据源 ID，引擎需要的是完整连接信息。这里对组件中声明的
+     * {@link com.data.job.ComponentFieldType#DATASOURCE} 字段统一执行展开，并把数据源
+     * 关联的 Schema 字段写入 {@code dbschema}。旧组件或插件元数据尚未加载时，继续兼容
+     * 约定的 {@code sourceId} 字段。
+     *
+     * @param unit          引擎节点定义
+     * @param config        设计器节点配置
+     * @param componentType 组件编码
+     */
+    private void resolveDatasourceFields(Map<String, Object> unit, JSONObject config, String componentType) {
+        Map<String, String> datasourceFields = new LinkedHashMap<>();
+        for (ComponentFieldDescriptor field : ComponentFactory.getFields(componentType)) {
+            if ("DATASOURCE".equalsIgnoreCase(field.getType())) {
+                String schemaField = field.getSchemaField();
+                datasourceFields.put(field.getKey(), schemaField == null || schemaField.isBlank() ? "schema" : schemaField);
+            }
+        }
+        // 兼容没有字段元数据的旧组件，以及插件尚未加载时保存的任务
+        datasourceFields.putIfAbsent("sourceId", "schema");
+
+        for (Map.Entry<String, String> entry : datasourceFields.entrySet()) {
+            String key = entry.getKey();
+            Object rawValue = config.get(key);
+            if (rawValue == null) {
+                continue;
+            }
+            if (rawValue instanceof Map<?, ?>) {
+                unit.put(key, rawValue);
+                continue;
+            }
+            String dataSourceId = rawValue.toString().trim();
+            if (dataSourceId.isEmpty()) {
+                if ("sourceId".equals(key)) {
+                    throw new IllegalArgumentException("数据源不存在: " + dataSourceId);
+                }
+                continue;
+            }
+            DataSourceDTO source = dataSourceService
+                .findOne(dataSourceId)
+                .orElseThrow(() -> new IllegalArgumentException("数据源不存在: " + dataSourceId));
+            unit.put(key, toDatasourceMap(source, config, entry.getValue()));
+        }
+    }
+
+    private Map<String, Object> toDatasourceMap(DataSourceDTO source, JSONObject config, String schemaField) {
+        Map<String, Object> datasource = new LinkedHashMap<>();
+        datasource.put("type", source.getType());
+        datasource.put("url", source.getUrl());
+        datasource.put("driver", DBUtils.getDriverClassName(source.getUrl()));
+        datasource.put("username", source.getUsername());
+        datasource.put("password", source.getPassword());
+        datasource.put("hostname", source.getHostname());
+        datasource.put("port", source.getPort());
+        datasource.put("extraParams", source.getExtraParams());
+        Object schema = config.get(schemaField);
+        datasource.put("dbschema", schema == null ? "" : schema.toString());
+        return datasource;
     }
 
     /**

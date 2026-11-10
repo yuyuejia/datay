@@ -41,6 +41,11 @@ public class ETLComponentCatalogService {
             for (ETLNodeTranslator translator : translators) {
                 ComponentDescriptor descriptor = translator.descriptor();
                 if (descriptor != null && descriptor.getCode() != null) {
+                    // 翻译器覆盖同名组件时，保留 ComponentFactory 扫描出的字段元数据
+                    ComponentDescriptor existing = merged.get(descriptor.getCode());
+                    if (existing != null && (descriptor.getFields() == null || descriptor.getFields().isEmpty())) {
+                        descriptor.setFields(existing.getFields());
+                    }
                     merged.put(descriptor.getCode(), descriptor);
                 }
             }
@@ -62,6 +67,7 @@ public class ETLComponentCatalogService {
         dto.setType("0");
         dto.setConfig("");
         dto.setStatus("0");
+        dto.setFields(descriptor.getFields());
         return dto;
     }
 }

@@ -23,6 +23,7 @@
     <modules>
         <module>datay-core</module>
         <module>datay-web</module>
+        <module>datay-plugin-example</module>
     </modules>
 
     <properties>

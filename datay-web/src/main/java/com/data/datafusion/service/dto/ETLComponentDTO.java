@@ -1,7 +1,9 @@
 package com.data.datafusion.service.dto;
 
+import com.data.job.ComponentFieldDescriptor;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -35,6 +37,9 @@ public class ETLComponentDTO implements Serializable {
     private String tenantId;
 
     private Integer dr;
+
+    /** 组件配置字段元数据，用于前端动态表单。 */
+    private List<ComponentFieldDescriptor> fields;
 
     public String getId() {
         return id;
@@ -138,6 +143,14 @@ public class ETLComponentDTO implements Serializable {
 
     public void setDr(Integer dr) {
         this.dr = dr;
+    }
+
+    public List<ComponentFieldDescriptor> getFields() {
+        return fields;
+    }
+
+    public void setFields(List<ComponentFieldDescriptor> fields) {
+        this.fields = fields;
     }
 
     @Override

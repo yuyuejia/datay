@@ -2,6 +2,9 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.job.ComponentField;
+import com.data.job.ComponentFieldOption;
+import com.data.job.ComponentFieldType;
 import com.data.job.ComponentRegister;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -29,17 +32,123 @@ import java.util.Properties;
 )
 public class KafkaConsumerComponent extends FlowComponent {
 
+    @ComponentField(
+        label = "Bootstrap Servers",
+        type = ComponentFieldType.INPUT,
+        required = true,
+        group = "基础配置",
+        order = 10,
+        defaultValue = "localhost:9092",
+        placeholder = "localhost:9092",
+        help = "Kafka broker 地址，多个用逗号分隔"
+    )
     private String bootstrapServers = "localhost:9092";
+
+    @ComponentField(
+        label = "Topic",
+        type = ComponentFieldType.INPUT,
+        required = true,
+        group = "基础配置",
+        order = 20,
+        placeholder = "请输入 Kafka Topic 名称"
+    )
     private String topic;
+
+    @ComponentField(
+        label = "消费组ID",
+        type = ComponentFieldType.INPUT,
+        group = "基础配置",
+        order = 30,
+        defaultValue = "datay-consumer",
+        placeholder = "datay-consumer"
+    )
     private String groupId = "datay-consumer";
+
+    @ComponentField(
+        label = "Offset重置策略",
+        type = ComponentFieldType.SELECT,
+        group = "基础配置",
+        order = 40,
+        defaultValue = "earliest",
+        options = {
+            @ComponentFieldOption(value = "earliest", label = "earliest - 从最早开始消费"),
+            @ComponentFieldOption(value = "latest", label = "latest - 从最新开始消费"),
+            @ComponentFieldOption(value = "none", label = "none - 必须已有消费记录")
+        }
+    )
     private String autoOffsetReset = "earliest";
+
+    @ComponentField(
+        label = "启用自动提交",
+        type = ComponentFieldType.SWITCH,
+        group = "基础配置",
+        order = 50,
+        defaultValue = "true"
+    )
     private boolean enableAutoCommit = true;
+
+    @ComponentField(
+        label = "批量大小",
+        type = ComponentFieldType.NUMBER,
+        group = "基础配置",
+        order = 60,
+        defaultValue = "100",
+        min = 1,
+        max = 10000,
+        help = "每次消费的最大消息数"
+    )
     private int batchSize = 100;
+
+    @ComponentField(
+        label = "消费超时（ms）",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 10,
+        defaultValue = "30000",
+        min = 1000
+    )
     private int consumerTimeoutMs = 30000;
+
+    @ComponentField(
+        label = "连接超时（ms）",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 20,
+        defaultValue = "5000",
+        min = 1000
+    )
     private int connectionTimeoutMs = 5000;
-    
+
+    @ComponentField(
+        label = "指定分区",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 30,
+        defaultValue = "-1",
+        min = -1,
+        placeholder = "-1 表示不指定",
+        help = "-1 表示不指定分区，消费所有分区"
+    )
     private Integer partition = -1;
+
+    @ComponentField(
+        label = "起始Offset",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 40,
+        placeholder = "留空不指定",
+        help = "指定消费的起始 Offset，留空则使用 autoOffsetReset 策略"
+    )
     private Long startOffset = null;
+
+    @ComponentField(
+        label = "起始时间戳",
+        type = ComponentFieldType.NUMBER,
+        group = "高级配置",
+        order = 50,
+        placeholder = "留空不指定",
+        help = "按时间戳定位起始位置，单位毫秒"
+    )
     private Long startTimestamp = null;
 
     private KafkaConsumer<String, String> kafkaConsumer;

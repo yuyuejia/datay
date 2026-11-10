@@ -3,6 +3,8 @@ package com.data.job.component;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.expression.ParameterUtil;
+import com.data.job.ComponentField;
+import com.data.job.ComponentFieldType;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
@@ -34,10 +36,38 @@ import java.util.Map;
 )
 public class SqlInput extends FlowComponent {
 
+    @ComponentField(
+        label = "SQL语句",
+        type = ComponentFieldType.TEXTAREA,
+        group = "基础配置",
+        order = 20,
+        placeholder = "请输入SQL查询语句，留空则使用上游FlowFile中的SQL",
+        help = "支持 ${attr:属性名}、${属性名}、${FLOW_FILE_DATA}、#{内置参数} 等动态参数；留空时使用上游传递的 SQL"
+    )
     private String sql;
+
+    @ComponentField(
+        key = "sourceId",
+        label = "数据源",
+        type = ComponentFieldType.DATASOURCE,
+        required = true,
+        group = "基础配置",
+        order = 10,
+        schemaField = "schema"
+    )
     private DatasourceInfo datasource;
 
     // 可选配置：查询结果的输出表名；未配置时按上游表名或默认值解析
+    @ComponentField(
+        label = "输出表名",
+        type = ComponentFieldType.INPUT,
+        group = "基础配置",
+        order = 30,
+        placeholder = "可选，默认 sql_query_result",
+        pattern = "^[a-zA-Z_][a-zA-Z0-9_]*$",
+        patternMessage = "输出表名只能包含字母、数字和下划线，且不能以数字开头",
+        help = "查询结果输出给下游时携带的表名；多个 SqlInput 接入同一个 Join 时请配置不同表名"
+    )
     private String outputTable;
 
     // 添加流式读取配置

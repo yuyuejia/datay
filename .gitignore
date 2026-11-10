@@ -165,3 +165,5 @@ metadata.ducklake.wal
 *.duckdb.wal
 *.ducklake
 *.ducklake.wal
+/datay-plugin-example/target/
+/plugins/

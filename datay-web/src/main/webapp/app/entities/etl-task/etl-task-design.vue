@@ -10,6 +10,7 @@ import ETLTaskService from '../etl-task/etl-task.service';
 import ETLTaskNode from './etl-task-node.vue';
 import EtlTaskEdge from './EtlTaskEdge.vue';
 import DynamicParameterHelp from './DynamicParameterHelp.vue';
+import DynamicComponentForm from './dynamic/DynamicComponentForm.vue';
 import EtlTaskAiAssistant from './etl-task-ai-assistant.vue';
 import { buildAiTaskContext, buildFlowNodes, buildFlowEdges } from './etl-task-ai-spec';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -279,6 +280,8 @@ const dark = ref(false);
 const showConfigModal = ref(false);
 const selectedNode = ref(null);
 const selectedConfigComponent = ref(null);
+const selectedComponentMeta = ref(null);
+const selectedFields = ref([]);
 const editingNodeLabel = ref('');
 const currentSavedConfig = ref(null);
 
@@ -318,7 +321,15 @@ onNodeDoubleClick(event => {
   nodeParallelism.value = Number(event.node.data?.config?.parallelism) || 1;
   debugError.value = '';
   const componentType = event.node.data.type;
-  selectedConfigComponent.value = componentConfigMap[componentType];
+  const componentMeta = etlComponents.value.find(item => item.code === componentType);
+  selectedComponentMeta.value = componentMeta || null;
+  if (componentMeta?.fields?.length) {
+    selectedFields.value = componentMeta.fields;
+    selectedConfigComponent.value = markRaw(DynamicComponentForm);
+  } else {
+    selectedFields.value = [];
+    selectedConfigComponent.value = componentConfigMap[componentType];
+  }
 
   if (!selectedConfigComponent.value) {
     console.warn(`未找到 ${componentType} 对应的配置组件`);
@@ -1054,6 +1065,8 @@ const cancelTask = () => {
             :is="selectedConfigComponent"
             :key="selectedNode ? selectedNode.id : 'empty'"
             :node="selectedNode"
+            :fields="selectedFields"
+            :component="selectedComponentMeta"
             @save="handleComponentSave"
             ref="configComponentRef"
           />

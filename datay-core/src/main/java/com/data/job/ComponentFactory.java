@@ -13,13 +13,17 @@ import java.util.Map;
  * ETL 组件工厂。
  * <p>
  * 启动时自动扫描 {@code com.data.job.component} 包（含子包）下所有带有
- * {@link ComponentRegister} 注解的组件实现，注册组件编码到实现类的映射，
- * 同时收集组件的名称、分类、描述等元数据，供前端组件面板自动发现使用。
+ * {@link ComponentRegister} 注解的组件实现，并加载外部插件目录中的组件 JAR，
+ * 注册组件编码到实现类的映射，同时收集组件的名称、分类、描述等元数据，
+ * 供前端组件面板自动发现使用。
  */
 public class ComponentFactory {
 
     /** 组件编码 -> 实现类全限定名。 */
     public static final Map<String, String> components = new LinkedHashMap<>();
+
+    /** 组件编码 -> 实现类，兼容外部 JAR 插件的独立类加载器。 */
+    private static final Map<String, Class<?>> componentClasses = new LinkedHashMap<>();
 
     /** 组件编码 -> 组件元数据。 */
     private static final Map<String, ComponentDescriptor> descriptors = new LinkedHashMap<>();
@@ -33,6 +37,11 @@ public class ComponentFactory {
         } catch (Exception e) {
             System.err.println("自动扫描 ETL 组件失败: " + e.getMessage());
         }
+        try {
+            ComponentPluginLoader.load();
+        } catch (Exception e) {
+            System.err.println("加载外部 ETL 组件插件失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -45,17 +54,51 @@ public class ComponentFactory {
                 continue;
             }
             String code = StrUtil.isBlank(annotation.value()) ? clazz.getSimpleName() : annotation.value();
-            String name = StrUtil.isBlank(annotation.name()) ? code : annotation.name();
-            components.put(code, clazz.getName());
-            descriptors.put(code, new ComponentDescriptor(code, name, annotation.group(), annotation.desc(), clazz.getName(), annotation.order()));
+            registerComponent(code, clazz, annotation);
         }
+    }
+
+    /**
+     * 注册组件实现类，同时生成组件元数据。
+     *
+     * @param code       组件编码
+     * @param clazz      组件实现类
+     * @param annotation 组件注册注解
+     */
+    public static synchronized void registerComponent(String code, Class<?> clazz, ComponentRegister annotation) {
+        String name = StrUtil.isBlank(annotation.name()) ? code : annotation.name();
+        componentClasses.put(code, clazz);
+        components.put(code, clazz.getName());
+        descriptors.put(
+            code,
+            new ComponentDescriptor(
+                code,
+                name,
+                annotation.group(),
+                annotation.desc(),
+                clazz.getName(),
+                annotation.order(),
+                ComponentMetadataExtractor.extract(clazz)
+            )
+        );
     }
 
     /**
      * 添加组件注册方法，允许运行时手动注册组件。
      */
-    public static void registerComponent(String componentName, String className) {
+    public static synchronized void registerComponent(String componentName, String className) {
         components.put(componentName, className);
+        try {
+            Class<?> clazz = Class.forName(className);
+            ComponentRegister annotation = clazz.getAnnotation(ComponentRegister.class);
+            if (annotation != null) {
+                registerComponent(componentName, clazz, annotation);
+            } else {
+                componentClasses.put(componentName, clazz);
+            }
+        } catch (ClassNotFoundException e) {
+            System.err.println("组件类不存在: " + className);
+        }
     }
 
     /**
@@ -79,10 +122,28 @@ public class ComponentFactory {
         return descriptors.get(code);
     }
 
+    /**
+     * 获取指定编码组件的配置字段元数据。
+     *
+     * @param code 组件编码
+     * @return 字段元数据列表，组件不存在或未声明字段时返回空列表
+     */
+    public static List<ComponentFieldDescriptor> getFields(String code) {
+        ComponentDescriptor descriptor = descriptors.get(code);
+        return descriptor == null ? new ArrayList<>() : descriptor.getFields();
+    }
+
     // 新增支持直接传递类名和参数的构造方法
     public static Component create(String className, Map<String, Object> params) {
         try {
-            Class<?> clazz = Class.forName(components.get(className));
+            Class<?> clazz = componentClasses.get(className);
+            if (clazz == null) {
+                String fullClassName = components.get(className);
+                if (StrUtil.isBlank(fullClassName)) {
+                    throw new IllegalArgumentException("未注册的组件: " + className);
+                }
+                clazz = Class.forName(fullClassName);
+            }
             Component instance = (Component) clazz.getDeclaredConstructor().newInstance();
 
             // 使用Hutool进行Bean注入
