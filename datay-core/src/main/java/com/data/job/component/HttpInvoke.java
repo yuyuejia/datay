@@ -13,8 +13,13 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.JsonTableMetaUtils;
 import okhttp3.*;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -57,8 +62,8 @@ public class HttpInvoke extends FlowComponent {
     // JSON路径提取 (用于从JSON响应中提取特定字段)
     private String jsonPath;
 
-    // 是否启用SSL证书验证
-    private boolean sslVerify = true;
+    // 是否启用SSL证书验证（默认关闭，忽略证书校验；如需严格校验证书请显式配置为 true）
+    private boolean sslVerify = false;
 
     // 是否启用分页循环拉取
     private boolean paginationEnabled = false;
@@ -221,13 +226,50 @@ public class HttpInvoke extends FlowComponent {
                     .readTimeout(timeout, TimeUnit.MILLISECONDS)
                     .writeTimeout(timeout, TimeUnit.MILLISECONDS);
 
-            // 如果不启用SSL验证，添加信任所有证书的配置
+            // 如果不启用SSL验证，放行所有证书（含自签名证书）并跳过主机名校验
             if (!sslVerify) {
                 builder.hostnameVerifier((hostname, session) -> true);
-                // 注意：生产环境不建议禁用SSL验证
+                X509TrustManager trustManager = buildTrustAllTrustManager();
+                builder.sslSocketFactory(buildTrustAllSslContext(trustManager).getSocketFactory(), trustManager);
+                logWarn("已禁用 SSL 证书校验（sslVerify=false），仅建议在测试或内网自签名证书环境使用");
             }
 
             httpClient = builder.build();
+        }
+    }
+
+    /**
+     * 构建信任所有证书的 TrustManager，用于 sslVerify=false 时跳过 HTTPS 证书链校验。
+     */
+    private X509TrustManager buildTrustAllTrustManager() {
+        return new X509TrustManager() {
+            @Override
+            public void checkClientTrusted(X509Certificate[] chain, String authType) {
+                // 信任所有客户端证书
+            }
+
+            @Override
+            public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                // 信任所有服务端证书
+            }
+
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0];
+            }
+        };
+    }
+
+    /**
+     * 基于“信任所有证书”的 TrustManager 构建 SSLContext。
+     */
+    private SSLContext buildTrustAllSslContext(X509TrustManager trustManager) {
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new TrustManager[]{trustManager}, new SecureRandom());
+            return sslContext;
+        } catch (Exception e) {
+            throw new IllegalStateException("初始化 HTTPS 上下文失败: " + e.getMessage(), e);
         }
     }
 

@@ -122,7 +122,7 @@ const formData = reactive({
   timeout: props.node?.data?.config?.timeout || 30000,
   retryCount: props.node?.data?.config?.retryCount || 1,
   retryInterval: props.node?.data?.config?.retryInterval || 1000,
-  sslVerify: props.node?.data?.config?.sslVerify !== false,
+  sslVerify: props.node?.data?.config?.sslVerify === true,
   paginationEnabled: props.node?.data?.config?.paginationEnabled === true,
   startPage: props.node?.data?.config?.startPage || 1,
   pageSize: props.node?.data?.config?.pageSize || 100,
