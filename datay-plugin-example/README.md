@@ -30,7 +30,7 @@ datay-plugin-example/target/datay-plugin-example.jar
 ### 方式一：启动时指定插件目录
 
 ```bash
-# JAR 名称以实际构建版本为准，例如 datay-web-1.1.0.jar
+# JAR 名称以实际构建版本为准，例如 datay-web-1.2.0.jar
 java -Ddatay.component.plugin-dir=/绝对路径/datay-plugin-example/target -jar datay-web/target/datay-web-<version>.jar
 ```
 
