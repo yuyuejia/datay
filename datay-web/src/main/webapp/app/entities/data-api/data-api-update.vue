@@ -23,13 +23,18 @@
       </el-row>
 
       <el-row :gutter="20">
-        <el-col :span="12">
+        <el-col :span="24">
           <el-form-item label="数据来源" required>
-            <el-select v-model="dataApi.sourceType" style="width: 100%" @change="onSourceTypeChange">
-              <el-option v-for="opt in sourceTypeOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
-            </el-select>
+            <el-radio-group v-model="dataApi.sourceType" class="source-type-group" @change="onSourceTypeChange">
+              <el-radio-button v-for="opt in sourceTypeOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </el-radio-button>
+            </el-radio-group>
           </el-form-item>
         </el-col>
+      </el-row>
+
+      <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item label="状态" required>
             <el-select v-model="dataApi.status" style="width: 100%">
@@ -337,6 +342,11 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.source-type-group {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .source-block {
