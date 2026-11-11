@@ -232,30 +232,117 @@ public class DataSyncService {
             boolean quackTarget = targetInfo.getUrl() != null && targetInfo.getUrl().startsWith("quack:");
             try (Connection sConnection = DBUtils.getConnection(sourceInfo); Connection tConnection = DBUtils.getConnection(targetInfo)) {
                 List<DataSyncTableConfigDTO> selectedTables = dataSyncDTO.getSelectedTables();
-                for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
-                    TableMeta srcTable = DBUtils.getTableMetaData(
-                        sConnection,
-                        tableConfigDTO.getSrcSchemaName(),
-                        tableConfigDTO.getSrcTableName()
-                    );
-                    if (!DBUtils.tableExists(tConnection, tableConfigDTO.getDesSchemaName(), tableConfigDTO.getDesTableName())) {
-                        // 转换并创建目标表
-                        TableMeta targetTable = DatabaseConverter.convert(
-                            DBUtils.getDBType(source.get().getType(), source.get().getUrl()),
-                            DBUtils.getDBType(target.get().getType(), target.get().getUrl()),
-                            srcTable
-                        );
-                        targetTable.setTable(tableConfigDTO.getDesTableName());
-                        targetTable.setSchema(tableConfigDTO.getDesSchemaName());
-                        if (quackTarget) {
-                            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+                if (selectedTables == null || selectedTables.stream().noneMatch(table -> hasText(table.getSrcTableName()))) {
+                    // 未选择表时按全库同步处理：创建源 schema 下所有表的目标表结构
+                    String srcSchema = resolveSourceSchema(dataSyncDTO, source.get());
+                    String desSchema = resolveTargetSchema(dataSyncDTO, target.get());
+                    for (TableMeta tableMeta : DBUtils.getTableList(sConnection, srcSchema)) {
+                        String tableName = tableMeta.getTable();
+                        if (!hasText(tableName) || tableName.endsWith("_backup") || tableName.endsWith("_tmp")) {
+                            continue;
                         }
-                        String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.get().getType(), target.get().getUrl()), targetTable);
-                        DBUtils.execute(tConnection, ddl);
+                        String tableSchema = hasText(tableMeta.getSchema()) ? tableMeta.getSchema() : srcSchema;
+                        createTargetTable(
+                            sConnection,
+                            tConnection,
+                            source.get(),
+                            target.get(),
+                            tableSchema,
+                            tableName,
+                            desSchema,
+                            tableName,
+                            quackTarget
+                        );
                     }
+                    return;
+                }
+                for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
+                    if (!hasText(tableConfigDTO.getSrcTableName())) {
+                        continue;
+                    }
+                    createTargetTable(
+                        sConnection,
+                        tConnection,
+                        source.get(),
+                        target.get(),
+                        tableConfigDTO.getSrcSchemaName(),
+                        tableConfigDTO.getSrcTableName(),
+                        tableConfigDTO.getDesSchemaName(),
+                        tableConfigDTO.getDesTableName(),
+                        quackTarget
+                    );
                 }
             }
         }
+    }
+
+    private void createTargetTable(
+        Connection sConnection,
+        Connection tConnection,
+        DataSourceDTO source,
+        DataSourceDTO target,
+        String srcSchema,
+        String srcTableName,
+        String desSchema,
+        String desTableName,
+        boolean quackTarget
+    ) throws SQLException {
+        String targetSchema = hasText(desSchema) ? desSchema : target.getSchemaName();
+        String targetTableName = hasText(desTableName) ? desTableName : srcTableName;
+        if (DBUtils.tableExists(tConnection, targetSchema, targetTableName)) {
+            return;
+        }
+        String sourceSchema = hasText(srcSchema) ? srcSchema : source.getSchemaName();
+        TableMeta srcTable = DBUtils.getTableMetaData(sConnection, sourceSchema, srcTableName);
+        // 转换并创建目标表
+        TableMeta targetTable = DatabaseConverter.convert(
+            DBUtils.getDBType(source.getType(), source.getUrl()),
+            DBUtils.getDBType(target.getType(), target.getUrl()),
+            srcTable
+        );
+        targetTable.setTable(targetTableName);
+        targetTable.setSchema(targetSchema);
+        if (quackTarget) {
+            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+        }
+        String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.getType(), target.getUrl()), targetTable);
+        DBUtils.execute(tConnection, ddl);
+    }
+
+    /**
+     * 解析源端 schema：优先取表配置中的 schema，未选表时回退到数据源配置的 schema。
+     */
+    private static String resolveSourceSchema(DataSyncDTO dataSyncDTO, DataSourceDTO source) {
+        if (dataSyncDTO.getSelectedTables() != null) {
+            return dataSyncDTO
+                .getSelectedTables()
+                .stream()
+                .map(DataSyncTableConfigDTO::getSrcSchemaName)
+                .filter(DataSyncService::hasText)
+                .findFirst()
+                .orElseGet(() -> source == null ? null : source.getSchemaName());
+        }
+        return source == null ? null : source.getSchemaName();
+    }
+
+    /**
+     * 解析目标端 schema：优先取表配置中的 schema，未选表时回退到数据源配置的 schema。
+     */
+    private static String resolveTargetSchema(DataSyncDTO dataSyncDTO, DataSourceDTO target) {
+        if (dataSyncDTO.getSelectedTables() != null) {
+            return dataSyncDTO
+                .getSelectedTables()
+                .stream()
+                .map(DataSyncTableConfigDTO::getDesSchemaName)
+                .filter(DataSyncService::hasText)
+                .findFirst()
+                .orElseGet(() -> target == null ? null : target.getSchemaName());
+        }
+        return target == null ? null : target.getSchemaName();
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
@@ -300,7 +387,11 @@ public class DataSyncService {
         List<Map<String, Object>> units = new ArrayList<>();
         List<Map<String, Object>> connections = new ArrayList<>();
 
-        List<DataSyncTableConfigDTO> selectedTables = dataSyncDTO.getSelectedTables();
+        List<DataSyncTableConfigDTO> selectedTables = dataSyncDTO.getSelectedTables() == null
+            ? Collections.emptyList()
+            : dataSyncDTO.getSelectedTables();
+        String srcSchema = resolveSourceSchema(dataSyncDTO, source);
+        String desSchema = resolveTargetSchema(dataSyncDTO, target);
 
         // 生成 JdbcInput 组件
         Map<String, Object> jdbcInput = new LinkedHashMap<>();
@@ -313,7 +404,7 @@ public class DataSyncService {
             sourceIdInput.put("driver", DBUtils.getDriverClassName(source.getUrl()));
             sourceIdInput.put("username", source.getUsername());
             sourceIdInput.put("password", source.getPassword());
-            sourceIdInput.put("dbschema", selectedTables.get(0).getSrcSchemaName());
+            sourceIdInput.put("dbschema", srcSchema);
             sourceIdInput.put("type", source.getType());
             sourceIdInput.put("hostname", source.getHostname());
             sourceIdInput.put("port", source.getPort());
@@ -325,13 +416,18 @@ public class DataSyncService {
         JSONObject incrColumn = new JSONObject();
         boolean overwrite = "FULL_SYNC".equals(dataSyncDTO.getType()) || "DATA_ONLY".equals(dataSyncDTO.getType());
         for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
+            if (!hasText(tableConfigDTO.getSrcTableName())) {
+                continue;
+            }
             tableList.append(tableConfigDTO.getSrcTableName()).append(",");
             // OVERWRITE 模式下不使用增量列，避免「增量输入 + OVERWRITE 输出」导致的覆盖丢失
             if (!overwrite) {
                 incrColumn.put(tableConfigDTO.getSrcTableName(), tableConfigDTO.getSrcColPks());
             }
         }
-        jdbcInput.put("table", tableList.substring(0, tableList.length() - 1)); // 假设 DataSyncDTO 有 getSrcTableName 方法
+        // 未选择表时 table 为空，StreamJdbcInput 会自动同步 schema 下的所有表
+        jdbcInput.put("schema", srcSchema);
+        jdbcInput.put("table", tableList.length() > 0 ? tableList.substring(0, tableList.length() - 1) : "");
         jdbcInput.put("incrColumn", incrColumn);
         jdbcInput.put("maxRowsPerPartition", "10000");
         jdbcInput.put("where", ""); // 假设 DataSyncDTO 有 getWhereClause 方法
@@ -349,7 +445,7 @@ public class DataSyncService {
             sourceIdOutput.put("driver", DBUtils.getDriverClassName(target.getUrl()));
             sourceIdOutput.put("username", target.getUsername());
             sourceIdOutput.put("password", target.getPassword());
-            sourceIdOutput.put("dbschema", selectedTables.get(0).getDesSchemaName());
+            sourceIdOutput.put("dbschema", desSchema);
             sourceIdOutput.put("type", target.getType());
             sourceIdOutput.put("hostname", target.getHostname());
             sourceIdOutput.put("port", target.getPort());
@@ -357,17 +453,21 @@ public class DataSyncService {
             outputNode.put("sourceId", sourceIdOutput);
         }
 
-        DataSyncTableConfigDTO firstTable = selectedTables.get(0);
+        DataSyncTableConfigDTO firstTable = selectedTables.isEmpty() ? null : selectedTables.get(0);
         if (jdbcTarget) {
+            outputNode.put("schema", desSchema);
             outputNode.put("table", ""); // 目标表由上游 FlowFile 表名属性决定
             if (overwrite) {
                 outputNode.put("model", "overwrite");
             }
         } else {
             // 非 JDBC 目标：显式配置的目标表名作为索引名，缺省回退到上游表名
-            outputNode.put("table", firstTable.getDesTableName() == null ? "" : firstTable.getDesTableName());
+            outputNode.put(
+                "table",
+                firstTable == null || firstTable.getDesTableName() == null ? "" : firstTable.getDesTableName()
+            );
             outputNode.put("model", overwrite ? "overwrite" : "append");
-            if (firstTable.getSrcColPks() != null && !firstTable.getSrcColPks().isBlank()) {
+            if (firstTable != null && firstTable.getSrcColPks() != null && !firstTable.getSrcColPks().isBlank()) {
                 outputNode.put("idField", firstTable.getSrcColPks().split(",")[0].trim());
             }
         }

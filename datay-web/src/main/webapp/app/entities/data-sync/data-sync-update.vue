@@ -5,7 +5,7 @@
         <h3 id="data-sync-heading" data-cy="DataSyncCreateUpdateHeading">
           {{ dataSync.id ? '编辑数据迁移任务' : '新增数据迁移任务' }}
         </h3>
-        <p class="page-subtitle">配置源端与目标端数据源，选择需要迁移的表</p>
+        <p class="page-subtitle">配置源端与目标端数据源，选择需要迁移的表（不选表则同步整个 Schema）</p>
       </div>
       <div class="page-actions">
         <el-button id="cancel-save" data-cy="entityCreateCancelButton" @click="previousState()">
@@ -16,7 +16,7 @@
           type="primary"
           data-cy="entityCreateSaveButton"
           :loading="isSaving"
-          :disabled="v$.jobName.$invalid || v$.jobDesc.$invalid || v$.type.$invalid || v$.cron.$invalid || selectedTables.length === 0"
+          :disabled="v$.jobName.$invalid || v$.jobDesc.$invalid || v$.type.$invalid || v$.cron.$invalid"
           @click="save()"
         >
           <font-awesome-icon icon="save"></font-awesome-icon>
@@ -82,7 +82,7 @@
           <div>
             <h4 class="section-title">同步范围</h4>
             <p class="section-hint">
-              选择需要迁移的表，并可调整目标表名
+              选择需要迁移的表，不选表时默认同步整个 Schema；可调整目标表名
               <span v-if="selectedTables.length" class="selected-count">已选 {{ selectedTables.length }} 张表</span>
             </p>
           </div>
@@ -105,7 +105,7 @@
             </template>
           </el-table-column>
           <template #empty>
-            <div class="empty-hint">尚未选择表，点击右上角「选择表」添加</div>
+            <div class="empty-hint">尚未选择表，保存后将默认同步整个 Schema（全库同步）</div>
           </template>
         </el-table>
       </section>
