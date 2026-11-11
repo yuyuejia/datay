@@ -50,16 +50,55 @@ public class MqttEvaluateJsonPathToMysqlTest {
     private static final String MYSQL_PASSWORD = System.getProperty("mysql.password", "1234qwer");
     private static final String DBSCHEMA = System.getProperty("mysql.dbschema", "test_db");
 
-    private static final String TARGET_TABLE = "mqtt_jsonpath_verify";
+    @Test
+    @Timeout(120000)
+    public void testMqttPayloadObjectExtractedAndWrittenToMysql() throws Exception {
+        String table = "mqtt_jsonpath_verify";
+        String payload = "{\"msgId\":1001,\"payload\":{\"deviceId\":\"d-1\",\"temperature\":23.5}}";
+
+        runPipeline(table, payload, "$.payload");
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                 "SELECT deviceId, temperature FROM " + table + " LIMIT 10")) {
+            assertTrue(rs.next(), "MySQL 中应存在写入的数据");
+            assertEquals("d-1", rs.getString("deviceId"));
+            assertEquals(23.5, rs.getDouble("temperature"), 0.0001);
+        }
+        assertExtractedColumns(table);
+    }
 
     @Test
     @Timeout(120000)
-    public void testMqttPayloadExtractedAndWrittenToMysql() throws Exception {
-        dropTable();
+    public void testMqttArrayPayloadInUnderscoreFieldExtractedAndWrittenToMysql() throws Exception {
+        String table = "mqtt_jsonpath_verify_array";
+        // 多条记录组成的 JSON 数组会被 MqttConsumer 放入 _payload 字段
+        String payload = "[{\"deviceId\":\"d-1\",\"temperature\":23.5},"
+            + "{\"deviceId\":\"d-2\",\"temperature\":21.8}]";
+
+        runPipeline(table, payload, "$._payload");
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                 "SELECT deviceId, temperature FROM " + table
+                     + " GROUP BY deviceId, temperature ORDER BY deviceId")) {
+            assertTrue(rs.next(), "MySQL 中应存在写入的数据");
+            assertEquals("d-1", rs.getString("deviceId"));
+            assertEquals(23.5, rs.getDouble("temperature"), 0.0001);
+            assertTrue(rs.next(), "数组中的第二条记录也应写入");
+            assertEquals("d-2", rs.getString("deviceId"));
+            assertEquals(21.8, rs.getDouble("temperature"), 0.0001);
+        }
+        assertExtractedColumns(table);
+    }
+
+    private void runPipeline(String table, String payload, String jsonPath) throws Exception {
+        dropTable(table);
 
         String topic = "datay/verify/" + UUID.randomUUID();
-        String payload = "{\"msgId\":1001,\"payload\":{\"deviceId\":\"d-1\",\"temperature\":23.5}}";
-        String job = buildJob(topic);
+        String job = buildJob(topic, jsonPath, table);
 
         ETLFlowTask runner = new ETLFlowTask();
         AtomicReference<Throwable> jobError = new AtomicReference<>();
@@ -92,7 +131,7 @@ public class MqttEvaluateJsonPathToMysqlTest {
                         throw new RuntimeException("ETL 任务执行失败", jobError.get());
                     }
                     producer.publish(topic, message);
-                    if (queryRowCount() > 0) {
+                    if (queryRowCount(table) > 0) {
                         written = true;
                         break;
                     }
@@ -110,18 +149,15 @@ public class MqttEvaluateJsonPathToMysqlTest {
             executor.awaitTermination(10, TimeUnit.SECONDS);
         }
 
-        try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(
-                 "SELECT deviceId, temperature FROM " + TARGET_TABLE + " LIMIT 10")) {
-            assertTrue(rs.next(), "MySQL 中应存在写入的数据");
-            assertEquals("d-1", rs.getString("deviceId"));
-            assertEquals(23.5, rs.getDouble("temperature"), 0.0001);
-        }
+        future.get(10, TimeUnit.SECONDS);
+    }
 
-        // 确认写库结构来自 payload 提取结果，而不是 MQTT 原始记录
+    /**
+     * 确认写库结构来自提取结果，而不是 MQTT 原始记录。
+     */
+    private void assertExtractedColumns(String table) throws SQLException {
         try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery("SHOW COLUMNS FROM " + TARGET_TABLE)) {
+            try (ResultSet rs = stmt.executeQuery("SHOW COLUMNS FROM " + table)) {
                 boolean hasDeviceId = false;
                 boolean hasTemperature = false;
                 boolean hasRawField = false;
@@ -132,20 +168,18 @@ public class MqttEvaluateJsonPathToMysqlTest {
                     } else if ("temperature".equalsIgnoreCase(column)) {
                         hasTemperature = true;
                     } else if ("msgId".equalsIgnoreCase(column) || "payload".equalsIgnoreCase(column)
-                        || "_topic".equalsIgnoreCase(column)) {
+                        || "_payload".equalsIgnoreCase(column) || "_topic".equalsIgnoreCase(column)) {
                         hasRawField = true;
                     }
                 }
                 assertTrue(hasDeviceId, "应写入提取后的 deviceId 列");
                 assertTrue(hasTemperature, "应写入提取后的 temperature 列");
-                assertFalse(hasRawField, "不应写入 MQTT 原始字段 msgId/payload/_topic");
+                assertFalse(hasRawField, "不应写入 MQTT 原始字段 msgId/payload/_payload/_topic");
             }
         }
-
-        future.get(10, TimeUnit.SECONDS);
     }
 
-    private String buildJob(String topic) {
+    private String buildJob(String topic, String jsonPath, String table) {
         return "{\n" +
             "  \"units\": [\n" +
             "    {\n" +
@@ -162,7 +196,7 @@ public class MqttEvaluateJsonPathToMysqlTest {
             "    {\n" +
             "      \".id\": \"eval1\",\n" +
             "      \".name\": \"EvaluateJsonPath\",\n" +
-            "      \"jsonPath\": \"$.payload\"\n" +
+            "      \"jsonPath\": \"" + jsonPath + "\"\n" +
             "    },\n" +
             "    {\n" +
             "      \".id\": \"mysql1\",\n" +
@@ -174,7 +208,7 @@ public class MqttEvaluateJsonPathToMysqlTest {
             "        \"password\": \"" + MYSQL_PASSWORD + "\",\n" +
             "        \"dbschema\": \"" + DBSCHEMA + "\"\n" +
             "      },\n" +
-            "      \"table\": \"" + TARGET_TABLE + "\",\n" +
+            "      \"table\": \"" + table + "\",\n" +
             "      \"schema\": \"" + DBSCHEMA + "\",\n" +
             "      \"model\": \"append\"\n" +
             "    }\n" +
@@ -199,16 +233,16 @@ public class MqttEvaluateJsonPathToMysqlTest {
         producer.connect(options);
     }
 
-    private void dropTable() throws SQLException {
+    private void dropTable(String table) throws SQLException {
         try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.execute("DROP TABLE IF EXISTS " + TARGET_TABLE);
+            stmt.execute("DROP TABLE IF EXISTS " + table);
         }
     }
 
-    private int queryRowCount() {
+    private int queryRowCount(String table) {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + TARGET_TABLE)) {
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + table)) {
             return rs.next() ? rs.getInt(1) : 0;
         } catch (SQLException e) {
             return 0;
