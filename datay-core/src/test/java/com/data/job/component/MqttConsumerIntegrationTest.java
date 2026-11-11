@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.data.job.Connection;
+import com.data.job.DebugResult;
 import com.data.job.ExecutionContext;
 import com.data.job.FlowFile;
 import com.data.job.TaskLogger;
@@ -95,6 +96,57 @@ public class MqttConsumerIntegrationTest {
             executor.shutdownNow();
         }
         future.get(15, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @Timeout(90000)
+    public void testDebugModeConsumesOneBatchFromRealBroker() throws Exception {
+        String broker = System.getenv("MQTT_IT_BROKER");
+        String username = System.getenv("MQTT_IT_USERNAME");
+        String password = System.getenv("MQTT_IT_PASSWORD");
+        String publishTopic = "datay/it/debug/" + UUID.randomUUID();
+
+        MqttConsumerComponent component = new MqttConsumerComponent();
+        component.setBrokerUrl(broker);
+        component.setTopic(publishTopic);
+        component.setQos(1);
+        component.setBatchSize(10);
+        component.setConsumerTimeoutMs(200);
+        component.setDebugWaitTimeoutMs(30000);
+        component.setUsername(username);
+        component.setPassword(password);
+        component.setId("mqtt-it-debug");
+        component.setName("MqttConsumer");
+
+        ExecutionContext context = new ExecutionContext();
+        context.setJobInstanceCode("mqtt-it-debug-instance");
+        context.setJobCode("mqtt-it-debug-job");
+        context.setDebugMode(true);
+        component.setContext(context);
+        component.setTaskLogger(new TaskLogger("mqtt-it-debug-job", "mqtt-it-debug-instance"));
+        component.setActiveThreads(new AtomicInteger(1));
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<?> future = executor.submit(() -> component.execute(new FlowFile()));
+        try {
+            awaitConnected(component, 15000);
+            Thread.sleep(500);
+            publish(broker, username, password, publishTopic,
+                "{\"deviceId\":\"debug-1\",\"temperature\":21.5}");
+
+            future.get(30, TimeUnit.SECONDS);
+        } finally {
+            component.stop();
+            executor.shutdownNow();
+        }
+
+        DebugResult result = context.getDebugResults().get("mqtt-it-debug");
+        assertNotNull(result, "调试模式应采集真实 MQTT 消息");
+        assertEquals(1, result.getRows().size(), "调试模式接收一批数据后应结束");
+        assertTrue(result.getColumns().contains("deviceId"));
+        assertTrue(result.getColumns().contains("temperature"));
+        assertEquals(publishTopic, result.getAttributes().get("_mqttTopic"));
+        assertEquals("1", result.getAttributes().get("_recordCount"));
     }
 
     private void awaitConnected(MqttConsumerComponent component, long timeoutMs) throws InterruptedException {

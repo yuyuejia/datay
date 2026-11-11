@@ -3,7 +3,6 @@ package com.data.job.component;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.job.Component.ComponentType;
 import com.data.job.ComponentFactory;
-import com.data.job.DebugResult;
 import com.data.job.ExecutionContext;
 import com.data.job.FlowFile;
 import com.data.job.TaskLogger;
@@ -69,6 +68,7 @@ public class MqttConsumerTest {
         assertEquals(100, component.getBatchSize());
         assertEquals(1000, component.getConsumerTimeoutMs());
         assertEquals(10000, component.getMaxQueueSize());
+        assertEquals(30000, component.getDebugWaitTimeoutMs());
         assertEquals("AUTO", component.getPayloadFormat());
     }
 
@@ -131,6 +131,11 @@ public class MqttConsumerTest {
         component.setConsumerTimeoutMs("invalid");
         assertEquals(1000, component.getConsumerTimeoutMs());
 
+        component.setDebugWaitTimeoutMs("5000");
+        assertEquals(5000, component.getDebugWaitTimeoutMs());
+        component.setDebugWaitTimeoutMs("invalid");
+        assertEquals(30000, component.getDebugWaitTimeoutMs());
+
         component.setMaxQueueSize("5000");
         assertEquals(5000, component.getMaxQueueSize());
         component.setMaxQueueSize("invalid");
@@ -192,17 +197,16 @@ public class MqttConsumerTest {
 
     @Test
     @Timeout(60000)
-    public void testDebugModeGeneratesMockMessage() {
+    public void testDebugModeConnectsBrokerInsteadOfGeneratingMock() {
         context.setDebugMode(true);
         component.setTopic("debug/topic");
+        component.setBrokerUrl("tcp://127.0.0.1:1");
+        component.setConnectionTimeout(1);
+        component.setDebugWaitTimeoutMs(2000);
 
-        component.execute(new FlowFile());
-
-        DebugResult result = context.getDebugResults().get("test-mqtt-consumer");
-        assertNotNull(result);
-        assertEquals(1, result.getRows().size());
-        assertEquals("debug/topic", result.getAttributes().get("_mqttTopic"));
-        assertEquals("1", result.getAttributes().get("_recordCount"));
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> component.execute(new FlowFile()));
+        assertTrue(ex.getMessage().contains("MQTT消费组件执行失败"));
+        assertNull(context.getDebugResults().get("test-mqtt-consumer"), "调试模式不应再生成模拟数据");
     }
 
     @Test

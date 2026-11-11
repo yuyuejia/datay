@@ -15,7 +15,6 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,6 +45,7 @@ public class MqttConsumerComponent extends FlowComponent {
     private int batchSize = 100;
     private int consumerTimeoutMs = 1000;
     private int maxQueueSize = 10000;
+    private int debugWaitTimeoutMs = 30000;
     private String payloadFormat = "AUTO";
 
     private volatile boolean isRunning = false;
@@ -59,10 +59,8 @@ public class MqttConsumerComponent extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
-        if (getContext() != null && getContext().isDebugMode()) {
-            executeDebugMock();
-            return;
-        }
+        // 调试模式同样连接 Broker 消费真实消息，只接收一批数据后结束，不再生成模拟数据
+        boolean debugMode = getContext() != null && getContext().isDebugMode();
 
         if (getParallelism() > 1) {
             throw new IllegalArgumentException(
@@ -80,7 +78,8 @@ public class MqttConsumerComponent extends FlowComponent {
             throw new IllegalArgumentException("MQTT Broker 地址必须以 tcp://、ssl://、ws:// 或 wss:// 开头");
         }
 
-        logInfo("MQTT消费组件开始执行，brokerUrl: " + url + ", topic: " + topic + ", qos: " + qos);
+        logInfo("MQTT消费组件开始执行，brokerUrl: " + url + ", topic: " + topic + ", qos: " + qos
+            + (debugMode ? "（调试模式：接收一批真实消息后结束）" : ""));
         messageQueue = new LinkedBlockingQueue<>(Math.max(Math.max(maxQueueSize, batchSize), 1));
         isRunning = true;
         lastConnectionError = null;
@@ -88,7 +87,7 @@ public class MqttConsumerComponent extends FlowComponent {
         try {
             mqttClient = createClient(url);
             connectAndSubscribe();
-            consumeMessages();
+            consumeMessages(debugMode);
         } catch (Exception e) {
             logError("MQTT消费组件执行失败: " + e.getMessage());
             throw new RuntimeException("MQTT消费组件执行失败", e);
@@ -221,25 +220,53 @@ public class MqttConsumerComponent extends FlowComponent {
         return trimmed.startsWith("{") || trimmed.startsWith("[");
     }
 
-    private void consumeMessages() {
+    private void consumeMessages(boolean debugMode) {
+        long debugWaitTimeout = Math.max(debugWaitTimeoutMs, 1000);
+        long debugDeadline = debugMode ? System.currentTimeMillis() + debugWaitTimeout : 0L;
+        boolean received = false;
+
         while (isRunning && !Thread.currentThread().isInterrupted()) {
             JSONObject first;
             try {
-                first = messageQueue.poll(Math.max(consumerTimeoutMs, 100), TimeUnit.MILLISECONDS);
+                long pollTimeout = Math.max(consumerTimeoutMs, 100);
+                if (debugMode && !received) {
+                    long remaining = debugDeadline - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        throw debugWaitTimeoutException(debugWaitTimeout);
+                    }
+                    pollTimeout = Math.min(pollTimeout, remaining);
+                }
+                first = messageQueue.poll(pollTimeout, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
             }
             if (first == null) {
+                if (debugMode && !received && System.currentTimeMillis() >= debugDeadline) {
+                    throw debugWaitTimeoutException(debugWaitTimeout);
+                }
                 checkConnection();
                 continue;
             }
+            received = true;
 
             List<JSONObject> batch = new ArrayList<>(batchSize);
             batch.add(first);
             messageQueue.drainTo(batch, Math.max(batchSize - 1, 0));
             sendBatch(batch);
+
+            if (debugMode) {
+                logInfo("调试模式：已接收 " + batch.size() + " 条真实 MQTT 消息，本次调试结束");
+                break;
+            }
         }
+    }
+
+    private RuntimeException debugWaitTimeoutException(long timeoutMs) {
+        return new RuntimeException(
+            "调试模式等待 MQTT 消息超时（" + timeoutMs + " ms），请确认 Broker 地址和订阅主题，"
+                + "或先向该主题发布一条消息后重试"
+        );
     }
 
     private void checkConnection() {
@@ -267,31 +294,6 @@ public class MqttConsumerComponent extends FlowComponent {
         writeRecords(flowFile);
 
         logInfo("已成功发送 " + records.size() + " 条MQTT消息到下游组件");
-    }
-
-    private void executeDebugMock() {
-        JSONObject record = new JSONObject();
-        record.put("_topic", topic);
-        record.put("_qos", qos);
-        record.put("_retained", false);
-        record.put("_duplicate", false);
-        record.put("_messageId", 0);
-        record.put("_timestamp", System.currentTimeMillis());
-        record.put("id", 1);
-        record.put("name", "debug");
-        record.put("event_time", new Timestamp(System.currentTimeMillis()));
-
-        JSONArray jsonArray = new JSONArray();
-        jsonArray.add(record);
-
-        FlowFile flowFile = new FlowFile();
-        flowFile.setJsonArray(jsonArray);
-        flowFile.setAttribute("_mqttTopic", topic);
-        flowFile.setAttribute("_recordCount", 1);
-        flowFile.setAttribute("_payloadFormat", resolvedPayloadFormat());
-        flowFile.setAttribute("_debugMock", true);
-        writeRecords(flowFile);
-        logInfo("调试模式：根据组件能力生成模拟 MQTT 消息，topic: " + topic);
     }
 
     boolean isConnected() {
@@ -541,5 +543,23 @@ public class MqttConsumerComponent extends FlowComponent {
 
     public void setPayloadFormat(String payloadFormat) {
         this.payloadFormat = payloadFormat;
+    }
+
+    public int getDebugWaitTimeoutMs() {
+        return debugWaitTimeoutMs;
+    }
+
+    public void setDebugWaitTimeoutMs(int debugWaitTimeoutMs) {
+        this.debugWaitTimeoutMs = debugWaitTimeoutMs;
+    }
+
+    public void setDebugWaitTimeoutMs(String debugWaitTimeoutMs) {
+        if (debugWaitTimeoutMs != null && !debugWaitTimeoutMs.trim().isEmpty()) {
+            try {
+                this.debugWaitTimeoutMs = Integer.parseInt(debugWaitTimeoutMs.trim());
+            } catch (NumberFormatException e) {
+                this.debugWaitTimeoutMs = 30000;
+            }
+        }
     }
 }

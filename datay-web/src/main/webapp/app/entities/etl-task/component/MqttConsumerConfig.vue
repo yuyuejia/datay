@@ -45,6 +45,10 @@
     <el-form-item label="消费等待超时（ms）">
       <el-input-number :controls="false" id="consumerTimeoutMs" name="consumerTimeoutMs" v-model="formData.consumerTimeoutMs" :min="100" />
     </el-form-item>
+    <el-form-item label="调试等待超时（ms）">
+      <el-input-number :controls="false" id="debugWaitTimeoutMs" name="debugWaitTimeoutMs" v-model="formData.debugWaitTimeoutMs" :min="1000" />
+      <small class="form-text text-muted"> 调试模式连接 Broker 后等待首条消息的最长时间，超时则本次调试结束 </small>
+    </el-form-item>
     <el-form-item label="消息队列容量">
       <el-input-number :controls="false" id="maxQueueSize" name="maxQueueSize" v-model="formData.maxQueueSize" :min="1" />
       <small class="form-text text-muted"> 回调线程接收消息的缓冲队列大小，队列满时会丢弃并记录告警 </small>
@@ -86,6 +90,7 @@ const formData = reactive({
   connectionTimeout: props.node?.data?.config?.connectionTimeout || 10,
   batchSize: props.node?.data?.config?.batchSize || 100,
   consumerTimeoutMs: props.node?.data?.config?.consumerTimeoutMs || 1000,
+  debugWaitTimeoutMs: props.node?.data?.config?.debugWaitTimeoutMs ?? 30000,
   maxQueueSize: props.node?.data?.config?.maxQueueSize || 10000,
   payloadFormat: props.node?.data?.config?.payloadFormat || 'AUTO',
 });
