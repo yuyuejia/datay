@@ -96,6 +96,83 @@ class DataQualityCheckTest {
         }
     }
 
+    @Test
+    void streamModeCustomSqlShouldReferenceSourceTable(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-stream-custom-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "STREAM", "NOT_NULL_ID", "ERROR");
+            component.setRules(
+                "[{\"ruleCode\":\"custom\",\"ruleName\":\"自定义SQL\",\"ruleType\":\"CUSTOM_SQL\"," +
+                "\"config\":{\"sql\":\"SELECT COUNT(*) AS invalid_rows FROM source_table WHERE name IS NULL\"}," +
+                "\"severity\":\"ERROR\",\"maxInvalidRows\":0}]"
+            );
+            attachOutput(component);
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(dataFlow()));
+            assertTrue(exception.getMessage().contains("数据质量检核未通过"), exception.getMessage());
+            assertFalse(exception.getMessage().contains("执行失败"), exception.getMessage());
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    @Test
+    void streamModeCustomSqlShouldUseUpstreamTableNameWhenMetadataHasSchema(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-stream-custom-schema-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "STREAM", "NOT_NULL_ID", "ERROR");
+            component.setRules(
+                "[{\"ruleCode\":\"custom\",\"ruleName\":\"自定义SQL\",\"ruleType\":\"CUSTOM_SQL\"," +
+                "\"config\":{\"sql\":\"SELECT COUNT(*) AS invalid_rows FROM source_table WHERE name IS NULL\"}," +
+                "\"severity\":\"ERROR\",\"maxInvalidRows\":0}]"
+            );
+            attachOutput(component);
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(dataFlow("src")));
+            assertTrue(exception.getMessage().contains("数据质量检核未通过"), exception.getMessage());
+            assertFalse(exception.getMessage().contains("执行失败"), exception.getMessage());
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    @Test
+    void fullModeCustomSqlShouldReferenceSourceTable(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-full-custom-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "FULL", "NOT_NULL_ID", "ERROR");
+            component.setRules(
+                "[{\"ruleCode\":\"custom\",\"ruleName\":\"自定义SQL\",\"ruleType\":\"CUSTOM_SQL\"," +
+                "\"config\":{\"sql\":\"SELECT COUNT(*) AS invalid_rows FROM source_table WHERE name IS NULL\"}," +
+                "\"severity\":\"ERROR\",\"maxInvalidRows\":0}]"
+            );
+            attachOutput(component);
+            component.execute(dataFlow());
+            component.execute(dataFlow());
+            component.upstreamFinish = true;
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> component.execute(endFlow()));
+            assertTrue(exception.getMessage().contains("数据质量检核未通过"), exception.getMessage());
+            assertFalse(exception.getMessage().contains("执行失败"), exception.getMessage());
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    @Test
+    void shouldRejectMultipleTables(@TempDir Path tempDir) throws Exception {
+        String instanceCode = "dq-single-table-" + System.currentTimeMillis();
+        try {
+            DataQualityCheck component = component(tempDir, instanceCode, "FULL", "NOT_NULL_ID", "ERROR");
+            attachOutput(component);
+            component.execute(dataFlow(null, "orders"));
+            IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> component.execute(dataFlow(null, "users"))
+            );
+            assertTrue(exception.getMessage().contains("仅支持单表检核"), exception.getMessage());
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
     private DataQualityCheck component(Path tempDir, String instanceCode, String mode, String ruleType, String severity) {
         DataQualityCheck component = new DataQualityCheck();
         component.setId("dq_check");
@@ -139,8 +216,19 @@ class DataQualityCheckTest {
     }
 
     private FlowFile dataFlow() {
-        TableMeta tableMeta = new TableMeta("source_table", java.util.List.of(new ColumnMeta("id", "BIGINT"), new ColumnMeta("name", "VARCHAR")));
+        return dataFlow(null, "source_table");
+    }
+
+    private FlowFile dataFlow(String schema) {
+        return dataFlow(schema, "source_table");
+    }
+
+    private FlowFile dataFlow(String schema, String tableName) {
+        TableMeta tableMeta = new TableMeta(tableName, java.util.List.of(new ColumnMeta("id", "BIGINT"), new ColumnMeta("name", "VARCHAR")));
         tableMeta.setDbType("duckdb");
+        if (schema != null) {
+            tableMeta.setSchema(schema);
+        }
         JSONArray rows = new JSONArray();
         JSONObject row1 = new JSONObject();
         row1.put("id", 1);
@@ -154,7 +242,10 @@ class DataQualityCheckTest {
         FlowFile flowFile = new FlowFile();
         flowFile.setJsonArray(rows);
         flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta);
-        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "source_table");
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, tableName);
+        if (schema != null) {
+            flowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, schema);
+        }
         return flowFile;
     }
 

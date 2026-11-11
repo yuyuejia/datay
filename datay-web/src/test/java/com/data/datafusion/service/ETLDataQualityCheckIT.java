@@ -146,6 +146,44 @@ class ETLDataQualityCheckIT {
         assertThat(readFile(passedSummaryPath)).contains("PASS").contains("order_id");
     }
 
+    @Test
+    void shouldExecuteEtlTaskWithCustomSqlRuleReferencingSourceTable() throws Exception {
+        dataSourceId = createDuckDbSource();
+
+        ETLTaskDTO failedTask = createCustomSqlTask(
+            "ETL自定义SQL质检失败",
+            "SELECT COUNT(*) AS invalid_rows FROM dq_orders WHERE customer_name IS NULL",
+            "STREAM"
+        );
+        taskIds.add(failedTask.getId());
+        DataQualityCheckUnit failedUnit = extractQualityCheckUnit(jobContext(failedTask));
+        JobInstance failedInstance = executeAndWait(failedTask);
+        assertThat(failedInstance.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_FAILED);
+        String failedSummaryPath = join(
+            failedUnit.outputDir(),
+            failedInstance.getInstanceCode(),
+            failedUnit.resultPrefix() + "_batch_1_summary.csv"
+        );
+        assertThat(fileStorageStrategy.exists(failedSummaryPath)).isTrue();
+        assertThat(readFile(failedSummaryPath)).contains("FAIL").contains("CUSTOM_SQL");
+
+        ETLTaskDTO passedTask = createCustomSqlTask(
+            "ETL自定义SQL质检通过",
+            "SELECT COUNT(*) AS invalid_rows FROM dq_orders WHERE order_id < 0",
+            "FULL"
+        );
+        taskIds.add(passedTask.getId());
+        DataQualityCheckUnit passedUnit = extractQualityCheckUnit(jobContext(passedTask));
+        JobInstance passedInstance = executeAndWait(passedTask);
+        assertThat(passedInstance.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_SUCCESSFUL);
+        String passedSummaryPath = join(
+            passedUnit.outputDir(),
+            passedInstance.getInstanceCode(),
+            passedUnit.resultPrefix() + "_summary.csv"
+        );
+        assertThat(readFile(passedSummaryPath)).contains("PASS").contains("CUSTOM_SQL");
+    }
+
     private String createDuckDbSource() throws Exception {
         Path sourceFile = tempDir.resolve("etl-dq-source-" + System.currentTimeMillis() + ".duckdb");
         try (Connection connection = DriverManager.getConnection("jdbc:duckdb:" + sourceFile.toAbsolutePath())) {
@@ -200,6 +238,47 @@ class ETLDataQualityCheckIT {
         ETLTaskDTO task = new ETLTaskDTO();
         task.setTaskName(taskName + "-" + System.currentTimeMillis());
         task.setTaskDesc("ETL 数据质量组件验证");
+        task.setType(TaskConstants.ETL_TASK_KIND_BATCH);
+        task.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
+        task.setNodes(List.of(input, check));
+        task.setEdges(List.of(edge));
+        return etlTaskService.save(task);
+    }
+
+    private ETLTaskDTO createCustomSqlTask(String taskName, String sql, String checkMode) throws Exception {
+        Map<String, Object> inputConfig = new LinkedHashMap<>();
+        inputConfig.put("sourceId", dataSourceId);
+        inputConfig.put("schema", "main");
+        inputConfig.put("table", "dq_orders");
+        inputConfig.put("where", "");
+        inputConfig.put("incrColumn", "");
+
+        Map<String, Object> rule = new LinkedHashMap<>();
+        rule.put("ruleCode", "ETL_DQ_CUSTOM_SQL_" + System.nanoTime());
+        rule.put("ruleName", "自定义 SQL");
+        rule.put("ruleType", "CUSTOM_SQL");
+        rule.put("severity", "ERROR");
+        rule.put("maxInvalidRows", 0);
+        rule.put("maxInvalidRatio", 0);
+        rule.put("config", Map.of("sql", sql));
+
+        Map<String, Object> checkConfig = new LinkedHashMap<>();
+        checkConfig.put("checkMode", checkMode);
+        checkConfig.put("failOnError", true);
+        checkConfig.put("rules", List.of(rule));
+
+        ETLNodeDTO input = node("输入", "input_1", "StreamJdbcInput", inputConfig);
+        ETLNodeDTO check = node("数据质量检核", "dq_check_1", "DataQualityCheck", checkConfig);
+        ETLEdgeDTO edge = new ETLEdgeDTO();
+        edge.setCode("edge_1");
+        edge.setName("输入 -> 质量检核");
+        edge.setSource("input_1");
+        edge.setTarget("dq_check_1");
+        edge.setConfig("{\"queueCapacity\":10}");
+
+        ETLTaskDTO task = new ETLTaskDTO();
+        task.setTaskName(taskName + "-" + System.currentTimeMillis());
+        task.setTaskDesc("ETL 自定义 SQL 数据质量验证");
         task.setType(TaskConstants.ETL_TASK_KIND_BATCH);
         task.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
         task.setNodes(List.of(input, check));

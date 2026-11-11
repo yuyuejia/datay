@@ -46,7 +46,8 @@ import java.util.Map;
 )
 public class DataQualityCheck extends FlowComponent {
 
-    private static final String SCHEMA = "main";
+    /** 质量检核内部临时表所在 schema，避免与下游 Join / 输出组件共用同名表。 */
+    private static final String DQ_SCHEMA = "dq_check";
 
     private static final String SUMMARY_TABLE_PREFIX = "dq_summary_";
 
@@ -65,6 +66,9 @@ public class DataQualityCheck extends FlowComponent {
 
     /** 全量模式下合并上游状态，保证增量水位等状态继续向下游传递。 */
     private final Map<String, Object> sourceStatus = new LinkedHashMap<>();
+
+    /** 上游源表名，作为检核用的 DuckDB 临时表名，自定义 SQL 可直接基于该表编写。 */
+    private String sourceTableName;
 
     private String checkMode = "STREAM";
 
@@ -141,6 +145,7 @@ public class DataQualityCheck extends FlowComponent {
      * 全量模式：上游数据先持续写入 DuckDB，等待上游结束后再做全量检核。
      */
     private void materializeFull(FlowFile flowFile) {
+        rememberSourceTable(flowFile);
         if (flowFile.getJsonArray() == null) {
             return;
         }
@@ -167,6 +172,7 @@ public class DataQualityCheck extends FlowComponent {
             return;
         }
         batchIndex++;
+        rememberSourceTable(flowFile);
         String table = resolveSourceTable();
         if (flowBuffer == null) {
             // 流式模式每个批次替换 DuckDB 表内容，只检核当前 FlowFile。
@@ -247,21 +253,15 @@ public class DataQualityCheck extends FlowComponent {
         if (getOutput() == null || getOutput().isEmpty()) {
             return;
         }
-        String schema = SCHEMA;
-        String tableName = table;
-        int index = table.lastIndexOf('.');
-        if (index > 0) {
-            schema = table.substring(0, index);
-            tableName = table.substring(index + 1);
-        }
+        String sourceTable = tableName(table);
         boolean emitted = false;
         try (Statement statement = connection.createStatement()) {
             statement.setFetchSize(5000);
             try (ResultSet rs = statement.executeQuery("SELECT * FROM " + table)) {
                 TableMeta tableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
                 tableMeta.setDbType("duckdb");
-                tableMeta.setSchema(schema);
-                tableMeta.setTable(tableName);
+                tableMeta.setSchema(DQ_SCHEMA);
+                tableMeta.setTable(sourceTable);
                 JSONArray batch = new JSONArray();
                 while (rs.next()) {
                     JSONObject record = new JSONObject();
@@ -284,7 +284,7 @@ public class DataQualityCheck extends FlowComponent {
                 }
             }
         }
-        logInfo("全量数据检核通过，已从 DuckDB 下发 " + tableName);
+        logInfo("全量数据检核通过，已从 DuckDB 下发 " + sourceTable);
     }
 
     private void writeFullBatch(JSONArray records, TableMeta tableMeta) {
@@ -311,52 +311,67 @@ public class DataQualityCheck extends FlowComponent {
 
     private List<RuleResult> evaluate(Connection connection, List<CompiledQualityRule> rules, String table) throws SQLException {
         List<RuleResult> results = new ArrayList<>(rules.size());
-        for (CompiledQualityRule rule : rules) {
-            long checkedRows = 0L;
-            long invalidRows = 0L;
-            try (Statement statement = connection.createStatement(); ResultSet rs = statement.executeQuery(rule.getCheckSql())) {
-                if (rs.next()) {
-                    checkedRows = rs.getLong("checked_rows");
-                    invalidRows = rs.getLong("invalid_rows");
+        // 自定义 SQL 直接使用上游表名，优先从质量检核 schema 解析。
+        if (!DBUtils.schemaExists(connection, DQ_SCHEMA)) {
+            DBUtils.execute(connection, "CREATE SCHEMA IF NOT EXISTS " + DQ_SCHEMA);
+        }
+        setSearchPath(connection, DQ_SCHEMA + ",main");
+        try {
+            for (CompiledQualityRule rule : rules) {
+                long checkedRows = 0L;
+                long invalidRows = 0L;
+                try (Statement statement = connection.createStatement(); ResultSet rs = statement.executeQuery(rule.getCheckSql())) {
+                    if (rs.next()) {
+                        checkedRows = rs.getLong("checked_rows");
+                        invalidRows = rs.getLong("invalid_rows");
+                    }
+                } catch (SQLException e) {
+                    throw new SQLException("规则[" + rule.getName() + "]执行失败: " + e.getMessage(), e);
                 }
-            } catch (SQLException e) {
-                throw new SQLException("规则[" + rule.getName() + "]执行失败: " + e.getMessage(), e);
+                double invalidRatio = checkedRows <= 0 ? 0.0D : (double) invalidRows / (double) checkedRows;
+                boolean exceeded = invalidRows > rule.getMaxInvalidRows() || invalidRatio > rule.getMaxInvalidRatio();
+                String status;
+                if (!exceeded) {
+                    status = "PASS";
+                } else if ("WARN".equalsIgnoreCase(rule.getSeverity())) {
+                    status = "WARN";
+                } else {
+                    status = "FAIL";
+                }
+                String message = exceeded
+                    ? "无效行数 " +
+                    invalidRows +
+                    "/" +
+                    checkedRows +
+                    "（比例 " +
+                    String.format(Locale.ROOT, "%.4f", invalidRatio) +
+                    "），超过阈值 行数=" +
+                    rule.getMaxInvalidRows() +
+                    " 比例=" +
+                    rule.getMaxInvalidRatio()
+                    : "通过";
+                results.add(new RuleResult(rule, checkedRows, invalidRows, invalidRatio, status, message));
+                logInfo(
+                    "规则[" +
+                    rule.getName() +
+                    "] 检核完成: checkedRows=" +
+                    checkedRows +
+                    ", invalidRows=" +
+                    invalidRows +
+                    ", status=" +
+                    status
+                );
             }
-            double invalidRatio = checkedRows <= 0 ? 0.0D : (double) invalidRows / (double) checkedRows;
-            boolean exceeded = invalidRows > rule.getMaxInvalidRows() || invalidRatio > rule.getMaxInvalidRatio();
-            String status;
-            if (!exceeded) {
-                status = "PASS";
-            } else if ("WARN".equalsIgnoreCase(rule.getSeverity())) {
-                status = "WARN";
-            } else {
-                status = "FAIL";
-            }
-            String message = exceeded
-                ? "无效行数 " +
-                invalidRows +
-                "/" +
-                checkedRows +
-                "（比例 " +
-                String.format(Locale.ROOT, "%.4f", invalidRatio) +
-                "），超过阈值 行数=" +
-                rule.getMaxInvalidRows() +
-                " 比例=" +
-                rule.getMaxInvalidRatio()
-                : "通过";
-            results.add(new RuleResult(rule, checkedRows, invalidRows, invalidRatio, status, message));
-            logInfo(
-                "规则[" +
-                rule.getName() +
-                "] 检核完成: checkedRows=" +
-                checkedRows +
-                ", invalidRows=" +
-                invalidRows +
-                ", status=" +
-                status
-            );
+        } finally {
+            setSearchPath(connection, "main");
         }
         return results;
+    }
+
+    private void setSearchPath(Connection connection, String searchPath) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET search_path = '" + searchPath.replace("'", "''") + "'");
+        }
     }
 
     private void createSummaryTable(Connection connection) throws SQLException {
@@ -480,8 +495,58 @@ public class DataQualityCheck extends FlowComponent {
     }
 
     private String resolveSourceTable() {
+        String table = sourceTableName;
+        if (table != null && !table.isBlank()) {
+            return DQ_SCHEMA + "." + table;
+        }
         String prefix = isFullMode() ? "dq_full_" : "dq_stream_";
-        return SCHEMA + "." + prefix + safeFileName(getId());
+        return DQ_SCHEMA + "." + prefix + safeFileName(getId());
+    }
+
+    private static String tableName(String qualifiedTable) {
+        if (qualifiedTable == null) {
+            return "";
+        }
+        int index = qualifiedTable.lastIndexOf('.');
+        return index > 0 ? qualifiedTable.substring(index + 1) : qualifiedTable;
+    }
+
+    /**
+     * 记录上游源表名。质量检核直接使用该表名作为 DuckDB 临时表，
+     * 自定义 SQL 规则可以基于同名表编写。组件仅支持单表检核，检测到多表时直接报错。
+     */
+    private void rememberSourceTable(FlowFile flowFile) {
+        String table = null;
+        Object meta = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        if (meta instanceof TableMeta tableMeta) {
+            table = tableMeta.getTable();
+        }
+        if (table == null || table.isBlank()) {
+            Object attribute = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE);
+            if (attribute != null) {
+                table = attribute.toString();
+            }
+        }
+        table = trimToNull(table);
+        if (table == null) {
+            return;
+        }
+        int index = table.lastIndexOf('.');
+        if (index > 0) {
+            table = table.substring(index + 1);
+        }
+        if (sourceTableName != null && !sourceTableName.equalsIgnoreCase(table)) {
+            throw new IllegalArgumentException("数据质量检核组件仅支持单表检核，检测到多表输入: " + sourceTableName + ", " + table);
+        }
+        this.sourceTableName = table;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String summaryTable() {

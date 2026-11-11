@@ -22,7 +22,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -131,6 +133,32 @@ class DataQualityExecutionIT {
         assertThat(readFile(passResult.getSummaryPath())).contains("PASS").contains("order_id");
     }
 
+    @Test
+    void shouldExecuteCustomSqlRuleReferencingSourceTable() throws Exception {
+        DataSourceDTO dataSource = createDuckDbSource();
+
+        DataQualityTaskDTO failTask = createCustomSqlTask(
+            dataSource,
+            "自定义SQL质检失败任务",
+            "SELECT COUNT(*) AS invalid_rows FROM dq_orders WHERE customer_name IS NULL"
+        );
+        DataQualityResultDTO failResult = executeAndWait(failTask.getId());
+        assertThat(failResult.getOverallStatus()).isEqualTo("FAIL");
+        assertThat(failResult.getFailRules()).isGreaterThanOrEqualTo(1);
+        assertThat(fileStorageStrategy.exists(failResult.getSummaryPath())).isTrue();
+        assertThat(readFile(failResult.getSummaryPath())).contains("FAIL").contains("CUSTOM_SQL");
+
+        DataQualityTaskDTO passTask = createCustomSqlTask(
+            dataSource,
+            "自定义SQL质检通过任务",
+            "SELECT COUNT(*) AS invalid_rows FROM dq_orders WHERE order_id < 0"
+        );
+        DataQualityResultDTO passResult = executeAndWait(passTask.getId());
+        assertThat(passResult.getOverallStatus()).isEqualTo("PASS");
+        assertThat(passResult.getFailRules()).isZero();
+        assertThat(readFile(passResult.getSummaryPath())).contains("PASS").contains("CUSTOM_SQL");
+    }
+
     private DataSourceDTO createDuckDbSource() throws Exception {
         Path sourceFile = tempDir.resolve("source-" + System.currentTimeMillis() + ".duckdb");
         try (Connection connection = DriverManager.getConnection("jdbc:duckdb:" + sourceFile.toAbsolutePath())) {
@@ -199,6 +227,32 @@ class DataQualityExecutionIT {
         taskIds.add(saved.getId());
         assertThat(saved.getJobId()).isNotBlank();
         assertThat(saved.getRules()).hasSize(1);
+        return saved;
+    }
+
+    private DataQualityTaskDTO createCustomSqlTask(DataSourceDTO dataSource, String name, String sql) {
+        DataQualityRuleBindingDTO binding = new DataQualityRuleBindingDTO();
+        binding.setRuleCode("IT_DQ_CUSTOM_SQL_" + System.nanoTime());
+        binding.setRuleName("自定义 SQL");
+        binding.setRuleType("CUSTOM_SQL");
+        binding.setSeverity("ERROR");
+        binding.setMaxInvalidRows(0L);
+        binding.setMaxInvalidRatio(0.0D);
+        binding.setConfig(new LinkedHashMap<>(Map.of("sql", sql)));
+
+        DataQualityTaskDTO dto = new DataQualityTaskDTO();
+        dto.setTaskName(name + "-" + System.currentTimeMillis());
+        dto.setTaskDesc("自定义 SQL 端到端验证任务");
+        dto.setDataSourceId(dataSource.getId());
+        dto.setSchemaName("main");
+        dto.setTableName("dq_orders");
+        dto.setFailOnWarn(Boolean.FALSE);
+        dto.setSampleLimit(10);
+        dto.setOutputFormat("CSV");
+        dto.setOutputDir("data-quality-it");
+        dto.setRules(List.of(binding));
+        DataQualityTaskDTO saved = taskService.save(dto);
+        taskIds.add(saved.getId());
         return saved;
     }
 

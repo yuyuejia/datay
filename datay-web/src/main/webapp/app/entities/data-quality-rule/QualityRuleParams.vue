@@ -78,10 +78,10 @@
           v-model="config.sql"
           type="textarea"
           :rows="4"
-          placeholder="单条 SELECT，需返回 invalid_rows 列。可使用当前检核表名和字段。"
+          placeholder="单条 SELECT，需返回 invalid_rows 列。可直接使用当前检核的源表名和字段。"
         />
       </el-form-item>
-      <div class="params-hint">示例：SELECT COUNT(*) AS invalid_rows FROM dq_source WHERE amount &lt; 0</div>
+      <div class="params-hint">示例（检核表为 orders 时）：SELECT COUNT(*) AS invalid_rows FROM orders WHERE amount &lt; 0</div>
     </template>
 
     <template v-else-if="ruleType === 'COMPOSITE_UNIQUE'">

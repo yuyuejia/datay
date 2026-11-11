@@ -14,6 +14,8 @@
 
 流式模式适合在数据流中间做实时质量门禁；全量模式适合需要跨批次统计行数、唯一性等规则的场景。
 
+> 质量检核组件仅支持单表输入。检测到上游传入多张表时会直接报错，请为每张表分别配置质量检核节点。
+
 ## 配置参数
 
 | 参数名 | 类型 | 必填 | 默认值 | 描述 |
@@ -63,7 +65,7 @@
 | `ROW_COUNT_MIN` | 表级 | 表行数下限 |
 | `ROW_COUNT_RANGE` | 表级 | 表行数范围 |
 | `COMPOSITE_UNIQUE` | 表级 | 组合字段唯一 |
-| `CUSTOM_SQL` | 表级 | 自定义 SQL，需返回 `invalid_rows`，可自由引用字段和聚合 |
+| `CUSTOM_SQL` | 表级 | 自定义 SQL，需返回 `invalid_rows`，可直接引用源表名、字段和聚合 |
 | `NOT_NULL` | 字段级 | 字段非空，可配置空白字符串视为空值 |
 | `UNIQUE` | 字段级 | 字段唯一 |
 | `RANGE` | 字段级 | 数值 / 日期范围 |
@@ -134,3 +136,15 @@ max_invalid_rows, max_invalid_ratio, status, message
 
 3. **自定义 SQL 有什么限制？**
    仅支持单条 `SELECT`，不能包含多条语句。自定义 SQL 需返回 `invalid_rows` 列。
+   SQL 中可以直接使用当前检核的源表名，例如检核表为 `sqlrest_access_record` 时：
+
+   ```sql
+   SELECT COUNT(*) AS invalid_rows
+   FROM sqlrest_access_record
+   WHERE amount < 0;
+   ```
+
+   如果表在数据源中有 schema，自定义 SQL 中直接使用表名即可（不需要带 schema 前缀）。
+   组件会在 DuckDB 的 `dq_check` schema 下以源表名创建临时表，并把该 schema 放在连接的
+   `search_path` 首位，因此自定义 SQL 可以直接按源表名编写；检核结束后会恢复 `search_path`，
+   不会与下游 Join / 输出组件的同名表冲突。
