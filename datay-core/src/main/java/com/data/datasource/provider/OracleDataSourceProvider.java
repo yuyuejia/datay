@@ -29,6 +29,8 @@ public class OracleDataSourceProvider extends JdbcDataSourceProvider {
         Map<String, String> props = new LinkedHashMap<>();
         props.put("oracle.jdbc.ReadTimeout", "30000");
         props.put("oracle.net.CONNECT_TIMEOUT", "10000");
+        // Oracle JDBC 默认不返回 REMARKS，开启后 DatabaseMetaData 才能读取表/字段注释
+        props.put("oracle.jdbc.remarksReporting", "true");
         return props;
     }
 
