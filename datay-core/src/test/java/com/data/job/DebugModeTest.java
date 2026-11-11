@@ -77,23 +77,7 @@ public class DebugModeTest {
 
     @Test
     @Timeout(60000)
-    public void testRealtimeInputComponentsProduceMockData() throws Exception {
-        String kafkaJob = """
-            {
-              "units": [
-                {".id": "kafka", ".name": "KafkaConsumer", "topic": "test-topic"}
-              ],
-              "connections": [],
-              "version": "1.0.0"
-            }
-            """;
-        ETLFlowTask kafkaRunner = newDebugTask(10, null);
-        kafkaRunner.runJob(kafkaJob);
-        DebugResult kafka = kafkaRunner.getContext().getDebugResults().get("kafka");
-        assertNotNull(kafka, "Kafka 组件应生成模拟数据");
-        assertEquals(1, kafka.getRows().size());
-        assertEquals("test-topic", kafka.getAttributes().get("_kafkaTopic"));
-
+    public void testHttpListenerAndCdcProduceMockData() throws Exception {
         String httpJob = """
             {
               "units": [

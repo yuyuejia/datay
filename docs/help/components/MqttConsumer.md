@@ -51,7 +51,6 @@
 | `consumerTimeoutMs` | Integer | 否 | `1000` | 从内部队列拉取消息的等待超时，单位毫秒 |
 | `maxQueueSize` | Integer | 否 | `10000` | 回调线程使用的内部缓冲队列容量 |
 | `payloadFormat` | String | 否 | `AUTO` | 消息体解析方式：`AUTO` / `JSON` / `TEXT` |
-| `debugWaitTimeoutMs` | Integer | 否 | `30000` | 调试模式下等待首条消息的最长时间，单位毫秒，超时后本次调试报错结束 |
 | `parallelism` | Integer | 否 | `1` | 并发数，MQTT 组件必须保持为 `1` |
 
 > **并发限制**：MQTT 协议没有消费组语义。多个客户端订阅同一主题时，每个客户端都会收到全量消息，因此 `MqttConsumer` 不允许 `parallelism > 1`，否则会重复消费。
@@ -209,7 +208,7 @@ java -Djavax.net.ssl.trustStore=/path/to/truststore.jks \
 
 1. 点击调试运行后，组件连接 Broker 并订阅主题。
 2. 收到第一批消息后立即发送到下游并在调试面板展示，随后关闭连接、结束本次调试。
-3. 若在 `debugWaitTimeoutMs`（默认 30 秒）内未收到消息，本次调试会报错结束，提示检查 Broker 和订阅主题。
+3. 若在 30 秒内未收到消息，本次调试会报错结束，提示检查 Broker 和订阅主题。
 
 因此调试前可以先向目标主题发布一条测试消息，或提前准备好持续上报的设备。
 

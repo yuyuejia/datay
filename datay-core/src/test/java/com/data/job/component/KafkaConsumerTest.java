@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.data.job.Component.ComponentType;
 import com.data.job.ExecutionContext;
+import com.data.job.FlowFile;
 import com.data.job.TaskLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class KafkaConsumerTest {
@@ -174,6 +176,19 @@ public class KafkaConsumerTest {
         
         component.setConnectionTimeoutMs("invalid");
         assertEquals(5000, component.getConnectionTimeoutMs());
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testDebugModeConnectsBrokerInsteadOfGeneratingMock() {
+        context.setDebugMode(true);
+        component.setTopic("debug-topic");
+        component.setBootstrapServers("127.0.0.1:1");
+        component.setConnectionTimeoutMs(1000);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> component.execute(new FlowFile()));
+        assertTrue(ex.getMessage().contains("KafkaConsumer组件执行失败"));
+        assertNull(context.getDebugResults().get("test-kafka-consumer"), "调试模式不应再生成模拟数据");
     }
 
     @Test

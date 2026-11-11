@@ -45,8 +45,10 @@ public class MqttConsumerComponent extends FlowComponent {
     private int batchSize = 100;
     private int consumerTimeoutMs = 1000;
     private int maxQueueSize = 10000;
-    private int debugWaitTimeoutMs = 30000;
     private String payloadFormat = "AUTO";
+
+    /** 调试模式等待首条消息的最长时间 */
+    private static final long DEBUG_WAIT_TIMEOUT_MS = 30_000L;
 
     private volatile boolean isRunning = false;
     private volatile Throwable lastConnectionError;
@@ -221,7 +223,7 @@ public class MqttConsumerComponent extends FlowComponent {
     }
 
     private void consumeMessages(boolean debugMode) {
-        long debugWaitTimeout = Math.max(debugWaitTimeoutMs, 1000);
+        long debugWaitTimeout = DEBUG_WAIT_TIMEOUT_MS;
         long debugDeadline = debugMode ? System.currentTimeMillis() + debugWaitTimeout : 0L;
         boolean received = false;
 
@@ -543,23 +545,5 @@ public class MqttConsumerComponent extends FlowComponent {
 
     public void setPayloadFormat(String payloadFormat) {
         this.payloadFormat = payloadFormat;
-    }
-
-    public int getDebugWaitTimeoutMs() {
-        return debugWaitTimeoutMs;
-    }
-
-    public void setDebugWaitTimeoutMs(int debugWaitTimeoutMs) {
-        this.debugWaitTimeoutMs = debugWaitTimeoutMs;
-    }
-
-    public void setDebugWaitTimeoutMs(String debugWaitTimeoutMs) {
-        if (debugWaitTimeoutMs != null && !debugWaitTimeoutMs.trim().isEmpty()) {
-            try {
-                this.debugWaitTimeoutMs = Integer.parseInt(debugWaitTimeoutMs.trim());
-            } catch (NumberFormatException e) {
-                this.debugWaitTimeoutMs = 30000;
-            }
-        }
     }
 }

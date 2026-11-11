@@ -112,7 +112,6 @@ public class MqttConsumerIntegrationTest {
         component.setQos(1);
         component.setBatchSize(10);
         component.setConsumerTimeoutMs(200);
-        component.setDebugWaitTimeoutMs(30000);
         component.setUsername(username);
         component.setPassword(password);
         component.setId("mqtt-it-debug");

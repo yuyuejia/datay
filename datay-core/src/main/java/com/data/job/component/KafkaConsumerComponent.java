@@ -6,6 +6,7 @@ import com.data.job.ComponentField;
 import com.data.job.ComponentFieldOption;
 import com.data.job.ComponentFieldType;
 import com.data.job.ComponentRegister;
+import com.data.job.DebugLimitReachedException;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -15,7 +16,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +31,9 @@ import java.util.Properties;
     order = 30
 )
 public class KafkaConsumerComponent extends FlowComponent {
+
+    /** 调试模式等待首条消息的最长时间 */
+    private static final long DEBUG_WAIT_TIMEOUT_MS = 30_000L;
 
     @ComponentField(
         label = "Bootstrap Servers",
@@ -160,20 +163,19 @@ public class KafkaConsumerComponent extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
-        // 调试模式：不连接 Kafka，根据组件能力生成一条模拟消息后结束
-        if (getContext() != null && getContext().isDebugMode()) {
-            executeDebugMock();
-            return;
-        }
+        // 调试模式同样连接 Kafka 消费真实消息，只接收一批数据后结束，不再生成模拟数据
+        boolean debugMode = getContext() != null && getContext().isDebugMode();
 
-        logInfo("KafkaConsumer组件开始执行，topic: " + topic + ", bootstrapServers: " + bootstrapServers);
-        
+        logInfo("KafkaConsumer组件开始执行，topic: " + topic + ", bootstrapServers: " + bootstrapServers
+            + (debugMode ? "（调试模式：接收一批真实消息后结束）" : ""));
+
         try {
             Properties props = new Properties();
             props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-            props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+            // 调试模式使用独立的消费组且不提交 offset，避免影响生产消费位点
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, debugMode ? debugGroupId() : groupId);
             props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
-            props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+            props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, debugMode ? false : enableAutoCommit);
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, batchSize);
@@ -209,7 +211,7 @@ public class KafkaConsumerComponent extends FlowComponent {
             }
 
             isRunning = true;
-            consumeMessages();
+            consumeMessages(debugMode);
             
         } catch (Exception e) {
             logError("KafkaConsumer组件执行失败: " + e.getMessage());
@@ -219,31 +221,9 @@ public class KafkaConsumerComponent extends FlowComponent {
         }
     }
 
-    /**
-     * 调试模式：生成一条模拟 Kafka 消息 FlowFile 并结束。
-     */
-    private void executeDebugMock() {
-        JSONObject record = new JSONObject();
-        record.put("_topic", topic);
-        record.put("_partition", partition != null && partition >= 0 ? partition : 0);
-        record.put("_offset", 0L);
-        record.put("_timestamp", System.currentTimeMillis());
-        record.put("_key", "debug-key");
-        // 模拟消息体中常见的业务字段
-        record.put("id", 1);
-        record.put("name", "debug");
-        record.put("event_time", new Timestamp(System.currentTimeMillis()));
-
-        JSONArray jsonArray = new JSONArray();
-        jsonArray.add(record);
-
-        FlowFile flowFile = new FlowFile();
-        flowFile.setJsonArray(jsonArray);
-        flowFile.setAttribute("_kafkaTopic", topic);
-        flowFile.setAttribute("_recordCount", 1);
-        flowFile.setAttribute("_debugMock", true);
-        writeRecords(flowFile);
-        logInfo("调试模式：根据组件能力生成模拟 Kafka 消息，topic: " + topic);
+    private String debugGroupId() {
+        String baseGroupId = groupId == null || groupId.trim().isEmpty() ? "datay-consumer" : groupId.trim();
+        return baseGroupId + "-debug";
     }
 
     private boolean checkKafkaAvailability() {
@@ -273,17 +253,29 @@ public class KafkaConsumerComponent extends FlowComponent {
         }
     }
 
-    private void consumeMessages() {
+    private void consumeMessages(boolean debugMode) {
         List<JSONObject> batchRecords = new ArrayList<>();
-        
+        long debugWaitTimeout = DEBUG_WAIT_TIMEOUT_MS;
+        long debugDeadline = debugMode ? System.currentTimeMillis() + debugWaitTimeout : 0L;
+        boolean received = false;
+
         while (isRunning && !Thread.currentThread().isInterrupted()) {
+            long pollTimeout = Math.max(consumerTimeoutMs, 1000);
+            if (debugMode && !received) {
+                long remaining = debugDeadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    break;
+                }
+                pollTimeout = Math.min(pollTimeout, remaining);
+            }
             try {
-                ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(consumerTimeoutMs));
+                ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofMillis(pollTimeout));
                 
                 if (records.isEmpty()) {
                     logDebug("Kafka消费超时，无新消息");
                     continue;
                 }
+                received = true;
 
                 for (ConsumerRecord<String, String> record : records) {
                     JSONObject jsonRecord = new JSONObject();
@@ -315,7 +307,15 @@ public class KafkaConsumerComponent extends FlowComponent {
                     sendBatch(batchRecords);
                     batchRecords.clear();
                 }
+
+                if (debugMode) {
+                    logInfo("调试模式：已接收一批真实 Kafka 消息，本次调试结束");
+                    break;
+                }
                 
+            } catch (DebugLimitReachedException e) {
+                // 调试采样上限属于正常结束，交由上层处理
+                throw e;
             } catch (Exception e) {
                 logError("Kafka消费异常: " + e.getMessage());
                 if (!isRunning) {
@@ -323,6 +323,17 @@ public class KafkaConsumerComponent extends FlowComponent {
                 }
             }
         }
+
+        if (debugMode && !received && isRunning) {
+            throw debugWaitTimeoutException(debugWaitTimeout);
+        }
+    }
+
+    private RuntimeException debugWaitTimeoutException(long timeoutMs) {
+        return new RuntimeException(
+            "调试模式等待 Kafka 消息超时（" + timeoutMs + " ms），请确认 Bootstrap Servers、Topic 和消费组配置，"
+                + "或先向该 Topic 发送一条消息后重试"
+        );
     }
 
     private void sendBatch(List<JSONObject> records) {

@@ -68,7 +68,6 @@ public class MqttConsumerTest {
         assertEquals(100, component.getBatchSize());
         assertEquals(1000, component.getConsumerTimeoutMs());
         assertEquals(10000, component.getMaxQueueSize());
-        assertEquals(30000, component.getDebugWaitTimeoutMs());
         assertEquals("AUTO", component.getPayloadFormat());
     }
 
@@ -130,11 +129,6 @@ public class MqttConsumerTest {
         assertEquals(2000, component.getConsumerTimeoutMs());
         component.setConsumerTimeoutMs("invalid");
         assertEquals(1000, component.getConsumerTimeoutMs());
-
-        component.setDebugWaitTimeoutMs("5000");
-        assertEquals(5000, component.getDebugWaitTimeoutMs());
-        component.setDebugWaitTimeoutMs("invalid");
-        assertEquals(30000, component.getDebugWaitTimeoutMs());
 
         component.setMaxQueueSize("5000");
         assertEquals(5000, component.getMaxQueueSize());
@@ -202,7 +196,6 @@ public class MqttConsumerTest {
         component.setTopic("debug/topic");
         component.setBrokerUrl("tcp://127.0.0.1:1");
         component.setConnectionTimeout(1);
-        component.setDebugWaitTimeoutMs(2000);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> component.execute(new FlowFile()));
         assertTrue(ex.getMessage().contains("MQTT消费组件执行失败"));
