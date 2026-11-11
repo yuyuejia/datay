@@ -104,7 +104,7 @@ java -jar target/*.jar
 支持的 ETL 组件（继承自 DataY Core，详见 [datay-core 组件文档](../datay-core/docs/component/)）：
 
 - **输入组件**: `StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`
-- **处理组件**: `DuckDBSql`、`StreamSqlUnit`、`JavaScriptComponent`
+- **处理组件**: `DuckDBSql`、`StreamSqlUnit`、`JavaScriptComponent`、`EvaluateJsonPath`
 - **输出组件**: `SqlSink`、`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`、`ModelWrite`
 - **其他组件**: `GenerateFlowFile`、`LogFlowFile`
 

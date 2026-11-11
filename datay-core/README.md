@@ -135,6 +135,7 @@ public class Example {
 - [JavaScriptComponent](docs/component/JavaScriptComponent.md) : Java脚本组件,支持在任务中执行自定义逻辑
 - [LlmComponent](docs/component/LlmComponent.md) : 按行调用 OpenAI 兼容大模型接口
 - [DecisionComponent](docs/component/DecisionComponent.md) : 按行调用 Ollama 决策模型接口（/v1/systemone）
+- [EvaluateJsonPath](docs/component/EvaluateJsonPath.md) : 按 JSONPath 提取 JSON 数据，数组逐行求值、对象直接求值
 
 ### 输出组件
 - [SqlSink](docs/component/SqlSink.md) : 通用 SQL 写入,支持 SQL 模板、动态参数绑定与原子累加
