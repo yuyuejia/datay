@@ -1,7 +1,14 @@
 <template>
   <div class="table-selector">
     <!-- 单选模式：带“选择”按钮的输入框 -->
-    <el-input v-if="!props.multiple" :model-value="selectedTable" placeholder="请选择表" @input="confirmInput">
+    <el-input
+      v-if="!props.multiple"
+      :model-value="selectedTable"
+      placeholder="请选择表"
+      clearable
+      @input="confirmInput"
+      @clear="clearSingleSelection"
+    >
       <template #append>
         <el-button @click="showModal = true">选择</el-button>
       </template>
@@ -58,7 +65,8 @@
                 :value="row.table"
                 @click.stop
                 @change="() => selectSingleTable(row)"
-              ><span /></el-radio>
+                ><span
+              /></el-radio>
             </template>
           </el-table-column>
           <el-table-column prop="table" label="表名" min-width="220" show-overflow-tooltip />
@@ -193,6 +201,23 @@ watch([() => props.dataSourceId, () => props.schema], () => {
   searchQuery.value = '';
 });
 
+// 单选模式下同步父组件传入的表名，支持外部清空
+watch(
+  () => props.selectedTable,
+  value => {
+    if (props.multiple) {
+      return;
+    }
+    const table = value || null;
+    if (table !== selectedTable.value) {
+      selectedTable.value = table;
+      selectedNames.value = new Set(table ? [table] : []);
+      const entries: [string, any][] = table ? [[table, { table }]] : [];
+      selectedObjs.value = new Map(entries);
+    }
+  },
+);
+
 watch(searchQuery, newQuery => {
   if (searchTimer) {
     clearTimeout(searchTimer);
@@ -211,19 +236,21 @@ const confirmSelection = () => {
   } else {
     const name = selectedNames.value.values().next().value;
     const selection = name ? selectedObjs.value.get(name) || { table: name } : null;
-    if (selection) {
-      selectedTable.value = selection.table;
-    }
+    selectedTable.value = selection?.table || null;
     emit('selected', selection);
   }
   showModal.value = false;
 };
 
 const confirmInput = (value: string) => {
-  if (value) {
-    selectedTable.value = value;
-    emit('selected', { table: value });
-  }
+  const table = (value || '').trim();
+  selectedTable.value = table || null;
+  emit('selected', table ? { table } : null);
+};
+
+const clearSingleSelection = () => {
+  selectedTable.value = null;
+  emit('selected', null);
 };
 </script>
 
