@@ -19,7 +19,6 @@
           :selectedTable="formData.table"
           :multiple="false"
           @selected="handleTableSelected"
-          @input="handleTableInput"
         />
       </el-form-item>
 
@@ -112,12 +111,12 @@ const writeModeOptions = [
   },
 
   {
-    name: '更新写入（UPDATE）',
+    name: '更新写入（UPSERT）',
     value: 'update',
     description: '根据主键更新目标表中的数据',
   },
   {
-    name: '自动推断',
+    name: '自动推断（根据属性推断，适合 CDC）',
     value: 'auto',
     description: '根据数据流事件类型推断写入策略',
   },
@@ -305,10 +304,6 @@ const handleDataSourceSelected = selectedData => {
 const handleTableSelected = selectedTable => {
   formData.table = selectedTable?.table || '';
   formData.columnsMap = ''; // 切换表时清空字段选择
-};
-// 处理手动输入事件
-const handleTableInput = selectedTable => {
-  formData.table = selectedTable || '';
 };
 
 const saveConfig = async () => {
