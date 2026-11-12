@@ -30,6 +30,9 @@ public class Job implements Serializable, TenantAware {
     @Column(name = "job_group")
     private String jobGroup;
 
+    @Column(name = "directory_id", length = 36)
+    private String directoryId;
+
     @Column(name = "type")
     private String type;
 
@@ -102,6 +105,19 @@ public class Job implements Serializable, TenantAware {
 
     public void setJobGroup(String jobGroup) {
         this.jobGroup = jobGroup;
+    }
+
+    public String getDirectoryId() {
+        return this.directoryId;
+    }
+
+    public Job directoryId(String directoryId) {
+        this.setDirectoryId(directoryId);
+        return this;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
     }
 
     public String getType() {
@@ -273,6 +289,7 @@ public class Job implements Serializable, TenantAware {
             "id=" + getId() +
             ", jobName='" + getJobName() + "'" +
             ", jobGroup='" + getJobGroup() + "'" +
+            ", directoryId=" + getDirectoryId() +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +

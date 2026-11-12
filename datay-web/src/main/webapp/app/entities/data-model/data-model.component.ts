@@ -90,6 +90,7 @@ export default defineComponent({
     const route = useRoute();
 
     const treeData: Ref<TreeNode[]> = ref([]);
+    const directoryList: Ref<IModelDirectory[]> = ref([]);
     const treeProps = { children: "children", label: "label" };
     const treeRef = ref(null);
 
@@ -451,6 +452,7 @@ export default defineComponent({
       try {
         const dirRes = await modelDirectoryService().retrieve();
         const directories: IModelDirectory[] = dirRes.data;
+        directoryList.value = directories;
         const modelRes = await dataModelService().retrieve();
         const models: IDataModel[] = modelRes.data;
 
@@ -504,6 +506,66 @@ export default defineComponent({
           });
         }
         treeData.value = rootNodes;
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      }
+    };
+
+    const compareDirectories = (
+      a: IModelDirectory,
+      b: IModelDirectory,
+    ): number =>
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+      String(a.name || "").localeCompare(String(b.name || ""));
+
+    const siblingDirectories = (
+      directory: IModelDirectory,
+    ): IModelDirectory[] =>
+      directoryList.value
+        .filter(
+          (item) => (item.parentId || null) === (directory.parentId || null),
+        )
+        .slice()
+        .sort(compareDirectories);
+
+    const canMoveDirectory = (
+      directory: IModelDirectory,
+      offset: number,
+    ): boolean => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex((item) => item.id === directory.id);
+      const targetIndex = index + offset;
+      return index >= 0 && targetIndex >= 0 && targetIndex < siblings.length;
+    };
+
+    /** 在同一父目录下上移 / 下移，通过重排 sortOrder 持久化顺序。 */
+    const moveDirectory = async (
+      directory: IModelDirectory,
+      offset: number,
+    ) => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex((item) => item.id === directory.id);
+      const targetIndex = index + offset;
+      if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
+        return;
+      }
+      const reordered = siblings.slice();
+      [reordered[index], reordered[targetIndex]] = [
+        reordered[targetIndex],
+        reordered[index],
+      ];
+      try {
+        await Promise.all(
+          reordered
+            .map((item, order) => ({ item, order }))
+            .filter(
+              ({ item, order }) => (item.sortOrder ?? -1) !== order,
+            )
+            .map(({ item, order }) =>
+              modelDirectoryService().update({ ...item, sortOrder: order }),
+            ),
+        );
+        await loadTree();
       } catch (err) {
         alertService.showHttpError(err.response);
       }
@@ -728,6 +790,8 @@ export default defineComponent({
       showAddDirectoryDialog,
       saveDirectory,
       showAddModelDialog,
+      canMoveDirectory,
+      moveDirectory,
       handleDeleteNode,
       prepareRemove,
       confirmDelete,

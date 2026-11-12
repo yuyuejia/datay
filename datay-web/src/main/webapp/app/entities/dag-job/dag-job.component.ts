@@ -1,11 +1,23 @@
-import { type Ref, defineComponent, inject, onMounted, ref, watch } from "vue";
+import { type Ref, computed, defineComponent, inject, nextTick, onMounted, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
 
 import DagJobService from "./dag-job.service";
+import ETLTaskDirectoryService from "@/entities/etl-task/etl-task-directory.service";
 import TaskOnlineModal from "@/components/TaskOnlineModal.vue";
 import { type IJob } from "@/shared/model/job.model";
+import { ETLTaskDirectory, type IETLTaskDirectory } from "@/shared/model/etl-task-directory.model";
 import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
+
+interface IDirectoryTreeNode {
+  id: string;
+  label: string;
+  type: "directory";
+  data: IETLTaskDirectory;
+  children?: IDirectoryTreeNode[];
+}
+
+const DIRECTORY_TASK_TYPE = "DAG";
 
 export default defineComponent({
   name: "DagJob",
@@ -15,6 +27,7 @@ export default defineComponent({
   setup() {
     const dateFormat = useDateFormat();
     const dagJobService = inject("dagJobService", () => new DagJobService());
+    const etlTaskDirectoryService = inject("etlTaskDirectoryService", () => new ETLTaskDirectoryService());
     const alertService = inject("alertService", () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
@@ -25,6 +38,255 @@ export default defineComponent({
     const totalItems = ref(0);
     const dagJobs: Ref<IJob[]> = ref([]);
     const isFetching = ref(false);
+
+    // ---------------- 编排目录 ----------------
+
+    const directories: Ref<IETLTaskDirectory[]> = ref([]);
+    const directoryLoading = ref(false);
+    const selectedDirectoryId: Ref<string | null> = ref(null);
+    const treeProps = { children: "children", label: "label" };
+    const directoryTreeRef = ref<any>(null);
+
+    const compareDirectories = (a: IETLTaskDirectory, b: IETLTaskDirectory): number =>
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || "").localeCompare(String(b.name || ""));
+
+    const directoryTree = computed<IDirectoryTreeNode[]>(() => {
+      const byParent = new Map<string, IETLTaskDirectory[]>();
+      directories.value.forEach(directory => {
+        const parentId = directory.parentId || "";
+        if (!byParent.has(parentId)) {
+          byParent.set(parentId, []);
+        }
+        byParent.get(parentId)!.push(directory);
+      });
+      const build = (parentId: string): IDirectoryTreeNode[] =>
+        (byParent.get(parentId) || [])
+          .slice()
+          .sort(compareDirectories)
+          .map(directory => {
+            const children = build(directory.id!);
+            const node: IDirectoryTreeNode = {
+              id: directory.id!,
+              label: directory.name || "",
+              type: "directory",
+              data: directory,
+            };
+            if (children.length > 0) {
+              node.children = children;
+            }
+            return node;
+          });
+      return build("");
+    });
+
+    const directoryPathMap = computed(() => {
+      const byId = new Map(directories.value.filter(item => item.id).map(item => [item.id!, item]));
+      const paths = new Map<string, string>();
+      const resolve = (id: string, guard = new Set<string>()): string => {
+        if (paths.has(id)) {
+          return paths.get(id)!;
+        }
+        const directory = byId.get(id);
+        if (!directory || guard.has(id)) {
+          return "";
+        }
+        guard.add(id);
+        const name = directory.name || "";
+        const parentPath = directory.parentId ? resolve(directory.parentId, guard) : "";
+        const path = parentPath ? `${parentPath} / ${name}` : name;
+        paths.set(id, path);
+        return path;
+      };
+      directories.value.forEach(directory => {
+        if (directory.id) {
+          resolve(directory.id);
+        }
+      });
+      return paths;
+    });
+
+    const directoryPath = (job: IJob): string =>
+      job.directoryId ? directoryPathMap.value.get(job.directoryId) || "-" : "根目录";
+
+    const loadDirectories = async () => {
+      directoryLoading.value = true;
+      try {
+        const res = await etlTaskDirectoryService().retrieve(DIRECTORY_TASK_TYPE);
+        directories.value = res.data || [];
+        if (selectedDirectoryId.value && !directories.value.some(item => item.id === selectedDirectoryId.value)) {
+          selectedDirectoryId.value = null;
+        }
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        directoryLoading.value = false;
+      }
+    };
+
+    const clearTreeSelection = () => {
+      nextTick(() => {
+        if (typeof directoryTreeRef.value?.setCurrentKey === "function") {
+          directoryTreeRef.value.setCurrentKey(undefined);
+        }
+      });
+    };
+
+    const selectAllJobs = () => {
+      selectedDirectoryId.value = null;
+      clearTreeSelection();
+    };
+
+    const handleDirectoryClick = (data: IDirectoryTreeNode) => {
+      selectedDirectoryId.value = data.id;
+    };
+
+    const siblingDirectories = (directory: IETLTaskDirectory): IETLTaskDirectory[] =>
+      directories.value
+        .filter(item => (item.parentId || "") === (directory.parentId || ""))
+        .slice()
+        .sort(compareDirectories);
+
+    const canMoveDirectory = (directory: IETLTaskDirectory, offset: number): boolean => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      return index >= 0 && targetIndex >= 0 && targetIndex < siblings.length;
+    };
+
+    const moveDirectory = async (directory: IETLTaskDirectory, offset: number) => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
+        return;
+      }
+      const reordered = siblings.slice();
+      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+      try {
+        await Promise.all(
+          reordered
+            .map((item, order) => ({ item, order }))
+            .filter(({ item, order }) => (item.sortOrder ?? -1) !== order)
+            .map(({ item, order }) => etlTaskDirectoryService().update({ ...item, sortOrder: order })),
+        );
+        await loadDirectories();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const directoryDialogVisible = ref(false);
+    const directoryDialogTitle = ref("新增目录");
+    const directoryForm: Ref<IETLTaskDirectory> = ref(new ETLTaskDirectory());
+    const editingDirectoryId: Ref<string | null> = ref(null);
+
+    const showAddDirectoryDialog = (parentId: string | null) => {
+      editingDirectoryId.value = null;
+      directoryDialogTitle.value = "新增目录";
+      directoryForm.value = new ETLTaskDirectory();
+      directoryForm.value.parentId = parentId;
+      directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
+      directoryForm.value.sortOrder = 0;
+      directoryDialogVisible.value = true;
+    };
+
+    const showEditDirectoryDialog = (directory: IETLTaskDirectory) => {
+      editingDirectoryId.value = directory.id || null;
+      directoryDialogTitle.value = "重命名目录";
+      directoryForm.value = { ...directory };
+      directoryDialogVisible.value = true;
+    };
+
+    const saveDirectory = async () => {
+      if (!directoryForm.value.name || !directoryForm.value.name.trim()) {
+        alertService.showError("请输入目录名称");
+        return;
+      }
+      directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
+      try {
+        if (editingDirectoryId.value) {
+          directoryForm.value.id = editingDirectoryId.value;
+          await etlTaskDirectoryService().update(directoryForm.value);
+        } else {
+          await etlTaskDirectoryService().create(directoryForm.value);
+        }
+        directoryDialogVisible.value = false;
+        alertService.showSuccess("目录保存成功");
+        await loadDirectories();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const deleteDirectory = async (directory: IETLTaskDirectory) => {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除目录「${directory.name || ""}」吗？删除后该目录下的子目录与编排将移动到根目录。`,
+          "删除目录",
+          {
+            confirmButtonText: "删除",
+            cancelButtonText: "取消",
+            type: "warning",
+          },
+        );
+      } catch {
+        return;
+      }
+      try {
+        await etlTaskDirectoryService().delete(directory.id!);
+        if (selectedDirectoryId.value === directory.id) {
+          selectAllJobs();
+        }
+        alertService.showSuccess("目录删除成功");
+        await loadDirectories();
+        await retrieveDagJobs();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const handleMoreCommand = (command: string, job: IJob) => {
+      if (command === "move") {
+        openMoveDialog(job);
+      } else if (command === "delete") {
+        prepareRemove(job);
+      }
+    };
+
+    const moveDialogVisible = ref(false);
+    const moveJob: Ref<IJob | null> = ref(null);
+    const moveTargetDirectoryId: Ref<string | null> = ref(null);
+
+    const openMoveDialog = (job: IJob) => {
+      moveJob.value = job;
+      moveTargetDirectoryId.value = job.directoryId || null;
+      moveDialogVisible.value = true;
+    };
+
+    const closeMoveDialog = () => {
+      moveDialogVisible.value = false;
+      moveJob.value = null;
+      moveTargetDirectoryId.value = null;
+    };
+
+    const confirmMove = async () => {
+      if (!moveJob.value?.id) {
+        return;
+      }
+      try {
+        await dagJobService().moveToDirectory(moveJob.value.id, moveTargetDirectoryId.value || null);
+        alertService.showSuccess("编排已移动");
+        closeMoveDialog();
+        await retrieveDagJobs();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const createRouteLocation = computed(() => ({
+      name: "DagJobDesignNew",
+      query: selectedDirectoryId.value ? { directoryId: selectedDirectoryId.value } : {},
+    }));
 
     const clear = () => {
       page.value = 1;
@@ -41,11 +303,14 @@ export default defineComponent({
     const retrieveDagJobs = async () => {
       isFetching.value = true;
       try {
-        const paginationQuery = {
+        const paginationQuery: any = {
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
         };
+        if (selectedDirectoryId.value) {
+          paginationQuery.directoryId = selectedDirectoryId.value;
+        }
         const res = await dagJobService().retrieveDagJobs(paginationQuery);
         totalItems.value = Number(res.headers["x-total-count"]);
         queryCount.value = totalItems.value;
@@ -57,12 +322,22 @@ export default defineComponent({
       }
     };
 
-    const handleSyncList = () => {
-      retrieveDagJobs();
+    const handleSyncList = async () => {
+      await loadDirectories();
+      await retrieveDagJobs();
     };
 
     onMounted(async () => {
+      await loadDirectories();
       await retrieveDagJobs();
+    });
+
+    watch(selectedDirectoryId, async () => {
+      if (page.value === 1) {
+        await retrieveDagJobs();
+      } else {
+        clear();
+      }
     });
 
     const removeId: Ref<string> = ref(null);
@@ -185,6 +460,34 @@ export default defineComponent({
       handleSyncList,
       isFetching,
       retrieveDagJobs,
+      directories,
+      directoryLoading,
+      directoryTree,
+      directoryTreeRef,
+      treeProps,
+      selectedDirectoryId,
+      directoryPath,
+      loadDirectories,
+      selectAllJobs,
+      handleDirectoryClick,
+      directoryDialogVisible,
+      directoryDialogTitle,
+      directoryForm,
+      editingDirectoryId,
+      showAddDirectoryDialog,
+      showEditDirectoryDialog,
+      saveDirectory,
+      deleteDirectory,
+      canMoveDirectory,
+      moveDirectory,
+      handleMoreCommand,
+      moveDialogVisible,
+      moveJob,
+      moveTargetDirectoryId,
+      openMoveDialog,
+      closeMoveDialog,
+      confirmMove,
+      createRouteLocation,
       clear,
       ...dateFormat,
       removeId,

@@ -2,6 +2,7 @@ export interface IJob {
   id?: string;
   jobName?: string | null;
   jobGroup?: string | null;
+  directoryId?: string | null;
   type?: string | null;
   cron?: string | null;
   retryCount?: number | null;
@@ -20,6 +21,7 @@ export class Job implements IJob {
     public id?: string,
     public jobName?: string | null,
     public jobGroup?: string | null,
+    public directoryId?: string | null,
     public type?: string | null,
     public cron?: string | null,
     public jobContext?: string | null,

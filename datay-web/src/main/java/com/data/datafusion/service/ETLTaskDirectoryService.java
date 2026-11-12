@@ -4,6 +4,7 @@ import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
+import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.ETLTaskDirectoryDTO;
 import com.data.datafusion.service.mapper.ETLTaskDirectoryMapper;
 import java.time.ZonedDateTime;
@@ -35,15 +36,19 @@ public class ETLTaskDirectoryService {
 
     private final ETLTaskRepository etlTaskRepository;
 
+    private final JobRepository jobRepository;
+
     private final ETLTaskDirectoryMapper directoryMapper;
 
     public ETLTaskDirectoryService(
         ETLTaskDirectoryRepository directoryRepository,
         ETLTaskRepository etlTaskRepository,
+        JobRepository jobRepository,
         ETLTaskDirectoryMapper directoryMapper
     ) {
         this.directoryRepository = directoryRepository;
         this.etlTaskRepository = etlTaskRepository;
+        this.jobRepository = jobRepository;
         this.directoryMapper = directoryMapper;
     }
 
@@ -103,6 +108,7 @@ public class ETLTaskDirectoryService {
         LOG.debug("Request to delete ETLTaskDirectory : {}", id);
         directoryRepository.findByParentIdOrderBySortOrderAsc(id).forEach(child -> child.setParentId(null));
         etlTaskRepository.findByDirectoryId(id).forEach(task -> task.setDirectoryId(null));
+        jobRepository.findByDirectoryId(id).forEach(job -> job.setDirectoryId(null));
         directoryRepository.deleteById(id);
     }
 
@@ -216,9 +222,11 @@ public class ETLTaskDirectoryService {
     private String normalizeTaskType(String taskType) {
         String normalized = StringUtils.hasText(taskType) ? taskType.trim().toUpperCase(Locale.ROOT) : TaskConstants.ETL_TASK_KIND_BATCH;
         if (
-            !TaskConstants.ETL_TASK_KIND_BATCH.equals(normalized) && !TaskConstants.ETL_TASK_KIND_STREAM.equals(normalized)
+            !TaskConstants.ETL_TASK_KIND_BATCH.equals(normalized) &&
+            !TaskConstants.ETL_TASK_KIND_STREAM.equals(normalized) &&
+            !TaskConstants.TASK_TYPE_DAG.equals(normalized)
         ) {
-            throw new IllegalArgumentException("任务类型只能是 BATCH 或 STREAM: " + taskType);
+            throw new IllegalArgumentException("任务类型只能是 BATCH、STREAM 或 DAG: " + taskType);
         }
         return normalized;
     }

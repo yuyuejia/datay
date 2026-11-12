@@ -141,7 +141,8 @@ public class JobResource {
      * @param pageable the pagination information.
      * @param search   the optional keyword used to filter by job name or type.
      * @param type     the job type to include (nullable).
-     * @param typeNot  the job type to exclude (nullable).
+     * @param typeNot      the job type to exclude (nullable).
+     * @param directoryId  the optional directory ID to filter by (nullable).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of jobs in body.
      */
     @GetMapping("")
@@ -149,10 +150,17 @@ public class JobResource {
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(value = "search", required = false) String search,
         @RequestParam(value = "type", required = false) String type,
-        @RequestParam(value = "typeNot", required = false) String typeNot
+        @RequestParam(value = "typeNot", required = false) String typeNot,
+        @RequestParam(value = "directoryId", required = false) String directoryId
     ) {
-        LOG.debug("REST request to get a page of Jobs with search: {}, type: {}, typeNot: {}", search, type, typeNot);
-        Page<JobDTO> page = jobService.findAll(pageable, search, type, typeNot);
+        LOG.debug(
+            "REST request to get a page of Jobs with search: {}, type: {}, typeNot: {}, directoryId: {}",
+            search,
+            type,
+            typeNot,
+            directoryId
+        );
+        Page<JobDTO> page = jobService.findAll(pageable, search, type, typeNot, directoryId);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
@@ -176,6 +184,27 @@ public class JobResource {
      * @param id the id of the jobDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    /**
+     * {@code PATCH  /jobs/:id/directory} : Move the DAG job to a directory.
+     *
+     * @param id the job ID.
+     * @param body the request body containing {@code directoryId}; null means root.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the updated job.
+     */
+    @PatchMapping("/{id}/directory")
+    public ResponseEntity<JobDTO> moveJobToDirectory(@PathVariable("id") String id, @RequestBody java.util.Map<String, String> body) {
+        LOG.debug("REST request to move Job to directory : {}, {}", id, body);
+        String directoryId = body == null ? null : body.get("directoryId");
+        try {
+            JobDTO result = jobService.moveToDirectory(id, directoryId);
+            return ResponseEntity.ok()
+                .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id))
+                .body(result);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteJob(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Job : {}", id);

@@ -16,6 +16,8 @@ public class JobDTO implements Serializable {
 
     private String jobGroup;
 
+    private String directoryId;
+
     private String type;
 
     private String cron;
@@ -60,6 +62,14 @@ public class JobDTO implements Serializable {
 
     public void setJobGroup(String jobGroup) {
         this.jobGroup = jobGroup;
+    }
+
+    public String getDirectoryId() {
+        return directoryId;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
     }
 
     public String getType() {
@@ -178,6 +188,7 @@ public class JobDTO implements Serializable {
             "id=" + getId() +
             ", jobName='" + getJobName() + "'" +
             ", jobGroup='" + getJobGroup() + "'" +
+            ", directoryId=" + getDirectoryId() +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +

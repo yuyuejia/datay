@@ -1,15 +1,21 @@
 package com.data.datafusion.service;
 
+import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobDTO;
 import com.data.datafusion.service.jobevent.EventServiceFactory;
 import com.data.datafusion.service.mapper.JobMapper;
 import java.time.ZonedDateTime;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -30,11 +36,19 @@ public class JobService {
 
     private final JobRepository jobRepository;
 
+    private final ETLTaskDirectoryRepository directoryRepository;
+
     private final JobMapper jobMapper;
     private final JobInstanceService jobInstanceService;
 
-    public JobService(JobRepository jobRepository, JobMapper jobMapper, JobInstanceService jobInstanceService) {
+    public JobService(
+        JobRepository jobRepository,
+        ETLTaskDirectoryRepository directoryRepository,
+        JobMapper jobMapper,
+        JobInstanceService jobInstanceService
+    ) {
         this.jobRepository = jobRepository;
+        this.directoryRepository = directoryRepository;
         this.jobMapper = jobMapper;
         this.jobInstanceService = jobInstanceService;
     }
@@ -48,6 +62,7 @@ public class JobService {
     public JobDTO save(JobDTO jobDTO) {
         LOG.debug("Request to save Job : {}", jobDTO);
         normalizeScheduling(jobDTO);
+        validateDagDirectory(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
         job = jobRepository.save(job);
@@ -110,6 +125,7 @@ public class JobService {
         LOG.debug("Request to update Job : {}", jobDTO);
         preserveSchedulingFromExisting(jobDTO);
         normalizeScheduling(jobDTO);
+        validateDagDirectory(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
         job = jobRepository.save(job);
@@ -159,13 +175,42 @@ public class JobService {
      */
     @Transactional(readOnly = true)
     public Page<JobDTO> findAll(Pageable pageable, String search, String type, String typeNot) {
-        LOG.debug("Request to get all Jobs with search: {}, type: {}, typeNot: {}", search, type, typeNot);
+        return findAll(pageable, search, type, typeNot, null);
+    }
+
+    /**
+     * Get all the jobs filtered by job type, search keyword and directory.
+     *
+     * @param pageable    the pagination information.
+     * @param search      the optional keyword used to filter by job name or type (nullable).
+     * @param type        the job type to include (nullable).
+     * @param typeNot     the job type to exclude (nullable).
+     * @param directoryId the optional directory ID to filter by (nullable).
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<JobDTO> findAll(Pageable pageable, String search, String type, String typeNot, String directoryId) {
+        LOG.debug(
+            "Request to get all Jobs with search: {}, type: {}, typeNot: {}, directoryId: {}",
+            search,
+            type,
+            typeNot,
+            directoryId
+        );
         Specification<Job> specification = Specification.where(null);
         if (StringUtils.hasText(type)) {
             specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("type"), type));
         }
         if (StringUtils.hasText(typeNot)) {
             specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.notEqual(root.get("type"), typeNot));
+        }
+        if (StringUtils.hasText(directoryId)) {
+            Set<String> directoryIds = collectDirectorySubtreeIds(directoryId);
+            specification = specification.and((root, query, criteriaBuilder) ->
+                directoryIds.isEmpty()
+                    ? criteriaBuilder.disjunction()
+                    : root.get("directoryId").in(directoryIds)
+            );
         }
         if (StringUtils.hasText(search)) {
             String pattern = "%" + search.trim() + "%";
@@ -177,6 +222,59 @@ public class JobService {
             );
         }
         return jobRepository.findAll(specification, pageable).map(jobMapper::toDto);
+    }
+
+    private void validateDagDirectory(JobDTO jobDTO) {
+        if (!StringUtils.hasText(jobDTO.getDirectoryId())) {
+            return;
+        }
+        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobDTO.getType())) {
+            throw new IllegalArgumentException("只有任务编排支持目录: " + jobDTO.getId());
+        }
+        ETLTaskDirectory directory = directoryRepository
+            .findById(jobDTO.getDirectoryId())
+            .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + jobDTO.getDirectoryId()));
+        if (!TaskConstants.TASK_TYPE_DAG.equals(directory.getTaskType())) {
+            throw new IllegalArgumentException("目录与任务类型不匹配: " + jobDTO.getDirectoryId());
+        }
+    }
+
+    /**
+     * 收集目录及其子孙目录 ID，使目录筛选包含子目录。
+     */
+    private Set<String> collectDirectorySubtreeIds(String directoryId) {
+        Set<String> ids = new LinkedHashSet<>();
+        Deque<String> queue = new ArrayDeque<>();
+        queue.add(directoryId);
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            if (!ids.add(current)) {
+                continue;
+            }
+            directoryRepository.findByParentIdOrderBySortOrderAsc(current).forEach(child -> queue.add(child.getId()));
+        }
+        return ids;
+    }
+
+    /**
+     * 移动任务编排到指定目录；{@code directoryId} 为空表示移动到根目录。
+     */
+    public JobDTO moveToDirectory(String id, String directoryId) {
+        Job job = jobRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("任务编排不存在: " + id));
+        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(job.getType())) {
+            throw new IllegalArgumentException("只有任务编排支持目录移动: " + id);
+        }
+        if (StringUtils.hasText(directoryId)) {
+            ETLTaskDirectory directory = directoryRepository
+                .findById(directoryId)
+                .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + directoryId));
+            if (!TaskConstants.TASK_TYPE_DAG.equals(directory.getTaskType())) {
+                throw new IllegalArgumentException("目录与任务类型不匹配: " + directoryId);
+            }
+        }
+        job.setDirectoryId(StringUtils.hasText(directoryId) ? directoryId.trim() : null);
+        job.setUpdateTime(ZonedDateTime.now());
+        return jobMapper.toDto(jobRepository.save(job));
     }
 
     /**

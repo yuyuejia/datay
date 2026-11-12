@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobDTO;
 import com.data.datafusion.service.mapper.JobMapper;
@@ -23,7 +24,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, jobMapper, jobInstanceService);
+        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -63,7 +64,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, jobMapper, jobInstanceService);
+        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -105,7 +106,7 @@ class JobServiceTest {
     void updateNormalizesInvalidPriorityToDefault() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -134,7 +135,7 @@ class JobServiceTest {
     void saveNormalizesMissingPriorityToDefault() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
 
         JobDTO create = new JobDTO();
         create.setJobName("new-job");
@@ -161,7 +162,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, jobMapper, jobInstanceService);
+        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job job = new Job();
         job.setId("job-1");

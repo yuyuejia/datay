@@ -12,6 +12,7 @@ import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
+import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.ETLTaskDirectoryDTO;
 import com.data.datafusion.service.mapper.ETLTaskDirectoryMapper;
 import com.data.datafusion.service.mapper.ETLTaskDirectoryMapperImpl;
@@ -24,6 +25,7 @@ class ETLTaskDirectoryServiceTest {
 
     private ETLTaskDirectoryRepository directoryRepository;
     private ETLTaskRepository etlTaskRepository;
+    private JobRepository jobRepository;
     private ETLTaskDirectoryMapper mapper;
     private ETLTaskDirectoryService service;
 
@@ -31,8 +33,9 @@ class ETLTaskDirectoryServiceTest {
     void setUp() {
         directoryRepository = mock(ETLTaskDirectoryRepository.class);
         etlTaskRepository = mock(ETLTaskRepository.class);
+        jobRepository = mock(JobRepository.class);
         mapper = new ETLTaskDirectoryMapperImpl();
-        service = new ETLTaskDirectoryService(directoryRepository, etlTaskRepository, mapper);
+        service = new ETLTaskDirectoryService(directoryRepository, etlTaskRepository, jobRepository, mapper);
     }
 
     @Test

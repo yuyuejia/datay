@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- 任务编排（DAG）目录关联：与批量任务共用目录表，通过 task_type=DAG 区分。 -->
+    <changeSet id="20261113000000-1-job-directory-column" author="datafusion">
+        <addColumn tableName="dp_job">
+            <column name="directory_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="dp_job" indexName="idx_job_directory_id">
+            <column name="directory_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

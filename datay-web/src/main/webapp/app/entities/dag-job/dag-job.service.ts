@@ -2,6 +2,7 @@ import axios from "axios";
 
 import buildPaginationQueryOpts from "@/shared/sort/sorts";
 import { type IJob } from "@/shared/model/job.model";
+import ETLTaskService from "@/entities/etl-task/etl-task.service";
 
 const baseApiUrl = "api/jobs";
 
@@ -33,13 +34,38 @@ export default class DagJobService {
 
   /** List all non-DAG jobs used as candidate nodes on the design canvas. */
   retrieveCandidates(): Promise<IJob[]> {
-    return new Promise<IJob[]>((resolve, reject) => {
+    const etlTaskService = new ETLTaskService();
+    return Promise.all([
       this.retrieve({
         page: 0,
         size: 1000,
         sort: ["type,asc", "jobName,asc"],
         typeNot: "DAG",
-      })
+      }),
+      etlTaskService.retrieve({
+        page: 0,
+        size: 1000,
+        sort: ["id,asc"],
+        type: "BATCH",
+      }),
+    ]).then(([jobRes, batchTaskRes]) => {
+      const batchJobIds = new Set<string>(
+        (batchTaskRes.data || [])
+          .map((task: any) => task?.jobId)
+          .filter(Boolean)
+          .map((jobId: any) => String(jobId)),
+      );
+      return (jobRes.data || []).filter(
+        (job: IJob) => job.type !== "ETL" || batchJobIds.has(String(job.id)),
+      );
+    });
+  }
+
+  /** 移动任务编排到指定目录；传 null 表示移动到根目录。 */
+  moveToDirectory(id: string, directoryId: string | null): Promise<IJob> {
+    return new Promise<IJob>((resolve, reject) => {
+      axios
+        .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
         .then((res) => {
           resolve(res.data);
         })

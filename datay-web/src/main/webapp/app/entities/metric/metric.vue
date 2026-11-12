@@ -89,6 +89,28 @@
                     <font-awesome-icon icon="chart-line" />
                   </el-button>
                   <el-button
+                    v-if="data.type === 'directory'"
+                    link
+                    type="primary"
+                    size="small"
+                    title="上移"
+                    :disabled="!canMoveDirectory(data.data, -1)"
+                    @click.stop="moveDirectory(data.data, -1)"
+                  >
+                    <font-awesome-icon icon="arrow-up" />
+                  </el-button>
+                  <el-button
+                    v-if="data.type === 'directory'"
+                    link
+                    type="primary"
+                    size="small"
+                    title="下移"
+                    :disabled="!canMoveDirectory(data.data, 1)"
+                    @click.stop="moveDirectory(data.data, 1)"
+                  >
+                    <font-awesome-icon icon="arrow-down" />
+                  </el-button>
+                  <el-button
                     link
                     type="danger"
                     size="small"
@@ -846,6 +868,18 @@
 
 .tree-node-actions {
   display: none;
+  gap: 0;
+  align-items: center;
+}
+
+.tree-node-actions :deep(.el-button) {
+  height: 20px;
+  margin-left: 0;
+  padding: 0 2px;
+}
+
+.tree-node-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 .custom-tree-node:hover .tree-node-actions {

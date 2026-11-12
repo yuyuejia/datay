@@ -16,5 +16,7 @@ public interface JobRepository extends JpaRepository<Job, String>, JpaSpecificat
 
     List<Job> findByTypeOrderByIdAsc(String type);
 
+    List<Job> findByDirectoryId(String directoryId);
+
     Optional<Job> findFirstByJobName(String jobName);
 }

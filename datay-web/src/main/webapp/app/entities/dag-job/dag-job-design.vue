@@ -7,6 +7,7 @@ import { MiniMap } from "@vue-flow/minimap";
 import { MarkerType, VueFlow, useVueFlow } from "@vue-flow/core";
 import { useAlertService } from "@/shared/alert/alert.service";
 import DagJobService from "./dag-job.service";
+import ETLTaskDirectoryService from "@/entities/etl-task/etl-task-directory.service";
 import JobNode from "./dag-job-node.vue";
 
 import "@vue-flow/core/dist/style.css";
@@ -25,6 +26,7 @@ const {
 } = useVueFlow();
 
 const dagJobService = new DagJobService();
+const etlTaskDirectoryService = new ETLTaskDirectoryService();
 const alertService = useAlertService();
 
 const route = useRoute();
@@ -39,13 +41,23 @@ const vueFlowInstance = ref(null);
 const candidates = ref([]);
 const searchKeyword = ref("");
 const isCandidateLoading = ref(false);
+const taskDirectories = ref([]);
 
 const nodeTypes = { job: markRaw(JobNode) };
 
-const typeOrder = ["ETL", "SQL", "SHELL", "SPARK", "FLINK", "DEMO"];
+const typeOrder = [
+  "ETL",
+  "SQL",
+  "DATA_QUALITY",
+  "SHELL",
+  "SPARK",
+  "FLINK",
+  "DEMO",
+];
 const typeLabels = {
-  ETL: "ETL 集成任务",
+  ETL: "批量任务",
   SQL: "SQL 任务",
+  DATA_QUALITY: "质检任务",
   SHELL: "Shell 脚本任务",
   SPARK: "Spark 任务",
   FLINK: "Flink 任务",
@@ -171,9 +183,46 @@ const parseContextToGraph = (jobContext) => {
   edges.value = edgeList;
 };
 
+const directoryTreeOptions = computed(() => {
+  const byParent = new Map();
+  taskDirectories.value.forEach(directory => {
+    const parentId = directory.parentId || "";
+    if (!byParent.has(parentId)) {
+      byParent.set(parentId, []);
+    }
+    byParent.get(parentId).push(directory);
+  });
+  const build = parentId =>
+    (byParent.get(parentId) || [])
+      .slice()
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || String(a.name || "").localeCompare(String(b.name || "")))
+      .map(directory => {
+        const children = build(directory.id);
+        return {
+          id: directory.id,
+          label: directory.name || "",
+          children: children.length ? children : undefined,
+        };
+      });
+  return build("");
+});
+
+const loadTaskDirectories = async () => {
+  try {
+    const res = await etlTaskDirectoryService.retrieve("DAG");
+    taskDirectories.value = res.data || [];
+  } catch (error) {
+    console.error("获取编排目录失败", error);
+  }
+};
+
 const loadDagJob = async () => {
   if (!route.params.jobId) {
-    dagJob.value = { jobName: "", cron: "" };
+    dagJob.value = {
+      jobName: "",
+      cron: "",
+      directoryId: route.query.directoryId ? String(route.query.directoryId) : null,
+    };
     nodes.value = [];
     edges.value = [];
     return;
@@ -189,6 +238,7 @@ const loadDagJob = async () => {
 };
 
 onMounted(async () => {
+  await loadTaskDirectories();
   await loadCandidates();
   await loadDagJob();
   if (vueFlowInstance.value) {
@@ -386,6 +436,7 @@ const saveDagJob = async () => {
         jobName: dagJob.value.jobName.trim(),
         cron: dagJob.value.cron || "",
         type: "DAG",
+        directoryId: dagJob.value.directoryId || null,
         jobContext,
         updateTime: new Date(),
       };
@@ -398,6 +449,7 @@ const saveDagJob = async () => {
         type: "DAG",
         cron: dagJob.value.cron || "",
         status: "OFFLINE",
+        directoryId: dagJob.value.directoryId || null,
         jobContext,
         createTime: new Date(),
         updateTime: new Date(),
@@ -432,6 +484,20 @@ const saveDagJob = async () => {
             class="form-control"
             v-model="dagJob.jobName"
             placeholder="请输入编排名称"
+          />
+        </div>
+        <div class="form-item">
+          <label class="field-label">所属目录</label>
+          <el-tree-select
+            v-model="dagJob.directoryId"
+            :data="directoryTreeOptions"
+            :props="{ label: 'label', children: 'children' }"
+            node-key="id"
+            check-strictly
+            clearable
+            size="small"
+            placeholder="根目录"
+            style="width: 200px"
           />
         </div>
       </div>
