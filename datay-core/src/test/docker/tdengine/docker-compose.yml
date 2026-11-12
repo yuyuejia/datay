@@ -1,0 +1,16 @@
+services:
+  tdengine:
+    image: tdengine/tdengine:3.3.6.0
+    container_name: datay-tdengine
+    hostname: tdengine
+    environment:
+      TAOS_FQDN: tdengine
+    ports:
+      - "6030:6030"
+      - "6041:6041"
+    healthcheck:
+      test: ["CMD", "taos", "-s", "SELECT SERVER_VERSION()"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s

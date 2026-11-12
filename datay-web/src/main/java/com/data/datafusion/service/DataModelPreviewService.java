@@ -145,7 +145,8 @@ public class DataModelPreviewService {
             "POLARDB".equals(dbType) ||
             "TIDB".equals(dbType) ||
             "DORIS".equals(dbType) ||
-            "CLICKHOUSE".equals(dbType)
+            "CLICKHOUSE".equals(dbType) ||
+            "TDENGINE".equals(dbType)
         ) {
             return "`" + ident.replace("`", "``") + "`";
         }

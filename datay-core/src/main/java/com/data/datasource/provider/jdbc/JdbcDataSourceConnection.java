@@ -151,7 +151,14 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
 
     private static void bind(PreparedStatement ps, List<Object> params) throws SQLException {
         for (int i = 0; i < params.size(); i++) {
-            ps.setObject(i + 1, params.get(i));
+            Object value = params.get(i);
+            if (value instanceof String) {
+                // 部分驱动（如 TDengine WS）对 NCHAR 列的 setObject(String) 兼容性较差，
+                // 统一使用标准 setString，避免类型转换异常。
+                ps.setString(i + 1, (String) value);
+            } else {
+                ps.setObject(i + 1, value);
+            }
         }
     }
 

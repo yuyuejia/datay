@@ -258,6 +258,10 @@ public class StreamJdbcOutput extends FlowComponent {
         }
 
         JdbcDataSourceProvider provider = jdbcProvider();
+        if (provider != null) {
+            // 写入前校验（如 TDengine 超级表不能直接普通写入）
+            provider.validateWriteTarget(datasource, targetConn, targetTable, eventType);
+        }
         if (provider != null && provider.supportsTableWrite(datasource, targetTable, eventType)) {
             String writeMode = provider.writeTable(
                 datasource,

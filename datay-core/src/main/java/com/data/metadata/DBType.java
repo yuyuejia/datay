@@ -308,6 +308,41 @@ public enum DBType {
         ),
         "com.sap.cloud.db.jdbc",
         "ngdbc"
+    ),
+
+    /**
+     * TDengine 时序数据库。
+     *
+     * <p>JDBC 驱动未随平台打包，按需从 Maven 仓库下载 {@code -dist} 完整包
+     * （已包含 Jackson、Guava、WebSocket 等依赖）。支持三种连接协议：
+     * <ul>
+     *   <li>WebSocket（默认）：{@code jdbc:TAOS-WS://host:6041/db}，驱动
+     *       {@code com.taosdata.jdbc.ws.WebSocketDriver}；</li>
+     *   <li>REST：{@code jdbc:TAOS-RS://host:6041/db}，驱动
+     *       {@code com.taosdata.jdbc.rs.RestfulDriver}；</li>
+     *   <li>原生：{@code jdbc:TAOS://host:6030/db}，驱动
+     *       {@code com.taosdata.jdbc.TSDBDriver}，依赖本机 TDengine 客户端原生库。</li>
+     * </ul>
+     */
+    TDENGINE(
+        "TDengine",
+        Arrays.asList("3.5.2", "3.6.3", "3.8.4", "3.9.2", "3.10.0"),
+        "com.taosdata.jdbc.ws.WebSocketDriver",
+        "jdbc:TAOS-WS://{host}:{port}/{database}",
+        Map.of(
+            "3.5.2",
+            "taos-jdbcdriver-3.5.2-dist.jar",
+            "3.6.3",
+            "taos-jdbcdriver-3.6.3-dist.jar",
+            "3.8.4",
+            "taos-jdbcdriver-3.8.4-dist.jar",
+            "3.9.2",
+            "taos-jdbcdriver-3.9.2-dist.jar",
+            "3.10.0",
+            "taos-jdbcdriver-3.10.0-dist.jar"
+        ),
+        "com.taosdata.jdbc",
+        "taos-jdbcdriver"
     );
 
     private final String displayName;
@@ -459,7 +494,8 @@ public enum DBType {
             GREENPLUM,
             DORIS,
             DM,
-            HANA
+            HANA,
+            TDENGINE
         );
     }
 

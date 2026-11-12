@@ -56,6 +56,23 @@ class DriverDownloaderTest {
     }
 
     @Test
+    void tdengineUsesDistDriverJarFromMaven() {
+        assertTrue(DBType.TDENGINE.isDownloadable());
+        assertEquals("com.taosdata.jdbc", DBType.TDENGINE.getMavenGroupId());
+        assertEquals("taos-jdbcdriver", DBType.TDENGINE.getMavenArtifactId());
+        assertEquals("3.10.0", DBType.TDENGINE.getDefaultVersion());
+        assertEquals(
+            "com/taosdata/jdbc/taos-jdbcdriver/3.10.0/taos-jdbcdriver-3.10.0-dist.jar",
+            DBType.TDENGINE.getMavenDriverRelativePath("default")
+        );
+        assertEquals(
+            "com/taosdata/jdbc/taos-jdbcdriver/3.5.2/taos-jdbcdriver-3.5.2-dist.jar",
+            DBType.TDENGINE.getMavenDriverRelativePath("3.5.2")
+        );
+        assertTrue(DriverDownloader.getDriverDir(DBType.TDENGINE, null).getPath().endsWith("drivers/tdengine/default"));
+    }
+
+    @Test
     void nonMavenTypeIsNotDownloadable() {
         assertFalse(DBType.MYSQL.isDownloadable());
         assertNotNull(DriverDownloader.getRepoUrls());

@@ -82,6 +82,7 @@ DataY 由「一个引擎 + 一个平台」组成，两者既能单独使用，�
 ## 支持的数据源
 
 - **关系型数据库**：MySQL、Oracle、PostgreSQL、SQL Server、MariaDB
+- **时序数据库**：TDengine（WebSocket / REST / 原生）
 - **分析数据库**：DuckDB、Doris、ClickHouse、GreenPlum
 - **文件系统**：本地文件、MinIO 对象存储
 - **CDC**：MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput）

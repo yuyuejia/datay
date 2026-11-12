@@ -203,6 +203,18 @@ export const dbTypes: DbType[] = [
     downloadable: true,
   },
   {
+    name: 'TDENGINE',
+    displayName: 'TDengine',
+    // 默认使用 WebSocket 协议；REST（TAOS-RS）与原生（TAOS）可通过“自定义 URL”填写
+    jdbcUrlTemplate: 'jdbc:TAOS-WS://{host}:{port}/{database}',
+    supportedVersions: ['3.5.2', '3.6.3', '3.8.4', '3.9.2', '3.10.0'],
+    defaultPort: '6041',
+    image: '/content/images/tdengine.svg',
+    // TDengine 无 schema 概念，database 即 catalog
+    clearSchemaOnSave: true,
+    downloadable: true,
+  },
+  {
     name: 'POSTGRESQL',
     displayName: 'PostgreSQL',
     jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',

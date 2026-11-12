@@ -16,7 +16,7 @@ export interface SqlDialect {
   limit: (baseSql: string, limit: number) => string;
 }
 
-const BACKTICK_TYPES = ['MYSQL', 'TIDB', 'DORIS', 'CLICKHOUSE'];
+const BACKTICK_TYPES = ['MYSQL', 'TIDB', 'DORIS', 'CLICKHOUSE', 'TDENGINE'];
 const BRACKET_TYPES = ['SQLSERVER', 'SQL_SERVER', 'MSSQL'];
 
 /**

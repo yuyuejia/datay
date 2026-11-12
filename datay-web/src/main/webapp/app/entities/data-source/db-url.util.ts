@@ -11,7 +11,8 @@ export interface SimpleUrlFields {
   oracleIdentifierType?: OracleIdentifierType;
 }
 
-const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9]+:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*))?/i;
+// 数据库 scheme 可能包含连字符（如 TDengine 的 TAOS-WS / TAOS-RS）
+const NETWORK_URL_PATTERN = /^jdbc:[a-z0-9-]+:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*))?/i;
 const SQLSERVER_URL_PATTERN = /^jdbc:sqlserver:\/\/([^:;]+)(?::(\d+))?.*?databaseName=([^;]+)/i;
 const ORACLE_SERVICE_PATTERN = /^jdbc:oracle:thin:@\/\/([^:/]+)(?::(\d+))?\/(.+)$/i;
 const ORACLE_SID_PATTERN = /^jdbc:oracle:thin:@([^:/]+)(?::(\d+))?:(.+)$/i;

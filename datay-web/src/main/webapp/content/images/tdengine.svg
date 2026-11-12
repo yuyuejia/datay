@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TDengine">
+  <defs>
+    <linearGradient id="tdengine-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00b3a4"/>
+      <stop offset="1" stop-color="#0072ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#tdengine-bg)"/>
+  <path d="M12 28h40" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity=".78"/>
+  <path d="M12 41c6-15 12-15 18 0s12 15 18 0" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+</svg>

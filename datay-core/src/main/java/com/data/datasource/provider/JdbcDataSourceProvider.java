@@ -103,6 +103,14 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 写入前校验目标表是否满足当前数据源的写入约束。默认无校验。
+     *
+     * <p>例如 TDengine 超级表不能直接执行普通 INSERT，需要提前给出明确错误。</p>
+     */
+    public void validateWriteTarget(DatasourceInfo info, Connection connection, TableMeta table, String eventType)
+        throws SQLException {}
+
+    /**
      * 当前数据源是否对该事件类型提供专用表写入能力。
      *
      * <p>默认 {@code false}，由 ETL Sink 使用通用逐行 JDBC 写入；数据库特有的高效写入方式

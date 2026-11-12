@@ -47,6 +47,12 @@ describe('db-url.util', () => {
         'jdbc:sap://localhost:39015/?databaseName=HXE',
       );
     });
+
+    it('builds tdengine websocket url by default', () => {
+      expect(buildSimpleUrl('TDENGINE', { hostname: 'localhost', port: '6041', database: 'power' })).toBe(
+        'jdbc:TAOS-WS://localhost:6041/power',
+      );
+    });
   });
 
   describe('parseSimpleUrl', () => {
@@ -100,6 +106,30 @@ describe('db-url.util', () => {
       });
     });
 
+    it('parses tdengine websocket url', () => {
+      expect(parseSimpleUrl('TDENGINE', 'jdbc:TAOS-WS://localhost:6041/power')).toEqual({
+        hostname: 'localhost',
+        port: '6041',
+        database: 'power',
+      });
+    });
+
+    it('parses tdengine rest url', () => {
+      expect(parseSimpleUrl('TDENGINE', 'jdbc:TAOS-RS://127.0.0.1:6041/power?charset=UTF-8')).toEqual({
+        hostname: '127.0.0.1',
+        port: '6041',
+        database: 'power',
+      });
+    });
+
+    it('parses tdengine native url', () => {
+      expect(parseSimpleUrl('TDENGINE', 'jdbc:TAOS://127.0.0.1:6030/power')).toEqual({
+        hostname: '127.0.0.1',
+        port: '6030',
+        database: 'power',
+      });
+    });
+
     it('returns null for tns alias url', () => {
       expect(parseSimpleUrl('ORACLE', 'jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)))')).toBeNull();
     });
@@ -135,6 +165,7 @@ describe('db-url.util', () => {
       expect(isNetworkType('MYSQL')).toBe(true);
       expect(isNetworkType('ORACLE')).toBe(true);
       expect(isNetworkType('POSTGRESQL')).toBe(true);
+      expect(isNetworkType('TDENGINE')).toBe(true);
     });
 
     it('excludes duckdb and ducklake', () => {

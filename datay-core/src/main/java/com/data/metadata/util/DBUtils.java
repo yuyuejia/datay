@@ -900,6 +900,9 @@ public class DBUtils {
         if (jdbcUrl == null) {
             return "Unknown";
         }
+        if (TdengineJdbcSupport.isTdengineUrl(jdbcUrl)) {
+            return DBType.TDENGINE.toString();
+        }
         if (jdbcUrl.startsWith("jdbc:mysql:")) {
             return DBType.MYSQL.toString();
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {
@@ -926,6 +929,12 @@ public class DBUtils {
      * 根据 JDBC URL 判断数据库类型，返回 DBType 枚举
      */
     public static DBType getDBTypeEnum(String jdbcUrl) {
+        if (jdbcUrl == null) {
+            return null;
+        }
+        if (TdengineJdbcSupport.isTdengineUrl(jdbcUrl)) {
+            return DBType.TDENGINE;
+        }
         if (jdbcUrl.startsWith("jdbc:mysql:")) {
             return DBType.MYSQL;
         } else if (jdbcUrl.startsWith("jdbc:oracle:")) {
@@ -1071,6 +1080,9 @@ public class DBUtils {
      * 获取驱动类名（向后兼容方法）
      */
     public static String getDriverClassName(String url) {
+        if (TdengineJdbcSupport.isTdengineUrl(url)) {
+            return TdengineJdbcSupport.driverClassName(url);
+        }
         DBType dbType = getDBTypeEnum(url);
         if (dbType != null) {
             return dbType.getDriverClassName();
@@ -1082,6 +1094,9 @@ public class DBUtils {
      * 获取驱动类名（带版本信息）
      */
     public static String getDriverClassName(String url, String version) {
+        if (TdengineJdbcSupport.isTdengineUrl(url)) {
+            return TdengineJdbcSupport.driverClassName(url);
+        }
         DBType dbType = getDBTypeEnum(url);
         if (dbType != null) {
             return dbType.getDriverClassNameForVersion(version);

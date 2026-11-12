@@ -115,6 +115,7 @@ public class Example {
 ## 支持的数据源
 
 - **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
+- **时序数据库**: TDengine（WebSocket / REST / 原生）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）

@@ -364,7 +364,13 @@ public class SqlSink extends FlowComponent {
             if (value instanceof Map || value instanceof Collection) {
                 value = String.valueOf(value);
             }
-            statement.setObject(index + 1, value);
+            if (value instanceof String) {
+                // 部分驱动（如 TDengine WS）对 NCHAR 列的 setObject(String) 兼容性较差，
+                // 统一使用标准 setString，避免类型转换异常。
+                statement.setString(index + 1, (String) value);
+            } else {
+                statement.setObject(index + 1, value);
+            }
         }
     }
 

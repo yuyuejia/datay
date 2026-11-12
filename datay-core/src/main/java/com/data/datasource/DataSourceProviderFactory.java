@@ -21,6 +21,7 @@ import com.data.datasource.provider.PostgresqlDataSourceProvider;
 import com.data.datasource.provider.SqlServerDataSourceProvider;
 import com.data.datasource.provider.SqliteDataSourceProvider;
 import com.data.datasource.provider.StarRocksDataSourceProvider;
+import com.data.datasource.provider.TdengineDataSourceProvider;
 import com.data.datasource.provider.TidbDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
 import com.data.datasource.provider.influxdb.InfluxDbDataSourceProvider;
@@ -92,6 +93,7 @@ public final class DataSourceProviderFactory {
         register(new AvroDataSourceProvider());
         register(new DmDataSourceProvider());
         register(new HanaDataSourceProvider());
+        register(new TdengineDataSourceProvider());
         register(new ElasticsearchDataSourceProvider());
         register(new MongoDataSourceProvider());
         register(new InfluxDbDataSourceProvider());

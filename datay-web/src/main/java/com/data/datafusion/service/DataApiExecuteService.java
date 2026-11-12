@@ -966,7 +966,12 @@ public class DataApiExecuteService {
         if (ident == null) {
             return "";
         }
-        if ("MYSQL".equals(dbType) || "DORIS".equals(dbType) || "CLICKHOUSE".equals(dbType)) {
+        if (
+            "MYSQL".equals(dbType) ||
+            "DORIS".equals(dbType) ||
+            "CLICKHOUSE".equals(dbType) ||
+            "TDENGINE".equals(dbType)
+        ) {
             return "`" + ident.replace("`", "``") + "`";
         }
         return "\"" + ident.replace("\"", "\"\"") + "\"";

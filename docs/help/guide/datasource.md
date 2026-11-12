@@ -51,9 +51,28 @@
 | 分类 | 数据源 |
 | --- | --- |
 | 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、SAP HANA |
+| 时序数据库 | TDengine |
 | 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum |
 | 文件系统 | 本地文件、MinIO 对象存储 |
 | CDC | MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput） |
+
+### TDengine 连接说明
+
+TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏览、数据查询和 ETL 读写。新建数据源时类型选择 `TDENGINE`，默认使用 WebSocket 协议：
+
+| 协议 | 连接 URL 示例 | 默认端口 | 驱动类 |
+| --- | --- | --- | --- |
+| WebSocket（默认） | `jdbc:TAOS-WS://127.0.0.1:6041/power` | `6041` | `com.taosdata.jdbc.ws.WebSocketDriver` |
+| REST | `jdbc:TAOS-RS://127.0.0.1:6041/power` | `6041` | `com.taosdata.jdbc.rs.RestfulDriver` |
+| 原生 | `jdbc:TAOS://127.0.0.1:6030/power` | `6030` | `com.taosdata.jdbc.TSDBDriver` |
+
+- 前端默认按 WebSocket 拼接 URL；REST 或原生连接通过「自定义 URL」直接填写。
+- `taos-jdbcdriver` 不随平台打包，首次连接时按需从 Maven 仓库下载 `-dist` 完整包，请确保运行环境可访问 Maven 仓库。
+- 原生协议依赖本机 TDengine 客户端原生库；容器化部署建议优先使用 WebSocket 或 REST。
+- TDengine 没有 schema 概念，**database 会作为 schema 展示**；左侧元数据树按 `database → table → column` 浏览。
+- 每个表必须包含一个 `TIMESTAMP` 时间列，ETL 自动建表时会将该列放在第一列。
+- TDengine 相同时间戳重复写入会覆盖旧值，因此 ETL 的 `update` 模式在 TDengine 上等价于 `insert/upsert`。
+- **超级表（STable）不能直接执行普通 INSERT/UPDATE**。需要写入超级表时，请使用 `SqlSink` 并配置 `INSERT INTO 子表 USING 超级表 TAGS (...) VALUES (...)`；普通 ETL 输出节点会提前拦截并给出提示。
 
 ## 下一步
 

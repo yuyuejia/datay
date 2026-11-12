@@ -154,7 +154,8 @@ export default defineComponent({
         type.includes("MYSQL") ||
         type.includes("TIDB") ||
         type.includes("DORIS") ||
-        type.includes("CLICKHOUSE")
+        type.includes("CLICKHOUSE") ||
+        type.includes("TDENGINE")
       ) {
         return MySQL;
       }
@@ -429,7 +430,12 @@ export default defineComponent({
 
     const getFormatterDialect = (): string => {
       const type = (dataSourceType.value || "").toUpperCase();
-      if (type.includes("MYSQL") || type.includes("TIDB") || type.includes("DORIS")) {
+      if (
+        type.includes("MYSQL") ||
+        type.includes("TIDB") ||
+        type.includes("DORIS") ||
+        type.includes("TDENGINE")
+      ) {
         return "mysql";
       }
       if (type.includes("CLICKHOUSE")) {

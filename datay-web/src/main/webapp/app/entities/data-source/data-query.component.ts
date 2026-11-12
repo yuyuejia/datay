@@ -221,7 +221,13 @@ export default defineComponent({
 
     const getSqlDialectSpec = () => {
       const type = (dataSourceType.value || '').toUpperCase();
-      if (type.includes('MYSQL') || type.includes('TIDB') || type.includes('DORIS') || type.includes('CLICKHOUSE')) {
+      if (
+        type.includes('MYSQL') ||
+        type.includes('TIDB') ||
+        type.includes('DORIS') ||
+        type.includes('CLICKHOUSE') ||
+        type.includes('TDENGINE')
+      ) {
         return MySQL;
       }
       if (type.includes('ORACLE') || type.includes('SQLSERVER') || type.includes('MSSQL')) {
@@ -936,7 +942,7 @@ export default defineComponent({
 
     const getFormatterDialect = (): string => {
       const type = (dataSourceType.value || '').toUpperCase();
-      if (type.includes('MYSQL') || type.includes('TIDB') || type.includes('DORIS')) {
+      if (type.includes('MYSQL') || type.includes('TIDB') || type.includes('DORIS') || type.includes('TDENGINE')) {
         return 'mysql';
       }
       if (type.includes('CLICKHOUSE')) {
