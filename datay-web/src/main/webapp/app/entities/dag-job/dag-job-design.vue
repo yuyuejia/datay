@@ -46,6 +46,7 @@ const taskDirectories = ref([]);
 const nodeTypes = { job: markRaw(JobNode) };
 
 const typeOrder = [
+  "DAG",
   "ETL",
   "SQL",
   "DATA_QUALITY",
@@ -55,6 +56,7 @@ const typeOrder = [
   "DEMO",
 ];
 const typeLabels = {
+  DAG: "任务编排",
   ETL: "批量任务",
   SQL: "SQL 任务",
   DATA_QUALITY: "质检任务",
@@ -64,9 +66,19 @@ const typeLabels = {
   DEMO: "演示任务",
 };
 
+const currentJobId = computed(() =>
+  route.params.jobId ? String(route.params.jobId) : null,
+);
+
+const availableCandidates = computed(() =>
+  candidates.value.filter(
+    (job) => !currentJobId.value || String(job.id) !== currentJobId.value,
+  ),
+);
+
 const candidateMap = computed(() => {
   const map = {};
-  for (const job of candidates.value) {
+  for (const job of availableCandidates.value) {
     map[String(job.id)] = job;
   }
   return map;
@@ -75,7 +87,7 @@ const candidateMap = computed(() => {
 const groupedCandidates = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase();
   const map = {};
-  for (const job of candidates.value) {
+  for (const job of availableCandidates.value) {
     if (
       keyword &&
       !String(job.jobName || "")
@@ -399,6 +411,17 @@ const closeDetail = () => {
   detailJob.value = null;
 };
 
+const openNestedDagDesign = () => {
+  if (!detailJob.value?.id) {
+    return;
+  }
+  const target = router.resolve({
+    name: "DagJobDesign",
+    params: { jobId: detailJob.value.id },
+  });
+  window.open(target.href, "_blank", "noopener");
+};
+
 const buildJobContext = () => {
   const jobs = nodes.value.map((node) => ({ id: String(node.id) }));
   const jobDepends = edges.value.map((edge) => ({
@@ -503,7 +526,7 @@ const saveDagJob = async () => {
       </div>
       <div class="header-actions">
         <span class="design-tip"
-          >从左侧拖入任务并连线即构成依赖（A → B 表示 A 完成后执行 B）</span
+          >从左侧拖入任务或其他编排并连线即构成依赖（A → B 表示 A 完成后执行 B）</span
         >
         <el-button type="primary" @click="saveDagJob">
           <font-awesome-icon icon="save" class="mr-1" />
@@ -518,7 +541,7 @@ const saveDagJob = async () => {
             type="text"
             class="search-input"
             v-model="searchKeyword"
-            placeholder="搜索任务名称 / ID"
+            placeholder="搜索任务 / 编排名称或 ID"
           />
         </div>
         <div v-if="isCandidateLoading" class="text-center text-muted p-2">
@@ -529,7 +552,7 @@ const saveDagJob = async () => {
           {{
             searchKeyword
               ? "无匹配任务"
-              : "暂无可编排任务，请先在「任务定义」中创建任务"
+              : "暂无可编排任务，请先创建任务或任务编排"
           }}
         </div>
         <div v-else class="sidebar-tree">
@@ -575,7 +598,7 @@ const saveDagJob = async () => {
           <Controls />
         </VueFlow>
         <div v-if="nodes.length === 0" class="canvas-empty-tip">
-          从左侧拖拽任务到此处，拖拽任务间连线设置执行依赖
+          从左侧拖拽任务或任务编排到此处，拖拽节点间连线设置执行依赖
         </div>
       </div>
     </div>
@@ -613,6 +636,14 @@ const saveDagJob = async () => {
         </template>
       </div>
       <template #modal-footer>
+        <el-button
+          v-if="detailJob && detailJob.type === 'DAG'"
+          type="primary"
+          plain
+          @click="openNestedDagDesign"
+        >
+          打开子编排设计
+        </el-button>
         <el-button @click="closeDetail">
           关闭
         </el-button>

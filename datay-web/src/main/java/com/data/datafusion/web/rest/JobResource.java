@@ -64,7 +64,11 @@ public class JobResource {
         if (jobDTO.getId() != null) {
             throw new BadRequestAlertException("A new job cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        jobDTO = jobService.save(jobDTO);
+        try {
+            jobDTO = jobService.save(jobDTO);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "validation");
+        }
         return ResponseEntity.created(new URI("/api/jobs/" + jobDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, false, ENTITY_NAME, jobDTO.getId().toString()))
             .body(jobDTO);
@@ -95,7 +99,11 @@ public class JobResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        jobDTO = jobService.update(jobDTO);
+        try {
+            jobDTO = jobService.update(jobDTO);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "validation");
+        }
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, jobDTO.getId().toString()))
             .body(jobDTO);

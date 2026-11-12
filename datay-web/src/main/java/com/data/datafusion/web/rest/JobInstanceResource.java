@@ -157,9 +157,12 @@ public class JobInstanceResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of sub jobInstances in body.
      */
     @GetMapping("/{instanceCode}/sub-instances")
-    public ResponseEntity<List<JobInstanceDTO>> getSubJobInstances(@PathVariable("instanceCode") String instanceCode) {
-        LOG.debug("REST request to get sub JobInstances of parent : {}", instanceCode);
-        return ResponseEntity.ok().body(jobInstanceService.findSubInstances(instanceCode));
+    public ResponseEntity<List<JobInstanceDTO>> getSubJobInstances(
+        @PathVariable("instanceCode") String instanceCode,
+        @RequestParam(value = "recursive", defaultValue = "false") boolean recursive
+    ) {
+        LOG.debug("REST request to get sub JobInstances of parent : {}, recursive : {}", instanceCode, recursive);
+        return ResponseEntity.ok().body(jobInstanceService.findSubInstances(instanceCode, recursive));
     }
 
     /**

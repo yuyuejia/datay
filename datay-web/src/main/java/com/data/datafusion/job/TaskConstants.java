@@ -48,6 +48,9 @@ public final class TaskConstants {
     /** 任务超时时间上限：7 天（秒）。 */
     public static final int MAX_TIMEOUT_SECONDS = 7 * 24 * 60 * 60;
 
+    /** 任务编排最大嵌套深度（顶层编排之下允许的子编排层数）。 */
+    public static final int MAX_DAG_NESTING_DEPTH = 10;
+
     /** 任务优先级：低。 */
     public static final int PRIORITY_LOW = 1;
 

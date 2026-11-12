@@ -15,8 +15,13 @@ import com.data.datafusion.service.jobevent.EventServiceFactory;
 import com.data.datafusion.service.jobevent.JobStatusEvent;
 import com.data.datafusion.service.mapper.JobInstanceMapper;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -153,12 +158,41 @@ public class JobInstanceService {
      */
     @Transactional(readOnly = true)
     public List<JobInstanceDTO> findSubInstances(String parentInstanceCode) {
-        LOG.debug("Request to get sub JobInstances by parentInstanceCode: {}", parentInstanceCode);
-        return jobInstanceRepository
-            .findByParentInstanceCodeOrderByIdAsc(parentInstanceCode)
-            .stream()
-            .map(jobInstanceMapper::toDto)
-            .collect(Collectors.toList());
+        return findSubInstances(parentInstanceCode, false);
+    }
+
+    /**
+     * 查询某个 DAG 编排实例下的子任务实例列表。
+     *
+     * @param parentInstanceCode DAG 顶层实例代码
+     * @param recursive          是否递归返回所有后代实例
+     * @return 子任务实例列表
+     */
+    @Transactional(readOnly = true)
+    public List<JobInstanceDTO> findSubInstances(String parentInstanceCode, boolean recursive) {
+        LOG.debug("Request to get sub JobInstances by parentInstanceCode: {}, recursive: {}", parentInstanceCode, recursive);
+        if (!recursive) {
+            return jobInstanceRepository
+                .findByParentInstanceCodeOrderByIdAsc(parentInstanceCode)
+                .stream()
+                .map(jobInstanceMapper::toDto)
+                .collect(Collectors.toList());
+        }
+        List<JobInstance> descendants = new ArrayList<>();
+        collectSubInstances(parentInstanceCode, descendants, new HashSet<>());
+        return descendants.stream().map(jobInstanceMapper::toDto).collect(Collectors.toList());
+    }
+
+    private void collectSubInstances(String parentInstanceCode, List<JobInstance> descendants, Set<String> visited) {
+        for (JobInstance child : jobInstanceRepository.findByParentInstanceCodeOrderByIdAsc(parentInstanceCode)) {
+            if (StringUtils.hasText(child.getInstanceCode()) && !visited.add(child.getInstanceCode())) {
+                continue;
+            }
+            descendants.add(child);
+            if (StringUtils.hasText(child.getInstanceCode())) {
+                collectSubInstances(child.getInstanceCode(), descendants, visited);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -259,7 +293,15 @@ public class JobInstanceService {
     }
 
     public FlowInstance buildFlowInstance(JobInstance jobInstance) {
-        Flow flow = JSONObject.parseObject(jobInstance.getJobContext(), Flow.class);
+        Set<String> dagPath = new LinkedHashSet<>();
+        if (StringUtils.hasText(jobInstance.getJobCode())) {
+            dagPath.add(jobInstance.getJobCode());
+        }
+        return buildFlowInstance(jobInstance, dagPath, 0);
+    }
+
+    private FlowInstance buildFlowInstance(JobInstance jobInstance, Set<String> dagPath, int depth) {
+        Flow flow = parseDagFlow(jobInstance);
         FlowInstance flowInstance = new FlowInstance();
         flowInstance.setJobDepends(flow.getJobDepends());
         int parentPriority = normalizePriority(jobInstance.getPriority());
@@ -271,10 +313,46 @@ public class JobInstanceService {
             subJobInstance.setPriority(parentPriority);
             subJobInstance.setStatus(TaskConstants.TASK_STATUS_APPENDING);
             subJobInstance.setCreateTime(ZonedDateTime.now());
+
+            // 子编排需要递归展开，把自身的任务实例树写入 jobContext，供 DAGTask 执行时直接使用。
+            if (TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(subJobInstance.getType())) {
+                int nestedDepth = depth + 1;
+                if (nestedDepth > TaskConstants.MAX_DAG_NESTING_DEPTH) {
+                    throw new IllegalStateException(
+                        "任务编排嵌套层级不能超过 " + TaskConstants.MAX_DAG_NESTING_DEPTH + " 层: " + subJobInstance.getJobCode()
+                    );
+                }
+                if (!dagPath.add(subJobInstance.getJobCode())) {
+                    throw new IllegalStateException(
+                        "任务编排存在循环嵌套: " + String.join(" -> ", dagPath) + " -> " + subJobInstance.getJobCode()
+                    );
+                }
+                try {
+                    FlowInstance nestedFlowInstance = buildFlowInstance(subJobInstance, dagPath, nestedDepth);
+                    subJobInstance.setJobContext(JSONObject.toJSONString(nestedFlowInstance));
+                } finally {
+                    dagPath.remove(subJobInstance.getJobCode());
+                }
+            }
+
             save(subJobInstance);
             flowInstance.getJobInstances().add(subJobInstance);
         }
         return flowInstance;
+    }
+
+    private Flow parseDagFlow(JobInstance jobInstance) {
+        try {
+            Flow flow = JSONObject.parseObject(jobInstance.getJobContext(), Flow.class);
+            if (flow == null || flow.getJobs() == null) {
+                throw new IllegalStateException("任务编排没有可执行的子任务: " + jobInstance.getJobCode());
+            }
+            return flow;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("编排内容解析失败: " + jobInstance.getJobCode(), e);
+        }
     }
 
     public void waitingInstance(JobInstance jobInstance) {
@@ -321,7 +399,7 @@ public class JobInstanceService {
         Job job = jobRepository.findById(jobId).orElseThrow();
         JobInstance jobInstance = new JobInstance();
         jobInstance.setJobName(job.getJobName());
-        jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
+        jobInstance.setInstanceCode(buildInstanceCode(job.getId()));
         jobInstance.setType(job.getType());
         jobInstance.setJobCode(String.valueOf(job.getId()));
         jobInstance.setTenantId(job.getTenantId());
@@ -335,6 +413,13 @@ public class JobInstanceService {
         }
         //        jobInstance.setParameter();
         return jobInstance;
+    }
+
+    /**
+     * 生成任务实例编码。追加随机后缀，避免同一毫秒内构建多个实例（尤其是嵌套编排复用同一子编排）时编码重复。
+     */
+    private String buildInstanceCode(String jobId) {
+        return jobId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
     private void normalizeScheduling(JobInstance jobInstance) {

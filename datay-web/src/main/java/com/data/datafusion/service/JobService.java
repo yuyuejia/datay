@@ -1,9 +1,11 @@
 package com.data.datafusion.service;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.job.dag.Flow;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.JobRepository;
@@ -13,7 +15,9 @@ import com.data.datafusion.service.mapper.JobMapper;
 import java.time.ZonedDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -63,6 +67,7 @@ public class JobService {
         LOG.debug("Request to save Job : {}", jobDTO);
         normalizeScheduling(jobDTO);
         validateDagDirectory(jobDTO);
+        validateDagNesting(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
         job = jobRepository.save(job);
@@ -126,6 +131,7 @@ public class JobService {
         preserveSchedulingFromExisting(jobDTO);
         normalizeScheduling(jobDTO);
         validateDagDirectory(jobDTO);
+        validateDagNesting(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
         job = jobRepository.save(job);
@@ -236,6 +242,68 @@ public class JobService {
             .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + jobDTO.getDirectoryId()));
         if (!TaskConstants.TASK_TYPE_DAG.equals(directory.getTaskType())) {
             throw new IllegalArgumentException("目录与任务类型不匹配: " + jobDTO.getDirectoryId());
+        }
+    }
+
+    /**
+     * 校验任务编排的嵌套关系，禁止直接嵌套自身、间接循环嵌套以及超过最大嵌套深度。
+     */
+    private void validateDagNesting(JobDTO jobDTO) {
+        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobDTO.getType()) || !StringUtils.hasText(jobDTO.getJobContext())) {
+            return;
+        }
+        Flow flow = parseDagFlow(jobDTO.getJobContext(), jobDTO.getId());
+        if (flow == null || flow.getJobs() == null) {
+            return;
+        }
+        Set<String> path = new LinkedHashSet<>();
+        if (StringUtils.hasText(jobDTO.getId())) {
+            path.add(jobDTO.getId());
+        }
+        Map<String, Job> jobCache = new HashMap<>();
+        for (Job child : flow.getJobs()) {
+            validateNestedDag(child.getId(), path, jobCache, 1);
+        }
+    }
+
+    private void validateNestedDag(String jobId, Set<String> path, Map<String, Job> jobCache, int depth) {
+        if (!StringUtils.hasText(jobId)) {
+            return;
+        }
+        if (depth > TaskConstants.MAX_DAG_NESTING_DEPTH) {
+            throw new IllegalArgumentException("任务编排嵌套层级不能超过 " + TaskConstants.MAX_DAG_NESTING_DEPTH + " 层");
+        }
+        Job job = jobCache.computeIfAbsent(jobId, id -> jobRepository.findById(id).orElse(null));
+        if (job == null) {
+            throw new IllegalArgumentException("编排引用的任务不存在: " + jobId);
+        }
+        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(job.getType())) {
+            return;
+        }
+        if (!path.add(jobId)) {
+            throw new IllegalArgumentException("任务编排存在循环嵌套: " + String.join(" -> ", path) + " -> " + jobId);
+        }
+        try {
+            if (!StringUtils.hasText(job.getJobContext())) {
+                return;
+            }
+            Flow nestedFlow = parseDagFlow(job.getJobContext(), jobId);
+            if (nestedFlow == null || nestedFlow.getJobs() == null) {
+                return;
+            }
+            for (Job nestedChild : nestedFlow.getJobs()) {
+                validateNestedDag(nestedChild.getId(), path, jobCache, depth + 1);
+            }
+        } finally {
+            path.remove(jobId);
+        }
+    }
+
+    private Flow parseDagFlow(String jobContext, String jobId) {
+        try {
+            return JSONObject.parseObject(jobContext, Flow.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("编排内容解析失败: " + jobId, e);
         }
     }
 

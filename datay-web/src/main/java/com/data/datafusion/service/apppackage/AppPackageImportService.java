@@ -1282,6 +1282,65 @@ public class AppPackageImportService {
         return TaskConstants.ETL_TASK_KIND_BATCH;
     }
 
+    /**
+     * 兼容旧资产包：当 ETL 任务只携带 {@code dir} 路径而没有目录资产时，按路径自动创建批量 / 实时任务目录树。
+     *
+     * <p>例如 {@code /快速入门/维度同步} 会在对应任务类型的目录树中创建「快速入门 → 维度同步」，
+     * 返回最末级目录 ID 供任务挂载。已存在的同名目录直接复用。
+     */
+    private String resolveDerivedEtlDirectory(
+        String dir,
+        String taskType,
+        Map<String, String> cache,
+        AppPackageInitResultDTO result
+    ) {
+        List<String> segments = splitDirectoryPath(dir);
+        if (segments.isEmpty()) {
+            return null;
+        }
+        String normalizedType = normalizeEtlDirectoryTaskType(taskType);
+        String parentId = null;
+        StringBuilder cacheKey = new StringBuilder(normalizedType);
+        for (String segment : segments) {
+            cacheKey.append('/').append(segment);
+            String key = cacheKey.toString();
+            String directoryId = cache.get(key);
+            if (directoryId == null) {
+                ETLTaskDirectory entity = findEtlTaskDirectory(normalizedType, segment, parentId);
+                if (entity == null) {
+                    entity = new ETLTaskDirectory();
+                    entity.setName(segment);
+                    entity.setParentId(parentId);
+                    entity.setTaskType(normalizedType);
+                    entity.setSortOrder(0);
+                    ZonedDateTime now = ZonedDateTime.now();
+                    entity.setCreateTime(now);
+                    entity.setUpdateTime(now);
+                    entity = etlTaskDirectoryRepository.save(entity);
+                    result.counts.merge("etlTaskDirectories", 1, Integer::sum);
+                }
+                directoryId = entity.getId();
+                cache.put(key, directoryId);
+            }
+            parentId = directoryId;
+        }
+        return parentId;
+    }
+
+    private List<String> splitDirectoryPath(String dir) {
+        if (dir == null || dir.isBlank()) {
+            return List.of();
+        }
+        List<String> segments = new ArrayList<>();
+        for (String segment : dir.trim().split("[/\\\\]+")) {
+            String value = segment.trim();
+            if (!value.isEmpty() && !".".equals(value)) {
+                segments.add(value);
+            }
+        }
+        return segments;
+    }
+
     private ETLTaskDirectory findEtlTaskDirectory(String taskType, String name, String parentId) {
         String directoryName = name == null ? "导入目录" : name;
         if (parentId == null) {
@@ -1303,6 +1362,7 @@ public class AppPackageImportService {
     ) {
         int created = 0;
         int overwritten = 0;
+        Map<String, String> derivedDirectoryCache = new LinkedHashMap<>();
         for (AppPackageEtlTask item : nonNull(content.getEtlTasks())) {
             if (item.oldId == null) {
                 continue;
@@ -1323,12 +1383,23 @@ public class AppPackageImportService {
             dto.setTaskCode(item.taskCode);
             dto.setTaskDesc(item.taskDesc);
             dto.setDir(item.dir);
+
+            String directoryId = null;
             if (item.directoryOldId != null && !item.directoryOldId.isBlank()) {
-                dto.setDirectoryId(etlTaskDirectoryMap.get(item.directoryOldId));
-            } else if (overwrite) {
-                // 旧资产包不携带目录信息：覆盖安装时保留任务原有目录
-                dto.setDirectoryId(existing.getDirectoryId());
+                directoryId = etlTaskDirectoryMap.get(item.directoryOldId);
+                if (directoryId == null) {
+                    result.warnings.add("ETL 任务引用的目录不在资产包内：" + item.taskName + " -> directoryId=" + item.directoryOldId);
+                }
             }
+            if (directoryId == null && overwrite && existing.getDirectoryId() != null) {
+                // 旧资产包不携带目录信息：覆盖安装时保留任务原有目录
+                directoryId = existing.getDirectoryId();
+            }
+            if (directoryId == null) {
+                // 兼容旧资产包：仅携带 dir（如 /快速入门/维度同步）而没有目录资产，按路径自动创建目录树
+                directoryId = resolveDerivedEtlDirectory(item.dir, item.type, derivedDirectoryCache, result);
+            }
+            dto.setDirectoryId(directoryId);
             dto.setType(item.type == null ? TaskConstants.TASK_TYPE_ETL : item.type);
             dto.setCron(item.cron);
             dto.setRetryCount(item.retryCount);

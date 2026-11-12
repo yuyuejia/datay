@@ -148,9 +148,15 @@
           </div>
           <el-empty v-else-if="subTaskLogs.length === 0" description="未找到子任务实例"></el-empty>
           <el-collapse v-else v-model="activeSubTaskPanels">
-            <el-collapse-item v-for="sub in subTaskLogs" :key="sub.instance.instanceCode" :name="sub.instance.instanceCode">
+            <el-collapse-item
+              v-for="sub in subTaskLogs"
+              :key="sub.instance.instanceCode"
+              :name="sub.instance.instanceCode"
+              :style="{ marginLeft: `${(sub.depth || 0) * 16}px` }"
+            >
               <template #title>
                 <div class="d-flex align-items-center flex-wrap" style="gap: 8px">
+                  <span v-if="sub.depth > 0" class="text-muted">└─</span>
                   <el-tag :type="getStatusType(sub.instance.status)" size="small">{{ sub.instance.status }}</el-tag>
                   <strong>{{ sub.instance.jobName || '-' }}</strong>
                   <span class="text-muted">{{ jobTypeLabel(sub.instance.type) }}</span>

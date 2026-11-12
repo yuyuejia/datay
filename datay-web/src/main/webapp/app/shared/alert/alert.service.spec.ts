@@ -86,6 +86,24 @@ describe('Alert Service test suite', () => {
     );
   });
 
+  it('should show problem detail when http status = 400 and detail', () => {
+    alertService.showHttpError({
+      status: 400,
+      data: {
+        title: 'Bad Request',
+        detail: '任务编排存在循环嵌套: A -> B -> A',
+      },
+    });
+
+    expect(ElMessage).toHaveBeenCalledTimes(1);
+    expect(ElMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '任务编排存在循环嵌套: A -> B -> A',
+        type: 'error',
+      }),
+    );
+  });
+
   it('should show validation error message when http status = 400 and fieldErrors', () => {
     alertService.showHttpError({
       status: 400,

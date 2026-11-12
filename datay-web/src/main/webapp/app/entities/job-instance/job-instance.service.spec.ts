@@ -193,6 +193,16 @@ describe('Service Tests', () => {
           });
       });
 
+      it('should load recursive sub instances', async () => {
+        const returnedFromService = [{ instanceCode: 'child-instance', parentInstanceCode: 'root-instance' }];
+        axiosStub.get.resolves({ data: returnedFromService });
+
+        return service.getSubInstances('root-instance', true).then(res => {
+          expect(res).toMatchObject(returnedFromService);
+          expect(axiosStub.get.calledWith('api/job-instances/root-instance/sub-instances', { params: { recursive: true } })).toBe(true);
+        });
+      });
+
       it('should delete a JobInstance', async () => {
         axiosStub.delete.resolves({ ok: true });
         return service.delete(123).then(res => {

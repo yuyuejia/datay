@@ -241,6 +241,105 @@ class DAGTaskTest {
         }
     }
 
+    @Test
+    void nestedDagExecutesItsOwnSubTasks() throws Exception {
+        JobInstance innerShell = new JobInstance();
+        innerShell.setInstanceCode("inner-shell-instance");
+        innerShell.setJobCode("inner-shell-job");
+        innerShell.setType(TaskConstants.TASK_TYPE_SHELL);
+        innerShell.setStatus(TaskConstants.TASK_STATUS_WAITING);
+
+        FlowInstance innerFlow = new FlowInstance();
+        innerFlow.setJobInstances(new LinkedHashSet<>(Collections.singletonList(innerShell)));
+        innerFlow.setJobDepends(Collections.emptyList());
+
+        JobInstance nestedDag = new JobInstance();
+        nestedDag.setInstanceCode("nested-dag-instance");
+        nestedDag.setJobCode("nested-dag-job");
+        nestedDag.setType(TaskConstants.TASK_TYPE_DAG);
+        nestedDag.setPriority(TaskConstants.DEFAULT_PRIORITY);
+        nestedDag.setJobContext(JSON.toJSONString(innerFlow));
+
+        FlowInstance parentFlow = new FlowInstance();
+        parentFlow.setJobInstances(new LinkedHashSet<>(Collections.singletonList(nestedDag)));
+        parentFlow.setJobDepends(Collections.emptyList());
+
+        JobInstance parent = new JobInstance();
+        parent.setInstanceCode("nested-dag-parent");
+        parent.setJobCode("nested-dag-parent-job");
+        parent.setType(TaskConstants.TASK_TYPE_DAG);
+        parent.setRetryCount(0);
+        parent.setTimeoutSeconds(0);
+        parent.setJobContext(JSON.toJSONString(parentFlow));
+
+        Map<String, AtomicInteger> executions = new ConcurrentHashMap<>();
+        try (
+            MockedStatic<EventServiceFactory> eventFactory = Mockito.mockStatic(EventServiceFactory.class);
+            MockedStatic<TaskFactory> taskFactory = Mockito.mockStatic(TaskFactory.class)
+        ) {
+            eventFactory.when(EventServiceFactory::getEventService).thenReturn(mock(IEventService.class));
+            taskFactory
+                .when(() -> TaskFactory.getTaskProcessor(any(JobInstance.class)))
+                .thenAnswer(invocation -> {
+                    JobInstance child = invocation.getArgument(0);
+                    executions.computeIfAbsent(child.getJobCode(), code -> new AtomicInteger()).incrementAndGet();
+                    if (TaskConstants.TASK_TYPE_DAG.equals(child.getType())) {
+                        return new DAGTask(child);
+                    }
+                    return fixedTask(TaskConstants.TASK_STATUS_SUCCESSFUL);
+                });
+
+            String status = new DAGTask(parent).execute();
+
+            assertThat(status).isEqualTo(TaskConstants.TASK_STATUS_SUCCESSFUL);
+            assertThat(executions.get("nested-dag-job").get()).isEqualTo(1);
+            assertThat(executions.get("inner-shell-job").get()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void interruptRemainingTasksMarksNestedDagDescendantsInterrupted() throws Exception {
+        JobInstance grandChild = new JobInstance();
+        grandChild.setInstanceCode("nested-grand-child-instance");
+        grandChild.setJobCode("nested-grand-child-job");
+        grandChild.setType(TaskConstants.TASK_TYPE_SHELL);
+        grandChild.setStatus(TaskConstants.TASK_STATUS_APPENDING);
+
+        FlowInstance innerFlow = new FlowInstance();
+        innerFlow.setJobInstances(new LinkedHashSet<>(Collections.singletonList(grandChild)));
+        innerFlow.setJobDepends(Collections.emptyList());
+
+        JobInstance nestedDag = new JobInstance();
+        nestedDag.setInstanceCode("nested-pending-dag-instance");
+        nestedDag.setJobCode("nested-pending-dag-job");
+        nestedDag.setType(TaskConstants.TASK_TYPE_DAG);
+        nestedDag.setStatus(TaskConstants.TASK_STATUS_APPENDING);
+        nestedDag.setJobContext(JSON.toJSONString(innerFlow));
+
+        try (MockedStatic<EventServiceFactory> mocked = Mockito.mockStatic(EventServiceFactory.class)) {
+            IEventService eventService = Mockito.mock(IEventService.class);
+            mocked.when(EventServiceFactory::getEventService).thenReturn(eventService);
+
+            DAGTask dagTask = new DAGTask(null);
+            Method method = DAGTask.class.getDeclaredMethod("interruptRemainingTasks", List.class, int.class);
+            method.setAccessible(true);
+            method.invoke(dagTask, Collections.singletonList(nestedDag), 0);
+
+            assertThat(nestedDag.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_INTERRUPTED);
+
+            ArgumentCaptor<JobStatusEvent> captor = ArgumentCaptor.forClass(JobStatusEvent.class);
+            verify(eventService, times(2)).pushJobStatusEvent(captor.capture());
+            assertThat(captor.getAllValues())
+                .extracting(event -> event.getJobInstance().getInstanceCode())
+                .containsExactly("nested-pending-dag-instance", "nested-grand-child-instance");
+            assertThat(captor.getAllValues())
+                .allSatisfy(event -> {
+                    assertThat(event.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_INTERRUPTED);
+                    assertThat(event.getEndTime()).isNotNull();
+                });
+        }
+    }
+
     private void setRetryIntervalMillis(long millis) throws Exception {
         Field field = TaskExecutionSupport.class.getDeclaredField("retryIntervalMillis");
         field.setAccessible(true);

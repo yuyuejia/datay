@@ -145,16 +145,49 @@ public class DAGTask extends AbstractTask {
      * @param fromIndex    从该下标开始(含)的子任务均尚未执行
      */
     private void interruptRemainingTasks(List<JobInstance> jobInstances, int fromIndex) {
+        Set<String> visited = new HashSet<>();
         for (int i = fromIndex; i < jobInstances.size(); i++) {
-            JobInstance jobInstance = jobInstances.get(i);
-            jobInstance.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
-            jobInstance.setEndTime(String.valueOf(System.currentTimeMillis()));
+            interruptTaskTree(jobInstances.get(i), visited);
+        }
+    }
 
-            JobStatusEvent interruptedEvent = new JobStatusEvent();
-            interruptedEvent.setJobInstance(jobInstance);
-            interruptedEvent.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
-            interruptedEvent.setEndTime(System.currentTimeMillis());
-            EventServiceFactory.getEventService().pushJobStatusEvent(interruptedEvent);
+    /**
+     * 将任务实例标记为中断；若该实例是子编排，则同步中断其尚未执行的嵌套子任务。
+     * 子编排实例在启动父编排时已经递归展开，父编排失败或取消后不能让这些后代实例一直停留在 APPENDING。
+     */
+    private void interruptTaskTree(JobInstance jobInstance, Set<String> visited) {
+        if (jobInstance == null) {
+            return;
+        }
+        String identity = jobInstance.getInstanceCode() != null ? jobInstance.getInstanceCode() : jobInstance.getJobCode();
+        if (identity != null && !visited.add(identity)) {
+            return;
+        }
+        jobInstance.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
+        jobInstance.setEndTime(String.valueOf(System.currentTimeMillis()));
+
+        JobStatusEvent interruptedEvent = new JobStatusEvent();
+        interruptedEvent.setJobInstance(jobInstance);
+        interruptedEvent.setStatus(TaskConstants.TASK_STATUS_INTERRUPTED);
+        interruptedEvent.setEndTime(System.currentTimeMillis());
+        EventServiceFactory.getEventService().pushJobStatusEvent(interruptedEvent);
+
+        if (TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobInstance.getType())) {
+            interruptNestedInstances(jobInstance, visited);
+        }
+    }
+
+    private void interruptNestedInstances(JobInstance dagInstance, Set<String> visited) {
+        try {
+            FlowInstance flowInstance = JSONObject.parseObject(dagInstance.getJobContext(), FlowInstance.class);
+            if (flowInstance == null || flowInstance.getJobInstances() == null) {
+                return;
+            }
+            for (JobInstance child : flowInstance.getJobInstances()) {
+                interruptTaskTree(child, visited);
+            }
+        } catch (Exception e) {
+            log.warn("解析子编排实例失败，无法中断嵌套子任务: {}", dagInstance.getInstanceCode(), e);
         }
     }
 

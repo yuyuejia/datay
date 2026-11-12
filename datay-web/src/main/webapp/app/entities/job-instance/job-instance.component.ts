@@ -50,6 +50,7 @@ export default defineComponent({
       instance: IJobInstance;
       content: string;
       loading: boolean;
+      depth: number;
     }
     const isDagLog = ref(false);
     const subTaskLogs: Ref<SubTaskLog[]> = ref([]);
@@ -205,15 +206,48 @@ export default defineComponent({
       }
     };
 
-    // 新增：加载 DAG 所有子任务实例并逐个加载日志
+    // 新增：加载 DAG 所有子任务实例（含嵌套子编排的后代实例）并逐个加载日志
     const loadSubTaskLogs = async (instance?: IJobInstance) => {
       const target = instance || currentLogInstance.value;
       if (!target?.instanceCode) return;
 
       isLogLoading.value = true;
       try {
-        const subs = await jobInstanceService().getSubInstances(target.instanceCode);
-        subTaskLogs.value = (subs || []).map(sub => ({ instance: sub, content: '', loading: true }));
+        const subs = await jobInstanceService().getSubInstances(target.instanceCode, true);
+        const items: SubTaskLog[] = (subs || []).map(sub => ({ instance: sub, content: '', loading: true, depth: 0 }));
+        const byInstanceCode = new Map<string, SubTaskLog>();
+        items.forEach(item => {
+          if (item.instance.instanceCode) {
+            byInstanceCode.set(item.instance.instanceCode, item);
+          }
+        });
+        const depthCache = new Map<string, number>();
+        const resolveDepth = (item: SubTaskLog): number => {
+          const instanceCode = item.instance.instanceCode;
+          if (instanceCode && depthCache.has(instanceCode)) {
+            return depthCache.get(instanceCode)!;
+          }
+          let depth = 0;
+          let parentCode = item.instance.parentInstanceCode || '';
+          const guard = new Set<string>();
+          while (parentCode && parentCode !== target.instanceCode && !guard.has(parentCode)) {
+            guard.add(parentCode);
+            const parent = byInstanceCode.get(parentCode);
+            if (!parent) {
+              break;
+            }
+            depth += 1;
+            parentCode = parent.instance.parentInstanceCode || '';
+          }
+          if (instanceCode) {
+            depthCache.set(instanceCode, depth);
+          }
+          return depth;
+        };
+        items.forEach(item => {
+          item.depth = resolveDepth(item);
+        });
+        subTaskLogs.value = items;
         // 默认不展开任何子任务，由用户按需点击查看（prepareViewLog 已重置展开项，刷新时保留当前展开状态）
         await Promise.all(subTaskLogs.value.map(item => loadSubTaskLog(item)));
       } catch (error) {
@@ -224,7 +258,7 @@ export default defineComponent({
     };
 
     // 新增：加载单个子任务日志
-    const loadSubTaskLog = async (item: { instance: IJobInstance; content: string; loading: boolean }) => {
+    const loadSubTaskLog = async (item: SubTaskLog) => {
       try {
         const logData = await jobInstanceService().getTaskLog(item.instance.jobCode, item.instance.instanceCode, 0);
         item.content = logData?.success ? logData.content : logData?.message || '';
@@ -309,7 +343,12 @@ export default defineComponent({
       let fileName: string;
       if (isDagLog.value) {
         content = subTaskLogs.value
-          .map(sub => `===== ${sub.instance.jobName} (${sub.instance.instanceCode}) [${sub.instance.status}] =====\n${sub.content || ''}`)
+          .map(
+            sub =>
+              `${'  '.repeat(sub.depth || 0)}===== ${sub.instance.jobName} (${sub.instance.instanceCode}) [${sub.instance.status}] =====\n${
+                sub.content || ''
+              }`,
+          )
           .join('\n\n');
         fileName = `dag-log-${currentLogInstance.value.instanceCode}.txt`;
       } else {

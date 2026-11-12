@@ -12,6 +12,12 @@ const typeClass = computed(() =>
   String(props.data.jobType || "JOB").toLowerCase(),
 );
 
+const typeLabel = computed(() =>
+  String(props.data.jobType || "JOB").toUpperCase() === "DAG"
+    ? "DAG · 子编排"
+    : props.data.jobType || "JOB",
+);
+
 const removeSelf = (event) => {
   event.stopPropagation();
   if (typeof props.data.onDelete === "function") {
@@ -27,7 +33,7 @@ const removeSelf = (event) => {
   >
     <Handle type="target" :position="Position.Left" class="dag-handle" />
     <div class="dag-node-header">
-      <span class="dag-node-type">{{ data.jobType }}</span>
+      <span class="dag-node-type">{{ typeLabel }}</span>
       <span class="dag-node-remove" title="删除节点" @click="removeSelf"
         >×</span
       >
@@ -135,6 +141,14 @@ const removeSelf = (event) => {
 }
 .dag-node-type-demo {
   border-top: 3px solid #b37feb;
+}
+.dag-node-type-dag {
+  border-top: 3px solid #7c3aed;
+  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 45%);
+}
+.dag-node-type-dag .dag-node-type {
+  color: #7c3aed;
+  background-color: #f3e8ff;
 }
 
 .dag-handle {

@@ -71,6 +71,9 @@ export default class AlertService {
         if (!errorMessage) {
           errorMessage = httpErrorResponse.data?.errorMessage;
         }
+        if (!errorMessage) {
+          errorMessage = httpErrorResponse.data?.detail;
+        }
         if (!errorMessage && httpErrorResponse.data?.fieldErrors) {
           errorMessage = 'Validation error';
         } else if (!errorMessage) {

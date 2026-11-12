@@ -32,7 +32,7 @@ export default class DagJobService {
     return this.retrieve({ ...paginationQuery, type: "DAG" });
   }
 
-  /** List all non-DAG jobs used as candidate nodes on the design canvas. */
+  /** List all jobs used as candidate nodes on the design canvas, including nested DAG orchestrations. */
   retrieveCandidates(): Promise<IJob[]> {
     const etlTaskService = new ETLTaskService();
     return Promise.all([
@@ -42,20 +42,26 @@ export default class DagJobService {
         sort: ["type,asc", "jobName,asc"],
         typeNot: "DAG",
       }),
+      this.retrieve({
+        page: 0,
+        size: 1000,
+        sort: ["jobName,asc"],
+        type: "DAG",
+      }),
       etlTaskService.retrieve({
         page: 0,
         size: 1000,
         sort: ["id,asc"],
         type: "BATCH",
       }),
-    ]).then(([jobRes, batchTaskRes]) => {
+    ]).then(([jobRes, dagRes, batchTaskRes]) => {
       const batchJobIds = new Set<string>(
         (batchTaskRes.data || [])
           .map((task: any) => task?.jobId)
           .filter(Boolean)
           .map((jobId: any) => String(jobId)),
       );
-      return (jobRes.data || []).filter(
+      return [...(jobRes.data || []), ...(dagRes.data || [])].filter(
         (job: IJob) => job.type !== "ETL" || batchJobIds.has(String(job.id)),
       );
     });

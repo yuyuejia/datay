@@ -85,11 +85,11 @@ export default class JobInstanceService {
     });
   }
 
-  // 新增：获取 DAG 编排实例下的子任务实例列表
-  getSubInstances(instanceCode: string): Promise<IJobInstance[]> {
+  // 新增：获取 DAG 编排实例下的子任务实例列表，recursive=true 时返回所有后代实例
+  getSubInstances(instanceCode: string, recursive: boolean = false): Promise<IJobInstance[]> {
     return new Promise<IJobInstance[]>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/${instanceCode}/sub-instances`)
+        .get(`${baseApiUrl}/${instanceCode}/sub-instances`, { params: { recursive } })
         .then(res => {
           resolve(res.data);
         })
