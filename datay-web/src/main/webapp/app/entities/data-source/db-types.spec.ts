@@ -5,7 +5,8 @@ import { DB_TYPE_CATEGORY, dbTypeCategories, dbTypes, filterDbTypes } from './db
 describe('db-types categories', () => {
   it('exposes the requested category filters', () => {
     const labels = dbTypeCategories.map(category => category.label);
-    expect(labels).toEqual(expect.arrayContaining(['全部', '分析型数据库', '数仓分析', '轻量数据库', '时序数据库', '文档检索']));
+    expect(labels).toEqual(expect.arrayContaining(['全部', '分析型数据库', '轻量数据库', '时序数据库', '文档检索']));
+    expect(labels).not.toContain('数仓分析');
   });
 
   it('returns all types when no category is selected', () => {
@@ -29,11 +30,9 @@ describe('db-types categories', () => {
     expect(names).toEqual(expect.arrayContaining(['DUCKDB', 'SQLITE']));
   });
 
-  it('filters analytical and warehouse databases', () => {
+  it('filters analytical databases', () => {
     const analytical = filterDbTypes(DB_TYPE_CATEGORY.ANALYTICAL).map(type => type.name);
-    const warehouse = filterDbTypes(DB_TYPE_CATEGORY.WAREHOUSE).map(type => type.name);
-    expect(analytical).toEqual(expect.arrayContaining(['CLICKHOUSE', 'DORIS', 'DUCKDB']));
-    expect(warehouse).toEqual(expect.arrayContaining(['CLICKHOUSE', 'DORIS', 'STARROCKS', 'GREENPLUM']));
+    expect(analytical).toEqual(expect.arrayContaining(['CLICKHOUSE', 'DORIS', 'DUCKDB', 'STARROCKS', 'GREENPLUM']));
   });
 
   it('assigns at least one known category tag to every type', () => {

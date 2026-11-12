@@ -30,13 +30,12 @@ export interface IdentifierTypeDef {
 }
 
 /**
- * 数据源分类标签。一个数据源可同时属于多个分类（如 ClickHouse 既属于分析型数据库，也属于数仓分析）。
+ * 数据源分类标签。一个数据源可同时属于多个分类（如 ClickHouse 同时属于关系型数据库和分析型数据库）。
  */
 export const DB_TYPE_CATEGORY = {
   ALL: 'all',
   RELATIONAL: 'relational',
   ANALYTICAL: 'analytical',
-  WAREHOUSE: 'warehouse',
   LIGHTWEIGHT: 'lightweight',
   TIMESERIES: 'timeseries',
   DOCUMENT: 'document',
@@ -56,7 +55,6 @@ export const dbTypeCategories: DbTypeCategory[] = [
   { value: DB_TYPE_CATEGORY.ALL, label: '全部' },
   { value: DB_TYPE_CATEGORY.RELATIONAL, label: '关系型数据库' },
   { value: DB_TYPE_CATEGORY.ANALYTICAL, label: '分析型数据库' },
-  { value: DB_TYPE_CATEGORY.WAREHOUSE, label: '数仓分析' },
   { value: DB_TYPE_CATEGORY.LIGHTWEIGHT, label: '轻量数据库' },
   { value: DB_TYPE_CATEGORY.TIMESERIES, label: '时序数据库' },
   { value: DB_TYPE_CATEGORY.DOCUMENT, label: '文档检索' },
@@ -188,7 +186,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'STARROCKS',
-    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'StarRocks',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['2.5', '3.0', '3.1', '3.2'],
@@ -238,7 +236,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'HANA',
-    tags: [DB_TYPE_CATEGORY.RELATIONAL, DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
+    tags: [DB_TYPE_CATEGORY.RELATIONAL, DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'SAP HANA',
     jdbcUrlTemplate: 'jdbc:sap://{host}:{port}/?databaseName={database}',
     supportedVersions: ['2.22.12', '2.23.10', '2.24.8', '2.25.9'],
@@ -349,7 +347,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DUCKLAKE',
-    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE, DB_TYPE_CATEGORY.LAKEHOUSE],
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.LAKEHOUSE],
     displayName: 'DuckLake',
     jdbcUrlTemplate: 'ducklake:metadata.ducklake',
     supportedVersions: ['0.4'],
@@ -396,7 +394,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'CLICKHOUSE',
-    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'ClickHouse',
     jdbcUrlTemplate: 'jdbc:clickhouse://{host}:{port}/{database}',
     supportedVersions: ['21.8', '22.3', '23.3', '24.1'],
@@ -405,7 +403,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'GREENPLUM',
-    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'Greenplum',
     jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',
     supportedVersions: ['5', '6', '7'],
@@ -415,7 +413,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DORIS',
-    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'Apache Doris',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['1.2', '2.0', '2.1'],
