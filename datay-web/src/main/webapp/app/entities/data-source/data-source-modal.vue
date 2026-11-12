@@ -1,23 +1,43 @@
 <template>
   <app-modal v-model="showModal" :title="modalTitle" size="lg" :close-on-backdrop="false" @hidden="handleHidden">
     <div class="modal-body">
-      <div v-if="mode === 'create' && currentStep === 1">
-        <div class="db-type-grid">
-          <div
-            v-for="dbType in dbTypes"
-            :key="dbType.name"
-            class="db-type-card"
-            :class="{ selected: selectedTypeName === dbType.name }"
-            @click="selectDbType(dbType)"
-            @dblclick="selectAndGo(dbType)"
+      <div v-if="mode === 'create' && currentStep === 1" ref="browserRef" class="db-type-browser">
+        <el-tabs
+          v-model="selectedCategory"
+          tab-position="left"
+          class="db-type-tabs"
+          @tab-change="onCategoryChange"
+        >
+          <el-tab-pane
+            v-for="category in dbTypeCategories"
+            :key="category.value"
+            :label="category.label"
+            :name="category.value"
+            lazy
           >
-            <div class="db-type-icon">
-              <img v-if="dbType.image" :src="dbType.image" :alt="dbType.displayName" class="db-type-img" />
-              <font-awesome-icon v-else :icon="dbType.icon || 'database'"></font-awesome-icon>
+            <div class="db-type-pane-header">
+              <span class="db-type-pane-title">{{ category.label }}</span>
+              <span class="db-type-filter-count">共 {{ dbTypesForCategory(category.value).length }} 种</span>
             </div>
-            <div class="db-type-name">{{ dbType.displayName }}</div>
-          </div>
-        </div>
+            <div v-if="dbTypesForCategory(category.value).length > 0" class="db-type-grid">
+              <div
+                v-for="dbType in dbTypesForCategory(category.value)"
+                :key="dbType.name"
+                class="db-type-card"
+                :class="{ selected: selectedTypeName === dbType.name }"
+                @click="selectDbType(dbType)"
+                @dblclick="selectAndGo(dbType)"
+              >
+                <div class="db-type-icon">
+                  <img v-if="dbType.image" :src="dbType.image" :alt="dbType.displayName" class="db-type-img" />
+                  <font-awesome-icon v-else :icon="dbType.icon || 'database'"></font-awesome-icon>
+                </div>
+                <div class="db-type-name">{{ dbType.displayName }}</div>
+              </div>
+            </div>
+            <el-empty v-else description="该分类下暂无数据源类型" :image-size="60" />
+          </el-tab-pane>
+        </el-tabs>
       </div>
 
       <div v-else>
@@ -177,6 +197,93 @@
 <script lang="ts" src="./data-source-modal.component.ts"></script>
 
 <style scoped>
+.db-type-browser {
+  /* 与 AppModal 的 70vh 内容区上限对齐，预留上下内边距，让标签页铺满弹窗正文 */
+  height: calc(70vh - 40px);
+  min-height: 420px;
+}
+
+.db-type-tabs {
+  height: 100%;
+}
+
+.db-type-tabs :deep(.el-tabs__header.is-left) {
+  height: 100%;
+  min-width: 144px;
+  margin-right: 24px;
+}
+
+.db-type-tabs :deep(.el-tabs__nav-wrap.is-left) {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.db-type-tabs :deep(.el-tabs__nav.is-left) {
+  width: 100%;
+  height: auto;
+}
+
+.db-type-tabs :deep(.el-tabs__item) {
+  justify-content: flex-start;
+  width: 100%;
+  height: 46px;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #495057;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.db-type-tabs :deep(.el-tabs__item:hover) {
+  background-color: #f5f7fa;
+}
+
+.db-type-tabs :deep(.el-tabs__item.is-active) {
+  background-color: #e7f1ff;
+  color: #007bff;
+  font-weight: 600;
+}
+
+.db-type-tabs :deep(.el-tabs__active-bar.is-left) {
+  display: none;
+}
+
+.db-type-tabs :deep(.el-tabs__content) {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.db-type-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+.db-type-pane-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 2px 0 8px;
+  background-color: #fff;
+}
+
+.db-type-pane-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.db-type-filter-count {
+  font-size: 12px;
+  color: #6c757d;
+}
+
 .db-type-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));

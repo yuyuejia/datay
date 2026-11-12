@@ -29,6 +29,41 @@ export interface IdentifierTypeDef {
   label: string;
 }
 
+/**
+ * 数据源分类标签。一个数据源可同时属于多个分类（如 ClickHouse 既属于分析型数据库，也属于数仓分析）。
+ */
+export const DB_TYPE_CATEGORY = {
+  ALL: 'all',
+  RELATIONAL: 'relational',
+  ANALYTICAL: 'analytical',
+  WAREHOUSE: 'warehouse',
+  LIGHTWEIGHT: 'lightweight',
+  TIMESERIES: 'timeseries',
+  DOCUMENT: 'document',
+  LAKEHOUSE: 'lakehouse',
+  OTHER: 'other',
+} as const;
+
+export type DbTypeCategoryValue = (typeof DB_TYPE_CATEGORY)[keyof typeof DB_TYPE_CATEGORY];
+
+export interface DbTypeCategory {
+  value: DbTypeCategoryValue;
+  label: string;
+}
+
+/** 新增数据源时的分类过滤标签，第一项固定为「全部」。 */
+export const dbTypeCategories: DbTypeCategory[] = [
+  { value: DB_TYPE_CATEGORY.ALL, label: '全部' },
+  { value: DB_TYPE_CATEGORY.RELATIONAL, label: '关系型数据库' },
+  { value: DB_TYPE_CATEGORY.ANALYTICAL, label: '分析型数据库' },
+  { value: DB_TYPE_CATEGORY.WAREHOUSE, label: '数仓分析' },
+  { value: DB_TYPE_CATEGORY.LIGHTWEIGHT, label: '轻量数据库' },
+  { value: DB_TYPE_CATEGORY.TIMESERIES, label: '时序数据库' },
+  { value: DB_TYPE_CATEGORY.DOCUMENT, label: '文档检索' },
+  { value: DB_TYPE_CATEGORY.LAKEHOUSE, label: '数据湖' },
+  { value: DB_TYPE_CATEGORY.OTHER, label: '其他' },
+];
+
 export interface DbType {
   name: string;
   displayName: string;
@@ -37,6 +72,8 @@ export interface DbType {
   defaultPort: string;
   image?: string;
   icon?: string;
+  /** 分类标签，用于新增数据源时的类型过滤 */
+  tags?: DbTypeCategoryValue[];
 
   // ---------------- 声明式表单/连接能力配置 ----------------
   // 通过下面的开关控制表单展示哪些字段与保存行为，新增数据源类型只需配置，
@@ -133,6 +170,7 @@ export function resolveDbFormConfig(dbType?: DbType | null): DbFormConfig {
 export const dbTypes: DbType[] = [
   {
     name: 'MYSQL',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'MySQL',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai',
     supportedVersions: ['5.7', '8.0', '8.1', '8.2', '8.3', '8.4'],
@@ -141,6 +179,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'MARIADB',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'MariaDB',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai',
     supportedVersions: ['10.6', '10.11', '11.4'],
@@ -149,6 +188,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'STARROCKS',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
     displayName: 'StarRocks',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['2.5', '3.0', '3.1', '3.2'],
@@ -157,6 +197,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'OCEANBASE',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'OceanBase',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['3.2', '4.0', '4.2', '4.3'],
@@ -165,6 +206,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'POLARDB',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'PolarDB',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['5.6', '5.7', '8.0'],
@@ -173,6 +215,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'TIDB',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL, DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'TiDB',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai',
     supportedVersions: ['5.4', '6.1', '6.5', '7.1', '7.5', '8.0'],
@@ -181,6 +224,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'ORACLE',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'Oracle Database',
     jdbcUrlTemplate: 'jdbc:oracle:thin:@//{host}:{port}/{database}',
     supportedVersions: ['11g', '12c', '18c', '19c', '21c', '23c'],
@@ -194,6 +238,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'HANA',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL, DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
     displayName: 'SAP HANA',
     jdbcUrlTemplate: 'jdbc:sap://{host}:{port}/?databaseName={database}',
     supportedVersions: ['2.22.12', '2.23.10', '2.24.8', '2.25.9'],
@@ -204,6 +249,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'TDENGINE',
+    tags: [DB_TYPE_CATEGORY.TIMESERIES],
     displayName: 'TDengine',
     // 默认使用 WebSocket 协议；REST（TAOS-RS）与原生（TAOS）可通过“自定义 URL”填写
     jdbcUrlTemplate: 'jdbc:TAOS-WS://{host}:{port}/{database}',
@@ -216,6 +262,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'POSTGRESQL',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'PostgreSQL',
     jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',
     supportedVersions: ['9.6', '10', '11', '12', '13', '14', '15', '16'],
@@ -225,6 +272,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'GAUSSDB',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'GaussDB',
     jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',
     supportedVersions: ['2.0', '3.0', '5.0', '6.0'],
@@ -234,6 +282,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DM',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: '达梦数据库',
     jdbcUrlTemplate: 'jdbc:dm://{host}:{port}',
     supportedVersions: ['8.1.1.193', '8.1.2.79', '8.1.2.141', '8.1.2.192', '8.1.3.62', '8.1.3.140'],
@@ -245,6 +294,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'SQLSERVER',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'Microsoft SQL Server',
     jdbcUrlTemplate: 'jdbc:sqlserver://{host}:{port};databaseName={database}',
     supportedVersions: ['2008', '2012', '2014', '2016', '2017', '2019', '2022'],
@@ -255,6 +305,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DUCKDB',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.LIGHTWEIGHT],
     displayName: 'DuckDB',
     jdbcUrlTemplate: 'jdbc:duckdb:{database}',
     supportedVersions: ['0.8', '0.9', '1.0'],
@@ -298,6 +349,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DUCKLAKE',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE, DB_TYPE_CATEGORY.LAKEHOUSE],
     displayName: 'DuckLake',
     jdbcUrlTemplate: 'ducklake:metadata.ducklake',
     supportedVersions: ['0.4'],
@@ -319,6 +371,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'SQLITE',
+    tags: [DB_TYPE_CATEGORY.LIGHTWEIGHT],
     displayName: 'SQLite',
     jdbcUrlTemplate: 'jdbc:sqlite:{database}',
     supportedVersions: ['3.45.1.0', '3.46.1.0', '3.47.1.0'],
@@ -343,6 +396,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'CLICKHOUSE',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
     displayName: 'ClickHouse',
     jdbcUrlTemplate: 'jdbc:clickhouse://{host}:{port}/{database}',
     supportedVersions: ['21.8', '22.3', '23.3', '24.1'],
@@ -351,6 +405,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'GREENPLUM',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
     displayName: 'Greenplum',
     jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',
     supportedVersions: ['5', '6', '7'],
@@ -360,6 +415,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'DORIS',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.WAREHOUSE],
     displayName: 'Apache Doris',
     jdbcUrlTemplate: 'jdbc:mysql://{host}:{port}/{database}',
     supportedVersions: ['1.2', '2.0', '2.1'],
@@ -371,6 +427,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'JDBC',
+    tags: [DB_TYPE_CATEGORY.OTHER],
     displayName: '通用 JDBC',
     jdbcUrlTemplate: '',
     supportedVersions: [],
@@ -403,6 +460,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'MONGODB',
+    tags: [DB_TYPE_CATEGORY.DOCUMENT],
     displayName: 'MongoDB',
     jdbcUrlTemplate: 'mongodb://{host}:{port}/{database}',
     supportedVersions: [],
@@ -420,6 +478,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'ELASTICSEARCH',
+    tags: [DB_TYPE_CATEGORY.DOCUMENT],
     displayName: 'Elasticsearch',
     jdbcUrlTemplate: 'http://{host}:{port}',
     supportedVersions: [],
@@ -438,6 +497,7 @@ export const dbTypes: DbType[] = [
   },
   {
     name: 'INFLUXDB',
+    tags: [DB_TYPE_CATEGORY.TIMESERIES],
     displayName: 'InfluxDB',
     jdbcUrlTemplate: 'http://{host}:{port}',
     supportedVersions: [],
@@ -463,3 +523,13 @@ export const dbTypes: DbType[] = [
     ],
   },
 ];
+
+/**
+ * 按分类标签过滤数据源类型；传空或 {@link DB_TYPE_CATEGORY.ALL} 时返回全部。
+ */
+export function filterDbTypes(category?: string | null): DbType[] {
+  if (!category || category === DB_TYPE_CATEGORY.ALL) {
+    return dbTypes;
+  }
+  return dbTypes.filter(dbType => dbType.tags?.includes(category as DbTypeCategoryValue));
+}

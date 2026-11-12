@@ -1,13 +1,17 @@
-import { type Ref, computed, defineComponent, inject, ref, watch } from 'vue';
+import { type Ref, computed, defineComponent, inject, nextTick, ref, watch } from 'vue';
 
 import DataSourceService from './data-source.service';
 import {
   type ConnectionModeDef,
   type DbFormConfig,
   type DbType,
+  type DbTypeCategoryValue,
   type ExtraParamDef,
   type IdentifierTypeDef,
+  DB_TYPE_CATEGORY,
+  dbTypeCategories,
   dbTypes,
+  filterDbTypes,
   findDbType,
   resolveDbFormConfig,
 } from './db-types';
@@ -49,6 +53,8 @@ export default defineComponent({
 
     const showModal = ref(false);
     const currentStep = ref(1);
+    const selectedCategory = ref<DbTypeCategoryValue>(DB_TYPE_CATEGORY.ALL);
+    const browserRef = ref<HTMLElement | null>(null);
     const dataSource: Ref<IDataSource> = ref(new DataSource());
     const isSaving = ref(false);
     const isTestingConnection = ref(false);
@@ -231,6 +237,7 @@ export default defineComponent({
     const initModal = async () => {
       dataSource.value = new DataSource();
       currentStep.value = 1;
+      selectedCategory.value = DB_TYPE_CATEGORY.ALL;
       extraParamRows.value = [];
       selectedConnectionMode.value = '';
       filePath.value = '';
@@ -261,6 +268,28 @@ export default defineComponent({
     });
 
     const selectedTypeName = computed(() => dataSource.value.type || '');
+
+    // 新增数据源第一步：左侧分类标签页只展示该分类下的数据源类型
+    const dbTypesForCategory = (category: DbTypeCategoryValue) => filterDbTypes(category);
+
+    const onCategoryChange = (category: string | number) => {
+      const nextCategory = category as DbTypeCategoryValue;
+      selectedCategory.value = nextCategory;
+      // 切换分类后，若已选类型不属于当前分类，则清空选择，避免「看不见却仍被选中」
+      if (nextCategory !== DB_TYPE_CATEGORY.ALL) {
+        const currentType = selectedDbType.value;
+        if (currentType && !currentType.tags?.includes(nextCategory)) {
+          dataSource.value.type = '';
+        }
+      }
+      // 标签页内容区独立滚动，切换分类后回到顶部
+      nextTick(() => {
+        const content = browserRef.value?.querySelector<HTMLElement>('.el-tabs__content');
+        if (content) {
+          content.scrollTop = 0;
+        }
+      });
+    };
 
     const selectDbType = (dbType: DbType) => {
       dataSource.value.type = dbType.name;
@@ -514,11 +543,16 @@ export default defineComponent({
     return {
       showModal,
       currentStep,
+      browserRef,
       dataSource,
       isSaving,
       isTestingConnection,
       modalTitle,
       dbTypes,
+      dbTypeCategories,
+      selectedCategory,
+      dbTypesForCategory,
+      onCategoryChange,
       selectedTypeName,
       selectedDbType,
       formConfig,
