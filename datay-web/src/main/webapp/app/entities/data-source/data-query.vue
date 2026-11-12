@@ -29,6 +29,24 @@
             </button>
           </el-tooltip>
         </div>
+        <div class="sidebar-search">
+          <el-input
+            v-model="tableSearch"
+            size="small"
+            clearable
+            placeholder="搜索表名（需先展开 schema）"
+            @input="onTableSearchInput"
+            @clear="onTableSearchClear"
+          >
+            <template #prefix>
+              <font-awesome-icon icon="search" />
+            </template>
+            <template #suffix>
+              <font-awesome-icon v-if="tableSearching" icon="sync" spin class="searching-icon" />
+            </template>
+          </el-input>
+          <div v-if="tableSearchHint" class="sidebar-search-hint">{{ tableSearchHint }}</div>
+        </div>
         <div class="sidebar-content" v-loading="treeLoading">
           <div v-if="treeError && !treeLoading" class="tree-error">
             <font-awesome-icon icon="exclamation-circle" class="tree-error-icon" />
@@ -46,11 +64,24 @@
               :load="loadTables"
               highlight-current
               class="schema-tree"
+              @node-expand="handleNodeExpand"
+              @node-collapse="handleNodeCollapse"
             >
               <template #default="{ node, data }">
+                <span v-if="data?.type === 'more'" class="tree-more-node" :title="data.label" @click.stop="handleLoadMore(data)">
+                  <font-awesome-icon icon="plus" class="node-icon" />
+                  <span class="node-label">{{ data.label }}</span>
+                </span>
+                <span v-else-if="data?.type === 'hint'" class="tree-hint-node" :title="data.label">
+                  <font-awesome-icon icon="circle-question" class="node-icon hint-icon" />
+                  <span class="node-label">{{ data.label }}</span>
+                </span>
                 <span
+                  v-else
                   class="custom-tree-node"
                   :class="{ 'is-table': data?.type === 'table' }"
+                  @mouseenter="hoveredNodeId = data?.id || ''"
+                  @mouseleave="hoveredNodeId = ''"
                   @dblclick.stop="handleNodeDblClick(data)"
                   @contextmenu.stop.prevent="openContextMenu($event, data)"
                 >
@@ -64,17 +95,13 @@
                   >
                     {{ node.label }}
                   </span>
-                  <span v-if="data?.type === 'table'" class="node-actions" @click.stop>
-                    <el-tooltip content="预览数据" placement="top">
-                      <button class="node-action-btn" @click.stop="previewTable(data)">
-                        <font-awesome-icon icon="eye" />
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="更多操作" placement="top">
-                      <button class="node-action-btn" @click.stop="openContextMenu($event, data)">
-                        <font-awesome-icon icon="ellipsis-vertical" />
-                      </button>
-                    </el-tooltip>
+                  <span v-if="data?.type === 'table' && hoveredNodeId === data.id" class="node-actions" @click.stop>
+                    <button class="node-action-btn" title="预览数据" @click.stop="previewTable(data)">
+                      <font-awesome-icon icon="eye" />
+                    </button>
+                    <button class="node-action-btn" title="更多操作" @click.stop="openContextMenu($event, data)">
+                      <font-awesome-icon icon="ellipsis-vertical" />
+                    </button>
                   </span>
                 </span>
               </template>
@@ -456,8 +483,57 @@
   padding: 8px;
 }
 
+.sidebar-search {
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+}
+
+.sidebar-search :deep(.el-input__inner) {
+  font-size: 12px;
+}
+
+.searching-icon {
+  color: var(--el-color-primary, #409eff);
+}
+
+.sidebar-search-hint {
+  padding-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary, #909399);
+}
+
 .schema-tree {
   background: transparent;
+}
+
+.tree-more-node,
+.tree-hint-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 26px;
+  font-size: 12px;
+}
+
+.tree-more-node {
+  color: var(--el-color-primary, #409eff);
+  cursor: pointer;
+}
+
+.tree-more-node:hover {
+  text-decoration: underline;
+}
+
+.tree-hint-node {
+  color: var(--el-text-color-placeholder, #a8abb2);
+  cursor: default;
+}
+
+.tree-hint-node .hint-icon {
+  color: var(--el-text-color-placeholder, #a8abb2);
 }
 
 .tree-error {
@@ -496,9 +572,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  padding: 2px 0;
   min-width: 0;
+  height: 26px;
+  font-size: 13px;
+  padding: 0;
+  contain: content;
 }
 
 .custom-tree-node.is-table {
@@ -519,14 +597,10 @@
 }
 
 .node-actions {
-  display: none;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-}
-
-.custom-tree-node.is-table:hover .node-actions {
-  display: inline-flex;
 }
 
 .node-action-btn {

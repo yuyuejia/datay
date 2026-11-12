@@ -18,11 +18,13 @@ import { getSqlDialect } from '@/shared/sql/sql-dialect';
 interface TableNode {
   id: string;
   label: string;
-  type: 'catalog' | 'schema' | 'table';
+  type: 'catalog' | 'schema' | 'table' | 'more' | 'hint';
   name: string;
   schema?: string;
   catalog?: string;
   isLeaf?: boolean;
+  /** 分页/提示伪节点关联的 schema 节点 id */
+  schemaNodeId?: string;
 }
 
 interface ColumnInfo {
@@ -91,6 +93,24 @@ export default defineComponent({
     const treeData = ref<any[]>([]);
     const treeLoading = ref(false);
     const treeError = ref('');
+
+    // 左侧树表清单分页/搜索：默认加载 1000 张，最多展示 5000 张，超出后依靠服务端搜索
+    const TABLE_PAGE_SIZE = 1000;
+    const TABLE_MAX_LOAD = 5000;
+    const TABLE_SEARCH_LIMIT = 1000;
+    const TABLE_SEARCH_DEBOUNCE_MS = 300;
+
+    const tableSearch = ref('');
+    const tableSearching = ref(false);
+    const tableSearchHint = ref('');
+    const hoveredNodeId = ref('');
+    /** 当前已展开的 schema 节点，搜索时只刷新这些节点 */
+    const expandedSchemas = new Map<string, TableNode>();
+    /** 记录每个 schema 当前分页加载上限 */
+    const schemaLoadLimits = new Map<string, number>();
+    /** 每个 schema 的请求序号，用于丢弃过期响应 */
+    const searchTokens = new Map<string, number>();
+    let tableSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
     const sqlCode = ref('');
     const editorContainer = ref<HTMLElement | null>(null);
@@ -346,7 +366,25 @@ export default defineComponent({
         };
       });
 
+    /**
+     * 重置表搜索相关的临时状态（刷新目录时调用）。
+     */
+    const resetTableSearchState = () => {
+      if (tableSearchTimer) {
+        clearTimeout(tableSearchTimer);
+        tableSearchTimer = null;
+      }
+      tableSearch.value = '';
+      tableSearchHint.value = '';
+      tableSearching.value = false;
+      hoveredNodeId.value = '';
+      expandedSchemas.clear();
+      schemaLoadLimits.clear();
+      searchTokens.clear();
+    };
+
     const loadSchemas = async () => {
+      resetTableSearchState();
       treeLoading.value = true;
       treeError.value = '';
       try {
@@ -378,6 +416,116 @@ export default defineComponent({
       }
     };
 
+    const isSearchMode = () => tableSearch.value.trim().length > 0;
+
+    /**
+     * 构建表节点。
+     */
+    const buildTableNodes = (tables: any[], schemaNode: TableNode): TableNode[] =>
+      (Array.isArray(tables) ? tables : []).map((table: any) => {
+        const tableName = typeof table === 'string' ? table : (table.table ?? table.tableName ?? table.name ?? table);
+        const catalog = table?.catalog ?? schemaNode.catalog;
+        const schema = table?.schema ?? schemaNode.name;
+        return {
+          id: `table:${catalog ? catalog + '.' : ''}${schema}.${tableName}`,
+          label: tableName,
+          type: 'table',
+          name: tableName,
+          schema,
+          catalog,
+          isLeaf: true,
+        };
+      });
+
+    /**
+     * 追加分页/搜索提示伪节点：更多可点击加载，超出上限则只能搜索。
+     */
+    const buildTrailingNode = (
+      schemaNode: TableNode,
+      loadedCount: number,
+      currentLimit: number,
+      searchMode: boolean,
+      hasMore: boolean,
+    ): TableNode | null => {
+      if (!hasMore) return null;
+      if (searchMode) {
+        return {
+          id: `hint:${schemaNode.id}:search`,
+          label: `仅显示前 ${TABLE_SEARCH_LIMIT} 条匹配结果，请细化关键字`,
+          type: 'hint',
+          name: '',
+          schema: schemaNode.name,
+          catalog: schemaNode.catalog,
+          schemaNodeId: schemaNode.id,
+          isLeaf: true,
+        };
+      }
+      if (currentLimit >= TABLE_MAX_LOAD) {
+        return {
+          id: `hint:${schemaNode.id}:max`,
+          label: `仅显示前 ${TABLE_MAX_LOAD} 张表，请输入表名搜索`,
+          type: 'hint',
+          name: '',
+          schema: schemaNode.name,
+          catalog: schemaNode.catalog,
+          schemaNodeId: schemaNode.id,
+          isLeaf: true,
+        };
+      }
+      return {
+        id: `more:${schemaNode.id}`,
+        label: `加载更多（已显示 ${loadedCount} 张，最多 ${TABLE_MAX_LOAD} 张）`,
+        type: 'more',
+        name: '',
+        schema: schemaNode.name,
+        catalog: schemaNode.catalog,
+        schemaNodeId: schemaNode.id,
+        isLeaf: true,
+      };
+    };
+
+    /**
+     * 请求某个 schema 下的表：多请求 1 条用于判断是否还有更多数据。
+     */
+    const fetchSchemaTables = async (schemaNode: TableNode, limit: number, search?: string) => {
+      const res = await dataSourceService().getTables(dataSourceId.value, schemaNode.name, limit + 1, search, schemaNode.catalog);
+      const raw = (res.data || res || []) as any[];
+      const tables = Array.isArray(raw) ? raw : [];
+      const hasMore = tables.length > limit;
+      return { tables: hasMore ? tables.slice(0, limit) : tables, hasMore };
+    };
+
+    const resolveSchemaLimit = (schemaNode: TableNode) => {
+      const searchMode = isSearchMode();
+      if (searchMode) return TABLE_SEARCH_LIMIT;
+      return Math.min(schemaLoadLimits.get(schemaNode.id) ?? TABLE_PAGE_SIZE, TABLE_MAX_LOAD);
+    };
+
+    /**
+     * 根据当前搜索/分页状态加载 schema 子节点。
+     */
+    const loadSchemaChildren = async (schemaNode: TableNode): Promise<TableNode[]> => {
+      const searchMode = isSearchMode();
+      const keyword = tableSearch.value.trim();
+      const limit = resolveSchemaLimit(schemaNode);
+      const { tables, hasMore } = await fetchSchemaTables(schemaNode, limit, searchMode ? keyword : undefined);
+      if (!searchMode) {
+        schemaLoadLimits.set(schemaNode.id, limit);
+      }
+      const nodes = buildTableNodes(tables, schemaNode);
+      const trailing = buildTrailingNode(schemaNode, tables.length, limit, searchMode, hasMore);
+      if (trailing) {
+        nodes.push(trailing);
+      }
+      return nodes;
+    };
+
+    const updateSchemaChildren = (schemaNode: TableNode, nodes: TableNode[]) => {
+      const tree = treeRef.value;
+      if (!tree) return;
+      tree.updateKeyChildren(schemaNode.id, nodes);
+    };
+
     const loadTables = async (node: any, resolve: (data: any[]) => void) => {
       if (node.data?.type === 'catalog' && node.data?.name) {
         try {
@@ -395,24 +543,11 @@ export default defineComponent({
       }
 
       if (node.data?.type === 'schema' && node.data?.name) {
+        const schemaNode = node.data as TableNode;
+        // 使仍在进行中的旧搜索请求失效，避免覆盖本次懒加载结果
+        searchTokens.set(schemaNode.id, (searchTokens.get(schemaNode.id) ?? 0) + 1);
         try {
-          const res = await dataSourceService().getTables(dataSourceId.value, node.data.name, undefined, undefined, node.data.catalog);
-          const tables = res.data || res || [];
-          const tableNodes = tables.map((table: any) => {
-            const tableName = typeof table === 'string' ? table : (table.table ?? table.tableName ?? table.name ?? table);
-            const catalog = table?.catalog ?? node.data.catalog;
-            const schema = table?.schema ?? node.data.name;
-            return {
-              id: `table:${catalog ? catalog + '.' : ''}${schema}.${tableName}`,
-              label: tableName,
-              type: 'table',
-              name: tableName,
-              schema: schema,
-              catalog: catalog,
-              isLeaf: true,
-            };
-          });
-          resolve(tableNodes);
+          resolve(await loadSchemaChildren(schemaNode));
         } catch (err: any) {
           if (err?.response) {
             alertService.showHttpError(err.response);
@@ -421,8 +556,120 @@ export default defineComponent({
           }
           resolve([]);
         }
-      } else {
-        resolve([]);
+        return;
+      }
+
+      resolve([]);
+    };
+
+    const handleNodeExpand = (data: TableNode) => {
+      if (data?.type === 'schema') {
+        expandedSchemas.set(data.id, data);
+        if (isSearchMode()) {
+          tableSearchHint.value = '';
+        }
+      }
+    };
+
+    const handleNodeCollapse = (data: TableNode) => {
+      if (data?.type === 'schema') {
+        expandedSchemas.delete(data.id);
+        // 搜索结果只对当前关键字有效，收起后下次展开需按最新关键字重新加载
+        if (isSearchMode()) {
+          const elNode = treeRef.value?.getNode(data.id);
+          if (elNode) {
+            elNode.loaded = false;
+          }
+          if (expandedSchemas.size === 0) {
+            tableSearchHint.value = '请先展开 schema 后搜索表';
+          }
+        }
+      }
+    };
+
+    /**
+     * 重新拉取单个已展开 schema 的子节点（搜索/加载更多共用）。
+     */
+    const refreshSchemaChildren = async (schemaNode: TableNode) => {
+      const token = (searchTokens.get(schemaNode.id) ?? 0) + 1;
+      searchTokens.set(schemaNode.id, token);
+      try {
+        const nodes = await loadSchemaChildren(schemaNode);
+        if (searchTokens.get(schemaNode.id) !== token) return;
+        updateSchemaChildren(schemaNode, nodes);
+      } catch (err: any) {
+        if (searchTokens.get(schemaNode.id) !== token) return;
+        if (err?.response) {
+          alertService.showHttpError(err.response);
+        } else {
+          alertService.showError(describeLoadError(err));
+        }
+      }
+    };
+
+    /**
+     * 对所有已展开的 schema 应用当前搜索关键字（或恢复分页数据）。
+     */
+    const applyTableSearch = async () => {
+      const schemas = Array.from(expandedSchemas.values());
+      if (isSearchMode() && schemas.length === 0) {
+        tableSearchHint.value = '请先展开 schema 后搜索表';
+        return;
+      }
+      tableSearchHint.value = '';
+      if (schemas.length === 0) return;
+      tableSearching.value = true;
+      try {
+        await Promise.all(schemas.map(schema => refreshSchemaChildren(schema)));
+      } finally {
+        tableSearching.value = false;
+      }
+    };
+
+    const onTableSearchInput = () => {
+      if (tableSearchTimer) {
+        clearTimeout(tableSearchTimer);
+      }
+      tableSearchTimer = setTimeout(() => {
+        tableSearchTimer = null;
+        applyTableSearch();
+      }, TABLE_SEARCH_DEBOUNCE_MS);
+    };
+
+    const onTableSearchClear = () => {
+      if (tableSearchTimer) {
+        clearTimeout(tableSearchTimer);
+        tableSearchTimer = null;
+      }
+      // el-input 的 clear 事件可能先于 model 更新，等一个 tick 再按空关键字恢复
+      nextTick(() => {
+        applyTableSearch();
+      });
+    };
+
+    /**
+     * 点击“加载更多”：提高该 schema 的分页上限后重新拉取。
+     */
+    const handleLoadMore = async (data: TableNode) => {
+      if (data?.type !== 'more' || !data.schemaNodeId) return;
+      const schemaNode = expandedSchemas.get(data.schemaNodeId);
+      if (!schemaNode) return;
+      const current = schemaLoadLimits.get(schemaNode.id) ?? TABLE_PAGE_SIZE;
+      const next = Math.min(current + TABLE_PAGE_SIZE, TABLE_MAX_LOAD);
+      schemaLoadLimits.set(schemaNode.id, next);
+      const token = (searchTokens.get(schemaNode.id) ?? 0) + 1;
+      searchTokens.set(schemaNode.id, token);
+      try {
+        const nodes = await loadSchemaChildren(schemaNode);
+        if (searchTokens.get(schemaNode.id) !== token) return;
+        updateSchemaChildren(schemaNode, nodes);
+      } catch (err: any) {
+        if (searchTokens.get(schemaNode.id) !== token) return;
+        if (err?.response) {
+          alertService.showHttpError(err.response);
+        } else {
+          alertService.showError(describeLoadError(err));
+        }
       }
     };
 
@@ -797,6 +1044,10 @@ export default defineComponent({
 
     onBeforeUnmount(() => {
       destroyEditor();
+      if (tableSearchTimer) {
+        clearTimeout(tableSearchTimer);
+        tableSearchTimer = null;
+      }
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('click', onDocumentClick);
@@ -816,6 +1067,10 @@ export default defineComponent({
       treeData,
       treeLoading,
       treeError,
+      tableSearch,
+      tableSearching,
+      tableSearchHint,
+      hoveredNodeId,
       sqlCode,
       hasSelection,
       resultColumns,
@@ -833,6 +1088,11 @@ export default defineComponent({
       handleNodeDblClick,
       loadSchemas,
       loadTables,
+      handleNodeExpand,
+      handleNodeCollapse,
+      onTableSearchInput,
+      onTableSearchClear,
+      handleLoadMore,
       executeQuery,
       generateDataset,
       formatSql,
