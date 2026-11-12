@@ -141,6 +141,26 @@ class ETLModelWriteTranslatorTest {
     }
 
     @Test
+    void shouldPassHeaderMapping() {
+        when(eTLNodeMapper.toEntity(anyList()))
+            .thenReturn(
+                List.of(
+                    modelWriteNode(
+                        "{\"modelId\":3001,\"model\":\"update\",\"header_map\":[{\"source\":\"customer_id\",\"target\":\"id\"}]}"
+                    )
+                )
+            );
+        when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());
+        mockDataModelBound();
+
+        var unit = JSONUtil.parseObj(etlTaskService.generateETLJobJson(etlTaskWithNodes())).getJSONArray("units").getJSONObject(0);
+        var headerMap = unit.getJSONArray("header_map");
+        assertThat(headerMap).hasSize(1);
+        assertThat(headerMap.getJSONObject(0).getStr("source")).isEqualTo("customer_id");
+        assertThat(headerMap.getJSONObject(0).getStr("target")).isEqualTo("id");
+    }
+
+    @Test
     void shouldFailWhenModelIdMissing() {
         when(eTLNodeMapper.toEntity(anyList())).thenReturn(List.of(modelWriteNode("{}")));
         when(etlEdgeMapper.toEntity(anyList())).thenReturn(List.of());

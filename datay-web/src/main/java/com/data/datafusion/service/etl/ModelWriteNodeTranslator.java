@@ -67,6 +67,7 @@ public class ModelWriteNodeTranslator implements ETLNodeTranslator {
         putIfPresent(context, unit, "updateColumn");
         putIfPresent(context, unit, "maxRows");
         putIfPresent(context, unit, "columnsMap");
+        putIfPresent(context, unit, "header_map");
     }
 
     private DataModelDTO resolveDataModel(ETLNodeTranslationContext context) {
