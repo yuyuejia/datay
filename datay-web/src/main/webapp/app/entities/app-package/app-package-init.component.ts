@@ -26,6 +26,7 @@ const COUNT_LABELS: Record<string, string> = {
   metrics: '指标',
   metricsSkipped: '跳过的指标',
   metricsOverwritten: '覆盖的指标',
+  etlTaskDirectories: 'ETL 任务目录',
   etlTasks: 'ETL 任务',
   etlTasksOverwritten: '覆盖的 ETL 任务',
   sqlJobs: 'SQL 任务',

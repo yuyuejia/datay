@@ -28,6 +28,9 @@ public class ETLTaskTransferDTO implements Serializable {
     /** 任务定义（含节点与连线）。 */
     public AppPackageEtlTask task;
 
+    /** 任务所属目录及其祖先目录，导入时按名称 / 父级复用或创建。 */
+    public List<com.data.datafusion.service.apppackage.model.AppPackageDirectory> directories = new ArrayList<>();
+
     /** 节点中引用的数据源 / 模型清单。 */
     public References references = new References();
 

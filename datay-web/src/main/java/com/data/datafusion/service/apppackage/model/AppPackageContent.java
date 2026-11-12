@@ -52,6 +52,9 @@ public class AppPackageContent {
     /** 分析看板。 */
     private List<AppPackageDashboard> dashboards = new ArrayList<>();
 
+    /** ETL 任务目录（批量任务 / 实时任务各自独立）。 */
+    private List<AppPackageDirectory> etlTaskDirectories = new ArrayList<>();
+
     /** ETL 任务。 */
     private List<AppPackageEtlTask> etlTasks = new ArrayList<>();
 
@@ -153,6 +156,14 @@ public class AppPackageContent {
         this.dashboards = dashboards == null ? new ArrayList<>() : dashboards;
     }
 
+    public List<AppPackageDirectory> getEtlTaskDirectories() {
+        return etlTaskDirectories;
+    }
+
+    public void setEtlTaskDirectories(List<AppPackageDirectory> etlTaskDirectories) {
+        this.etlTaskDirectories = etlTaskDirectories == null ? new ArrayList<>() : etlTaskDirectories;
+    }
+
     public List<AppPackageEtlTask> getEtlTasks() {
         return etlTasks;
     }
@@ -221,6 +232,7 @@ public class AppPackageContent {
         result.put("metrics", metrics.size());
         result.put("datasets", datasets.size());
         result.put("dashboards", dashboards.size());
+        result.put("etlTaskDirectories", etlTaskDirectories.size());
         result.put("etlTasks", etlTasks.size());
         result.put("dataQualityTasks", dataQualityTasks.size());
         result.put("sqlJobs", sqlJobs.size());

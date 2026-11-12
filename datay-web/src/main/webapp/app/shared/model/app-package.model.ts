@@ -57,10 +57,12 @@ export interface IAppPackageContent {
     dataSourceOldId?: string;
     spec?: { datasets?: unknown[]; widgets?: unknown[]; filters?: unknown[] };
   }>;
+  etlTaskDirectories?: Array<{ oldId?: string; name?: string; parentOldId?: string | null; sortOrder?: number; taskType?: string }>;
   etlTasks?: Array<{
     oldId?: string;
     taskName?: string;
     taskCode?: string;
+    directoryOldId?: string | null;
     cron?: string | null;
     retryCount?: number | null;
     timeoutSeconds?: number | null;
@@ -187,6 +189,7 @@ export const APP_PACKAGE_SUMMARY_LABELS: Array<{ key: string; label: string }> =
   { key: 'metrics', label: '指标' },
   { key: 'datasets', label: '分析数据集' },
   { key: 'dashboards', label: '分析看板' },
+  { key: 'etlTaskDirectories', label: 'ETL 任务目录' },
   { key: 'etlTasks', label: 'ETL 任务' },
   { key: 'sqlJobs', label: 'SQL 任务' },
   { key: 'dagJobs', label: '编排任务' },

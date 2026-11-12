@@ -23,11 +23,13 @@ import com.data.datafusion.mcp.DatasourceMcpServerConfig;
 import com.data.datafusion.mcp.McpTokenService;
 import com.data.datafusion.mcp.MetricMcpServerConfig;
 import com.data.datafusion.mcp.MetricMcpToolExecutor;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.TenantRepository;
 import com.data.datafusion.repository.UserRepository;
+import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.DataModelMaterializeService;
@@ -125,11 +127,13 @@ class DatayHarnessMcpWiringTest {
             .withBean(DataSourceQueryService.class, () -> mock(DataSourceQueryService.class))
             .withBean(DataApiService.class, () -> mock(DataApiService.class))
             .withBean(DataApiExecuteService.class, () -> mock(DataApiExecuteService.class))
+            .withBean(AnalysisDatasetService.class, () -> mock(AnalysisDatasetService.class))
             .withBean(DefaultWarehouseConfigService.class, () -> mock(DefaultWarehouseConfigService.class))
             .withBean(ETLTaskService.class, () -> mock(ETLTaskService.class))
             .withBean(JobInstanceService.class, () -> mock(JobInstanceService.class))
             .withBean(JobDependService.class, () -> mock(JobDependService.class))
             .withBean(ETLTaskRepository.class, () -> mock(ETLTaskRepository.class))
+            .withBean(ETLTaskDirectoryRepository.class, () -> mock(ETLTaskDirectoryRepository.class))
             .withBean(DataModelService.class, () -> mock(DataModelService.class))
             .withBean(ModelFieldService.class, () -> mock(ModelFieldService.class))
             .withBean(ModelDirectoryService.class, () -> mock(ModelDirectoryService.class))
@@ -300,6 +304,7 @@ class DatayHarnessMcpWiringTest {
             "dataapi_query",
             "dataapi_call",
             "etl_task_list",
+            "etl_task_directory_list",
             "etl_task_get",
             "etl_task_create",
             "etl_task_update",

@@ -10,6 +10,7 @@ import cn.hutool.json.JSONUtil;
 import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.ETLNodeDTO;
@@ -43,6 +44,7 @@ class ETLTaskDatasourceResolutionTest {
         DataSourceService dataSourceService = mock(DataSourceService.class);
         ETLTaskService testService = new ETLTaskService(
             mock(ETLTaskRepository.class),
+            mock(ETLTaskDirectoryRepository.class),
             mock(ETLNodeRepository.class),
             mock(ETLEdgeRepository.class),
             mock(ETLTaskMapper.class),

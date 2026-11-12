@@ -7,6 +7,7 @@ import { MiniMap } from '@vue-flow/minimap';
 import { MarkerType } from '@vue-flow/core';
 import ETLComponentService from '../etl-component/etl-component.service';
 import ETLTaskService from '../etl-task/etl-task.service';
+import ETLTaskDirectoryService from '../etl-task/etl-task-directory.service';
 import ETLTaskNode from './etl-task-node.vue';
 import EtlTaskEdge from './EtlTaskEdge.vue';
 import DynamicParameterHelp from './DynamicParameterHelp.vue';
@@ -39,6 +40,7 @@ const {
 } = useVueFlow();
 const etlComponentService = new ETLComponentService();
 const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
+const etlTaskDirectoryService = inject('etlTaskDirectoryService', () => new ETLTaskDirectoryService());
 const alertService = inject('alertService', () => useAlertService(), true);
 
 const etlComponents = ref([]);
@@ -49,6 +51,7 @@ const aiPanelVisible = ref(false);
 
 const nodes = ref([]);
 const edges = ref([]);
+const taskDirectories = ref([]);
 
 let skipNextCanvasFit = false;
 
@@ -197,11 +200,50 @@ const isGroupCollapsed = group => {
   return !expandedGroups[group];
 };
 
+const directoryTreeOptions = computed(() => {
+  const byParent = new Map();
+  taskDirectories.value.forEach(directory => {
+    const parentId = directory.parentId || '';
+    if (!byParent.has(parentId)) {
+      byParent.set(parentId, []);
+    }
+    byParent.get(parentId).push(directory);
+  });
+  const build = parentId =>
+    (byParent.get(parentId) || [])
+      .slice()
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || String(a.name || '').localeCompare(String(b.name || '')))
+      .map(directory => {
+        const children = build(directory.id);
+        return {
+          id: directory.id,
+          label: directory.name || '',
+          children: children.length ? children : undefined,
+        };
+      });
+  return build('');
+});
+
+const loadTaskDirectories = async () => {
+  try {
+    const res = await etlTaskDirectoryService().retrieve(taskKind.value);
+    taskDirectories.value = res.data || [];
+  } catch (error) {
+    console.error('获取任务目录失败', error);
+  }
+};
+
 const loadTaskData = async () => {
   if (route.params.eTLTaskId) {
     await retrieveETLTask(route.params.eTLTaskId);
   } else {
-    eTLTask.value = { taskName: '', taskDesc: '', cron: '', type: taskKind.value };
+    eTLTask.value = {
+      taskName: '',
+      taskDesc: '',
+      cron: '',
+      type: taskKind.value,
+      directoryId: route.query.directoryId ? String(route.query.directoryId) : null,
+    };
     nodes.value = [];
     edges.value = [];
   }
@@ -286,6 +328,7 @@ const editingNodeLabel = ref('');
 const currentSavedConfig = ref(null);
 
 onMounted(async () => {
+  await loadTaskDirectories();
   await loadComponents();
   await loadTaskData();
   fitCanvasView();
@@ -974,6 +1017,20 @@ const cancelTask = () => {
           <label class="field-label">任务描述</label>
           <el-input v-model="eTLTask.taskDesc" size="small" placeholder="请输入任务描述" class="header-input" />
         </div>
+        <div class="form-item">
+          <label class="field-label">所属目录</label>
+          <el-tree-select
+            v-model="eTLTask.directoryId"
+            :data="directoryTreeOptions"
+            :props="{ label: 'label', children: 'children' }"
+            node-key="id"
+            check-strictly
+            clearable
+            size="small"
+            placeholder="未分类"
+            class="header-input"
+          />
+        </div>
       </div>
       <div class="header-actions">
         <el-button @click="aiPanelVisible = true">
@@ -1247,6 +1304,7 @@ const cancelTask = () => {
   flex: 1;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .form-item {

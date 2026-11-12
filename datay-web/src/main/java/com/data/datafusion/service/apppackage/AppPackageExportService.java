@@ -49,6 +49,8 @@ public class AppPackageExportService {
 
     private final ETLTaskRepository etlTaskRepository;
 
+    private final ETLTaskDirectoryRepository etlTaskDirectoryRepository;
+
     private final ETLNodeRepository etlNodeRepository;
 
     private final ETLEdgeRepository etlEdgeRepository;
@@ -67,6 +69,7 @@ public class AppPackageExportService {
         AnalysisDatasetRepository analysisDatasetRepository,
         AnalysisDashboardRepository analysisDashboardRepository,
         ETLTaskRepository etlTaskRepository,
+        ETLTaskDirectoryRepository etlTaskDirectoryRepository,
         ETLNodeRepository etlNodeRepository,
         ETLEdgeRepository etlEdgeRepository,
         JobRepository jobRepository,
@@ -81,6 +84,7 @@ public class AppPackageExportService {
         this.analysisDatasetRepository = analysisDatasetRepository;
         this.analysisDashboardRepository = analysisDashboardRepository;
         this.etlTaskRepository = etlTaskRepository;
+        this.etlTaskDirectoryRepository = etlTaskDirectoryRepository;
         this.etlNodeRepository = etlNodeRepository;
         this.etlEdgeRepository = etlEdgeRepository;
         this.jobRepository = jobRepository;
@@ -133,6 +137,7 @@ public class AppPackageExportService {
         content.setMetricDirectories(buildMetricDirectories(selection));
         content.setDatasets(buildDatasets(selection));
         content.setDashboards(buildDashboards(selection));
+        content.setEtlTaskDirectories(buildEtlTaskDirectories(selection));
         content.setEtlTasks(buildEtlTasks(selection));
         content.setSqlJobs(buildJobs(selection, TaskConstants.TASK_TYPE_SQL));
         content.setDagJobs(buildJobs(selection, TaskConstants.TASK_TYPE_DAG));
@@ -430,6 +435,35 @@ public class AppPackageExportService {
         return items;
     }
 
+    private List<AppPackageDirectory> buildEtlTaskDirectories(Selection selection) {
+        List<AppPackageDirectory> items = new ArrayList<>();
+        Set<String> added = new HashSet<>();
+        for (String taskId : selection.etlTaskIds) {
+            ETLTask task = etlTaskRepository.findById(taskId).orElse(null);
+            if (task == null || task.getDirectoryId() == null || task.getDirectoryId().isBlank()) {
+                continue;
+            }
+            String taskType = task.getType() == null || task.getType().isBlank() ? TaskConstants.ETL_TASK_KIND_BATCH : task.getType();
+            String current = task.getDirectoryId();
+            while (current != null && added.add(current)) {
+                ETLTaskDirectory directory = etlTaskDirectoryRepository.findById(current).orElse(null);
+                if (directory == null) {
+                    break;
+                }
+                AppPackageDirectory item = new AppPackageDirectory();
+                item.oldId = directory.getId();
+                item.name = directory.getName();
+                item.parentOldId = directory.getParentId() == null || directory.getParentId().isBlank() ? null : directory.getParentId();
+                item.sortOrder = directory.getSortOrder();
+                item.taskType = directory.getTaskType() == null ? taskType : directory.getTaskType();
+                items.add(item);
+                current = item.parentOldId;
+            }
+        }
+        items.sort(Comparator.comparing(item -> item.oldId == null ? "" : item.oldId));
+        return items;
+    }
+
     private List<AppPackageDirectory> buildMetricDirectories(Selection selection) {
         Set<String> directoryIds = new LinkedHashSet<>();
         for (String metricId : selection.metricIds) {
@@ -591,6 +625,7 @@ public class AppPackageExportService {
                     item.taskCode = task.getTaskCode();
                     item.taskDesc = task.getTaskDesc();
                     item.dir = task.getDir();
+                    item.directoryOldId = task.getDirectoryId();
                     item.type = task.getType();
                     item.cron = task.getCron();
                     item.retryCount = task.getRetryCount();

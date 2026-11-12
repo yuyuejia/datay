@@ -113,6 +113,20 @@ export default class ETLTaskService {
     });
   }
 
+  /** 移动任务到指定目录；传 null 表示移动到未分类。 */
+  moveToDirectory(id: string, directoryId: string | null): Promise<IETLTask> {
+    return new Promise<IETLTask>((resolve, reject) => {
+      axios
+        .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   run(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

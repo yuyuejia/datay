@@ -172,18 +172,28 @@ public class ETLTaskResource {
      * {@code GET  /etl-tasks} : get all the eTLTasks.
      *
      * @param pageable the pagination information.
-     * @param search   the optional keyword used to filter by task name or description.
-     * @param type     the optional task type: {@code BATCH} for batch tasks, {@code STREAM} for real-time tasks.
+     * @param search        the optional keyword used to filter by task name or description.
+     * @param type          the optional task type: {@code BATCH} for batch tasks, {@code STREAM} for real-time tasks.
+     * @param directoryId   the optional directory ID; includes all descendant directories.
+     * @param uncategorized when true and no directory is specified, only tasks without a directory are returned.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of eTLTasks in body.
      */
     @GetMapping("")
     public ResponseEntity<List<ETLTaskDTO>> getAllETLTasks(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(value = "search", required = false) String search,
-        @RequestParam(value = "type", required = false) String type
+        @RequestParam(value = "type", required = false) String type,
+        @RequestParam(value = "directoryId", required = false) String directoryId,
+        @RequestParam(value = "uncategorized", required = false, defaultValue = "false") boolean uncategorized
     ) {
-        LOG.debug("REST request to get a page of ETLTasks with search: {}, type: {}", search, type);
-        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable, search, type);
+        LOG.debug(
+            "REST request to get a page of ETLTasks with search: {}, type: {}, directoryId: {}, uncategorized: {}",
+            search,
+            type,
+            directoryId,
+            uncategorized
+        );
+        Page<ETLTaskDTO> page = eTLTaskService.findAll(pageable, search, type, directoryId, uncategorized);
         // 实时任务没有固定结束时间，列表状态展示最近一次任务实例的执行状态
         page
             .getContent()
@@ -270,6 +280,27 @@ public class ETLTaskResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    /**
+     * {@code PATCH  /etl-tasks/:id/directory} : Move the ETL task to a directory.
+     *
+     * @param id the ETL task ID.
+     * @param body the request body containing {@code directoryId}; null means uncategorized.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the updated task.
+     */
+    @PatchMapping("/{id}/directory")
+    public ResponseEntity<ETLTaskDTO> moveETLTaskToDirectory(@PathVariable("id") String id, @RequestBody java.util.Map<String, String> body) {
+        LOG.debug("REST request to move ETLTask to directory : {}, {}", id, body);
+        String directoryId = body == null ? null : body.get("directoryId");
+        try {
+            ETLTaskDTO result = eTLTaskService.moveToDirectory(id, directoryId);
+            return ResponseEntity.ok()
+                .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id))
+                .body(result);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     /**

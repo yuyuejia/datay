@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="etl-task-container">
     <h2 id="page-heading" data-cy="ETLTaskHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="etl-task-heading">{{ pageTitle }}</span>
       <div class="d-flex align-items-center">
@@ -12,7 +12,7 @@
           <span>导入任务</span>
         </el-button>
         <input ref="fileInput" type="file" accept=".json,application/json" style="display: none" @change="onFileSelected" />
-        <router-link :to="{ name: createRouteName }" custom v-slot="{ navigate }">
+        <router-link :to="createRouteLocation" custom v-slot="{ navigate }">
           <el-button
             type="primary"
             @click="navigate"
@@ -26,101 +26,196 @@
         </router-link>
       </div>
     </h2>
-    <div class="alert alert-warning" v-if="!isFetching && eTLTasks && eTLTasks.length === 0">
-      <span>未找到{{ pageTitle }}</span>
-    </div>
-    <div v-if="eTLTasks && eTLTasks.length > 0" class="list-page-scroll">
-      <el-table
-        :data="eTLTasks"
-        style="width: 100%"
-        :default-sort="{ prop: 'updateTime', order: 'descending' }"
-        @sort-change="handleSortChange"
-      >
-        <el-table-column prop="taskName" label="任务名称" sortable="custom" width="300"></el-table-column>
-        <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip></el-table-column>
-        <el-table-column v-if="!isRealtimeTask" prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
-        <el-table-column prop="status" label="状态" :sortable="isRealtimeTask ? false : 'custom'" width="100">
-          <template #default="scope">
-            <span :class="rowStatusClass(scope.row)">{{ rowStatus(scope.row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="!isRealtimeTask" prop="priority" label="优先级" sortable="custom" width="90">
-          <template #default="scope">
-            <el-tag size="small" :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'">
-              {{ scope.row.priority === 3 ? '高' : scope.row.priority === 1 ? '低' : '中' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="160">
-          <template #default="scope">
-            {{ formatDateShort(scope.row.updateTime) || '' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" sortable="custom" width="160">
-          <template #default="scope">
-            {{ formatDateShort(scope.row.createTime) || '' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="360">
-          <template #default="scope">
-            <div class="btn-group">
-              <router-link :to="{ name: editRouteName, params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
-                <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
-                  <span class="d-none d-md-inline">编辑</span>
-                </el-button>
-              </router-link>
-              <el-button type="success" size="small" @click="runETLTask(scope.row.id)" class="run" data-cy="entityRunButton">
-                <span class="d-none d-md-inline">立即执行</span>
-              </el-button>
-              <el-button
-                v-if="isRealtimeTask"
-                type="danger"
-                size="small"
-                :loading="terminatingTaskId === scope.row.id"
-                :disabled="!!terminatingTaskId && terminatingTaskId !== scope.row.id"
-                @click="terminateETLTask(scope.row)"
-                class="terminate"
-                data-cy="entityTerminateButton"
-              >
-                <span class="d-none d-md-inline">终止</span>
-              </el-button>
-              <el-button
-                type="warning"
-                size="small"
-                v-if="!isRealtimeTask && scope.row.status === 'OFFLINE'"
-                @click="onlineETLTask(scope.row)"
-                class="online"
-                data-cy="entityOnlineButton"
-              >
-                <span class="d-none d-md-inline">上线</span>
-              </el-button>
-              <el-button
-                size="small"
-                v-if="scope.row.status != 'OFFLINE'"
-                @click="offlineETLTask(scope.row)"
-                class="offline"
-                data-cy="entityOfflineButton"
-              >
-                <span class="d-none d-md-inline">下线</span>
-              </el-button>
-              <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
-                <el-button type="info" plain size="small" data-cy="entityMoreButton">
-                  <span class="d-none d-md-inline">更多</span>
-                  <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="logs" data-cy="entityLogButton">日志</el-dropdown-item>
-                    <el-dropdown-item command="state" data-cy="entityStateButton">状态</el-dropdown-item>
-                    <el-dropdown-item command="export" data-cy="entityExportButton">导出</el-dropdown-item>
-                    <el-dropdown-item command="delete" divided data-cy="entityDeleteButton">删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+    <div class="etl-task-layout">
+      <div class="tree-panel">
+        <div class="tree-header">
+          <h5>{{ pageTitle }}目录</h5>
+          <div class="tree-actions">
+            <el-button type="primary" size="small" @click="showAddDirectoryDialog(null)">
+              <font-awesome-icon icon="plus" /> 目录
+            </el-button>
+          </div>
+        </div>
+        <div class="tree-body" v-loading="directoryLoading">
+          <div class="tree-shortcut" :class="{ active: !selectedDirectoryId }" @click="selectAllTasks">
+            <font-awesome-icon icon="list" class="tree-icon" />
+            <span>全部任务</span>
+          </div>
+          <el-tree
+            ref="directoryTreeRef"
+            :data="directoryTree"
+            :props="treeProps"
+            node-key="id"
+            default-expand-all
+            highlight-current
+            :expand-on-click-node="true"
+            @node-click="handleDirectoryClick"
+          >
+            <template #default="{ node, data }">
+              <span class="custom-tree-node">
+                <span>
+                  <font-awesome-icon icon="folder" class="tree-icon folder-icon" />
+                  <span>{{ node.label }}</span>
+                </span>
+                <span class="tree-node-actions">
+                  <el-button link type="primary" size="small" title="新增子目录" @click.stop="showAddDirectoryDialog(data.id)">
+                    <font-awesome-icon icon="plus" />
+                  </el-button>
+                  <router-link :to="{ name: createRouteName, query: { directoryId: data.id } }" custom v-slot="{ navigate }">
+                    <el-button link type="primary" size="small" title="在该目录下新建任务" @click.stop="navigate">
+                      <font-awesome-icon icon="file-circle-plus" />
+                    </el-button>
+                  </router-link>
+                  <el-button link type="primary" size="small" title="重命名" @click.stop="showEditDirectoryDialog(data.data)">
+                    <font-awesome-icon icon="pen" />
+                  </el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    title="上移"
+                    :disabled="!canMoveDirectory(data.data, -1)"
+                    @click.stop="moveDirectory(data.data, -1)"
+                  >
+                    <font-awesome-icon icon="arrow-up" />
+                  </el-button>
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    title="下移"
+                    :disabled="!canMoveDirectory(data.data, 1)"
+                    @click.stop="moveDirectory(data.data, 1)"
+                  >
+                    <font-awesome-icon icon="arrow-down" />
+                  </el-button>
+                  <el-button link type="danger" size="small" title="删除目录" @click.stop="deleteDirectory(data.data)">
+                    <font-awesome-icon icon="trash" />
+                  </el-button>
+                </span>
+              </span>
+            </template>
+          </el-tree>
+        </div>
+      </div>
+      <div class="list-panel">
+        <div class="alert alert-warning" v-if="!isFetching && eTLTasks && eTLTasks.length === 0">
+          <span>未找到{{ pageTitle }}</span>
+        </div>
+        <div v-if="eTLTasks && eTLTasks.length > 0" class="list-page-scroll">
+          <el-table
+            :data="eTLTasks"
+            style="width: 100%"
+            :default-sort="{ prop: 'updateTime', order: 'descending' }"
+            @sort-change="handleSortChange"
+          >
+            <el-table-column prop="taskName" label="任务名称" sortable="custom" width="300"></el-table-column>
+            <el-table-column prop="taskDesc" label="任务描述" sortable="custom" width="300" show-overflow-tooltip></el-table-column>
+            <el-table-column v-if="!isRealtimeTask" prop="cron" label="Cron 表达式" sortable="custom" width="130"></el-table-column>
+            <el-table-column prop="status" label="状态" :sortable="isRealtimeTask ? false : 'custom'" width="100">
+              <template #default="scope">
+                <span :class="rowStatusClass(scope.row)">{{ rowStatus(scope.row) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="!isRealtimeTask" prop="priority" label="优先级" sortable="custom" width="90">
+              <template #default="scope">
+                <el-tag size="small" :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'">
+                  {{ scope.row.priority === 3 ? '高' : scope.row.priority === 1 ? '低' : '中' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="160">
+              <template #default="scope">
+                {{ formatDateShort(scope.row.updateTime) || '' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="创建时间" sortable="custom" width="160">
+              <template #default="scope">
+                {{ formatDateShort(scope.row.createTime) || '' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="所属目录" min-width="180" show-overflow-tooltip>
+              <template #default="scope">
+                {{ directoryPath(scope.row) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" fixed="right" min-width="360">
+              <template #default="scope">
+                <div class="btn-group">
+                  <router-link :to="{ name: editRouteName, params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">
+                    <el-button type="primary" size="small" @click="navigate" class="edit" data-cy="entityEditButton">
+                      <span class="d-none d-md-inline">编辑</span>
+                    </el-button>
+                  </router-link>
+                  <el-button type="success" size="small" @click="runETLTask(scope.row.id)" class="run" data-cy="entityRunButton">
+                    <span class="d-none d-md-inline">立即执行</span>
+                  </el-button>
+                  <el-button
+                    v-if="isRealtimeTask"
+                    type="danger"
+                    size="small"
+                    :loading="terminatingTaskId === scope.row.id"
+                    :disabled="!!terminatingTaskId && terminatingTaskId !== scope.row.id"
+                    @click="terminateETLTask(scope.row)"
+                    class="terminate"
+                    data-cy="entityTerminateButton"
+                  >
+                    <span class="d-none d-md-inline">终止</span>
+                  </el-button>
+                  <el-button
+                    type="warning"
+                    size="small"
+                    v-if="!isRealtimeTask && scope.row.status === 'OFFLINE'"
+                    @click="onlineETLTask(scope.row)"
+                    class="online"
+                    data-cy="entityOnlineButton"
+                  >
+                    <span class="d-none d-md-inline">上线</span>
+                  </el-button>
+                  <el-button
+                    size="small"
+                    v-if="scope.row.status != 'OFFLINE'"
+                    @click="offlineETLTask(scope.row)"
+                    class="offline"
+                    data-cy="entityOfflineButton"
+                  >
+                    <span class="d-none d-md-inline">下线</span>
+                  </el-button>
+                  <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
+                    <el-button type="info" plain size="small" data-cy="entityMoreButton">
+                      <span class="d-none d-md-inline">更多</span>
+                      <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="logs" data-cy="entityLogButton">日志</el-dropdown-item>
+                        <el-dropdown-item command="state" data-cy="entityStateButton">状态</el-dropdown-item>
+                        <el-dropdown-item command="move" data-cy="entityMoveDirectoryButton">移动到目录</el-dropdown-item>
+                        <el-dropdown-item command="export" data-cy="entityExportButton">导出</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided data-cy="entityDeleteButton">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div v-show="eTLTasks && eTLTasks.length > 0">
+          <div class="list-pagination">
+            <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
+            <el-pagination
+              background
+              layout="sizes, prev, pager, next, jumper"
+              :total="totalItems"
+              :page-sizes="[10, 20, 50, 100]"
+              :pager-count="7"
+              v-model:current-page="page"
+              v-model:page-size="itemsPerPage"
+            />
+          </div>
+        </div>
+      </div>
     </div>
     <app-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
@@ -372,26 +467,177 @@
         </div>
       </template>
     </app-modal>
-    <div v-show="eTLTasks && eTLTasks.length > 0">
-      <div class="list-pagination">
-        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
-        <el-pagination
-          background
-          layout="sizes, prev, pager, next, jumper"
-          :total="totalItems"
-          :page-sizes="[10, 20, 50, 100]"
-          :pager-count="7"
-          v-model:current-page="page"
-          v-model:page-size="itemsPerPage"
-        />
+    <app-modal v-model="directoryDialogVisible" :title="directoryDialogTitle" size="md">
+      <div class="modal-body">
+        <el-form name="directoryForm" label-position="top" @submit.prevent="saveDirectory">
+          <el-form-item label="目录名称">
+            <el-input v-model="directoryForm.name" placeholder="请输入目录名称" />
+          </el-form-item>
+          <el-form-item label="排序">
+            <el-input-number v-model="directoryForm.sortOrder" :min="0" :max="9999" :controls="false" />
+          </el-form-item>
+        </el-form>
       </div>
-    </div>
+      <template #modal-footer>
+        <div>
+          <el-button @click="directoryDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveDirectory">确定</el-button>
+        </div>
+      </template>
+    </app-modal>
+    <app-modal v-model="moveDialogVisible" title="移动到目录" size="md">
+      <div class="modal-body">
+        <p>
+          任务：<strong>{{ moveTask?.taskName }}</strong>
+        </p>
+        <el-form label-position="top">
+          <el-form-item label="目标目录">
+            <el-tree-select
+              v-model="moveTargetDirectoryId"
+              :data="directoryTree"
+              :props="treeProps"
+              node-key="id"
+              check-strictly
+              clearable
+              placeholder="不选择表示未分类"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-form>
+        <p class="text-muted mb-0">清空选择后，任务将移动到「未分类」。</p>
+      </div>
+      <template #modal-footer>
+        <div>
+          <el-button @click="closeMoveDialog">取消</el-button>
+          <el-button type="primary" @click="confirmMove">确定</el-button>
+        </div>
+      </template>
+    </app-modal>
   </div>
 </template>
 
 <script lang="ts" src="./etl-task.component.ts"></script>
 
 <style scoped>
+.etl-task-container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.etl-task-layout {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tree-panel {
+  width: 280px;
+  min-width: 240px;
+  border-right: 1px solid #e4e7ed;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.tree-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tree-header h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tree-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tree-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.tree-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #303133;
+  cursor: pointer;
+}
+
+.tree-shortcut:hover {
+  background: #f5f7fa;
+}
+
+.tree-shortcut.active {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+.custom-tree-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  padding-right: 8px;
+}
+
+.tree-icon {
+  margin-right: 6px;
+}
+
+.folder-icon {
+  color: #e6a23c;
+}
+
+.tree-node-actions {
+  display: none;
+  gap: 0;
+  align-items: center;
+}
+
+.tree-node-actions :deep(.el-button) {
+  height: 20px;
+  margin-left: 0;
+  padding: 0 2px;
+}
+
+.tree-node-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.tree-node-actions :deep(a) {
+  display: inline-flex;
+  margin: 0;
+}
+
+.custom-tree-node:hover .tree-node-actions {
+  display: inline-flex;
+}
+
+.list-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-left: 12px;
+}
+
 .status-badge {
   display: inline-block;
   padding: 1px 8px;

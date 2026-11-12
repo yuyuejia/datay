@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <!-- ETL 任务目录：批量任务与实时任务各自维护一棵目录树。 -->
+    <changeSet id="20261112000000-1-etl-task-directory" author="datafusion">
+        <createTable tableName="dp_etl_task_directory">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parent_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="task_type" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="integer">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_etl_task_directory" indexName="idx_etl_task_directory_tenant_type">
+            <column name="tenant_id"/>
+            <column name="task_type"/>
+        </createIndex>
+        <createIndex tableName="dp_etl_task_directory" indexName="idx_etl_task_directory_parent">
+            <column name="parent_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261112000000-2-etl-task-directory-column" author="datafusion">
+        <addColumn tableName="dp_etl_task">
+            <column name="directory_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="dp_etl_task" indexName="idx_etl_task_directory_id">
+            <column name="directory_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

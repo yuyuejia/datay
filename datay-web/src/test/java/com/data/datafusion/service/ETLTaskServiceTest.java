@@ -13,6 +13,7 @@ import com.data.datafusion.domain.ETLTask;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.ETLNodeDTO;
@@ -43,6 +44,7 @@ class ETLTaskServiceTest {
 
         ETLTaskService service = new ETLTaskService(
             etlTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             etlNodeRepository,
             etlEdgeRepository,
             etlTaskMapper,
@@ -113,6 +115,7 @@ class ETLTaskServiceTest {
 
         ETLTaskService service = new ETLTaskService(
             etlTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             etlNodeRepository,
             etlEdgeRepository,
             etlTaskMapper,
@@ -151,6 +154,7 @@ class ETLTaskServiceTest {
         JobService jobService = mock(JobService.class);
         ETLTaskService service = new ETLTaskService(
             etlTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             mock(ETLNodeRepository.class),
             mock(ETLEdgeRepository.class),
             etlTaskMapper,
@@ -187,6 +191,7 @@ class ETLTaskServiceTest {
         JobService jobService = mock(JobService.class);
         ETLTaskService service = new ETLTaskService(
             etlTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             mock(ETLNodeRepository.class),
             mock(ETLEdgeRepository.class),
             etlTaskMapper,
@@ -230,6 +235,7 @@ class ETLTaskServiceTest {
 
         ETLTaskService service = new ETLTaskService(
             etlTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             etlNodeRepository,
             etlEdgeRepository,
             etlTaskMapper,

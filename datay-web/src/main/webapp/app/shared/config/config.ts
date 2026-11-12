@@ -1,8 +1,10 @@
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 import { library } from "@fortawesome/fontawesome-svg-core";
+import { faArrowDown } from "@fortawesome/free-solid-svg-icons/faArrowDown";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons/faArrowLeft";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons/faArrowRight";
+import { faArrowUp } from "@fortawesome/free-solid-svg-icons/faArrowUp";
 import { faAsterisk } from "@fortawesome/free-solid-svg-icons/faAsterisk";
 import { faBan } from "@fortawesome/free-solid-svg-icons/faBan";
 import { faBars } from "@fortawesome/free-solid-svg-icons/faBars";
@@ -66,13 +68,18 @@ import { faBoxOpen } from "@fortawesome/free-solid-svg-icons/faBoxOpen";
 import { faFileImport } from "@fortawesome/free-solid-svg-icons/faFileImport";
 import { faDownload } from "@fortawesome/free-solid-svg-icons/faDownload";
 import { faEllipsisVertical } from "@fortawesome/free-solid-svg-icons/faEllipsisVertical";
+import { faFileCirclePlus } from "@fortawesome/free-solid-svg-icons/faFileCirclePlus";
+import { faFolder } from "@fortawesome/free-solid-svg-icons/faFolder";
+import { faPen } from "@fortawesome/free-solid-svg-icons/faPen";
 
 export function initFortAwesome(vue) {
   vue.component("FontAwesomeIcon", FontAwesomeIcon);
 
   library.add(
+    faArrowDown,
     faArrowLeft,
     faArrowRight,
+    faArrowUp,
     faAsterisk,
     faBan,
     faBars,
@@ -136,5 +143,8 @@ export function initFortAwesome(vue) {
     faFileImport,
     faDownload,
     faEllipsisVertical,
+    faFileCirclePlus,
+    faFolder,
+    faPen,
   );
 }

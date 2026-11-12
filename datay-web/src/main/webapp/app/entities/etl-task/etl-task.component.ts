@@ -3,8 +3,10 @@ import { useRoute } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 
 import ETLTaskService from './etl-task.service';
+import ETLTaskDirectoryService from './etl-task-directory.service';
 import EtlTaskStateService from './etl-task-state.service';
 import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
+import { ETLTaskDirectory, type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -16,6 +18,14 @@ interface IStateRow {
   originalValue: string;
 }
 
+interface IDirectoryTreeNode {
+  id: string;
+  label: string;
+  type: 'directory';
+  data: IETLTaskDirectory;
+  children?: IDirectoryTreeNode[];
+}
+
 export default defineComponent({
   name: 'ETLTask',
   components: {
@@ -25,6 +35,7 @@ export default defineComponent({
     const route = useRoute();
     const dateFormat = useDateFormat();
     const eTLTaskService = inject('eTLTaskService', () => new ETLTaskService());
+    const etlTaskDirectoryService = inject('etlTaskDirectoryService', () => new ETLTaskDirectoryService());
     const etlTaskStateService = inject('etlTaskStateService', () => new EtlTaskStateService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
@@ -37,12 +48,262 @@ export default defineComponent({
     const search = ref('');
 
     /** 当前菜单对应的任务类型：批量任务 / 实时任务。 */
-    const taskKind = computed<'BATCH' | 'STREAM'>(() => (route.meta.taskKind === 'STREAM' ? 'STREAM' : 'BATCH'));
+    const taskKind = computed<'BATCH' | 'STREAM'>(() => (route?.meta?.taskKind === 'STREAM' ? 'STREAM' : 'BATCH'));
     const isRealtimeTask = computed(() => taskKind.value === 'STREAM');
     const pageTitle = computed(() => (isRealtimeTask.value ? '实时任务' : '批量任务'));
     const createButtonText = computed(() => (isRealtimeTask.value ? '创建实时任务' : '创建批量任务'));
     const createRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtimeDesignNew' : 'ETLTaskDesignNew'));
     const editRouteName = computed(() => (isRealtimeTask.value ? 'ETLTaskRealtimeDesign' : 'ETLTaskDesign'));
+
+    // ---------------- 任务目录 ----------------
+
+    const directories: Ref<IETLTaskDirectory[]> = ref([]);
+    const directoryLoading = ref(false);
+    const selectedDirectoryId: Ref<string | null> = ref(null);
+    const treeProps = { children: 'children', label: 'label' };
+    const directoryTreeRef = ref<any>(null);
+
+    const compareDirectories = (a: IETLTaskDirectory, b: IETLTaskDirectory): number =>
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || '').localeCompare(String(b.name || ''));
+
+    const directoryTree = computed<IDirectoryTreeNode[]>(() => {
+      const byParent = new Map<string, IETLTaskDirectory[]>();
+      directories.value.forEach(directory => {
+        const parentId = directory.parentId || '';
+        if (!byParent.has(parentId)) {
+          byParent.set(parentId, []);
+        }
+        byParent.get(parentId)!.push(directory);
+      });
+      const build = (parentId: string): IDirectoryTreeNode[] => {
+        const nodes = (byParent.get(parentId) || [])
+          .slice()
+          .sort(compareDirectories)
+          .map(directory => {
+            const children = build(directory.id!);
+            const node: IDirectoryTreeNode = {
+              id: directory.id!,
+              label: directory.name || '',
+              type: 'directory',
+              data: directory,
+            };
+            if (children.length > 0) {
+              node.children = children;
+            }
+            return node;
+          });
+        return nodes;
+      };
+      return build('');
+    });
+
+    const siblingDirectories = (directory: IETLTaskDirectory): IETLTaskDirectory[] =>
+      directories.value
+        .filter(item => (item.parentId || '') === (directory.parentId || ''))
+        .slice()
+        .sort(compareDirectories);
+
+    const canMoveDirectory = (directory: IETLTaskDirectory, offset: number): boolean => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      return index >= 0 && targetIndex >= 0 && targetIndex < siblings.length;
+    };
+
+    /** 在同一父目录下上移 / 下移，通过重排 sortOrder 持久化顺序。 */
+    const moveDirectory = async (directory: IETLTaskDirectory, offset: number) => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
+        return;
+      }
+      const reordered = siblings.slice();
+      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+      try {
+        await Promise.all(
+          reordered
+            .map((item, order) => ({ item, order }))
+            .filter(({ item, order }) => (item.sortOrder ?? -1) !== order)
+            .map(({ item, order }) => etlTaskDirectoryService().update({ ...item, sortOrder: order })),
+        );
+        await loadDirectories();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    /** 目录 ID -> 完整路径，用于表格「所属目录」列。 */
+    const directoryPathMap = computed(() => {
+      const byId = new Map(directories.value.filter(item => item.id).map(item => [item.id!, item]));
+      const paths = new Map<string, string>();
+      const resolve = (id: string, guard = new Set<string>()): string => {
+        if (paths.has(id)) {
+          return paths.get(id)!;
+        }
+        const directory = byId.get(id);
+        if (!directory || guard.has(id)) {
+          return '';
+        }
+        guard.add(id);
+        const name = directory.name || '';
+        const parentPath = directory.parentId ? resolve(directory.parentId, guard) : '';
+        const path = parentPath ? `${parentPath} / ${name}` : name;
+        paths.set(id, path);
+        return path;
+      };
+      directories.value.forEach(directory => {
+        if (directory.id) {
+          resolve(directory.id);
+        }
+      });
+      return paths;
+    });
+
+    const directoryPath = (task: IETLTask): string => {
+      if (task.directoryId) {
+        return directoryPathMap.value.get(task.directoryId) || '-';
+      }
+      // 兼容历史 dir 字段：未关联新目录时仍展示原有文本
+      return task.dir || '未分类';
+    };
+
+    const createRouteLocation = computed(() => ({
+      name: createRouteName.value,
+      query: selectedDirectoryId.value ? { directoryId: selectedDirectoryId.value } : {},
+    }));
+
+    const loadDirectories = async () => {
+      directoryLoading.value = true;
+      try {
+        const res = await etlTaskDirectoryService().retrieve(taskKind.value);
+        directories.value = res.data || [];
+        if (selectedDirectoryId.value && !directories.value.some(item => item.id === selectedDirectoryId.value)) {
+          selectedDirectoryId.value = null;
+        }
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        directoryLoading.value = false;
+      }
+    };
+
+    const clearTreeSelection = () => {
+      nextTick(() => {
+        if (typeof directoryTreeRef.value?.setCurrentKey === 'function') {
+          directoryTreeRef.value.setCurrentKey(undefined);
+        }
+      });
+    };
+
+    const selectAllTasks = () => {
+      selectedDirectoryId.value = null;
+      clearTreeSelection();
+    };
+
+    const handleDirectoryClick = (data: IDirectoryTreeNode) => {
+      selectedDirectoryId.value = data.id;
+    };
+
+    const directoryDialogVisible = ref(false);
+    const directoryDialogTitle = ref('新增目录');
+    const directoryForm: Ref<IETLTaskDirectory> = ref(new ETLTaskDirectory());
+    const editingDirectoryId: Ref<string | null> = ref(null);
+
+    const showAddDirectoryDialog = (parentId: string | null) => {
+      editingDirectoryId.value = null;
+      directoryDialogTitle.value = '新增目录';
+      directoryForm.value = new ETLTaskDirectory();
+      directoryForm.value.parentId = parentId;
+      directoryForm.value.taskType = taskKind.value;
+      directoryForm.value.sortOrder = 0;
+      directoryDialogVisible.value = true;
+    };
+
+    const showEditDirectoryDialog = (directory: IETLTaskDirectory) => {
+      editingDirectoryId.value = directory.id || null;
+      directoryDialogTitle.value = '重命名目录';
+      directoryForm.value = { ...directory };
+      directoryDialogVisible.value = true;
+    };
+
+    const saveDirectory = async () => {
+      if (!directoryForm.value.name || !directoryForm.value.name.trim()) {
+        alertService.showError('请输入目录名称');
+        return;
+      }
+      directoryForm.value.taskType = taskKind.value;
+      try {
+        if (editingDirectoryId.value) {
+          directoryForm.value.id = editingDirectoryId.value;
+          await etlTaskDirectoryService().update(directoryForm.value);
+        } else {
+          await etlTaskDirectoryService().create(directoryForm.value);
+        }
+        directoryDialogVisible.value = false;
+        alertService.showSuccess('目录保存成功');
+        await loadDirectories();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const deleteDirectory = async (directory: IETLTaskDirectory) => {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除目录「${directory.name || ''}」吗？删除后该目录下的子目录与任务将移动到根目录。`,
+          '删除目录',
+          {
+            confirmButtonText: '删除',
+            cancelButtonText: '取消',
+            type: 'warning',
+          },
+        );
+      } catch {
+        return;
+      }
+      try {
+        await etlTaskDirectoryService().delete(directory.id!);
+        if (selectedDirectoryId.value === directory.id) {
+          selectAllTasks();
+        }
+        alertService.showSuccess('目录删除成功');
+        await loadDirectories();
+        await retrieveETLTasks();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const moveDialogVisible = ref(false);
+    const moveTask: Ref<IETLTask | null> = ref(null);
+    const moveTargetDirectoryId: Ref<string | null> = ref(null);
+
+    const openMoveDialog = (task: IETLTask) => {
+      moveTask.value = task;
+      moveTargetDirectoryId.value = task.directoryId || null;
+      moveDialogVisible.value = true;
+    };
+
+    const closeMoveDialog = () => {
+      moveDialogVisible.value = false;
+      moveTask.value = null;
+      moveTargetDirectoryId.value = null;
+    };
+
+    const confirmMove = async () => {
+      if (!moveTask.value?.id) {
+        return;
+      }
+      try {
+        await eTLTaskService().moveToDirectory(moveTask.value.id, moveTargetDirectoryId.value || null);
+        alertService.showSuccess('任务已移动');
+        closeMoveDialog();
+        await retrieveETLTasks();
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      }
+    };
 
     /** 实时任务展示最近一次实例状态，批量任务仍展示任务自身状态。 */
     const rowStatus = (task: IETLTask): string => ((isRealtimeTask.value ? task.lastStatus : task.status) || '-') as string;
@@ -245,13 +506,16 @@ export default defineComponent({
     const retrieveETLTasks = async () => {
       isFetching.value = true;
       try {
-        const paginationQuery = {
+        const paginationQuery: any = {
           page: page.value - 1,
           size: itemsPerPage.value,
           sort: sort(),
           search: search.value,
           type: taskKind.value,
         };
+        if (selectedDirectoryId.value) {
+          paginationQuery.directoryId = selectedDirectoryId.value;
+        }
         const res = await eTLTaskService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
@@ -263,8 +527,9 @@ export default defineComponent({
       }
     };
 
-    const handleSyncList = () => {
-      retrieveETLTasks();
+    const handleSyncList = async () => {
+      await loadDirectories();
+      await retrieveETLTasks();
     };
 
     let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -652,6 +917,9 @@ export default defineComponent({
         case 'state':
           openStateManager(task);
           break;
+        case 'move':
+          openMoveDialog(task);
+          break;
         case 'export':
           exportETLTask(task);
           break;
@@ -818,7 +1086,22 @@ export default defineComponent({
       await retrieveETLTasks();
     });
 
+    watch(selectedDirectoryId, async () => {
+      if (page.value === 1) {
+        await retrieveETLTasks();
+      } else {
+        clear();
+      }
+    });
+
+    watch(taskKind, async () => {
+      selectAllTasks();
+      await loadDirectories();
+      await retrieveETLTasks();
+    });
+
     onMounted(async () => {
+      await loadDirectories();
       await retrieveETLTasks();
     });
 
@@ -828,8 +1111,35 @@ export default defineComponent({
       pageTitle,
       createButtonText,
       createRouteName,
+      createRouteLocation,
       editRouteName,
       rowStatus,
+      directories,
+      directoryLoading,
+      directoryTree,
+      directoryTreeRef,
+      treeProps,
+      selectedDirectoryId,
+      directoryPath,
+      loadDirectories,
+      selectAllTasks,
+      handleDirectoryClick,
+      directoryDialogVisible,
+      directoryDialogTitle,
+      directoryForm,
+      editingDirectoryId,
+      showAddDirectoryDialog,
+      showEditDirectoryDialog,
+      saveDirectory,
+      deleteDirectory,
+      canMoveDirectory,
+      moveDirectory,
+      moveDialogVisible,
+      moveTask,
+      moveTargetDirectoryId,
+      openMoveDialog,
+      closeMoveDialog,
+      confirmMove,
       rowStatusClass,
       eTLTasks,
       handleSyncList,

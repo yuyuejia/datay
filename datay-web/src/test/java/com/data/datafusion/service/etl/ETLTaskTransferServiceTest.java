@@ -10,6 +10,7 @@ import com.data.datafusion.domain.DataSource;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.DataSourceRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.ETLTaskService;
@@ -48,6 +49,7 @@ class ETLTaskTransferServiceTest {
         service = new ETLTaskTransferService(
             eTLTaskService,
             eTLTaskRepository,
+            mock(ETLTaskDirectoryRepository.class),
             dataSourceRepository,
             dataModelRepository,
             jobRepository

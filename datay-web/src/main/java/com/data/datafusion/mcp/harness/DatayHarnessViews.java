@@ -111,6 +111,7 @@ public final class DatayHarnessViews {
         view.put("taskDesc", dto.getTaskDesc());
         view.put("type", dto.getType());
         view.put("dir", dto.getDir());
+        view.put("directoryId", dto.getDirectoryId());
         view.put("cron", dto.getCron());
         view.put("status", dto.getStatus());
         view.put("lastStatus", dto.getLastStatus());

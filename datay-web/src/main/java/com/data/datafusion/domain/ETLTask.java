@@ -39,6 +39,9 @@ public class ETLTask implements Serializable, TenantAware {
     @Column(name = "dir")
     private String dir;
 
+    @Column(name = "directory_id", length = 36)
+    private String directoryId;
+
     @Column(name = "type")
     private String type;
 
@@ -159,6 +162,19 @@ public class ETLTask implements Serializable, TenantAware {
 
     public void setDir(String dir) {
         this.dir = dir;
+    }
+
+    public String getDirectoryId() {
+        return this.directoryId;
+    }
+
+    public ETLTask directoryId(String directoryId) {
+        this.setDirectoryId(directoryId);
+        return this;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
     }
 
     public String getType() {
@@ -372,6 +388,7 @@ public class ETLTask implements Serializable, TenantAware {
             ", jobId=" + getJobId() +
             ", taskDesc='" + getTaskDesc() + "'" +
             ", dir='" + getDir() + "'" +
+            ", directoryId=" + getDirectoryId() +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +

@@ -8,10 +8,12 @@ import cn.hutool.json.JSONUtil;
 import com.data.datafusion.domain.ETLEdge;
 import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.domain.ETLTask;
+import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.security.SecurityUtils;
 import com.data.datafusion.service.dto.*;
@@ -60,6 +62,8 @@ public class ETLTaskService {
 
     private final ETLTaskRepository eTLTaskRepository;
 
+    private final ETLTaskDirectoryRepository eTLTaskDirectoryRepository;
+
     private final ETLNodeRepository eTLNodeRepository;
 
     private final ETLEdgeRepository etlEdgeRepository;
@@ -78,6 +82,7 @@ public class ETLTaskService {
 
     public ETLTaskService(
         ETLTaskRepository eTLTaskRepository,
+        ETLTaskDirectoryRepository eTLTaskDirectoryRepository,
         ETLNodeRepository eTLNodeRepository,
         ETLEdgeRepository etlEdgeRepository,
         ETLTaskMapper eTLTaskMapper,
@@ -88,6 +93,7 @@ public class ETLTaskService {
         ETLNodeTranslatorRegistry etlNodeTranslatorRegistry
     ) {
         this.eTLTaskRepository = eTLTaskRepository;
+        this.eTLTaskDirectoryRepository = eTLTaskDirectoryRepository;
         this.eTLNodeRepository = eTLNodeRepository;
         this.etlEdgeRepository = etlEdgeRepository;
         this.eTLTaskMapper = eTLTaskMapper;
@@ -108,6 +114,7 @@ public class ETLTaskService {
         LOG.debug("Request to save ETLTask : {}", eTLTaskDTO);
         fillTimestampsIfAbsent(eTLTaskDTO);
         normalizeScheduling(eTLTaskDTO);
+        normalizeTaskDirectory(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
         normalizeScheduling(eTLTask);
         Job job = saveETLJob(eTLTaskDTO);
@@ -131,6 +138,7 @@ public class ETLTaskService {
         LOG.debug("Request to save ETLTask without job : {}", eTLTaskDTO);
         fillTimestampsIfAbsent(eTLTaskDTO);
         normalizeScheduling(eTLTaskDTO);
+        normalizeTaskDirectory(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
         normalizeScheduling(eTLTask);
         eTLTask.setJobId(eTLTaskDTO.getJobId());
@@ -163,6 +171,7 @@ public class ETLTaskService {
         LOG.debug("Request to update ETLTask : {}", eTLTaskDTO);
         preserveSchedulingFromExisting(eTLTaskDTO);
         normalizeScheduling(eTLTaskDTO);
+        normalizeTaskDirectory(eTLTaskDTO);
         ETLTask eTLTask = eTLTaskMapper.toEntity(eTLTaskDTO);
         normalizeScheduling(eTLTask);
         updateNodesAndEdges(eTLTaskDTO);
@@ -367,6 +376,16 @@ public class ETLTaskService {
         return eTLTaskRepository
             .findById(eTLTaskDTO.getId())
             .map(existingETLTask -> {
+                // directoryId 允许显式传空字符串表示移动到未分类；null 表示本次不修改
+                if (eTLTaskDTO.getDirectoryId() != null) {
+                    if (StringUtils.hasText(eTLTaskDTO.getDirectoryId())) {
+                        String directoryId = eTLTaskDTO.getDirectoryId().trim();
+                        validateTaskDirectory(directoryId, existingETLTask.getType());
+                        existingETLTask.setDirectoryId(directoryId);
+                    } else {
+                        existingETLTask.setDirectoryId(null);
+                    }
+                }
                 eTLTaskMapper.partialUpdate(existingETLTask, eTLTaskDTO);
 
                 return existingETLTask;
@@ -409,7 +428,28 @@ public class ETLTaskService {
      */
     @Transactional(readOnly = true)
     public Page<ETLTaskDTO> findAll(Pageable pageable, String search, String type) {
-        LOG.debug("Request to get all ETLTasks with search: {}, type: {}", search, type);
+        return findAll(pageable, search, type, null, false);
+    }
+
+    /**
+     * Get all the eTLTasks with optional keyword, task type and directory filters.
+     *
+     * @param pageable      the pagination information.
+     * @param search        the optional keyword used to filter by task name or description.
+     * @param type          the optional task type: {@code STREAM} for real-time tasks, {@code BATCH} for batch tasks.
+     * @param directoryId   the optional directory ID; includes all descendant directories.
+     * @param uncategorized when true and no directory is specified, only tasks without a directory are returned.
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<ETLTaskDTO> findAll(Pageable pageable, String search, String type, String directoryId, boolean uncategorized) {
+        LOG.debug(
+            "Request to get all ETLTasks with search: {}, type: {}, directoryId: {}, uncategorized: {}",
+            search,
+            type,
+            directoryId,
+            uncategorized
+        );
         Specification<ETLTask> specification = buildSearchSpecification(search);
         if (StringUtils.hasText(type)) {
             String normalizedType = type.trim().toUpperCase(Locale.ROOT);
@@ -427,7 +467,65 @@ public class ETLTaskService {
                 );
             }
         }
+        if (StringUtils.hasText(directoryId)) {
+            Set<String> directoryIds = collectDirectorySubtreeIds(directoryId);
+            specification = specification.and((root, query, criteriaBuilder) ->
+                directoryIds.isEmpty()
+                    ? criteriaBuilder.disjunction()
+                    : root.get("directoryId").in(directoryIds)
+            );
+        } else if (uncategorized) {
+            specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.isNull(root.get("directoryId")));
+        }
         return eTLTaskRepository.findAll(specification, pageable).map(eTLTaskMapper::toDto);
+    }
+
+    /**
+     * 收集目录及其子孙目录 ID。
+     */
+    private Set<String> collectDirectorySubtreeIds(String directoryId) {
+        Set<String> ids = new LinkedHashSet<>();
+        Deque<String> queue = new ArrayDeque<>();
+        queue.add(directoryId);
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            if (!ids.add(current)) {
+                continue;
+            }
+            eTLTaskDirectoryRepository.findByParentIdOrderBySortOrderAsc(current).forEach(child -> queue.add(child.getId()));
+        }
+        return ids;
+    }
+
+    /**
+     * 移动任务到指定目录；{@code directoryId} 为空表示移动到未分类。
+     */
+    public ETLTaskDTO moveToDirectory(String id, String directoryId) {
+        ETLTask task = eTLTaskRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("ETL 任务不存在: " + id));
+        validateTaskDirectory(directoryId, task.getType());
+        task.setDirectoryId(StringUtils.hasText(directoryId) ? directoryId : null);
+        task.setUpdateTime(ZonedDateTime.now());
+        return eTLTaskMapper.toDto(eTLTaskRepository.save(task));
+    }
+
+    private void normalizeTaskDirectory(ETLTaskDTO dto) {
+        dto.setDirectoryId(StringUtils.hasText(dto.getDirectoryId()) ? dto.getDirectoryId().trim() : null);
+        validateTaskDirectory(dto.getDirectoryId(), dto.getType());
+    }
+
+    private void validateTaskDirectory(String directoryId, String taskType) {
+        if (!StringUtils.hasText(directoryId)) {
+            return;
+        }
+        ETLTaskDirectory directory = eTLTaskDirectoryRepository
+            .findById(directoryId)
+            .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + directoryId));
+        String expectedType = TaskConstants.ETL_TASK_KIND_STREAM.equalsIgnoreCase(taskType)
+            ? TaskConstants.ETL_TASK_KIND_STREAM
+            : TaskConstants.ETL_TASK_KIND_BATCH;
+        if (!expectedType.equals(directory.getTaskType())) {
+            throw new IllegalArgumentException("目录与任务类型不匹配: " + directoryId);
+        }
     }
 
     private Specification<ETLTask> buildSearchSpecification(String search) {

@@ -24,6 +24,8 @@ public class ETLTaskDTO implements Serializable {
 
     private String dir;
 
+    private String directoryId;
+
     private String type;
 
     private String cron;
@@ -102,6 +104,14 @@ public class ETLTaskDTO implements Serializable {
 
     public void setDir(String dir) {
         this.dir = dir;
+    }
+
+    public String getDirectoryId() {
+        return directoryId;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
     }
 
     public String getType() {
@@ -247,6 +257,7 @@ public class ETLTaskDTO implements Serializable {
             ", jobId=" + getJobId() +
             ", taskDesc='" + getTaskDesc() + "'" +
             ", dir='" + getDir() + "'" +
+            ", directoryId=" + getDirectoryId() +
             ", type='" + getType() + "'" +
             ", cron='" + getCron() + "'" +
             ", retryCount=" + getRetryCount() +

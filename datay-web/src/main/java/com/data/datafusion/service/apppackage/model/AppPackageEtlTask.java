@@ -30,6 +30,9 @@ public class AppPackageEtlTask {
 
     public String dir;
 
+    /** 所属目录的包内逻辑 ID。 */
+    public String directoryOldId;
+
     public String type;
 
     public String cron;

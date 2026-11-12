@@ -12,6 +12,7 @@ import com.data.datafusion.ai.decision.DecisionConfigService;
 import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.etl.DecisionNodeTranslator;
 import com.data.datafusion.service.etl.ETLNodeTranslatorRegistry;
@@ -55,6 +56,7 @@ class ETLDecisionTranslatorTest {
         ETLNodeTranslatorRegistry registry = new ETLNodeTranslatorRegistry(List.of(new DecisionNodeTranslator(decisionConfigService)));
         etlTaskService = new ETLTaskService(
             mock(ETLTaskRepository.class),
+            mock(ETLTaskDirectoryRepository.class),
             mock(ETLNodeRepository.class),
             mock(ETLEdgeRepository.class),
             mock(ETLTaskMapper.class),

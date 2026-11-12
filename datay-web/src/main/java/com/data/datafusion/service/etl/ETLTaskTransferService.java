@@ -2,14 +2,17 @@ package com.data.datafusion.service.etl;
 
 import com.data.datafusion.domain.DataModel;
 import com.data.datafusion.domain.DataSource;
+import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.DataSourceRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.apppackage.AppPackageIdRemapper;
 import com.data.datafusion.service.apppackage.AppPackageJson;
+import com.data.datafusion.service.apppackage.model.AppPackageDirectory;
 import com.data.datafusion.service.apppackage.model.AppPackageEtlTask;
 import com.data.datafusion.service.dto.ETLEdgeDTO;
 import com.data.datafusion.service.dto.ETLNodeDTO;
@@ -54,6 +57,8 @@ public class ETLTaskTransferService {
 
     private final ETLTaskRepository eTLTaskRepository;
 
+    private final ETLTaskDirectoryRepository eTLTaskDirectoryRepository;
+
     private final DataSourceRepository dataSourceRepository;
 
     private final DataModelRepository dataModelRepository;
@@ -63,12 +68,14 @@ public class ETLTaskTransferService {
     public ETLTaskTransferService(
         ETLTaskService eTLTaskService,
         ETLTaskRepository eTLTaskRepository,
+        ETLTaskDirectoryRepository eTLTaskDirectoryRepository,
         DataSourceRepository dataSourceRepository,
         DataModelRepository dataModelRepository,
         JobRepository jobRepository
     ) {
         this.eTLTaskService = eTLTaskService;
         this.eTLTaskRepository = eTLTaskRepository;
+        this.eTLTaskDirectoryRepository = eTLTaskDirectoryRepository;
         this.dataSourceRepository = dataSourceRepository;
         this.dataModelRepository = dataModelRepository;
         this.jobRepository = jobRepository;
@@ -89,6 +96,7 @@ public class ETLTaskTransferService {
         task.taskCode = dto.getTaskCode();
         task.taskDesc = dto.getTaskDesc();
         task.dir = dto.getDir();
+        task.directoryOldId = dto.getDirectoryId();
         task.type = dto.getType();
         task.cron = dto.getCron();
         task.retryCount = dto.getRetryCount();
@@ -112,6 +120,7 @@ public class ETLTaskTransferService {
 
         ETLTaskTransferDTO transfer = new ETLTaskTransferDTO();
         transfer.task = task;
+        transfer.directories = buildDirectoryChain(dto.getDirectoryId());
         transfer.references.dataSources = buildDataSourceRefs(sourceIds);
         transfer.references.models = buildModelRefs(modelIds);
         return transfer;
@@ -146,6 +155,7 @@ public class ETLTaskTransferService {
         dto.setTaskDesc(item.taskDesc);
         dto.setDir(item.dir);
         dto.setType(item.type == null || item.type.isBlank() ? TaskConstants.TASK_TYPE_ETL : item.type);
+        dto.setDirectoryId(resolveImportedDirectory(transfer, item));
         dto.setCron(item.cron);
         dto.setRetryCount(item.retryCount);
         dto.setTimeoutSeconds(item.timeoutSeconds);
@@ -190,6 +200,94 @@ public class ETLTaskTransferService {
         result.renamed = renamed;
         LOG.info("Imported ETL task {} as {} (id={})", item.taskCode, taskCode, saved.getId());
         return result;
+    }
+
+    // ------------------------------------------------------------------ 目录
+
+    /**
+     * 导出目录链（从根目录到当前目录）。
+     */
+    private List<AppPackageDirectory> buildDirectoryChain(String directoryId) {
+        List<AppPackageDirectory> items = new ArrayList<>();
+        Set<String> visited = new LinkedHashSet<>();
+        String current = directoryId;
+        while (current != null && !current.isBlank() && visited.add(current)) {
+            ETLTaskDirectory directory = eTLTaskDirectoryRepository.findById(current).orElse(null);
+            if (directory == null) {
+                break;
+            }
+            AppPackageDirectory item = new AppPackageDirectory();
+            item.oldId = directory.getId();
+            item.name = directory.getName();
+            item.parentOldId = directory.getParentId() == null || directory.getParentId().isBlank() ? null : directory.getParentId();
+            item.sortOrder = directory.getSortOrder();
+            item.taskType = directory.getTaskType();
+            items.add(0, item);
+            current = directory.getParentId();
+        }
+        return items;
+    }
+
+    /**
+     * 导入任务目录并返回任务应归属的新目录 ID。
+     */
+    private String resolveImportedDirectory(ETLTaskTransferDTO transfer, AppPackageEtlTask item) {
+        if (transfer.directories == null || transfer.directories.isEmpty()) {
+            return null;
+        }
+        String taskType = TaskConstants.ETL_TASK_KIND_STREAM.equalsIgnoreCase(item.type)
+            ? TaskConstants.ETL_TASK_KIND_STREAM
+            : TaskConstants.ETL_TASK_KIND_BATCH;
+        Map<String, String> mapping = new LinkedHashMap<>();
+        List<AppPackageDirectory> pending = new ArrayList<>(transfer.directories);
+        while (!pending.isEmpty()) {
+            List<AppPackageDirectory> next = new ArrayList<>();
+            boolean progress = false;
+            for (AppPackageDirectory directory : pending) {
+                if (directory.oldId == null) {
+                    continue;
+                }
+                if (directory.parentOldId != null && !mapping.containsKey(directory.parentOldId)) {
+                    next.add(directory);
+                    continue;
+                }
+                String parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
+                ETLTaskDirectory entity = findOrCreateDirectory(taskType, directory, parentId);
+                mapping.put(directory.oldId, entity.getId());
+                progress = true;
+            }
+            if (!progress) {
+                for (AppPackageDirectory directory : next) {
+                    ETLTaskDirectory entity = findOrCreateDirectory(taskType, directory, null);
+                    mapping.put(directory.oldId, entity.getId());
+                }
+                break;
+            }
+            pending = next;
+        }
+        if (item.directoryOldId == null || item.directoryOldId.isBlank()) {
+            return null;
+        }
+        return mapping.get(item.directoryOldId);
+    }
+
+    private ETLTaskDirectory findOrCreateDirectory(String taskType, AppPackageDirectory source, String parentId) {
+        String name = source.name == null || source.name.isBlank() ? "导入目录" : source.name;
+        ETLTaskDirectory existing = parentId == null
+            ? eTLTaskDirectoryRepository.findFirstByTaskTypeAndParentIdIsNullAndName(taskType, name).orElse(null)
+            : eTLTaskDirectoryRepository.findFirstByTaskTypeAndParentIdAndName(taskType, parentId, name).orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+        ETLTaskDirectory entity = new ETLTaskDirectory();
+        entity.setName(name);
+        entity.setParentId(parentId);
+        entity.setTaskType(taskType);
+        entity.setSortOrder(source.sortOrder == null ? 0 : source.sortOrder);
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreateTime(now);
+        entity.setUpdateTime(now);
+        return eTLTaskDirectoryRepository.save(entity);
     }
 
     // ------------------------------------------------------------------ 导出辅助

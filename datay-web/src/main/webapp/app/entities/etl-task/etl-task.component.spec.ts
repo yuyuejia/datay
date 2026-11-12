@@ -1,8 +1,9 @@
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, flushPromises, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import ETLTask from './etl-task.vue';
 import ETLTaskService from './etl-task.service';
+import ETLTaskDirectoryService from './etl-task-directory.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type ETLTaskComponentType = InstanceType<typeof ETLTask>;
@@ -20,11 +21,14 @@ describe('Component Tests', () => {
 
   describe('ETLTask Management Component', () => {
     let eTLTaskServiceStub: SinonStubbedInstance<ETLTaskService>;
+    let etlTaskDirectoryServiceStub: SinonStubbedInstance<ETLTaskDirectoryService>;
     let mountOptions: MountingOptions<ETLTaskComponentType>['global'];
 
     beforeEach(() => {
       eTLTaskServiceStub = sinon.createStubInstance<ETLTaskService>(ETLTaskService);
       eTLTaskServiceStub.retrieve.resolves({ headers: {} });
+      etlTaskDirectoryServiceStub = sinon.createStubInstance<ETLTaskDirectoryService>(ETLTaskDirectoryService);
+      etlTaskDirectoryServiceStub.retrieve.resolves({ data: [] });
 
       alertService = new AlertService();
 
@@ -42,6 +46,7 @@ describe('Component Tests', () => {
         provide: {
           alertService,
           eTLTaskService: () => eTLTaskServiceStub,
+          etlTaskDirectoryService: () => etlTaskDirectoryServiceStub,
         },
       };
     });
@@ -54,6 +59,7 @@ describe('Component Tests', () => {
         // WHEN
         const wrapper = shallowMount(ETLTask, { global: mountOptions });
         const comp = wrapper.vm;
+        await flushPromises();
         await comp.$nextTick();
 
         // THEN
@@ -65,6 +71,7 @@ describe('Component Tests', () => {
         // WHEN
         const wrapper = shallowMount(ETLTask, { global: mountOptions });
         const comp = wrapper.vm;
+        await flushPromises();
         await comp.$nextTick();
 
         // THEN
@@ -79,6 +86,7 @@ describe('Component Tests', () => {
       beforeEach(async () => {
         const wrapper = shallowMount(ETLTask, { global: mountOptions });
         comp = wrapper.vm;
+        await flushPromises();
         await comp.$nextTick();
         eTLTaskServiceStub.retrieve.reset();
         eTLTaskServiceStub.retrieve.resolves({ headers: {}, data: [] });
@@ -90,6 +98,7 @@ describe('Component Tests', () => {
 
         // WHEN
         comp.page = 2;
+        await flushPromises();
         await comp.$nextTick();
 
         // THEN
@@ -108,12 +117,14 @@ describe('Component Tests', () => {
       it('should re-initialize the page', async () => {
         // GIVEN
         comp.page = 2;
+        await flushPromises();
         await comp.$nextTick();
         eTLTaskServiceStub.retrieve.reset();
         eTLTaskServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 123 }] });
 
         // WHEN
         comp.clear();
+        await flushPromises();
         await comp.$nextTick();
 
         // THEN
@@ -122,9 +133,26 @@ describe('Component Tests', () => {
         expect(comp.eTLTasks[0]).toEqual(expect.objectContaining({ id: 123 }));
       });
 
+      it('should pass the selected directory when filtering tasks', async () => {
+        // GIVEN
+        eTLTaskServiceStub.retrieve.resolves({ headers: {}, data: [] });
+
+        // WHEN
+        comp.selectedDirectoryId = 'dir-1';
+        await flushPromises();
+        await comp.$nextTick();
+
+        // THEN
+        expect(eTLTaskServiceStub.retrieve.lastCall.firstArg).toMatchObject({
+          directoryId: 'dir-1',
+          type: 'BATCH',
+        });
+      });
+
       it('should calculate the sort attribute for a non-id attribute', async () => {
         // WHEN
         comp.propOrder = 'name';
+        await flushPromises();
         await comp.$nextTick();
 
         // THEN
@@ -141,12 +169,14 @@ describe('Component Tests', () => {
         comp.prepareRemove({ id: 123 });
 
         comp.removeETLTask();
+        await flushPromises();
         await comp.$nextTick(); // clear components
 
         // THEN
         expect(eTLTaskServiceStub.delete.called).toBeTruthy();
 
         // THEN
+        await flushPromises();
         await comp.$nextTick(); // handle component clear watch
         expect(eTLTaskServiceStub.retrieve.callCount).toEqual(1);
       });

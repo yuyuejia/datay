@@ -1,5 +1,6 @@
 package com.data.datafusion.mcp.harness;
 
+import static com.data.datafusion.mcp.harness.DatayHarnessArgs.boolVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.clamp;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.intVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.mapList;
@@ -7,6 +8,7 @@ import static com.data.datafusion.mcp.harness.DatayHarnessArgs.mapVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqStr;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.str;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.array;
+import static com.data.datafusion.mcp.harness.DatayHarnessSchema.bool;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.freeObject;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.integer;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.object;
@@ -14,6 +16,7 @@ import static com.data.datafusion.mcp.harness.DatayHarnessSchema.properties;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.string;
 
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.service.ETLTaskService;
 import com.data.datafusion.service.JobInstanceService;
@@ -50,18 +53,48 @@ public class EtlTaskHarnessTools {
     private final ETLTaskService etlTaskService;
     private final JobInstanceService jobInstanceService;
     private final ETLTaskRepository etlTaskRepository;
+    private final ETLTaskDirectoryRepository etlTaskDirectoryRepository;
     private final ObjectMapper objectMapper;
 
     public EtlTaskHarnessTools(
         ETLTaskService etlTaskService,
         JobInstanceService jobInstanceService,
         ETLTaskRepository etlTaskRepository,
+        ETLTaskDirectoryRepository etlTaskDirectoryRepository,
         ObjectMapper objectMapper
     ) {
         this.etlTaskService = etlTaskService;
         this.jobInstanceService = jobInstanceService;
         this.etlTaskRepository = etlTaskRepository;
+        this.etlTaskDirectoryRepository = etlTaskDirectoryRepository;
         this.objectMapper = objectMapper;
+    }
+
+    @Bean
+    DatayHarnessTool etlTaskDirectoryListTool() {
+        return DatayHarnessTool.read(
+            "etl_task_directory_list",
+            "列出当前租户下指定任务类型的 ETL 任务目录（BATCH 批量任务 / STREAM 实时任务）。",
+            object(properties("taskType", string("任务类型：BATCH 或 STREAM，默认 BATCH"))),
+            (args, context) -> {
+                String taskType = TaskConstants.ETL_TASK_KIND_STREAM.equalsIgnoreCase(str(args, "taskType"))
+                    ? TaskConstants.ETL_TASK_KIND_STREAM
+                    : TaskConstants.ETL_TASK_KIND_BATCH;
+                return etlTaskDirectoryRepository
+                    .findByTaskTypeOrderBySortOrderAscNameAsc(taskType)
+                    .stream()
+                    .map(directory -> {
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        item.put("id", directory.getId());
+                        item.put("name", directory.getName());
+                        item.put("parentId", directory.getParentId());
+                        item.put("taskType", directory.getTaskType());
+                        item.put("sortOrder", directory.getSortOrder());
+                        return item;
+                    })
+                    .toList();
+            }
+        );
     }
 
     @Bean
@@ -69,11 +102,26 @@ public class EtlTaskHarnessTools {
         return DatayHarnessTool.read(
             "etl_task_list",
             "分页列出当前租户下的 ETL 任务，返回任务名、编码、调度表达式与运行状态。",
-            object(properties("page", integer("页码，从 0 开始，默认 0"), "size", integer("每页条数，默认 20，最大 200"), "search", string("可选关键字，按任务名或描述模糊过滤"))),
+            object(
+                properties(
+                    "page", integer("页码，从 0 开始，默认 0"),
+                    "size", integer("每页条数，默认 20，最大 200"),
+                    "search", string("可选关键字，按任务名或描述模糊过滤"),
+                    "type", string("可选任务类型：BATCH 或 STREAM"),
+                    "directoryId", string("可选目录 ID，包含子目录"),
+                    "uncategorized", bool("可选，是否只看未分类任务")
+                )
+            ),
             (args, context) -> {
                 int pageIndex = Math.max(0, intVal(args, "page", 0));
                 int size = clamp(intVal(args, "size", 20), 1, 200);
-                Page<ETLTaskDTO> page = etlTaskService.findAll(PageRequest.of(pageIndex, size), str(args, "search"));
+                Page<ETLTaskDTO> page = etlTaskService.findAll(
+                    PageRequest.of(pageIndex, size),
+                    str(args, "search"),
+                    str(args, "type"),
+                    str(args, "directoryId"),
+                    boolVal(args, "uncategorized", false)
+                );
                 return DatayHarnessViews.page(page, task -> DatayHarnessViews.etlTask(task, false));
             }
         );
@@ -100,7 +148,8 @@ public class EtlTaskHarnessTools {
                     "taskCode", string("任务编码（可选，建议唯一）"),
                     "taskDesc", string("任务描述（可选）"),
                     "type", string("任务类型（可选，缺省 ETL）"),
-                    "dir", string("所属目录（可选）"),
+                    "dir", string("所属目录名称（兼容字段，可选）"),
+                    "directoryId", string("所属目录 ID（可选，推荐使用）"),
                     "cron", string("调度表达式（可选，上线后按此调度）"),
                     "project", string("项目标识（可选）"),
                     "nodes", array(freeObject("节点：label / code / type / config / xAxis / yAxis"), "节点列表（可选）"),
@@ -115,6 +164,7 @@ public class EtlTaskHarnessTools {
                 dto.setTaskDesc(str(args, "taskDesc"));
                 dto.setType(str(args, "type") == null ? TaskConstants.TASK_TYPE_ETL : str(args, "type"));
                 dto.setDir(str(args, "dir"));
+                dto.setDirectoryId(str(args, "directoryId"));
                 dto.setCron(str(args, "cron"));
                 dto.setProject(str(args, "project"));
                 String creater = str(args, "creater");
@@ -142,7 +192,8 @@ public class EtlTaskHarnessTools {
                     "taskCode", string("任务编码"),
                     "taskDesc", string("任务描述"),
                     "type", string("任务类型"),
-                    "dir", string("所属目录"),
+                    "dir", string("所属目录名称（兼容字段）"),
+                    "directoryId", string("所属目录 ID"),
                     "cron", string("调度表达式"),
                     "project", string("项目标识"),
                     "nodes", array(freeObject("节点结构"), "新的节点列表；提交后整体替换"),
@@ -164,6 +215,7 @@ public class EtlTaskHarnessTools {
                     patch.setTaskDesc(str(args, "taskDesc"));
                     patch.setType(str(args, "type"));
                     patch.setDir(str(args, "dir"));
+                    patch.setDirectoryId(str(args, "directoryId"));
                     patch.setCron(str(args, "cron"));
                     patch.setProject(str(args, "project"));
                     patch.setUpdateTime(ZonedDateTime.now());
@@ -330,6 +382,7 @@ public class EtlTaskHarnessTools {
         putIfPresent(target::setTaskDesc, str(args, "taskDesc"));
         putIfPresent(target::setType, str(args, "type"));
         putIfPresent(target::setDir, str(args, "dir"));
+        putIfPresent(target::setDirectoryId, str(args, "directoryId"));
         putIfPresent(target::setCron, str(args, "cron"));
         putIfPresent(target::setProject, str(args, "project"));
     }

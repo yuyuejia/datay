@@ -82,6 +82,8 @@ public class AppPackageImportService {
 
     private final ETLTaskRepository etlTaskRepository;
 
+    private final ETLTaskDirectoryRepository etlTaskDirectoryRepository;
+
     private final JobRepository jobRepository;
 
     private final JobDependRepository jobDependRepository;
@@ -110,6 +112,7 @@ public class AppPackageImportService {
         AnalysisDatasetRepository analysisDatasetRepository,
         AnalysisDashboardRepository analysisDashboardRepository,
         ETLTaskRepository etlTaskRepository,
+        ETLTaskDirectoryRepository etlTaskDirectoryRepository,
         JobRepository jobRepository,
         JobDependRepository jobDependRepository,
         MetricService metricService,
@@ -129,6 +132,7 @@ public class AppPackageImportService {
         this.analysisDatasetRepository = analysisDatasetRepository;
         this.analysisDashboardRepository = analysisDashboardRepository;
         this.etlTaskRepository = etlTaskRepository;
+        this.etlTaskDirectoryRepository = etlTaskDirectoryRepository;
         this.jobRepository = jobRepository;
         this.jobDependRepository = jobDependRepository;
         this.metricService = metricService;
@@ -181,10 +185,11 @@ public class AppPackageImportService {
         // 5. 数据质量检核任务
         Map<String, String> dataQualityTaskMap = importDataQualityTasks(content, strategy, dataSourceMap, result);
 
-        // 6. ETL 任务（会同步生成调度 Job）
+        // 6. ETL 任务目录与 ETL 任务（会同步生成调度 Job）
+        Map<String, String> etlTaskDirectoryMap = importEtlTaskDirectories(content, result);
         Map<String, String> etlTaskMap = new LinkedHashMap<>();
         Map<String, String> jobMap = new LinkedHashMap<>();
-        importEtlTasks(content, strategy, dataSourceMap, modelMap, request, etlTaskMap, jobMap, result);
+        importEtlTasks(content, strategy, dataSourceMap, modelMap, request, etlTaskDirectoryMap, etlTaskMap, jobMap, result);
 
         // 6. SQL 任务与其它任务
         importJobs(content.getSqlJobs(), TaskConstants.TASK_TYPE_SQL, strategy, dataSourceMap, request, jobMap, result);
@@ -1213,12 +1218,85 @@ public class AppPackageImportService {
         return candidate;
     }
 
+    private Map<String, String> importEtlTaskDirectories(AppPackageContent content, AppPackageInitResultDTO result) {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        int created = 0;
+        List<AppPackageDirectory> pending = new ArrayList<>(nonNull(content.getEtlTaskDirectories()));
+        while (!pending.isEmpty()) {
+            List<AppPackageDirectory> next = new ArrayList<>();
+            boolean progress = false;
+            for (AppPackageDirectory directory : pending) {
+                if (directory.oldId == null) {
+                    continue;
+                }
+                if (directory.parentOldId != null && !mapping.containsKey(directory.parentOldId)) {
+                    next.add(directory);
+                    continue;
+                }
+                String parentId = directory.parentOldId == null ? null : mapping.get(directory.parentOldId);
+                String taskType = normalizeEtlDirectoryTaskType(directory.taskType);
+                ETLTaskDirectory entity = findEtlTaskDirectory(taskType, directory.name, parentId);
+                if (entity == null) {
+                    entity = new ETLTaskDirectory();
+                    entity.setName(directory.name == null ? "导入目录" : directory.name);
+                    entity.setParentId(parentId);
+                    entity.setTaskType(taskType);
+                    entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
+                    ZonedDateTime now = ZonedDateTime.now();
+                    entity.setCreateTime(now);
+                    entity.setUpdateTime(now);
+                    entity = etlTaskDirectoryRepository.save(entity);
+                    created++;
+                }
+                mapping.put(directory.oldId, entity.getId());
+                progress = true;
+            }
+            if (!progress) {
+                for (AppPackageDirectory directory : next) {
+                    result.warnings.add("ETL 任务目录的父目录不在资产包内，已挂到根目录：" + directory.name);
+                    String taskType = normalizeEtlDirectoryTaskType(directory.taskType);
+                    ETLTaskDirectory entity = new ETLTaskDirectory();
+                    entity.setName(directory.name == null ? "导入目录" : directory.name);
+                    entity.setParentId(null);
+                    entity.setTaskType(taskType);
+                    entity.setSortOrder(directory.sortOrder == null ? 0 : directory.sortOrder);
+                    ZonedDateTime now = ZonedDateTime.now();
+                    entity.setCreateTime(now);
+                    entity.setUpdateTime(now);
+                    entity = etlTaskDirectoryRepository.save(entity);
+                    mapping.put(directory.oldId, entity.getId());
+                    created++;
+                }
+                break;
+            }
+            pending = next;
+        }
+        result.counts.put("etlTaskDirectories", created);
+        return mapping;
+    }
+
+    private String normalizeEtlDirectoryTaskType(String taskType) {
+        if (TaskConstants.ETL_TASK_KIND_STREAM.equalsIgnoreCase(taskType)) {
+            return TaskConstants.ETL_TASK_KIND_STREAM;
+        }
+        return TaskConstants.ETL_TASK_KIND_BATCH;
+    }
+
+    private ETLTaskDirectory findEtlTaskDirectory(String taskType, String name, String parentId) {
+        String directoryName = name == null ? "导入目录" : name;
+        if (parentId == null) {
+            return etlTaskDirectoryRepository.findFirstByTaskTypeAndParentIdIsNullAndName(taskType, directoryName).orElse(null);
+        }
+        return etlTaskDirectoryRepository.findFirstByTaskTypeAndParentIdAndName(taskType, parentId, directoryName).orElse(null);
+    }
+
     private void importEtlTasks(
         AppPackageContent content,
         String strategy,
         Map<String, String> dataSourceMap,
         Map<String, String> modelMap,
         AppPackageInitRequestDTO request,
+        Map<String, String> etlTaskDirectoryMap,
         Map<String, String> etlTaskMap,
         Map<String, String> jobMap,
         AppPackageInitResultDTO result
@@ -1245,6 +1323,12 @@ public class AppPackageImportService {
             dto.setTaskCode(item.taskCode);
             dto.setTaskDesc(item.taskDesc);
             dto.setDir(item.dir);
+            if (item.directoryOldId != null && !item.directoryOldId.isBlank()) {
+                dto.setDirectoryId(etlTaskDirectoryMap.get(item.directoryOldId));
+            } else if (overwrite) {
+                // 旧资产包不携带目录信息：覆盖安装时保留任务原有目录
+                dto.setDirectoryId(existing.getDirectoryId());
+            }
             dto.setType(item.type == null ? TaskConstants.TASK_TYPE_ETL : item.type);
             dto.setCron(item.cron);
             dto.setRetryCount(item.retryCount);

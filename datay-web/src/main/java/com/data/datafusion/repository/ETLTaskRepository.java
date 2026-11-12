@@ -1,6 +1,7 @@
 package com.data.datafusion.repository;
 
 import com.data.datafusion.domain.ETLTask;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
@@ -16,4 +17,6 @@ public interface ETLTaskRepository extends JpaRepository<ETLTask, String>, JpaSp
     Optional<ETLTask> findFirstByTaskCode(String taskCode);
 
     Optional<ETLTask> findFirstByTaskName(String taskName);
+
+    List<ETLTask> findByDirectoryId(String directoryId);
 }

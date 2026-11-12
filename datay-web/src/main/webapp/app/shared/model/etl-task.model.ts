@@ -5,6 +5,7 @@ export interface IETLTask {
   jobId?: string | null;
   taskDesc?: string | null;
   dir?: string | null;
+  directoryId?: string | null;
   type?: string | null;
   cron?: string | null;
   retryCount?: number | null;
@@ -29,6 +30,7 @@ export class ETLTask implements IETLTask {
     public jobId?: string | null,
     public taskDesc?: string | null,
     public dir?: string | null,
+    public directoryId?: string | null,
     public type?: string | null,
     public cron?: string | null,
     public jobContext?: string | null,
@@ -57,6 +59,8 @@ export interface IETLTaskTransfer {
     taskCode?: string | null;
     taskDesc?: string | null;
     dir?: string | null;
+    directoryId?: string | null;
+    directoryOldId?: string | null;
     type?: string | null;
     cron?: string | null;
     retryCount?: number | null;
@@ -66,6 +70,13 @@ export interface IETLTaskTransfer {
     nodes?: any[];
     edges?: any[];
   };
+  directories?: Array<{
+    oldId?: string;
+    name?: string | null;
+    parentOldId?: string | null;
+    sortOrder?: number | null;
+    taskType?: string | null;
+  }>;
   references?: {
     dataSources?: Array<{ oldId?: string; name?: string | null; type?: string | null; url?: string | null }>;
     models?: Array<{ oldId?: string; code?: string | null; name?: string | null }>;
