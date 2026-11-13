@@ -15,6 +15,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -48,11 +49,35 @@ public class ConnectionPoolManager {
     }
 
     /**
-     * 获取数据库连接（使用连接池）- 带版本信息
+     * 获取数据库连接（使用连接池）- 带版本信息。
+     *
+     * <p>必须把 {@link DatasourceInfo#getType()} 传入连接池创建流程：Doris、StarRocks 等
+     * 复用 MySQL 协议的数据源仅凭 URL 会被识别成 MySQL，从而应用错误的连接属性
+     * （例如 Doris 必须关闭服务端预编译，否则多字节字符会乱码）。类型同时参与连接池键，
+     * 避免同一 URL 下不同数据源类型共用连接池。
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo, String version) throws SQLException {
-        String poolKey = generatePoolKey(datasourceInfo.getUrl(), datasourceInfo.getUsername(), datasourceInfo.getPassword(), version);
-        return getConnectionFromPool(poolKey, datasourceInfo.getUrl(), datasourceInfo.getUsername(), datasourceInfo.getPassword(), version);
+        String type = normalizedType(datasourceInfo.getType());
+        String poolKey = generatePoolKey(
+            datasourceInfo.getUrl(),
+            datasourceInfo.getUsername(),
+            datasourceInfo.getPassword(),
+            version
+        );
+        if (type != null) {
+            poolKey = poolKey + "|" + type;
+        }
+        return getConnectionFromPool(
+            poolKey,
+            datasourceInfo.getUrl(),
+            datasourceInfo.getUsername(),
+            datasourceInfo.getPassword(),
+            version,
+            datasourceInfo.getType(),
+            null,
+            null,
+            null
+        );
     }
 
     /**
@@ -78,6 +103,10 @@ public class ConnectionPoolManager {
             datasourceInfo.getPassword(),
             "default"
         );
+        String type = normalizedType(datasourceInfo.getType());
+        if (type != null) {
+            poolKey = poolKey + "|" + type;
+        }
         if (driverClassName != null && !driverClassName.isBlank()) {
             poolKey = poolKey + "|" + driverClassName;
         }
@@ -378,6 +407,16 @@ public class ConnectionPoolManager {
      */
     private static String generatePoolKey(String url, String user, String password, String version) {
         return poolKeyPrefix(url, user, version) + "|" + credentialFingerprint(password);
+    }
+
+    /**
+     * 规范化数据源类型，用于连接池键与 Provider 解析；空白类型返回 {@code null}。
+     */
+    private static String normalizedType(String type) {
+        if (type == null || type.isBlank()) {
+            return null;
+        }
+        return type.trim().toUpperCase(Locale.ROOT);
     }
 
     /**

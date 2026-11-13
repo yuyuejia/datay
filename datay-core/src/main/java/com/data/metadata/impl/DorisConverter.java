@@ -353,37 +353,9 @@ public class DorisConverter implements TypeConverter {
             sb.append(" NOT NULL");
         }
         
-        // 处理默认值
-        if (column.getDefaultValue() != null && !"NULL".equalsIgnoreCase(column.getDefaultValue())) {
-            String defaultValue = column.getDefaultValue().toString();
-            if (isSpecialDefaultValue(defaultValue)) {
-                sb.append(" DEFAULT ").append(defaultValue);
-            } else {
-                sb.append(" DEFAULT '").append(defaultValue).append("'");
-            }
-        }
-
+        // 不生成默认值：Doris 对默认值语法/版本兼容性较差，源库（如 SQL Server 的 ((0))）
+        // 的默认约束定义也不一定能直接转换，自动建表时统一忽略，避免建表失败。
         return String.format("`%s` %s", column.getName().toLowerCase(), sb.toString());
-    }
-
-    /**
-     * 检查是否为需要不加引号的特殊默认值
-     * 例如：CURRENT_TIMESTAMP, NOW() 等函数调用
-     */
-    private boolean isSpecialDefaultValue(String defaultValue) {
-        if (defaultValue == null) {
-            return false;
-        }
-
-        String upperValue = defaultValue.toUpperCase();
-
-        // 检查是否为函数调用（包含括号）
-        if (upperValue.contains("(") && upperValue.contains(")")) {
-            return true;
-        }
-
-        // 检查是否为特殊关键字
-        return upperValue.matches("(?i)CURRENT_TIMESTAMP|NOW|CURDATE|CURTIME");
     }
 
     private int getDefaultLength(String type) {
