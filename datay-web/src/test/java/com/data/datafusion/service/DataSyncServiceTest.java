@@ -59,6 +59,14 @@ class DataSyncServiceTest {
         assertThat(tableMapping).containsEntry("orders", "orders_new").doesNotContainKey("users");
     }
 
+    @Test
+    void resolvesTargetCatalogForDuckLakeDdl() {
+        assertThat(DataSyncService.resolveTargetCatalog("DUCKLAKE", false)).isEqualTo("ducklake");
+        assertThat(DataSyncService.resolveTargetCatalog("ducklake", false)).isEqualTo("ducklake");
+        assertThat(DataSyncService.resolveTargetCatalog("MYSQL", false)).isNull();
+        assertThat(DataSyncService.resolveTargetCatalog("DUCKLAKE", true)).isEqualTo("quack");
+    }
+
     private static DataSourceDTO datasource(String id, String url, String schemaName) {
         DataSourceDTO dto = new DataSourceDTO();
         dto.setId(id);

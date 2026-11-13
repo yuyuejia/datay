@@ -289,13 +289,32 @@ public class DBUtils {
 
         String trimmed = dateTimeStr.trim();
 
+        // SQL Server datetime2/datetimeoffset 等驱动的字符串形如
+        // "2026-10-24 12:34:56.1234567" / "2026-10-24 12:34:56 +08:00"，
+        // 统一为 ISO-8601 形式后再解析，避免精度位或时区偏移导致解析失败。
+        String normalized = trimmed;
+        if (normalized.length() > 10 && normalized.charAt(10) == ' ') {
+            normalized = normalized.substring(0, 10) + "T" + normalized.substring(11).trim();
+        }
+        normalized = normalized.replaceFirst("(?<=\\d) +([+-]\\d{2}:?\\d{2})$", "$1");
+
+        try {
+            return LocalDateTime.parse(normalized, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception ignored) {
+            // 继续尝试带时区偏移的格式
+        }
+        try {
+            return OffsetDateTime.parse(normalized).toLocalDateTime();
+        } catch (Exception ignored) {
+            // 继续尝试历史格式
+        }
+
         // 定义多种可能的日期时间格式
         DateTimeFormatter[] formatters = {
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
         };
 
         for (DateTimeFormatter formatter : formatters) {

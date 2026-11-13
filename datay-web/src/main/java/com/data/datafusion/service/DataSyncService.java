@@ -20,6 +20,7 @@ import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.DatabaseConverter;
+import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -294,19 +295,37 @@ public class DataSyncService {
         }
         String sourceSchema = hasText(srcSchema) ? srcSchema : source.getSchemaName();
         TableMeta srcTable = DBUtils.getTableMetaData(sConnection, sourceSchema, srcTableName);
+        String targetDbType = DBUtils.getDBType(target.getType(), target.getUrl());
         // 转换并创建目标表
         TableMeta targetTable = DatabaseConverter.convert(
             DBUtils.getDBType(source.getType(), source.getUrl()),
-            DBUtils.getDBType(target.getType(), target.getUrl()),
+            targetDbType,
             srcTable
         );
         targetTable.setTable(targetTableName);
         targetTable.setSchema(targetSchema);
-        if (quackTarget) {
-            targetTable.setCatalog(DBUtils.QUACK_CATALOG);
+        String targetCatalog = resolveTargetCatalog(targetDbType, quackTarget);
+        if (targetCatalog != null) {
+            targetTable.setCatalog(targetCatalog);
         }
-        String ddl = DatabaseConverter.generateTableDDL(DBUtils.getDBType(target.getType(), target.getUrl()), targetTable);
+        String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
         DBUtils.execute(tConnection, ddl);
+    }
+
+    /**
+     * 解析同步建表时目标表需要携带的 catalog。
+     *
+     * <p>Quack 与 DuckLake 连接底层都是本地 DuckDB 库，只有显式指定 catalog 才能把表建到远端，
+     * 否则会落到本地 scratch 库。</p>
+     */
+    static String resolveTargetCatalog(String targetDbType, boolean quackTarget) {
+        if (quackTarget) {
+            return DBUtils.QUACK_CATALOG;
+        }
+        if (DBType.DUCKLAKE.name().equalsIgnoreCase(targetDbType)) {
+            return DBUtils.DUCKLAKE_CATALOG;
+        }
+        return null;
     }
 
     /**

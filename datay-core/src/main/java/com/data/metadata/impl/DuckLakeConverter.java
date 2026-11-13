@@ -93,6 +93,15 @@ public class DuckLakeConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.XML.name(), DuckLakeType.VARCHAR.name());
         commonDataType2ColumnType.put(AllDataType.JSON.name(), DuckLakeType.JSON.name());
         commonDataType2ColumnType.put(AllDataType.INTERVAL.name(), DuckLakeType.VARCHAR.name());
+
+        // SQL Server 物理类型名（JDBC 元数据直接返回的 TYPE_NAME），避免跨库 ETL 类型退化为 VARCHAR
+        commonDataType2ColumnType.put("REAL", DuckLakeType.FLOAT.name());
+        commonDataType2ColumnType.put("DATETIME2", DuckLakeType.TIMESTAMP.name());
+        commonDataType2ColumnType.put("SMALLDATETIME", DuckLakeType.TIMESTAMP.name());
+        commonDataType2ColumnType.put("DATETIMEOFFSET", DuckLakeType.TIMESTAMP.name());
+        commonDataType2ColumnType.put("SMALLMONEY", DuckLakeType.VARCHAR.name());
+        commonDataType2ColumnType.put("NTEXT", DuckLakeType.VARCHAR.name());
+        commonDataType2ColumnType.put("IMAGE", DuckLakeType.BLOB.name());
     }
 
     public ColumnMeta toLogicalType(ColumnMeta columnMeta) {
