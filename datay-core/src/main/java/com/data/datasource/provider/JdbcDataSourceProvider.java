@@ -124,13 +124,16 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
      * 执行数据库特有的表写入。仅当 {@link #supportsTableWrite(DatasourceInfo, TableMeta, String)}
      * 返回 {@code true} 时由 ETL Sink 调用，默认实现直接拒绝。
      *
+     * <p>返回 {@code null} 表示专用写入方式本次不可用且尚未写入任何数据（例如 Appender 创建失败），
+     * 调用方应回退到通用 JDBC 写入；若已开始写入后失败，必须抛出异常而不是返回 {@code null}。</p>
+     *
      * @param info          目标数据源配置
      * @param connection    目标库连接
      * @param table         目标表元数据
      * @param records       待写入记录
      * @param eventType     INSERT / UPDATE / DELETE / APPEND / OVERWRITE 等写入模式
      * @param columnMapping 目标字段 -> 源字段映射，可为 {@code null}
-     * @return 写入方式描述，用于调用方日志
+     * @return 写入方式描述，用于调用方日志；{@code null} 表示回退通用 JDBC 写入
      */
     public String writeTable(DatasourceInfo info, Connection connection, TableMeta table, JSONArray records,
                              String eventType, Map<String, String> columnMapping) throws SQLException {

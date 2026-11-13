@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datasource.provider.DuckDbAppenderWriter;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.DuckDBEngine;
@@ -41,6 +42,9 @@ public class DuckLakeWrite extends FlowComponent {
     private final Map<String, TableMeta> tableMetaMap = new HashMap<>();
 
     private boolean isAttach = false;
+
+    // Appender 不可用时只提示一次，避免每批日志刷屏
+    private boolean appenderFallbackLogged = false;
 
     public static String CATALOG = "ducklake";
 
@@ -368,9 +372,30 @@ public class DuckLakeWrite extends FlowComponent {
     }
     
     /**
-     * 执行批量INSERT语句，使用INSERT INTO ... VALUES (...), (...), (...)格式
+     * 执行批量INSERT语句。
+     *
+     * <p>优先使用 DuckDB Appender（绕过 SQL 解析/规划/参数绑定，大批量写入快一个数量级）；
+     * Appender 不可用且尚未写入任何行时，回退到 {@code INSERT INTO ... VALUES (...), (...)}
+     * 多值写入。若 Appender 已开始写行后失败，直接抛出异常，禁止回退重复写入。</p>
      */
     private void executeBatchInsertWithValues(Connection targetConn, TableMeta targetTable, JSONArray records) throws SQLException {
+        try {
+            if (DuckDbAppenderWriter.append(targetConn, targetTable, records, null)) {
+                this.logInfo(
+                    "已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable() + "，使用 Appender"
+                );
+                return;
+            }
+        } catch (SQLException e) {
+            // 已进入写行阶段，可能已部分落盘；回退会造成重复数据，必须终止
+            logError("Appender 写入失败，已中止（不回退，避免重复数据）：" + e.getMessage());
+            throw e;
+        }
+        if (!appenderFallbackLogged) {
+            appenderFallbackLogged = true;
+            logWarn("Appender 不可用，回退多值 INSERT 写入，表：" + targetTable.getTable());
+        }
+
         // 构建INSERT语句的列名部分
         List<String> columnNames = new ArrayList<>();
         for (ColumnMeta column : targetTable.columns()) {

@@ -5,10 +5,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
-import com.data.metadata.util.DBUtils;
-import com.zaxxer.hikari.pool.HikariProxyConnection;
-import org.duckdb.DuckDBAppender;
-import org.duckdb.DuckDBConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -24,13 +20,13 @@ import java.util.regex.Pattern;
  * DuckDB 原生表的专用写入策略。
  *
  * <ul>
- *   <li>INSERT / APPEND / OVERWRITE：使用 {@link DuckDBAppender}；</li>
+ *   <li>INSERT / APPEND / OVERWRITE：使用 {@link org.duckdb.DuckDBAppender}（见 {@link DuckDbAppenderWriter}）；</li>
  *   <li>UPDATE / DELETE（有主键）：使用集合式 {@code INSERT ... ON CONFLICT DO UPDATE} /
  *       {@code DELETE ... USING}，避免 DuckDB JDBC {@code executeBatch} 逐行规划执行。</li>
  * </ul>
  *
- * <p>仅用于本地/普通 DuckDB 连接；Quack、DuckLake 在
- * {@link DuckDbDataSourceProvider#supportsTableWrite} 中被排除，继续走通用 JDBC 写入。</p>
+ * <p>DuckLake 只复用其中的 Appender 路径（由 {@link DuckLakeDataSourceProvider#supportsTableWrite}
+ * 限定为 INSERT / APPEND / OVERWRITE）；Quack 仍走通用 JDBC 写入。</p>
  */
 final class DuckDbTableWriter {
 
@@ -64,8 +60,8 @@ final class DuckDbTableWriter {
                  Map<String, String> columnMapping) throws SQLException {
         String type = eventType.toUpperCase(Locale.ROOT);
         if (isAppenderEvent(type)) {
-            writeWithAppender(connection, table, records, columnMapping);
-            return "DuckDBAppender";
+            // 返回 null 表示 Appender 不可用且尚未写入任何行，调用方回退到通用 JDBC 写入
+            return DuckDbAppenderWriter.append(connection, table, records, columnMapping) ? "DuckDBAppender" : null;
         }
         if (getPrimaryKeyColumns(table).isEmpty()) {
             throw new SQLException("DuckDB 集合写入要求目标表存在主键，表：" + table.getSchema() + "." + table.getTable());
@@ -79,25 +75,6 @@ final class DuckDbTableWriter {
     }
 
     // ------------------------------------------------------------------ Appender 写入
-
-    private void writeWithAppender(Connection connection, TableMeta table, JSONArray records,
-                                   Map<String, String> columnMapping) throws SQLException {
-        DuckDBConnection duckDBConnection = (DuckDBConnection) DBUtils.getRawConnection((HikariProxyConnection) connection);
-        try (DuckDBAppender appender = duckDBConnection.createAppender(table.getSchema(), table.getTable())) {
-            for (Object o : records) {
-                appender.beginRow();
-                JSONObject record = (JSONObject) o;
-                for (ColumnMeta column : table.columns()) {
-                    String sourceColumn = column.getName();
-                    if (columnMapping != null) {
-                        sourceColumn = columnMapping.getOrDefault(sourceColumn, sourceColumn);
-                    }
-                    DBUtils.appendValue(appender, column, record.get(sourceColumn));
-                }
-                appender.endRow();
-            }
-        }
-    }
 
     // ------------------------------------------------------------------ 集合式写入
 

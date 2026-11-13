@@ -1,10 +1,12 @@
 package com.data.datasource.provider;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.DBType;
+import com.data.metadata.TableMeta;
 import com.data.metadata.util.ConnectionPoolManager;
 import com.data.metadata.util.DBUtils;
 import java.sql.Connection;
@@ -57,6 +59,23 @@ public class DuckLakeDataSourceProvider extends DuckDbDataSourceProvider {
         Connection conn = ConnectionPoolManager.getConnection(DBUtils.resolveDuckLakeJdbcUrl(info), null, null);
         setupDuckLakeConnection(conn, info);
         return conn;
+    }
+
+    /**
+     * DuckLake 的 INSERT / APPEND / OVERWRITE 使用 DuckDB Appender。
+     *
+     * <p>DuckLake 没有主键/唯一约束，UPDATE / DELETE 必须继续走通用 SQL（CDC 依赖变更前镜像），
+     * 因此这里只放行 Appender 支持的事件类型。</p>
+     */
+    @Override
+    public boolean supportsTableWrite(DatasourceInfo info, TableMeta table, String eventType) {
+        return table != null && DuckDbAppenderWriter.supports(eventType);
+    }
+
+    @Override
+    public String writeTable(DatasourceInfo info, Connection connection, TableMeta table, JSONArray records,
+                             String eventType, Map<String, String> columnMapping) throws SQLException {
+        return DuckDbTableWriter.INSTANCE.write(connection, table, records, eventType, columnMapping);
     }
 
     private static void setupDuckLakeConnection(Connection conn, DatasourceInfo datasourceInfo) throws SQLException {

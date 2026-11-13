@@ -71,7 +71,8 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
 
     /**
      * 普通 DuckDB 使用 {@link DuckDbTableWriter}（Appender / 集合写入）；
-     * Quack 与 DuckLake 仍走通用 JDBC 写入。
+     * Quack 仍走通用 JDBC 写入。DuckLake 在本类中排除，由 {@link DuckLakeDataSourceProvider}
+     * 单独覆写为仅 INSERT / APPEND / OVERWRITE 使用 Appender。
      */
     @Override
     public boolean supportsTableWrite(DatasourceInfo info, TableMeta table, String eventType) {

@@ -271,11 +271,15 @@ public class StreamJdbcOutput extends FlowComponent {
                 eventType,
                 buildColumnMapping()
             );
-            this.logInfo(
-                "已成功通过 " + writeMode + " 写入 " + flowFile.getJsonArray().size() + " 条记录到表 " +
-                targetTable.getTable() + "，写入模式：" + eventType
-            );
-            return;
+            if (writeMode != null) {
+                this.logInfo(
+                    "已成功通过 " + writeMode + " 写入 " + flowFile.getJsonArray().size() + " 条记录到表 " +
+                    targetTable.getTable() + "，写入模式：" + eventType
+                );
+                return;
+            }
+            // 专用写入方式本次不可用（如 Appender 创建失败且尚未写入任何行），回退通用 JDBC 写入
+            this.logDebug("专用写入方式不可用，回退通用 JDBC 写入，表：" + targetTable.getTable());
         }
         migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
     }
