@@ -40,6 +40,12 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private List<Map<String, Object>> header_map; // 字段映射配置
 
+    /**
+     * 目标表名映射：key 为上游表名（通常是源表名），value 为目标表名。
+     * 用于数据同步任务中「目标表重命名」的场景，未命中时沿用上游表名。
+     */
+    private Map<String, String> tableMapping;
+
     private DatasourceInfo datasource;
 
     private final Map<String, TableMeta> tableMetaMap = new HashMap<>();
@@ -120,26 +126,60 @@ public class StreamJdbcOutput extends FlowComponent {
 
     /**
      * 获取目标表名
-     * 优先使用配置的table参数，未配置时从flowfile属性获取
+     * 优先使用配置的table参数，未配置时从flowfile属性获取；
+     * 之后按 tableMapping 做表名重命名（源表名 -> 目标表名）。
      */
     private String getTargetTableName(FlowFile flowFile) {
+        String sourceTableName = null;
         if (this.table != null && !this.table.trim().isEmpty()) {
-            return this.table;
+            sourceTableName = this.table;
+        } else {
+            // 从flowfile属性获取表名
+            Object tableAttr = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE);
+            if (tableAttr != null) {
+                sourceTableName = tableAttr.toString();
+            } else {
+                // 从表元数据获取表名
+                TableMeta tableMeta = (TableMeta) flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+                if (tableMeta != null && tableMeta.getTable() != null) {
+                    sourceTableName = tableMeta.getTable();
+                }
+            }
         }
 
-        // 从flowfile属性获取表名
-        Object tableAttr = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE);
-        if (tableAttr != null) {
-            return tableAttr.toString();
+        if (sourceTableName == null || sourceTableName.trim().isEmpty()) {
+            throw new IllegalArgumentException("未配置目标表名，且无法从flowfile属性中获取表名");
         }
 
-        // 从表元数据获取表名
-        TableMeta tableMeta = (TableMeta) flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
-        if (tableMeta != null && tableMeta.getTable() != null) {
-            return tableMeta.getTable();
+        return resolveMappedTableName(sourceTableName);
+    }
+
+    /**
+     * 按 tableMapping 解析目标表名。
+     * 未配置映射或未命中时返回原表名；同时兼容大小写不一致的表名（如 Oracle 大写、MySQL 小写）。
+     */
+    private String resolveMappedTableName(String tableName) {
+        if (this.tableMapping == null || this.tableMapping.isEmpty()) {
+            return tableName;
         }
 
-        throw new IllegalArgumentException("未配置目标表名，且无法从flowfile属性中获取表名");
+        String mapped = this.tableMapping.get(tableName);
+        if (mapped != null && !mapped.trim().isEmpty()) {
+            return mapped;
+        }
+
+        for (Map.Entry<String, String> entry : this.tableMapping.entrySet()) {
+            if (
+                entry.getKey() != null &&
+                entry.getKey().equalsIgnoreCase(tableName) &&
+                entry.getValue() != null &&
+                !entry.getValue().trim().isEmpty()
+            ) {
+                return entry.getValue();
+            }
+        }
+
+        return tableName;
     }
 
     /**
@@ -574,5 +614,13 @@ public class StreamJdbcOutput extends FlowComponent {
 
     public List<Map<String, Object>> getHeader_map() {
         return header_map;
+    }
+
+    public void setTableMapping(Map<String, String> tableMapping) {
+        this.tableMapping = tableMapping;
+    }
+
+    public Map<String, String> getTableMapping() {
+        return tableMapping;
     }
 }

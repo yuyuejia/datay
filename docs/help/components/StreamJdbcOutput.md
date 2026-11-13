@@ -37,6 +37,7 @@ StreamJdbcOutput 是一个JDBC输出组件，用于将数据写入到关系型�
 |--------|------|------|--------|------|
 | `schema` | String | 否 | - | 目标表所在的schema，未配置时从数据源或flowfile属性获取 |
 | `table` | String | 否 | - | 目标表名，未配置时从flowfile属性获取 |
+| `tableMapping` | Map | 否 | - | 目标表重命名映射（源表名 → 目标表名），未命中时沿用上游表名；数据同步任务的目标表重命名会写入该参数 |
 | `model` | String | 是 | - | 写入模式：append/update/replace/overwrite/auto |
 
 ## 写入模式详解
@@ -91,6 +92,8 @@ StreamJdbcOutput 是一个JDBC输出组件，用于将数据写入到关系型�
 2. flowfile的`_table`属性
 3. flowfile的`_table_metadata`属性中的表名
 4. 抛出异常（必须至少有一个来源）
+
+随后按`tableMapping`做重命名：命中「源表名 → 目标表名」映射时使用映射值，否则沿用上述表名。
 
 ### Schema获取优先级
 1. 配置的`schema`参数

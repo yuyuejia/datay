@@ -414,12 +414,20 @@ public class DataSyncService {
 
         StringBuilder tableList = new StringBuilder();
         JSONObject incrColumn = new JSONObject();
+        Map<String, String> tableMapping = new LinkedHashMap<>();
         boolean overwrite = "FULL_SYNC".equals(dataSyncDTO.getType()) || "DATA_ONLY".equals(dataSyncDTO.getType());
         for (DataSyncTableConfigDTO tableConfigDTO : selectedTables) {
             if (!hasText(tableConfigDTO.getSrcTableName())) {
                 continue;
             }
             tableList.append(tableConfigDTO.getSrcTableName()).append(",");
+            // 目标表重命名：仅登记确实发生变化的映射，未配置时沿用源表名
+            if (
+                hasText(tableConfigDTO.getDesTableName()) &&
+                !tableConfigDTO.getSrcTableName().equals(tableConfigDTO.getDesTableName())
+            ) {
+                tableMapping.put(tableConfigDTO.getSrcTableName(), tableConfigDTO.getDesTableName());
+            }
             // OVERWRITE 模式下不使用增量列，避免「增量输入 + OVERWRITE 输出」导致的覆盖丢失
             if (!overwrite) {
                 incrColumn.put(tableConfigDTO.getSrcTableName(), tableConfigDTO.getSrcColPks());
@@ -457,6 +465,10 @@ public class DataSyncService {
         if (jdbcTarget) {
             outputNode.put("schema", desSchema);
             outputNode.put("table", ""); // 目标表由上游 FlowFile 表名属性决定
+            if (!tableMapping.isEmpty()) {
+                // 目标表重命名映射：StreamJdbcOutput 按上游表名查表，未命中时沿用原表名
+                outputNode.put("tableMapping", tableMapping);
+            }
             if (overwrite) {
                 outputNode.put("model", "overwrite");
             }
