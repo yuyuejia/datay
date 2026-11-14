@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
-import { type IDataApi } from '@/shared/model/data-api.model';
+import { type IDataApi, type IDataApiCallStats } from '@/shared/model/data-api.model';
 
 const baseApiUrl = 'api/data-apis';
 
@@ -90,6 +90,45 @@ export default class DataApiService {
         .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
         .then(res => {
           resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  retrieveCallLogs(apiId: string, paginationQuery?: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${apiId}/call-logs?${buildPaginationQueryOpts(paginationQuery)}`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  retrieveCallStats(apiId: string, startDate?: string, endDate?: string): Promise<IDataApiCallStats> {
+    return new Promise<IDataApiCallStats>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${apiId}/call-stats`, { params: { startDate, endDate } })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  clearCallLogs(apiId: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .delete(`${baseApiUrl}/${apiId}/call-logs`)
+        .then(res => {
+          resolve(res);
         })
         .catch(err => {
           reject(err);

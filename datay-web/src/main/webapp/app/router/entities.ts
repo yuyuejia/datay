@@ -99,6 +99,7 @@ const MetricAi = () => import("@/entities/metric-ai/metric-ai.vue");
 
 const DataApiList = () => import("@/entities/data-api/data-api.vue");
 const DataApiUpdate = () => import("@/entities/data-api/data-api-update.vue");
+const DataApiStats = () => import("@/entities/data-api/data-api-stats.vue");
 
 const SqlJob = () => import("@/entities/sql-job/sql-job.vue");
 const SqlJobUpdate = () => import("@/entities/sql-job/sql-job-update.vue");
@@ -604,6 +605,12 @@ export default {
       path: "data-api/:dataApiId/edit",
       name: "DataApiEdit",
       component: DataApiUpdate,
+      meta: { authorities: [Authority.USER] },
+    },
+    {
+      path: "data-api/:dataApiId/stats",
+      name: "DataApiStats",
+      component: DataApiStats,
       meta: { authorities: [Authority.USER] },
     },
     {

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.DataApiAccessException;
+import com.data.datafusion.service.DataApiCallMeta;
 import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
@@ -162,14 +163,16 @@ class DataApiHarnessToolsTest {
     @Test
     void shouldQueryTableServiceAndMergeFlattenedParams() throws Exception {
         when(dataApiService.findByCode("orders")).thenReturn(Optional.of(dataApi("3", "orders", DataApi.SOURCE_TYPE_TABLE)));
-        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("orders"), any())).thenReturn(Map.of("code", 0, "total", 2));
+        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("orders"), any(), any(DataApiCallMeta.class))).thenReturn(
+            Map.of("code", 0, "total", 2)
+        );
 
         Object result = tools
             .dataapiQueryTool()
             .execute(Map.of("code", "orders", "params", Map.of("pageSize", 10), "city", "北京"), context());
 
         ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
-        verify(dataApiExecuteService).invokeApiInCurrentTenant(eq("orders"), params.capture());
+        verify(dataApiExecuteService).invokeApiInCurrentTenant(eq("orders"), params.capture(), any(DataApiCallMeta.class));
         assertThat(params.getValue()).containsEntry("pageSize", 10).containsEntry("city", "北京");
         assertThat(asMap(result)).containsEntry("total", 2);
     }
@@ -197,7 +200,7 @@ class DataApiHarnessToolsTest {
     @Test
     void shouldCallApiSourceAndTranslateClientErrors() throws Exception {
         when(dataApiService.findByCode("weather")).thenReturn(Optional.of(dataApi("2", "weather", DataApi.SOURCE_TYPE_API)));
-        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("weather"), any()))
+        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("weather"), any(), any(DataApiCallMeta.class)))
             .thenReturn(Map.of("code", 0, "total", 1))
             .thenThrow(new DataApiAccessException(400, "缺少参数：day"));
 
@@ -212,7 +215,7 @@ class DataApiHarnessToolsTest {
     @Test
     void shouldTranslateServerErrorsToIllegalState() {
         when(dataApiService.findByCode("orders")).thenReturn(Optional.of(dataApi("3", "orders", DataApi.SOURCE_TYPE_TABLE)));
-        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("orders"), any()))
+        when(dataApiExecuteService.invokeApiInCurrentTenant(eq("orders"), any(), any(DataApiCallMeta.class)))
             .thenThrow(new DataApiAccessException(500, "服务执行失败：连接超时"));
 
         assertThatThrownBy(() -> tools.dataapiQueryTool().execute(Map.of("code", "orders"), context()))

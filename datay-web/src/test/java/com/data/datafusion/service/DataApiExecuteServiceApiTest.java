@@ -2,12 +2,19 @@ package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.domain.DataApiCallLog;
 import com.data.datafusion.domain.Tenant;
 import com.data.datafusion.domain.User;
 import com.data.datafusion.mcp.McpTokenService;
@@ -40,6 +47,8 @@ class DataApiExecuteServiceApiTest {
 
     private AnalysisDatasetService analysisDatasetService;
 
+    private DataApiCallLogService callLogService;
+
     private DataApiExecuteService service;
 
     private HttpServer server;
@@ -52,13 +61,15 @@ class DataApiExecuteServiceApiTest {
         tenantRepository = mock(TenantRepository.class);
         dataApiService = mock(DataApiService.class);
         analysisDatasetService = mock(AnalysisDatasetService.class);
+        callLogService = mock(DataApiCallLogService.class);
         service = new DataApiExecuteService(
             mcpTokenService,
             tenantRepository,
             dataApiService,
             mock(DataSourceService.class),
             analysisDatasetService,
-            mock(UserRepository.class)
+            mock(UserRepository.class),
+            callLogService
         );
 
         User user = new User();
@@ -185,6 +196,50 @@ class DataApiExecuteServiceApiTest {
         assertThatThrownBy(() -> service.invokeApi("mcp_token", "orders_dataset", Map.of()))
             .isInstanceOf(DataApiAccessException.class)
             .hasMessageContaining("缺少参数");
+    }
+
+    @Test
+    void shouldRecordSuccessfulCallLog() {
+        when(dataApiService.findByCode("orders")).thenReturn(Optional.of(api(
+            "{\"url\":\"http://127.0.0.1:" + port + "/nested\",\"method\":\"GET\",\"jsonPath\":\"$.data.items\"}"
+        )));
+
+        service.invokeApi("mcp_token", "orders", Map.of());
+
+        verify(callLogService).record(
+            any(),
+            eq("orders"),
+            any(),
+            any(),
+            eq(DataApiCallLog.STATUS_SUCCESS),
+            eq(200),
+            isNull(),
+            anyLong(),
+            eq(2L)
+        );
+    }
+
+    @Test
+    void shouldRecordFailedCallLog() {
+        when(dataApiService.findByCode("orders")).thenReturn(Optional.of(api(
+            "{\"url\":\"http://127.0.0.1:" + port + "/orders?status=${status}\",\"method\":\"GET\"}"
+        )));
+
+        assertThatThrownBy(() -> service.invokeApi("mcp_token", "orders", Map.of()))
+            .isInstanceOf(DataApiAccessException.class)
+            .hasMessageContaining("缺少参数");
+
+        verify(callLogService).record(
+            any(),
+            eq("orders"),
+            any(),
+            any(),
+            eq(DataApiCallLog.STATUS_FAILED),
+            eq(400),
+            contains("缺少参数"),
+            anyLong(),
+            isNull()
+        );
     }
 
     private static DataApiDTO datasetApi() {

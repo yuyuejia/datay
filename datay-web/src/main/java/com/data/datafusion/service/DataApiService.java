@@ -5,6 +5,7 @@ import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
+import com.data.datafusion.repository.DataApiCallLogRepository;
 import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.service.dto.DataApiDTO;
@@ -47,16 +48,20 @@ public class DataApiService {
 
     private final ETLTaskDirectoryRepository etlTaskDirectoryRepository;
 
+    private final DataApiCallLogRepository dataApiCallLogRepository;
+
     public DataApiService(
         DataApiRepository dataApiRepository,
         DataApiMapper dataApiMapper,
         AnalysisDatasetRepository analysisDatasetRepository,
-        ETLTaskDirectoryRepository etlTaskDirectoryRepository
+        ETLTaskDirectoryRepository etlTaskDirectoryRepository,
+        DataApiCallLogRepository dataApiCallLogRepository
     ) {
         this.dataApiRepository = dataApiRepository;
         this.dataApiMapper = dataApiMapper;
         this.analysisDatasetRepository = analysisDatasetRepository;
         this.etlTaskDirectoryRepository = etlTaskDirectoryRepository;
+        this.dataApiCallLogRepository = dataApiCallLogRepository;
     }
 
     /**
@@ -256,6 +261,7 @@ public class DataApiService {
      */
     public void delete(String id) {
         LOG.debug("Request to delete DataApi : {}", id);
+        dataApiCallLogRepository.deleteByApiId(id);
         dataApiRepository.deleteById(id);
     }
 

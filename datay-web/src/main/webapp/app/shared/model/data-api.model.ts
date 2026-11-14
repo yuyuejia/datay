@@ -80,6 +80,57 @@ export class DataApi implements IDataApi {
   ) {}
 }
 
+/** 数据服务调用日志。 */
+export interface IDataApiCallLog {
+  id?: string;
+  apiId?: string | null;
+  apiCode?: string | null;
+  apiName?: string | null;
+  sourceType?: string | null;
+  requestSource?: string | null;
+  requestMethod?: string | null;
+  requestPath?: string | null;
+  requestParams?: string | null;
+  callerUserId?: number | null;
+  callerLogin?: string | null;
+  clientIp?: string | null;
+  userAgent?: string | null;
+  status?: string | null;
+  httpStatus?: number | null;
+  errorMessage?: string | null;
+  durationMs?: number | null;
+  resultRows?: number | null;
+  statDate?: string | null;
+  statHour?: number | null;
+  createTime?: Date | string | null;
+}
+
+/** 调用统计的单日趋势。 */
+export interface IDataApiCallTrendPoint {
+  date: string;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  avgDurationMs: number;
+  maxDurationMs: number;
+}
+
+/** 数据服务调用统计汇总。 */
+export interface IDataApiCallStats {
+  apiId?: string | null;
+  apiCode?: string | null;
+  apiName?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  avgDurationMs: number;
+  maxDurationMs: number;
+  trend: IDataApiCallTrendPoint[];
+}
+
 export const DATA_API_SOURCE_TYPE_TABLE = 'TABLE';
 export const DATA_API_SOURCE_TYPE_SQL = 'SQL';
 export const DATA_API_SOURCE_TYPE_API = 'API';

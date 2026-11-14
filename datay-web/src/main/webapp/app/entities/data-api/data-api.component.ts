@@ -387,6 +387,19 @@ export default defineComponent({
       }
     };
 
+    const handleRowCommand = (command: string, dataApi: IDataApi) => {
+      switch (command) {
+        case 'move':
+          openMoveDialog(dataApi);
+          break;
+        case 'delete':
+          prepareRemove(dataApi);
+          break;
+        default:
+          break;
+      }
+    };
+
     const changeOrder = (newOrder: string) => {
       const [prop, order] = newOrder.split(',');
       if (propOrder.value === prop) {
@@ -546,6 +559,7 @@ export default defineComponent({
       sourceTypeLabel,
       statusLabel,
       tableDisplay,
+      handleRowCommand,
       directories,
       directoryLoading,
       directoryTree,

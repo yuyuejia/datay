@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- 数据服务调用日志：记录对外 API 与 MCP 的每次调用，支撑审计和调用统计。 -->
+    <changeSet id="20261114010000-1-data-api-call-log" author="datafusion">
+        <createTable tableName="dp_data_api_call_log">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="api_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="api_code" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="api_name" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="source_type" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="request_source" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="request_method" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="request_path" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="request_params" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="caller_user_id" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="caller_login" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="client_ip" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="user_agent" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="http_status" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="error_message" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="duration_ms" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="result_rows" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+            <column name="stat_date" type="date">
+                <constraints nullable="true"/>
+            </column>
+            <column name="stat_hour" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_data_api_call_log" indexName="idx_data_api_call_log_api_time">
+            <column name="tenant_id"/>
+            <column name="api_id"/>
+            <column name="create_time"/>
+        </createIndex>
+        <createIndex tableName="dp_data_api_call_log" indexName="idx_data_api_call_log_api_date">
+            <column name="tenant_id"/>
+            <column name="api_id"/>
+            <column name="stat_date"/>
+        </createIndex>
+        <createIndex tableName="dp_data_api_call_log" indexName="idx_data_api_call_log_time">
+            <column name="create_time"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

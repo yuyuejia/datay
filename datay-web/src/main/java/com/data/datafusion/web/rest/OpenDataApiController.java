@@ -1,6 +1,7 @@
 package com.data.datafusion.web.rest;
 
 import com.data.datafusion.service.DataApiAccessException;
+import com.data.datafusion.service.DataApiCallMeta;
 import com.data.datafusion.service.DataApiExecuteService;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -8,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,8 +67,14 @@ public class OpenDataApiController {
 
     private ResponseEntity<Map<String, Object>> doInvoke(HttpServletRequest request, String code, Map<String, Object> params) {
         String token = resolveToken(request);
+        DataApiCallMeta meta = DataApiCallMeta.openApi(
+            request.getMethod(),
+            request.getRequestURI(),
+            resolveClientIp(request),
+            request.getHeader("User-Agent")
+        );
         try {
-            Map<String, Object> result = dataApiExecuteService.invokeApi(token, code, params);
+            Map<String, Object> result = dataApiExecuteService.invokeApi(token, code, params, meta);
             return ResponseEntity.ok(result);
         } catch (DataApiAccessException e) {
             LOG.warn("Data api invoke failed: code={}, status={}, message={}", code, e.getStatus(), e.getMessage());
@@ -75,6 +83,21 @@ public class OpenDataApiController {
             LOG.error("Data api invoke error: code={}", code, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(500, "服务执行失败"));
         }
+    }
+
+    private static String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwarded)) {
+            String first = forwarded.split(",")[0].trim();
+            if (!first.isEmpty()) {
+                return first;
+            }
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (StringUtils.hasText(realIp)) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private static String resolveToken(HttpServletRequest request) {

@@ -120,6 +120,34 @@ describe('Service Tests', () => {
           });
       });
 
+      it('should retrieve call logs', async () => {
+        axiosStub.get.resolves({ headers: { 'x-total-count': '1' }, data: [{ id: 'log-1', status: 'SUCCESS' }] });
+
+        const res = await service.retrieveCallLogs(123, { page: 0, size: 20, status: 'SUCCESS' });
+
+        expect(res.data).toContainEqual(expect.objectContaining({ id: 'log-1' }));
+        expect(axiosStub.get.lastCall.args[0]).toContain('api/data-apis/123/call-logs');
+      });
+
+      it('should retrieve call stats', async () => {
+        const stats = { totalCount: 10, successCount: 9, failureCount: 1, trend: [] };
+        axiosStub.get.resolves({ data: stats });
+
+        const res = await service.retrieveCallStats('123', '2026-11-01', '2026-11-14');
+
+        expect(res).toMatchObject(stats);
+        expect(axiosStub.get.lastCall.args[0]).toContain('api/data-apis/123/call-stats');
+      });
+
+      it('should clear call logs', async () => {
+        axiosStub.delete.resolves({ ok: true });
+
+        const res = await service.clearCallLogs('123');
+
+        expect(res.ok).toBeTruthy();
+        expect(axiosStub.delete.lastCall.args[0]).toContain('api/data-apis/123/call-logs');
+      });
+
       it('should delete a DataApi', async () => {
         axiosStub.delete.resolves({ ok: true });
         return service.delete(123).then(res => {

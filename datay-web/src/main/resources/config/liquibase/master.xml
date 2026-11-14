@@ -65,6 +65,7 @@
     <include file="config/liquibase/changelog/20261112000000_add_etl_task_directory.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261113000000_add_job_directory.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261114000000_add_data_api_directory.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261114010000_add_data_api_call_log.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->

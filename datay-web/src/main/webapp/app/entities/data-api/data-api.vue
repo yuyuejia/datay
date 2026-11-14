@@ -129,7 +129,7 @@
             <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
               <template #default="scope">{{ formatDateShort(scope.row.createTime) || '' }}</template>
             </el-table-column>
-            <el-table-column label="操作" fixed="right" width="270">
+            <el-table-column label="操作" fixed="right" width="330">
               <template #default="scope">
                 <div class="btn-group">
                   <router-link :to="{ name: 'DataApiEdit', params: { dataApiId: scope.row.id } }" custom v-slot="{ navigate }">
@@ -140,12 +140,23 @@
                   <el-button type="info" size="small" @click="openDoc(scope.row)" data-cy="entityDocButton">
                     <span class="d-none d-md-inline">调用说明</span>
                   </el-button>
-                  <el-button size="small" @click="openMoveDialog(scope.row)" data-cy="entityMoveDirectoryButton">
-                    <span class="d-none d-md-inline">移动</span>
-                  </el-button>
-                  <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
-                    <span class="d-none d-md-inline">删除</span>
-                  </el-button>
+                  <router-link :to="{ name: 'DataApiStats', params: { dataApiId: scope.row.id } }" custom v-slot="{ navigate }">
+                    <el-button type="success" size="small" @click="navigate" data-cy="entityStatsButton">
+                      <span class="d-none d-md-inline">统计</span>
+                    </el-button>
+                  </router-link>
+                  <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
+                    <el-button type="info" plain size="small" data-cy="entityMoreButton">
+                      <span class="d-none d-md-inline">更多</span>
+                      <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="move" data-cy="entityMoveDirectoryButton">移动到目录</el-dropdown-item>
+                        <el-dropdown-item command="delete" divided data-cy="entityDeleteButton">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </div>
               </template>
             </el-table-column>

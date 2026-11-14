@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONPath;
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.domain.DataApiCallLog;
 import com.data.datafusion.domain.Tenant;
 import com.data.datafusion.domain.User;
 import com.data.datafusion.mcp.McpTokenService;
@@ -112,6 +113,8 @@ public class DataApiExecuteService {
 
     private final UserRepository userRepository;
 
+    private final DataApiCallLogService callLogService;
+
     /** 前置处理 Token 缓存，键为「服务 ID + 前置配置」，值为 Token 与过期时间。 */
     private final Map<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
 
@@ -121,7 +124,8 @@ public class DataApiExecuteService {
         DataApiService dataApiService,
         DataSourceService dataSourceService,
         AnalysisDatasetService analysisDatasetService,
-        UserRepository userRepository
+        UserRepository userRepository,
+        DataApiCallLogService callLogService
     ) {
         this.mcpTokenService = mcpTokenService;
         this.tenantRepository = tenantRepository;
@@ -129,6 +133,7 @@ public class DataApiExecuteService {
         this.dataSourceService = dataSourceService;
         this.analysisDatasetService = analysisDatasetService;
         this.userRepository = userRepository;
+        this.callLogService = callLogService;
     }
 
     /**
@@ -142,6 +147,19 @@ public class DataApiExecuteService {
      * @return 统一返回体 {@code {code, message, data, columns, total, pageNum, pageSize}}。
      */
     public Map<String, Object> invokeApi(String token, String code, Map<String, Object> params) {
+        return invokeApi(token, code, params, DataApiCallMeta.internal());
+    }
+
+    /**
+     * 使用用户的 mcp_token 调用指定编码的数据服务，并携带调用入口信息用于记录日志。
+     *
+     * @param token  用户令牌。
+     * @param code   服务编码。
+     * @param params 调用参数。
+     * @param meta   调用入口信息（来源、请求方法、IP 等）。
+     * @return 统一返回体。
+     */
+    public Map<String, Object> invokeApi(String token, String code, Map<String, Object> params, DataApiCallMeta meta) {
         User user = mcpTokenService
             .authenticateUser(token)
             .orElseThrow(() -> new DataApiAccessException(401, "无效或缺失的访问令牌"));
@@ -155,7 +173,7 @@ public class DataApiExecuteService {
         TenantContext.setTenantId(tenantId);
         try {
             bindUserSecurityContext(user);
-            return invokeApiInCurrentTenant(code, params);
+            return invokeApiInCurrentTenant(code, params, meta);
         } finally {
             TenantContext.clear();
             if (previousAuthentication == null) {
@@ -191,19 +209,77 @@ public class DataApiExecuteService {
      * @return 统一返回体 {@code {code, message, data, columns, total, pageNum, pageSize}}。
      */
     public Map<String, Object> invokeApiInCurrentTenant(String code, Map<String, Object> params) {
-        Map<String, Object> effectiveParams = params == null ? Map.of() : params;
-        DataApiDTO api = dataApiService
-            .findByCode(code)
-            .orElseThrow(() -> new DataApiAccessException(404, "服务不存在或未发布：" + code));
-        if (!DataApi.STATUS_ENABLED.equals(api.getStatus())) {
-            throw new DataApiAccessException(404, "服务不存在或未发布：" + code);
-        }
+        return invokeApiInCurrentTenant(code, params, DataApiCallMeta.internal());
+    }
 
+    /**
+     * 在调用方已生效的 {@link TenantContext} 中执行指定编码的数据服务，并记录调用日志。
+     *
+     * @param code   服务编码。
+     * @param params 调用参数，允许为 {@code null}。
+     * @param meta   调用入口信息，允许为 {@code null}。
+     * @return 统一返回体 {@code {code, message, data, columns, total, pageNum, pageSize}}。
+     */
+    public Map<String, Object> invokeApiInCurrentTenant(String code, Map<String, Object> params, DataApiCallMeta meta) {
+        Map<String, Object> effectiveParams = params == null ? Map.of() : params;
+        long startNanos = System.nanoTime();
+        DataApiDTO api = null;
+        try {
+            api = dataApiService
+                .findByCode(code)
+                .orElseThrow(() -> new DataApiAccessException(404, "服务不存在或未发布：" + code));
+            if (!DataApi.STATUS_ENABLED.equals(api.getStatus())) {
+                throw new DataApiAccessException(404, "服务不存在或未发布：" + code);
+            }
+
+            Map<String, Object> result = doInvokeApi(api, effectiveParams);
+            callLogService.record(
+                api,
+                code,
+                meta,
+                effectiveParams,
+                DataApiCallLog.STATUS_SUCCESS,
+                200,
+                null,
+                elapsedMs(startNanos),
+                resultRows(result)
+            );
+            return result;
+        } catch (DataApiAccessException e) {
+            callLogService.record(
+                api,
+                code,
+                meta,
+                effectiveParams,
+                DataApiCallLog.STATUS_FAILED,
+                e.getStatus(),
+                e.getMessage(),
+                elapsedMs(startNanos),
+                null
+            );
+            throw e;
+        } catch (Exception e) {
+            callLogService.record(
+                api,
+                code,
+                meta,
+                effectiveParams,
+                DataApiCallLog.STATUS_FAILED,
+                500,
+                errorMessage(e),
+                elapsedMs(startNanos),
+                null
+            );
+            throw e;
+        }
+    }
+
+    private Map<String, Object> doInvokeApi(DataApiDTO api, Map<String, Object> params) {
         if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
-            return invokeFromApi(api, effectiveParams);
+            return invokeFromApi(api, params);
         }
         if (DataApi.SOURCE_TYPE_DATASET.equals(api.getSourceType())) {
-            return invokeFromDataset(api, effectiveParams);
+            return invokeFromDataset(api, params);
         }
 
         DataSourceDTO dataSource = dataSourceService
@@ -212,9 +288,36 @@ public class DataApiExecuteService {
 
         DatasourceInfo datasourceInfo = DataSourceQueryService.toDatasourceInfo(dataSource);
         if (DataApi.SOURCE_TYPE_TABLE.equals(api.getSourceType())) {
-            return invokeFromTable(api, datasourceInfo, effectiveParams);
+            return invokeFromTable(api, datasourceInfo, params);
         }
-        return invokeFromSql(api, datasourceInfo, effectiveParams);
+        return invokeFromSql(api, datasourceInfo, params);
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return Math.max(0, (System.nanoTime() - startNanos) / 1_000_000);
+    }
+
+    private static Long resultRows(Map<String, Object> result) {
+        if (result == null) {
+            return null;
+        }
+        Object total = result.get("total");
+        if (total instanceof Number number) {
+            return number.longValue();
+        }
+        Object data = result.get("data");
+        if (data instanceof java.util.Collection<?> collection) {
+            return (long) collection.size();
+        }
+        return null;
+    }
+
+    private static String errorMessage(Throwable error) {
+        String message = error.getMessage();
+        if (message == null || message.isBlank()) {
+            return error.getClass().getSimpleName();
+        }
+        return message.length() > 2000 ? message.substring(0, 2000) + "..." : message;
     }
 
     /**

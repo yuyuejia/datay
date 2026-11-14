@@ -17,6 +17,7 @@ import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.service.AnalysisDatasetService;
 import com.data.datafusion.service.DataApiAccessException;
+import com.data.datafusion.service.DataApiCallMeta;
 import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
@@ -199,7 +200,7 @@ public class DataApiHarnessTools {
      */
     private Object invoke(String code, Map<String, Object> args) {
         try {
-            return dataApiExecuteService.invokeApiInCurrentTenant(code, collectParams(args));
+            return dataApiExecuteService.invokeApiInCurrentTenant(code, collectParams(args), DataApiCallMeta.mcp());
         } catch (DataApiAccessException e) {
             if (e.getStatus() >= 400 && e.getStatus() < 500) {
                 throw new IllegalArgumentException(e.getMessage());

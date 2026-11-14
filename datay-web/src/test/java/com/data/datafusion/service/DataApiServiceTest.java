@@ -2,6 +2,7 @@ package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.AnalysisDataset;
@@ -9,6 +10,7 @@ import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
+import com.data.datafusion.repository.DataApiCallLogRepository;
 import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.service.dto.DataApiDTO;
@@ -28,6 +30,8 @@ class DataApiServiceTest {
 
     private ETLTaskDirectoryRepository etlTaskDirectoryRepository;
 
+    private DataApiCallLogRepository dataApiCallLogRepository;
+
     private DataApiService service;
 
     @BeforeEach
@@ -35,7 +39,14 @@ class DataApiServiceTest {
         dataApiRepository = mock(DataApiRepository.class);
         analysisDatasetRepository = mock(AnalysisDatasetRepository.class);
         etlTaskDirectoryRepository = mock(ETLTaskDirectoryRepository.class);
-        service = new DataApiService(dataApiRepository, mock(DataApiMapper.class), analysisDatasetRepository, etlTaskDirectoryRepository);
+        dataApiCallLogRepository = mock(DataApiCallLogRepository.class);
+        service = new DataApiService(
+            dataApiRepository,
+            mock(DataApiMapper.class),
+            analysisDatasetRepository,
+            etlTaskDirectoryRepository,
+            dataApiCallLogRepository
+        );
     }
 
     @Test
@@ -107,6 +118,14 @@ class DataApiServiceTest {
         assertThatThrownBy(() -> service.moveToDirectory("api-1", "dir-1"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("目录与数据服务类型不匹配");
+    }
+
+    @Test
+    void shouldClearCallLogsWhenDeletingApi() {
+        service.delete("api-1");
+
+        verify(dataApiCallLogRepository).deleteByApiId("api-1");
+        verify(dataApiRepository).deleteById("api-1");
     }
 
     private static DataApiDTO tableApi() {
