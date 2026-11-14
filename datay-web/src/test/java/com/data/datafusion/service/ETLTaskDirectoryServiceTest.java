@@ -7,9 +7,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.ETLTask;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.JobRepository;
@@ -26,6 +28,7 @@ class ETLTaskDirectoryServiceTest {
     private ETLTaskDirectoryRepository directoryRepository;
     private ETLTaskRepository etlTaskRepository;
     private JobRepository jobRepository;
+    private DataApiRepository dataApiRepository;
     private ETLTaskDirectoryMapper mapper;
     private ETLTaskDirectoryService service;
 
@@ -34,8 +37,9 @@ class ETLTaskDirectoryServiceTest {
         directoryRepository = mock(ETLTaskDirectoryRepository.class);
         etlTaskRepository = mock(ETLTaskRepository.class);
         jobRepository = mock(JobRepository.class);
+        dataApiRepository = mock(DataApiRepository.class);
         mapper = new ETLTaskDirectoryMapperImpl();
-        service = new ETLTaskDirectoryService(directoryRepository, etlTaskRepository, jobRepository, mapper);
+        service = new ETLTaskDirectoryService(directoryRepository, etlTaskRepository, jobRepository, dataApiRepository, mapper);
     }
 
     @Test
@@ -57,14 +61,30 @@ class ETLTaskDirectoryServiceTest {
     void shouldMoveChildrenAndTasksToRootWhenDeleting() {
         ETLTaskDirectory child = new ETLTaskDirectory().id("child");
         ETLTask task = new ETLTask().id("task-1").directoryId("dir-1");
+        DataApi dataApi = new DataApi().id("api-1").directoryId("dir-1");
         when(directoryRepository.findByParentIdOrderBySortOrderAsc("dir-1")).thenReturn(List.of(child));
         when(etlTaskRepository.findByDirectoryId("dir-1")).thenReturn(List.of(task));
+        when(dataApiRepository.findByDirectoryId("dir-1")).thenReturn(List.of(dataApi));
 
         service.delete("dir-1");
 
         assertThat(child.getParentId()).isNull();
         assertThat(task.getDirectoryId()).isNull();
+        assertThat(dataApi.getDirectoryId()).isNull();
         verify(directoryRepository).deleteById("dir-1");
+    }
+
+    @Test
+    void shouldAcceptDataApiDirectoryType() {
+        when(directoryRepository.save(any(ETLTaskDirectory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ETLTaskDirectoryDTO dto = new ETLTaskDirectoryDTO();
+        dto.setName("服务目录");
+        dto.setTaskType(TaskConstants.TASK_TYPE_DATA_API);
+
+        ETLTaskDirectoryDTO saved = service.save(dto);
+
+        assertThat(saved.getTaskType()).isEqualTo(TaskConstants.TASK_TYPE_DATA_API);
     }
 
     @Test

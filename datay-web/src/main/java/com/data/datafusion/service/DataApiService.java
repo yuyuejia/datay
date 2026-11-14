@@ -2,17 +2,24 @@ package com.data.datafusion.service;
 
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.domain.ETLTaskDirectory;
+import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.repository.DataApiRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.service.dto.DataApiDTO;
 import com.data.datafusion.service.mapper.DataApiMapper;
 import jakarta.persistence.criteria.Predicate;
 import java.time.ZonedDateTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * Service Implementation for managing {@link com.data.datafusion.domain.DataApi}.
@@ -37,14 +45,18 @@ public class DataApiService {
 
     private final AnalysisDatasetRepository analysisDatasetRepository;
 
+    private final ETLTaskDirectoryRepository etlTaskDirectoryRepository;
+
     public DataApiService(
         DataApiRepository dataApiRepository,
         DataApiMapper dataApiMapper,
-        AnalysisDatasetRepository analysisDatasetRepository
+        AnalysisDatasetRepository analysisDatasetRepository,
+        ETLTaskDirectoryRepository etlTaskDirectoryRepository
     ) {
         this.dataApiRepository = dataApiRepository;
         this.dataApiMapper = dataApiMapper;
         this.analysisDatasetRepository = analysisDatasetRepository;
+        this.etlTaskDirectoryRepository = etlTaskDirectoryRepository;
     }
 
     /**
@@ -58,6 +70,7 @@ public class DataApiService {
         validate(dataApiDTO);
         ensureCodeUnique(dataApiDTO.getCode(), null);
         normalizeSourceFields(dataApiDTO);
+        normalizeDirectory(dataApiDTO);
         ensureDatasetUnique(dataApiDTO.getDatasetId(), null);
 
         ZonedDateTime now = ZonedDateTime.now();
@@ -94,6 +107,11 @@ public class DataApiService {
                 dataApiDTO.setTenantId(existing.getTenantId());
                 dataApiDTO.setCreateTime(existing.getCreateTime());
                 dataApiDTO.setUpdateTime(ZonedDateTime.now());
+                // directoryId 为 null 表示保持原目录不变；空字符串表示移动到未分类
+                if (dataApiDTO.getDirectoryId() == null) {
+                    dataApiDTO.setDirectoryId(existing.getDirectoryId());
+                }
+                normalizeDirectory(dataApiDTO);
                 DataApi dataApi = dataApiMapper.toEntity(dataApiDTO);
                 dataApi = dataApiRepository.save(dataApi);
                 DataApiDTO result = dataApiMapper.toDto(dataApi);
@@ -111,10 +129,57 @@ public class DataApiService {
      */
     @Transactional(readOnly = true)
     public Page<DataApiDTO> findAll(Pageable pageable, String search) {
-        LOG.debug("Request to get all DataApis with search: {}", search);
-        Page<DataApiDTO> page = dataApiRepository.findAll(buildSearchSpecification(search), pageable).map(dataApiMapper::toDto);
+        return findAll(pageable, search, null, false);
+    }
+
+    /**
+     * Get all the dataApis with optional keyword and directory filters.
+     *
+     * @param pageable      the pagination information.
+     * @param search        the optional keyword used to filter by name, code or description.
+     * @param directoryId   the optional directory ID; includes all descendant directories.
+     * @param uncategorized when true and no directory is specified, only services without a directory are returned.
+     * @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public Page<DataApiDTO> findAll(Pageable pageable, String search, String directoryId, boolean uncategorized) {
+        LOG.debug(
+            "Request to get all DataApis with search: {}, directoryId: {}, uncategorized: {}",
+            search,
+            directoryId,
+            uncategorized
+        );
+        Specification<DataApi> specification = buildSearchSpecification(search);
+        if (StringUtils.hasText(directoryId)) {
+            Set<String> directoryIds = collectDirectorySubtreeIds(directoryId);
+            specification = specification.and((root, query, criteriaBuilder) ->
+                directoryIds.isEmpty()
+                    ? criteriaBuilder.disjunction()
+                    : root.get("directoryId").in(directoryIds)
+            );
+        } else if (uncategorized) {
+            specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.isNull(root.get("directoryId")));
+        }
+        Page<DataApiDTO> page = dataApiRepository.findAll(specification, pageable).map(dataApiMapper::toDto);
         fillDatasetInfo(page.getContent());
         return page;
+    }
+
+    /**
+     * 收集目录及其所有子孙目录 ID。
+     */
+    private Set<String> collectDirectorySubtreeIds(String directoryId) {
+        Set<String> ids = new LinkedHashSet<>();
+        Deque<String> queue = new ArrayDeque<>();
+        queue.add(directoryId);
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            if (!ids.add(current)) {
+                continue;
+            }
+            etlTaskDirectoryRepository.findByParentIdOrderBySortOrderAsc(current).forEach(child -> queue.add(child.getId()));
+        }
+        return ids;
     }
 
     private Specification<DataApi> buildSearchSpecification(String search) {
@@ -192,6 +257,40 @@ public class DataApiService {
     public void delete(String id) {
         LOG.debug("Request to delete DataApi : {}", id);
         dataApiRepository.deleteById(id);
+    }
+
+    /**
+     * 移动数据服务到指定目录；{@code directoryId} 为空表示移动到未分类。
+     */
+    public DataApiDTO moveToDirectory(String id, String directoryId) {
+        DataApi dataApi = dataApiRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("数据服务不存在: " + id));
+        String normalizedDirectoryId = StringUtils.hasText(directoryId) ? directoryId.trim() : null;
+        validateDirectory(normalizedDirectoryId);
+        dataApi.setDirectoryId(normalizedDirectoryId);
+        dataApi.setUpdateTime(ZonedDateTime.now());
+        DataApiDTO result = dataApiMapper.toDto(dataApiRepository.save(dataApi));
+        fillDatasetInfo(List.of(result));
+        return result;
+    }
+
+    private void normalizeDirectory(DataApiDTO dto) {
+        dto.setDirectoryId(StringUtils.hasText(dto.getDirectoryId()) ? dto.getDirectoryId().trim() : null);
+        validateDirectory(dto.getDirectoryId());
+    }
+
+    /**
+     * 校验数据服务要归属的目录存在且属于数据服务目录树。
+     */
+    private void validateDirectory(String directoryId) {
+        if (!StringUtils.hasText(directoryId)) {
+            return;
+        }
+        ETLTaskDirectory directory = etlTaskDirectoryRepository
+            .findById(directoryId)
+            .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + directoryId));
+        if (!TaskConstants.TASK_TYPE_DATA_API.equals(directory.getTaskType())) {
+            throw new IllegalArgumentException("目录与数据服务类型不匹配: " + directoryId);
+        }
     }
 
     private void validate(DataApiDTO dto) {

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- 数据服务目录：复用 dp_etl_task_directory，通过 task_type=DATA_API 区分。 -->
+    <changeSet id="20261114000000-1-data-api-directory-column" author="datafusion">
+        <addColumn tableName="dp_data_api">
+            <column name="directory_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="dp_data_api" indexName="idx_data_api_directory_id">
+            <column name="directory_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

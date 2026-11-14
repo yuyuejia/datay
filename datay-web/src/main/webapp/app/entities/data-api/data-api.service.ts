@@ -83,4 +83,17 @@ export default class DataApiService {
         });
     });
   }
+
+  moveToDirectory(id: string, directoryId: string | null): Promise<IDataApi> {
+    return new Promise<IDataApi>((resolve, reject) => {
+      axios
+        .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
 }

@@ -10,6 +10,7 @@ export interface IDataApi {
   sqlText?: string | null;
   apiConfig?: string | null;
   datasetId?: string | null;
+  directoryId?: string | null;
   datasetName?: string | null;
   datasetType?: string | null;
   status?: string | null;
@@ -75,6 +76,7 @@ export class DataApi implements IDataApi {
     public createTime?: Date | null,
     public apiConfig?: string | null,
     public datasetId?: string | null,
+    public directoryId?: string | null,
   ) {}
 }
 

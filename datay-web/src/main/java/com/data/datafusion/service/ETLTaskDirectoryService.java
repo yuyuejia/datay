@@ -2,6 +2,7 @@ package com.data.datafusion.service;
 
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.repository.DataApiRepository;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.JobRepository;
@@ -38,17 +39,21 @@ public class ETLTaskDirectoryService {
 
     private final JobRepository jobRepository;
 
+    private final DataApiRepository dataApiRepository;
+
     private final ETLTaskDirectoryMapper directoryMapper;
 
     public ETLTaskDirectoryService(
         ETLTaskDirectoryRepository directoryRepository,
         ETLTaskRepository etlTaskRepository,
         JobRepository jobRepository,
+        DataApiRepository dataApiRepository,
         ETLTaskDirectoryMapper directoryMapper
     ) {
         this.directoryRepository = directoryRepository;
         this.etlTaskRepository = etlTaskRepository;
         this.jobRepository = jobRepository;
+        this.dataApiRepository = dataApiRepository;
         this.directoryMapper = directoryMapper;
     }
 
@@ -102,13 +107,14 @@ public class ETLTaskDirectoryService {
     }
 
     /**
-     * 删除目录：子目录与目录下的任务移动到根目录，避免悬挂引用。
+     * 删除目录：子目录与目录下的任务、编排、数据服务移动到根目录，避免悬挂引用。
      */
     public void delete(String id) {
         LOG.debug("Request to delete ETLTaskDirectory : {}", id);
         directoryRepository.findByParentIdOrderBySortOrderAsc(id).forEach(child -> child.setParentId(null));
         etlTaskRepository.findByDirectoryId(id).forEach(task -> task.setDirectoryId(null));
         jobRepository.findByDirectoryId(id).forEach(job -> job.setDirectoryId(null));
+        dataApiRepository.findByDirectoryId(id).forEach(dataApi -> dataApi.setDirectoryId(null));
         directoryRepository.deleteById(id);
     }
 
@@ -224,9 +230,10 @@ public class ETLTaskDirectoryService {
         if (
             !TaskConstants.ETL_TASK_KIND_BATCH.equals(normalized) &&
             !TaskConstants.ETL_TASK_KIND_STREAM.equals(normalized) &&
-            !TaskConstants.TASK_TYPE_DAG.equals(normalized)
+            !TaskConstants.TASK_TYPE_DAG.equals(normalized) &&
+            !TaskConstants.TASK_TYPE_DATA_API.equals(normalized)
         ) {
-            throw new IllegalArgumentException("任务类型只能是 BATCH、STREAM 或 DAG: " + taskType);
+            throw new IllegalArgumentException("任务类型只能是 BATCH、STREAM、DAG 或 DATA_API: " + taskType);
         }
         return normalized;
     }

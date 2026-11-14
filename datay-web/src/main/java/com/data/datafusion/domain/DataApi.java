@@ -76,6 +76,9 @@ public class DataApi implements Serializable, TenantAware {
     @Column(name = "dataset_id", length = 36)
     private String datasetId;
 
+    @Column(name = "directory_id", length = 36)
+    private String directoryId;
+
     @Column(name = "status")
     private String status;
 
@@ -231,6 +234,19 @@ public class DataApi implements Serializable, TenantAware {
         this.datasetId = datasetId;
     }
 
+    public String getDirectoryId() {
+        return this.directoryId;
+    }
+
+    public DataApi directoryId(String directoryId) {
+        this.setDirectoryId(directoryId);
+        return this;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
+    }
+
     public String getStatus() {
         return this.status;
     }
@@ -309,6 +325,7 @@ public class DataApi implements Serializable, TenantAware {
             ", dataSourceId=" + getDataSourceId() +
             ", sourceType='" + getSourceType() + "'" +
             ", datasetId=" + getDatasetId() +
+            ", directoryId=" + getDirectoryId() +
             ", schemaName='" + getSchemaName() + "'" +
             ", tableName='" + getTableName() + "'" +
             ", status='" + getStatus() + "'" +

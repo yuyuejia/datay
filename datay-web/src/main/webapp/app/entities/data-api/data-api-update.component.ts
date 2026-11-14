@@ -2,6 +2,7 @@ import { type Ref, computed, defineComponent, inject, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import DataSourceService from '@/entities/data-source/data-source.service';
+import ETLTaskDirectoryService from '@/entities/etl-task/etl-task-directory.service';
 import DatasetService from '@/shared/dataset/dataset.service';
 import DataApiService from './data-api.service';
 import {
@@ -16,7 +17,11 @@ import {
   DATA_API_STATUS_ENABLED,
 } from '@/shared/model/data-api.model';
 import { parseCurl } from '@/shared/util/curl';
+import { type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
 import { useAlertService } from '@/shared/alert/alert.service';
+
+/** 数据服务目录在公共目录表中的类型标识。 */
+const DIRECTORY_TASK_TYPE = 'DATA_API';
 
 const createDefaultApiConfig = (): IApiConfig => ({
   url: '',
@@ -51,6 +56,7 @@ export default defineComponent({
   setup() {
     const dataApiService = inject('dataApiService', () => new DataApiService());
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
+    const etlTaskDirectoryService = inject('etlTaskDirectoryService', () => new ETLTaskDirectoryService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const dataApi: Ref<IDataApi> = ref(new DataApi());
@@ -63,6 +69,7 @@ export default defineComponent({
     const isEdit = ref(false);
 
     const dataSources = ref<any[]>([]);
+    const dataDirectories: Ref<IETLTaskDirectory[]> = ref([]);
     const datasets = ref<any[]>([]);
     const schemas = ref<string[]>([]);
     const tables = ref<string[]>([]);
@@ -111,6 +118,43 @@ export default defineComponent({
         datasets.value = [];
       }
     };
+
+    const loadDirectories = async () => {
+      try {
+        const res = await etlTaskDirectoryService().retrieve(DIRECTORY_TASK_TYPE);
+        dataDirectories.value = res.data || [];
+      } catch (error) {
+        dataDirectories.value = [];
+      }
+    };
+
+    const directoryTreeOptions = computed(() => {
+      const byParent = new Map<string, IETLTaskDirectory[]>();
+      dataDirectories.value.forEach(directory => {
+        const parentId = directory.parentId || '';
+        if (!byParent.has(parentId)) {
+          byParent.set(parentId, []);
+        }
+        byParent.get(parentId)!.push(directory);
+      });
+      const build = (parentId: string): Array<{ id: string; label: string; children?: any[] }> => {
+        return (byParent.get(parentId) || [])
+          .slice()
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || '').localeCompare(String(b.name || '')))
+          .map(directory => {
+            const children = build(directory.id!);
+            const node: { id: string; label: string; children?: any[] } = {
+              id: directory.id!,
+              label: directory.name || '',
+            };
+            if (children.length > 0) {
+              node.children = children;
+            }
+            return node;
+          });
+      };
+      return build('');
+    });
 
     const selectedDataset = computed(() => datasets.value.find((item: any) => String(item.id) === String(dataApi.value.datasetId)));
 
@@ -202,6 +246,7 @@ export default defineComponent({
     if (route.params?.dataApiId) {
       isEdit.value = true;
       retrieveDataApi(String(route.params.dataApiId));
+      loadDirectories();
     } else {
       const queryDatasetId = route.query?.datasetId ? String(route.query.datasetId) : null;
       if (queryDatasetId) {
@@ -212,8 +257,10 @@ export default defineComponent({
       } else {
         dataApi.value.sourceType = DATA_API_SOURCE_TYPE_TABLE;
       }
+      dataApi.value.directoryId = route.query?.directoryId ? String(route.query.directoryId) : null;
       dataApi.value.status = DATA_API_STATUS_ENABLED;
       loadDataSources();
+      loadDirectories();
       loadDatasets();
     }
 
@@ -341,7 +388,9 @@ export default defineComponent({
       previousState,
       isEdit,
       dataSources,
+      dataDirectories,
       datasets,
+      directoryTreeOptions,
       selectedDataset,
       schemas,
       tables,
@@ -473,7 +522,13 @@ export default defineComponent({
         return;
       }
 
-      const payload: IDataApi = { ...this.dataApi, name: api.name.trim(), code: api.code.trim() };
+      const payload: IDataApi = {
+        ...this.dataApi,
+        name: api.name.trim(),
+        code: api.code.trim(),
+        // 清空目录时显式传空字符串，后端据此移动到未分类
+        directoryId: api.directoryId || '',
+      };
       if (api.sourceType === this.SOURCE_TYPE_API && apiConfigPayload) {
         payload.apiConfig = JSON.stringify(apiConfigPayload);
         payload.dataSourceId = null;

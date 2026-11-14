@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -100,10 +101,17 @@ public class DataApiResource {
     @GetMapping("")
     public ResponseEntity<List<DataApiDTO>> getAllDataApis(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
-        @RequestParam(value = "search", required = false) String search
+        @RequestParam(value = "search", required = false) String search,
+        @RequestParam(value = "directoryId", required = false) String directoryId,
+        @RequestParam(value = "uncategorized", required = false, defaultValue = "false") boolean uncategorized
     ) {
-        LOG.debug("REST request to get a page of DataApis with search: {}", search);
-        Page<DataApiDTO> page = dataApiService.findAll(pageable, search);
+        LOG.debug(
+            "REST request to get a page of DataApis with search: {}, directoryId: {}, uncategorized: {}",
+            search,
+            directoryId,
+            uncategorized
+        );
+        Page<DataApiDTO> page = dataApiService.findAll(pageable, search, directoryId, uncategorized);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
@@ -125,6 +133,23 @@ public class DataApiResource {
         LOG.debug("REST request to get DataApi : {}", id);
         Optional<DataApiDTO> dataApiDTO = dataApiService.findOne(id);
         return ResponseUtil.wrapOrNotFound(dataApiDTO);
+    }
+
+    /**
+     * {@code PATCH  /api/data-apis/:id/directory} : move the dataApi to a directory.
+     *
+     * @param id   the id of the dataApi.
+     * @param body the request body containing {@code directoryId}; null means uncategorized.
+     */
+    @PatchMapping("/{id}/directory")
+    public ResponseEntity<DataApiDTO> moveDataApiToDirectory(@PathVariable("id") String id, @RequestBody java.util.Map<String, String> body) {
+        LOG.debug("REST request to move DataApi to directory : {}, {}", id, body);
+        String directoryId = body == null ? null : body.get("directoryId");
+        try {
+            return ResponseEntity.ok().body(dataApiService.moveToDirectory(id, directoryId));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "invalidDirectory");
+        }
     }
 
     /**

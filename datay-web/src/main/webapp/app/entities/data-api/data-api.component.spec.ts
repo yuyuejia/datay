@@ -4,6 +4,7 @@ import sinon, { type SinonStubbedInstance } from 'sinon';
 import DataApi from './data-api.vue';
 import DataApiService from './data-api.service';
 import DataSourceService from '@/entities/data-source/data-source.service';
+import ETLTaskDirectoryService from '@/entities/etl-task/etl-task-directory.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type DataApiComponentType = InstanceType<typeof DataApi>;
@@ -22,6 +23,7 @@ describe('Component Tests', () => {
   describe('DataApi Management Component', () => {
     let dataApiServiceStub: SinonStubbedInstance<DataApiService>;
     let dataSourceServiceStub: SinonStubbedInstance<DataSourceService>;
+    let etlTaskDirectoryServiceStub: SinonStubbedInstance<ETLTaskDirectoryService>;
     let mountOptions: MountingOptions<DataApiComponentType>['global'];
 
     beforeEach(() => {
@@ -29,6 +31,8 @@ describe('Component Tests', () => {
       dataApiServiceStub.retrieve.resolves({ headers: {}, data: [] });
       dataSourceServiceStub = sinon.createStubInstance<DataSourceService>(DataSourceService);
       dataSourceServiceStub.retrieve.resolves({ data: [] });
+      etlTaskDirectoryServiceStub = sinon.createStubInstance<ETLTaskDirectoryService>(ETLTaskDirectoryService);
+      etlTaskDirectoryServiceStub.retrieve.resolves({ data: [] });
 
       alertService = new AlertService();
 
@@ -48,6 +52,7 @@ describe('Component Tests', () => {
           alertService,
           dataApiService: () => dataApiServiceStub,
           dataSourceService: () => dataSourceServiceStub,
+          etlTaskDirectoryService: () => etlTaskDirectoryServiceStub,
         },
       };
     });
@@ -90,6 +95,21 @@ describe('Component Tests', () => {
 
         // THEN
         expect(dataApiServiceStub.delete.called).toBeTruthy();
+      });
+
+      it('should pass the selected directory when filtering services', async () => {
+        // GIVEN
+        dataApiServiceStub.retrieve.resolves({ headers: {}, data: [] });
+
+        // WHEN
+        comp.selectedDirectoryId = 'dir-1';
+        await flushPromises();
+        await comp.$nextTick();
+
+        // THEN
+        expect(dataApiServiceStub.retrieve.lastCall.firstArg).toMatchObject({
+          directoryId: 'dir-1',
+        });
       });
     });
   });

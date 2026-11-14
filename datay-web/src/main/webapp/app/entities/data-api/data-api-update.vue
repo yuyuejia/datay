@@ -42,6 +42,20 @@
             </el-select>
           </el-form-item>
         </el-col>
+        <el-col :span="12">
+          <el-form-item label="所属目录">
+            <el-tree-select
+              v-model="dataApi.directoryId"
+              :data="directoryTreeOptions"
+              :props="{ label: 'label', children: 'children' }"
+              node-key="id"
+              check-strictly
+              clearable
+              placeholder="未分类"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </el-col>
       </el-row>
 
       <el-form-item label="描述">

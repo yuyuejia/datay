@@ -21,6 +21,8 @@ public class DataApiDTO implements Serializable {
     private String sqlText;
     private String apiConfig;
     private String datasetId;
+    /** 所属目录 ID，为空表示未分类。 */
+    private String directoryId;
     /** 关联分析数据集名称，仅用于列表展示，不落库。 */
     private String datasetName;
     /** 关联分析数据集类型（SQL / METRIC），仅用于列表展示，不落库。 */
@@ -118,6 +120,14 @@ public class DataApiDTO implements Serializable {
         this.datasetId = datasetId;
     }
 
+    public String getDirectoryId() {
+        return directoryId;
+    }
+
+    public void setDirectoryId(String directoryId) {
+        this.directoryId = directoryId;
+    }
+
     public String getDatasetName() {
         return datasetName;
     }
@@ -192,6 +202,7 @@ public class DataApiDTO implements Serializable {
             ", dataSourceId=" + getDataSourceId() +
             ", sourceType='" + getSourceType() + "'" +
             ", datasetId=" + getDatasetId() +
+            ", directoryId=" + getDirectoryId() +
             ", schemaName='" + getSchemaName() + "'" +
             ", tableName='" + getTableName() + "'" +
             ", status='" + getStatus() + "'" +

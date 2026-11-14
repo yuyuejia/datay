@@ -19,4 +19,5 @@ public interface DataApiRepository extends JpaRepository<DataApi, String>, JpaSp
     Optional<DataApi> findByDatasetId(String datasetId);
     Optional<DataApi> findByDatasetIdAndIdNot(String datasetId, String id);
     List<DataApi> findByDatasetIdIn(Collection<String> datasetIds);
+    List<DataApi> findByDirectoryId(String directoryId);
 }

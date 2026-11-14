@@ -31,6 +31,9 @@ public final class TaskConstants {
     /** ETL 实时任务类型。 */
     public static final String ETL_TASK_KIND_STREAM = "STREAM";
 
+    /** 数据服务目录类型（复用 ETL 任务目录表，通过 task_type 区分）。 */
+    public static final String TASK_TYPE_DATA_API = "DATA_API";
+
     public static final String TASK_STATUS_APPENDING = "APPENDING";
     public static final String TASK_STATUS_RUNNING = "RUNNING";
     public static final String TASK_STATUS_WAITING = "WAITING";

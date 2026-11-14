@@ -6,8 +6,11 @@ import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
+import com.data.datafusion.domain.ETLTaskDirectory;
+import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.repository.DataApiRepository;
+import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.service.dto.DataApiDTO;
 import com.data.datafusion.service.mapper.DataApiMapper;
 import java.util.Optional;
@@ -23,13 +26,16 @@ class DataApiServiceTest {
 
     private AnalysisDatasetRepository analysisDatasetRepository;
 
+    private ETLTaskDirectoryRepository etlTaskDirectoryRepository;
+
     private DataApiService service;
 
     @BeforeEach
     void setUp() {
         dataApiRepository = mock(DataApiRepository.class);
         analysisDatasetRepository = mock(AnalysisDatasetRepository.class);
-        service = new DataApiService(dataApiRepository, mock(DataApiMapper.class), analysisDatasetRepository);
+        etlTaskDirectoryRepository = mock(ETLTaskDirectoryRepository.class);
+        service = new DataApiService(dataApiRepository, mock(DataApiMapper.class), analysisDatasetRepository, etlTaskDirectoryRepository);
     }
 
     @Test
@@ -67,6 +73,51 @@ class DataApiServiceTest {
         assertThatThrownBy(() -> service.save(dto))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("该数据集已发布为数据服务");
+    }
+
+    @Test
+    void shouldRejectDirectoryFromAnotherModule() {
+        ETLTaskDirectory directory = new ETLTaskDirectory().id("dir-1").taskType(TaskConstants.ETL_TASK_KIND_BATCH);
+        when(etlTaskDirectoryRepository.findById("dir-1")).thenReturn(Optional.of(directory));
+
+        DataApiDTO dto = tableApi();
+        dto.setDirectoryId("dir-1");
+
+        assertThatThrownBy(() -> service.save(dto))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("目录与数据服务类型不匹配");
+    }
+
+    @Test
+    void shouldRejectUnknownDirectory() {
+        when(etlTaskDirectoryRepository.findById("dir-1")).thenReturn(Optional.empty());
+
+        DataApiDTO dto = tableApi();
+        dto.setDirectoryId("dir-1");
+
+        assertThatThrownBy(() -> service.save(dto)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("目录不存在");
+    }
+
+    @Test
+    void shouldRejectMovingToDirectoryFromAnotherModule() {
+        ETLTaskDirectory directory = new ETLTaskDirectory().id("dir-1").taskType(TaskConstants.ETL_TASK_KIND_BATCH);
+        when(dataApiRepository.findById("api-1")).thenReturn(Optional.of(new DataApi().id("api-1")));
+        when(etlTaskDirectoryRepository.findById("dir-1")).thenReturn(Optional.of(directory));
+
+        assertThatThrownBy(() -> service.moveToDirectory("api-1", "dir-1"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("目录与数据服务类型不匹配");
+    }
+
+    private static DataApiDTO tableApi() {
+        DataApiDTO dto = new DataApiDTO();
+        dto.setName("订单查询服务");
+        dto.setCode("orders_api");
+        dto.setSourceType(DataApi.SOURCE_TYPE_TABLE);
+        dto.setDataSourceId("ds-1");
+        dto.setSchemaName("public");
+        dto.setTableName("orders");
+        return dto;
     }
 
     private static DataApiDTO datasetApi(String datasetId) {
