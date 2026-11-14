@@ -68,6 +68,18 @@ class CdcCollectorReconnectTest {
     }
 
     @Test
+    void sqlServerShouldFailAfterExceedingMaxReconnectAttempts() {
+        SqlServerCdcCollector collector = newSqlServerCollector();
+        collector.setReconnectMaxAttempts(1);
+        collector.setReconnectIntervalMs(10);
+
+        CdcConnectionException error = assertThrows(CdcConnectionException.class, collector::start);
+
+        assertTrue(error.getMessage().contains("最大重连次数 1"), error.getMessage());
+        assertFalse(collector.isRunning(), "重试耗尽后采集器不应保持运行状态");
+    }
+
+    @Test
     void postgresStopDuringReconnectWaitShouldNotThrow() throws Exception {
         PostgresWalCollector collector = newPostgresCollector();
         assertStopDuringReconnectWait(collector::start, collector::stop, collector::isRunning, collector::setReconnectMaxAttempts, collector::setReconnectIntervalMs);
@@ -92,6 +104,12 @@ class CdcCollectorReconnectTest {
     }
 
     @Test
+    void sqlServerStopDuringReconnectWaitShouldNotThrow() throws Exception {
+        SqlServerCdcCollector collector = newSqlServerCollector();
+        assertStopDuringReconnectWait(collector::start, collector::stop, collector::isRunning, collector::setReconnectMaxAttempts, collector::setReconnectIntervalMs);
+    }
+
+    @Test
     void shouldClassifyConnectionFailures() {
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("connection closed", "08006")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("server shutdown", "57P01")));
@@ -101,6 +119,8 @@ class CdcCollectorReconnectTest {
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("invalid password", "28P01")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("网络通信异常", null, 6001)));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("创建SOCKET连接失败", null, -70028)));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("Login failed for user 'sa'.", "S0001", 18456)));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("The server was not found", "08S01", 53)));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new SQLException("syntax error", "42601")));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new IllegalStateException("未找到匹配的表")));
     }
@@ -163,6 +183,15 @@ class CdcCollectorReconnectTest {
         datasource.setUsername("DATAY");
         datasource.setPassword("Datay123456");
         return new DmLogMinerCollector(datasource, "DATAY", null, null, 500, true, 5000, true, new NoopHandler());
+    }
+
+    private SqlServerCdcCollector newSqlServerCollector() {
+        DatasourceInfo datasource = new DatasourceInfo();
+        datasource.setType("sqlserver");
+        datasource.setUrl("jdbc:sqlserver://127.0.0.1:1;databaseName=datay;loginTimeout=1;socketTimeout=1000");
+        datasource.setUsername("sa");
+        datasource.setPassword("Datay123456!");
+        return new SqlServerCdcCollector(datasource, "dbo", null, null, 500, false, true, new NoopHandler());
     }
 
     /** 测试用事件处理器，不关心采集到的事件内容。 */

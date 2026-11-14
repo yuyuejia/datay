@@ -7,6 +7,7 @@ import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcDataSourceConnection;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.job.DatasourceInfo;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
@@ -161,6 +162,25 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
      */
     public String qualifiedTableName(DatasourceInfo info, String schema, String table) {
         return schema == null || schema.isBlank() ? table : schema + "." + table;
+    }
+
+    /**
+     * 读取源端结果集中的列值。默认直接使用 {@link ResultSet#getObject(int)}；
+     * 数据库驱动返回专有类型或存在时区差异时由对应 Provider 覆写
+     * （例如 SQL Server 的 {@code DATE/TIME/TIMESTAMP/DATETIMEOFFSET}）。
+     *
+     * <p>该钩子用于全量快照、CDC 等需要按源库驱动特性读取值的场景，避免在通用组件中
+     * 按数据库类型写分支。</p>
+     *
+     * @param rs       结果集
+     * @param index    列下标（1 开始）
+     * @param sqlType  JDBC 类型
+     * @param typeName 数据库类型名
+     * @param column   列元数据，可为 {@code null}
+     */
+    public Object readSourceValue(ResultSet rs, int index, int sqlType, String typeName, ColumnMeta column)
+        throws SQLException {
+        return rs.getObject(index);
     }
 
     /**

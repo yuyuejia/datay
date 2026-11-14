@@ -41,6 +41,7 @@
   - [MongoDB CDC 到 DuckDB](cases/mongoCDC-duckdb.md)
   - [Oracle CDC 到 DuckDB](cases/oracleCDC-duckdb.md)
   - [达梦 CDC 到 DuckDB](cases/dmCDC-duckdb.md)
+  - [SQL Server CDC 到 DuckDB](cases/sqlServerCDC-duckdb.md)
 
 - **ETL 组件介绍**
   - [组件总览](components/README.md)
@@ -50,6 +51,7 @@
   - [MongoCDCInput CDC](components/MongoCDCInput.md)
   - [OracleCDCInput CDC](components/OracleCDCInput.md)
   - [DMCDCInput CDC](components/DMCDCInput.md)
+  - [SQLServerCDCInput CDC](components/SQLServerCDCInput.md)
   - [SqlSink 写入](components/SqlSink.md)
   - [StreamJdbcOutput 输出](components/StreamJdbcOutput.md)
   - [StreamSqlUnit 流式 SQL](components/StreamSqlUnit.md)

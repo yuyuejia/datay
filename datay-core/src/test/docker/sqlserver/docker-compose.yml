@@ -1,0 +1,27 @@
+services:
+  sqlserver:
+    image: ${SQLSERVER_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}
+    container_name: ${SQLSERVER_CONTAINER:-datay-sqlserver-cdc}
+    hostname: datay-sqlserver-cdc
+    # SQL Server 官方 Linux 镜像以 x86_64 为主；Apple Silicon 通过 Docker Desktop 的 amd64 模拟运行。
+    platform: ${SQLSERVER_PLATFORM:-linux/amd64}
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD:-Datay123456!}
+      MSSQL_PID: ${SQLSERVER_PID:-Developer}
+      # CDC 捕获作业依赖 SQL Server Agent
+      MSSQL_AGENT_ENABLED: "true"
+      TZ: Asia/Shanghai
+    ports:
+      - "${SQLSERVER_PORT:-14333}:1433"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' >/dev/null 2>&1 || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' >/dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped

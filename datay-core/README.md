@@ -108,6 +108,7 @@ public class Example {
 - [PostgreSQL CDC实时同步到DuckDB](docs/example/postgresCDC-duckdb.md)
 - [PostgreSQL CDC实时同步到DuckLake](docs/example/postgresCDC-ducklake.md)
 - [达梦 CDC实时同步到DuckDB](docs/example/dmCDC-duckdb.md)
+- [SQL Server CDC实时同步到DuckDB](docs/example/sqlServerCDC-duckdb.md)
 - [Mysql同步到Apache Doris](docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](docs/example/mysql-ducklake.md)
 - [使用DuckDB SQL进行数据处理](docs/example/mysql-sqlunit-mysql.md)
@@ -119,7 +120,7 @@ public class Example {
 - **时序数据库**: TDengine（WebSocket / REST / 原生）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
-- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, 达梦 LogMiner
+- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams
 
 ## 核心组件
 
@@ -130,6 +131,7 @@ public class Example {
 - [MySQLBinlogInput](docs/component/MySQLBinlogInput.md) : 读取MySQL Binlog日志,支持增量数据同步
 - [PostgresCDCInput](docs/component/PostgresCDCInput.md) : 基于PostgreSQL逻辑复制(WAL/pgoutput)实时捕获数据变更
 - [DMCDCInput](docs/component/DMCDCInput.md) : 基于达梦DBMS_LOGMNR归档日志挖掘实时捕获数据变更
+- [SQLServerCDCInput](docs/component/SQLServerCDCInput.md) : 基于SQL Server内置CDC实时捕获数据变更
 
 ### 处理组件
 - [DuckDBSql](docs/component/DuckDBSql.md) : DuckDB SQL处理

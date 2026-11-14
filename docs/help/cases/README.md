@@ -31,6 +31,7 @@
 | [MongoDB CDC 实时同步到 DuckDB](cases/mongoCDC-duckdb.md) | Change Streams → DuckDB |
 | [Oracle CDC 实时同步到 DuckDB](cases/oracleCDC-duckdb.md) | LogMiner → DuckDB |
 | [达梦 CDC 实时同步到 DuckDB](cases/dmCDC-duckdb.md) | DBMS_LOGMNR 归档日志挖掘 → DuckDB |
+| [SQL Server CDC 实时同步到 DuckDB](cases/sqlServerCDC-duckdb.md) | 内置 CDC → DuckDB |
 
 ## 文件 / HTTP / 飞书
 

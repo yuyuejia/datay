@@ -47,6 +47,23 @@ public final class CdcConnectionErrors {
         -70066,
     };
 
+    /** SQL Server / mssql-jdbc 连接、登录与网络异常错误码。 */
+    private static final int[] SQLSERVER_CONNECTION_ERROR_CODES = {
+        53,
+        64,
+        233,
+        4060,
+        10053,
+        10054,
+        10060,
+        10061,
+        18452,
+        18456,
+        18470,
+        20009,
+        20014,
+    };
+
     private static final String[] CONNECTION_MESSAGES = {
         "connection refused",
         "connection reset",
@@ -71,6 +88,14 @@ public final class CdcConnectionErrors {
         "not authorized",
         "unauthorized",
         "auth failed",
+        "login failed",
+        "server was not found",
+        "could not open a connection",
+        "socket input is dead",
+        "connection reset by peer",
+        "the connection is broken",
+        "no suitable driver",
+        "failed to get driver instance",
     };
 
     private CdcConnectionErrors() {}
@@ -99,6 +124,11 @@ public final class CdcConnectionErrors {
                     }
                 }
                 for (int code : DM_CONNECTION_ERROR_CODES) {
+                    if (sqlException.getErrorCode() == code) {
+                        return true;
+                    }
+                }
+                for (int code : SQLSERVER_CONNECTION_ERROR_CODES) {
                     if (sqlException.getErrorCode() == code) {
                         return true;
                     }

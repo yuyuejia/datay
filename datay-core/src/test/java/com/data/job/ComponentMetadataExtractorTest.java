@@ -59,6 +59,20 @@ class ComponentMetadataExtractorTest {
         assertTrue(ComponentFactory.getFields("GenerateFlowFile").isEmpty());
     }
 
+    @Test
+    void shouldRegisterSqlServerCdcComponent() {
+        ComponentDescriptor descriptor = ComponentFactory
+            .listDescriptors()
+            .stream()
+            .filter(item -> "SQLServerCDCInput".equals(item.getCode()))
+            .findFirst()
+            .orElseThrow();
+
+        assertEquals("SQL Server CDC", descriptor.getName());
+        assertEquals("实时输入", descriptor.getGroup());
+        assertEquals(60, descriptor.getOrder());
+    }
+
     private Optional<ComponentFieldDescriptor> find(List<ComponentFieldDescriptor> fields, String key) {
         return fields.stream().filter(field -> key.equals(field.getKey())).findFirst();
     }

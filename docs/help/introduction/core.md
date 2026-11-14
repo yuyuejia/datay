@@ -102,13 +102,13 @@ public class Example {
 - **时序数据库**：TDengine（WebSocket / REST / 原生）
 - **分析数据库**：DuckDB、Doris、ClickHouse、GreenPlum
 - **文件系统**：本地文件、MinIO 对象存储
-- **CDC**：MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput）
+- **CDC**：MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput）、Oracle LogMiner、达梦 LogMiner、SQL Server CDC、MongoDB Change Streams
 
 ## 核心组件
 
 篇幅较长，已单独整理成 [ETL 组件介绍](components/README.md)，按输入、处理、输出、路由、其他分组介绍。
 
-- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`MqttConsumer`
+- **输入组件**：`StreamJdbcInput`、`JdbcInput`、`MySQLBinlogInput`、`PostgresCDCInput`、`OracleCDCInput`、`DMCDCInput`、`SQLServerCDCInput`、`MongoCDCInput`、`MqttConsumer`
 - **处理组件**：`DuckDBSql`、`StreamSqlUnit`、`SqlTask`、`JavaScriptComponent`
 - **输出组件**：`SqlSink`、`StreamJdbcOutput`、`DuckDBWrite`、`DuckLakeWrite`、`DorisStreamLoad`
 - **路由组件**：`HashRouter`、`RandomRouter`

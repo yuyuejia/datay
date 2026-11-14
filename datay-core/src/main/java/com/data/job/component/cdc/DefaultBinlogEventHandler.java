@@ -3,6 +3,7 @@ package com.data.job.component.cdc;
 import com.alibaba.fastjson2.JSONArray;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.TableMeta;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +35,11 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
     private String currentTable;
     private BinlogEvent.EventType currentEventType;
 
+    // 最近一次处理的事件表信息，用于发送位点 checkpoint 时携带合法的表元数据
+    private String lastDatabase;
+    private String lastTable;
+    private TableMeta lastTableMeta;
+
     public DefaultBinlogEventHandler(FlowComponent component, BlockingQueue<BinlogEvent> queue) {
         this(component, queue, false);
     }
@@ -47,6 +53,7 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
     @Override
     public synchronized void handleEvent(BinlogEvent event) {
         try {
+            rememberTable(event);
             // 检查是否可以合并到当前缓冲区
             if (canMergeWithBuffer(event)) {
                 // 合并到缓冲区
@@ -78,6 +85,18 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         } catch (Exception e) {
             handleError(event, e);
         }
+    }
+
+    /**
+     * 记录最近一次事件的表信息，供 checkpoint 使用。
+     */
+    private void rememberTable(BinlogEvent event) {
+        if (event == null) {
+            return;
+        }
+        lastDatabase = event.getDatabase();
+        lastTable = event.getTable();
+        lastTableMeta = event.getTableMeta();
     }
 
     /**
@@ -296,5 +315,34 @@ public class DefaultBinlogEventHandler implements BinlogEventHandler {
         if (!eventBuffer.isEmpty()) {
             flushBuffer();
         }
+    }
+
+    /**
+     * 发送位点 checkpoint。
+     *
+     * <p>先刷新事件缓冲区，再发送一个空数据 FlowFile。空数据保证下游 Sink 不会真正写库，
+     * 但 FlowComponent 仍会把这个 FlowFile 上的状态持久化。携带最近一次事件的表元数据，
+     * 便于中间处理组件识别数据行结构；若还没有处理过事件，则发送无数据 FlowFile。
+     */
+    @Override
+    public synchronized void checkpoint(String position) {
+        if (position == null || position.isEmpty()) {
+            return;
+        }
+        flush();
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE, "true");
+        if (lastTableMeta != null) {
+            flowFile.setJsonArray(new JSONArray());
+            flowFile.setAttribute(
+                FlowFile.ATTRIBUTE_TABLE_METADATA,
+                includeEventMeta ? CdcEventMeta.appendColumns(lastTableMeta) : lastTableMeta
+            );
+            flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, lastTable);
+            flowFile.setAttribute(FlowFile.ATTRIBUTE_DATABASE, lastDatabase);
+        }
+        flowFile.setStatus(component.getId() + "." + "binlogPosition", position);
+        component.writeRecords(flowFile);
     }
 }

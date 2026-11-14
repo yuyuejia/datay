@@ -122,6 +122,27 @@ class DefaultBinlogEventHandlerTest {
     }
 
     @Test
+    void shouldEmitCheckpointWithLastTableMetadata() {
+        CapturingComponent component = new CapturingComponent();
+        DefaultBinlogEventHandler handler = new DefaultBinlogEventHandler(component, newQueue());
+
+        BinlogEvent event = insertEvent(1000L, row(1));
+        event.setTableMeta(sourceTableMeta());
+        handler.handleEvent(event);
+        handler.flush();
+        component.written.clear();
+
+        handler.checkpoint("0x0000002A0000003C0004");
+
+        assertEquals(1, component.written.size());
+        FlowFile checkpoint = component.written.get(0);
+        assertEquals("0x0000002A0000003C0004", checkpoint.getStatusMap().get("cdc.binlogPosition"));
+        assertEquals(TABLE, checkpoint.getAttribute(FlowFile.ATTRIBUTE_TABLE));
+        assertEquals(DATABASE, checkpoint.getAttribute(FlowFile.ATTRIBUTE_DATABASE));
+        assertTrue(checkpoint.getJsonArray().isEmpty());
+    }
+
+    @Test
     void shouldKeepSourceValueWhenColumnNameAlreadyExists() {
         CapturingComponent component = new CapturingComponent();
         DefaultBinlogEventHandler handler = new DefaultBinlogEventHandler(component, newQueue(), true);

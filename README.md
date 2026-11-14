@@ -40,7 +40,7 @@ datay/
 
 - 支持 MySQL / PostgreSQL / Oracle / SAP HANA / TDengine / Doris / ClickHouse / DuckDB 等二十余种数据源
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
-- 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC / 达梦 CDC 实时同步
+- 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC / 达梦 CDC / SQL Server CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
 - 支持跨库数据比对：按主键关联两侧表，DuckDB SQL 计算差异，结果文件写入本地或 MinIO
 
@@ -154,6 +154,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - [PostgreSQL CDC实时同步到DuckLake](datay-core/docs/example/postgresCDC-ducklake.md)
 - [Oracle CDC实时同步到DuckDB](datay-core/docs/example/oracleCDC-duckdb.md)
 - [达梦 CDC实时同步到DuckDB](datay-core/docs/example/dmCDC-duckdb.md)
+- [SQL Server CDC实时同步到DuckDB](datay-core/docs/example/sqlServerCDC-duckdb.md)
 - [Mysql同步到Apache Doris](datay-core/docs/example/mysql-doris.md)
 - [Mysql同步到DuckLake](datay-core/docs/example/mysql-ducklake.md)
 - [使用DuckDB SQL进行数据处理](datay-core/docs/example/mysql-sqlunit-mysql.md)
@@ -164,7 +165,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **时序数据库**: TDengine（WebSocket / REST / 原生三种连接方式）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
-- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, MongoDB Change Streams
+- **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams
 
 ## 商业支持
 DataY 开源免费，遵循对应开源协议，个人与企业均可免费下载、评估使用。

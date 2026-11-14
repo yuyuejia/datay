@@ -1,0 +1,42 @@
+{
+  "units": [
+    {
+      ".id": "SQLServerCDCInput",
+      ".name": "SQLServerCDCInput",
+      "sourceId": {
+        "type": "sqlserver",
+        "url": "jdbc:sqlserver://127.0.0.1:14333;databaseName=datay_cdc;encrypt=true;trustServerCertificate=true;loginTimeout=5",
+        "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+        "username": "datay",
+        "password": "Datay123456!",
+        "dbschema": "dbo"
+      },
+      "schema": "dbo",
+      "tableNamePattern": "CDC_TYPES",
+      "snapshot": true,
+      "autoEnableCdc": false,
+      "pollIntervalMs": 500,
+      "ignoreError": false
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/sqlserver-cdc-types-duckdb-test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "SQLServerCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

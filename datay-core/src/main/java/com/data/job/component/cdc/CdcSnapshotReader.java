@@ -2,6 +2,7 @@ package com.data.job.component.cdc;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
@@ -94,6 +95,7 @@ public class CdcSnapshotReader {
             throw new SQLException("快照表范围为空，请检查数据库/schema 与表过滤配置");
         }
         String dbType = DBUtils.getDBType(datasource.getUrl());
+        JdbcDataSourceProvider provider = DBUtils.resolveJdbcProvider(datasource);
 
         try (Connection conn = DBUtils.getConnection(datasource)) {
             conn.setAutoCommit(false);
@@ -105,7 +107,7 @@ public class CdcSnapshotReader {
             TableMeta lastTable = null;
             try {
                 for (TableRef ref : tables) {
-                    lastTable = snapshotTable(conn, dbType, ref.getSchema(), ref.getTable());
+                    lastTable = snapshotTable(conn, dbType, provider, ref.getSchema(), ref.getTable());
                 }
                 conn.rollback();
             } catch (SQLException e) {
@@ -120,7 +122,13 @@ public class CdcSnapshotReader {
         }
     }
 
-    private TableMeta snapshotTable(Connection conn, String dbType, String schema, String table) throws SQLException {
+    private TableMeta snapshotTable(
+        Connection conn,
+        String dbType,
+        JdbcDataSourceProvider provider,
+        String schema,
+        String table
+    ) throws SQLException {
         component.logInfo("读取历史全量数据，表 " + schema + "." + table);
         TableMeta tableMeta = DBUtils.getTableMetaData(conn, schema, table);
         tableMeta.setDbType(dbType);
@@ -130,19 +138,30 @@ public class CdcSnapshotReader {
         }
 
         long total = 0;
-        String sql = "SELECT * FROM " + schema + "." + table;
+        String sql = "SELECT * FROM " + qualifiedTableName(provider, schema, table);
         try (
             Statement stmt = DBUtils.createStreamStatement(dbType, conn);
             ResultSet rs = stmt.executeQuery(sql)
         ) {
             int columnCount = tableMeta.columns().size();
+            java.sql.ResultSetMetaData rsMeta = rs.getMetaData();
+            String[] columnNames = new String[columnCount + 1];
+            int[] jdbcTypes = new int[columnCount + 1];
+            String[] typeNames = new String[columnCount + 1];
+            for (int i = 1; i <= columnCount; i++) {
+                columnNames[i] = rsMeta.getColumnName(i);
+                jdbcTypes[i] = rsMeta.getColumnType(i);
+                typeNames[i] = rsMeta.getColumnTypeName(i);
+            }
             List<JSONObject> batch = new ArrayList<>(fetchSize);
             while (rs.next()) {
                 JSONObject record = new JSONObject();
                 for (int i = 1; i <= columnCount; i++) {
-                    String columnName = rs.getMetaData().getColumnName(i);
+                    String columnName = columnNames[i];
                     ColumnMeta column = tableMeta.columns().get(i - 1);
-                    Object value = rs.getObject(i);
+                    Object value = provider == null
+                        ? rs.getObject(i)
+                        : provider.readSourceValue(rs, i, jdbcTypes[i], typeNames[i], column);
                     if (sourceConverter != null) {
                         value = sourceConverter.normalizeSourceValue(column, value);
                     }
@@ -212,6 +231,17 @@ public class CdcSnapshotReader {
         }
         marker.setStatus(component.getId() + ".snapshotDone", true);
         component.writeRecords(marker);
+    }
+
+    /**
+     * 构造带数据库方言的表名。数据库特定规则由 {@link JdbcDataSourceProvider#qualifiedTableName}
+     * 实现（如 SQL Server 的方括号、DuckLake 的 catalog 前缀），通用组件不按数据库类型分支。
+     */
+    private String qualifiedTableName(JdbcDataSourceProvider provider, String schema, String table) {
+        if (provider != null) {
+            return provider.qualifiedTableName(datasource, schema, table);
+        }
+        return schema == null || schema.trim().isEmpty() ? table : schema + "." + table;
     }
 
     /**

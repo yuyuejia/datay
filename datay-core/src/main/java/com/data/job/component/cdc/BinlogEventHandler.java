@@ -23,4 +23,15 @@ public interface BinlogEventHandler {
      * <p>默认无缓冲实现，具体处理器可覆盖。
      */
     default void flush() {}
+
+    /**
+     * 推进并持久化采集位点。
+     *
+     * <p>SQL Server 等以「变更窗口」为单位采集的实现，需要在一个窗口内所有表都处理完成后
+     * 才推进位点，避免同一事务修改多张表时某张表尚未发出但位点已前移导致丢数据。
+     * 默认实现为空，具体处理器可覆盖。
+     *
+     * @param position 位点值（如 SQL Server 的十六进制 LSN）
+     */
+    default void checkpoint(String position) {}
 }
