@@ -56,6 +56,18 @@ class CdcCollectorReconnectTest {
     }
 
     @Test
+    void dmShouldFailAfterExceedingMaxReconnectAttempts() {
+        DmLogMinerCollector collector = newDmCollector();
+        collector.setReconnectMaxAttempts(1);
+        collector.setReconnectIntervalMs(10);
+
+        CdcConnectionException error = assertThrows(CdcConnectionException.class, collector::start);
+
+        assertTrue(error.getMessage().contains("最大重连次数 1"), error.getMessage());
+        assertFalse(collector.isRunning(), "重试耗尽后采集器不应保持运行状态");
+    }
+
+    @Test
     void postgresStopDuringReconnectWaitShouldNotThrow() throws Exception {
         PostgresWalCollector collector = newPostgresCollector();
         assertStopDuringReconnectWait(collector::start, collector::stop, collector::isRunning, collector::setReconnectMaxAttempts, collector::setReconnectIntervalMs);
@@ -74,6 +86,12 @@ class CdcCollectorReconnectTest {
     }
 
     @Test
+    void dmStopDuringReconnectWaitShouldNotThrow() throws Exception {
+        DmLogMinerCollector collector = newDmCollector();
+        assertStopDuringReconnectWait(collector::start, collector::stop, collector::isRunning, collector::setReconnectMaxAttempts, collector::setReconnectIntervalMs);
+    }
+
+    @Test
     void shouldClassifyConnectionFailures() {
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("connection closed", "08006")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("server shutdown", "57P01")));
@@ -81,6 +99,8 @@ class CdcCollectorReconnectTest {
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("database does not exist", "3D000")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new ConnectException("Connection refused")));
         assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("invalid password", "28P01")));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("网络通信异常", null, 6001)));
+        assertTrue(CdcConnectionErrors.isConnectionFailure(new SQLException("创建SOCKET连接失败", null, -70028)));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new SQLException("syntax error", "42601")));
         assertFalse(CdcConnectionErrors.isConnectionFailure(new IllegalStateException("未找到匹配的表")));
     }
@@ -135,6 +155,14 @@ class CdcCollectorReconnectTest {
         datasource.setUsername("datay");
         datasource.setPassword("datay123");
         return new OracleLogMinerCollector(datasource, "DATAY", null, null, 500, new NoopHandler());
+    }
+
+    private DmLogMinerCollector newDmCollector() {
+        DatasourceInfo datasource = new DatasourceInfo();
+        datasource.setUrl("jdbc:dm://127.0.0.1:1?connectTimeout=1000&socketTimeout=1000");
+        datasource.setUsername("DATAY");
+        datasource.setPassword("Datay123456");
+        return new DmLogMinerCollector(datasource, "DATAY", null, null, 500, true, 5000, true, new NoopHandler());
     }
 
     /** 测试用事件处理器，不关心采集到的事件内容。 */

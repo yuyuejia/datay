@@ -376,6 +376,12 @@ final class DuckDbTableWriter {
         if (type == null || type.isBlank() || !TYPE_PATTERN.matcher(type).matches()) {
             return expression;
         }
+        // DuckDB 的 DECIMAL 不带精度时会使用默认 scale，导致小数位丢失；
+        // 这里按列元数据补全 DECIMAL(p,s)。
+        String upper = type.toUpperCase(Locale.ROOT);
+        if ((upper.equals("DECIMAL") || upper.equals("NUMERIC")) && !type.contains("(") && column.getPrecision() > 0) {
+            type = type + "(" + column.getPrecision() + "," + Math.max(column.getScale(), 0) + ")";
+        }
         return "CAST(" + expression + " AS " + type + ")";
     }
 }

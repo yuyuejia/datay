@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,6 +35,12 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
 
     public static final String DUCKLAKE_CATALOG = "ducklake";
     public static final String QUACK_CATALOG = "quack";
+
+    @Override
+    public String normalizeTargetTableName(DatasourceInfo info, String tableName) {
+        // DuckDB 自动建表 DDL 使用小写表名，DML 需保持同一名称，避免重启后 tableExists 判断不一致
+        return tableName == null ? null : tableName.toLowerCase(Locale.ROOT);
+    }
 
     @Override
     protected DataSourceTypeDescriptor descriptor() {

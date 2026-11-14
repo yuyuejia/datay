@@ -1,0 +1,44 @@
+{
+  "units": [
+    {
+      ".id": "OracleCDCInput",
+      ".name": "OracleCDCInput",
+      "sourceId": {
+        "type": "oracle",
+        "url": "jdbc:oracle:thin:@//127.0.0.1:1521/FREEPDB1",
+        "driver": "oracle.jdbc.OracleDriver",
+        "username": "datay",
+        "password": "datay123",
+        "dbschema": "DATAY"
+      },
+      "schema": "DATAY",
+      "tableNamePattern": "CDC_ORACLE_MYSQL",
+      "snapshot": true,
+      "pollIntervalMs": 500,
+      "ignoreError": false
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "type": "mysql",
+        "url": "jdbc:mysql://127.0.0.1:3307/datay_oracle_cdc?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08%3A00&forceConnectionTimeZoneToSession=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "password",
+        "dbschema": "datay_oracle_cdc"
+      },
+      "schema": "datay_oracle_cdc",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "OracleCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

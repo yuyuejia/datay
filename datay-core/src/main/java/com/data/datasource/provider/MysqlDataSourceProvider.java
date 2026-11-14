@@ -3,6 +3,7 @@ package com.data.datasource.provider;
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
+import com.data.job.DatasourceInfo;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
@@ -27,6 +28,12 @@ public class MysqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.MYSQL);
+    }
+
+    @Override
+    public String normalizeTargetTableName(DatasourceInfo info, String tableName) {
+        // MySQL 默认使用小写表名；DDL 与后续 DML 必须保持一致
+        return tableName == null ? null : tableName.toLowerCase(Locale.ROOT);
     }
 
     @Override

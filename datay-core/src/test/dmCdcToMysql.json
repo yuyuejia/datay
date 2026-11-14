@@ -1,0 +1,46 @@
+{
+  "units": [
+    {
+      ".id": "DMCDCInput",
+      ".name": "DMCDCInput",
+      "sourceId": {
+        "type": "dm",
+        "url": "jdbc:dm://127.0.0.1:5236",
+        "driver": "dm.jdbc.driver.DmDriver",
+        "username": "DATAY",
+        "password": "Datay123456",
+        "dbschema": "DATAY"
+      },
+      "schema": "DATAY",
+      "tableNamePattern": "CDC_DM_MYSQL",
+      "snapshot": true,
+      "archiveSwitch": true,
+      "archiveSwitchIntervalMs": 1000,
+      "pollIntervalMs": 500,
+      "ignoreError": false
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "type": "mysql",
+        "url": "jdbc:mysql://127.0.0.1:3307/datay_dm_cdc?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08%3A00&forceConnectionTimeZoneToSession=true",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "username": "root",
+        "password": "password",
+        "dbschema": "datay_dm_cdc"
+      },
+      "schema": "datay_dm_cdc",
+      "table": "",
+      "model": "auto"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "DMCDCInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

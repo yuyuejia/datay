@@ -159,6 +159,8 @@ metadata.ducklake
 metadata.ducklake.wal
 
 /data/
+/datay-core/src/test/docker/dm/data/
+/datay-core/src/test/docker/dm/arch/
 .opencode/
 *.db.wal
 *.duckdb

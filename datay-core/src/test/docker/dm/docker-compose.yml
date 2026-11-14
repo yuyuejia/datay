@@ -1,0 +1,31 @@
+services:
+  dm8:
+    image: ${DM_IMAGE:-forresttse/dm8:latest}
+    container_name: ${DM_CONTAINER:-datay-dm8}
+    hostname: datay-dm8
+    # 达梦官方镜像目前以 x86_64 为主；Apple Silicon 通过 Docker Desktop 的 amd64 模拟运行。
+    # 如果使用 arm64 镜像，执行前设置 DM_PLATFORM=linux/arm64。
+    platform: ${DM_PLATFORM:-linux/amd64}
+    privileged: true
+    shm_size: 1g
+    environment:
+      TZ: Asia/Shanghai
+      PAGE_SIZE: "16"
+      EXTENT_SIZE: "32"
+      LOG_SIZE: "1024"
+      UNICODE_FLAG: "1"
+      CASE_SENSITIVE: "1"
+      INSTANCE_NAME: DMSERVER
+      SYSDBA_PWD: ${DM_SYSDBA_PASSWORD:-SYSDBA001}
+    ports:
+      - "${DM_PORT:-5236}:5236"
+    volumes:
+      - ./data:/opt/dmdbms/data
+      - ./arch:/opt/dmdbms/arch
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'select 1 from dual;' | /opt/dmdbms/bin/disql SYSDBA/${DM_SYSDBA_PASSWORD:-SYSDBA001}@localhost:5236 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped

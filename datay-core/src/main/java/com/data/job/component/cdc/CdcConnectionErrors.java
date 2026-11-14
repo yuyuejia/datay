@@ -37,6 +37,16 @@ public final class CdcConnectionErrors {
         17410,
     };
 
+    /** 达梦 DPI/服务器连接异常错误码。 */
+    private static final int[] DM_CONNECTION_ERROR_CODES = {
+        6001,
+        -70019,
+        -70025,
+        -70028,
+        -70065,
+        -70066,
+    };
+
     private static final String[] CONNECTION_MESSAGES = {
         "connection refused",
         "connection reset",
@@ -84,6 +94,11 @@ public final class CdcConnectionErrors {
                     return true;
                 }
                 for (int code : ORACLE_CONNECTION_ERROR_CODES) {
+                    if (sqlException.getErrorCode() == code) {
+                        return true;
+                    }
+                }
+                for (int code : DM_CONNECTION_ERROR_CODES) {
                     if (sqlException.getErrorCode() == code) {
                         return true;
                     }

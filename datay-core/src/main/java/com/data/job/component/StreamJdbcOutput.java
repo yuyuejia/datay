@@ -151,7 +151,12 @@ public class StreamJdbcOutput extends FlowComponent {
             throw new IllegalArgumentException("未配置目标表名，且无法从flowfile属性中获取表名");
         }
 
-        return resolveMappedTableName(sourceTableName);
+        String targetTableName = resolveMappedTableName(sourceTableName);
+        JdbcDataSourceProvider provider = jdbcProvider();
+        if (provider != null) {
+            targetTableName = provider.normalizeTargetTableName(datasource, targetTableName);
+        }
+        return targetTableName;
     }
 
     /**

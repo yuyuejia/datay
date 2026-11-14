@@ -141,6 +141,14 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 规范化写入目标表名。默认原样返回；需要遵循数据库命名习惯的数据源覆写
+     * （例如 MySQL 默认使用小写表名，保证自动建表 DDL 与后续 DML 使用同一名称）。
+     */
+    public String normalizeTargetTableName(DatasourceInfo info, String tableName) {
+        return tableName;
+    }
+
+    /**
      * 新建表 / 写入表时需要限定的 catalog。默认 {@code null}，表示使用 schema.table；
      * Quack、DuckLake 等需要显式 catalog 的数据源覆写。
      */
