@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20261115000000-1-metadata-collect-task" author="datafusion">
+        <createTable tableName="dp_metadata_collect_task">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="data_source_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="task_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="schema_names" type="${clobType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="cron" type="varchar(100)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="output_dir" type="varchar(500)" defaultValue="metadata">
+                <constraints nullable="true"/>
+            </column>
+            <column name="job_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_status" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_run_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creater" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tenant_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <createIndex tableName="dp_metadata_collect_task" indexName="idx_metadata_collect_ds" unique="true">
+            <column name="data_source_id"/>
+        </createIndex>
+        <createIndex tableName="dp_metadata_collect_task" indexName="idx_metadata_collect_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="dp_metadata_collect_task" indexName="idx_metadata_collect_job">
+            <column name="job_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

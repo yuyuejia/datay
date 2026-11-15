@@ -5,6 +5,7 @@ import com.data.datafusion.service.DataModelLineageService;
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
+import com.data.datafusion.service.MetadataCollectTaskService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.TableLineageDTO;
 import com.data.datasource.DataSourceConnection;
@@ -55,18 +56,22 @@ public class DataSourceResource {
 
     private final DataModelLineageService dataModelLineageService;
 
+    private final MetadataCollectTaskService metadataCollectTaskService;
+
     public DataSourceResource(
         DataSourceService dataSourceService,
         DataSourceRepository dataSourceRepository,
         DataSourceQueryService dataSourceQueryService,
         DefaultWarehouseConfigService defaultWarehouseConfigService,
-        DataModelLineageService dataModelLineageService
+        DataModelLineageService dataModelLineageService,
+        MetadataCollectTaskService metadataCollectTaskService
     ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
         this.dataSourceQueryService = dataSourceQueryService;
         this.defaultWarehouseConfigService = defaultWarehouseConfigService;
         this.dataModelLineageService = dataModelLineageService;
+        this.metadataCollectTaskService = metadataCollectTaskService;
     }
 
     /**
@@ -197,6 +202,7 @@ public class DataSourceResource {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDataSource(@PathVariable("id") String id) {
         LOG.debug("REST request to delete DataSource : {}", id);
+        metadataCollectTaskService.deleteByDataSourceId(id);
         dataSourceService.delete(id);
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))

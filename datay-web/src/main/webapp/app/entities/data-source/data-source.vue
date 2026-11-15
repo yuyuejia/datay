@@ -50,7 +50,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="260">
+        <el-table-column label="操作" fixed="right" width="360">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openEditModal(scope.row)" class="edit" data-cy="entityEditButton">
@@ -61,9 +61,18 @@
                   <span class="d-none d-md-inline">数据查询</span>
                 </el-button>
               </router-link>
-              <el-button size="small" @click="prepareRemove(scope.row)" type="danger" data-cy="entityDeleteButton">
-                <span class="d-none d-md-inline">删除</span>
-              </el-button>
+              <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
+                <el-button type="info" plain size="small" data-cy="entityMoreButton">
+                  <span class="d-none d-md-inline">更多</span>
+                  <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="metadata" data-cy="entityMetadataCollectButton">元数据采集</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided data-cy="entityDeleteButton">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -122,6 +131,12 @@
       :data-source-id="modalDataSourceId"
       @saved="onModalSaved"
     ></data-source-modal>
+
+    <metadata-collect-modal
+      v-model:show="metadataModalShow"
+      :data-source="metadataDataSource"
+      @saved="onMetadataSaved"
+    ></metadata-collect-modal>
 
     <div v-show="dataSources && dataSources.length > 0">
       <div class="list-pagination">

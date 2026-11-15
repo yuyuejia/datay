@@ -8,10 +8,11 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { Authority } from '@/shared/security/authority';
 
 import DataSourceModal from './data-source-modal.vue';
+import MetadataCollectModal from './metadata-collect-modal.vue';
 
 export default defineComponent({
   name: 'DataSource',
-  components: { DataSourceModal },
+  components: { DataSourceModal, MetadataCollectModal },
   setup() {
     const dateFormat = useDateFormat();
     const dataSourceService = inject('dataSourceService', () => new DataSourceService());
@@ -216,6 +217,26 @@ export default defineComponent({
       retrieveDataSources();
     };
 
+    const metadataModalShow = ref(false);
+    const metadataDataSource: Ref<IDataSource | null> = ref(null);
+
+    const openMetadataModal = (row: IDataSource) => {
+      metadataDataSource.value = row;
+      metadataModalShow.value = true;
+    };
+
+    const onMetadataSaved = () => {
+      // 元数据采集配置与数据源列表本身无关，暂不需要刷新列表。
+    };
+
+    const handleRowCommand = (command: string, row: IDataSource) => {
+      if (command === 'metadata') {
+        openMetadataModal(row);
+      } else if (command === 'delete') {
+        prepareRemove(row);
+      }
+    };
+
     return {
       dataSources,
       defaultDataSourceId,
@@ -253,6 +274,11 @@ export default defineComponent({
       openCreateModal,
       openEditModal,
       onModalSaved,
+      metadataModalShow,
+      metadataDataSource,
+      openMetadataModal,
+      onMetadataSaved,
+      handleRowCommand,
     };
   },
 });

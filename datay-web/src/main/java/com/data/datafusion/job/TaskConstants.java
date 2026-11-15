@@ -25,6 +25,8 @@ public final class TaskConstants {
 
     public static final String TASK_TYPE_DATA_QUALITY = "DATA_QUALITY";
 
+    public static final String TASK_TYPE_METADATA_COLLECT = "METADATA_COLLECT";
+
     /** ETL 批量任务类型。 */
     public static final String ETL_TASK_KIND_BATCH = "BATCH";
 
