@@ -4,6 +4,7 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.alert.AlertEventService;
+import com.data.datafusion.service.datamap.DataMapIndexService;
 import com.data.datafusion.util.SpringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,19 @@ public class JobStatusEventHandler implements Runnable {
                 } catch (Exception e) {
                     // 告警是旁路能力，任何异常都不能影响任务状态事件循环。
                     log.error("Failed to submit alert event for instance {}", latestJobInstance.getInstanceCode(), e);
+                }
+                if (
+                    TaskConstants.TASK_TYPE_METADATA_COLLECT.equalsIgnoreCase(latestJobInstance.getType()) &&
+                    TaskConstants.TASK_STATUS_SUCCESSFUL.equalsIgnoreCase(latestJobInstance.getStatus())
+                ) {
+                    try {
+                        SpringUtils
+                            .getBean(DataMapIndexService.class)
+                            .markStale(latestJobInstance.getTenantId());
+                    } catch (Exception e) {
+                        // 数据地图是旁路能力，采集成功事件不能因索引刷新失败而中断。
+                        log.warn("Failed to mark data map index stale for tenant {}", latestJobInstance.getTenantId(), e);
+                    }
                 }
             }
 

@@ -280,6 +280,24 @@ datay:
       # 是否允许调用具备副作用的写工具（创建/修改/删除/运行任务等）。
       # 默认开启，因为该端点面向平台管理；生产环境如需只读，可设为 false 或注入 DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS=false。
       allow-mutating-tools: ${DATAY_MCP_HARNESS_ALLOW_MUTATING_TOOLS:true}
+  # 数据地图：基于采集元数据与平台对象构建全域资产检索与关系图
+  data-map:
+    enabled: ${DATAY_DATA_MAP_ENABLED:true}
+    # 派生索引文件，与业务数仓、指标 RAG 隔离；删除后会自动重建
+    db-file: ${DATAY_DATA_MAP_DB_FILE:./data/data-map.duckdb}
+    # 存储提供方，当前支持 duckdb
+    provider: ${DATAY_DATA_MAP_PROVIDER:duckdb}
+    top-k: 50
+    max-full-nodes: ${DATAY_DATA_MAP_MAX_FULL_NODES:8000}
+    max-full-edges: ${DATAY_DATA_MAP_MAX_FULL_EDGES:30000}
+    max-subgraph-nodes: 500
+    max-depth: 3
+    # 首次访问且索引为空/过期时自动后台构建
+    auto-build: ${DATAY_DATA_MAP_AUTO_BUILD:true}
+    # 元数据采集成功后标记索引过期
+    rebuild-on-metadata-collect: true
+    # 全量图默认不包含字段节点；前端可通过“显示字段”开关切换
+    include-columns: false
 
 # ===================================================================
 # 部署与执行配置（development.*）

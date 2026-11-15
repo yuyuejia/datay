@@ -10,6 +10,8 @@ const DataSourceQuery = () => import("@/entities/data-source/data-query.vue");
 
 const FileManagement = () => import("@/entities/file-management/file-management.vue");
 
+const DataMap = () => import("@/entities/data-map/data-map.vue");
+
 const JobInstance = () => import("@/entities/job-instance/job-instance.vue");
 const JobInstanceUpdate = () =>
   import("@/entities/job-instance/job-instance-update.vue");
@@ -170,6 +172,12 @@ export default {
       name: "FileManagement",
       component: FileManagement,
       meta: { listPage: true, authorities: [Authority.USER] },
+    },
+    {
+      path: "data-map",
+      name: "DataMap",
+      component: DataMap,
+      meta: { authorities: [Authority.USER] },
     },
     {
       path: "job-instance",

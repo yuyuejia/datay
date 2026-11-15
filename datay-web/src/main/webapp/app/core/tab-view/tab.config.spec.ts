@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { TAB_DEFINITIONS, findTabDefinitionByPath } from './tab.config';
 
 describe('Tab Config', () => {
+  it('should register data map as a fixed tab', () => {
+    expect(TAB_DEFINITIONS.DataMap).toEqual({
+      path: '/data-map',
+      title: '数据地图',
+      componentName: 'DataMap',
+      closable: false,
+    });
+    expect(findTabDefinitionByPath('/data-map')?.name).toBe('DataMap');
+  });
+
   it('should register the alert center as a closable tab', () => {
     expect(TAB_DEFINITIONS.AlertCenter).toEqual({
       path: '/alert-center',

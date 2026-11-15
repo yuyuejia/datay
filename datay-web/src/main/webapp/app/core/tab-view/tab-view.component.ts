@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia';
 
 import { useStore } from '@/store';
 import { useTabStore, type TabItem } from '@/shared/config/store/tab-store';
-import { HOME_TAB, HOME_TAB_NAME, TAB_DEFINITIONS, findTabDefinitionByPath } from './tab.config';
+import { DATA_MAP_TAB, DATA_MAP_TAB_NAME, HOME_TAB, HOME_TAB_NAME, TAB_DEFINITIONS, findTabDefinitionByPath } from './tab.config';
 
 const toTabItem = (name: string, fullPath: string): TabItem | undefined => {
   const def = TAB_DEFINITIONS[name];
@@ -92,7 +92,10 @@ export default defineComponent({
       authenticated,
       value => {
         if (value) {
-          tabStore.reset([{ ...HOME_TAB, name: HOME_TAB_NAME, fullPath: '/' }]);
+          tabStore.reset([
+            { ...HOME_TAB, name: HOME_TAB_NAME, fullPath: '/', cachedComponents: [] },
+            { ...DATA_MAP_TAB, name: DATA_MAP_TAB_NAME, fullPath: DATA_MAP_TAB.path, cachedComponents: [] },
+          ]);
           syncActiveTab();
         } else {
           tabStore.reset();

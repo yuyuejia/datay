@@ -11,10 +11,19 @@ export interface TabDefinition {
 
 export const HOME_TAB_NAME = 'Home';
 
+export const DATA_MAP_TAB_NAME = 'DataMap';
+
 export const HOME_TAB: TabDefinition = {
   path: '/',
   title: '首页',
   componentName: 'Home',
+  closable: false,
+};
+
+export const DATA_MAP_TAB: TabDefinition = {
+  path: '/data-map',
+  title: '数据地图',
+  componentName: 'DataMap',
   closable: false,
 };
 
@@ -27,6 +36,8 @@ export const HOME_TAB: TabDefinition = {
 export const TAB_DEFINITIONS: Record<string, TabDefinition> = {
   // 首页
   Home: HOME_TAB,
+  // 数据地图（固定页签）
+  DataMap: DATA_MAP_TAB,
   // 数据源
   DataSource: { path: '/data-source', title: '数据源管理', componentName: 'DataSource', closable: true },
   FileManagement: { path: '/file-management', title: '文件管理', componentName: 'FileManagement', closable: true },
