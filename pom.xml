@@ -32,7 +32,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- 统一管理的三方包版本，datay-core 与 datay-web 共享 -->
-        <fastjson2.version>2.0.19</fastjson2.version>
+        <fastjson2.version>2.0.66</fastjson2.version>
         <commons-dbutils.version>1.6</commons-dbutils.version>
         <mybatis.version>3.5.6</mybatis.version>
         <ojdbc8.version>21.1.0.0</ojdbc8.version>
