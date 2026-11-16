@@ -64,6 +64,10 @@ export default defineComponent({
       status: 'OFFLINE',
       directoryId: props.directoryId || null,
     });
+
+    const scheduleStatusLabel = computed(() => (sqlJob.value.status === 'ONLINE' ? '已上线' : '未上线'));
+    const scheduleStatusType = computed(() => (sqlJob.value.status === 'ONLINE' ? 'success' : 'info'));
+
     const dataSources = ref<IDataSource[]>([]);
     const dataSourceId = ref<string | null>(null);
     const dataSourceType = ref('');
@@ -661,6 +665,8 @@ export default defineComponent({
       isEditMode,
       isSaving,
       sqlJob,
+      scheduleStatusLabel,
+      scheduleStatusType,
       dataSources,
       dataSourceId,
       selectedSchema,

@@ -57,6 +57,10 @@ export default defineComponent({
       status: 'OFFLINE',
       directoryId: props.directoryId || null,
     });
+
+    const scheduleStatusLabel = computed(() => (shellJob.value.status === 'ONLINE' ? '已上线' : '未上线'));
+    const scheduleStatusType = computed(() => (shellJob.value.status === 'ONLINE' ? 'success' : 'info'));
+
     const localDirectories = ref<IETLTaskDirectory[]>([]);
     const directories = computed<IETLTaskDirectory[]>(() =>
       props.directories && props.directories.length > 0 ? props.directories : localDirectories.value,
@@ -270,6 +274,8 @@ export default defineComponent({
       isSaving,
       isExecuting,
       shellJob,
+      scheduleStatusLabel,
+      scheduleStatusType,
       directoryTreeOptions,
       shellScript,
       editorContainer,

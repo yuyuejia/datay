@@ -25,6 +25,14 @@
             class="dir-select"
           />
         </div>
+        <div class="form-item schedule-info">
+          <label class="field-label">调度信息</label>
+          <div class="schedule-info-content">
+            <el-tag size="small" :type="scheduleStatusType" effect="light">{{ scheduleStatusLabel }}</el-tag>
+            <el-tag v-if="shellJob.cron" size="small" effect="plain" class="schedule-cron">{{ shellJob.cron }}</el-tag>
+            <span v-else class="schedule-muted">未配置 Cron</span>
+          </div>
+        </div>
       </div>
       <div class="header-right">
         <el-button :loading="isExecuting" title="执行最近保存的脚本" @click="executeOnce">立即执行</el-button>
@@ -118,6 +126,30 @@
 
 .dir-select {
   width: 200px;
+}
+
+.schedule-info {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.schedule-info-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.schedule-cron {
+  font-family: var(--el-font-family-monospace, monospace);
+  white-space: nowrap;
+}
+
+.schedule-muted {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder, #a8abb2);
+  white-space: nowrap;
 }
 
 .header-right {
