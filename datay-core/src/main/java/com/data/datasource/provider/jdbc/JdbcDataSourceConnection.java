@@ -48,14 +48,18 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
             String execSql = provider.isQuackConnection(connection) ? provider.wrapQuery(normalized) : normalized;
             if (params != null && !params.isEmpty()) {
                 try (PreparedStatement ps = connection.prepareStatement(execSql)) {
+                    applyMaxRows(ps, maxRows);
                     bind(ps, params);
                     try (ResultSet rs = ps.executeQuery()) {
                         return readResult(rs, maxRows);
                     }
                 }
             }
-            try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(execSql)) {
-                return readResult(rs, maxRows);
+            try (Statement stmt = connection.createStatement()) {
+                applyMaxRows(stmt, maxRows);
+                try (ResultSet rs = stmt.executeQuery(execSql)) {
+                    return readResult(rs, maxRows);
+                }
             }
         }
 
@@ -147,6 +151,13 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
             upper.startsWith("DESC") ||
             upper.startsWith("EXPLAIN")
         );
+    }
+
+    private static void applyMaxRows(Statement statement, int maxRows) throws SQLException {
+        if (maxRows > 0) {
+            // 将行数限制下推到 JDBC 驱动，减少驱动侧缓存与网络传输，避免无 LIMIT 查询把结果集整体读入内存。
+            statement.setMaxRows(maxRows);
+        }
     }
 
     private static void bind(PreparedStatement ps, List<Object> params) throws SQLException {

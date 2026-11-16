@@ -27,8 +27,13 @@ public class DataSourceQueryService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataSourceQueryService.class);
 
+    /** 单次查询返回行数的硬上限，任何入口传入的限制都会被收敛到该值以内。 */
     @Value("${datay.query.max-rows:10000}")
     private int maxRows = 10000;
+
+    /** 数据查询入口未显式指定行数时使用的默认值，避免无条数限制的全量查询。 */
+    @Value("${datay.query.default-rows:1000}")
+    private int defaultRows = 1000;
 
     /**
      * Converts a {@link DataSourceDTO} into the {@link DatasourceInfo} used by the
@@ -58,7 +63,22 @@ public class DataSourceQueryService {
      * @throws SQLException if the execution fails
      */
     public Map<String, Object> executeQuery(DataSourceDTO dataSource, String sql) throws SQLException {
-        return execute(dataSource, sql, null);
+        return execute(dataSource, sql, null, Math.max(1, maxRows));
+    }
+
+    /**
+     * 数据查询入口：按调用方指定的行数执行只读查询。
+     *
+     * <p>未传 {@code rowLimit} 时使用默认行数，且始终收敛到 {@link #maxRows} 以内，
+     * 避免用户不写 LIMIT 时触发全量查询，造成服务内存溢出与数据库高负载。
+     *
+     * @param dataSource 目标数据源
+     * @param sql        查询语句
+     * @param rowLimit   期望的最大返回行数，可为 {@code null}
+     * @return 结果 map，包含 {@code columns} / {@code rows} / {@code affectedRows} 等
+     */
+    public Map<String, Object> executeQuery(DataSourceDTO dataSource, String sql, Integer rowLimit) throws SQLException {
+        return execute(dataSource, sql, null, resolveRowLimit(rowLimit));
     }
 
     /**
@@ -70,20 +90,29 @@ public class DataSourceQueryService {
      * @return 结果 map，包含 {@code columns} / {@code rows} / {@code affectedRows}
      */
     public Map<String, Object> executeReadOnlyQuery(DataSourceDTO dataSource, String sql, List<Object> params) throws SQLException {
-        return execute(dataSource, sql, params);
+        return execute(dataSource, sql, params, Math.max(1, maxRows));
     }
 
-    private Map<String, Object> execute(DataSourceDTO dataSource, String sql, List<Object> params) throws SQLException {
+    /**
+     * 把入口传入的行数限制收敛到 [{@code 1}, {@code maxRows}] 区间。
+     */
+    private int resolveRowLimit(Integer rowLimit) {
+        int cap = Math.max(1, maxRows);
+        int fallback = defaultRows > 0 ? defaultRows : cap;
+        int requested = rowLimit == null ? fallback : rowLimit;
+        return Math.max(1, Math.min(requested, cap));
+    }
+
+    private Map<String, Object> execute(DataSourceDTO dataSource, String sql, List<Object> params, int rowLimit) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new IllegalArgumentException("SQL语句不能为空");
         }
         try (DataSourceConnection connection = DataSourceProviderFactory.connect(toDatasourceInfo(dataSource))) {
-            int rowLimit = Math.max(1, maxRows);
             QueryResult result = connection.executeQuery(sql, params, rowLimit);
             Map<String, Object> map = result.toResultMap();
+            map.put("rowLimit", rowLimit);
             if (map.get("rows") instanceof List<?> rows && rows.size() >= rowLimit) {
                 map.put("truncated", true);
-                map.put("rowLimit", rowLimit);
             }
             return map;
         } catch (SQLException e) {

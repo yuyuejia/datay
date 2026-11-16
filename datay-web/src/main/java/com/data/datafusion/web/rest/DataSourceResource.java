@@ -409,15 +409,16 @@ public class DataSourceResource {
     /**
      * 根据数据源ID执行SQL查询
      * @param id 数据源ID
-     * @param request 请求体，包含sql字段
+     * @param request 请求体，包含sql字段与可选的limit字段（最大返回行数）
      * @return 查询结果，包含columns、rows和affectedRows
      */
     @PostMapping("/{id}/query")
     public ResponseEntity<Map<String, Object>> executeQuery(
         @PathVariable("id") String id,
-        @RequestBody Map<String, String> request
+        @RequestBody Map<String, Object> request
     ) {
-        String sql = request.get("sql");
+        Object sqlValue = request.get("sql");
+        String sql = sqlValue == null ? null : String.valueOf(sqlValue);
         if (sql == null || sql.trim().isEmpty()) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", "SQL语句不能为空");
@@ -434,12 +435,30 @@ public class DataSourceResource {
         }
 
         try {
-            Map<String, Object> result = dataSourceQueryService.executeQuery(dataSourceDTO.orElseThrow(), sql);
+            Integer limit = parseRowLimit(request.get("limit"));
+            Map<String, Object> result = dataSourceQueryService.executeQuery(dataSourceDTO.orElseThrow(), sql, limit);
             return ResponseEntity.ok().body(result);
         } catch (SQLException e) {
             Map<String, Object> error = new HashMap<>();
             error.put("message", e.getMessage());
             return ResponseEntity.status(500).body(error);
+        }
+    }
+
+    /**
+     * 解析前端传入的行数限制，非法值按未指定处理，由服务端使用默认行数并收敛到硬上限。
+     */
+    private Integer parseRowLimit(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.valueOf(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

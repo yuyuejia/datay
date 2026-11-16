@@ -145,9 +145,14 @@
                       </el-button>
                     </el-tooltip>
                   </div>
-                  <span class="shortcut-hint" :class="{ 'has-selection': hasSelection }">
-                    {{ hasSelection ? '已选中，执行选中部分' : 'Ctrl+Space 提示 · Ctrl+Enter 执行 · Ctrl+Shift+F 格式化' }}
-                  </span>
+                  <el-select
+                    v-model="queryLimit"
+                    size="small"
+                    class="query-limit-select"
+                    title="单次查询最多返回的行数，避免无条数限制的全量查询"
+                  >
+                    <el-option v-for="opt in queryLimitOptions" :key="opt" :value="opt" :label="`最多 ${opt} 行`" />
+                  </el-select>
                 </div>
                 <div ref="editorContainer" class="sql-editor"></div>
               </div>
@@ -159,9 +164,15 @@
               <div class="result-section">
                 <div class="section-header">
                   <span>查询结果</span>
-                  <span v-if="queryError" class="error-tag">
-                    <font-awesome-icon icon="exclamation-circle" />
-                    <span>{{ queryError }}</span>
+                  <span class="result-header-right">
+                    <span v-if="resultTruncated" class="truncate-hint">
+                      <font-awesome-icon icon="circle-info" />
+                      <span>结果已截断，仅返回前 {{ resultRowLimit }} 行</span>
+                    </span>
+                    <span v-if="queryError" class="error-tag">
+                      <font-awesome-icon icon="exclamation-circle" />
+                      <span>{{ queryError }}</span>
+                    </span>
                   </span>
                 </div>
                 <div class="result-content">
@@ -703,16 +714,26 @@
   margin-left: 0;
 }
 
-.shortcut-hint {
-  font-weight: normal;
-  font-size: 12px;
-  color: var(--el-text-color-placeholder, #a8abb2);
-  transition: color 0.2s ease;
+.query-limit-select {
+  width: 118px;
+  flex-shrink: 0;
 }
 
-.shortcut-hint.has-selection {
-  color: var(--el-color-primary, #409eff);
-  font-weight: 500;
+.result-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.truncate-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--el-color-warning, #e6a23c);
+  white-space: nowrap;
 }
 
 .sql-editor {

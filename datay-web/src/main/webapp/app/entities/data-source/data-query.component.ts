@@ -114,7 +114,6 @@ export default defineComponent({
 
     const sqlCode = ref('');
     const editorContainer = ref<HTMLElement | null>(null);
-    const hasSelection = ref(false);
     let editorView: EditorView | null = null;
 
     const editorHeight = ref(260);
@@ -129,6 +128,11 @@ export default defineComponent({
     const queryError = ref('');
     const executionTime = ref<number | null>(null);
     const affectedRows = ref<number | null>(null);
+    // 单次查询最大返回行数：默认 1000，避免用户不写 LIMIT 时触发全量查询
+    const queryLimitOptions = [100, 500, 1000, 5000, 10000];
+    const queryLimit = ref(1000);
+    const resultTruncated = ref(false);
+    const resultRowLimit = ref<number | null>(null);
 
     const activeTab = ref('sql');
     const previewTabs = ref<PreviewTab[]>([]);
@@ -163,11 +167,13 @@ export default defineComponent({
       resultData.value = [];
       executionTime.value = null;
       affectedRows.value = null;
+      resultTruncated.value = false;
+      resultRowLimit.value = null;
 
       const startTime = performance.now();
 
       try {
-        const res = await dataQueryService().executeQuery(dataSourceId.value, activeSql);
+        const res = await dataQueryService().executeQuery(dataSourceId.value, activeSql, queryLimit.value);
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
 
@@ -184,6 +190,8 @@ export default defineComponent({
           resultData.value = rows;
         }
         affectedRows.value = res.affectedRows || (Array.isArray(rows) ? rows.length : null);
+        resultTruncated.value = res.truncated === true;
+        resultRowLimit.value = typeof res.rowLimit === 'number' ? res.rowLimit : queryLimit.value;
 
         // DuckDB 的 ATTACH / DETACH 会改变 catalog 结构，执行后立即刷新左侧目录
         if (/\b(ATTACH|DETACH)\b/i.test(activeSql)) {
@@ -245,10 +253,6 @@ export default defineComponent({
       const updateListener = EditorView.updateListener.of(v => {
         if (v.docChanged) {
           sqlCode.value = v.state.doc.toString();
-        }
-        if (v.selectionSet) {
-          const sel = v.state.selection.main;
-          hasSelection.value = !sel.empty && v.state.doc.sliceString(sel.from, sel.to).trim().length > 0;
         }
       });
 
@@ -1078,12 +1082,15 @@ export default defineComponent({
       tableSearchHint,
       hoveredNodeId,
       sqlCode,
-      hasSelection,
       resultColumns,
       resultData,
       queryError,
       executionTime,
       affectedRows,
+      queryLimitOptions,
+      queryLimit,
+      resultTruncated,
+      resultRowLimit,
       isExecuting,
       aiDrawerVisible,
       activeTab,
