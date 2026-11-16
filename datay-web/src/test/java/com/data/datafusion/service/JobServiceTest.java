@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
@@ -338,5 +339,96 @@ class JobServiceTest {
         assertThatThrownBy(() -> jobService.update(update))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("引用的任务不存在");
+    }
+
+    @Test
+    void updateAllowsSqlJobInSqlDirectory() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+
+        Job existing = new Job();
+        existing.setId("sql-1");
+        existing.setType(TaskConstants.TASK_TYPE_SQL);
+        when(jobRepository.findById("sql-1")).thenReturn(Optional.of(existing));
+
+        ETLTaskDirectory directory = new ETLTaskDirectory();
+        directory.setId("sql-dir-1");
+        directory.setTaskType(TaskConstants.TASK_TYPE_SQL);
+        when(directoryRepository.findById("sql-dir-1")).thenReturn(Optional.of(directory));
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId(dto.getId());
+            entity.setType(dto.getType());
+            entity.setDirectoryId(dto.getDirectoryId());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        JobDTO update = new JobDTO();
+        update.setId("sql-1");
+        update.setType(TaskConstants.TASK_TYPE_SQL);
+        update.setDirectoryId("sql-dir-1");
+        update.setJobContext("{\"sql\":\"select 1\"}");
+
+        assertThat(jobService.update(update)).isNotNull();
+        verify(jobRepository).save(any(Job.class));
+    }
+
+    @Test
+    void updateRejectsSqlJobInDagDirectory() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
+        JobService jobService = new JobService(
+            jobRepository,
+            directoryRepository,
+            mock(JobMapper.class),
+            mock(JobInstanceService.class)
+        );
+
+        Job existing = new Job();
+        existing.setId("sql-1");
+        existing.setType(TaskConstants.TASK_TYPE_SQL);
+        when(jobRepository.findById("sql-1")).thenReturn(Optional.of(existing));
+
+        ETLTaskDirectory directory = new ETLTaskDirectory();
+        directory.setId("dag-dir-1");
+        directory.setTaskType(TaskConstants.TASK_TYPE_DAG);
+        when(directoryRepository.findById("dag-dir-1")).thenReturn(Optional.of(directory));
+
+        JobDTO update = new JobDTO();
+        update.setId("sql-1");
+        update.setType(TaskConstants.TASK_TYPE_SQL);
+        update.setDirectoryId("dag-dir-1");
+
+        assertThatThrownBy(() -> jobService.update(update))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("目录与任务类型不匹配");
+    }
+
+    @Test
+    void moveToDirectoryAllowsSqlJob() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+
+        Job job = new Job();
+        job.setId("sql-1");
+        job.setType(TaskConstants.TASK_TYPE_SQL);
+        when(jobRepository.findById("sql-1")).thenReturn(Optional.of(job));
+
+        ETLTaskDirectory directory = new ETLTaskDirectory();
+        directory.setId("sql-dir-1");
+        directory.setTaskType(TaskConstants.TASK_TYPE_SQL);
+        when(directoryRepository.findById("sql-dir-1")).thenReturn(Optional.of(directory));
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        assertThat(jobService.moveToDirectory("sql-1", "sql-dir-1")).isNotNull();
+        assertThat(job.getDirectoryId()).isEqualTo("sql-dir-1");
     }
 }

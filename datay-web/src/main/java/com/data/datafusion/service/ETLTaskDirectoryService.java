@@ -231,9 +231,10 @@ public class ETLTaskDirectoryService {
             !TaskConstants.ETL_TASK_KIND_BATCH.equals(normalized) &&
             !TaskConstants.ETL_TASK_KIND_STREAM.equals(normalized) &&
             !TaskConstants.TASK_TYPE_DAG.equals(normalized) &&
-            !TaskConstants.TASK_TYPE_DATA_API.equals(normalized)
+            !TaskConstants.TASK_TYPE_DATA_API.equals(normalized) &&
+            !TaskConstants.TASK_TYPE_SQL.equals(normalized)
         ) {
-            throw new IllegalArgumentException("任务类型只能是 BATCH、STREAM、DAG 或 DATA_API: " + taskType);
+            throw new IllegalArgumentException("任务类型只能是 BATCH、STREAM、DAG、DATA_API 或 SQL: " + taskType);
         }
         return normalized;
     }

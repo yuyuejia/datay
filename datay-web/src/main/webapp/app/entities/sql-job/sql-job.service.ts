@@ -1,10 +1,10 @@
-import axios from "axios";
+import axios from 'axios';
 
-import buildPaginationQueryOpts from "@/shared/sort/sorts";
-import { type IJob } from "@/shared/model/job.model";
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
+import { type IJob } from '@/shared/model/job.model';
 
-const baseApiUrl = "api/jobs";
-const dataSourceApiUrl = "api/data-sources";
+const baseApiUrl = 'api/jobs';
+const dataSourceApiUrl = 'api/data-sources';
 
 /**
  * Payload persisted inside {@link IJob.jobContext} for a SQL task.
@@ -28,10 +28,10 @@ export default class SqlJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}?${buildPaginationQueryOpts(paginationQuery)}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -39,17 +39,46 @@ export default class SqlJobService {
 
   /** List the SQL jobs (paged). */
   retrieveSqlJobs(paginationQuery?: any): Promise<any> {
-    return this.retrieve({ ...paginationQuery, type: "SQL" });
+    return this.retrieve({ ...paginationQuery, type: 'SQL' });
+  }
+
+  /** Load every SQL job, following pagination so directory trees never miss tasks. */
+  async retrieveAllSqlJobs(): Promise<IJob[]> {
+    const pageSize = 500;
+    const jobs: IJob[] = [];
+    let page = 0;
+    while (true) {
+      const res = await this.retrieveSqlJobs({
+        page,
+        size: pageSize,
+        sort: ['jobName,asc'],
+      });
+      const rows: IJob[] = res.data || [];
+      jobs.push(...rows);
+      const total = Number(res.headers?.['x-total-count']);
+      if (Number.isFinite(total)) {
+        if (jobs.length >= total) {
+          break;
+        }
+      } else if (rows.length < pageSize) {
+        break;
+      }
+      if (rows.length === 0) {
+        break;
+      }
+      page += 1;
+    }
+    return jobs;
   }
 
   find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -59,10 +88,10 @@ export default class SqlJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -72,10 +101,10 @@ export default class SqlJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .put(`${baseApiUrl}/${entity.id}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -85,10 +114,10 @@ export default class SqlJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -98,10 +127,10 @@ export default class SqlJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -111,10 +140,10 @@ export default class SqlJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -124,10 +153,24 @@ export default class SqlJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  /** Move a SQL job to the given directory; null moves it to the root. */
+  moveToDirectory(id: string, directoryId: string | null): Promise<IJob> {
+    return new Promise<IJob>((resolve, reject) => {
+      axios
+        .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
           reject(err);
         });
     });
@@ -138,10 +181,10 @@ export default class SqlJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${dataSourceApiUrl}/${dataSourceId}/query`, { sql })
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });

@@ -193,7 +193,7 @@ public class JobResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     /**
-     * {@code PATCH  /jobs/:id/directory} : Move the DAG job to a directory.
+     * {@code PATCH  /jobs/:id/directory} : Move the job to a directory.
      *
      * @param id the job ID.
      * @param body the request body containing {@code directoryId}; null means root.

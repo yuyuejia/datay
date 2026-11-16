@@ -1,127 +1,438 @@
-import {
-  type Ref,
-  defineComponent,
-  inject,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-} from "vue";
-import { ElMessageBox } from "element-plus";
+import { type Ref, computed, defineComponent, inject, nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { ElMessageBox } from 'element-plus';
 
-import SqlJobService from "./sql-job.service";
-import TaskOnlineModal from "@/components/TaskOnlineModal.vue";
-import { type IJob } from "@/shared/model/job.model";
-import { useDateFormat } from "@/shared/composables";
-import { useAlertService } from "@/shared/alert/alert.service";
+import SqlJobService from './sql-job.service';
+import SqlJobEditor from './sql-job-editor.vue';
+import ETLTaskDirectoryService from '@/entities/etl-task/etl-task-directory.service';
+import TaskOnlineModal from '@/components/TaskOnlineModal.vue';
+import { type IJob } from '@/shared/model/job.model';
+import { ETLTaskDirectory, type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
+import { useAlertService } from '@/shared/alert/alert.service';
+
+/** SQL 任务目录在公共目录表中的类型标识。 */
+const DIRECTORY_TASK_TYPE = 'SQL';
+
+interface IDirectoryOption {
+  id: string;
+  label: string;
+  children?: IDirectoryOption[];
+}
+
+interface ISqlJobTreeNode {
+  id: string;
+  label: string;
+  type: 'directory' | 'task';
+  data: IETLTaskDirectory | IJob;
+  children?: ISqlJobTreeNode[];
+}
+
+const compareDirectories = (a: IETLTaskDirectory, b: IETLTaskDirectory): number =>
+  (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || '').localeCompare(String(b.name || ''));
+
+const compareJobs = (a: IJob, b: IJob): number => String(a.jobName || '').localeCompare(String(b.jobName || ''));
 
 export default defineComponent({
-  name: "SqlJob",
+  name: 'SqlJob',
   components: {
+    SqlJobEditor,
     TaskOnlineModal,
   },
   setup() {
-    const dateFormat = useDateFormat();
-    const sqlJobService = inject("sqlJobService", () => new SqlJobService());
-    const alertService = inject("alertService", () => useAlertService(), true);
+    const route = useRoute();
+    const sqlJobService = inject('sqlJobService', () => new SqlJobService());
+    const etlTaskDirectoryService = inject('etlTaskDirectoryService', () => new ETLTaskDirectoryService());
+    const alertService = inject('alertService', () => useAlertService(), true);
 
-    const itemsPerPage = ref(20);
-    const queryCount: Ref<number> = ref(null);
-    const page: Ref<number> = ref(1);
-    const propOrder = ref("id");
-    const reverse = ref(false);
-    const totalItems = ref(0);
-    const search = ref("");
+    // ---------------- SQL 任务目录 ----------------
+
+    const directories: Ref<IETLTaskDirectory[]> = ref([]);
+    const directoryLoading = ref(false);
+    const selectedDirectoryId: Ref<string | null> = ref(null);
+    const treeProps = { children: 'children', label: 'label' };
+    const treeRef = ref<any>(null);
+    const treeSearch = ref('');
+    const treeCollapsed = ref(false);
+
+    const directoryTreeOptions = computed<IDirectoryOption[]>(() => {
+      const byParent = new Map<string, IETLTaskDirectory[]>();
+      directories.value.forEach(directory => {
+        const parentId = directory.parentId || '';
+        if (!byParent.has(parentId)) {
+          byParent.set(parentId, []);
+        }
+        byParent.get(parentId)!.push(directory);
+      });
+      const build = (parentId: string): IDirectoryOption[] =>
+        (byParent.get(parentId) || [])
+          .slice()
+          .sort(compareDirectories)
+          .map(directory => {
+            const children = build(directory.id!);
+            return {
+              id: directory.id!,
+              label: directory.name || '',
+              children: children.length ? children : undefined,
+            };
+          });
+      return build('');
+    });
+
+    // ---------------- SQL 任务 ----------------
+
     const sqlJobs: Ref<IJob[]> = ref([]);
     const isFetching = ref(false);
+    const selectedJobId: Ref<string | null> = ref(null);
+    const editorVisible = ref(false);
+    const editorKey = ref('');
+    const newTaskDirectoryId: Ref<string | null> = ref(null);
+    let editorNonce = 0;
 
-    const clear = () => {
-      page.value = 1;
-    };
+    const treeData = computed<ISqlJobTreeNode[]>(() => {
+      const directoryIds = new Set(directories.value.map(directory => directory.id).filter(Boolean));
+      const jobsByDirectory = new Map<string, IJob[]>();
+      const orphanJobs: IJob[] = [];
+      sqlJobs.value.forEach(job => {
+        const directoryId = job.directoryId || '';
+        if (directoryId && !directoryIds.has(directoryId)) {
+          orphanJobs.push(job);
+          return;
+        }
+        if (!jobsByDirectory.has(directoryId)) {
+          jobsByDirectory.set(directoryId, []);
+        }
+        jobsByDirectory.get(directoryId)!.push(job);
+      });
 
-    const sort = (): Array<any> => {
-      const result = [`${propOrder.value},${reverse.value ? "desc" : "asc"}`];
-      if (propOrder.value !== "id") {
-        result.push("id");
+      const toTaskNode = (job: IJob): ISqlJobTreeNode => ({
+        id: job.id!,
+        label: job.jobName || '',
+        type: 'task',
+        data: job,
+      });
+
+      const byParent = new Map<string, IETLTaskDirectory[]>();
+      directories.value.forEach(directory => {
+        const parentId = directory.parentId || '';
+        if (!byParent.has(parentId)) {
+          byParent.set(parentId, []);
+        }
+        byParent.get(parentId)!.push(directory);
+      });
+
+      const build = (parentId: string): ISqlJobTreeNode[] => {
+        const nodes: ISqlJobTreeNode[] = [];
+        (byParent.get(parentId) || [])
+          .slice()
+          .sort(compareDirectories)
+          .forEach(directory => {
+            const children = build(directory.id!);
+            (jobsByDirectory.get(directory.id!) || [])
+              .slice()
+              .sort(compareJobs)
+              .forEach(job => children.push(toTaskNode(job)));
+            const node: ISqlJobTreeNode = {
+              id: directory.id!,
+              label: directory.name || '',
+              type: 'directory',
+              data: directory,
+            };
+            if (children.length > 0) {
+              node.children = children;
+            }
+            nodes.push(node);
+          });
+        return nodes;
+      };
+
+      const nodes = build('');
+      [...(jobsByDirectory.get('') || []), ...orphanJobs].sort(compareJobs).forEach(job => nodes.push(toTaskNode(job)));
+      return nodes;
+    });
+
+    const filterNode = (value: string, data: ISqlJobTreeNode) => {
+      if (!value) {
+        return true;
       }
-      return result;
+      if (data.type !== 'task') {
+        return false;
+      }
+      const keyword = value.toLowerCase();
+      return (data.label || '').toLowerCase().includes(keyword);
     };
 
-    const retrieveSqlJobs = async () => {
+    watch(treeSearch, value => {
+      treeRef.value?.filter(value);
+    });
+
+    const statusClass = (status?: string | null) => {
+      if (status === 'ONLINE') {
+        return 'status-online';
+      }
+      if (status === 'RUNNING') {
+        return 'status-running';
+      }
+      return 'status-offline';
+    };
+
+    const statusLabel = (status?: string | null) => {
+      if (status === 'ONLINE') {
+        return '已上线';
+      }
+      if (status === 'RUNNING') {
+        return '运行中';
+      }
+      return '未上线';
+    };
+
+    const clearTreeSelection = () => {
+      nextTick(() => {
+        if (typeof treeRef.value?.setCurrentKey === 'function') {
+          treeRef.value.setCurrentKey(undefined);
+        }
+      });
+    };
+
+    const selectAll = () => {
+      selectedDirectoryId.value = null;
+      newTaskDirectoryId.value = null;
+      clearTreeSelection();
+    };
+
+    const setTreeCurrentKey = (key?: string | null) => {
+      nextTick(() => {
+        if (typeof treeRef.value?.setCurrentKey === 'function') {
+          treeRef.value.setCurrentKey(key ?? undefined);
+        }
+        treeRef.value?.filter(treeSearch.value);
+      });
+    };
+
+    const toggleTree = () => {
+      treeCollapsed.value = !treeCollapsed.value;
+      if (!treeCollapsed.value) {
+        // 树重新挂载后恢复当前选中节点。
+        setTreeCurrentKey(selectedJobId.value || selectedDirectoryId.value);
+      }
+    };
+
+    const openTask = (jobId: string) => {
+      selectedJobId.value = jobId;
+      const job = sqlJobs.value.find(item => item.id === jobId);
+      if (job) {
+        selectedDirectoryId.value = job.directoryId || null;
+      }
+      newTaskDirectoryId.value = null;
+      editorVisible.value = true;
+      editorKey.value = `job-${jobId}-${++editorNonce}`;
+      setTreeCurrentKey(jobId);
+    };
+
+    const startNewTask = (directoryId?: string | null) => {
+      const target = directoryId ?? selectedDirectoryId.value;
+      newTaskDirectoryId.value = target || null;
+      selectedJobId.value = null;
+      editorVisible.value = true;
+      editorKey.value = `new-${++editorNonce}`;
+      setTreeCurrentKey(target || null);
+    };
+
+    const refreshEditor = () => {
+      if (!selectedJobId.value) {
+        return;
+      }
+      editorKey.value = `job-${selectedJobId.value}-${++editorNonce}`;
+    };
+
+    const handleNodeClick = (data: ISqlJobTreeNode) => {
+      if (data.type === 'directory') {
+        selectedDirectoryId.value = data.id;
+        newTaskDirectoryId.value = data.id;
+        return;
+      }
+      openTask(data.id);
+    };
+
+    const onSaved = async (job?: IJob) => {
+      const wasNew = !selectedJobId.value;
+      await loadSqlJobs();
+      if (!job?.id) {
+        return;
+      }
+      selectedJobId.value = job.id;
+      selectedDirectoryId.value = job.directoryId || null;
+      newTaskDirectoryId.value = null;
+      if (wasNew) {
+        editorKey.value = `job-${job.id}-${++editorNonce}`;
+      }
+      setTreeCurrentKey(job.id);
+    };
+
+    // ---------------- 加载数据 ----------------
+
+    const loadDirectories = async () => {
+      directoryLoading.value = true;
+      try {
+        const res = await etlTaskDirectoryService().retrieve(DIRECTORY_TASK_TYPE);
+        directories.value = res.data || [];
+        if (selectedDirectoryId.value && !directories.value.some(item => item.id === selectedDirectoryId.value)) {
+          selectedDirectoryId.value = null;
+        }
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      } finally {
+        directoryLoading.value = false;
+      }
+    };
+
+    const loadSqlJobs = async () => {
+      try {
+        sqlJobs.value = await sqlJobService().retrieveAllSqlJobs();
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const refreshAll = async () => {
       isFetching.value = true;
       try {
-        const paginationQuery = {
-          page: page.value - 1,
-          size: itemsPerPage.value,
-          sort: sort(),
-          search: search.value,
-        };
-        const res = await sqlJobService().retrieveSqlJobs(paginationQuery);
-        totalItems.value = Number(res.headers["x-total-count"]);
-        queryCount.value = totalItems.value;
-        sqlJobs.value = res.data;
-      } catch (err) {
-        alertService.showHttpError(err.response);
+        await Promise.all([loadDirectories(), loadSqlJobs()]);
+        setTreeCurrentKey(selectedJobId.value);
       } finally {
         isFetching.value = false;
       }
     };
 
-    let searchTimer: ReturnType<typeof setTimeout> | null = null;
-
-    watch(search, () => {
-      if (searchTimer) {
-        clearTimeout(searchTimer);
-      }
-      searchTimer = setTimeout(() => {
-        if (page.value === 1) {
-          retrieveSqlJobs();
-        } else {
-          clear();
-        }
-      }, 300);
-    });
-
-    onUnmounted(() => {
-      if (searchTimer) {
-        clearTimeout(searchTimer);
-      }
-    });
-
-    const handleSyncList = () => {
-      retrieveSqlJobs();
-    };
-
     onMounted(async () => {
-      await retrieveSqlJobs();
+      await refreshAll();
+      const jobId = route.query.jobId ? String(route.query.jobId) : null;
+      if (jobId) {
+        openTask(jobId);
+        return;
+      }
+      const directoryId = route.query.directoryId ? String(route.query.directoryId) : null;
+      if (directoryId) {
+        selectedDirectoryId.value = directoryId;
+        newTaskDirectoryId.value = directoryId;
+        setTreeCurrentKey(directoryId);
+      }
     });
 
-    const removeId: Ref<string> = ref(null);
-    const removeEntity = ref<any>(null);
-    const prepareRemove = (instance: IJob) => {
-      removeId.value = instance.id;
-      removeEntity.value.show();
+    // ---------------- 目录管理 ----------------
+
+    const siblingDirectories = (directory: IETLTaskDirectory): IETLTaskDirectory[] =>
+      directories.value
+        .filter(item => (item.parentId || '') === (directory.parentId || ''))
+        .slice()
+        .sort(compareDirectories);
+
+    const canMoveDirectory = (directory: IETLTaskDirectory, offset: number): boolean => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      return index >= 0 && targetIndex >= 0 && targetIndex < siblings.length;
     };
-    const closeDialog = () => {
-      removeEntity.value.hide();
-    };
-    const removeSqlJob = async () => {
+
+    const moveDirectory = async (directory: IETLTaskDirectory, offset: number) => {
+      const siblings = siblingDirectories(directory);
+      const index = siblings.findIndex(item => item.id === directory.id);
+      const targetIndex = index + offset;
+      if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
+        return;
+      }
+      const reordered = siblings.slice();
+      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
       try {
-        await sqlJobService().delete(removeId.value);
-        alertService.showInfo("SQL 任务已删除", { variant: "danger" });
-        removeId.value = null;
-        retrieveSqlJobs();
-        closeDialog();
-      } catch (error) {
+        await Promise.all(
+          reordered
+            .map((item, order) => ({ item, order }))
+            .filter(({ item, order }) => (item.sortOrder ?? -1) !== order)
+            .map(({ item, order }) => etlTaskDirectoryService().update({ ...item, sortOrder: order })),
+        );
+        await loadDirectories();
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
+
+    const directoryDialogVisible = ref(false);
+    const directoryDialogTitle = ref('新增目录');
+    const directoryForm: Ref<IETLTaskDirectory> = ref(new ETLTaskDirectory());
+    const editingDirectoryId: Ref<string | null> = ref(null);
+
+    const showAddDirectoryDialog = (parentId: string | null) => {
+      editingDirectoryId.value = null;
+      directoryDialogTitle.value = '新增目录';
+      directoryForm.value = new ETLTaskDirectory();
+      directoryForm.value.parentId = parentId;
+      directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
+      directoryForm.value.sortOrder = 0;
+      directoryDialogVisible.value = true;
+    };
+
+    const showEditDirectoryDialog = (directory: IETLTaskDirectory) => {
+      editingDirectoryId.value = directory.id || null;
+      directoryDialogTitle.value = '重命名目录';
+      directoryForm.value = { ...directory };
+      directoryDialogVisible.value = true;
+    };
+
+    const saveDirectory = async () => {
+      if (!directoryForm.value.name || !directoryForm.value.name.trim()) {
+        alertService.showError('请输入目录名称');
+        return;
+      }
+      directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
+      try {
+        if (editingDirectoryId.value) {
+          directoryForm.value.id = editingDirectoryId.value;
+          await etlTaskDirectoryService().update(directoryForm.value);
+        } else {
+          await etlTaskDirectoryService().create(directoryForm.value);
+        }
+        directoryDialogVisible.value = false;
+        alertService.showSuccess('目录保存成功');
+        await loadDirectories();
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const deleteDirectory = async (directory: IETLTaskDirectory) => {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除目录「${directory.name || ''}」吗？删除后该目录下的子目录与 SQL 任务将移动到根目录。`,
+          '删除目录',
+          {
+            confirmButtonText: '删除',
+            cancelButtonText: '取消',
+            type: 'warning',
+          },
+        );
+      } catch {
+        return;
+      }
+      try {
+        await etlTaskDirectoryService().delete(directory.id!);
+        if (selectedDirectoryId.value === directory.id) {
+          selectAll();
+        }
+        alertService.showSuccess('目录删除成功');
+        await Promise.all([loadDirectories(), loadSqlJobs()]);
+        setTreeCurrentKey(selectedJobId.value);
+        refreshEditor();
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    // ---------------- 任务操作 ----------------
 
     const handleExecuteOnce = async (job: IJob) => {
       try {
         await sqlJobService().run(job.id);
         alertService.showInfo(`SQL 任务 ${job.jobName} 已触发执行一次`);
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -132,7 +443,7 @@ export default defineComponent({
 
     const handleOnline = (job: IJob) => {
       onlineTask.value = job;
-      onlineModal.value?.show(job.cron || "", job.retryCount ?? 0, job.timeoutSeconds ?? 0, job.priority ?? 2);
+      onlineModal.value?.show(job.cron || '', job.retryCount ?? 0, job.timeoutSeconds ?? 0, job.priority ?? 2);
     };
 
     const confirmOnline = async (payload: { cron: string; retryCount: number; timeoutSeconds: number; priority: number }) => {
@@ -141,17 +452,12 @@ export default defineComponent({
       }
       isOnlineSubmitting.value = true;
       try {
-        await sqlJobService().online(
-          onlineTask.value.id,
-          payload.cron,
-          payload.retryCount,
-          payload.timeoutSeconds,
-          payload.priority,
-        );
+        await sqlJobService().online(onlineTask.value.id, payload.cron, payload.retryCount, payload.timeoutSeconds, payload.priority);
         alertService.showInfo(`SQL 任务 ${onlineTask.value.jobName} 已上线调度`);
         onlineModal.value?.hide();
-        await retrieveSqlJobs();
-      } catch (error) {
+        await loadSqlJobs();
+        setTreeCurrentKey(selectedJobId.value);
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       } finally {
         isOnlineSubmitting.value = false;
@@ -163,77 +469,155 @@ export default defineComponent({
         return;
       }
       try {
-        await ElMessageBox.confirm(
-          `确定要将 SQL 任务「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`,
-          "下线确认",
-          {
-            confirmButtonText: "确认下线",
-            cancelButtonText: "取消",
-            type: "warning",
-          },
-        );
+        await ElMessageBox.confirm(`确定要将 SQL 任务「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`, '下线确认', {
+          confirmButtonText: '确认下线',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
       } catch {
-        // 用户取消下线
         return;
       }
       try {
         await sqlJobService().offline(job.id);
         alertService.showInfo(`SQL 任务 ${job.jobName} 已下线`);
-        await retrieveSqlJobs();
-      } catch (error) {
+        await loadSqlJobs();
+        setTreeCurrentKey(selectedJobId.value);
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
 
-    const handleSortChange = (column: {
-      prop: string;
-      order: "ascending" | "descending" | null;
-    }) => {
-      if (column.prop && column.order) {
-        reverse.value = column.order !== "ascending";
-        propOrder.value = column.prop;
+    const deleteDialogVisible = ref(false);
+    const removeJob: Ref<IJob | null> = ref(null);
+
+    const prepareRemove = (job: IJob) => {
+      removeJob.value = job;
+      deleteDialogVisible.value = true;
+    };
+
+    const closeDeleteDialog = () => {
+      deleteDialogVisible.value = false;
+      removeJob.value = null;
+    };
+
+    const removeSqlJob = async () => {
+      if (!removeJob.value?.id) {
+        return;
+      }
+      const removedId = removeJob.value.id;
+      try {
+        await sqlJobService().delete(removedId);
+        alertService.showInfo('SQL 任务已删除', { variant: 'danger' });
+        if (selectedJobId.value === removedId) {
+          selectedJobId.value = null;
+          editorVisible.value = false;
+        }
+        closeDeleteDialog();
+        await loadSqlJobs();
+        setTreeCurrentKey(selectedJobId.value);
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
       }
     };
 
-    watch([propOrder, reverse, itemsPerPage], async () => {
-      if (page.value === 1) {
-        await retrieveSqlJobs();
-      } else {
-        clear();
-      }
-    });
+    const moveDialogVisible = ref(false);
+    const moveJob: Ref<IJob | null> = ref(null);
+    const moveTargetDirectoryId: Ref<string | null> = ref(null);
 
-    watch(page, async () => {
-      await retrieveSqlJobs();
-    });
+    const openMoveDialog = (job: IJob) => {
+      moveJob.value = job;
+      moveTargetDirectoryId.value = job.directoryId || null;
+      moveDialogVisible.value = true;
+    };
+
+    const closeMoveDialog = () => {
+      moveDialogVisible.value = false;
+      moveJob.value = null;
+      moveTargetDirectoryId.value = null;
+    };
+
+    const confirmMove = async () => {
+      if (!moveJob.value?.id) {
+        return;
+      }
+      try {
+        const moved = await sqlJobService().moveToDirectory(moveJob.value.id, moveTargetDirectoryId.value || null);
+        alertService.showSuccess('SQL 任务已移动');
+        const movedId = moveJob.value.id;
+        closeMoveDialog();
+        await loadSqlJobs();
+        if (selectedJobId.value === movedId) {
+          selectedDirectoryId.value = moved?.directoryId || null;
+          refreshEditor();
+        }
+        setTreeCurrentKey(selectedJobId.value);
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
+    const handleTaskCommand = (command: string, job: IJob) => {
+      if (command === 'run') {
+        handleExecuteOnce(job);
+      } else if (command === 'online') {
+        handleOnline(job);
+      } else if (command === 'offline') {
+        handleOffline(job);
+      } else if (command === 'move') {
+        openMoveDialog(job);
+      } else if (command === 'delete') {
+        prepareRemove(job);
+      }
+    };
 
     return {
-      sqlJobs,
-      search,
-      handleSyncList,
+      directories,
+      directoryLoading,
+      directoryTreeOptions,
+      treeProps,
+      treeRef,
+      treeSearch,
+      treeCollapsed,
+      toggleTree,
+      filterNode,
+      treeData,
+      selectedDirectoryId,
       isFetching,
-      retrieveSqlJobs,
-      clear,
-      ...dateFormat,
-      removeId,
-      removeEntity,
-      prepareRemove,
-      closeDialog,
-      removeSqlJob,
-      handleExecuteOnce,
-      handleOnline,
+      selectedJobId,
+      editorVisible,
+      editorKey,
+      newTaskDirectoryId,
+      sqlJobs,
+      statusClass,
+      statusLabel,
+      selectAll,
+      handleNodeClick,
+      openTask,
+      startNewTask,
+      onSaved,
+      canMoveDirectory,
+      moveDirectory,
+      directoryDialogVisible,
+      directoryDialogTitle,
+      directoryForm,
+      showAddDirectoryDialog,
+      showEditDirectoryDialog,
+      saveDirectory,
+      deleteDirectory,
+      handleTaskCommand,
       onlineModal,
       onlineTask,
       isOnlineSubmitting,
       confirmOnline,
-      handleOffline,
-      itemsPerPage,
-      queryCount,
-      page,
-      propOrder,
-      reverse,
-      totalItems,
-      handleSortChange,
+      deleteDialogVisible,
+      removeJob,
+      closeDeleteDialog,
+      removeSqlJob,
+      moveDialogVisible,
+      moveJob,
+      moveTargetDirectoryId,
+      closeMoveDialog,
+      confirmMove,
     };
   },
 });

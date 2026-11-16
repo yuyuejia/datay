@@ -66,7 +66,7 @@ public class JobService {
     public JobDTO save(JobDTO jobDTO) {
         LOG.debug("Request to save Job : {}", jobDTO);
         normalizeScheduling(jobDTO);
-        validateDagDirectory(jobDTO);
+        validateJobDirectory(jobDTO);
         validateDagNesting(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
@@ -130,7 +130,7 @@ public class JobService {
         LOG.debug("Request to update Job : {}", jobDTO);
         preserveSchedulingFromExisting(jobDTO);
         normalizeScheduling(jobDTO);
-        validateDagDirectory(jobDTO);
+        validateJobDirectory(jobDTO);
         validateDagNesting(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
@@ -230,19 +230,27 @@ public class JobService {
         return jobRepository.findAll(specification, pageable).map(jobMapper::toDto);
     }
 
-    private void validateDagDirectory(JobDTO jobDTO) {
+    /**
+     * 校验任务要归属的目录存在且与任务类型一致。目前仅任务编排（DAG）和 SQL 任务支持目录。
+     */
+    private void validateJobDirectory(JobDTO jobDTO) {
         if (!StringUtils.hasText(jobDTO.getDirectoryId())) {
             return;
         }
-        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobDTO.getType())) {
-            throw new IllegalArgumentException("只有任务编排支持目录: " + jobDTO.getId());
+        String jobType = jobDTO.getType();
+        if (!supportsDirectory(jobType)) {
+            throw new IllegalArgumentException("只有任务编排和 SQL 任务支持目录: " + jobDTO.getId());
         }
         ETLTaskDirectory directory = directoryRepository
             .findById(jobDTO.getDirectoryId())
             .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + jobDTO.getDirectoryId()));
-        if (!TaskConstants.TASK_TYPE_DAG.equals(directory.getTaskType())) {
+        if (!jobType.equalsIgnoreCase(directory.getTaskType())) {
             throw new IllegalArgumentException("目录与任务类型不匹配: " + jobDTO.getDirectoryId());
         }
+    }
+
+    private boolean supportsDirectory(String jobType) {
+        return TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobType) || TaskConstants.TASK_TYPE_SQL.equalsIgnoreCase(jobType);
     }
 
     /**
@@ -325,18 +333,18 @@ public class JobService {
     }
 
     /**
-     * 移动任务编排到指定目录；{@code directoryId} 为空表示移动到根目录。
+     * 移动任务到指定目录；{@code directoryId} 为空表示移动到根目录。
      */
     public JobDTO moveToDirectory(String id, String directoryId) {
-        Job job = jobRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("任务编排不存在: " + id));
-        if (!TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(job.getType())) {
-            throw new IllegalArgumentException("只有任务编排支持目录移动: " + id);
+        Job job = jobRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("任务不存在: " + id));
+        if (!supportsDirectory(job.getType())) {
+            throw new IllegalArgumentException("只有任务编排和 SQL 任务支持目录移动: " + id);
         }
         if (StringUtils.hasText(directoryId)) {
             ETLTaskDirectory directory = directoryRepository
                 .findById(directoryId)
                 .orElseThrow(() -> new IllegalArgumentException("目录不存在: " + directoryId));
-            if (!TaskConstants.TASK_TYPE_DAG.equals(directory.getTaskType())) {
+            if (!job.getType().equalsIgnoreCase(directory.getTaskType())) {
                 throw new IllegalArgumentException("目录与任务类型不匹配: " + directoryId);
             }
         }

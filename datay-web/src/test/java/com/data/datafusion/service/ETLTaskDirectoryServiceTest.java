@@ -88,6 +88,19 @@ class ETLTaskDirectoryServiceTest {
     }
 
     @Test
+    void shouldAcceptSqlDirectoryType() {
+        when(directoryRepository.save(any(ETLTaskDirectory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ETLTaskDirectoryDTO dto = new ETLTaskDirectoryDTO();
+        dto.setName("SQL 任务目录");
+        dto.setTaskType(TaskConstants.TASK_TYPE_SQL);
+
+        ETLTaskDirectoryDTO saved = service.save(dto);
+
+        assertThat(saved.getTaskType()).isEqualTo(TaskConstants.TASK_TYPE_SQL);
+    }
+
+    @Test
     void shouldCollectSubtreeDirectoryIds() {
         ETLTaskDirectory child = new ETLTaskDirectory().id("child");
         ETLTaskDirectory grandChild = new ETLTaskDirectory().id("grand-child");
