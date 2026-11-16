@@ -135,6 +135,11 @@ public class DorisConverter implements TypeConverter {
         String upperType = columnMeta.getType().toUpperCase();
         String type = commonDataType2ColumnType.get(upperType);
         if (type == null) {
+            // MySQL 的无符号整数 TYPE_NAME 形如 "BIGINT UNSIGNED"，按可容纳的取值范围向上宽化，
+            // 不能直接落到 VARCHAR，否则数值列会变成字符串列。
+            type = unsignedIntegerTargetType(upperType);
+        }
+        if (type == null) {
             if (upperType.startsWith("INTERVAL")) {
                 type = DorisType.VARCHAR.name();
                 columnMeta.setLength(100);
@@ -161,6 +166,35 @@ public class DorisConverter implements TypeConverter {
         return column;
     }
 
+    /**
+     * 把 MySQL 无符号整数类型映射为能容纳其取值范围的 Doris 有符号类型。
+     *
+     * <p>例如 {@code BIGINT UNSIGNED} 最大值为 2^64-1，超出 Doris BIGINT，需要使用 LARGEINT。</p>
+     *
+     * @return 对应的 Doris 类型；不是无符号整数时返回 {@code null}
+     */
+    private String unsignedIntegerTargetType(String upperType) {
+        String baseType = DatabaseConverter.stripTypeParameters(upperType);
+        if (!baseType.endsWith(" UNSIGNED")) {
+            return null;
+        }
+        String integerType = baseType.substring(0, baseType.length() - " UNSIGNED".length()).trim();
+        switch (integerType) {
+            case "TINYINT":
+                return DorisType.SMALLINT.name();
+            case "SMALLINT":
+            case "MEDIUMINT":
+                return DorisType.INT.name();
+            case "INT":
+            case "INTEGER":
+                return DorisType.BIGINT.name();
+            case "BIGINT":
+                return DorisType.LARGEINT.name();
+            default:
+                return null;
+        }
+    }
+
     public String generateTableDDL(TableMeta table) {
         StringBuilder ddl = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
         if (table.getSchema() != null) {
@@ -168,9 +202,25 @@ public class DorisConverter implements TypeConverter {
         }
         ddl.append(table.getTable().toLowerCase()).append(" (\n");
 
+        // Doris 要求 KEY 列必须是列定义的有序前缀：从第一列开始、顺序一致且连续。
+        // 源表的主键列可能散落在普通列之间，直接按原顺序建表并单独声明 UNIQUE KEY 会报：
+        // Key columns should be a ordered prefix of the schema. KeyColumns[i] ...
+        // 因此把主键列按原有相对顺序前置，普通列依次后移。
+        List<ColumnMeta> orderedColumns = new ArrayList<>(table.columns().size());
+        for (ColumnMeta col : table.columns()) {
+            if (col.isPrimaryKey()) {
+                orderedColumns.add(col);
+            }
+        }
+        for (ColumnMeta col : table.columns()) {
+            if (!col.isPrimaryKey()) {
+                orderedColumns.add(col);
+            }
+        }
+
         List<String> primaryKeys = new ArrayList<>();
 
-        for (ColumnMeta col : table.columns()) {
+        for (ColumnMeta col : orderedColumns) {
             String columnDDL = generateColumnDDL(col);
             ddl.append("  ").append(columnDDL);
 
@@ -181,9 +231,9 @@ public class DorisConverter implements TypeConverter {
 
             ddl.append(",\n");
 
-            // 收集主键
+            // 收集主键（列名统一小写，与列定义保持一致）
             if (col.isPrimaryKey()) {
-                primaryKeys.add("`" + col.getName() + "`");
+                primaryKeys.add("`" + col.getName().toLowerCase() + "`");
             }
         }
         ddl.deleteCharAt(ddl.lastIndexOf(",")); // 没有主键时移除最后一个逗号
@@ -332,15 +382,20 @@ public class DorisConverter implements TypeConverter {
             int length = column.getLength() > 0 ? column.getLength() : getDefaultLength(typeUpper);
             sb.append(column.getType()).append("(").append(length).append(")");
         } else if (typeUpper.equals("DECIMAL")) {
-            // 处理精度和小数位
-            if (column.getPrecision() <= 0) {
+            // 处理精度和小数位。Doris DECIMAL 最大精度为 38，而 MySQL 最大可到 65，
+            // 超限时按 38 截断并将小数位收敛到不超过精度，避免建表报错。
+            int precision = column.getPrecision();
+            int scale = Math.max(column.getScale(), 0);
+            if (precision <= 0) {
                 sb.append(column.getType());
             } else {
-                sb.append(column.getType()).append("(").append(column.getPrecision());
-                if (column.getScale() <= 0) {
+                int dorisPrecision = Math.min(precision, 38);
+                int dorisScale = Math.min(scale, dorisPrecision);
+                sb.append(column.getType()).append("(").append(dorisPrecision);
+                if (dorisScale <= 0) {
                     sb.append(")");
                 } else {
-                    sb.append(",").append(column.getScale()).append(")");
+                    sb.append(",").append(dorisScale).append(")");
                 }
             }
         } else {
