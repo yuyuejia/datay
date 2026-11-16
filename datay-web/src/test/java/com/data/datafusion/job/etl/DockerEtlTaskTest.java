@@ -3,6 +3,7 @@ package com.data.datafusion.job.etl;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.data.datafusion.config.EtlExecutionProperties;
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +45,8 @@ class DockerEtlTaskTest {
         String content = "#!/bin/sh\n" + "echo \"$@\" >> \"" + marker + "\"\n"
             + "echo \"DATAY_JOB_CODE=$DATAY_JOB_CODE\" >> \"" + marker + "\"\n"
             + "echo \"DATAY_STATUS_TYPE=$DATAY_STATUS_TYPE\" >> \"" + marker + "\"\n"
+            + "echo \"DATAY_STATUS_MINIO_ENDPOINT=$DATAY_STATUS_MINIO_ENDPOINT\" >> \"" + marker + "\"\n"
+            + "echo \"DATAY_STATUS_MINIO_BUCKET_NAME=$DATAY_STATUS_MINIO_BUCKET_NAME\" >> \"" + marker + "\"\n"
             + "if [ \"$1\" = \"run\" ] && [ -n \"$FAKE_DOCKER_SLEEP\" ]; then\n"
             + "  sleep \"$FAKE_DOCKER_SLEEP\"\n"
             + "fi\n"
@@ -99,6 +102,32 @@ class DockerEtlTaskTest {
             .contains("DATAY_STATUS_TYPE=local");
         // 任务 JSON 执行后被清理
         assertThat(tempDir.resolve("log/job1/inst-ok.job.json")).doesNotExist();
+    }
+
+    @Test
+    @Timeout(30000)
+    void usesStatusStorageConfigFromJobEvent() throws Exception {
+        Path marker = tempDir.resolve("marker.txt");
+        Path fakeDocker = writeFakeDocker(marker);
+        EtlExecutionProperties props = properties(fakeDocker);
+
+        JobInstance jobInstance = jobInstance("inst-minio");
+        StatusStorageConfig config = new StatusStorageConfig();
+        config.setType("minio");
+        config.setMinioEndpoint("http://minio:9000");
+        config.setMinioAccessKey("access");
+        config.setMinioSecretKey("secret");
+        config.setMinioBucketName("status-bucket");
+        jobInstance.setStatusStorageConfig(config);
+
+        DockerEtlTask task = new TestDockerEtlTask(jobInstance, props);
+        String result = task.execute();
+
+        assertThat(result).isEqualTo(TaskConstants.TASK_STATUS_SUCCESSFUL);
+        assertThat(Files.readString(marker))
+            .contains("DATAY_STATUS_TYPE=minio")
+            .contains("DATAY_STATUS_MINIO_ENDPOINT=http://minio:9000")
+            .contains("DATAY_STATUS_MINIO_BUCKET_NAME=status-bucket");
     }
 
     @Test

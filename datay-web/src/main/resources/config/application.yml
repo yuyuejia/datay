@@ -264,6 +264,11 @@ datay:
     default-rows: ${DATAY_QUERY_DEFAULT_ROWS:1000}
     # 任何入口可请求的最大返回行数，超出时自动收敛
     max-rows: ${DATAY_QUERY_MAX_ROWS:10000}
+  # 状态存储配置缓存：避免每次任务执行都查询 dp_service_config。
+  # 配置在本地修改后会立即失效；多节点部署时其他节点最迟在 TTL 后感知。
+  status-storage:
+    # 缓存有效期（秒），默认 1 天，0 表示禁用缓存
+    config-cache-ttl-seconds: ${DATAY_STATUS_STORAGE_CONFIG_CACHE_TTL_SECONDS:86400}
   # 决策模型（Ollama Jev-style，/v1/systemone）：本地低延迟决策，供「决策模型」组件使用
   # 也可通过环境变量覆盖：DATAY_DECISION_BASE_URL / DATAY_DECISION_API_KEY / DATAY_DECISION_MODEL
   decision:

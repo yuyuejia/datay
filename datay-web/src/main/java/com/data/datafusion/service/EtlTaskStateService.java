@@ -1,5 +1,6 @@
 package com.data.datafusion.service;
 
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.domain.ETLTask;
 import com.data.datafusion.job.TaskConstants;
@@ -67,11 +68,11 @@ public class EtlTaskStateService {
         return names;
     }
 
-    public StatusStorageConfigService.StatusStorageConfig getConfig() {
+    public StatusStorageConfig getConfig() {
         return statusStorageConfigService.getConfig();
     }
 
-    public StatusStorageStrategy updateConfig(StatusStorageConfigService.StatusStorageConfig config) {
+    public StatusStorageStrategy updateConfig(StatusStorageConfig config) {
         return statusStorageConfigService.updateAndReload(config);
     }
 

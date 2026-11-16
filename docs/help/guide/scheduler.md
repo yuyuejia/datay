@@ -268,6 +268,13 @@ docker 模式按以下优先级自动选择 ETL 运行时，**开发模式下通
 - `minio`：worker 把状态存储配置（endpoint / access-key / secret-key / bucket）透传给容器，
   容器直接读写 MinIO，多节点共享状态
 
+master 投递任务时会把当前租户的 `status-storage` 配置随任务事件下发，worker 执行时直接使用该配置，
+不再读取 worker 本地的 `dp_service_config`。因此 worker 可使用独立数据库；配置修改只影响之后新投递的实例。
+如果事件下发了 `minio` 但 MinIO 初始化失败，任务会失败而不是回退到 `local`，避免状态写入节点本地后跨节点不可见。
+
+状态存储配置在进程内缓存，默认 1 天；本节点修改配置会立即失效。多 master 部署时，其他节点最迟在缓存 TTL 后感知。
+可通过 `datay.status-storage.config-cache-ttl-seconds`（或环境变量 `DATAY_STATUS_STORAGE_CONFIG_CACHE_TTL_SECONDS`）调整，设为 `0` 可关闭缓存。
+
 ## 任务实例监控
 
 导航：**任务实例**。

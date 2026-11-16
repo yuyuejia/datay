@@ -1,13 +1,25 @@
 package com.data.datafusion.job.etl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.data.datafusion.config.SpringUtil;
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.service.StatusStorageConfigService;
+import com.data.job.ETLFlowTask;
+import com.data.status.StatusStorageStrategy;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 /**
  * {@link ETLTask}（local 进程内执行模式）的单元测试。
@@ -54,5 +66,30 @@ class ETLTaskTest {
         jobInstance.setJobContext("{ not-a-valid-job }");
         ETLTask task = new ETLTask(jobInstance);
         assertThat(task.execute()).isEqualTo(TaskConstants.TASK_STATUS_FAILED);
+    }
+
+    @Test
+    void eventStatusStorageConfigTakesPrecedenceOverDatabase() throws Exception {
+        StatusStorageConfig config = new StatusStorageConfig();
+        config.setType("local");
+        config.setLocalBasePath("/tmp/status");
+        JobInstance jobInstance = jobInstance("inst-event-config");
+        jobInstance.setStatusStorageConfig(config);
+        ETLTask task = new ETLTask(jobInstance);
+
+        ETLFlowTask flowTask = mock(ETLFlowTask.class);
+        StatusStorageStrategy strategy = mock(StatusStorageStrategy.class);
+        StatusStorageConfigService configService = mock(StatusStorageConfigService.class);
+        when(configService.getStrategy(config)).thenReturn(strategy);
+
+        try (MockedStatic<SpringUtil> springUtil = Mockito.mockStatic(SpringUtil.class)) {
+            springUtil.when(() -> SpringUtil.getBean(StatusStorageConfigService.class)).thenReturn(configService);
+            Method method = ETLTask.class.getDeclaredMethod("applyStatusStorageStrategy", ETLFlowTask.class);
+            method.setAccessible(true);
+            method.invoke(task, flowTask);
+        }
+
+        verify(flowTask).setStatusStorageStrategy(strategy);
+        verify(configService, never()).getActiveStrategy();
     }
 }

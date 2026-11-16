@@ -1,6 +1,7 @@
 package com.data.datafusion.service;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobDepend;
 import com.data.datafusion.domain.JobInstance;
@@ -10,6 +11,7 @@ import com.data.datafusion.job.dag.FlowInstance;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.JobInstanceRepository;
 import com.data.datafusion.repository.JobRepository;
+import com.data.datafusion.security.TenantContext;
 import com.data.datafusion.service.dto.JobInstanceDTO;
 import com.data.datafusion.service.jobevent.EventServiceFactory;
 import com.data.datafusion.service.jobevent.JobStatusEvent;
@@ -50,6 +52,9 @@ public class JobInstanceService {
 
     @Autowired
     JobDependService jobDependService;
+
+    @Autowired(required = false)
+    StatusStorageConfigService statusStorageConfigService;
 
     private final JobRepository jobRepository;
 
@@ -267,6 +272,10 @@ public class JobInstanceService {
         //设置当前任务实例状态为appending，并保存
         jobInstance.setStatus(TaskConstants.TASK_STATUS_APPENDING);
         save(jobInstance);
+        if (jobInstance.getStatusStorageConfig() == null) {
+            // 随任务事件下发给 worker，避免 worker 执行时再读取 dp_service_config。
+            jobInstance.setStatusStorageConfig(resolveStatusStorageConfig(jobInstance));
+        }
         //如果任务类型是DAG，获取DAG里面的任务节点，并生成子任务的实例并保存.
         //TODO 切换到任务编排里面取生成具体任务定义
         if (jobInstance.getType().equals(TaskConstants.TASK_TYPE_DAG)) {
@@ -289,6 +298,31 @@ public class JobInstanceService {
             );
         } else {
             EventServiceFactory.getEventService().pushStartJobEvent(startJobEvent);
+        }
+    }
+
+    /**
+     * 解析任务所属租户的状态存储配置。解析失败时返回 null，由 worker 回退到数据库读取，
+     * 不影响任务投递本身。
+     */
+    private StatusStorageConfig resolveStatusStorageConfig(JobInstance jobInstance) {
+        if (statusStorageConfigService == null) {
+            return null;
+        }
+        try {
+            String tenantId = jobInstance.getTenantId();
+            Long currentTenantId = TenantContext.getTenantId();
+            if (tenantId != null && currentTenantId != null && tenantId.trim().equals(String.valueOf(currentTenantId))) {
+                return statusStorageConfigService.getConfig();
+            }
+            return statusStorageConfigService.getConfigForTenant(tenantId);
+        } catch (Exception e) {
+            LOG.warn(
+                "解析状态存储配置失败，worker 将回退数据库读取: instanceCode={}",
+                jobInstance.getInstanceCode(),
+                e
+            );
+            return null;
         }
     }
 

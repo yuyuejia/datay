@@ -3,6 +3,7 @@ package com.data.datafusion.job.etl;
 import cn.hutool.core.util.StrUtil;
 import com.data.datafusion.config.EtlExecutionProperties;
 import com.data.datafusion.config.SpringUtil;
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.AbstractTask;
 import com.data.datafusion.service.StatusStorageConfigService;
@@ -328,13 +329,13 @@ public class DockerEtlTask extends AbstractTask {
         putIfPresent(env, "DATAY_TENANT_ID", instance.getTenantId());
 
         // 状态存储：local 写入挂载的 log 目录，minio 透传连接配置
-        StatusStorageConfigService.StatusStorageConfig status = loadStatusConfig();
-        if (status != null && "minio".equalsIgnoreCase(status.type)) {
+        StatusStorageConfig status = loadStatusConfig();
+        if (status != null && "minio".equalsIgnoreCase(status.getType())) {
             env.put("DATAY_STATUS_TYPE", "minio");
-            putIfPresent(env, "DATAY_STATUS_MINIO_ENDPOINT", status.minioEndpoint);
-            putIfPresent(env, "DATAY_STATUS_MINIO_ACCESS_KEY", status.minioAccessKey);
-            putIfPresent(env, "DATAY_STATUS_MINIO_SECRET_KEY", status.minioSecretKey);
-            putIfPresent(env, "DATAY_STATUS_MINIO_BUCKET_NAME", status.minioBucketName);
+            putIfPresent(env, "DATAY_STATUS_MINIO_ENDPOINT", status.getMinioEndpoint());
+            putIfPresent(env, "DATAY_STATUS_MINIO_ACCESS_KEY", status.getMinioAccessKey());
+            putIfPresent(env, "DATAY_STATUS_MINIO_SECRET_KEY", status.getMinioSecretKey());
+            putIfPresent(env, "DATAY_STATUS_MINIO_BUCKET_NAME", status.getMinioBucketName());
         } else {
             env.put("DATAY_STATUS_TYPE", "local");
             env.put("DATAY_STATUS_LOCAL_BASE_PATH", workDir + "/log");
@@ -347,7 +348,14 @@ public class DockerEtlTask extends AbstractTask {
         return env;
     }
 
-    private StatusStorageConfigService.StatusStorageConfig loadStatusConfig() {
+    private StatusStorageConfig loadStatusConfig() {
+        StatusStorageConfig fromEvent = getJobInstance() == null ? null : getJobInstance().getStatusStorageConfig();
+        if (fromEvent != null) {
+            LOG.debug("使用任务事件下发的状态存储配置: type={}", fromEvent.getType());
+            return fromEvent;
+        }
+
+        // 兼容旧 master / 旧事件：回退共享数据库读取。
         try {
             StatusStorageConfigService service = SpringUtil.getBean(StatusStorageConfigService.class);
             return service == null ? null : service.getConfig();

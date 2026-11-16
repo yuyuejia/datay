@@ -209,9 +209,11 @@ ETL 中的有状态组件会把运行状态持久化，任务下次启动时读�
 | `minio.bucket-name` | MinIO 桶名 | `datay-status` |
 
 - **单机部署（standalone）**：使用 `local`，状态写入本地 `./log/status_<jobCode>.json`。
-- **master/worker 分离部署**：必须使用 `minio`。worker 执行时把状态写入 MinIO，master 通过共享的 `dp_service_config` 解析到同一 MinIO，因此可在 master 端查询 / 修改 / 删除 worker 的状态；配置修改后 worker 在下次任务启动时自动生效。
+- **master/worker 分离部署**：建议使用 `minio`。master 在投递任务时解析当前租户的 `status-storage` 配置，并随任务事件下发到 worker；worker 执行时直接使用该配置，不再依赖 worker 本地的 `dp_service_config`。因此 worker 可以使用独立数据库，只需保证 master 能读到配置，并且 master/worker 访问同一个 MinIO。
+- **配置生效时机**：配置修改后只影响之后新投递的任务实例；排队中或运行中的实例继续使用投递时的配置。
+- **配置读取缓存**：状态存储配置在进程内缓存，默认 1 天；本节点修改配置会立即失效。多 master 部署时，其他节点最迟在缓存 TTL 后感知。可通过 `datay.status-storage.config-cache-ttl-seconds`（或环境变量 `DATAY_STATUS_STORAGE_CONFIG_CACHE_TTL_SECONDS`）调整，设为 `0` 可关闭缓存。
 
-> 注意：分离部署时若仍使用 `local`，状态只落在各 worker 本地磁盘，master 无法读取，也无法跨节点恢复增量。
+> 注意：分离部署时若仍使用 `local`，状态只落在各 worker 本地磁盘，master 无法读取，也无法跨节点恢复增量。事件下发了 `minio` 配置但 MinIO 初始化失败时，任务会直接失败，不会静默回退到 `local`。
 
 ## AI SQL 助手
 

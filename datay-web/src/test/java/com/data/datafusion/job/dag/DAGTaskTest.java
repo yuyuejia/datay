@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.alibaba.fastjson2.JSON;
 import com.data.datafusion.config.SpringUtil;
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.ITask;
 import com.data.datafusion.job.TaskConstants;
@@ -238,6 +239,51 @@ class DAGTaskTest {
             assertThat(captor.getAllValues())
                 .extracting(event -> event.getJobInstance().getJobCode())
                 .containsExactly("3", "4");
+        }
+    }
+
+    @Test
+    void childInstancesInheritStatusStorageConfig() throws Exception {
+        JobInstance child = new JobInstance();
+        child.setInstanceCode("config-child-instance");
+        child.setJobCode("config-child-job");
+        child.setType(TaskConstants.TASK_TYPE_SHELL);
+        child.setStatus(TaskConstants.TASK_STATUS_WAITING);
+
+        FlowInstance flow = new FlowInstance();
+        flow.setJobInstances(new LinkedHashSet<>(Collections.singletonList(child)));
+        flow.setJobDepends(Collections.emptyList());
+
+        StatusStorageConfig config = new StatusStorageConfig();
+        config.setType("minio");
+        config.setMinioEndpoint("http://minio:9000");
+
+        JobInstance parent = new JobInstance();
+        parent.setInstanceCode("config-dag-parent");
+        parent.setJobCode("config-dag-job");
+        parent.setType(TaskConstants.TASK_TYPE_DAG);
+        parent.setRetryCount(0);
+        parent.setTimeoutSeconds(0);
+        parent.setJobContext(JSON.toJSONString(flow));
+        parent.setStatusStorageConfig(config);
+
+        AtomicReference<JobInstance> executedChild = new AtomicReference<>();
+        try (
+            MockedStatic<EventServiceFactory> eventFactory = Mockito.mockStatic(EventServiceFactory.class);
+            MockedStatic<TaskFactory> taskFactory = Mockito.mockStatic(TaskFactory.class)
+        ) {
+            eventFactory.when(EventServiceFactory::getEventService).thenReturn(mock(IEventService.class));
+            taskFactory
+                .when(() -> TaskFactory.getTaskProcessor(any(JobInstance.class)))
+                .thenAnswer(invocation -> {
+                    executedChild.set(invocation.getArgument(0));
+                    return fixedTask(TaskConstants.TASK_STATUS_SUCCESSFUL);
+                });
+
+            String status = new DAGTask(parent).execute();
+
+            assertThat(status).isEqualTo(TaskConstants.TASK_STATUS_SUCCESSFUL);
+            assertThat(executedChild.get().getStatusStorageConfig()).isSameAs(config);
         }
     }
 

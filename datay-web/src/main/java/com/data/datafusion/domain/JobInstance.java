@@ -1,5 +1,6 @@
 package com.data.datafusion.domain;
 
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.util.entity.UuidV7Id;
 
 import jakarta.persistence.*;
@@ -75,6 +76,13 @@ public class JobInstance implements Serializable, TenantAware {
     // jhipster-needle-entity-add-field - JHipster will add fields here
     @Transient
     private Boolean isSubJob;
+
+    /**
+     * master 投递任务时随事件下发的状态存储配置。
+     * 仅用于运行时传递，不落库；worker 优先使用该配置，旧事件为空时回退数据库。
+     */
+    @Transient
+    private StatusStorageConfig statusStorageConfig;
 
     @Column(name = "parent_instance_code")
     private String parentInstanceCode;
@@ -349,6 +357,14 @@ public class JobInstance implements Serializable, TenantAware {
 
     public void setSubJob(Boolean subJob) {
         isSubJob = subJob;
+    }
+
+    public StatusStorageConfig getStatusStorageConfig() {
+        return statusStorageConfig;
+    }
+
+    public void setStatusStorageConfig(StatusStorageConfig statusStorageConfig) {
+        this.statusStorageConfig = statusStorageConfig;
     }
 
     public String getParentInstanceCode() {

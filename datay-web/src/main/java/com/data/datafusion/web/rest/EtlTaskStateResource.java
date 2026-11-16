@@ -1,8 +1,8 @@
 package com.data.datafusion.web.rest;
 
+import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.ETLTask;
 import com.data.datafusion.service.EtlTaskStateService;
-import com.data.datafusion.service.StatusStorageConfigService;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import com.data.status.StatusStorageStrategy;
 import java.util.HashMap;
@@ -38,7 +38,7 @@ public class EtlTaskStateResource {
      */
     @GetMapping("/config")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
-    public ResponseEntity<StatusStorageConfigService.StatusStorageConfig> getConfig() {
+    public ResponseEntity<StatusStorageConfig> getConfig() {
         return ResponseEntity.ok(etlTaskStateService.getConfig());
     }
 
@@ -48,9 +48,9 @@ public class EtlTaskStateResource {
     @PostMapping("/config")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateConfig(
-        @RequestBody StatusStorageConfigService.StatusStorageConfig config
+        @RequestBody StatusStorageConfig config
     ) {
-        LOG.info("REST request to update status storage config: type={}", config.type);
+        LOG.info("REST request to update status storage config: type={}", config.getType());
         try {
             StatusStorageStrategy strategy = etlTaskStateService.updateConfig(config);
             Map<String, Object> result = new HashMap<>();

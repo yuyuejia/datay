@@ -47,6 +47,11 @@ public class DAGTask extends AbstractTask {
                     throw new InterruptedException("DAG task was cancelled");
                 }
                 JobInstance jobInstance = jobInstances.get(index);
+                // master 投递 DAG 时只在父实例上携带状态存储配置，子任务执行前继承，
+                // 避免把 MinIO 密钥重复序列化进每个子任务的 jobContext。
+                if (jobInstance.getStatusStorageConfig() == null && getJobInstance() != null) {
+                    jobInstance.setStatusStorageConfig(getJobInstance().getStatusStorageConfig());
+                }
                 // 执行任务前，变更任务为运行中状态
                 JobStatusEvent beforeEvent = new JobStatusEvent();
                 jobInstance.setExecNode(EXECNODE);
