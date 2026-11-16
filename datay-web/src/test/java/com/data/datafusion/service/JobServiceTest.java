@@ -24,12 +24,21 @@ import org.mockito.ArgumentCaptor;
 
 class JobServiceTest {
 
+    private static JobService createJobService(
+        JobRepository jobRepository,
+        ETLTaskDirectoryRepository directoryRepository,
+        JobMapper jobMapper,
+        JobInstanceService jobInstanceService
+    ) {
+        return new JobService(jobRepository, directoryRepository, jobMapper, jobInstanceService, mock(JobDependService.class));
+    }
+
     @Test
     void updateKeepsExistingSchedulingWhenFieldsAreMissing() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -69,7 +78,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -111,7 +120,7 @@ class JobServiceTest {
     void updateNormalizesInvalidPriorityToDefault() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
 
         Job existing = new Job();
         existing.setId("job-1");
@@ -140,7 +149,7 @@ class JobServiceTest {
     void saveNormalizesMissingPriorityToDefault() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
 
         JobDTO create = new JobDTO();
         create.setJobName("new-job");
@@ -167,7 +176,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
         JobInstanceService jobInstanceService = mock(JobInstanceService.class);
-        JobService jobService = new JobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
 
         Job job = new Job();
         job.setId("job-1");
@@ -185,7 +194,7 @@ class JobServiceTest {
     @Test
     void updateRejectsDagNestedInsideItself() {
         JobRepository jobRepository = mock(JobRepository.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             mock(ETLTaskDirectoryRepository.class),
             mock(JobMapper.class),
@@ -211,7 +220,7 @@ class JobServiceTest {
     @Test
     void updateRejectsIndirectDagNestingCycle() {
         JobRepository jobRepository = mock(JobRepository.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             mock(ETLTaskDirectoryRepository.class),
             mock(JobMapper.class),
@@ -244,7 +253,7 @@ class JobServiceTest {
     void updateAcceptsValidNestedDag() {
         JobRepository jobRepository = mock(JobRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             mock(ETLTaskDirectoryRepository.class),
             jobMapper,
@@ -287,7 +296,7 @@ class JobServiceTest {
     @Test
     void updateRejectsNestingDeeperThanLimit() {
         JobRepository jobRepository = mock(JobRepository.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             mock(ETLTaskDirectoryRepository.class),
             mock(JobMapper.class),
@@ -318,7 +327,7 @@ class JobServiceTest {
     @Test
     void updateRejectsReferenceToMissingJob() {
         JobRepository jobRepository = mock(JobRepository.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             mock(ETLTaskDirectoryRepository.class),
             mock(JobMapper.class),
@@ -346,7 +355,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
 
         Job existing = new Job();
         existing.setId("sql-1");
@@ -382,7 +391,7 @@ class JobServiceTest {
     void updateRejectsSqlJobInDagDirectory() {
         JobRepository jobRepository = mock(JobRepository.class);
         ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
-        JobService jobService = new JobService(
+        JobService jobService = createJobService(
             jobRepository,
             directoryRepository,
             mock(JobMapper.class),
@@ -414,7 +423,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
 
         Job job = new Job();
         job.setId("sql-1");
@@ -437,7 +446,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
 
         Job existing = new Job();
         existing.setId("shell-1");
@@ -474,7 +483,7 @@ class JobServiceTest {
         JobRepository jobRepository = mock(JobRepository.class);
         ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
         JobMapper jobMapper = mock(JobMapper.class);
-        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+        JobService jobService = createJobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
 
         Job job = new Job();
         job.setId("shell-1");

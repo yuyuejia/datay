@@ -11,7 +11,9 @@ import com.data.datafusion.service.dto.ETLDebugResultDTO;
 import com.data.datafusion.service.dto.ETLTaskDTO;
 import com.data.datafusion.service.dto.ETLTaskImportResultDTO;
 import com.data.datafusion.service.dto.ETLTaskTransferDTO;
+import com.data.datafusion.service.dto.JobDependDTO;
 import com.data.datafusion.service.dto.JobInstanceDTO;
+import com.data.datafusion.service.dto.TaskDependRequestDTO;
 import com.data.datafusion.service.etl.ETLTaskTransferService;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
@@ -344,22 +346,32 @@ public class ETLTaskResource {
         @RequestParam(value = "cron", required = false) String cron,
         @RequestParam(value = "retryCount", required = false) Integer retryCount,
         @RequestParam(value = "timeoutSeconds", required = false) Integer timeoutSeconds,
-        @RequestParam(value = "priority", required = false) Integer priority
+        @RequestParam(value = "priority", required = false) Integer priority,
+        @RequestBody(required = false) TaskDependRequestDTO dependRequest
     ) {
         LOG.debug(
-            "REST request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}",
+            "REST request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}, depends : {}",
             id,
             cron,
             retryCount,
             timeoutSeconds,
-            priority
+            priority,
+            dependRequest == null ? null : dependRequest.getDependencies()
         );
         String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
         if (normalizedCron != null && !CronExpression.isValidExpression(normalizedCron)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "调度周期（Cron 表达式）不合法: " + normalizedCron);
         }
         validateScheduling(retryCount, timeoutSeconds, priority);
-        ETLTaskDTO result = eTLTaskService.online(id, normalizedCron, retryCount, timeoutSeconds, priority);
+        List<JobDependDTO> dependencies = dependRequest == null ? null : dependRequest.getDependencies();
+        ETLTaskDTO result;
+        try {
+            result = dependencies == null
+                ? eTLTaskService.online(id, normalizedCron, retryCount, timeoutSeconds, priority)
+                : eTLTaskService.online(id, normalizedCron, retryCount, timeoutSeconds, priority, dependencies);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .body(result);

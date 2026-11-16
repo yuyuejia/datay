@@ -20,8 +20,8 @@ public class WaitingJobQuartzTask implements Job {
     private static final Logger log = LoggerFactory.getLogger(WaitingJobQuartzTask.class);
 
     public static final String TASK_NAME = "waitingJobQuartzTask";
-    //每隔5检查一次等待任务
-    public static final String CRON = "0 * * * * ?";
+    // 每 20 秒检查一次等待任务
+    public static final String CRON = "0/20 * * * * ?";
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {

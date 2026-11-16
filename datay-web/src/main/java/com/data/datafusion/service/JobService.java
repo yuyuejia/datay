@@ -9,6 +9,7 @@ import com.data.datafusion.job.dag.Flow;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.JobRepository;
+import com.data.datafusion.service.dto.JobDependDTO;
 import com.data.datafusion.service.dto.JobDTO;
 import com.data.datafusion.service.jobevent.EventServiceFactory;
 import com.data.datafusion.service.mapper.JobMapper;
@@ -17,6 +18,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -44,17 +46,20 @@ public class JobService {
 
     private final JobMapper jobMapper;
     private final JobInstanceService jobInstanceService;
+    private final JobDependService jobDependService;
 
     public JobService(
         JobRepository jobRepository,
         ETLTaskDirectoryRepository directoryRepository,
         JobMapper jobMapper,
-        JobInstanceService jobInstanceService
+        JobInstanceService jobInstanceService,
+        JobDependService jobDependService
     ) {
         this.jobRepository = jobRepository;
         this.directoryRepository = directoryRepository;
         this.jobMapper = jobMapper;
         this.jobInstanceService = jobInstanceService;
+        this.jobDependService = jobDependService;
     }
 
     /**
@@ -82,6 +87,20 @@ public class JobService {
     }
 
     public void online(Job job, boolean executeOnce) {
+        online(job, executeOnce, null);
+    }
+
+    /**
+     * 将任务上线，并同步替换其上游依赖。
+     *
+     * @param job          待上线的任务
+     * @param executeOnce  是否在上线后立即执行一次
+     * @param dependencies 新的上游依赖；为 {@code null} 表示不修改已有依赖，空列表表示清空依赖
+     */
+    public void online(Job job, boolean executeOnce, List<JobDependDTO> dependencies) {
+        if (dependencies != null) {
+            jobDependService.replaceChildDependencies(job.getId(), dependencies);
+        }
         normalizeScheduling(job);
         job.setStatus(TaskConstants.TASK_STATUS_ONLINE);
         job.setUpdateTime(ZonedDateTime.now());
@@ -377,6 +396,8 @@ public class JobService {
     public void delete(String id) {
         LOG.debug("Request to delete Job : {}", id);
         Job job = jobRepository.findById(id).get();
+        jobDependService.deleteByChildJobCode(id);
+        jobDependService.deleteByParentJobCode(id);
         jobRepository.deleteById(id);
         EventServiceFactory.getEventService().deleteJob(job);
     }

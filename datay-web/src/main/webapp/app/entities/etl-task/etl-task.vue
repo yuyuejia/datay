@@ -231,67 +231,18 @@
         </div>
       </template>
     </app-modal>
-    <app-modal ref="onlineModal" id="onlineModal" size="md">
-      <template #modal-title>
-        <span>上线任务</span>
-      </template>
-      <div class="modal-body online-modal-body">
-        <p>
-          任务：<strong>{{ onlineTask?.taskName }}</strong>
-        </p>
-        <el-alert
-          v-if="!onlineTask?.cron"
-          type="warning"
-          :closable="false"
-          show-icon
-          title="当前任务尚未设置调度周期，请设置 Cron 表达式后再上线。"
-          class="mb-3"
-        />
-        <p v-else class="online-current-cron">
-          当前调度周期：<code>{{ onlineTask.cron }}</code>
-        </p>
-        <div class="online-cron-field">
-          <label class="online-cron-label">调度周期（Cron 表达式）</label>
-          <CronExpressionSelector v-model:value="onlineCron" />
-        </div>
-        <div class="online-policy-row">
-          <div class="online-policy-field">
-            <label class="online-cron-label">重试次数</label>
-            <el-input-number v-model="onlineRetryCount" :min="0" :max="10" :step="1" controls-position="right" />
-            <span class="online-policy-tip">0 表示不重试，任务失败或超时后自动重试</span>
-          </div>
-          <div class="online-policy-field">
-            <label class="online-cron-label">超时时间（秒）</label>
-            <el-input-number v-model="onlineTimeoutSeconds" :min="0" :max="604800" :step="60" controls-position="right" />
-            <span class="online-policy-tip">0 表示不限制，每次尝试单独计时</span>
-          </div>
-          <div class="online-policy-field">
-            <label class="online-cron-label">优先级</label>
-            <el-radio-group v-model="onlinePriority">
-              <el-radio-button :value="3">高</el-radio-button>
-              <el-radio-button :value="2">中</el-radio-button>
-              <el-radio-button :value="1">低</el-radio-button>
-            </el-radio-group>
-            <span class="online-policy-tip">仅影响排队顺序，不抢占正在执行的任务</span>
-          </div>
-        </div>
-        <p class="text-muted online-cron-tip">任务上线后将按该 Cron 表达式自动调度，如需调整可在此修改。</p>
-      </div>
-      <template #modal-footer>
-        <div>
-          <el-button @click="closeOnlineModal" :disabled="isOnlineSubmitting">取消</el-button>
-          <el-button
-            type="primary"
-            :loading="isOnlineSubmitting"
-            :disabled="!onlineCronValid || !onlinePolicyValid"
-            @click="confirmOnline"
-            data-cy="entityConfirmOnlineButton"
-          >
-            确认上线
-          </el-button>
-        </div>
-      </template>
-    </app-modal>
+    <TaskOnlineModal
+      ref="onlineModal"
+      title="上线任务"
+      :task-name="onlineTask?.taskName"
+      :job-id="onlineTask?.jobId || ''"
+      :cron="onlineTask?.cron || ''"
+      :retry-count="onlineTask?.retryCount ?? 0"
+      :timeout-seconds="onlineTask?.timeoutSeconds ?? 0"
+      :priority="onlineTask?.priority ?? 2"
+      :loading="isOnlineSubmitting"
+      @confirm="confirmOnline"
+    />
     <app-modal ref="instancesModal" id="instancesModal" size="xl" scrollable>
       <template #modal-title>
         <span>任务执行实例 - {{ currentTask?.taskName }}</span>

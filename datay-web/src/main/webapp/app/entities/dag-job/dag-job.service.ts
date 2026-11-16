@@ -1,10 +1,11 @@
-import axios from "axios";
+import axios from 'axios';
 
-import buildPaginationQueryOpts from "@/shared/sort/sorts";
-import { type IJob } from "@/shared/model/job.model";
-import ETLTaskService from "@/entities/etl-task/etl-task.service";
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
+import { type IJob } from '@/shared/model/job.model';
+import type { ITaskOnlineDependencyPayload } from '@/shared/model/task-dependency.model';
+import ETLTaskService from '@/entities/etl-task/etl-task.service';
 
-const baseApiUrl = "api/jobs";
+const baseApiUrl = 'api/jobs';
 
 /**
  * Service for the DAG task orchestration (任务编排). A DAG orchestration is
@@ -18,10 +19,10 @@ export default class DagJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}?${buildPaginationQueryOpts(paginationQuery)}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -29,7 +30,7 @@ export default class DagJobService {
 
   /** List the DAG orchestration jobs (paged). */
   retrieveDagJobs(paginationQuery?: any): Promise<any> {
-    return this.retrieve({ ...paginationQuery, type: "DAG" });
+    return this.retrieve({ ...paginationQuery, type: 'DAG' });
   }
 
   /** List all jobs used as candidate nodes on the design canvas, including nested DAG orchestrations. */
@@ -39,20 +40,20 @@ export default class DagJobService {
       this.retrieve({
         page: 0,
         size: 1000,
-        sort: ["type,asc", "jobName,asc"],
-        typeNot: "DAG",
+        sort: ['type,asc', 'jobName,asc'],
+        typeNot: 'DAG',
       }),
       this.retrieve({
         page: 0,
         size: 1000,
-        sort: ["jobName,asc"],
-        type: "DAG",
+        sort: ['jobName,asc'],
+        type: 'DAG',
       }),
       etlTaskService.retrieve({
         page: 0,
         size: 1000,
-        sort: ["id,asc"],
-        type: "BATCH",
+        sort: ['id,asc'],
+        type: 'BATCH',
       }),
     ]).then(([jobRes, dagRes, batchTaskRes]) => {
       const batchJobIds = new Set<string>(
@@ -61,9 +62,7 @@ export default class DagJobService {
           .filter(Boolean)
           .map((jobId: any) => String(jobId)),
       );
-      return [...(jobRes.data || []), ...(dagRes.data || [])].filter(
-        (job: IJob) => job.type !== "ETL" || batchJobIds.has(String(job.id)),
-      );
+      return [...(jobRes.data || []), ...(dagRes.data || [])].filter((job: IJob) => job.type !== 'ETL' || batchJobIds.has(String(job.id)));
     });
   }
 
@@ -72,10 +71,10 @@ export default class DagJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -85,10 +84,10 @@ export default class DagJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -98,10 +97,10 @@ export default class DagJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -111,10 +110,10 @@ export default class DagJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .put(`${baseApiUrl}/${entity.id}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -124,10 +123,10 @@ export default class DagJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -137,23 +136,30 @@ export default class DagJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
   }
 
-  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number, priority?: number): Promise<IJob> {
+  online(
+    id: string,
+    cron?: string,
+    retryCount?: number,
+    timeoutSeconds?: number,
+    priority?: number,
+    dependencies?: ITaskOnlineDependencyPayload[],
+  ): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
-        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
-        .then((res) => {
+        .post(`${baseApiUrl}/${id}/online`, { dependencies }, { params: { cron, retryCount, timeoutSeconds, priority } })
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -163,10 +169,10 @@ export default class DagJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });

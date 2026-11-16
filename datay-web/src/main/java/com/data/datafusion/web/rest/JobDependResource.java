@@ -148,6 +148,18 @@ public class JobDependResource {
     }
 
     /**
+     * {@code GET  /job-depends/by-child/:childJobCode} : get all upstream dependencies of a job.
+     *
+     * @param childJobCode the child job code.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the dependency list in body.
+     */
+    @GetMapping("/by-child/{childJobCode}")
+    public ResponseEntity<List<JobDependDTO>> getJobDependsByChildJobCode(@PathVariable("childJobCode") String childJobCode) {
+        LOG.debug("REST request to get JobDepends by child job code : {}", childJobCode);
+        return ResponseEntity.ok(jobDependService.findDtosByChildJobCode(childJobCode));
+    }
+
+    /**
      * {@code GET  /job-depends/:id} : get the "id" jobDepend.
      *
      * @param id the id of the jobDependDTO to retrieve.

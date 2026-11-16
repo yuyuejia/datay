@@ -33,6 +33,20 @@ export default class JobDependService {
     });
   }
 
+  /** 查询指定任务的上游依赖，用于上线弹窗回显。 */
+  retrieveByChildJobCode(childJobCode: string): Promise<IJobDepend[]> {
+    return new Promise<IJobDepend[]>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/by-child/${childJobCode}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   delete(id: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

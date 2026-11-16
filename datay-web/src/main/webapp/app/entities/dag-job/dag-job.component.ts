@@ -1,39 +1,40 @@
-import { type Ref, computed, defineComponent, inject, nextTick, onMounted, ref, watch } from "vue";
-import { ElMessageBox } from "element-plus";
+import { type Ref, computed, defineComponent, inject, nextTick, onMounted, ref, watch } from 'vue';
+import { ElMessageBox } from 'element-plus';
 
-import DagJobService from "./dag-job.service";
-import ETLTaskDirectoryService from "@/entities/etl-task/etl-task-directory.service";
-import TaskOnlineModal from "@/components/TaskOnlineModal.vue";
-import { type IJob } from "@/shared/model/job.model";
-import { ETLTaskDirectory, type IETLTaskDirectory } from "@/shared/model/etl-task-directory.model";
-import { useDateFormat } from "@/shared/composables";
-import { useAlertService } from "@/shared/alert/alert.service";
+import DagJobService from './dag-job.service';
+import ETLTaskDirectoryService from '@/entities/etl-task/etl-task-directory.service';
+import TaskOnlineModal from '@/components/TaskOnlineModal.vue';
+import { type IJob } from '@/shared/model/job.model';
+import type { ITaskOnlineConfirmPayload } from '@/shared/model/task-dependency.model';
+import { ETLTaskDirectory, type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
+import { useDateFormat } from '@/shared/composables';
+import { useAlertService } from '@/shared/alert/alert.service';
 
 interface IDirectoryTreeNode {
   id: string;
   label: string;
-  type: "directory";
+  type: 'directory';
   data: IETLTaskDirectory;
   children?: IDirectoryTreeNode[];
 }
 
-const DIRECTORY_TASK_TYPE = "DAG";
+const DIRECTORY_TASK_TYPE = 'DAG';
 
 export default defineComponent({
-  name: "DagJob",
+  name: 'DagJob',
   components: {
     TaskOnlineModal,
   },
   setup() {
     const dateFormat = useDateFormat();
-    const dagJobService = inject("dagJobService", () => new DagJobService());
-    const etlTaskDirectoryService = inject("etlTaskDirectoryService", () => new ETLTaskDirectoryService());
-    const alertService = inject("alertService", () => useAlertService(), true);
+    const dagJobService = inject('dagJobService', () => new DagJobService());
+    const etlTaskDirectoryService = inject('etlTaskDirectoryService', () => new ETLTaskDirectoryService());
+    const alertService = inject('alertService', () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
     const queryCount: Ref<number> = ref(null);
     const page: Ref<number> = ref(1);
-    const propOrder = ref("id");
+    const propOrder = ref('id');
     const reverse = ref(false);
     const totalItems = ref(0);
     const dagJobs: Ref<IJob[]> = ref([]);
@@ -44,16 +45,16 @@ export default defineComponent({
     const directories: Ref<IETLTaskDirectory[]> = ref([]);
     const directoryLoading = ref(false);
     const selectedDirectoryId: Ref<string | null> = ref(null);
-    const treeProps = { children: "children", label: "label" };
+    const treeProps = { children: 'children', label: 'label' };
     const directoryTreeRef = ref<any>(null);
 
     const compareDirectories = (a: IETLTaskDirectory, b: IETLTaskDirectory): number =>
-      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || "").localeCompare(String(b.name || ""));
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.name || '').localeCompare(String(b.name || ''));
 
     const directoryTree = computed<IDirectoryTreeNode[]>(() => {
       const byParent = new Map<string, IETLTaskDirectory[]>();
       directories.value.forEach(directory => {
-        const parentId = directory.parentId || "";
+        const parentId = directory.parentId || '';
         if (!byParent.has(parentId)) {
           byParent.set(parentId, []);
         }
@@ -67,8 +68,8 @@ export default defineComponent({
             const children = build(directory.id!);
             const node: IDirectoryTreeNode = {
               id: directory.id!,
-              label: directory.name || "",
-              type: "directory",
+              label: directory.name || '',
+              type: 'directory',
               data: directory,
             };
             if (children.length > 0) {
@@ -76,7 +77,7 @@ export default defineComponent({
             }
             return node;
           });
-      return build("");
+      return build('');
     });
 
     const directoryPathMap = computed(() => {
@@ -88,11 +89,11 @@ export default defineComponent({
         }
         const directory = byId.get(id);
         if (!directory || guard.has(id)) {
-          return "";
+          return '';
         }
         guard.add(id);
-        const name = directory.name || "";
-        const parentPath = directory.parentId ? resolve(directory.parentId, guard) : "";
+        const name = directory.name || '';
+        const parentPath = directory.parentId ? resolve(directory.parentId, guard) : '';
         const path = parentPath ? `${parentPath} / ${name}` : name;
         paths.set(id, path);
         return path;
@@ -105,8 +106,7 @@ export default defineComponent({
       return paths;
     });
 
-    const directoryPath = (job: IJob): string =>
-      job.directoryId ? directoryPathMap.value.get(job.directoryId) || "-" : "根目录";
+    const directoryPath = (job: IJob): string => (job.directoryId ? directoryPathMap.value.get(job.directoryId) || '-' : '根目录');
 
     const loadDirectories = async () => {
       directoryLoading.value = true;
@@ -125,7 +125,7 @@ export default defineComponent({
 
     const clearTreeSelection = () => {
       nextTick(() => {
-        if (typeof directoryTreeRef.value?.setCurrentKey === "function") {
+        if (typeof directoryTreeRef.value?.setCurrentKey === 'function') {
           directoryTreeRef.value.setCurrentKey(undefined);
         }
       });
@@ -142,7 +142,7 @@ export default defineComponent({
 
     const siblingDirectories = (directory: IETLTaskDirectory): IETLTaskDirectory[] =>
       directories.value
-        .filter(item => (item.parentId || "") === (directory.parentId || ""))
+        .filter(item => (item.parentId || '') === (directory.parentId || ''))
         .slice()
         .sort(compareDirectories);
 
@@ -176,13 +176,13 @@ export default defineComponent({
     };
 
     const directoryDialogVisible = ref(false);
-    const directoryDialogTitle = ref("新增目录");
+    const directoryDialogTitle = ref('新增目录');
     const directoryForm: Ref<IETLTaskDirectory> = ref(new ETLTaskDirectory());
     const editingDirectoryId: Ref<string | null> = ref(null);
 
     const showAddDirectoryDialog = (parentId: string | null) => {
       editingDirectoryId.value = null;
-      directoryDialogTitle.value = "新增目录";
+      directoryDialogTitle.value = '新增目录';
       directoryForm.value = new ETLTaskDirectory();
       directoryForm.value.parentId = parentId;
       directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
@@ -192,14 +192,14 @@ export default defineComponent({
 
     const showEditDirectoryDialog = (directory: IETLTaskDirectory) => {
       editingDirectoryId.value = directory.id || null;
-      directoryDialogTitle.value = "重命名目录";
+      directoryDialogTitle.value = '重命名目录';
       directoryForm.value = { ...directory };
       directoryDialogVisible.value = true;
     };
 
     const saveDirectory = async () => {
       if (!directoryForm.value.name || !directoryForm.value.name.trim()) {
-        alertService.showError("请输入目录名称");
+        alertService.showError('请输入目录名称');
         return;
       }
       directoryForm.value.taskType = DIRECTORY_TASK_TYPE;
@@ -211,7 +211,7 @@ export default defineComponent({
           await etlTaskDirectoryService().create(directoryForm.value);
         }
         directoryDialogVisible.value = false;
-        alertService.showSuccess("目录保存成功");
+        alertService.showSuccess('目录保存成功');
         await loadDirectories();
       } catch (error) {
         alertService.showHttpError(error.response);
@@ -221,12 +221,12 @@ export default defineComponent({
     const deleteDirectory = async (directory: IETLTaskDirectory) => {
       try {
         await ElMessageBox.confirm(
-          `确定要删除目录「${directory.name || ""}」吗？删除后该目录下的子目录与编排将移动到根目录。`,
-          "删除目录",
+          `确定要删除目录「${directory.name || ''}」吗？删除后该目录下的子目录与编排将移动到根目录。`,
+          '删除目录',
           {
-            confirmButtonText: "删除",
-            cancelButtonText: "取消",
-            type: "warning",
+            confirmButtonText: '删除',
+            cancelButtonText: '取消',
+            type: 'warning',
           },
         );
       } catch {
@@ -237,7 +237,7 @@ export default defineComponent({
         if (selectedDirectoryId.value === directory.id) {
           selectAllJobs();
         }
-        alertService.showSuccess("目录删除成功");
+        alertService.showSuccess('目录删除成功');
         await loadDirectories();
         await retrieveDagJobs();
       } catch (error) {
@@ -246,9 +246,9 @@ export default defineComponent({
     };
 
     const handleMoreCommand = (command: string, job: IJob) => {
-      if (command === "move") {
+      if (command === 'move') {
         openMoveDialog(job);
-      } else if (command === "delete") {
+      } else if (command === 'delete') {
         prepareRemove(job);
       }
     };
@@ -275,7 +275,7 @@ export default defineComponent({
       }
       try {
         await dagJobService().moveToDirectory(moveJob.value.id, moveTargetDirectoryId.value || null);
-        alertService.showSuccess("编排已移动");
+        alertService.showSuccess('编排已移动');
         closeMoveDialog();
         await retrieveDagJobs();
       } catch (error) {
@@ -284,7 +284,7 @@ export default defineComponent({
     };
 
     const createRouteLocation = computed(() => ({
-      name: "DagJobDesignNew",
+      name: 'DagJobDesignNew',
       query: selectedDirectoryId.value ? { directoryId: selectedDirectoryId.value } : {},
     }));
 
@@ -293,9 +293,9 @@ export default defineComponent({
     };
 
     const sort = (): Array<any> => {
-      const result = [`${propOrder.value},${reverse.value ? "desc" : "asc"}`];
-      if (propOrder.value !== "id") {
-        result.push("id");
+      const result = [`${propOrder.value},${reverse.value ? 'desc' : 'asc'}`];
+      if (propOrder.value !== 'id') {
+        result.push('id');
       }
       return result;
     };
@@ -312,7 +312,7 @@ export default defineComponent({
           paginationQuery.directoryId = selectedDirectoryId.value;
         }
         const res = await dagJobService().retrieveDagJobs(paginationQuery);
-        totalItems.value = Number(res.headers["x-total-count"]);
+        totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
         dagJobs.value = res.data;
       } catch (err) {
@@ -352,7 +352,7 @@ export default defineComponent({
     const removeDagJob = async () => {
       try {
         await dagJobService().delete(removeId.value);
-        alertService.showInfo("任务编排已删除", { variant: "danger" });
+        alertService.showInfo('任务编排已删除', { variant: 'danger' });
         removeId.value = null;
         retrieveDagJobs();
         closeDialog();
@@ -376,10 +376,16 @@ export default defineComponent({
 
     const handleOnline = (job: IJob) => {
       onlineTask.value = job;
-      onlineModal.value?.show(job.cron || "", job.retryCount ?? 0, job.timeoutSeconds ?? 0, job.priority ?? 2);
+      onlineModal.value?.show({
+        jobId: job.id || '',
+        cron: job.cron || '',
+        retryCount: job.retryCount ?? 0,
+        timeoutSeconds: job.timeoutSeconds ?? 0,
+        priority: job.priority ?? 2,
+      });
     };
 
-    const confirmOnline = async (payload: { cron: string; retryCount: number; timeoutSeconds: number; priority: number }) => {
+    const confirmOnline = async (payload: ITaskOnlineConfirmPayload) => {
       if (!onlineTask.value?.id) {
         return;
       }
@@ -391,6 +397,7 @@ export default defineComponent({
           payload.retryCount,
           payload.timeoutSeconds,
           payload.priority,
+          payload.dependencies,
         );
         alertService.showInfo(`编排 ${onlineTask.value.jobName} 已上线调度`);
         onlineModal.value?.hide();
@@ -407,15 +414,11 @@ export default defineComponent({
         return;
       }
       try {
-        await ElMessageBox.confirm(
-          `确定要将编排「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`,
-          "下线确认",
-          {
-            confirmButtonText: "确认下线",
-            cancelButtonText: "取消",
-            type: "warning",
-          },
-        );
+        await ElMessageBox.confirm(`确定要将编排「${job.jobName || job.id}」下线吗？下线后将取消定时调度。`, '下线确认', {
+          confirmButtonText: '确认下线',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
       } catch {
         // 用户取消下线
         return;
@@ -429,12 +432,9 @@ export default defineComponent({
       }
     };
 
-    const handleSortChange = (column: {
-      prop: string;
-      order: "ascending" | "descending" | null;
-    }) => {
+    const handleSortChange = (column: { prop: string; order: 'ascending' | 'descending' | null }) => {
       if (column.prop && column.order) {
-        if (column.order === "ascending") {
+        if (column.order === 'ascending') {
           reverse.value = false;
         } else {
           reverse.value = true;

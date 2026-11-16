@@ -1,10 +1,6 @@
 <template>
   <div class="dag-job-container">
-    <h2
-      id="page-heading"
-      data-cy="DagJobHeading"
-      class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap"
-    >
+    <h2 id="page-heading" data-cy="DagJobHeading" class="d-flex align-items-center justify-content-between flex-nowrap flex-wrap-nowrap">
       <span id="dag-job-heading">任务编排（DAG）</span>
       <div class="d-flex align-items-center">
         <el-button type="info" class="mr-2" @click="handleSyncList" :disabled="isFetching">
@@ -106,34 +102,31 @@
             <el-table-column prop="jobName" label="编排名称" sortable="custom" min-width="160"></el-table-column>
             <el-table-column prop="cron" label="Cron 表达式" sortable="custom" width="150">
               <template #default="scope">
-                <span>{{ scope.row.cron || "未设置" }}</span>
+                <span>{{ scope.row.cron || '未设置' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" sortable="custom" width="110">
               <template #default="scope">
                 <span :class="'status-badge status-' + (scope.row.status?.toLowerCase() || '')">
-                  {{ scope.row.status || "OFFLINE" }}
+                  {{ scope.row.status || 'OFFLINE' }}
                 </span>
               </template>
             </el-table-column>
             <el-table-column prop="priority" label="优先级" sortable="custom" width="90">
               <template #default="scope">
-                <el-tag
-                  size="small"
-                  :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'"
-                >
-                  {{ scope.row.priority === 3 ? "高" : scope.row.priority === 1 ? "低" : "中" }}
+                <el-tag size="small" :type="scope.row.priority === 3 ? 'danger' : scope.row.priority === 1 ? 'info' : 'primary'">
+                  {{ scope.row.priority === 3 ? '高' : scope.row.priority === 1 ? '低' : '中' }}
                 </el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="updateTime" label="更新时间" sortable="custom" width="160">
               <template #default="scope">
-                {{ formatDateShort(scope.row.updateTime) || "" }}
+                {{ formatDateShort(scope.row.updateTime) || '' }}
               </template>
             </el-table-column>
             <el-table-column prop="createTime" label="创建时间" sortable="custom" width="160">
               <template #default="scope">
-                {{ formatDateShort(scope.row.createTime) || "" }}
+                {{ formatDateShort(scope.row.createTime) || '' }}
               </template>
             </el-table-column>
             <el-table-column label="所属目录" min-width="180" show-overflow-tooltip>
@@ -195,6 +188,7 @@
       ref="onlineModal"
       title="任务编排上线"
       :task-name="onlineTask?.jobName"
+      :job-id="onlineTask?.id || ''"
       :cron="onlineTask?.cron"
       :retry-count="onlineTask?.retryCount ?? 0"
       :timeout-seconds="onlineTask?.timeoutSeconds ?? 0"

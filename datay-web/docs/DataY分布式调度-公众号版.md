@@ -617,7 +617,7 @@ DAG 失败时，当前子任务之后的节点会被标记为 `INTERRUPTED`，�
 - 如果父实例不存在，或者父实例的时间与当前实例的间隔超过配置的 `lastInterval`，判定依赖未满足；
 - 依赖满足才执行，否则实例进入 `WAITING`。
 
-等待中的实例由 `WaitingJobQuartzTask` 每分钟扫描一次：
+等待中的实例由 `WaitingJobQuartzTask` 每 20 秒扫描一次：
 
 ```text
 WAITING 实例 ──▶ 检查依赖 ──▶ 满足 ──▶ 投递执行

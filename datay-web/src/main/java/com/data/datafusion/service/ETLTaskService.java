@@ -610,13 +610,36 @@ public class ETLTaskService {
      * @return 更新后的ETLTaskDTO
      */
     public ETLTaskDTO online(String id, String cron, Integer retryCount, Integer timeoutSeconds, Integer priority) {
+        return online(id, cron, retryCount, timeoutSeconds, priority, null);
+    }
+
+    /**
+     * 将 ETLTask 设置为在线状态，并按指定（或任务已有的）调度配置加入调度，同时替换上游依赖。
+     *
+     * @param id             ETLTask的ID
+     * @param cron           新的 Cron 表达式，为空时沿用任务已有配置
+     * @param retryCount     新的重试次数，为 null 时沿用任务已有配置
+     * @param timeoutSeconds 新的超时时间（秒），为 null 时沿用任务已有配置
+     * @param priority       新的优先级，为 null 时沿用任务已有配置
+     * @param dependencies   新的上游依赖；为 null 时保持已有依赖不变
+     * @return 更新后的ETLTaskDTO
+     */
+    public ETLTaskDTO online(
+        String id,
+        String cron,
+        Integer retryCount,
+        Integer timeoutSeconds,
+        Integer priority,
+        List<JobDependDTO> dependencies
+    ) {
         LOG.debug(
-            "Request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}",
+            "Request to online ETLTask : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}, depends : {}",
             id,
             cron,
             retryCount,
             timeoutSeconds,
-            priority
+            priority,
+            dependencies
         );
         return eTLTaskRepository
             .findById(id)
@@ -657,7 +680,11 @@ public class ETLTaskService {
                 job.setStatus(TASK_STATUS_ONLINE);
                 job.setUpdateTime(ZonedDateTime.now());
                 jobService.save(job);
-                jobService.online(job, false);
+                if (dependencies == null) {
+                    jobService.online(job, false);
+                } else {
+                    jobService.online(job, false, dependencies);
+                }
 
                 // 保存更新后的ETLTask
                 ETLTask saved = eTLTaskRepository.save(etlTask);

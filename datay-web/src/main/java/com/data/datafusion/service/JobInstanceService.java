@@ -46,6 +46,11 @@ public class JobInstanceService {
 
     private static final Logger LOG = LoggerFactory.getLogger(JobInstanceService.class);
 
+    /**
+     * 历史依赖数据缺少 last_interval 时使用的默认有效窗口：24 小时。
+     */
+    private static final long DEFAULT_DEPEND_LAST_INTERVAL_MS = 24L * 60 * 60 * 1000;
+
     public static ConcurrentHashMap<String, JobInstance> waitingJob = new ConcurrentHashMap<String, JobInstance>();
 
     private final JobInstanceRepository jobInstanceRepository;
@@ -418,9 +423,12 @@ public class JobInstanceService {
                 isDependSuccess = false;
                 break;
             }
+            long lastInterval = jobDepend.getLastInterval() == null
+                ? DEFAULT_DEPEND_LAST_INTERVAL_MS
+                : jobDepend.getLastInterval();
             if (
                 currentJobInstance.getCreateTime().toInstant().toEpochMilli() - jobInstance.getCreateTime().toInstant().toEpochMilli() >
-                jobDepend.getLastInterval()
+                lastInterval
             ) {
                 isDependSuccess = false;
                 break;

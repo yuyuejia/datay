@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 import { type IJob } from '@/shared/model/job.model';
+import type { ITaskOnlineDependencyPayload } from '@/shared/model/task-dependency.model';
 
 const baseApiUrl = 'api/jobs';
 
@@ -125,10 +126,17 @@ export default class ShellJobService {
     });
   }
 
-  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number, priority?: number): Promise<IJob> {
+  online(
+    id: string,
+    cron?: string,
+    retryCount?: number,
+    timeoutSeconds?: number,
+    priority?: number,
+    dependencies?: ITaskOnlineDependencyPayload[],
+  ): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
-        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
+        .post(`${baseApiUrl}/${id}/online`, { dependencies }, { params: { cron, retryCount, timeoutSeconds, priority } })
         .then(res => {
           resolve(res.data);
         })

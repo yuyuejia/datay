@@ -3,6 +3,8 @@ package com.data.datafusion.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,11 +15,14 @@ import com.data.datafusion.domain.Job;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.JobService;
 import com.data.datafusion.service.dto.JobDTO;
+import com.data.datafusion.service.dto.JobDependDTO;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -63,6 +68,65 @@ class JobOnlinePriorityResourceTest {
         mvc.perform(post("/api/jobs/job-1/online")).andExpect(status().isOk());
 
         assertThat(job.getPriority()).isEqualTo(1);
+    }
+
+    @Test
+    void onlinePassesDependenciesToService() throws Exception {
+        Job job = new Job();
+        job.setId("job-1");
+        when(jobService.findOneJob("job-1")).thenReturn(Optional.of(job));
+        JobDTO updated = new JobDTO();
+        updated.setId("job-1");
+        when(jobService.findOne("job-1")).thenReturn(Optional.of(updated));
+
+        mvc
+            .perform(
+                post("/api/jobs/job-1/online")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"dependencies\":[{\"parentJobCode\":\"parent-1\",\"lastInterval\":60000}]}")
+            )
+            .andExpect(status().isOk());
+
+        verify(jobService).online(
+            eq(job),
+            eq(false),
+            argThat((List<JobDependDTO> dependencies) -> dependencies.size() == 1 &&
+                "parent-1".equals(dependencies.get(0).getParentJobCode()) &&
+                Long.valueOf(60000L).equals(dependencies.get(0).getLastInterval()))
+        );
+    }
+
+    @Test
+    void onlineWithoutBodyDoesNotReplaceDependencies() throws Exception {
+        Job job = new Job();
+        job.setId("job-1");
+        when(jobService.findOneJob("job-1")).thenReturn(Optional.of(job));
+        JobDTO updated = new JobDTO();
+        updated.setId("job-1");
+        when(jobService.findOne("job-1")).thenReturn(Optional.of(updated));
+
+        mvc.perform(post("/api/jobs/job-1/online")).andExpect(status().isOk());
+
+        verify(jobService).online(job, false);
+        verify(jobService, never()).online(eq(job), eq(false), any());
+    }
+
+    @Test
+    void onlineReturnsBadRequestWhenDependencyValidationFails() throws Exception {
+        Job job = new Job();
+        job.setId("job-1");
+        when(jobService.findOneJob("job-1")).thenReturn(Optional.of(job));
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("任务依赖存在循环"))
+            .when(jobService)
+            .online(eq(job), eq(false), any());
+
+        mvc
+            .perform(
+                post("/api/jobs/job-1/online")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"dependencies\":[{\"parentJobCode\":\"parent-1\",\"lastInterval\":60000}]}")
+            )
+            .andExpect(status().isBadRequest());
     }
 
     @Test

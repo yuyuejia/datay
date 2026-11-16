@@ -7,6 +7,7 @@ import ShellJobEditor from './shell-job-editor.vue';
 import ETLTaskDirectoryService from '@/entities/etl-task/etl-task-directory.service';
 import TaskOnlineModal from '@/components/TaskOnlineModal.vue';
 import { type IJob } from '@/shared/model/job.model';
+import type { ITaskOnlineConfirmPayload } from '@/shared/model/task-dependency.model';
 import { ETLTaskDirectory, type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
@@ -443,16 +444,29 @@ export default defineComponent({
 
     const handleOnline = (job: IJob) => {
       onlineTask.value = job;
-      onlineModal.value?.show(job.cron || '', job.retryCount ?? 0, job.timeoutSeconds ?? 0, job.priority ?? 2);
+      onlineModal.value?.show({
+        jobId: job.id || '',
+        cron: job.cron || '',
+        retryCount: job.retryCount ?? 0,
+        timeoutSeconds: job.timeoutSeconds ?? 0,
+        priority: job.priority ?? 2,
+      });
     };
 
-    const confirmOnline = async (payload: { cron: string; retryCount: number; timeoutSeconds: number; priority: number }) => {
+    const confirmOnline = async (payload: ITaskOnlineConfirmPayload) => {
       if (!onlineTask.value?.id) {
         return;
       }
       isOnlineSubmitting.value = true;
       try {
-        await shellJobService().online(onlineTask.value.id, payload.cron, payload.retryCount, payload.timeoutSeconds, payload.priority);
+        await shellJobService().online(
+          onlineTask.value.id,
+          payload.cron,
+          payload.retryCount,
+          payload.timeoutSeconds,
+          payload.priority,
+          payload.dependencies,
+        );
         alertService.showInfo(`Shell 任务 ${onlineTask.value.jobName} 已上线调度`);
         onlineModal.value?.hide();
         await loadShellJobs();

@@ -14,4 +14,8 @@ public interface JobDependRepository extends JpaRepository<JobDepend, String> {
     List<JobDepend> findByChildJobCode(String childJobCode);
 
     List<JobDepend> findByParentJobCode(String jobCode);
+
+    void deleteByChildJobCode(String childJobCode);
+
+    void deleteByParentJobCode(String parentJobCode);
 }

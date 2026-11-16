@@ -3,6 +3,7 @@ import axios from 'axios';
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
 import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
+import type { ITaskOnlineDependencyPayload } from '@/shared/model/task-dependency.model';
 
 const baseApiUrl = 'api/etl-tasks';
 
@@ -153,10 +154,17 @@ export default class ETLTaskService {
     });
   }
 
-  online(id: string, cron?: string, retryCount?: number, timeoutSeconds?: number, priority?: number): Promise<IETLTask> {
+  online(
+    id: string,
+    cron?: string,
+    retryCount?: number,
+    timeoutSeconds?: number,
+    priority?: number,
+    dependencies?: ITaskOnlineDependencyPayload[],
+  ): Promise<IETLTask> {
     return new Promise<IETLTask>((resolve, reject) => {
       axios
-        .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
+        .post(`${baseApiUrl}/${id}/online`, { dependencies }, { params: { cron, retryCount, timeoutSeconds, priority } })
         .then(res => {
           resolve(res.data);
         })

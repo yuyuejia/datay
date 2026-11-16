@@ -150,6 +150,7 @@
       ref="onlineModal"
       title="Shell 任务上线"
       :task-name="onlineTask?.jobName"
+      :job-id="onlineTask?.id || ''"
       :cron="onlineTask?.cron"
       :retry-count="onlineTask?.retryCount ?? 0"
       :timeout-seconds="onlineTask?.timeoutSeconds ?? 0"

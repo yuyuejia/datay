@@ -43,18 +43,25 @@
           <span class="online-policy-tip">仅影响排队顺序，不抢占正在执行的任务</span>
         </div>
       </div>
+
+      <el-alert
+        v-if="dependencyError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="mb-3 dependency-error"
+        title="上游依赖加载失败，请重试后再上线，本次不会修改已有依赖。"
+      >
+        <el-button size="small" text type="primary" @click="reloadDependencies">重新加载</el-button>
+      </el-alert>
+      <TaskDependencyEditor v-model="dependencies" :jobs="jobs" :loading="dependencyLoading" :excluded-job-ids="excludedJobIds" />
+
       <p class="text-muted online-cron-tip">{{ tip }}</p>
     </div>
     <template #modal-footer>
       <div>
         <el-button @click="hide" :disabled="loading">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="loading"
-          :disabled="!cronValid || !policyValid"
-          @click="onConfirm"
-          data-cy="entityConfirmOnlineButton"
-        >
+        <el-button type="primary" :loading="loading" :disabled="confirmDisabled" @click="onConfirm" data-cy="entityConfirmOnlineButton">
           确认上线
         </el-button>
       </div>
@@ -66,6 +73,14 @@
 import { computed, ref } from 'vue';
 
 import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
+import TaskDependencyEditor from '@/components/TaskDependencyEditor.vue';
+import JobService from '@/entities/job/job.service';
+import JobDependService from '@/entities/job-depend/job-depend.service';
+import type { IJob } from '@/shared/model/job.model';
+import type { IJobDepend } from '@/shared/model/job-depend.model';
+import type { ITaskDependencyFormItem, ITaskOnlineConfirmPayload, ITaskOnlineShowPayload } from '@/shared/model/task-dependency.model';
+
+const DEFAULT_LAST_INTERVAL_MINUTES = 1440;
 
 const props = defineProps({
   title: {
@@ -73,6 +88,10 @@ const props = defineProps({
     default: '上线任务',
   },
   taskName: {
+    type: String,
+    default: '',
+  },
+  jobId: {
     type: String,
     default: '',
   },
@@ -102,13 +121,23 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['confirm']);
+const emit = defineEmits<{
+  confirm: [payload: ITaskOnlineConfirmPayload];
+}>();
 
 const modal = ref<any>(null);
 const cronValue = ref('');
 const retryCountValue = ref(0);
 const timeoutSecondsValue = ref(0);
 const priorityValue = ref(2);
+
+const jobs = ref<IJob[]>([]);
+const dependencies = ref<ITaskDependencyFormItem[]>([]);
+const dependencyLoading = ref(false);
+const dependencyError = ref('');
+const dependenciesLoaded = ref(true);
+const currentJobId = ref('');
+let dependencyRequestId = 0;
 
 /** Cron 表达式基础校验：6 段或 7 段。 */
 const cronValid = computed(() => {
@@ -129,12 +158,113 @@ const policyValid = computed(
     priorityValue.value <= 3,
 );
 
-const show = (initialCron?: string, initialRetryCount?: number, initialTimeoutSeconds?: number, initialPriority?: number) => {
-  cronValue.value = initialCron ?? props.cron ?? '';
-  retryCountValue.value = initialRetryCount ?? props.retryCount ?? 0;
-  timeoutSecondsValue.value = initialTimeoutSeconds ?? props.timeoutSeconds ?? 0;
-  priorityValue.value = initialPriority ?? props.priority ?? 2;
+const dependencyValid = computed(() => {
+  const selected = new Set<string>();
+  return dependencies.value.every(item => {
+    const parentJobCode = (item.parentJobCode || '').trim();
+    if (!parentJobCode || parentJobCode === currentJobId.value || selected.has(parentJobCode)) {
+      return false;
+    }
+    selected.add(parentJobCode);
+    return Number.isFinite(item.lastIntervalMinutes) && item.lastIntervalMinutes >= 1;
+  });
+});
+
+const confirmDisabled = computed(
+  () =>
+    !cronValid.value ||
+    !policyValid.value ||
+    !dependencyValid.value ||
+    !dependenciesLoaded.value ||
+    dependencyLoading.value ||
+    !!dependencyError.value,
+);
+
+const excludedJobIds = computed(() => (currentJobId.value ? [currentJobId.value] : []));
+
+const millisecondsToMinutes = (value?: number | null) =>
+  Math.max(1, Math.round((value ?? DEFAULT_LAST_INTERVAL_MINUTES * 60 * 1000) / 60000));
+
+const loadAllJobs = async (): Promise<IJob[]> => {
+  const pageSize = 500;
+  const allJobs: IJob[] = [];
+  let page = 0;
+  // 分页拉全量任务，避免下拉框只显示第一页。
+  while (true) {
+    const res = await new JobService().retrieve({ page, size: pageSize, sort: ['jobName,asc'] });
+    const rows: IJob[] = res.data || [];
+    allJobs.push(...rows);
+    const total = Number(res.headers?.['x-total-count']);
+    if (Number.isFinite(total)) {
+      if (allJobs.length >= total) {
+        break;
+      }
+    } else if (rows.length < pageSize) {
+      break;
+    }
+    if (rows.length === 0) {
+      break;
+    }
+    page += 1;
+  }
+  return allJobs;
+};
+
+const loadDependencies = async (jobId: string) => {
+  const requestId = ++dependencyRequestId;
+  currentJobId.value = jobId;
+  dependencyError.value = '';
+  if (!jobId) {
+    jobs.value = [];
+    dependencies.value = [];
+    dependenciesLoaded.value = true;
+    return;
+  }
+  dependencyLoading.value = true;
+  dependenciesLoaded.value = false;
+  try {
+    const [jobList, existingDependencies] = await Promise.all([loadAllJobs(), new JobDependService().retrieveByChildJobCode(jobId)]);
+    if (requestId !== dependencyRequestId) {
+      return;
+    }
+    jobs.value = jobList;
+    dependencies.value = (existingDependencies || []).map((item: IJobDepend) => ({
+      parentJobCode: item.parentJobCode || '',
+      lastIntervalMinutes: millisecondsToMinutes(item.lastInterval),
+    }));
+    dependenciesLoaded.value = true;
+  } catch {
+    if (requestId !== dependencyRequestId) {
+      return;
+    }
+    jobs.value = [];
+    dependencies.value = [];
+    dependencyError.value = 'load-failed';
+    dependenciesLoaded.value = false;
+  } finally {
+    if (requestId === dependencyRequestId) {
+      dependencyLoading.value = false;
+    }
+  }
+};
+
+const reloadDependencies = () => {
+  void loadDependencies(currentJobId.value);
+};
+
+const show = (payload: ITaskOnlineShowPayload = {}) => {
+  cronValue.value = payload.cron ?? props.cron ?? '';
+  retryCountValue.value = payload.retryCount ?? props.retryCount ?? 0;
+  timeoutSecondsValue.value = payload.timeoutSeconds ?? props.timeoutSeconds ?? 0;
+  priorityValue.value = payload.priority ?? props.priority ?? 2;
+  dependencies.value = [];
+  dependencyError.value = '';
+  dependencyLoading.value = false;
+  dependenciesLoaded.value = true;
+  const jobId = payload.jobId || props.jobId || '';
+  currentJobId.value = jobId;
   modal.value?.show();
+  void loadDependencies(jobId);
 };
 
 const hide = () => {
@@ -142,7 +272,7 @@ const hide = () => {
 };
 
 const onConfirm = () => {
-  if (!cronValid.value || !policyValid.value) {
+  if (confirmDisabled.value) {
     return;
   }
   emit('confirm', {
@@ -150,6 +280,10 @@ const onConfirm = () => {
     retryCount: retryCountValue.value,
     timeoutSeconds: timeoutSecondsValue.value,
     priority: priorityValue.value,
+    dependencies: dependencies.value.map(item => ({
+      parentJobCode: item.parentJobCode.trim(),
+      lastInterval: Math.round(item.lastIntervalMinutes * 60 * 1000),
+    })),
   });
 };
 
@@ -202,5 +336,9 @@ defineExpose({ show, hide });
 .online-cron-tip {
   margin-top: 12px;
   margin-bottom: 0;
+}
+
+.dependency-error {
+  margin-top: 16px;
 }
 </style>

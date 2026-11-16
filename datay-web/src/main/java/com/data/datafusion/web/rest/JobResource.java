@@ -4,7 +4,9 @@ import com.data.datafusion.domain.Job;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.JobService;
+import com.data.datafusion.service.dto.JobDependDTO;
 import com.data.datafusion.service.dto.JobDTO;
+import com.data.datafusion.service.dto.TaskDependRequestDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -251,15 +253,17 @@ public class JobResource {
         @RequestParam(value = "cron", required = false) String cron,
         @RequestParam(value = "retryCount", required = false) Integer retryCount,
         @RequestParam(value = "timeoutSeconds", required = false) Integer timeoutSeconds,
-        @RequestParam(value = "priority", required = false) Integer priority
+        @RequestParam(value = "priority", required = false) Integer priority,
+        @RequestBody(required = false) TaskDependRequestDTO dependRequest
     ) {
         LOG.debug(
-            "REST request to online Job : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}",
+            "REST request to online Job : {}, cron : {}, retryCount : {}, timeoutSeconds : {}, priority : {}, depends : {}",
             id,
             cron,
             retryCount,
             timeoutSeconds,
-            priority
+            priority,
+            dependRequest == null ? null : dependRequest.getDependencies()
         );
         Job job = jobService.findOneJob(id).orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
         String normalizedCron = StringUtils.hasText(cron) ? cron.trim() : null;
@@ -279,7 +283,16 @@ public class JobResource {
         if (priority != null) {
             job.setPriority(priority);
         }
-        jobService.online(job, false);
+        List<JobDependDTO> dependencies = dependRequest == null ? null : dependRequest.getDependencies();
+        try {
+            if (dependencies == null) {
+                jobService.online(job, false);
+            } else {
+                jobService.online(job, false, dependencies);
+            }
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
         JobDTO updated = jobService.findOne(id).get();
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, updated.getId().toString()))

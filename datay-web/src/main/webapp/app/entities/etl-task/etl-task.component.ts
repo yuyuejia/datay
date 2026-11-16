@@ -8,9 +8,10 @@ import EtlTaskStateService from './etl-task-state.service';
 import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
 import { ETLTaskDirectory, type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
 import { type IJobInstance } from '@/shared/model/job-instance.model';
+import type { ITaskOnlineConfirmPayload } from '@/shared/model/task-dependency.model';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
-import CronExpressionSelector from '@/components/CronExpressionSelector.vue';
+import TaskOnlineModal from '@/components/TaskOnlineModal.vue';
 
 interface IStateRow {
   key: string;
@@ -29,7 +30,7 @@ interface IDirectoryTreeNode {
 export default defineComponent({
   name: 'ETLTask',
   components: {
-    CronExpressionSelector,
+    TaskOnlineModal,
   },
   setup() {
     const route = useRoute();
@@ -731,73 +732,37 @@ export default defineComponent({
 
     const onlineModal = ref<any>(null);
     const onlineTask: Ref<IETLTask | null> = ref(null);
-    const onlineCron = ref('');
-    const onlineRetryCount = ref(0);
-    const onlineTimeoutSeconds = ref(0);
-    const onlinePriority = ref(2);
     const isOnlineSubmitting = ref(false);
-
-    /** Cron 表达式的基础校验：至少包含 6 段（秒 分 时 日 月 周）或 7 段。 */
-    const onlineCronValid = computed(() => {
-      const parts = (onlineCron.value || '').trim().split(/\s+/).filter(Boolean);
-      return parts.length === 6 || parts.length === 7;
-    });
-
-    const onlinePolicyValid = computed(
-      () =>
-        Number.isInteger(onlineRetryCount.value) &&
-        onlineRetryCount.value >= 0 &&
-        onlineRetryCount.value <= 10 &&
-        Number.isInteger(onlineTimeoutSeconds.value) &&
-        onlineTimeoutSeconds.value >= 0 &&
-        onlineTimeoutSeconds.value <= 604800 &&
-        Number.isInteger(onlinePriority.value) &&
-        onlinePriority.value >= 1 &&
-        onlinePriority.value <= 3,
-    );
 
     const onlineETLTask = (task: IETLTask) => {
       onlineTask.value = task;
-      onlineCron.value = task.cron || '';
-      onlineRetryCount.value = task.retryCount ?? 0;
-      onlineTimeoutSeconds.value = task.timeoutSeconds ?? 0;
-      onlinePriority.value = task.priority ?? 2;
-      onlineModal.value?.show();
+      onlineModal.value?.show({
+        jobId: task.jobId || '',
+        cron: task.cron || '',
+        retryCount: task.retryCount ?? 0,
+        timeoutSeconds: task.timeoutSeconds ?? 0,
+        priority: task.priority ?? 2,
+      });
     };
 
     const closeOnlineModal = () => {
       onlineModal.value?.hide();
       onlineTask.value = null;
-      onlineCron.value = '';
-      onlineRetryCount.value = 0;
-      onlineTimeoutSeconds.value = 0;
-      onlinePriority.value = 2;
     };
 
-    const confirmOnline = async () => {
+    const confirmOnline = async (payload: ITaskOnlineConfirmPayload) => {
       if (!onlineTask.value?.id) {
-        return;
-      }
-      if (!onlineCron.value?.trim()) {
-        alertService.showError('当前任务尚未设置调度周期，请先设置 Cron 表达式');
-        return;
-      }
-      if (!onlineCronValid.value) {
-        alertService.showError('调度周期格式不正确，请填写 6 段或 7 段 Cron 表达式');
-        return;
-      }
-      if (!onlinePolicyValid.value) {
-        alertService.showError('重试次数需在 0-10 之间，超时时间需在 0-604800 秒之间，优先级需在 1-3 之间');
         return;
       }
       isOnlineSubmitting.value = true;
       try {
         await eTLTaskService().online(
           onlineTask.value.id,
-          onlineCron.value.trim(),
-          onlineRetryCount.value,
-          onlineTimeoutSeconds.value,
-          onlinePriority.value,
+          payload.cron,
+          payload.retryCount,
+          payload.timeoutSeconds,
+          payload.priority,
+          payload.dependencies,
         );
         alertService.showInfo(`ETL 任务 ${onlineTask.value.taskName || ''} 已上线调度`, { variant: 'success' });
         closeOnlineModal();
@@ -1159,12 +1124,6 @@ export default defineComponent({
       onlineETLTask,
       onlineModal,
       onlineTask,
-      onlineCron,
-      onlineRetryCount,
-      onlineTimeoutSeconds,
-      onlinePriority,
-      onlineCronValid,
-      onlinePolicyValid,
       isOnlineSubmitting,
       closeOnlineModal,
       confirmOnline,
