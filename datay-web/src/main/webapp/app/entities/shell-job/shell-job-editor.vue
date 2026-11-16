@@ -27,6 +27,7 @@
         </div>
       </div>
       <div class="header-right">
+        <el-button :loading="isExecuting" title="执行最近保存的脚本" @click="executeOnce">立即执行</el-button>
         <el-button type="primary" :loading="isSaving" @click="save">保存</el-button>
       </div>
     </div>

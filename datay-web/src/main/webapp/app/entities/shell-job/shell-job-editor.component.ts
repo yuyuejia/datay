@@ -49,6 +49,7 @@ export default defineComponent({
 
     const isEditMode = computed(() => !!props.jobId);
     const isSaving = ref(false);
+    const isExecuting = ref(false);
 
     const shellJob = ref<IJob>({
       jobName: '',
@@ -190,6 +191,22 @@ export default defineComponent({
       }
     };
 
+    const executeOnce = async () => {
+      if (!props.jobId) {
+        alertService.showWarning('请先保存任务后再执行');
+        return;
+      }
+      isExecuting.value = true;
+      try {
+        await shellJobService().run(String(props.jobId));
+        alertService.showInfo(`Shell 任务 ${shellJob.value.jobName || ''} 已触发执行一次`);
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isExecuting.value = false;
+      }
+    };
+
     const save = async () => {
       if (!shellJob.value.jobName || !shellJob.value.jobName.trim()) {
         alertService.showError('请输入任务名称');
@@ -251,10 +268,12 @@ export default defineComponent({
     return {
       isEditMode,
       isSaving,
+      isExecuting,
       shellJob,
       directoryTreeOptions,
       shellScript,
       editorContainer,
+      executeOnce,
       save,
     };
   },
