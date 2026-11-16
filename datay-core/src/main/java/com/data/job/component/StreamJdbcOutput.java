@@ -18,7 +18,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @ComponentRegister(
@@ -50,6 +52,12 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private final Map<String, TableMeta> tableMetaMap = new HashMap<>();
     private final Map<String, Boolean> tableExistsCache = new HashMap<>(); // 表存在性缓存
+
+    /**
+     * 目标字段 -> 源字段映射缓存：schema.table -> (目标字段实际名 -> 源数据实际 key)。
+     * 配置了 header_map 时以配置为准；未配置时按同名忽略大小写自动匹配。
+     */
+    private final Map<String, Map<String, String>> columnMappingCache = new HashMap<>();
 
     public StreamJdbcOutput() {
         setType(ComponentType.SINK);  // 设置为Sink类型
@@ -262,6 +270,9 @@ public class StreamJdbcOutput extends FlowComponent {
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
                     DBUtils.execute(targetConn, ddl);
+                    // 建表后回读实际元数据：部分数据库会规范化标识符大小写（如 PostgreSQL 统一小写），
+                    // 后续 DML 必须按真实字段名生成，不能继续使用源表转换结果。
+                    targetTable = refreshCreatedTableMeta(targetConn, schema, table, targetTable, catalog);
                 } else {
                     logInfo("表 " + schema + "." + table + " 已存在");
                     targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
@@ -290,6 +301,26 @@ public class StreamJdbcOutput extends FlowComponent {
         return targetTable;
     }
 
+    /**
+     * 自动建表后回读目标表实际元数据，确保字段名大小写与数据库一致。
+     * <p>读取失败时沿用建表前按源表转换出的元数据。</p>
+     */
+    private TableMeta refreshCreatedTableMeta(Connection targetConn, String schema, String table, TableMeta fallback,
+                                              String catalog) {
+        try {
+            TableMeta actual = DBUtils.getTableMetaData(targetConn, schema, table);
+            if (actual != null && actual.columns() != null && !actual.columns().isEmpty()) {
+                if (catalog != null) {
+                    actual.setCatalog(catalog);
+                }
+                return actual;
+            }
+        } catch (SQLException e) {
+            logDebug("读取新建表元数据失败，沿用源表转换结果：" + e.getMessage());
+        }
+        return fallback;
+    }
+
     private void migrateData(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
         String targetDbType = DBUtils.getDBType(this.datasource.getType(), this.datasource.getUrl());
         String eventType;
@@ -307,6 +338,7 @@ public class StreamJdbcOutput extends FlowComponent {
             // 写入前校验（如 TDengine 超级表不能直接普通写入）
             provider.validateWriteTarget(datasource, targetConn, targetTable, eventType);
         }
+        Map<String, String> columnMapping = resolveColumnMapping(targetTable, flowFile);
         if (provider != null && provider.supportsTableWrite(datasource, targetTable, eventType)) {
             String writeMode = provider.writeTable(
                 datasource,
@@ -314,7 +346,7 @@ public class StreamJdbcOutput extends FlowComponent {
                 targetTable,
                 flowFile.getJsonArray(),
                 eventType,
-                buildColumnMapping()
+                columnMapping
             );
             if (writeMode != null) {
                 this.logInfo(
@@ -326,7 +358,7 @@ public class StreamJdbcOutput extends FlowComponent {
             // 专用写入方式本次不可用（如 Appender 创建失败且尚未写入任何行），回退通用 JDBC 写入
             this.logDebug("专用写入方式不可用，回退通用 JDBC 写入，表：" + targetTable.getTable());
         }
-        migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType);
+        migrateDataWithJDBC(targetConn, targetTable, flowFile, targetDbType, eventType, columnMapping);
     }
 
     private JdbcDataSourceProvider jdbcProvider() {
@@ -352,7 +384,8 @@ public class StreamJdbcOutput extends FlowComponent {
     }
 
     private void migrateDataWithJDBC(Connection targetConn, TableMeta targetTable, FlowFile flowFile,
-                                      String targetDbType, String eventType) throws SQLException {
+                                      String targetDbType, String eventType, Map<String, String> columnMapping)
+        throws SQLException {
         String writeSQL = DatabaseConverter.generateWriteSQL(targetDbType, targetTable, eventType);
         PreparedStatement deleteStmt = null;
         try {
@@ -368,15 +401,15 @@ public class StreamJdbcOutput extends FlowComponent {
                     JSONObject record = (JSONObject) o;
                     // UPDATE 修改主键时，after 镜像会落到新主键上；先按 before 镜像删除旧主键，
                     // 否则目标端会残留一条旧记录，导致结果集与源库不一致。
-                    if (deleteStmt != null && primaryKeyChanged(targetTable, record)) {
+                    if (deleteStmt != null && primaryKeyChanged(targetTable, record, columnMapping)) {
                         if (hasPendingBatch) {
                             targetStmt.executeBatch();
                             hasPendingBatch = false;
                         }
-                        setDeleteParameters(deleteStmt, targetTable, record.getJSONObject("__before"), targetDbType);
+                        setDeleteParameters(deleteStmt, targetTable, record.getJSONObject("__before"), targetDbType, columnMapping);
                         deleteStmt.executeUpdate();
                     }
-                    setStatementParameters(targetStmt, targetTable, record, eventType, targetDbType);
+                    setStatementParameters(targetStmt, targetTable, record, eventType, targetDbType, columnMapping);
                     targetStmt.addBatch();
                     hasPendingBatch = true;
                 }
@@ -392,21 +425,131 @@ public class StreamJdbcOutput extends FlowComponent {
     }
 
     /**
-     * 目标字段 -> 源字段映射，未配置时返回 null。
+     * 解析目标字段 -> 源字段映射（忽略大小写）。
+     * <p>配置了 header_map 时以配置为准；未配置时按上下游同名字段自动匹配。
+     * 映射结果按目标表缓存，后续批次直接复用。</p>
      */
-    private Map<String, String> buildColumnMapping() {
-        if (header_map == null || header_map.isEmpty()) {
-            return null;
+    private Map<String, String> resolveColumnMapping(TableMeta targetTable, FlowFile flowFile) {
+        String tableKey = targetTable.getCatalog() + "." + targetTable.getSchema() + "." + targetTable.getTable();
+        Map<String, String> cached = this.columnMappingCache.get(tableKey);
+        if (cached != null) {
+            return cached;
         }
+        Map<String, String> columnMapping = buildColumnMapping(targetTable, flowFile);
+        this.columnMappingCache.put(tableKey, columnMapping);
+        if (header_map == null || header_map.isEmpty()) {
+            this.logDebug("未配置 header_map，按字段名忽略大小写自动匹配，表：" + tableKey + "，映射：" + columnMapping);
+        }
+        return columnMapping;
+    }
+
+    /**
+     * 构造目标字段 -> 源字段映射。
+     * <p>header_map 中配置的字段名、目标表字段名、源数据字段名均忽略大小写匹配；
+     * header_map 未配置映射的目标字段，回退为按同名字段（忽略大小写）自动匹配。</p>
+     */
+    private Map<String, String> buildColumnMapping(TableMeta targetTable, FlowFile flowFile) {
+        Map<String, String> sourceColumns = resolveSourceColumns(flowFile);
+        Map<String, String> configuredByTarget = configuredSourceByTarget();
+
         Map<String, String> columnMapping = new HashMap<>();
-        for (Map<String, Object> mapping : header_map) {
-            Object inColumn = mapping.get("source");
-            Object outColumn = mapping.get("target");
-            if (inColumn != null && outColumn != null) {
-                columnMapping.put(outColumn.toString(), inColumn.toString());
+        for (ColumnMeta targetColumn : targetTable.columns()) {
+            String targetColumnName = targetColumn.getName();
+            String sourceColumnName = configuredByTarget.get(normalizeColumnName(targetColumnName));
+            if (sourceColumnName == null) {
+                // 未配置映射时按目标字段名查找同名源字段
+                sourceColumnName = targetColumnName;
+            }
+            String actualSourceColumn = sourceColumns.get(normalizeColumnName(sourceColumnName));
+            columnMapping.put(targetColumnName, actualSourceColumn == null ? sourceColumnName : actualSourceColumn);
+        }
+        return columnMapping;
+    }
+
+    /**
+     * header_map 配置：目标字段（小写） -> 源字段。
+     */
+    private Map<String, String> configuredSourceByTarget() {
+        Map<String, String> mapping = new HashMap<>();
+        if (header_map == null || header_map.isEmpty()) {
+            return mapping;
+        }
+        for (Map<String, Object> entry : header_map) {
+            if (entry == null) {
+                continue;
+            }
+            Object source = entry.get("source");
+            Object target = entry.get("target");
+            if (source == null || target == null) {
+                continue;
+            }
+            String sourceColumn = source.toString().trim();
+            String targetColumn = target.toString().trim();
+            if (sourceColumn.isEmpty() || targetColumn.isEmpty()) {
+                continue;
+            }
+            mapping.put(normalizeColumnName(targetColumn), sourceColumn);
+        }
+        return mapping;
+    }
+
+    /**
+     * 源字段索引：小写字段名 -> 实际字段名。
+     * <p>优先使用记录中的实际 key（保证大小写与数据一致），再补充源表元数据。</p>
+     */
+    private Map<String, String> resolveSourceColumns(FlowFile flowFile) {
+        Map<String, String> sourceColumns = new LinkedHashMap<>();
+        JSONArray records = flowFile == null ? null : flowFile.getJsonArray();
+        if (records != null && !records.isEmpty() && records.get(0) instanceof JSONObject) {
+            for (String key : ((JSONObject) records.get(0)).keySet()) {
+                // CDC 内部字段（如 __before）不参与源字段匹配
+                if (!key.startsWith("__")) {
+                    sourceColumns.put(normalizeColumnName(key), key);
+                }
             }
         }
-        return columnMapping.isEmpty() ? null : columnMapping;
+
+        Object meta = flowFile == null ? null : flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        if (meta instanceof TableMeta) {
+            for (ColumnMeta column : ((TableMeta) meta).columns()) {
+                if (column.getName() != null) {
+                    sourceColumns.putIfAbsent(normalizeColumnName(column.getName()), column.getName());
+                }
+            }
+        }
+        return sourceColumns;
+    }
+
+    private String normalizeColumnName(String columnName) {
+        return columnName == null ? "" : columnName.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 按源字段名取值：先精确匹配，再忽略大小写匹配，兼容上下游字段大小写不一致。
+     */
+    private Object getRecordValue(JSONObject record, String sourceColumnName) {
+        if (record == null || sourceColumnName == null) {
+            return null;
+        }
+        if (record.containsKey(sourceColumnName)) {
+            return record.get(sourceColumnName);
+        }
+        for (String key : record.keySet()) {
+            if (key.equalsIgnoreCase(sourceColumnName)) {
+                return record.get(key);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 读取目标字段对应的源字段值。
+     */
+    private Object getMappedValue(JSONObject record, ColumnMeta targetColumn, Map<String, String> columnMapping) {
+        String sourceColumnName = columnMapping == null
+            ? targetColumn.getName()
+            : columnMapping.getOrDefault(targetColumn.getName(), targetColumn.getName());
+        return getRecordValue(record, sourceColumnName);
     }
 
     private void executeDDLSQL(Connection targetConn, FlowFile flowFile) throws SQLException {
@@ -433,6 +576,7 @@ public class StreamJdbcOutput extends FlowComponent {
         // DDL 会改变目标表结构，清空元数据缓存，让后续数据事件按新结构绑定参数
         this.tableMetaMap.clear();
         this.tableExistsCache.clear();
+        this.columnMappingCache.clear();
     }
 
     /**
@@ -450,21 +594,21 @@ public class StreamJdbcOutput extends FlowComponent {
      * 根据事件类型设置PreparedStatement参数
      */
     private void setStatementParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String eventType,
-                                        String targetDbType) throws SQLException {
+                                        String targetDbType, Map<String, String> columnMapping) throws SQLException {
         if ("DELETE".equals(eventType)) {
             // DELETE语句只需要设置WHERE条件中的参数（通常是主键）
-            setDeleteParameters(stmt, tableMeta, record, targetDbType);
+            setDeleteParameters(stmt, tableMeta, record, targetDbType, columnMapping);
         } else {
             // INSERT/UPDATE/REPLACE语句需要设置所有列的值
-            setInsertUpdateParameters(stmt, tableMeta, record, targetDbType);
+            setInsertUpdateParameters(stmt, tableMeta, record, targetDbType, columnMapping);
         }
     }
 
     /**
      * 设置DELETE语句的参数（只设置WHERE条件中的列）
      */
-    private void setDeleteParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType)
-        throws SQLException {
+    private void setDeleteParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType,
+                                     Map<String, String> columnMapping) throws SQLException {
         List<ColumnMeta> primaryKeys = getPrimaryKeyColumns(tableMeta);
         if (primaryKeys.isEmpty()) {
             // 如果没有主键，使用所有列作为WHERE条件
@@ -473,7 +617,7 @@ public class StreamJdbcOutput extends FlowComponent {
 
         for (int i = 0; i < primaryKeys.size(); i++) {
             ColumnMeta column = primaryKeys.get(i);
-            Object value = record.get(column.getName());
+            Object value = getMappedValue(record, column, columnMapping);
             setParameter(stmt, i + 1, column, value, targetDbType);
         }
     }
@@ -481,18 +625,12 @@ public class StreamJdbcOutput extends FlowComponent {
     /**
      * 设置INSERT/UPDATE/REPLACE语句的参数（设置所有列的值）
      */
-    private void setInsertUpdateParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType)
-        throws SQLException {
-        // 如果设置了字段映射，根据字段映射设置value
-        if (header_map != null && !header_map.isEmpty()) {
-            setInsertUpdateParametersWithMapping(stmt, tableMeta, record, targetDbType);
-        } else {
-            // 没有字段映射时使用原来的逻辑
-            for (int i = 0; i < tableMeta.columns().size(); i++) {
-                ColumnMeta column = tableMeta.columns().get(i);
-                Object value = record.get(column.getName());
-                setParameter(stmt, i + 1, column, value, targetDbType);
-            }
+    private void setInsertUpdateParameters(PreparedStatement stmt, TableMeta tableMeta, JSONObject record, String targetDbType,
+                                           Map<String, String> columnMapping) throws SQLException {
+        for (int i = 0; i < tableMeta.columns().size(); i++) {
+            ColumnMeta column = tableMeta.columns().get(i);
+            Object value = getMappedValue(record, column, columnMapping);
+            setParameter(stmt, i + 1, column, value, targetDbType);
         }
     }
 
@@ -505,50 +643,17 @@ public class StreamJdbcOutput extends FlowComponent {
     }
 
     /**
-     * 根据字段映射设置INSERT/UPDATE/REPLACE语句的参数
-     */
-    private void setInsertUpdateParametersWithMapping(PreparedStatement stmt, TableMeta tableMeta, JSONObject record,
-                                                      String targetDbType) throws SQLException {
-        // 创建字段映射关系：目标字段名 -> 源字段名
-        Map<String, String> columnMapping = new HashMap<>();
-        for (Map<String, Object> mapping : header_map) {
-            String inColumn = (String) mapping.get("source");
-            String outColumn = (String) mapping.get("target");
-            if (inColumn != null && outColumn != null) {
-                columnMapping.put(outColumn, inColumn);
-            }
-        }
-        
-        // 根据目标表的列顺序设置参数值
-        for (int i = 0; i < tableMeta.columns().size(); i++) {
-            ColumnMeta targetColumn = tableMeta.columns().get(i);
-            String targetColumnName = targetColumn.getName();
-            
-            // 查找对应的源字段名
-            String sourceColumnName = columnMapping.get(targetColumnName);
-            if (sourceColumnName == null) {
-                // 如果没有映射关系，使用目标字段名作为源字段名
-                sourceColumnName = targetColumnName;
-            }
-            
-            // 从记录中获取源字段的值
-            Object value = record.get(sourceColumnName);
-            setParameter(stmt, i + 1, targetColumn, value, targetDbType);
-        }
-    }
-
-    /**
      * UPDATE 事件的主键是否发生变化。
      * <p>CDC 的 UPDATE 事件会把变更前镜像放在 {@code __before} 中。</p>
      */
-    private boolean primaryKeyChanged(TableMeta tableMeta, JSONObject record) {
+    private boolean primaryKeyChanged(TableMeta tableMeta, JSONObject record, Map<String, String> columnMapping) {
         JSONObject before = record.getJSONObject("__before");
         if (before == null) {
             return false;
         }
         for (ColumnMeta column : getPrimaryKeyColumns(tableMeta)) {
-            String oldValue = stringValue(before.get(column.getName()));
-            String newValue = stringValue(record.get(column.getName()));
+            String oldValue = stringValue(getMappedValue(before, column, columnMapping));
+            String newValue = stringValue(getMappedValue(record, column, columnMapping));
             if (!java.util.Objects.equals(oldValue, newValue)) {
                 return true;
             }
@@ -615,6 +720,7 @@ public class StreamJdbcOutput extends FlowComponent {
 
     public void setHeader_map(List<Map<String, Object>> header_map) {
         this.header_map = header_map;
+        this.columnMappingCache.clear();
     }
 
     public List<Map<String, Object>> getHeader_map() {

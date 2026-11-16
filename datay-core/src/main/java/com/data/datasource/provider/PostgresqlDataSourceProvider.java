@@ -3,11 +3,13 @@ package com.data.datasource.provider;
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
+import com.data.job.DatasourceInfo;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -21,6 +23,12 @@ public class PostgresqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.POSTGRESQL);
+    }
+
+    @Override
+    public String normalizeTargetTableName(DatasourceInfo info, String tableName) {
+        // PostgreSQL 自动建表使用小写表名，DDL 与后续 DML/元数据回读保持同一名称
+        return tableName == null ? null : tableName.toLowerCase(Locale.ROOT);
     }
 
     @Override

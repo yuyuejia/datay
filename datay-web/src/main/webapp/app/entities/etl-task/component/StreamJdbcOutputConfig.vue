@@ -38,7 +38,7 @@
             <el-button size="small" text :disabled="!formData.header_map.length" @click="clearMapping">清空</el-button>
             <span class="mapping-status">{{ mappingHint }}</span>
           </div>
-          <div v-if="!formData.header_map.length" class="mapping-empty">暂未配置映射，留空表示按同名字段自动映射</div>
+          <div v-if="!formData.header_map.length" class="mapping-empty">暂未配置映射，留空表示按同名字段（忽略大小写）自动映射</div>
           <div v-for="(mapping, index) in formData.header_map" :key="index" class="mapping-row">
             <el-select
               v-model="mapping.source"

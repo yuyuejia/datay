@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 public class PostgresqlConverter implements TypeConverter {
 
@@ -335,26 +336,29 @@ public class PostgresqlConverter implements TypeConverter {
 
     @Override
     public String generateTableDDL(TableMeta table) {
+        // PostgreSQL 自动建表统一使用小写表名/字段名，避免未加引号时被数据库折叠后与内存元数据不一致
+        String tableName = table.getTable().toLowerCase(Locale.ROOT);
         StringBuilder ddl = new StringBuilder("CREATE TABLE ")
             .append(table.getSchema())
             .append(".")
-            .append(table.getTable())
+            .append(tableName)
             .append(" (\n");
 
         List<String> columns = new ArrayList<>();
         List<String> primaryKeys = new ArrayList<>();
 
         for (ColumnMeta col : table.columns()) {
+            String columnName = col.getName().toLowerCase(Locale.ROOT);
             String columnDDL = generateColumnDDL(col);
             columns.add("  " + columnDDL);
             if (col.isPrimaryKey()) {
-                primaryKeys.add("\"" + col.getName() + "\"");
+                primaryKeys.add("\"" + columnName + "\"");
             }
         }
 
         // 处理主键约束
         if (!primaryKeys.isEmpty()) {
-            columns.add("  CONSTRAINT pk_" + table.getTable() + " PRIMARY KEY (" + String.join(", ", primaryKeys) + ")");
+            columns.add("  CONSTRAINT pk_" + tableName + " PRIMARY KEY (" + String.join(", ", primaryKeys) + ")");
         }
 
         ddl.append(String.join(",\n", columns));
@@ -364,7 +368,7 @@ public class PostgresqlConverter implements TypeConverter {
         if (table.getComment() != null && !table.getComment().isEmpty()) {
             ddl
                 .append("\nCOMMENT ON TABLE \"")
-                .append(table.getTable())
+                .append(tableName)
                 .append("\" IS '")
                 .append(escapeComment(table.getComment()))
                 .append("';");
@@ -375,9 +379,9 @@ public class PostgresqlConverter implements TypeConverter {
             if (col.getComment() != null && !col.getComment().isEmpty()) {
                 ddl
                     .append("\nCOMMENT ON COLUMN \"")
-                    .append(table.getTable())
+                    .append(tableName)
                     .append("\".\"")
-                    .append(col.getName())
+                    .append(col.getName().toLowerCase(Locale.ROOT))
                     .append("\" IS '")
                     .append(escapeComment(col.getComment()))
                     .append("';");
@@ -531,7 +535,7 @@ public class PostgresqlConverter implements TypeConverter {
             }
         }
 
-        return String.format("%s %s", column.getName(), sb.toString());
+        return String.format("\"%s\" %s", column.getName().toLowerCase(Locale.ROOT), sb.toString());
     }
 
     /**
