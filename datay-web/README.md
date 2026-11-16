@@ -145,6 +145,8 @@ java -jar target/*.jar
 - **master**：初始化 Quartz 调度、维护任务上线/下线、接收 worker 上报的任务状态并落库，通过 Redis 队列下发待执行任务
 - **worker**：从 Redis 队列消费待执行任务并执行，上报执行状态与日志，不初始化 Quartz 调度
 - 多 master 部署时通过 Redis 分布式锁进行 Leader 选举，只有 Leader 负责调度，保证调度一致性
+- **日志查看**：master / worker 分离部署时，日志文件只存在实际执行任务的 worker 上。master 根据任务实例的 `exec_node`
+  把日志请求转发到对应 worker，因此 worker 地址与端口需对 master 可达，并保持 master / worker 的 JWT 签名密钥一致。
 
 启动方式：部署角色统一由 `development.mode` 表达，**不需要额外的 Spring profile**：
 

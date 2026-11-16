@@ -38,7 +38,8 @@ public class StartJobEventHandler implements Runnable {
     public static final Map<String, TaskExecutionInfo> runningTasks = new ConcurrentHashMap<>();
 
     // 获取当前执行节点的ip和端口信息
-    public static final String EXECNODE = NetUtil.getLocalhostStr() + ":" + SpringUtil.getEnvironment().getProperty("server.port");
+    public static final String EXECNODE =
+        NetUtil.getLocalhostStr() + ":" + SpringUtil.getEnvironment().getProperty("server.port", "8080");
 
     public StartJobEventHandler() {
         // 创建可配置的线程池，支持任务停止和状态监控

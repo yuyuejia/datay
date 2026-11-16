@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.TaskManagementService;
+import com.data.datafusion.service.WorkerLogForwardService;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 public class WorkerResourceTest {
@@ -28,13 +30,16 @@ public class WorkerResourceTest {
 
     private JobInstanceService jobInstanceService;
 
+    private WorkerLogForwardService workerLogForwardService;
+
     @TempDir
     Path tempDir;
 
     @BeforeEach
     public void setUp() {
         jobInstanceService = Mockito.mock(JobInstanceService.class);
-        workerResource = new WorkerResource(new TaskManagementService(), jobInstanceService);
+        workerLogForwardService = Mockito.mock(WorkerLogForwardService.class);
+        workerResource = new WorkerResource(new TaskManagementService(), jobInstanceService, workerLogForwardService);
     }
 
     private Path writeLog(String dir, String fileName, String content) throws Exception {
@@ -128,7 +133,7 @@ public class WorkerResourceTest {
             subJob.setParentInstanceCode("parent-123");
             Mockito.when(jobInstanceService.findOneJobInstanceByInstanceCode("2001-999")).thenReturn(subJob);
 
-            Map<String, Object> body = workerResource.getTaskLog("2001", "2001-999", 0, 10000, 0).getBody();
+            Map<String, Object> body = workerResource.getTaskLog("2001", "2001-999", 0, 10000, 0, null, new HttpHeaders()).getBody();
             assertEquals(Boolean.TRUE, body.get("success"));
             assertEquals("sub node log\n", body.get("content"));
         });
@@ -145,7 +150,7 @@ public class WorkerResourceTest {
                 Files.write(logRoot.resolve(node).resolve("100-1.log"), ("node-" + node + "\n").getBytes(StandardCharsets.UTF_8));
             }
 
-            Map<String, Object> body = workerResource.getTaskLog("100", "100-1", 0, 10000, 0).getBody();
+            Map<String, Object> body = workerResource.getTaskLog("100", "100-1", 0, 10000, 0, null, new HttpHeaders()).getBody();
             assertEquals(Boolean.TRUE, body.get("success"));
             String content = (String) body.get("content");
             assertTrue(content.contains("node-2001\n"));
@@ -164,7 +169,7 @@ public class WorkerResourceTest {
             Path logFile = dir.resolve("3001-1.log");
             Files.write(logFile, content.toString().getBytes(StandardCharsets.UTF_8));
 
-            Map<String, Object> body = workerResource.getTaskLog("3001", "3001-1", 0, 10000, 5).getBody();
+            Map<String, Object> body = workerResource.getTaskLog("3001", "3001-1", 0, 10000, 5, null, new HttpHeaders()).getBody();
 
             assertEquals(Boolean.TRUE, body.get("success"));
             String tail = (String) body.get("content");
@@ -174,6 +179,77 @@ public class WorkerResourceTest {
             assertEquals(logFile.toFile().length(), body.get("newOffset"));
             assertEquals(5, body.get("tailLines"));
         });
+    }
+
+    @Test
+    public void testForwardedSubJobLogUsesParentInstanceCodeWithoutDatabase() throws Exception {
+        withUserDir(() -> {
+            Path dir = Files.createDirectories(tempDir.resolve("log").resolve("2001"));
+            Files.write(dir.resolve("parent-123.log"), "forwarded sub node log\n".getBytes(StandardCharsets.UTF_8));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(WorkerLogForwardService.FORWARDED_HEADER, "1");
+
+            Map<String, Object> body = workerResource.getTaskLog(
+                "2001",
+                "2001-999",
+                0,
+                10000,
+                0,
+                "parent-123",
+                headers
+            ).getBody();
+
+            assertEquals(Boolean.TRUE, body.get("success"));
+            assertEquals("forwarded sub node log\n", body.get("content"));
+            Mockito.verifyNoInteractions(jobInstanceService);
+        });
+    }
+
+    @Test
+    public void testLogRequestForwardedToExecNode() throws Exception {
+        JobInstance subJob = new JobInstance();
+        subJob.setInstanceCode("2001-999");
+        subJob.setParentInstanceCode("parent-123");
+        subJob.setExecNode("10.0.0.9:18081");
+        Mockito.when(jobInstanceService.findOneJobInstanceByInstanceCode("2001-999")).thenReturn(subJob);
+        Mockito.when(workerLogForwardService.shouldForward(subJob, false)).thenReturn(true);
+        Map<String, Object> workerResult = Map.of("success", true, "content", "from-worker", "newOffset", 10);
+        Mockito.when(
+            workerLogForwardService.forwardGet(
+                Mockito.eq("10.0.0.9:18081"),
+                Mockito.eq("/api/worker/log"),
+                Mockito.anyMap(),
+                Mockito.eq("Bearer jwt")
+            )
+        ).thenReturn(workerResult);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer jwt");
+
+        ResponseEntity<Map<String, Object>> response = workerResource.getTaskLog(
+            "2001",
+            "2001-999",
+            0,
+            10000,
+            0,
+            null,
+            headers
+        );
+
+        assertEquals(workerResult, response.getBody());
+        Mockito.verify(workerLogForwardService)
+            .forwardGet(
+                Mockito.eq("10.0.0.9:18081"),
+                Mockito.eq("/api/worker/log"),
+                Mockito.argThat(params ->
+                    "2001".equals(params.get("jobCode")) &&
+                    "2001-999".equals(params.get("jobInstanceCode")) &&
+                    "parent-123".equals(params.get("parentInstanceCode")) &&
+                    "0".equals(params.get("offset"))
+                ),
+                Mockito.eq("Bearer jwt")
+            );
     }
 
     private void withUserDir(ThrowingRunnable runnable) throws Exception {

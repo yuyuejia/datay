@@ -7,6 +7,7 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.TaskManagementService;
+import com.data.datafusion.service.WorkerLogForwardService;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +22,8 @@ class WorkerResourceFailureLogTest {
 
     private final WorkerResource workerResource = new WorkerResource(
         mock(TaskManagementService.class),
-        mock(JobInstanceService.class)
+        mock(JobInstanceService.class),
+        mock(WorkerLogForwardService.class)
     );
 
     @Test

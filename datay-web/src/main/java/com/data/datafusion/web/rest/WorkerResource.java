@@ -5,6 +5,7 @@ import cn.hutool.core.io.file.FileReader;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.TaskManagementService;
+import com.data.datafusion.service.WorkerLogForwardService;
 import com.data.job.TaskLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -15,13 +16,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.HeaderUtil;
 
@@ -56,12 +60,19 @@ public class WorkerResource {
 
     private final JobInstanceService jobInstanceService;
 
+    private final WorkerLogForwardService workerLogForwardService;
+
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
 
-    public WorkerResource(TaskManagementService taskManagementService, JobInstanceService jobInstanceService) {
+    public WorkerResource(
+        TaskManagementService taskManagementService,
+        JobInstanceService jobInstanceService,
+        WorkerLogForwardService workerLogForwardService
+    ) {
         this.taskManagementService = taskManagementService;
         this.jobInstanceService = jobInstanceService;
+        this.workerLogForwardService = workerLogForwardService;
     }
 
     /**
@@ -104,7 +115,9 @@ public class WorkerResource {
         @RequestParam String jobInstanceCode,
         @RequestParam(required = false, defaultValue = "0") long offset,
         @RequestParam(required = false, defaultValue = "10485760") long maxSize,
-        @RequestParam(required = false, defaultValue = "0") int tailLines
+        @RequestParam(required = false, defaultValue = "0") int tailLines,
+        @RequestParam(required = false) String parentInstanceCode,
+        @RequestHeader HttpHeaders headers
     ) {
         Map<String, Object> result = new HashMap<>();
 
@@ -120,10 +133,32 @@ public class WorkerResource {
             // 因此按文件名收集并聚合，即可得到整个DAG运行的完整日志。
             // 子任务实例(如DAG中的SQL/Shell节点)的日志写在以父实例代码命名的文件中，
             // 需要根据父实例代码定位其日志文件。
-            JobInstance jobInstance = jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
-            String parentInstanceCode = jobInstance == null ? null : jobInstance.getParentInstanceCode();
+            JobInstance jobInstance = isForwardedRequest(headers)
+                ? null
+                : jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
+            String resolvedParentInstanceCode = resolveParentInstanceCode(jobInstance, parentInstanceCode);
 
-            List<File> logFiles = resolveLogFiles(jobCode, jobInstanceCode, parentInstanceCode);
+            if (workerLogForwardService.shouldForward(jobInstance, isForwardedRequest(headers))) {
+                Map<String, String> params = new LinkedHashMap<>();
+                params.put("jobCode", jobCode);
+                params.put("jobInstanceCode", jobInstanceCode);
+                if (StringUtils.hasText(resolvedParentInstanceCode)) {
+                    params.put("parentInstanceCode", resolvedParentInstanceCode);
+                }
+                params.put("offset", String.valueOf(offset));
+                params.put("maxSize", String.valueOf(actualMaxSize));
+                params.put("tailLines", String.valueOf(tailLines));
+                return ResponseEntity.ok(
+                    workerLogForwardService.forwardGet(
+                        jobInstance.getExecNode(),
+                        "/api/worker/log",
+                        params,
+                        getAuthorization(headers)
+                    )
+                );
+            }
+
+            List<File> logFiles = resolveLogFiles(jobCode, jobInstanceCode, resolvedParentInstanceCode);
 
             if (logFiles.isEmpty()) {
                 result.put("success", false);
@@ -475,12 +510,37 @@ public class WorkerResource {
     public Map<String, Object> getFullTaskLog(
         @RequestParam String jobCode,
         @RequestParam String jobInstanceCode,
-        @RequestParam(required = false, defaultValue = "10485760") long maxSize
+        @RequestParam(required = false, defaultValue = "10485760") long maxSize,
+        @RequestParam(required = false) String parentInstanceCode,
+        @RequestHeader HttpHeaders headers
     ) {
         Map<String, Object> result = new HashMap<>();
 
         try {
-            String logFileName = getLogFileName(jobCode, jobInstanceCode);
+            JobInstance jobInstance = isForwardedRequest(headers)
+                ? null
+                : jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
+            String resolvedParentInstanceCode = resolveParentInstanceCode(jobInstance, parentInstanceCode);
+            if (workerLogForwardService.shouldForward(jobInstance, isForwardedRequest(headers))) {
+                Map<String, String> params = new LinkedHashMap<>();
+                params.put("jobCode", jobCode);
+                params.put("jobInstanceCode", jobInstanceCode);
+                if (StringUtils.hasText(resolvedParentInstanceCode)) {
+                    params.put("parentInstanceCode", resolvedParentInstanceCode);
+                }
+                params.put("maxSize", String.valueOf(maxSize));
+                return workerLogForwardService.forwardGet(
+                    jobInstance.getExecNode(),
+                    "/api/worker/log/full",
+                    params,
+                    getAuthorization(headers)
+                );
+            }
+
+            String logFileName = getLogFileName(
+                jobCode,
+                StringUtils.hasText(resolvedParentInstanceCode) ? resolvedParentInstanceCode : jobInstanceCode
+            );
             File logFile = new File(logFileName);
 
             if (!logFile.exists()) {
@@ -581,11 +641,38 @@ public class WorkerResource {
      * 获取日志文件信息（文件大小、是否存在等）
      */
     @RequestMapping("/log/info")
-    public Map<String, Object> getLogInfo(@RequestParam String jobCode, @RequestParam String jobInstanceCode) {
+    public Map<String, Object> getLogInfo(
+        @RequestParam String jobCode,
+        @RequestParam String jobInstanceCode,
+        @RequestParam(required = false) String parentInstanceCode,
+        @RequestHeader HttpHeaders headers
+    ) {
         Map<String, Object> result = new HashMap<>();
 
         try {
-            String logFileName = getLogFileName(jobCode, jobInstanceCode);
+            JobInstance jobInstance = isForwardedRequest(headers)
+                ? null
+                : jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
+            String resolvedParentInstanceCode = resolveParentInstanceCode(jobInstance, parentInstanceCode);
+            if (workerLogForwardService.shouldForward(jobInstance, isForwardedRequest(headers))) {
+                Map<String, String> params = new LinkedHashMap<>();
+                params.put("jobCode", jobCode);
+                params.put("jobInstanceCode", jobInstanceCode);
+                if (StringUtils.hasText(resolvedParentInstanceCode)) {
+                    params.put("parentInstanceCode", resolvedParentInstanceCode);
+                }
+                return workerLogForwardService.forwardGet(
+                    jobInstance.getExecNode(),
+                    "/api/worker/log/info",
+                    params,
+                    getAuthorization(headers)
+                );
+            }
+
+            String logFileName = getLogFileName(
+                jobCode,
+                StringUtils.hasText(resolvedParentInstanceCode) ? resolvedParentInstanceCode : jobInstanceCode
+            );
             File logFile = new File(logFileName);
 
             result.put("success", true);
@@ -606,10 +693,29 @@ public class WorkerResource {
      * 重置读取位置（用于重新开始读取）
      */
     @RequestMapping("/log/reset")
-    public Map<String, Object> resetLogPosition(@RequestParam String jobCode, @RequestParam String jobInstanceCode) {
+    public Map<String, Object> resetLogPosition(
+        @RequestParam String jobCode,
+        @RequestParam String jobInstanceCode,
+        @RequestHeader HttpHeaders headers
+    ) {
         Map<String, Object> result = new HashMap<>();
 
         try {
+            JobInstance jobInstance = isForwardedRequest(headers)
+                ? null
+                : jobInstanceService.findOneJobInstanceByInstanceCode(jobInstanceCode);
+            if (workerLogForwardService.shouldForward(jobInstance, isForwardedRequest(headers))) {
+                Map<String, String> params = new LinkedHashMap<>();
+                params.put("jobCode", jobCode);
+                params.put("jobInstanceCode", jobInstanceCode);
+                return workerLogForwardService.forwardGet(
+                    jobInstance.getExecNode(),
+                    "/api/worker/log/reset",
+                    params,
+                    getAuthorization(headers)
+                );
+            }
+
             String key = jobCode + "_" + jobInstanceCode;
             lastReadPositions.remove(key);
 
@@ -624,7 +730,39 @@ public class WorkerResource {
         return result;
     }
 
+    private String resolveParentInstanceCode(JobInstance jobInstance, String parentInstanceCode) {
+        if (StringUtils.hasText(parentInstanceCode)) {
+            if (isSafeLogPathSegment(parentInstanceCode)) {
+                return parentInstanceCode;
+            }
+            LOG.warn("忽略非法的父实例代码: {}", parentInstanceCode);
+        }
+        String instanceParent = jobInstance == null ? null : jobInstance.getParentInstanceCode();
+        return isSafeLogPathSegment(instanceParent) ? instanceParent : null;
+    }
+
+    private boolean isSafeLogPathSegment(String value) {
+        return (
+            StringUtils.hasText(value) &&
+            value.equals(value.trim()) &&
+            !value.contains("/") &&
+            !value.contains("\\") &&
+            !value.contains("..")
+        );
+    }
+
+    private boolean isForwardedRequest(HttpHeaders headers) {
+        return headers != null && headers.containsKey(WorkerLogForwardService.FORWARDED_HEADER);
+    }
+
+    private String getAuthorization(HttpHeaders headers) {
+        return headers == null ? null : headers.getFirst(HttpHeaders.AUTHORIZATION);
+    }
+
     private String getLogFileName(String jobCode, String jobInstanceCode) {
+        if (!isSafeLogPathSegment(jobCode) || !isSafeLogPathSegment(jobInstanceCode)) {
+            throw new IllegalArgumentException("非法的日志路径参数");
+        }
         // 获取当前工作目录的绝对路径
         String currentDir = System.getProperty("user.dir");
         // 构建绝对路径的日志文件路径
