@@ -48,10 +48,6 @@
 
 有问题或建议，请通过项目 Issue 反馈，也欢迎加微信交流。
 
-**作者微信**
-
-<img src="images/weixin.png" width="260" height="260" alt="DataY 作者微信" />
-
-**DataY 技术交流群**
-
-<img src="https://datay.yuyuejia.com.cn/download/DataY%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4.png" width="260" alt="DataY 技术交流群" />
+| 作者微信 | 技术交流群 |
+| :---: | :---: |
+| <img src="images/weixin.png" width="180" alt="DataY 作者微信" /> | <img src="https://datay.yuyuejia.com.cn/download/DataY%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4.png" width="180" alt="DataY 技术交流群" /> |

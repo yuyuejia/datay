@@ -320,10 +320,6 @@ npm run lint
 
 产品不断完善中，如有问题或建议，请通过项目 Issue 反馈，我们会尽快回复您。支持个性化需求，可以加微信联系我们。
 
-### 作者微信
-
-<img src="../datay-core/docs/images/datay.jpg" width="350" height="500" alt="DataY 作者微信">
-
-### 技术交流群
-
-<img src="https://datay.yuyuejia.com.cn/download/DataY%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4.png" width="300" alt="DataY 技术交流群">
+| 作者微信 | 技术交流群 |
+| :---: | :---: |
+| <img src="../datay-core/docs/images/datay.jpg" width="180" alt="DataY 作者微信"> | <img src="https://datay.yuyuejia.com.cn/download/DataY%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4.png" width="180" alt="DataY 技术交流群"> |

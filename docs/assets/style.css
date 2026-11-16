@@ -614,9 +614,9 @@ a {
 /* Contact */
 .contact {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
-  max-width: 1160px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -639,6 +639,23 @@ a {
   margin: 0 0 18px;
 }
 
+.contact-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.contact-qr-item {
+  margin: 0;
+}
+
+.contact-qr-item figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .contact-mail {
   display: inline-block;
   font-size: 17px;
@@ -650,8 +667,8 @@ a {
 }
 
 .contact-qr {
-  width: 200px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 150px;
   margin: 0 auto;
   border-radius: 10px;
   border: 1px solid var(--border);
