@@ -191,9 +191,15 @@ DataY 开源免费，遵循对应开源协议，个人与企业均可免费下�
 
 ## 联系方式
 
-有问题或建议，请通过项目Issue或加微信号进行反馈，我们会尽快回复您。
+有问题或建议，请通过项目 Issue 或加微信进行反馈，我们会尽快回复您。
 
-<img src="datay-core/docs/images/weixin.png" width="300" height="300" alt="DataY">
+### 作者微信
+
+<img src="datay-core/docs/images/weixin.png" width="300" height="300" alt="DataY 作者微信">
+
+### 技术交流群
+
+<img src="https://datay.yuyuejia.com.cn/download/DataY%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4.png" width="300" alt="DataY 技术交流群">
 
 ## 奖赏
 如果你觉得 DataY 对你有帮助，欢迎给项目 Star、分享推荐给身边同行。
