@@ -431,4 +431,64 @@ class JobServiceTest {
         assertThat(jobService.moveToDirectory("sql-1", "sql-dir-1")).isNotNull();
         assertThat(job.getDirectoryId()).isEqualTo("sql-dir-1");
     }
+
+    @Test
+    void updateAllowsShellJobInShellDirectory() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+
+        Job existing = new Job();
+        existing.setId("shell-1");
+        existing.setType(TaskConstants.TASK_TYPE_SHELL);
+        when(jobRepository.findById("shell-1")).thenReturn(Optional.of(existing));
+
+        ETLTaskDirectory directory = new ETLTaskDirectory();
+        directory.setId("shell-dir-1");
+        directory.setTaskType(TaskConstants.TASK_TYPE_SHELL);
+        when(directoryRepository.findById("shell-dir-1")).thenReturn(Optional.of(directory));
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId(dto.getId());
+            entity.setType(dto.getType());
+            entity.setDirectoryId(dto.getDirectoryId());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        JobDTO update = new JobDTO();
+        update.setId("shell-1");
+        update.setType(TaskConstants.TASK_TYPE_SHELL);
+        update.setDirectoryId("shell-dir-1");
+        update.setJobContext("echo hello");
+
+        assertThat(jobService.update(update)).isNotNull();
+        verify(jobRepository).save(any(Job.class));
+    }
+
+    @Test
+    void moveToDirectoryAllowsShellJob() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        ETLTaskDirectoryRepository directoryRepository = mock(ETLTaskDirectoryRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = new JobService(jobRepository, directoryRepository, jobMapper, mock(JobInstanceService.class));
+
+        Job job = new Job();
+        job.setId("shell-1");
+        job.setType(TaskConstants.TASK_TYPE_SHELL);
+        when(jobRepository.findById("shell-1")).thenReturn(Optional.of(job));
+
+        ETLTaskDirectory directory = new ETLTaskDirectory();
+        directory.setId("shell-dir-1");
+        directory.setTaskType(TaskConstants.TASK_TYPE_SHELL);
+        when(directoryRepository.findById("shell-dir-1")).thenReturn(Optional.of(directory));
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        assertThat(jobService.moveToDirectory("shell-1", "shell-dir-1")).isNotNull();
+        assertThat(job.getDirectoryId()).isEqualTo("shell-dir-1");
+    }
 }

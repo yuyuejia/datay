@@ -1,9 +1,9 @@
-import axios from "axios";
+import axios from 'axios';
 
-import buildPaginationQueryOpts from "@/shared/sort/sorts";
-import { type IJob } from "@/shared/model/job.model";
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
+import { type IJob } from '@/shared/model/job.model';
 
-const baseApiUrl = "api/jobs";
+const baseApiUrl = 'api/jobs';
 
 /**
  * Service for the Shell task management (Shell任务). A Shell task is persisted
@@ -18,10 +18,10 @@ export default class ShellJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}?${buildPaginationQueryOpts(paginationQuery)}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -29,17 +29,45 @@ export default class ShellJobService {
 
   /** List the Shell jobs (paged). */
   retrieveShellJobs(paginationQuery?: any): Promise<any> {
-    return this.retrieve({ ...paginationQuery, type: "SHELL" });
+    return this.retrieve({ ...paginationQuery, type: 'SHELL' });
+  }
+
+  /** Load every Shell job, following pagination so directory trees never miss tasks. */
+  async retrieveAllShellJobs(): Promise<IJob[]> {
+    const pageSize = 500;
+    const jobs: IJob[] = [];
+    let page = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const res = await this.retrieveShellJobs({
+        page,
+        size: pageSize,
+        sort: ['jobName,asc'],
+      });
+      const rows: IJob[] = res.data || [];
+      jobs.push(...rows);
+      const total = Number(res.headers?.['x-total-count']);
+      if (Number.isFinite(total)) {
+        hasMore = jobs.length < total;
+      } else {
+        hasMore = rows.length >= pageSize;
+      }
+      if (rows.length === 0) {
+        hasMore = false;
+      }
+      page += 1;
+    }
+    return jobs;
   }
 
   find(id: string): Promise<IJob> {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -49,10 +77,10 @@ export default class ShellJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -62,10 +90,10 @@ export default class ShellJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .put(`${baseApiUrl}/${entity.id}`, entity)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -75,10 +103,10 @@ export default class ShellJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .delete(`${baseApiUrl}/${id}`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -88,10 +116,10 @@ export default class ShellJobService {
     return new Promise<any>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
-        .then((res) => {
+        .then(res => {
           resolve(res);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -101,10 +129,10 @@ export default class ShellJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/online`, null, { params: { cron, retryCount, timeoutSeconds, priority } })
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
           reject(err);
         });
     });
@@ -114,10 +142,24 @@ export default class ShellJobService {
     return new Promise<IJob>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/offline`)
-        .then((res) => {
+        .then(res => {
           resolve(res.data);
         })
-        .catch((err) => {
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  /** Move a Shell job to the given directory; null moves it to the root. */
+  moveToDirectory(id: string, directoryId: string | null): Promise<IJob> {
+    return new Promise<IJob>((resolve, reject) => {
+      axios
+        .patch(`${baseApiUrl}/${id}/directory`, { directoryId })
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
           reject(err);
         });
     });

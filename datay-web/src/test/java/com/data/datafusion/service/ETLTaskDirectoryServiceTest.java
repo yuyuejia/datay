@@ -101,6 +101,19 @@ class ETLTaskDirectoryServiceTest {
     }
 
     @Test
+    void shouldAcceptShellDirectoryType() {
+        when(directoryRepository.save(any(ETLTaskDirectory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ETLTaskDirectoryDTO dto = new ETLTaskDirectoryDTO();
+        dto.setName("Shell 任务目录");
+        dto.setTaskType(TaskConstants.TASK_TYPE_SHELL);
+
+        ETLTaskDirectoryDTO saved = service.save(dto);
+
+        assertThat(saved.getTaskType()).isEqualTo(TaskConstants.TASK_TYPE_SHELL);
+    }
+
+    @Test
     void shouldCollectSubtreeDirectoryIds() {
         ETLTaskDirectory child = new ETLTaskDirectory().id("child");
         ETLTaskDirectory grandChild = new ETLTaskDirectory().id("grand-child");

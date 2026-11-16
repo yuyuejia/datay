@@ -231,7 +231,7 @@ public class JobService {
     }
 
     /**
-     * 校验任务要归属的目录存在且与任务类型一致。目前仅任务编排（DAG）和 SQL 任务支持目录。
+     * 校验任务要归属的目录存在且与任务类型一致。目前仅任务编排（DAG）、SQL 任务和 Shell 任务支持目录。
      */
     private void validateJobDirectory(JobDTO jobDTO) {
         if (!StringUtils.hasText(jobDTO.getDirectoryId())) {
@@ -239,7 +239,7 @@ public class JobService {
         }
         String jobType = jobDTO.getType();
         if (!supportsDirectory(jobType)) {
-            throw new IllegalArgumentException("只有任务编排和 SQL 任务支持目录: " + jobDTO.getId());
+            throw new IllegalArgumentException("只有任务编排、SQL 任务和 Shell 任务支持目录: " + jobDTO.getId());
         }
         ETLTaskDirectory directory = directoryRepository
             .findById(jobDTO.getDirectoryId())
@@ -250,7 +250,11 @@ public class JobService {
     }
 
     private boolean supportsDirectory(String jobType) {
-        return TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobType) || TaskConstants.TASK_TYPE_SQL.equalsIgnoreCase(jobType);
+        return (
+            TaskConstants.TASK_TYPE_DAG.equalsIgnoreCase(jobType) ||
+            TaskConstants.TASK_TYPE_SQL.equalsIgnoreCase(jobType) ||
+            TaskConstants.TASK_TYPE_SHELL.equalsIgnoreCase(jobType)
+        );
     }
 
     /**
@@ -338,7 +342,7 @@ public class JobService {
     public JobDTO moveToDirectory(String id, String directoryId) {
         Job job = jobRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("任务不存在: " + id));
         if (!supportsDirectory(job.getType())) {
-            throw new IllegalArgumentException("只有任务编排和 SQL 任务支持目录移动: " + id);
+            throw new IllegalArgumentException("只有任务编排、SQL 任务和 Shell 任务支持目录移动: " + id);
         }
         if (StringUtils.hasText(directoryId)) {
             ETLTaskDirectory directory = directoryRepository
