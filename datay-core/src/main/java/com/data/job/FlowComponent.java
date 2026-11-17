@@ -62,7 +62,6 @@ public abstract class FlowComponent extends Component {
                     if (!flowFile.getStatusMap().isEmpty()&&(isSink()||getOutput().isEmpty())) {
                         getContext().getStatusMap().putAll(flowFile.getStatusMap());
                         getContext().saveStatus();
-                        logInfo("组件" + getName() + "状态保存成功：" + flowFile.getStatusMap());
                     }
                 } catch (DebugLimitReachedException e) {
                     // 调试模式下源组件达到采样上限，属于正常结束
