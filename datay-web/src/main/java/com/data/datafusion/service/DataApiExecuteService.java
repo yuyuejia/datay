@@ -83,6 +83,17 @@ public class DataApiExecuteService {
 
     private static final int MAX_HTTP_TIMEOUT = 300000;
 
+    /** 调试结果中最多回显的上游响应体字符数，避免大响应拖垮页面。 */
+    private static final int MAX_DEBUG_RESPONSE_BODY = 512 * 1024;
+
+    /** 调试回显时需要脱敏的响应头。 */
+    private static final Set<String> SENSITIVE_RESPONSE_HEADERS = Set.of(
+        "authorization",
+        "proxy-authenticate",
+        "set-cookie",
+        "set-cookie2"
+    );
+
     /** JDK HttpClient 禁止设置的受限请求头，遇到时跳过而不是抛出异常。 */
     private static final Set<String> RESTRICTED_HEADERS = Set.of(
         "connection",
@@ -274,9 +285,42 @@ public class DataApiExecuteService {
         }
     }
 
+    /**
+     * 调试当前编辑中的服务配置。
+     *
+     * <p>与正式调用使用同一执行链路，但不要求服务已保存、不检查启用状态，也不会写入调用日志。
+     * 「已有 API」来源会额外返回上游 HTTP 状态、响应头和原始响应体，便于排查请求配置与
+     * JSONPath 提取路径。</p>
+     *
+     * @param api    当前编辑中的服务配置。
+     * @param params 调试参数。
+     * @return 统一返回体，执行失败时通过 {@code code/message} 返回，HTTP 状态固定为 200。
+     */
+    public Map<String, Object> debugInvoke(DataApiDTO api, Map<String, Object> params) {
+        long startNanos = System.nanoTime();
+        Map<String, Object> result;
+        try {
+            dataApiService.validateSourceConfig(api);
+            result = doInvokeApi(api, params == null ? Map.of() : params, true);
+        } catch (DataApiAccessException e) {
+            result = debugError(e.getStatus(), e.getMessage(), null);
+        } catch (IllegalArgumentException e) {
+            result = debugError(400, e.getMessage(), null);
+        } catch (Exception e) {
+            LOG.error("Failed to debug data api: {}", api == null ? null : api.getCode(), e);
+            result = debugError(500, "调试失败：" + errorMessage(e), null);
+        }
+        result.put("durationMs", elapsedMs(startNanos));
+        return result;
+    }
+
     private Map<String, Object> doInvokeApi(DataApiDTO api, Map<String, Object> params) {
+        return doInvokeApi(api, params, false);
+    }
+
+    private Map<String, Object> doInvokeApi(DataApiDTO api, Map<String, Object> params, boolean debug) {
         if (DataApi.SOURCE_TYPE_API.equals(api.getSourceType())) {
-            return invokeFromApi(api, params);
+            return invokeFromApi(api, params, debug);
         }
         if (DataApi.SOURCE_TYPE_DATASET.equals(api.getSourceType())) {
             return invokeFromDataset(api, params);
@@ -525,7 +569,7 @@ public class DataApiExecuteService {
      * Token。URL、请求头、请求体中均可使用 {@code ${param}} 占位符，调用方同名参数会在转发前替换；
      * 前置接口获取到的 Token 则以 {@code ${token}} 引用。</p>
      */
-    private Map<String, Object> invokeFromApi(DataApiDTO api, Map<String, Object> params) {
+    private Map<String, Object> invokeFromApi(DataApiDTO api, Map<String, Object> params, boolean debug) {
         JSONObject config = parseApiConfig(api.getApiConfig());
         String url = config.getString("url");
         if (url == null || url.isBlank()) {
@@ -553,7 +597,7 @@ public class DataApiExecuteService {
 
         JSONObject preProcess = config.getJSONObject("preProcess");
         if (preProcess != null && preProcess.getBooleanValue("enabled", false)) {
-            context.put("token", resolvePreProcessToken(api, preProcess, context));
+            context.put("token", resolvePreProcessToken(api, preProcess, context, !debug));
         }
 
         url = substitutePlaceholders(url, context, "请求地址");
@@ -563,15 +607,34 @@ public class DataApiExecuteService {
         int timeout = clampTimeout(config.getIntValue("timeout", DEFAULT_HTTP_TIMEOUT));
         boolean sslVerify = config.getBooleanValue("sslVerify", true);
 
+        long upstreamStartNanos = System.nanoTime();
         HttpResponse<String> response = sendHttpRequest(method, url, headers, body, timeout, sslVerify);
+        Map<String, Object> upstream = debug
+            ? buildUpstreamInfo(response, elapsedMs(upstreamStartNanos))
+            : null;
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new DataApiAccessException(502, "上游接口调用失败（HTTP " + response.statusCode() + "）：" + truncate(response.body()));
+            String message = "上游接口调用失败（HTTP " + response.statusCode() + "）：" + truncate(response.body());
+            if (!debug) {
+                throw new DataApiAccessException(502, message);
+            }
+            return debugError(502, message, upstream);
         }
-        return buildApiResult(response.body(), config.getString("jsonPath"));
+        try {
+            Map<String, Object> result = buildApiResult(response.body(), config.getString("jsonPath"));
+            if (debug) {
+                result.put("upstream", upstream);
+            }
+            return result;
+        } catch (DataApiAccessException e) {
+            if (!debug) {
+                throw e;
+            }
+            return debugError(e.getStatus(), e.getMessage(), upstream);
+        }
     }
 
-    private String resolvePreProcessToken(DataApiDTO api, JSONObject preProcess, Map<String, Object> context) {
-        int ttlSeconds = Math.max(0, preProcess.getIntValue("cacheTtlSeconds", 0));
+    private String resolvePreProcessToken(DataApiDTO api, JSONObject preProcess, Map<String, Object> context, boolean useCache) {
+        int ttlSeconds = useCache ? Math.max(0, preProcess.getIntValue("cacheTtlSeconds", 0)) : 0;
         String cacheKey = api.getId() + "|" + preProcess.toJSONString();
         if (ttlSeconds > 0) {
             CachedToken cached = tokenCache.get(cacheKey);
@@ -854,6 +917,51 @@ public class DataApiExecuteService {
             return "";
         }
         return value.length() > 500 ? value.substring(0, 500) + "..." : value;
+    }
+
+    /**
+     * 构造调试错误返回体；HTTP 状态由控制器统一返回 200，错误码放在 {@code code} 中。
+     */
+    private static Map<String, Object> debugError(int code, String message, Map<String, Object> upstream) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("code", code);
+        result.put("message", message == null || message.isBlank() ? "调试失败" : message);
+        result.put("data", null);
+        result.put("columns", List.of());
+        result.put("total", 0);
+        if (upstream != null) {
+            result.put("upstream", upstream);
+        }
+        return result;
+    }
+
+    /**
+     * 把上游响应转换为调试信息，响应体过大时截断，敏感响应头做脱敏处理。
+     */
+    private static Map<String, Object> buildUpstreamInfo(HttpResponse<String> response, long durationMs) {
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("status", response.statusCode());
+
+        Map<String, Object> headers = new LinkedHashMap<>();
+        response
+            .headers()
+            .map()
+            .forEach((name, values) -> {
+                String key = name == null ? "" : name;
+                if (SENSITIVE_RESPONSE_HEADERS.contains(key.toLowerCase(Locale.ROOT))) {
+                    headers.put(key, List.of("***"));
+                } else {
+                    headers.put(key, values);
+                }
+            });
+        info.put("headers", headers);
+
+        String body = response.body();
+        boolean truncated = body != null && body.length() > MAX_DEBUG_RESPONSE_BODY;
+        info.put("body", truncated ? body.substring(0, MAX_DEBUG_RESPONSE_BODY) + "..." : body);
+        info.put("truncated", truncated);
+        info.put("durationMs", durationMs);
+        return info;
     }
 
     /** 缓存的前置处理 Token。 */

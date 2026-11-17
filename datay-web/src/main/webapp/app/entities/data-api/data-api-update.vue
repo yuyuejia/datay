@@ -4,6 +4,10 @@
       <h3>{{ isEdit ? '编辑数据服务' : '新建数据服务' }}</h3>
       <div>
         <el-button @click="previousState()">取消</el-button>
+        <el-button type="success" plain @click="openDebug()">
+          <font-awesome-icon icon="play" class="mr-1"></font-awesome-icon>
+          <span>接口调试</span>
+        </el-button>
         <el-button type="primary" @click="save()" :loading="isSaving">保存</el-button>
       </div>
     </div>
@@ -331,6 +335,133 @@
         </div>
       </div>
     </el-form>
+
+    <el-drawer v-model="debugVisible" title="接口调试" size="72%" destroy-on-close>
+      <div class="debug-body" v-loading="debugLoading">
+        <el-alert
+          v-if="dataApi.sourceType === SOURCE_TYPE_API"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="调试会真实请求上游接口，POST / PUT / PATCH / DELETE 可能产生数据变更，请确认目标环境。"
+          class="debug-alert"
+        />
+        <el-alert
+          v-else
+          type="info"
+          :closable="false"
+          show-icon
+          title="调试会真实执行查询，请避免在生产库执行大范围查询。"
+          class="debug-alert"
+        />
+
+        <div class="debug-section-header">
+          <div>
+            <span class="debug-section-title">调试参数</span>
+            <span class="debug-section-hint">已识别 {{ debugDetectedNames.length }} 个可用参数，可修改或新增自定义参数</span>
+          </div>
+          <el-button size="small" @click="addDebugParam()">
+            <font-awesome-icon icon="plus" class="mr-1"></font-awesome-icon>
+            <span>新增参数</span>
+          </el-button>
+        </div>
+
+        <el-table :data="debugParams" border size="small" class="debug-params-table">
+          <el-table-column label="参数名" width="260">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.name"
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                placeholder="选择或输入参数名"
+                style="width: 100%"
+              >
+                <el-option v-for="name in debugDetectedNames" :key="name" :label="name" :value="name" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="参数值">
+            <template #default="{ row }">
+              <el-input v-model="row.value" clearable placeholder="请输入调试值" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="80" align="center">
+            <template #default="{ $index }">
+              <el-button link type="danger" @click="removeDebugParam($index)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty description="暂无参数，可直接发送请求或点击「新增参数」" />
+          </template>
+        </el-table>
+
+        <div class="debug-actions">
+          <el-button type="primary" :loading="debugLoading" @click="sendDebug()">
+            <font-awesome-icon icon="play" class="mr-1"></font-awesome-icon>
+            <span>发送调试请求</span>
+          </el-button>
+        </div>
+
+        <el-alert v-if="debugError" :title="debugError" type="error" show-icon :closable="false" class="debug-error" />
+
+        <div v-if="debugResult" class="debug-result">
+          <div class="debug-summary">
+            <el-tag :type="debugResult.code === 0 ? 'success' : 'danger'">code: {{ debugResult.code }}</el-tag>
+            <span>耗时 {{ debugResult.durationMs ?? 0 }} ms</span>
+            <span v-if="debugResult.code === 0 && debugResult.total !== undefined && debugResult.total !== null">
+              共 {{ debugResult.total }} 条
+            </span>
+            <span v-if="debugResult.code === 0 && debugResult.pageNum">
+              第 {{ debugResult.pageNum }} 页 / 每页 {{ debugResult.pageSize }} 条
+            </span>
+          </div>
+
+          <el-tabs v-model="debugActiveTab">
+            <el-tab-pane label="返回数据" name="data">
+              <el-table v-if="debugHasTable" :data="debugRows" border stripe size="small" max-height="420" class="debug-result-table">
+                <el-table-column
+                  v-for="col in debugColumns"
+                  :key="col"
+                  :label="debugColumnLabel(col)"
+                  min-width="120"
+                  show-overflow-tooltip
+                >
+                  <template #default="{ row }">{{ formatDebugCell(row[col]) }}</template>
+                </el-table-column>
+              </el-table>
+              <pre v-else-if="debugJson" class="debug-json">{{ debugJson }}</pre>
+              <el-empty v-else description="暂无返回数据" />
+            </el-tab-pane>
+
+            <el-tab-pane v-if="dataApi.sourceType === SOURCE_TYPE_API" label="上游响应" name="upstream">
+              <template v-if="debugUpstream">
+                <div class="debug-summary">
+                  <el-tag :type="(debugUpstream.status || 0) >= 200 && (debugUpstream.status || 0) < 300 ? 'success' : 'danger'">
+                    HTTP {{ debugUpstream.status }}
+                  </el-tag>
+                  <span>耗时 {{ debugUpstream.durationMs ?? 0 }} ms</span>
+                  <span v-if="debugUpstream.truncated" class="debug-warning">响应体已截断</span>
+                </div>
+                <div class="debug-section-title">响应头</div>
+                <el-table :data="debugUpstreamHeaders" border size="small" max-height="180">
+                  <el-table-column prop="name" label="名称" width="220" />
+                  <el-table-column prop="value" label="值" show-overflow-tooltip />
+                  <template #empty>
+                    <el-empty description="无响应头" />
+                  </template>
+                </el-table>
+                <div class="debug-section-title">响应体</div>
+                <pre class="debug-json">{{ debugUpstreamBody }}</pre>
+              </template>
+              <el-empty v-else description="本次调试没有上游响应" />
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+        <el-empty v-else-if="!debugLoading" description="填写参数后点击「发送调试请求」" />
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -463,5 +594,90 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px dashed #e4e7ed;
+}
+
+.debug-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.debug-alert {
+  margin-bottom: 4px;
+}
+
+.debug-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.debug-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.debug-section-hint {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.debug-params-table {
+  width: 100%;
+}
+
+.debug-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.debug-error {
+  margin-top: 4px;
+}
+
+.debug-result {
+  border-top: 1px solid #e4e7ed;
+  padding-top: 12px;
+}
+
+.debug-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.debug-warning {
+  color: #e6a23c;
+}
+
+.debug-json {
+  max-height: 420px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  color: #303133;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-result-table {
+  width: 100%;
+}
+
+.debug-result .debug-section-title {
+  margin: 12px 0 8px;
 }
 </style>

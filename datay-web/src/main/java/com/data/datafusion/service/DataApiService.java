@@ -309,6 +309,18 @@ public class DataApiService {
         if (dto.getCode() != null && !dto.getCode().matches("[A-Za-z0-9_\\-]+")) {
             throw new IllegalArgumentException("服务编码只能包含字母、数字、下划线和中划线");
         }
+        validateSourceConfig(dto);
+    }
+
+    /**
+     * 仅校验数据来源配置，供调试等无需保存名称与编码的场景复用。
+     *
+     * @param dto 待校验的数据服务配置。
+     */
+    public void validateSourceConfig(DataApiDTO dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("调试请求缺少服务配置");
+        }
         if (DataApi.SOURCE_TYPE_TABLE.equals(dto.getSourceType())) {
             if (dto.getDataSourceId() == null) {
                 throw new IllegalArgumentException("请选择数据源");

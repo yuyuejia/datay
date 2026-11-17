@@ -1,5 +1,6 @@
 package com.data.datafusion.service;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -118,6 +119,25 @@ class DataApiServiceTest {
         assertThatThrownBy(() -> service.moveToDirectory("api-1", "dir-1"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("目录与数据服务类型不匹配");
+    }
+
+    @Test
+    void shouldValidateSourceConfigWithoutNameAndCode() {
+        DataApiDTO dto = tableApi();
+        dto.setName(null);
+        dto.setCode(null);
+
+        assertThatCode(() -> service.validateSourceConfig(dto)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRejectTableSourceWithoutDataSourceOnDebugValidation() {
+        DataApiDTO dto = tableApi();
+        dto.setDataSourceId(null);
+
+        assertThatThrownBy(() -> service.validateSourceConfig(dto))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("请选择数据源");
     }
 
     @Test

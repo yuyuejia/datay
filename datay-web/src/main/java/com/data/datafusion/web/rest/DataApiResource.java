@@ -1,11 +1,14 @@
 package com.data.datafusion.web.rest;
 
+import com.data.datafusion.service.DataApiExecuteService;
 import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.dto.DataApiDTO;
+import com.data.datafusion.service.dto.DataApiDebugRequestDTO;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +48,26 @@ public class DataApiResource {
 
     private final DataApiService dataApiService;
 
-    public DataApiResource(DataApiService dataApiService) {
+    private final DataApiExecuteService dataApiExecuteService;
+
+    public DataApiResource(DataApiService dataApiService, DataApiExecuteService dataApiExecuteService) {
         this.dataApiService = dataApiService;
+        this.dataApiExecuteService = dataApiExecuteService;
+    }
+
+    /**
+     * {@code POST  /api/data-apis/debug} : debug an unsaved dataApi configuration.
+     *
+     * <p>调试不落库、不检查启用状态、不写调用日志；执行失败时仍返回 HTTP 200，
+     * 由响应体中的 {@code code/message} 表示错误。</p>
+     */
+    @PostMapping("/debug")
+    public ResponseEntity<Map<String, Object>> debugDataApi(@RequestBody(required = false) DataApiDebugRequestDTO request) {
+        LOG.debug("REST request to debug DataApi");
+        if (request == null || request.getDataApi() == null) {
+            throw new BadRequestAlertException("调试请求缺少服务配置", ENTITY_NAME, "invalidDebugRequest");
+        }
+        return ResponseEntity.ok(dataApiExecuteService.debugInvoke(request.getDataApi(), request.getParams()));
     }
 
     /**

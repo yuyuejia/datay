@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.alibaba.fastjson2.JSONArray;
@@ -92,6 +93,7 @@ class DataApiExecuteServiceApiTest {
         server.createContext("/nested", exchange ->
             writeJson(exchange, 200, "{\"code\":0,\"data\":{\"items\":[{\"id\":1},{\"id\":2}]}}")
         );
+        server.createContext("/fail", exchange -> writeJson(exchange, 500, "{\"error\":\"boom\"}"));
         server.start();
         port = server.getAddress().getPort();
     }
@@ -240,6 +242,67 @@ class DataApiExecuteServiceApiTest {
             anyLong(),
             isNull()
         );
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDebugApiAndReturnUpstreamWithoutCallLog() {
+        DataApiDTO dto = api(
+            "{\"url\":\"http://127.0.0.1:" + port + "/nested\",\"method\":\"GET\",\"jsonPath\":\"$.data.items\"}"
+        );
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(0);
+        assertThat(result.get("total")).isEqualTo(2L);
+        assertThat(result.get("durationMs")).isNotNull();
+        Map<String, Object> upstream = (Map<String, Object>) result.get("upstream");
+        assertThat(upstream.get("status")).isEqualTo(200);
+        assertThat(upstream.get("body")).asString().contains("\"items\"");
+        verifyNoInteractions(callLogService);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDebugApiReturnUpstreamWhenJsonPathInvalid() {
+        DataApiDTO dto = api(
+            "{\"url\":\"http://127.0.0.1:" + port + "/nested\",\"method\":\"GET\",\"jsonPath\":\"$.data.missing\"}"
+        );
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(502);
+        assertThat(result.get("message")).asString().contains("未匹配");
+        Map<String, Object> upstream = (Map<String, Object>) result.get("upstream");
+        assertThat(upstream.get("status")).isEqualTo(200);
+        assertThat(upstream.get("body")).asString().contains("\"items\"");
+        verifyNoInteractions(callLogService);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDebugApiReturnUpstreamWhenUpstreamFails() {
+        DataApiDTO dto = api("{\"url\":\"http://127.0.0.1:" + port + "/fail\",\"method\":\"GET\"}");
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(502);
+        assertThat(result.get("message")).asString().contains("HTTP 500");
+        Map<String, Object> upstream = (Map<String, Object>) result.get("upstream");
+        assertThat(upstream.get("status")).isEqualTo(500);
+        assertThat(upstream.get("body")).asString().contains("boom");
+        verifyNoInteractions(callLogService);
+    }
+
+    @Test
+    void shouldDebugWithoutNameAndCode() {
+        DataApiDTO dto = api("{\"url\":\"http://127.0.0.1:" + port + "/nested\",\"method\":\"GET\"}");
+        dto.setName(null);
+        dto.setCode(null);
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(0);
     }
 
     private static DataApiDTO datasetApi() {

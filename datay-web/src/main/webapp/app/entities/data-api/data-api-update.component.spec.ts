@@ -122,6 +122,98 @@ describe('Component Tests', () => {
       });
     });
 
+    describe('debug', () => {
+      it('Should detect SQL placeholders and call debug service', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = {
+          sourceType: 'SQL',
+          dataSourceId: 1,
+          sqlText: 'select * from orders where id = ${id}',
+        };
+        dataApiServiceStub.debug.resolves({ code: 0, data: [{ id: 1 }], columns: ['id'], total: 1 });
+
+        comp.openDebug();
+        await comp.$nextTick();
+
+        expect(comp.debugVisible).toBe(true);
+        expect(comp.debugParams.map(param => param.name)).toContain('id');
+
+        comp.debugParams = [{ name: 'id', value: '1' }];
+        await comp.sendDebug();
+        await flushPromises();
+
+        expect(dataApiServiceStub.debug.called).toBeTruthy();
+        const [entity, params] = (dataApiServiceStub.debug as any).lastCall.args;
+        expect(entity.sourceType).toBe('SQL');
+        expect(entity.sqlText).toContain('${id}');
+        expect(params).toEqual({ id: '1' });
+        expect(comp.debugResult?.code).toBe(0);
+      });
+
+      it('Should detect API placeholders and skip token', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = { sourceType: 'API', status: 'ENABLED' };
+        comp.apiConfig.url = 'https://api.example.com/orders?status=${status}';
+        comp.apiConfig.body = '{"keyword":"${keyword}"}';
+        comp.apiHeadersText = '{"Authorization":"Bearer ${authToken}"}';
+        comp.apiConfig.preProcess = {
+          enabled: true,
+          url: 'https://auth.example.com/token',
+          method: 'POST',
+          headers: {},
+          body: '{"appId":"${appId}"}',
+          tokenPath: '$.data.token',
+          cacheTtlSeconds: 0,
+          sslVerify: true,
+        };
+        comp.preHeadersText = '{}';
+
+        comp.openDebug();
+        await comp.$nextTick();
+
+        const names = comp.debugParams.map(param => param.name);
+        expect(names).toContain('status');
+        expect(names).toContain('keyword');
+        expect(names).toContain('authToken');
+        expect(names).toContain('appId');
+        expect(names).not.toContain('token');
+      });
+
+      it('Should only prefill pagination for table source', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = {
+          sourceType: 'TABLE',
+          dataSourceId: 1,
+          schemaName: 'public',
+          tableName: 'orders',
+        };
+        comp.columns = [{ name: 'id' }, { name: 'status' }, { name: 'amount' }];
+
+        comp.openDebug();
+        await comp.$nextTick();
+
+        expect(comp.debugParams.map(param => param.name)).toEqual(['pageNum', 'pageSize']);
+        expect(comp.debugDetectedNames).toContain('status');
+      });
+
+      it('Should surface debug error message', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = { sourceType: 'SQL', dataSourceId: 1, sqlText: 'select * from orders' };
+        dataApiServiceStub.debug.resolves({ code: 500, message: '服务执行失败', data: null });
+
+        comp.openDebug();
+        await comp.$nextTick();
+        await comp.sendDebug();
+        await flushPromises();
+
+        expect(comp.debugError).toBe('服务执行失败');
+      });
+    });
+
     describe('Previous state', () => {
       it('Should go previous state', async () => {
         const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });

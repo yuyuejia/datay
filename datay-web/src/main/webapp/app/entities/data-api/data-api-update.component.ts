@@ -9,6 +9,7 @@ import {
   DataApi,
   type IApiConfig,
   type IDataApi,
+  type IDataApiDebugResult,
   parseApiConfig,
   DATA_API_SOURCE_TYPE_API,
   DATA_API_SOURCE_TYPE_DATASET,
@@ -51,6 +52,48 @@ const parseJsonObject = (text: string): Record<string, string> => {
   return parsed && typeof parsed === 'object' ? parsed : {};
 };
 
+const parseHeadersSafely = (text: string): Record<string, string> => {
+  try {
+    return parseJsonObject(text);
+  } catch {
+    return {};
+  }
+};
+
+const PLACEHOLDER_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+/** 从配置文本中提取 ${param} 占位符名称。 */
+const extractPlaceholderNames = (...texts: Array<string | null | undefined>): string[] => {
+  const names = new Set<string>();
+  texts.forEach(text => {
+    if (!text) {
+      return;
+    }
+    PLACEHOLDER_PATTERN.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = PLACEHOLDER_PATTERN.exec(text)) !== null) {
+      names.add(match[1]);
+    }
+  });
+  return Array.from(names);
+};
+
+const prettyJsonText = (text?: string | null): string => {
+  if (!text) {
+    return '';
+  }
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+};
+
+const debugErrorMessage = (error: any): string => {
+  const data = error?.response?.data;
+  return data?.detail || data?.message || data?.title || error?.message || '调试失败';
+};
+
 export default defineComponent({
   name: 'DataApiUpdate',
   setup() {
@@ -85,6 +128,38 @@ export default defineComponent({
     const showPreCurlImport = ref(false);
     const curlText = ref('');
     const preCurlText = ref('');
+
+    const debugVisible = ref(false);
+    const debugLoading = ref(false);
+    const debugResult: Ref<IDataApiDebugResult | null> = ref(null);
+    const debugError = ref('');
+    const debugParams = ref<Array<{ name: string; value: string }>>([]);
+    const debugDetectedNames = ref<string[]>([]);
+    const debugActiveTab = ref('data');
+
+    const debugRows = computed<Record<string, any>[]>(() =>
+      Array.isArray(debugResult.value?.data) ? (debugResult.value?.data as Record<string, any>[]) : [],
+    );
+    const debugColumns = computed<string[]>(() => {
+      const columns = debugResult.value?.columns;
+      if (Array.isArray(columns) && columns.length > 0) {
+        return columns;
+      }
+      const first = debugRows.value[0];
+      return first && typeof first === 'object' && !Array.isArray(first) ? Object.keys(first) : [];
+    });
+    const debugHasTable = computed(() => debugRows.value.length > 0 && debugColumns.value.length > 0);
+    const debugJson = computed(() =>
+      debugResult.value?.data === undefined || debugResult.value?.data === null ? '' : JSON.stringify(debugResult.value.data, null, 2),
+    );
+    const debugUpstream = computed(() => debugResult.value?.upstream ?? null);
+    const debugUpstreamBody = computed(() => prettyJsonText(debugUpstream.value?.body));
+    const debugUpstreamHeaders = computed(() =>
+      Object.entries(debugUpstream.value?.headers || {}).map(([name, values]) => ({
+        name,
+        value: Array.isArray(values) ? values.join(', ') : String(values),
+      })),
+    );
 
     const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -405,6 +480,20 @@ export default defineComponent({
       showPreCurlImport,
       curlText,
       preCurlText,
+      debugVisible,
+      debugLoading,
+      debugResult,
+      debugError,
+      debugParams,
+      debugDetectedNames,
+      debugActiveTab,
+      debugRows,
+      debugColumns,
+      debugHasTable,
+      debugJson,
+      debugUpstream,
+      debugUpstreamBody,
+      debugUpstreamHeaders,
       httpMethods,
       hasApiBody,
       sourceTypeOptions,
@@ -474,58 +563,47 @@ export default defineComponent({
       }
       return result;
     },
-    save(): void {
+    /**
+     * 按当前来源构建服务配置，保存与调试共用，避免两处配置不一致。
+     */
+    buildSourcePayload(): IDataApi | null {
       const api = this.dataApi;
-      if (!api.name || !api.name.trim()) {
-        this.alertService.showError('请输入服务名称');
-        return;
-      }
-      if (!api.code || !api.code.trim()) {
-        this.alertService.showError('请输入服务编码');
-        return;
-      }
-      if (!/^[A-Za-z0-9_-]+$/.test(api.code.trim())) {
-        this.alertService.showError('服务编码只能包含字母、数字、下划线和中划线');
-        return;
-      }
       let apiConfigPayload: IApiConfig | null = null;
       if (api.sourceType === this.SOURCE_TYPE_TABLE) {
         if (!api.dataSourceId) {
           this.alertService.showError('请选择数据源');
-          return;
+          return null;
         }
         if (!api.schemaName || !api.tableName) {
           this.alertService.showError('请选择 Schema 和数据表');
-          return;
+          return null;
         }
       } else if (api.sourceType === this.SOURCE_TYPE_SQL) {
         if (!api.dataSourceId) {
           this.alertService.showError('请选择数据源');
-          return;
+          return null;
         }
         if (!api.sqlText || !api.sqlText.trim()) {
           this.alertService.showError('请填写自定义 SQL');
-          return;
+          return null;
         }
       } else if (api.sourceType === this.SOURCE_TYPE_DATASET) {
         if (!api.datasetId) {
           this.alertService.showError('请选择要发布的分析数据集');
-          return;
+          return null;
         }
       } else if (api.sourceType === this.SOURCE_TYPE_API) {
         apiConfigPayload = this.buildApiConfig();
         if (!apiConfigPayload) {
-          return;
+          return null;
         }
       } else {
         this.alertService.showError('请选择数据来源类型');
-        return;
+        return null;
       }
 
       const payload: IDataApi = {
-        ...this.dataApi,
-        name: api.name.trim(),
-        code: api.code.trim(),
+        ...api,
         // 清空目录时显式传空字符串，后端据此移动到未分类
         directoryId: api.directoryId || '',
       };
@@ -542,6 +620,28 @@ export default defineComponent({
         payload.sqlText = null;
         payload.apiConfig = null;
       }
+      return payload;
+    },
+    save(): void {
+      const api = this.dataApi;
+      if (!api.name || !api.name.trim()) {
+        this.alertService.showError('请输入服务名称');
+        return;
+      }
+      if (!api.code || !api.code.trim()) {
+        this.alertService.showError('请输入服务编码');
+        return;
+      }
+      if (!/^[A-Za-z0-9_-]+$/.test(api.code.trim())) {
+        this.alertService.showError('服务编码只能包含字母、数字、下划线和中划线');
+        return;
+      }
+      const payload = this.buildSourcePayload();
+      if (!payload) {
+        return;
+      }
+      payload.name = api.name.trim();
+      payload.code = api.code.trim();
 
       this.isSaving = true;
       if (this.dataApi.id) {
@@ -569,6 +669,143 @@ export default defineComponent({
             this.alertService.showHttpError(error.response);
           });
       }
+    },
+    defaultDebugParamValue(name: string): string {
+      if (name === 'pageNum') {
+        return '1';
+      }
+      if (name === 'pageSize') {
+        if (this.dataApi.sourceType === this.SOURCE_TYPE_DATASET) {
+          return '1000';
+        }
+        if (this.dataApi.sourceType === this.SOURCE_TYPE_TABLE) {
+          return '20';
+        }
+      }
+      return '';
+    },
+    /** 根据当前来源识别调试时可能需要填写的参数。 */
+    detectDebugParamNames(): string[] {
+      const names: string[] = [];
+      const api = this.dataApi;
+      if (api.sourceType === this.SOURCE_TYPE_TABLE) {
+        (this.columns || []).forEach((column: any) => {
+          if (column?.name) {
+            names.push(column.name);
+          }
+        });
+        names.push('pageNum', 'pageSize');
+      } else if (api.sourceType === this.SOURCE_TYPE_SQL) {
+        names.push(...extractPlaceholderNames(api.sqlText));
+      } else if (api.sourceType === this.SOURCE_TYPE_DATASET) {
+        const dataset = this.selectedDataset;
+        const definition = DatasetService.parseDefinition(dataset);
+        if (dataset?.type === 'SQL') {
+          const declared = Array.isArray(definition.params)
+            ? definition.params
+                .map((param: any) => (typeof param === 'string' ? param : param?.name))
+                .filter((name: any): name is string => typeof name === 'string' && name.length > 0)
+            : [];
+          if (declared.length > 0) {
+            names.push(...declared);
+          } else {
+            names.push(...extractPlaceholderNames(definition.sql));
+          }
+        } else {
+          names.push('start', 'end');
+        }
+        names.push('pageNum', 'pageSize');
+      } else if (api.sourceType === this.SOURCE_TYPE_API) {
+        const config = this.apiConfig;
+        names.push(...extractPlaceholderNames(config.url, config.body, ...Object.values(parseHeadersSafely(this.apiHeadersText))));
+        if (config.preProcess?.enabled) {
+          names.push(
+            ...extractPlaceholderNames(
+              config.preProcess.url,
+              config.preProcess.body,
+              ...Object.values(parseHeadersSafely(this.preHeadersText)),
+            ),
+          );
+        }
+      }
+      return Array.from(new Set(names)).filter(name => name !== 'token');
+    },
+    openDebug(): void {
+      const api = this.dataApi;
+      const payload = this.buildSourcePayload();
+      if (!payload) {
+        return;
+      }
+      const detected = this.detectDebugParamNames();
+      const detectedSet = new Set(detected);
+      const existingValues = new Map(this.debugParams.filter(item => item.name).map(item => [item.name, item.value] as const));
+      const manualParams = this.debugParams.filter(item => item.name && !detectedSet.has(item.name));
+      // 表字段数量可能很多，默认只放分页参数；已填写过的列过滤条件在再次打开时保留。
+      const initialNames = detected.filter(name => {
+        const tableColumn = api.sourceType === this.SOURCE_TYPE_TABLE && name !== 'pageNum' && name !== 'pageSize';
+        return !tableColumn || existingValues.has(name);
+      });
+      this.debugDetectedNames = detected;
+      this.debugParams = [
+        ...initialNames.map(name => ({ name, value: existingValues.get(name) ?? this.defaultDebugParamValue(name) })),
+        ...manualParams,
+      ];
+      this.debugResult = null;
+      this.debugError = '';
+      this.debugActiveTab = 'data';
+      this.debugVisible = true;
+    },
+    addDebugParam(): void {
+      this.debugParams.push({ name: '', value: '' });
+    },
+    removeDebugParam(index: number): void {
+      this.debugParams.splice(index, 1);
+    },
+    async sendDebug(): Promise<void> {
+      const payload = this.buildSourcePayload();
+      if (!payload) {
+        return;
+      }
+      const params: Record<string, any> = {};
+      this.debugParams.forEach(item => {
+        const name = (item.name || '').trim();
+        if (name) {
+          params[name] = item.value;
+        }
+      });
+      this.debugLoading = true;
+      this.debugError = '';
+      this.debugResult = null;
+      try {
+        const result = await this.dataApiService().debug(payload, params);
+        this.debugResult = result;
+        if (!result || result.code !== 0) {
+          this.debugError = result?.message || '调试失败';
+          if (result?.upstream) {
+            this.debugActiveTab = 'upstream';
+          }
+        }
+      } catch (error) {
+        this.debugError = debugErrorMessage(error);
+      } finally {
+        this.debugLoading = false;
+      }
+    },
+    debugColumnLabel(column: string): string {
+      return this.debugResult?.columnLabels?.[column] || column;
+    },
+    formatDebugCell(value: any): string {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return String(value);
+        }
+      }
+      return String(value);
     },
   },
 });

@@ -80,6 +80,29 @@ export class DataApi implements IDataApi {
   ) {}
 }
 
+/** 调试时返回的上游接口原始响应。 */
+export interface IDataApiDebugUpstream {
+  status?: number;
+  headers?: Record<string, string[]>;
+  body?: string;
+  truncated?: boolean;
+  durationMs?: number;
+}
+
+/** 数据服务调试结果。 */
+export interface IDataApiDebugResult {
+  code: number;
+  message?: string;
+  data?: any;
+  columns?: string[];
+  columnLabels?: Record<string, string>;
+  total?: number;
+  pageNum?: number;
+  pageSize?: number;
+  durationMs?: number;
+  upstream?: IDataApiDebugUpstream;
+}
+
 /** 数据服务调用日志。 */
 export interface IDataApiCallLog {
   id?: string;

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
-import { type IDataApi, type IDataApiCallStats } from '@/shared/model/data-api.model';
+import { type IDataApi, type IDataApiCallStats, type IDataApiDebugResult } from '@/shared/model/data-api.model';
 
 const baseApiUrl = 'api/data-apis';
 
@@ -82,6 +82,10 @@ export default class DataApiService {
           reject(err);
         });
     });
+  }
+
+  debug(entity: IDataApi, params: Record<string, any>): Promise<IDataApiDebugResult> {
+    return axios.post(`${baseApiUrl}/debug`, { dataApi: entity, params }).then(res => res.data);
   }
 
   moveToDirectory(id: string, directoryId: string | null): Promise<IDataApi> {

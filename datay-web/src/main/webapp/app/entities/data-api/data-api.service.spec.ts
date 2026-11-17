@@ -120,6 +120,20 @@ describe('Service Tests', () => {
           });
       });
 
+      it('should debug a DataApi with params', async () => {
+        const debugResult = { code: 0, message: 'success', data: [{ id: 1 }], columns: ['id'], total: 1 };
+        axiosStub.post.resolves({ data: debugResult });
+
+        const res = await service.debug(elemDefault, { id: '1', pageNum: '1' });
+
+        expect(res).toMatchObject(debugResult);
+        expect(axiosStub.post.lastCall.args[0]).toBe('api/data-apis/debug');
+        expect(axiosStub.post.lastCall.args[1]).toMatchObject({
+          dataApi: elemDefault,
+          params: { id: '1', pageNum: '1' },
+        });
+      });
+
       it('should retrieve call logs', async () => {
         axiosStub.get.resolves({ headers: { 'x-total-count': '1' }, data: [{ id: 'log-1', status: 'SUCCESS' }] });
 
