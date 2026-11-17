@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        用户访问令牌：一个用户可以创建多个命名令牌，用于不同 MCP 客户端或业务场景。
+        旧版本的单令牌存储在 jhi_user.mcp_token_hash，本变更会清空该列，使旧令牌全部失效。
+    -->
+    <changeSet id="20261117000000-1-user-access-token" author="datafusion">
+        <createTable tableName="dp_user_access_token">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="lookup_hash" type="varchar(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_user_access_token_lookup_hash"/>
+            </column>
+            <column name="token_hash" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hint" type="varchar(8)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(16)" defaultValue="ENABLED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_used_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="dp_user_access_token"
+            columnNames="user_id, name"
+            constraintName="ux_user_access_token_user_name"/>
+
+        <createIndex tableName="dp_user_access_token" indexName="idx_user_access_token_user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <addForeignKeyConstraint
+            baseColumnNames="user_id"
+            baseTableName="dp_user_access_token"
+            constraintName="fk_user_access_token_user"
+            referencedColumnNames="id"
+            referencedTableName="jhi_user"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+    <changeSet id="20261117000000-2-invalidate-legacy-token" author="datafusion">
+        <!-- 旧版单令牌全部失效，用户需要在个人设置中重新创建访问令牌。 -->
+        <sql>
+            UPDATE jhi_user SET mcp_token_hash = NULL WHERE mcp_token_hash IS NOT NULL;
+        </sql>
+    </changeSet>
+</databaseChangeLog>

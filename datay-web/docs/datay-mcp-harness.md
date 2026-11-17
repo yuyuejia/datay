@@ -10,7 +10,7 @@ DataY Harness 通过 MCP（Model Context Protocol）把两类能力暴露给 AI 
 并接着「用自然语言问指标 → 拿报表」，整条链路不必再手点页面。
 
 - **端点**：`POST/GET/DELETE /mcp/datay`（Streamable HTTP）
-- **鉴权**：`Authorization: Bearer mcp_<userId>_<random>`
+- **鉴权**：`Authorization: Bearer mcp_<userId>_<random>`；访问令牌在个人设置中按场景创建，可独立停用或删除
 - **租户**：`X-Tenant-Id` 或 `X-Tenant-Code`（缺省用令牌所属用户的默认租户）
 - **实现**：`com.data.datafusion.mcp.harness`
 
@@ -24,7 +24,7 @@ DataY Harness 通过 MCP（Model Context Protocol）把两类能力暴露给 AI 
 
 ## 1. 客户端配置
 
-先在 **个人设置** 页面生成 MCP Token（`POST /api/account/mcp-token`，明文只展示一次）。
+先在 **个人设置** 页面创建访问令牌（`POST /api/account/access-tokens`，明文只展示一次）。可以为不同客户端或场景创建多个令牌，并独立停用或删除。旧版单令牌升级后会失效，需要重新创建。
 
 ### Claude Desktop / Cursor
 

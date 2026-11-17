@@ -211,7 +211,7 @@ query_metric_data            {metricCodes:["sales_amount"], dimensions:[...], co
 
 MCP Harness 复用平台既有的鉴权与租户隔离，而不是另起一套：
 
-- **传输层鉴权**：`Authorization: Bearer mcp_<userId>_<random>`，缺失或非法直接 `401`；
+- **传输层鉴权**：`Authorization: Bearer mcp_<userId>_<random>`，缺失或非法直接 `401`；访问令牌可在个人设置中按场景创建多个，并独立停用或删除；
 - **租户解析**：`X-Tenant-Id` / `X-Tenant-Code` 校验归属后写入上下文，**跨租户数据不可见**；
 - **数据权限**：用户与角色写入安全上下文，行级范围与页面行为完全一致；
 - **写开关**：`datay.mcp.harness.allow-mutating-tools=false` 一键降级为**只读**——写工具全部拒绝，但**指标问数能力不受影响**；

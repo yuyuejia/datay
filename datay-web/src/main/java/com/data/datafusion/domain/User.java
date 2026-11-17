@@ -78,6 +78,10 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Column(name = "reset_date")
     private Instant resetDate = null;
 
+    /**
+     * @deprecated 旧版单令牌哈希。访问令牌已迁移到 {@link UserAccessToken}，该字段仅为兼容历史表结构保留。
+     */
+    @Deprecated
     @JsonIgnore
     @Size(max = 60)
     @Column(name = "mcp_token_hash", length = 60)

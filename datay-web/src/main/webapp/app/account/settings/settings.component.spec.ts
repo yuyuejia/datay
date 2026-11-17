@@ -1,11 +1,12 @@
 import { vitest } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
+import { flushPromises, shallowMount } from '@vue/test-utils';
 import axios from 'axios';
 import sinon from 'sinon';
 import { createTestingPinia } from '@pinia/testing';
 import { type RouteLocation } from 'vue-router';
 
 import Settings from './settings.vue';
+import AccessTokenService from './access-token.service';
 import { useStore } from '@/store';
 import { EMAIL_ALREADY_USED_TYPE } from '@/constants';
 
@@ -30,6 +31,7 @@ const axiosStub = {
 
 describe('Settings Component', () => {
   let settings: SettingsComponentType;
+  let accessTokenServiceStub: sinon.SinonStubbedInstance<AccessTokenService>;
   const account = {
     firstName: 'John',
     lastName: 'Doe',
@@ -40,12 +42,20 @@ describe('Settings Component', () => {
     axiosStub.get.resolves({});
     axiosStub.post.reset();
     routerReplaceMock.mockReset();
+    accessTokenServiceStub = sinon.createStubInstance(AccessTokenService);
+    accessTokenServiceStub.list.resolves([]);
 
     route = { path: '/account/settings', query: {} };
     store.setAuthentication(account);
     const wrapper = shallowMount(Settings, {
       global: {
         plugins: [pinia],
+        stubs: {
+          'font-awesome-icon': true,
+        },
+        provide: {
+          accessTokenService: () => accessTokenServiceStub,
+        },
       },
     });
     settings = wrapper.vm;
@@ -61,6 +71,12 @@ describe('Settings Component', () => {
     const wrapper = shallowMount(Settings, {
       global: {
         plugins: [pinia],
+        stubs: {
+          'font-awesome-icon': true,
+        },
+        provide: {
+          accessTokenService: () => accessTokenServiceStub,
+        },
       },
     });
 
@@ -136,5 +152,42 @@ describe('Settings Component', () => {
     expect(settings.errorEmailExists).toEqual('ERROR');
     expect(settings.error).toBeNull();
     expect(settings.success).toBeNull();
+  });
+
+  it('should load access tokens', async () => {
+    accessTokenServiceStub.list.resolves([{ id: '1', name: 'Claude Desktop', tokenHint: 'a1b2', status: 'ENABLED' }]);
+
+    await settings.loadAccessTokens();
+    await flushPromises();
+
+    expect(settings.accessTokens).toHaveLength(1);
+    expect(settings.accessTokens[0].name).toBe('Claude Desktop');
+  });
+
+  it('should create an access token and show it once', async () => {
+    accessTokenServiceStub.create.resolves({
+      token: 'mcp_1_abc12345',
+      accessToken: { id: '1', name: 'Cursor', tokenHint: '2345', status: 'ENABLED' },
+    });
+    settings.openCreateToken();
+    settings.tokenForm = { name: 'Cursor', description: '开发环境' };
+
+    await settings.saveToken();
+    await flushPromises();
+
+    expect(accessTokenServiceStub.create.calledWith({ name: 'Cursor', description: '开发环境' })).toBeTruthy();
+    expect(settings.createdToken).toBe('mcp_1_abc12345');
+    expect(settings.tokenDisplayVisible).toBe(true);
+    expect(settings.tokenDialogVisible).toBe(false);
+  });
+
+  it('should toggle access token status', async () => {
+    const token = { id: '1', name: 'Cursor', status: 'ENABLED' };
+    accessTokenServiceStub.update.resolves({ ...token, status: 'DISABLED' });
+
+    await settings.onTokenStatusChange(token, false);
+
+    expect(accessTokenServiceStub.update.calledWith('1', { status: 'DISABLED' })).toBeTruthy();
+    expect(token.status).toBe('DISABLED');
   });
 });

@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONPath;
+import com.data.datafusion.config.SkipTenantFilter;
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.DataApiCallLog;
@@ -65,6 +66,7 @@ import org.springframework.stereotype.Service;
  * 分析数据集来源复用数据集查询链路，并继承 Token 用户的行级数据权限。</p>
  */
 @Service
+@SkipTenantFilter
 public class DataApiExecuteService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataApiExecuteService.class);

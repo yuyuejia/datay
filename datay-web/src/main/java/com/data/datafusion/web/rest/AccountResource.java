@@ -4,6 +4,7 @@ import com.data.datafusion.domain.User;
 import com.data.datafusion.repository.UserRepository;
 import com.data.datafusion.security.SecurityUtils;
 import com.data.datafusion.service.MailService;
+import com.data.datafusion.service.UserAccessTokenService;
 import com.data.datafusion.service.UserService;
 import com.data.datafusion.service.dto.AdminUserDTO;
 import com.data.datafusion.service.dto.PasswordChangeDTO;
@@ -38,11 +39,19 @@ public class AccountResource {
 
     private final UserService userService;
 
+    private final UserAccessTokenService userAccessTokenService;
+
     private final MailService mailService;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService) {
+    public AccountResource(
+        UserRepository userRepository,
+        UserService userService,
+        UserAccessTokenService userAccessTokenService,
+        MailService mailService
+    ) {
         this.userRepository = userRepository;
         this.userService = userService;
+        this.userAccessTokenService = userAccessTokenService;
         this.mailService = mailService;
     }
 
@@ -135,25 +144,34 @@ public class AccountResource {
     }
 
     /**
-     * {@code GET  /account/mcp-token} : check whether the current user has an MCP token.
+     * {@code GET  /account/mcp-token} : check whether the current user has an access token.
      *
-     * @return whether the current user has an MCP token configured.
+     * @return whether the current user has at least one access token.
+     * @deprecated use {@code GET /api/account/access-tokens} instead.
      */
+    @Deprecated
     @GetMapping("/account/mcp-token")
     public Map<String, Boolean> hasMcpToken() {
-        return Map.of("hasToken", userService.hasMcpToken());
+        return Map.of("hasToken", userAccessTokenService.hasAnyToken());
     }
 
     /**
-     * {@code POST  /account/mcp-token} : generate (or reset) the current user's MCP token.
+     * {@code POST  /account/mcp-token} : create a default access token for the current user.
      *
-     * <p>The plain-text token is returned only once; only its hash is stored.
+     * <p>保留该接口用于兼容旧客户端；新接口为 {@code POST /api/account/access-tokens}。
+     * 该接口会新增一个名为“默认访问令牌”的令牌，不会删除用户已有的其他令牌。</p>
      *
      * @return the newly generated plain-text token.
+     * @deprecated use {@code POST /api/account/access-tokens} instead.
      */
+    @Deprecated
     @PostMapping("/account/mcp-token")
     public Map<String, String> generateMcpToken() {
-        return Map.of("token", userService.generateMcpToken());
+        try {
+            return Map.of("token", userAccessTokenService.createCurrentUserToken("默认访问令牌", "由旧版接口创建").getToken());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), "userAccessToken", "invalidAccessToken");
+        }
     }
 
     /**
