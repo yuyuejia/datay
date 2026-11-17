@@ -279,6 +279,38 @@ public class TransformSqlBuilderTest {
     }
 
     @Test
+    public void testDerivedColumn() {
+        JSONObject derived = rule("derive");
+        derived.put("targetColumn", "age_group");
+        derived.put("expression", "CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END");
+        assertEquals(
+            "SELECT *, CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END AS age_group FROM main.t",
+            TransformSqlBuilder.buildSelectSql("main.t", rules(derived), null)
+        );
+    }
+
+    @Test
+    public void testDerivedColumnWithCast() {
+        JSONObject derived = rule("derive");
+        derived.put("targetColumn", "total_decimal");
+        derived.put("expression", "price * quantity");
+        derived.put("targetType", "DECIMAL");
+        derived.put("precision", 10);
+        derived.put("scale", 2);
+        assertEquals(
+            "SELECT *, CAST(price * quantity AS DECIMAL(10,2)) AS total_decimal FROM main.t",
+            TransformSqlBuilder.buildSelectSql("main.t", rules(derived), null)
+        );
+    }
+
+    @Test
+    public void testDerivedColumnRequiresTargetColumn() {
+        JSONObject derived = rule("derive");
+        derived.put("expression", "age + 1");
+        assertThrows(IllegalArgumentException.class, () -> TransformSqlBuilder.buildSelectSql("main.t", rules(derived), null));
+    }
+
+    @Test
     public void testSelectColumnsOverride() {
         JSONObject upper = rule("upper");
         upper.put("column", "name");

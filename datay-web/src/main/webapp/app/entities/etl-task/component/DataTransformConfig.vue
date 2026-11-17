@@ -94,6 +94,44 @@
       <small class="form-text text-muted"> 每条规则对选中的字段执行转换，输出字段留空表示覆盖原字段 </small>
     </el-form-item>
 
+    <el-form-item label="派生列">
+      <div class="mapping-container">
+        <div v-for="(derived, index) in formData.derivedColumns" :key="index" class="mapping-item">
+          <div class="mapping-item-header">
+            <span>派生列 {{ index + 1 }}</span>
+            <el-button type="danger" link size="small" @click="removeDerived(index)">删除</el-button>
+          </div>
+
+          <div class="mapping-row">
+            <el-input v-model="derived.name" placeholder="输出字段名（必填），如 age_group" />
+            <el-select v-model="derived.targetType" placeholder="类型（可选）" clearable>
+              <el-option v-for="type in castTypes" :key="type" :value="type" :label="type" />
+            </el-select>
+          </div>
+          <div v-if="isDecimalType(derived.targetType)" class="mapping-row">
+            <el-input-number :controls="false" v-model="derived.precision" :min="1" :max="38" placeholder="精度，如 10" />
+            <el-input-number :controls="false" v-model="derived.scale" :min="0" :max="38" placeholder="小数位，如 2" />
+          </div>
+
+          <div class="mapping-row">
+            <el-input type="textarea" v-model="derived.expression" :rows="2" placeholder="DuckDB 表达式，可引用任意上游字段，如 CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END" />
+          </div>
+          <div class="mapping-row">
+            <el-select
+              v-model="derived.pickField"
+              placeholder="插入上游字段到表达式"
+              clearable
+              @change="onInsertDerivedField(derived)"
+            >
+              <el-option v-for="column in optionsWith(derived.pickField)" :key="column.name" :value="column.name" :label="columnLabel(column)" />
+            </el-select>
+          </div>
+        </div>
+        <el-button type="primary" size="small" @click="addDerived">添加派生列</el-button>
+      </div>
+      <small class="form-text text-muted"> 基于表达式生成一个新列，不改变原有字段；输出字段名必填，表达式可直接书写 DuckDB 语法 </small>
+    </el-form-item>
+
     <el-form-item label="过滤规则">
       <div class="mapping-container">
         <div v-if="formData.filters.length > 1" class="mapping-row">
@@ -266,6 +304,24 @@ const fromConfigRule = (rule) => {
   return normalized;
 };
 
+const defaultDerived = () => ({
+  name: '',
+  targetType: '',
+  precision: 10,
+  scale: 2,
+  expression: '',
+  pickField: '',
+});
+
+const fromConfigDerived = (derived) => ({
+  name: derived.name || derived.targetColumn || '',
+  targetType: derived.targetType ? String(derived.targetType).toUpperCase() : '',
+  precision: derived.precision === undefined ? 10 : derived.precision,
+  scale: derived.scale === undefined ? 2 : derived.scale,
+  expression: derived.expression || '',
+  pickField: '',
+});
+
 const defaultFilterRule = (mode) => ({
   mode: mode || 'condition',
   column: '',
@@ -291,12 +347,15 @@ const fromConfigFilter = (filter) => {
 const buildForm = () => {
   const config = props.node?.data?.config || {};
   const rawRules = Array.isArray(config.rules) ? config.rules : [];
-  // 兼容历史配置：将 rules 中的 filter 规则迁移到独立的过滤规则列表
+  // 兼容历史配置：将 rules 中的 filter/derive 规则迁移到独立的列表
   const legacyFilters = rawRules.filter((rule) => rule.type === 'filter');
-  const rules = rawRules.filter((rule) => rule.type !== 'filter');
+  const legacyDerived = rawRules.filter((rule) => rule.type === 'derive' || rule.type === 'derived' || rule.type === 'derived_column');
+  const rules = rawRules.filter((rule) => rule.type !== 'filter' && rule.type !== 'derive' && rule.type !== 'derived' && rule.type !== 'derived_column');
   const filters = [...(Array.isArray(config.filters) ? config.filters : []), ...legacyFilters].map(fromConfigFilter);
+  const derivedColumns = [...(Array.isArray(config.derivedColumns) ? config.derivedColumns : []), ...legacyDerived].map(fromConfigDerived);
   return {
     rules: rules.map(fromConfigRule),
+    derivedColumns,
     filters,
     filterLogic: (config.filterLogic || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND',
     selectColumns: config.selectColumns || '',
@@ -409,6 +468,25 @@ const removeFilter = (index) => {
   formData.filters.splice(index, 1);
 };
 
+const addDerived = () => {
+  formData.derivedColumns.push(defaultDerived());
+};
+
+const removeDerived = (index) => {
+  formData.derivedColumns.splice(index, 1);
+};
+
+const onInsertDerivedField = (derived) => {
+  const field = (derived.pickField || '').trim();
+  if (!field) {
+    return;
+  }
+  const token = identifier(field);
+  const current = (derived.expression || '').trimEnd();
+  derived.expression = current ? `${current} ${token}` : token;
+  derived.pickField = '';
+};
+
 const onRuleTypeChange = (rule) => {
   const next = defaultRule(rule.type);
   next.column = rule.column;
@@ -512,6 +590,18 @@ const buildRuleExpression = (rule) => {
   }
 };
 
+const buildDerivedExpression = (derived) => {
+  let expression = (derived.expression || '').trim();
+  if (!expression) {
+    return '';
+  }
+  const type = (derived.targetType || '').toUpperCase();
+  if (type) {
+    expression = `CAST(${expression} AS ${isDecimalType(type) ? `${type}(${Number(derived.precision) || 10},${derived.scale === null || derived.scale === undefined || derived.scale === '' ? 2 : Number(derived.scale)})` : type})`;
+  }
+  return expression;
+};
+
 const splitValues = (value) =>
   String(value || '')
     .split(',')
@@ -576,6 +666,14 @@ const previewSql = computed(() => {
     computedItems.push(`${expression} AS ${identifier(alias)}`);
     if (alias === rule.column) {
       excluded.push(rule.column);
+    }
+  });
+
+  formData.derivedColumns.forEach((derived) => {
+    const name = (derived.name || '').trim();
+    const expression = buildDerivedExpression(derived);
+    if (name && expression) {
+      computedItems.push(`${expression} AS ${identifier(name)}`);
     }
   });
 
@@ -669,6 +767,22 @@ const serializeRule = (rule) => {
   return result;
 };
 
+const serializeDerived = (derived) => {
+  const result = {
+    type: 'derive',
+    targetColumn: (derived.name || '').trim(),
+    expression: (derived.expression || '').trim(),
+  };
+  if (derived.targetType) {
+    result.targetType = derived.targetType.toUpperCase();
+    if (isDecimalType(derived.targetType)) {
+      result.precision = Number(derived.precision) || 10;
+      result.scale = derived.scale === null || derived.scale === undefined || derived.scale === '' ? 2 : Number(derived.scale);
+    }
+  }
+  return result;
+};
+
 const serializeFilter = (filter) => {
   if (filter.mode === 'custom') {
     return { expression: (filter.expression || '').trim() };
@@ -714,6 +828,31 @@ const saveConfig = async () => {
       return;
     }
     rules.push(serializeRule(rule));
+  }
+
+  for (let i = 0; i < formData.derivedColumns.length; i++) {
+    const derived = formData.derivedColumns[i];
+    if (!(derived.name || '').trim()) {
+      ElMessage.error(`请填写第 ${i + 1} 个派生列的输出字段名`);
+      return;
+    }
+    if (!(derived.expression || '').trim()) {
+      ElMessage.error(`请填写第 ${i + 1} 个派生列的表达式`);
+      return;
+    }
+    if (derived.targetType && isDecimalType(derived.targetType)) {
+      const precision = Number(derived.precision);
+      const scale = Number(derived.scale);
+      if (!Number.isInteger(precision) || precision < 1 || precision > 38) {
+        ElMessage.error(`第 ${i + 1} 个派生列的 DECIMAL 精度需为 1-38 的整数`);
+        return;
+      }
+      if (!Number.isInteger(scale) || scale < 0 || scale > precision) {
+        ElMessage.error(`第 ${i + 1} 个派生列的 DECIMAL 小数位需为 0 且不超过精度`);
+        return;
+      }
+    }
+    rules.push(serializeDerived(derived));
   }
 
   const filters = [];

@@ -140,6 +140,20 @@ public class TransformSqlBuilder {
             expression = expression.replace("{column}", identifier(column(rule)));
             return expr(rule, expression);
         });
+        // 派生列：基于任意 DuckDB 表达式新增一列，输出字段别名必填，不覆盖原字段
+        registerHandler("derive", rule -> {
+            String expression = required(rule, "expression").trim();
+            String alias = targetColumn(rule, null);
+            if (alias == null || alias.trim().isEmpty()) {
+                throw new IllegalArgumentException("派生列规则缺少 targetColumn 字段: " + rule);
+            }
+            // 支持可选的 CAST 类型
+            String targetType = rule.getString("targetType");
+            if (targetType != null && !targetType.trim().isEmpty()) {
+                expression = "CAST(" + expression + " AS " + targetType(rule) + ")";
+            }
+            return RuleResult.expression(expression, alias.trim(), null);
+        });
 
         // 过滤规则
         registerHandler("filter", TransformSqlBuilder::buildFilter);
@@ -154,6 +168,8 @@ public class TransformSqlBuilder {
         alias("split_part", "split");
         alias("expression", "custom");
         alias("expr", "custom");
+        alias("derived", "derive");
+        alias("derived_column", "derive");
     }
 
     private TransformSqlBuilder() {

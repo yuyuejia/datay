@@ -55,7 +55,25 @@ DataTransform 是一个基于 DuckDB 的数据转换组件，预置了常用的�
 | `extract` | 日期部分提取 | `part` | `DATE_PART('year', col)` |
 | `split` | 字符串拆分 | `delimiter`、`index` | `SPLIT_PART(col, ',', 1)` |
 | `add` / `subtract` / `multiply` / `divide` | 四则运算 | `value`、`valueIsColumn` | `(col + value)` |
-| `custom` | 自定义表达式 | `expression` | `expression`（`{column}` 替换为字段名） |
+| `custom` | 自定义表达式 | `column`、`expression` | `expression`（`{column}` 替换为字段名） |
+| `derive` | 派生列（新增列） | `targetColumn`、`expression`；可选 `targetType`（`DECIMAL`/`NUMERIC` 时用 `precision`、`scale`） | `expression AS targetColumn` |
+
+## 派生列
+
+派生列基于 DuckDB 表达式生成一个新列，不改变原有字段。与 `custom` 规则的区别：`custom` 针对单个 `column` 且用 `{column}` 占位；`derive` 不要求 `column`，表达式可引用任意多个上游字段，输出字段名 `targetColumn` 必填。
+
+| 字段 | 说明 |
+|------|------|
+| `type` | 固定为 `derive`（别名 `derived` / `derived_column`） |
+| `targetColumn` | 输出字段名，必填 |
+| `expression` | DuckDB 表达式，可引用任意上游字段，例如 `CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END` |
+| `targetType` | 可选；设置后将表达式结果 `CAST` 为该类型 |
+
+```json
+{ "type": "derive", "targetColumn": "age_group", "expression": "CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END" }
+```
+
+生成的 SQL 片段：`CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END AS age_group`。
 
 ## 过滤规则
 
@@ -90,7 +108,8 @@ DataTransform 是一个基于 DuckDB 的数据转换组件，预置了常用的�
   "rules": [
     { "type": "cast", "column": "age", "targetType": "INTEGER" },
     { "type": "upper", "column": "name", "targetColumn": "name_upper" },
-    { "type": "cast", "column": "price", "targetType": "DECIMAL", "precision": 12, "scale": 2 }
+    { "type": "cast", "column": "price", "targetType": "DECIMAL", "precision": 12, "scale": 2 },
+    { "type": "derive", "targetColumn": "age_group", "expression": "CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END" }
   ],
   "filters": [
     { "column": "status", "operator": "=", "value": "ACTIVE" },
@@ -107,7 +126,8 @@ DataTransform 是一个基于 DuckDB 的数据转换组件，预置了常用的�
 
 ```sql
 SELECT * EXCLUDE (age, price), CAST(age AS INTEGER) AS age, UPPER(name) AS name_upper,
-       CAST(price AS DECIMAL(12,2)) AS price
+       CAST(price AS DECIMAL(12,2)) AS price,
+       CASE WHEN age >= 18 THEN 'adult' ELSE 'child' END AS age_group
 FROM main.tmp_data_transform
 WHERE (status = 'ACTIVE' AND age >= 18 AND (amount > 100))
 ```
