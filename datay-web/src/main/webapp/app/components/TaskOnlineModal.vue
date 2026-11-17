@@ -1,12 +1,9 @@
 <template>
-  <app-modal ref="modal" id="taskOnlineModal" size="md">
+  <app-modal ref="modal" id="taskOnlineModal" size="lg">
     <template #modal-title>
-      <span>{{ title }}</span>
+      <span>{{ taskName ? `${title} - ${taskName}` : title }}</span>
     </template>
     <div class="modal-body online-modal-body">
-      <p v-if="taskName">
-        任务：<strong>{{ taskName }}</strong>
-      </p>
       <el-alert
         v-if="!cronValue.trim()"
         type="warning"
@@ -15,9 +12,6 @@
         title="当前任务尚未设置调度周期，请设置 Cron 表达式后再上线。"
         class="mb-3"
       />
-      <p v-else class="online-current-cron">
-        当前调度周期：<code>{{ cronValue }}</code>
-      </p>
       <div class="online-cron-field">
         <label class="online-cron-label">调度周期（Cron 表达式）</label>
         <CronExpressionSelector v-model:value="cronValue" />
@@ -293,13 +287,6 @@ defineExpose({ show, hide });
 <style scoped>
 .online-modal-body p {
   margin-bottom: 12px;
-}
-
-.online-current-cron code {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #f5f7fa;
-  color: #409eff;
 }
 
 .online-cron-field {
