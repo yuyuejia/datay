@@ -93,6 +93,16 @@
                     link
                     type="primary"
                     size="small"
+                    title="编辑目录"
+                    @click.stop="showEditDirectoryDialog(data.data)"
+                  >
+                    <font-awesome-icon icon="pencil-alt" />
+                  </el-button>
+                  <el-button
+                    v-if="data.type === 'directory'"
+                    link
+                    type="primary"
+                    size="small"
                     title="上移"
                     :disabled="!canMoveDirectory(data.data, -1)"
                     @click.stop="moveDirectory(data.data, -1)"
@@ -721,7 +731,7 @@
           <el-form-item label="目录名称">
             <el-input v-model="directoryForm.name" placeholder="请输入目录名称" />
           </el-form-item>
-          <el-form-item label="排序">
+          <el-form-item v-if="!editingDirectoryId" label="排序">
             <el-input-number v-model="directoryForm.sortOrder" :min="0" :max="9999" :controls="false" />
           </el-form-item>
         </el-form>

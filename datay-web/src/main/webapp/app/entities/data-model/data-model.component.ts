@@ -639,6 +639,13 @@ export default defineComponent({
       directoryDialogVisible.value = true;
     };
 
+    const showEditDirectoryDialog = (directory: IModelDirectory) => {
+      editingDirectoryId.value = directory.id ?? null;
+      directoryDialogTitle.value = "编辑目录";
+      directoryForm.value = { ...directory };
+      directoryDialogVisible.value = true;
+    };
+
     const saveDirectory = async () => {
       try {
         if (editingDirectoryId.value) {
@@ -764,6 +771,7 @@ export default defineComponent({
       directoryDialogVisible,
       directoryDialogTitle,
       directoryForm,
+      editingDirectoryId,
       deleteDialogVisible,
       deleteMessage,
       materializeDialogVisible,
@@ -788,6 +796,7 @@ export default defineComponent({
       handleNodeClick,
       handleLineageModelSelect,
       showAddDirectoryDialog,
+      showEditDirectoryDialog,
       saveDirectory,
       showAddModelDialog,
       canMoveDirectory,

@@ -314,6 +314,13 @@ export default defineComponent({
       directoryDialogVisible.value = true;
     };
 
+    const showEditDirectoryDialog = (directory: IMetricDirectory) => {
+      editingDirectoryId.value = directory.id ?? null;
+      directoryDialogTitle.value = "编辑目录";
+      directoryForm.value = { ...directory };
+      directoryDialogVisible.value = true;
+    };
+
     const saveDirectory = async () => {
       if (!directoryForm.value.name || !directoryForm.value.name.trim()) {
         alertService.showError("请输入目录名称");
@@ -816,6 +823,7 @@ export default defineComponent({
       directoryDialogVisible,
       directoryDialogTitle,
       directoryForm,
+      editingDirectoryId,
       deleteDialogVisible,
       deleteMessage,
       sqlDialogVisible,
@@ -824,6 +832,7 @@ export default defineComponent({
       handleNodeClick,
       handleLineageNodeClick,
       showAddDirectoryDialog,
+      showEditDirectoryDialog,
       saveDirectory,
       showAddMetricDialog,
       canMoveDirectory,

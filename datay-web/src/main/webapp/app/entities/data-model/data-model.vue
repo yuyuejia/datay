@@ -73,6 +73,16 @@
                     link
                     type="primary"
                     size="small"
+                    title="编辑目录"
+                    @click.stop="showEditDirectoryDialog(data.data)"
+                  >
+                    <font-awesome-icon icon="pencil-alt" />
+                  </el-button>
+                  <el-button
+                    v-if="data.type === 'directory'"
+                    link
+                    type="primary"
+                    size="small"
                     title="上移"
                     :disabled="!canMoveDirectory(data.data, -1)"
                     @click.stop="moveDirectory(data.data, -1)"
@@ -340,7 +350,7 @@
               placeholder="请输入目录名称"
             />
           </div>
-          <div class="form-group">
+          <div v-if="!editingDirectoryId" class="form-group">
             <label class="form-control-label">排序</label>
             <input
               type="number"
