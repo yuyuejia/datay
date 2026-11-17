@@ -156,7 +156,7 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="数据表" required>
-            <el-select v-model="registerSelectedTable" :disabled="!registerSelectedSchema" style="width: 100%" @change="onRegisterTableChange">
+            <el-select v-model="registerSelectedTable" :disabled="!registerSelectedSchema" style="width: 100%" @change="() => onRegisterTableChange(false)">
             <el-option :value="null" disabled label="请选择数据表" />
             <el-option v-for="table in registerTables" :key="table" :value="table" :label="table" />
           </el-select>
@@ -316,34 +316,53 @@
         <el-table-column label="关联维度" width="220">
           <template #default="{ row }">
             <div class="dimension-select">
-              <el-select v-model="row.dimensionModelId" style="width: 100%" :disabled="isGeneratedField(row)" @change="val => handleDimensionModelChange(row, val)" placeholder="选择维度模型">
-            <el-option v-for="dim in dimensionModels" :key="dim.id" :value="dim.id" :label="dim.name" />
-          </el-select>
+              <el-select
+                v-model="row.dimensionModelId"
+                style="width: 100%"
+                clearable
+                :disabled="isGeneratedField(row)"
+                placeholder="选择维度模型"
+                @change="val => handleDimensionModelChange(row, val)"
+              >
+                <el-option v-for="dim in dimensionModels" :key="dim.id" :value="dim.id" :label="dim.name" />
+              </el-select>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="排序" width="80">
-          <template #default="{ row }">
-            <el-input-number
-              v-model="row.sortOrder"
-              :min="0"
-              controls-position="right"
-              style="width: 100%"
-              :disabled="isGeneratedField(row)"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="80" align="center">
+        <el-table-column label="操作" width="110" align="center">
           <template #default="{ row, $index }">
-            <el-button
-              v-if="!isGeneratedField(row)"
-              link
-              type="danger"
-              size="small"
-              @click="removeField($index)"
-            >
-              <font-awesome-icon icon="trash" />
-            </el-button>
+            <div class="field-actions">
+              <el-button
+                link
+                type="primary"
+                size="small"
+                title="上移"
+                :disabled="!canMoveField(row, -1)"
+                @click="moveField(row, -1)"
+              >
+                <font-awesome-icon icon="arrow-up" />
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                title="下移"
+                :disabled="!canMoveField(row, 1)"
+                @click="moveField(row, 1)"
+              >
+                <font-awesome-icon icon="arrow-down" />
+              </el-button>
+              <el-button
+                v-if="!isGeneratedField(row)"
+                link
+                type="danger"
+                size="small"
+                title="删除"
+                @click="removeField($index)"
+              >
+                <font-awesome-icon icon="trash" />
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -508,6 +527,20 @@
 .dimension-select {
   display: flex;
   flex-direction: column;
+}
+
+.field-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.field-actions :deep(.el-button) {
+  margin: 0;
+  padding: 4px 6px;
+  line-height: 1;
 }
 
 .import-empty-hint {

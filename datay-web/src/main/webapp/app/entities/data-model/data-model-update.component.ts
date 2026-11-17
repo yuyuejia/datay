@@ -167,14 +167,16 @@ export default defineComponent({
       row: IModelField,
       modelId: string | null,
     ) => {
+      row.dimensionModelId = modelId || null;
       row.dimensionFieldId = null;
-      if (modelId) {
-        await loadDimensionFields(modelId);
-        const fields = dimensionFieldsCache.value[modelId] || [];
-        const pk = fields.find((f) => f.isPrimaryKey);
-        if (pk) {
-          row.dimensionFieldId = pk.id;
-        }
+      if (!modelId) {
+        return;
+      }
+      await loadDimensionFields(modelId);
+      const fields = dimensionFieldsCache.value[modelId] || [];
+      const pk = fields.find((f) => f.isPrimaryKey);
+      if (pk) {
+        row.dimensionFieldId = pk.id;
       }
     };
 
@@ -490,6 +492,35 @@ export default defineComponent({
       for (let i = 0; i < fields.value.length; i++) {
         fields.value[i].sortOrder = i;
       }
+    };
+
+    const movableFields = (): IModelField[] =>
+      fields.value.filter((f) => !f.fieldRole);
+
+    const canMoveField = (row: IModelField, offset: number): boolean => {
+      const normals = movableFields();
+      const index = normals.indexOf(row);
+      const targetIndex = index + offset;
+      return index >= 0 && targetIndex >= 0 && targetIndex < normals.length;
+    };
+
+    /** 在普通字段内上移 / 下移，重排 sortOrder 保持自动生成字段始终在末尾。 */
+    const moveField = (row: IModelField, offset: number) => {
+      const normals = movableFields();
+      const generated = fields.value.filter((f) => f.fieldRole);
+      const index = normals.indexOf(row);
+      const targetIndex = index + offset;
+      if (index < 0 || targetIndex < 0 || targetIndex >= normals.length) {
+        return;
+      }
+      [normals[index], normals[targetIndex]] = [
+        normals[targetIndex],
+        normals[index],
+      ];
+      fields.value = [...normals, ...generated];
+      fields.value.forEach((f, i) => {
+        f.sortOrder = i;
+      });
     };
 
     const importDialogVisible = ref(false);
@@ -857,6 +888,8 @@ export default defineComponent({
       if (!table || !dataSourceId || !schema) {
         return;
       }
+      // 编辑已注册模型时会重新读取物理表结构，需保留原有的维度关联等配置
+      const previousFields = preserveFields ? [...fields.value] : [];
       registerFieldsLoading.value = true;
       try {
         const res = await dataSourceService().getFields(
@@ -887,6 +920,21 @@ export default defineComponent({
           fields.value = newFields;
           registerAutoAdded.value = true;
         } else {
+          const previousFieldByName = new Map<string, IModelField>();
+          for (const previous of previousFields) {
+            if (previous.fieldName) {
+              previousFieldByName.set(previous.fieldName, previous);
+            }
+          }
+          for (const field of newFields) {
+            const previous = field.fieldName
+              ? previousFieldByName.get(field.fieldName)
+              : undefined;
+            if (previous) {
+              field.dimensionModelId = previous.dimensionModelId ?? null;
+              field.dimensionFieldId = previous.dimensionFieldId ?? null;
+            }
+          }
           fields.value = newFields;
         }
         for (let i = 0; i < fields.value.length; i++) {
@@ -960,6 +1008,8 @@ export default defineComponent({
       toggleTimeLevel,
       addField,
       removeField,
+      canMoveField,
+      moveField,
       handlePrimaryKeyChange,
       importDialogVisible,
       importSelectedDataSourceId,
