@@ -36,6 +36,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | `SqlSink` | 通用 SQL 写入，支持 SQL 模板、动态参数绑定与原子累加 | [SqlSink](components/SqlSink.md) |
 | `StreamJdbcOutput` | JDBC 数据源输出，支持 append / update / replace / overwrite 等模式 | [StreamJdbcOutput](components/StreamJdbcOutput.md) |
 | `DorisStreamLoad` | 通过 Stream Load 协议把数据写入 Apache Doris | [DorisStreamLoad](components/DorisStreamLoad.md) |
+| `KafkaProducer` | 将上游数据逐条发送到 Kafka 主题，支持消息 key、指定分区与压缩 | [KafkaProducer](components/KafkaProducer.md) |
 
 ## 其他组件
 
