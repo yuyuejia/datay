@@ -158,7 +158,8 @@ export default defineComponent({
       name: '',
       code: '',
       description: '',
-      type: 'METRIC',
+      // 新建数据集默认使用 SQL 数据集；从指标查询带入配置时会在 applyMetricQueryPrefill 中切回 METRIC。
+      type: 'SQL',
       status: 'ENABLED',
     });
     const sqlText = ref('');

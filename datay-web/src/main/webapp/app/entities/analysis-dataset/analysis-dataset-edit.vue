@@ -27,8 +27,8 @@
             <el-col :span="12">
               <el-form-item label="类型" required>
                 <el-radio-group v-model="form.type" @change="onTypeChange">
-                  <el-radio-button label="METRIC">指标数据集</el-radio-button>
                   <el-radio-button label="SQL">SQL 数据集</el-radio-button>
+                  <el-radio-button label="METRIC">指标数据集</el-radio-button>
                 </el-radio-group>
               </el-form-item>
             </el-col>
