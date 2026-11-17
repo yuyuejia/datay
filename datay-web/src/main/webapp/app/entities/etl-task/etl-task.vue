@@ -147,11 +147,18 @@
                       <span class="d-none d-md-inline">编辑</span>
                     </el-button>
                   </router-link>
-                  <el-button type="success" size="small" @click="runETLTask(scope.row.id)" class="run" data-cy="entityRunButton">
-                    <span class="d-none d-md-inline">立即执行</span>
+                  <el-button
+                    v-if="canRunTask(scope.row)"
+                    type="success"
+                    size="small"
+                    @click="runETLTask(scope.row.id)"
+                    class="run"
+                    data-cy="entityRunButton"
+                  >
+                    <span class="d-none d-md-inline">{{ isRealtimeTask ? '启动' : '立即执行' }}</span>
                   </el-button>
                   <el-button
-                    v-if="isRealtimeTask"
+                    v-if="canTerminateTask(scope.row)"
                     type="danger"
                     size="small"
                     :loading="terminatingTaskId === scope.row.id"
@@ -161,6 +168,17 @@
                     data-cy="entityTerminateButton"
                   >
                     <span class="d-none d-md-inline">终止</span>
+                  </el-button>
+                  <el-button
+                    v-if="isRealtimeTask"
+                    type="info"
+                    plain
+                    size="small"
+                    @click="handleRowCommand('logs', scope.row)"
+                    class="logs"
+                    data-cy="entityLogButton"
+                  >
+                    <span class="d-none d-md-inline">日志</span>
                   </el-button>
                   <el-button
                     type="warning"
@@ -188,7 +206,7 @@
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item command="logs" data-cy="entityLogButton">日志</el-dropdown-item>
+                        <el-dropdown-item v-if="!isRealtimeTask" command="logs" data-cy="entityLogButton">日志</el-dropdown-item>
                         <el-dropdown-item command="state" data-cy="entityStateButton">状态</el-dropdown-item>
                         <el-dropdown-item command="move" data-cy="entityMoveDirectoryButton">移动到目录</el-dropdown-item>
                         <el-dropdown-item command="export" data-cy="entityExportButton">导出</el-dropdown-item>

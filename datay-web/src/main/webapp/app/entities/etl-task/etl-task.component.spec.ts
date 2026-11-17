@@ -1,5 +1,6 @@
 import { type MountingOptions, flushPromises, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
+import { routeLocationKey } from 'vue-router';
 
 import ETLTask from './etl-task.vue';
 import ETLTaskService from './etl-task.service';
@@ -80,6 +81,49 @@ describe('Component Tests', () => {
         });
       });
     });
+    describe('Realtime task action buttons', () => {
+      const mountRealtime = async (lastStatus: string) => {
+        eTLTaskServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 1, lastStatus }] });
+        const wrapper = shallowMount(ETLTask, {
+          global: {
+            ...mountOptions,
+            provide: {
+              ...mountOptions.provide,
+              [routeLocationKey as any]: { meta: { taskKind: 'STREAM' } },
+            },
+          },
+        });
+        const comp = wrapper.vm;
+        await flushPromises();
+        await comp.$nextTick();
+        return comp;
+      };
+
+      it('should hide run and show terminate while a realtime task is running', async () => {
+        const comp = await mountRealtime('RUNNING');
+        const task = comp.eTLTasks[0];
+
+        expect(comp.canRunTask(task)).toBe(false);
+        expect(comp.canTerminateTask(task)).toBe(true);
+      });
+
+      it('should treat STARTING as running', async () => {
+        const comp = await mountRealtime('STARTING');
+        const task = comp.eTLTasks[0];
+
+        expect(comp.canRunTask(task)).toBe(false);
+        expect(comp.canTerminateTask(task)).toBe(true);
+      });
+
+      it('should show run and hide terminate after a realtime task stops', async () => {
+        const comp = await mountRealtime('INTERRUPTED');
+        const task = comp.eTLTasks[0];
+
+        expect(comp.canRunTask(task)).toBe(true);
+        expect(comp.canTerminateTask(task)).toBe(false);
+      });
+    });
+
     describe('Handles', () => {
       let comp: ETLTaskComponentType;
 

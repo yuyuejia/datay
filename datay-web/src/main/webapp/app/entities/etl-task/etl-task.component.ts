@@ -313,6 +313,18 @@ export default defineComponent({
       return ['status-badge', status === '-' ? '' : `status-${status.toLowerCase()}`];
     };
 
+    /** 运行中的实例状态：此时不允许重复触发，只能终止。 */
+    const RUNNING_STATUSES = ['RUNNING', 'STARTING'];
+
+    /** 任务当前是否有运行中的实例（实时任务按最近一次实例状态判断）。 */
+    const isTaskRunning = (task: IETLTask): boolean => RUNNING_STATUSES.includes(rowStatus(task).toUpperCase());
+
+    /** 是否展示执行按钮（实时任务为「启动」，批量任务为「立即执行」）：实时任务运行中隐藏，避免重复消费。 */
+    const canRunTask = (task: IETLTask): boolean => !isRealtimeTask.value || !isTaskRunning(task);
+
+    /** 是否展示「终止」：仅实时任务存在运行中的实例时展示。 */
+    const canTerminateTask = (task: IETLTask): boolean => isRealtimeTask.value && isTaskRunning(task);
+
     const eTLTasks: Ref<IETLTask[]> = ref([]);
 
     const isFetching = ref(false);
@@ -1106,6 +1118,8 @@ export default defineComponent({
       closeMoveDialog,
       confirmMove,
       rowStatusClass,
+      canRunTask,
+      canTerminateTask,
       eTLTasks,
       handleSyncList,
       isFetching,
