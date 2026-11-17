@@ -72,6 +72,13 @@
       </small>
     </el-form-item>
 
+    <el-form-item label="输出表名">
+      <el-input v-model="formData.outputTable" placeholder="例如 order_lookup" />
+      <small class="form-text text-muted">
+        本组件结果集的表名；多个关联/查询组件接入同一个 Join 时请配置不同表名，留空则沿用上游表名
+      </small>
+    </el-form-item>
+
     <el-form-item label="附加过滤条件">
       <el-input type="textarea" v-model="formData.where" :rows="2" placeholder="例如 status = 1，不需要写 WHERE" />
       <small class="form-text text-muted"> 会以 AND 追加到关联查询条件中 </small>
@@ -132,6 +139,7 @@ const buildForm = () => {
     selectColumns: config.selectColumns || '',
     joinType: config.joinType || 'LEFT',
     outputPrefix: config.outputPrefix || '',
+    outputTable: config.outputTable || '',
     where: config.where || '',
     batchSize: Number(config.batchSize) > 0 ? Number(config.batchSize) : 500,
     cache: config.cache !== false,
@@ -282,6 +290,7 @@ const saveConfig = async () => {
     selectColumns: (formData.selectColumns || '').trim(),
     joinType: formData.joinType || 'LEFT',
     outputPrefix: (formData.outputPrefix || '').trim(),
+    outputTable: (formData.outputTable || '').trim(),
     where: (formData.where || '').trim(),
     batchSize: Number(formData.batchSize) > 0 ? Number(formData.batchSize) : 500,
     cache: formData.cache !== false,
