@@ -104,6 +104,9 @@ public class JDBCLookup extends FlowComponent {
     // 回填字段前缀，用于避免与上游同名字段冲突
     private String outputPrefix = "";
 
+    // 输出表名：多个关联/查询组件接入同一个 Join 时，配置不同表名以便下游区分；留空则沿用上游表名
+    private String outputTable;
+
     // 是否缓存关联键的查询结果
     private boolean cache = true;
 
@@ -445,6 +448,15 @@ public class JDBCLookup extends FlowComponent {
             }
         }
 
+        // 支持自定义输出表名：多个关联/查询组件接入同一个 Join 时配置不同表名以便区分；
+        // 留空时沿用上游表名（保持原有回填语义不变）。
+        String resolvedTable = (outputTable != null && !outputTable.trim().isEmpty())
+            ? outputTable.trim()
+            : outputMeta.getTable();
+        if (resolvedTable != null && !resolvedTable.trim().isEmpty()) {
+            outputMeta.setTable(resolvedTable);
+            outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, resolvedTable);
+        }
         outFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, outputMeta);
     }
 
@@ -624,11 +636,9 @@ public class JDBCLookup extends FlowComponent {
                 continue;
             }
             JSONObject record = (JSONObject) item;
-            if (record.containsKey(columnName)) {
-                Object value = record.get(columnName);
-                if (value != null) {
-                    return JsonTableMetaUtils.inferColumnType(value);
-                }
+            Object value = getRecordValue(record, columnName);
+            if (value != null) {
+                return JsonTableMetaUtils.inferColumnType(value);
             }
         }
         return null;
@@ -808,6 +818,14 @@ public class JDBCLookup extends FlowComponent {
 
     public String getOutputPrefix() {
         return outputPrefix;
+    }
+
+    public void setOutputTable(String outputTable) {
+        this.outputTable = outputTable;
+    }
+
+    public String getOutputTable() {
+        return outputTable;
     }
 
     public void setCache(boolean cache) {
