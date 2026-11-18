@@ -85,7 +85,6 @@ export interface IDataApiDebugUpstream {
   status?: number;
   headers?: Record<string, string[]>;
   body?: string;
-  truncated?: boolean;
   durationMs?: number;
 }
 

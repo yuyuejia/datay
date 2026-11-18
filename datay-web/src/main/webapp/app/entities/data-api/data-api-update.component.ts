@@ -153,7 +153,29 @@ export default defineComponent({
       debugResult.value?.data === undefined || debugResult.value?.data === null ? '' : JSON.stringify(debugResult.value.data, null, 2),
     );
     const debugUpstream = computed(() => debugResult.value?.upstream ?? null);
-    const debugUpstreamBody = computed(() => prettyJsonText(debugUpstream.value?.body));
+    const debugShowRawBody = computed(() => {
+      if (!debugResult.value) {
+        return false;
+      }
+      return dataApi.value.sourceType === DATA_API_SOURCE_TYPE_API ? !!debugUpstream.value : true;
+    });
+    const debugRawBody = computed(() => {
+      if (dataApi.value.sourceType === DATA_API_SOURCE_TYPE_API) {
+        return prettyJsonText(debugUpstream.value?.body);
+      }
+      const result = debugResult.value;
+      if (!result) {
+        return '';
+      }
+      // 调试结果中 durationMs、upstream 仅用于调试展示，不属于服务实际返回体。
+      const body: Record<string, unknown> = {};
+      Object.entries(result).forEach(([key, value]) => {
+        if (key !== 'durationMs' && key !== 'upstream') {
+          body[key] = value;
+        }
+      });
+      return JSON.stringify(body, null, 2);
+    });
     const debugUpstreamHeaders = computed(() =>
       Object.entries(debugUpstream.value?.headers || {}).map(([name, values]) => ({
         name,
@@ -492,7 +514,8 @@ export default defineComponent({
       debugHasTable,
       debugJson,
       debugUpstream,
-      debugUpstreamBody,
+      debugShowRawBody,
+      debugRawBody,
       debugUpstreamHeaders,
       httpMethods,
       hasApiBody,

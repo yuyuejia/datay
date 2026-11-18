@@ -435,6 +435,10 @@
               <el-empty v-else description="暂无返回数据" />
             </el-tab-pane>
 
+            <el-tab-pane v-if="debugShowRawBody" label="原始响应体" name="raw">
+              <pre class="debug-json">{{ debugRawBody }}</pre>
+            </el-tab-pane>
+
             <el-tab-pane v-if="dataApi.sourceType === SOURCE_TYPE_API" label="上游响应" name="upstream">
               <template v-if="debugUpstream">
                 <div class="debug-summary">
@@ -442,7 +446,6 @@
                     HTTP {{ debugUpstream.status }}
                   </el-tag>
                   <span>耗时 {{ debugUpstream.durationMs ?? 0 }} ms</span>
-                  <span v-if="debugUpstream.truncated" class="debug-warning">响应体已截断</span>
                 </div>
                 <div class="debug-section-title">响应头</div>
                 <el-table :data="debugUpstreamHeaders" border size="small" max-height="180">
@@ -651,10 +654,6 @@
   margin-bottom: 12px;
   color: #606266;
   font-size: 13px;
-}
-
-.debug-warning {
-  color: #e6a23c;
 }
 
 .debug-json {

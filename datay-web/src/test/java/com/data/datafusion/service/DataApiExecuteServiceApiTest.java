@@ -94,6 +94,8 @@ class DataApiExecuteServiceApiTest {
             writeJson(exchange, 200, "{\"code\":0,\"data\":{\"items\":[{\"id\":1},{\"id\":2}]}}")
         );
         server.createContext("/fail", exchange -> writeJson(exchange, 500, "{\"error\":\"boom\"}"));
+        String largeBody = "x".repeat(600 * 1024);
+        server.createContext("/large", exchange -> writeJson(exchange, 200, largeBody));
         server.start();
         port = server.getAddress().getPort();
     }
@@ -291,6 +293,21 @@ class DataApiExecuteServiceApiTest {
         Map<String, Object> upstream = (Map<String, Object>) result.get("upstream");
         assertThat(upstream.get("status")).isEqualTo(500);
         assertThat(upstream.get("body")).asString().contains("boom");
+        verifyNoInteractions(callLogService);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldReturnCompleteUpstreamBodyWhenDebugging() {
+        DataApiDTO dto = api("{\"url\":\"http://127.0.0.1:" + port + "/large\",\"method\":\"GET\"}");
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(0);
+        Map<String, Object> upstream = (Map<String, Object>) result.get("upstream");
+        assertThat(upstream.get("status")).isEqualTo(200);
+        assertThat(upstream.get("body")).asString().hasSize(600 * 1024);
+        assertThat(upstream).doesNotContainKey("truncated");
         verifyNoInteractions(callLogService);
     }
 

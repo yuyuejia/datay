@@ -199,6 +199,58 @@ describe('Component Tests', () => {
         expect(comp.debugDetectedNames).toContain('status');
       });
 
+      it('Should expose complete upstream body for API debug result', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = { sourceType: 'API', status: 'ENABLED' };
+        comp.apiConfig.url = 'https://api.example.com/orders';
+        const upstreamBody = JSON.stringify({
+          code: 0,
+          data: { items: [{ id: 1 }, { id: 2 }] },
+          extra: 'x'.repeat(1000),
+        });
+        dataApiServiceStub.debug.resolves({
+          code: 0,
+          data: [{ id: 1 }, { id: 2 }],
+          columns: ['id'],
+          total: 2,
+          upstream: { status: 200, body: upstreamBody },
+        });
+
+        comp.openDebug();
+        await comp.$nextTick();
+        await comp.sendDebug();
+        await flushPromises();
+
+        expect(comp.debugActiveTab).toBe('data');
+        expect(comp.debugHasTable).toBe(true);
+        expect(comp.debugShowRawBody).toBe(true);
+        expect(comp.debugRawBody).toContain('"extra"');
+        expect(comp.debugRawBody).toContain(JSON.stringify('x'.repeat(1000)));
+      });
+
+      it('Should expose complete response body for table source debug result', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = { sourceType: 'TABLE', dataSourceId: 1, schemaName: 's', tableName: 't' };
+        comp.debugResult = {
+          code: 0,
+          message: 'success',
+          data: [{ id: 1 }],
+          columns: ['id'],
+          total: 1,
+          pageNum: 1,
+          pageSize: 10,
+          durationMs: 5,
+        };
+        await comp.$nextTick();
+
+        expect(comp.debugShowRawBody).toBe(true);
+        expect(comp.debugRawBody).toContain('"pageNum": 1');
+        expect(comp.debugRawBody).toContain('"data"');
+        expect(comp.debugRawBody).not.toContain('durationMs');
+      });
+
       it('Should surface debug error message', async () => {
         const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
         comp = wrapper.vm;

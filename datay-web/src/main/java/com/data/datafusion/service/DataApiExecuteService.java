@@ -85,9 +85,6 @@ public class DataApiExecuteService {
 
     private static final int MAX_HTTP_TIMEOUT = 300000;
 
-    /** 调试结果中最多回显的上游响应体字符数，避免大响应拖垮页面。 */
-    private static final int MAX_DEBUG_RESPONSE_BODY = 512 * 1024;
-
     /** 调试回显时需要脱敏的响应头。 */
     private static final Set<String> SENSITIVE_RESPONSE_HEADERS = Set.of(
         "authorization",
@@ -938,7 +935,7 @@ public class DataApiExecuteService {
     }
 
     /**
-     * 把上游响应转换为调试信息，响应体过大时截断，敏感响应头做脱敏处理。
+     * 把上游响应转换为调试信息，完整回显响应体，敏感响应头做脱敏处理。
      */
     private static Map<String, Object> buildUpstreamInfo(HttpResponse<String> response, long durationMs) {
         Map<String, Object> info = new LinkedHashMap<>();
@@ -958,10 +955,7 @@ public class DataApiExecuteService {
             });
         info.put("headers", headers);
 
-        String body = response.body();
-        boolean truncated = body != null && body.length() > MAX_DEBUG_RESPONSE_BODY;
-        info.put("body", truncated ? body.substring(0, MAX_DEBUG_RESPONSE_BODY) + "..." : body);
-        info.put("truncated", truncated);
+        info.put("body", response.body());
         info.put("durationMs", durationMs);
         return info;
     }
