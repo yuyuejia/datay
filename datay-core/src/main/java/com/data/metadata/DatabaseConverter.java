@@ -29,6 +29,7 @@ public class DatabaseConverter {
         converters.put("tidb", new TidbConverter());
         converters.put("duckdb", new DuckDBConverter());
         converters.put("ducklake", new DuckLakeConverter());
+        converters.put("polaris", new PolarisConverter());
         converters.put("oracle", new OracleConverter());
         converters.put("postgresql", new PostgresqlConverter());
         converters.put("doris", new DorisConverter());

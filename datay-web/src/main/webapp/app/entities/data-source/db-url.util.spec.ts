@@ -53,6 +53,12 @@ describe('db-url.util', () => {
         'jdbc:TAOS-WS://localhost:6041/power',
       );
     });
+
+    it('builds polaris url', () => {
+      expect(buildSimpleUrl('POLARIS', { hostname: 'polaris.example.com', port: '8181', database: 'quickstart_catalog' })).toBe(
+        'polaris://polaris.example.com:8181/quickstart_catalog',
+      );
+    });
   });
 
   describe('parseSimpleUrl', () => {
@@ -130,6 +136,22 @@ describe('db-url.util', () => {
       });
     });
 
+    it('parses polaris url', () => {
+      expect(parseSimpleUrl('POLARIS', 'polaris://polaris.example.com:8181/quickstart_catalog')).toEqual({
+        hostname: 'polaris.example.com',
+        port: '8181',
+        database: 'quickstart_catalog',
+      });
+    });
+
+    it('parses polaris url without explicit port', () => {
+      expect(parseSimpleUrl('POLARIS', 'polaris://localhost/quickstart_catalog')).toEqual({
+        hostname: 'localhost',
+        port: '',
+        database: 'quickstart_catalog',
+      });
+    });
+
     it('returns null for tns alias url', () => {
       expect(parseSimpleUrl('ORACLE', 'jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)))')).toBeNull();
     });
@@ -166,6 +188,7 @@ describe('db-url.util', () => {
       expect(isNetworkType('ORACLE')).toBe(true);
       expect(isNetworkType('POSTGRESQL')).toBe(true);
       expect(isNetworkType('TDENGINE')).toBe(true);
+      expect(isNetworkType('POLARIS')).toBe(true);
     });
 
     it('excludes duckdb and ducklake', () => {

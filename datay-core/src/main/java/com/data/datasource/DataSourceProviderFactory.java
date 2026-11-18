@@ -17,6 +17,7 @@ import com.data.datasource.provider.MysqlDataSourceProvider;
 import com.data.datasource.provider.OceanBaseDataSourceProvider;
 import com.data.datasource.provider.OracleDataSourceProvider;
 import com.data.datasource.provider.PolarDbDataSourceProvider;
+import com.data.datasource.provider.PolarisDataSourceProvider;
 import com.data.datasource.provider.PostgresqlDataSourceProvider;
 import com.data.datasource.provider.SqlServerDataSourceProvider;
 import com.data.datasource.provider.SqliteDataSourceProvider;
@@ -87,6 +88,7 @@ public final class DataSourceProviderFactory {
         register(new SqlServerDataSourceProvider());
         register(new DuckDbDataSourceProvider());
         register(new DuckLakeDataSourceProvider());
+        register(new PolarisDataSourceProvider());
         register(new ClickHouseDataSourceProvider());
         register(new GreenplumDataSourceProvider());
         register(new DorisDataSourceProvider());

@@ -38,7 +38,7 @@ datay/
 
 ### 数据集成（Data Integration）
 
-- 支持 MySQL / PostgreSQL / Oracle / SAP HANA / TDengine / Doris / ClickHouse / DuckDB 等二十余种数据源
+- 支持 MySQL / PostgreSQL / Oracle / SAP HANA / TDengine / Doris / ClickHouse / DuckDB 等二十余种数据源，并可通过 Apache Polaris 读写 Iceberg 数据湖
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
 - 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC / 达梦 CDC / SQL Server CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
@@ -64,7 +64,7 @@ datay/
 - **内嵌 DuckDB**，列存 + 向量化 + 无锁并发，单机就能跑出分布式数仓的性能
 - 与维度建模、指标管理打通，原子指标 / 衍生指标统一口径
 - 支持 Doris / ClickHouse 流式加载，需要大规模查询可随时外挂
-- 支持 DuckLake（Iceberg 格式），低成本构建数据湖
+- 支持 DuckLake（Iceberg 格式）与 Apache Polaris（Iceberg REST Catalog），低成本构建数据湖
 
 ### 数据地图（Data Map）
 
@@ -170,6 +170,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **关系型数据库**: MySQL系, Oracle, PostgreSQL系, SQL Server, MariaDB, 达梦（DM）, SAP HANA
 - **时序数据库**: TDengine（WebSocket / REST / 原生三种连接方式）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
+- **数据湖**: DuckLake, Apache Polaris（Iceberg REST Catalog）
 - **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams
 

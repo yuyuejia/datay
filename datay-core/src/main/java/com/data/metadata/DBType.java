@@ -124,6 +124,21 @@ public enum DBType {
         Map.of("0.3", "duckdb_jdbc-0.3.0.jar", "0.4", "duckdb_jdbc-0.4.0.jar")
     ),
 
+    /**
+     * Apache Polaris（Iceberg REST Catalog）。
+     *
+     * <p>底层通过 DuckDB 的 {@code iceberg} 扩展挂载 Polaris Catalog，读写均经由 DuckDB 完成。
+     * URL 形如 {@code polaris://host:8181/warehouse}，其中 {@code warehouse} 为 Polaris 的
+     * Catalog 名称；用户名/密码分别对应 OAuth2 的 Client ID / Client Secret。
+     */
+    POLARIS(
+        "Apache Polaris",
+        Arrays.asList("1.0"),
+        "org.duckdb.DuckDBDriver",
+        "polaris://{host}:{port}/{database}",
+        Map.of("1.0", "duckdb_jdbc-1.5.3.0.jar")
+    ),
+
     CLICKHOUSE(
         "ClickHouse",
         Arrays.asList("21.8", "22.3", "23.3", "24.1"),

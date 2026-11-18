@@ -267,6 +267,11 @@ public class StreamJdbcOutput extends FlowComponent {
                         targetTable.setSchema(schema);
                         targetTable.setCatalog(catalog);
                     }
+                    // 目标命名空间准备（如 Iceberg namespace 不存在时自动创建）
+                    JdbcDataSourceProvider targetProvider = jdbcProvider();
+                    if (targetProvider != null) {
+                        targetProvider.prepareTableCreate(datasource, targetConn, catalog, schema);
+                    }
                     logInfo("表 " + schema + "." + table + " 不存在，创建表");
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
                     DBUtils.execute(targetConn, ddl);

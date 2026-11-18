@@ -20,6 +20,7 @@ const HANA_URL_PATTERN = /^jdbc:sap:\/\/([^:/;]+)(?::(\d+))?/i;
 const HANA_DATABASE_PATTERN = /[?&]databaseName=([^&;]*)/i;
 const HTTP_URL_PATTERN = /^(https?):\/\/([^:/]+)(?::(\d+))?/i;
 const MONGO_URL_PATTERN = /^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^:/?]+)(?::(\d+))?(?:\/([^?]*))?/i;
+const POLARIS_URL_PATTERN = /^polaris:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*))?/i;
 
 const isNetworkType = (type: string): boolean => {
   const normalized = (type ?? '').toUpperCase();
@@ -123,6 +124,12 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
 
   if (normalizedType === 'MONGODB') {
     const match = MONGO_URL_PATTERN.exec(url);
+    if (!match) return null;
+    return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
+  }
+
+  if (normalizedType === 'POLARIS') {
+    const match = POLARIS_URL_PATTERN.exec(url);
     if (!match) return null;
     return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
   }

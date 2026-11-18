@@ -27,6 +27,7 @@ public class DataModelMaterializeService {
     private static final Logger LOG = LoggerFactory.getLogger(DataModelMaterializeService.class);
 
     public static final String DUCKLAKE_CATALOG = "ducklake";
+    public static final String POLARIS_CATALOG = "polaris";
 
     private final DataSourceService dataSourceService;
 
@@ -37,6 +38,9 @@ public class DataModelMaterializeService {
     private String resolveCatalog(String dbType) {
         if ("DUCKLAKE".equalsIgnoreCase(dbType)) {
             return DUCKLAKE_CATALOG;
+        }
+        if ("POLARIS".equalsIgnoreCase(dbType)) {
+            return POLARIS_CATALOG;
         }
         return null;
     }

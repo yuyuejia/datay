@@ -32,7 +32,19 @@ describe('db-types categories', () => {
 
   it('filters analytical databases', () => {
     const analytical = filterDbTypes(DB_TYPE_CATEGORY.ANALYTICAL).map(type => type.name);
-    expect(analytical).toEqual(expect.arrayContaining(['CLICKHOUSE', 'DORIS', 'DUCKDB', 'STARROCKS', 'GREENPLUM']));
+    expect(analytical).toEqual(expect.arrayContaining(['CLICKHOUSE', 'DORIS', 'DUCKDB', 'STARROCKS', 'GREENPLUM', 'POLARIS']));
+  });
+
+  it('filters lakehouse catalogs', () => {
+    const lakehouse = filterDbTypes(DB_TYPE_CATEGORY.LAKEHOUSE).map(type => type.name);
+    expect(lakehouse).toEqual(expect.arrayContaining(['DUCKLAKE', 'POLARIS']));
+  });
+
+  it('labels the Polaris warehouse field', () => {
+    const polaris = dbTypes.find(type => type.name === 'POLARIS');
+    expect(polaris).toBeDefined();
+    expect(polaris!.databaseLabel).toBe('Warehouse');
+    expect(polaris!.defaultPort).toBe('8181');
   });
 
   it('assigns at least one known category tag to every type', () => {

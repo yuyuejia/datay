@@ -86,6 +86,8 @@ export interface DbType {
   schemaEnabled?: boolean;
   /** 简易模式下显示「数据库名」。默认 true */
   databaseEnabled?: boolean;
+  /** 数据库名字段的标签（默认「数据库名」），如 Polaris 使用 Warehouse */
+  databaseLabel?: string;
   /** 数据库名输入框旁的连接标识类型（如 Oracle 服务名/SID） */
   identifierTypes?: IdentifierTypeDef[];
   /** 保存时清空用户名/密码 */
@@ -363,6 +365,79 @@ export const dbTypes: DbType[] = [
       { key: 's3.key_id', label: 'S3 Key ID', required: false, description: 'S3 访问密钥 ID（s3:// 路径时需要）' },
       { key: 's3.secret', label: 'S3 Secret', required: false, description: 'S3 访问密钥（s3:// 路径时需要）' },
       { key: 's3.endpoint', label: 'S3 Endpoint', required: false, description: 'S3 服务端点，例如 http://minio:9000' },
+      { key: 's3.url_style', label: 'S3 URL Style', required: false, defaultValue: 'path', description: 'URL 风格：path 或 vhost' },
+      { key: 's3.use_ssl', label: 'S3 Use SSL', required: false, defaultValue: 'false', description: '是否启用 SSL 连接' },
+    ],
+  },
+  {
+    name: 'POLARIS',
+    tags: [DB_TYPE_CATEGORY.LAKEHOUSE, DB_TYPE_CATEGORY.ANALYTICAL],
+    displayName: 'Apache Polaris',
+    jdbcUrlTemplate: 'polaris://{host}:{port}/{database}',
+    supportedVersions: ['1.0'],
+    defaultPort: '8181',
+    image: '/content/images/Polaris.svg',
+    // Iceberg REST Catalog：通过 DuckDB iceberg 扩展读写，用户名/密码为 OAuth2 Client ID / Secret
+    network: true,
+    credentials: true,
+    schemaEnabled: true,
+    databaseEnabled: true,
+    databaseLabel: 'Warehouse',
+    defaultConnectionMode: 'polaris',
+    connectionModes: [
+      {
+        value: 'polaris',
+        label: 'Polaris REST',
+        description: '连接 Apache Polaris Iceberg REST Catalog，由 DuckDB iceberg 扩展完成读写',
+        network: true,
+        hostLabel: 'Polaris 地址',
+        defaultPort: '8181',
+        urlPrefix: 'polaris:',
+        urlTemplate: 'polaris://{host}:{port}/{database}',
+      },
+    ],
+    extraParamsTemplate: [
+      {
+        key: 'polaris.catalog_uri',
+        label: 'Catalog URI',
+        required: false,
+        description: 'REST Catalog 完整地址，默认 http://host:port/api/catalog；使用反向代理或 HTTPS 时填写',
+      },
+      {
+        key: 'polaris.scope',
+        label: 'OAuth2 Scope',
+        required: false,
+        description: 'OAuth2 授权范围，例如 PRINCIPAL_ROLE:ALL',
+      },
+      {
+        key: 'polaris.oauth2_server_uri',
+        label: 'OAuth2 Server URI',
+        required: false,
+        description: 'OAuth2 Token 地址，默认由 Catalog 地址推导',
+      },
+      {
+        key: 'polaris.access_delegation_mode',
+        label: 'Credential Mode',
+        required: false,
+        defaultValue: 'vended_credentials',
+        description: '凭证委派模式：vended_credentials（推荐）或 none（需配置 S3 凭证）',
+      },
+      {
+        key: 'polaris.stage_create_tables',
+        label: 'Staged CREATE TABLE',
+        required: false,
+        description: 'Catalog 不支持暂存建表时设为 false',
+      },
+      {
+        key: 'polaris.disable_multi_table_commit',
+        label: 'Disable Multi-table Commit',
+        required: false,
+        description: 'Catalog 拒绝多表事务提交端点时设为 true',
+      },
+      { key: 's3.key_id', label: 'S3 Key ID', required: false, description: 'Credential Mode 为 none 时的 S3 访问密钥 ID' },
+      { key: 's3.secret', label: 'S3 Secret', required: false, description: 'Credential Mode 为 none 时的 S3 访问密钥' },
+      { key: 's3.endpoint', label: 'S3 Endpoint', required: false, description: 'S3 服务端点，例如 http://minio:9000' },
+      { key: 's3.region', label: 'S3 Region', required: false, description: 'S3 区域，例如 us-east-1' },
       { key: 's3.url_style', label: 'S3 URL Style', required: false, defaultValue: 'path', description: 'URL 风格：path 或 vhost' },
       { key: 's3.use_ssl', label: 'S3 Use SSL', required: false, defaultValue: 'false', description: '是否启用 SSL 连接' },
     ],

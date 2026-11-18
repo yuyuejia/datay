@@ -131,9 +131,12 @@ public class DBUtils {
 
     public static final String DUCKLAKE_CATALOG = "ducklake";
     public static final String QUACK_CATALOG = "quack";
+    public static final String POLARIS_CATALOG = "polaris";
 
     // DuckLake 本地挂载文件目录（相对于工作目录）
     private static final String DUCKLAKE_LOCAL_DIR = "log/ducklake";
+    // Polaris 本地挂载文件目录（相对于工作目录）
+    private static final String POLARIS_LOCAL_DIR = "log/polaris";
 
     /**
      * 计算 DuckLake 元数据位置（用于生成本地挂载文件与串行锁）。
@@ -184,6 +187,32 @@ public class DBUtils {
     }
 
     /**
+     * 根据 Polaris 数据源配置计算其本地 DuckDB scratch 文件的 JDBC URL。
+     *
+     * <p>Polaris 的读写实际由 DuckDB 完成：每个 Polaris 数据源使用独立的本地 DuckDB 文件，
+     * 在其中 {@code ATTACH} 对应的 Iceberg REST Catalog。连接池以该文件路径为键，
+     * 因此必须把连接地址与 Catalog 相关配置纳入哈希，避免不同 Polaris 实例共用连接池。</p>
+     */
+    public static String resolvePolarisJdbcUrl(DatasourceInfo datasourceInfo) {
+        StringBuilder identity = new StringBuilder();
+        identity.append(String.valueOf(datasourceInfo.getUrl()));
+        Map<String, String> extraParams = datasourceInfo.getExtraParams();
+        if (extraParams != null) {
+            identity.append('|').append(String.valueOf(extraParams.get("polaris.catalog_uri")));
+            identity.append('|').append(String.valueOf(extraParams.get("polaris.scope")));
+            identity.append('|').append(String.valueOf(extraParams.get("polaris.oauth2_server_uri")));
+        }
+        String hash = DigestUtil.sha256Hex(identity.toString()).substring(0, 16);
+
+        File dir = new File(System.getProperty("user.dir"), POLARIS_LOCAL_DIR);
+        if (!dir.exists() && !dir.mkdirs() && !dir.exists()) {
+            throw new IllegalStateException("无法创建 Polaris 本地挂载目录: " + dir.getAbsolutePath());
+        }
+        File dbFile = new File(dir, "polaris_" + hash + ".duckdb");
+        return "jdbc:duckdb:" + dbFile.getAbsolutePath();
+    }
+
+    /**
      * 判断连接是否挂载了 Quack 远程 catalog。
      */
     public static boolean isQuackConnection(Connection conn) {
@@ -209,6 +238,24 @@ public class DBUtils {
             try (ResultSet rs = conn.getMetaData().getCatalogs()) {
                 while (rs.next()) {
                     if (DUCKLAKE_CATALOG.equals(rs.getString("TABLE_CAT"))) {
+                        return true;
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+            // ignore
+        }
+        return false;
+    }
+
+    /**
+     * 判断连接是否挂载了 Polaris（Iceberg REST）catalog。
+     */
+    public static boolean isPolarisConnection(Connection conn) {
+        try {
+            try (ResultSet rs = conn.getMetaData().getCatalogs()) {
+                while (rs.next()) {
+                    if (POLARIS_CATALOG.equals(rs.getString("TABLE_CAT"))) {
                         return true;
                     }
                 }
@@ -938,6 +985,8 @@ public class DBUtils {
             return DBType.DUCKDB.toString();
         } else if (jdbcUrl.startsWith("ducklake:")) {
             return DBType.DUCKLAKE.toString();
+        } else if (jdbcUrl.startsWith("polaris:")) {
+            return DBType.POLARIS.toString();
         } else if (jdbcUrl.startsWith("jdbc:sqlite:")) {
             return DBType.SQLITE.toString();
         }
@@ -976,6 +1025,8 @@ public class DBUtils {
             return DBType.DORIS;
         } else if (jdbcUrl.startsWith("ducklake:")) {
             return DBType.DUCKLAKE;
+        } else if (jdbcUrl.startsWith("polaris:")) {
+            return DBType.POLARIS;
         } else if (jdbcUrl.startsWith("jdbc:sqlite:")) {
             return DBType.SQLITE;
         }

@@ -76,6 +76,8 @@ export default defineComponent({
     const identifierTypes = computed<IdentifierTypeDef[]>(() => formConfig.value.identifierTypes);
     const hasIdentifierTypes = computed(() => identifierTypes.value.length > 0);
     const databaseLabel = computed(() => {
+      const configured = selectedDbType.value?.databaseLabel;
+      if (configured) return configured;
       if (!hasIdentifierTypes.value) return '数据库名';
       const selected = identifierTypes.value.find(t => t.value === oracleIdentifierType.value);
       return selected ? selected.label.replace(/\s*\(.*\)\s*$/, '') : '数据库名';

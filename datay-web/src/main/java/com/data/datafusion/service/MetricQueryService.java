@@ -1053,7 +1053,8 @@ public class MetricQueryService {
             .filter(url -> url != null && !url.isBlank())
             .map(url -> {
                 String type = DBUtils.getDBType(url);
-                return "DUCKDB".equalsIgnoreCase(type) || "DUCKLAKE".equalsIgnoreCase(type) || "POSTGRESQL".equalsIgnoreCase(type);
+                return "DUCKDB".equalsIgnoreCase(type) || "DUCKLAKE".equalsIgnoreCase(type) ||
+                    "POLARIS".equalsIgnoreCase(type) || "POSTGRESQL".equalsIgnoreCase(type);
             })
             .orElse(false);
     }

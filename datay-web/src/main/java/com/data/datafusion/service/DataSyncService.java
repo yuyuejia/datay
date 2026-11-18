@@ -15,6 +15,7 @@ import com.data.datafusion.service.dto.DataSyncDTO;
 import com.data.datafusion.service.dto.DataSyncTableConfigDTO;
 import com.data.datafusion.service.mapper.DataSyncMapper;
 import com.data.datafusion.service.mapper.DataSyncTableConfigMapper;
+import com.data.datasource.DataSourceProvider;
 import com.data.datasource.DataSourceProviderFactory;
 import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.metadata.util.DBUtils;
@@ -308,6 +309,16 @@ public class DataSyncService {
         if (targetCatalog != null) {
             targetTable.setCatalog(targetCatalog);
         }
+        // 目标命名空间准备（如 Iceberg namespace 不存在时自动创建）
+        DataSourceProvider targetProvider = DataSourceProviderFactory.provider(target.getType());
+        if (targetProvider instanceof JdbcDataSourceProvider jdbcProvider) {
+            jdbcProvider.prepareTableCreate(
+                DataSourceQueryService.toDatasourceInfo(target),
+                tConnection,
+                targetCatalog,
+                targetSchema
+            );
+        }
         String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
         DBUtils.execute(tConnection, ddl);
     }
@@ -315,7 +326,7 @@ public class DataSyncService {
     /**
      * 解析同步建表时目标表需要携带的 catalog。
      *
-     * <p>Quack 与 DuckLake 连接底层都是本地 DuckDB 库，只有显式指定 catalog 才能把表建到远端，
+     * <p>Quack / DuckLake / Polaris 连接底层都是本地 DuckDB 库，只有显式指定 catalog 才能把表建到远端，
      * 否则会落到本地 scratch 库。</p>
      */
     static String resolveTargetCatalog(String targetDbType, boolean quackTarget) {
@@ -324,6 +335,9 @@ public class DataSyncService {
         }
         if (DBType.DUCKLAKE.name().equalsIgnoreCase(targetDbType)) {
             return DBUtils.DUCKLAKE_CATALOG;
+        }
+        if (DBType.POLARIS.name().equalsIgnoreCase(targetDbType)) {
+            return DBUtils.POLARIS_CATALOG;
         }
         return null;
     }

@@ -112,6 +112,15 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
         throws SQLException {}
 
     /**
+     * 自动建表前的目标命名空间准备。默认无操作。
+     *
+     * <p>部分数据源要求目标 schema / namespace 预先存在（如 Iceberg REST Catalog），
+     * 或需要切换到正确的 database，由对应 Provider 覆写。</p>
+     */
+    public void prepareTableCreate(DatasourceInfo info, Connection connection, String catalog, String schema)
+        throws SQLException {}
+
+    /**
      * 当前数据源是否对该事件类型提供专用表写入能力。
      *
      * <p>默认 {@code false}，由 ETL Sink 使用通用逐行 JDBC 写入；数据库特有的高效写入方式

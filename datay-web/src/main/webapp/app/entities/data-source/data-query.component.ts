@@ -241,7 +241,13 @@ export default defineComponent({
       if (type.includes('ORACLE') || type.includes('SQLSERVER') || type.includes('MSSQL')) {
         return StandardSQL;
       }
-      if (type.includes('POSTGRESQL') || type.includes('DUCKDB') || type.includes('DUCKLAKE') || type.includes('GREENPLUM')) {
+      if (
+        type.includes('POSTGRESQL') ||
+        type.includes('DUCKDB') ||
+        type.includes('DUCKLAKE') ||
+        type.includes('POLARIS') ||
+        type.includes('GREENPLUM')
+      ) {
         return PostgreSQL;
       }
       return StandardSQL;
@@ -360,7 +366,7 @@ export default defineComponent({
 
     const supportsCatalogTree = () => {
       const type = (dataSourceType.value || '').toUpperCase();
-      return type.includes('DUCKDB') || type.includes('DUCKLAKE');
+      return type.includes('DUCKDB') || type.includes('DUCKLAKE') || type.includes('POLARIS');
     };
 
     const buildSchemaNodes = (schemas: any[], catalog?: string) =>
@@ -952,7 +958,13 @@ export default defineComponent({
       if (type.includes('CLICKHOUSE')) {
         return 'clickhouse';
       }
-      if (type.includes('POSTGRESQL') || type.includes('DUCKDB') || type.includes('DUCKLAKE') || type.includes('GREENPLUM')) {
+      if (
+        type.includes('POSTGRESQL') ||
+        type.includes('DUCKDB') ||
+        type.includes('DUCKLAKE') ||
+        type.includes('POLARIS') ||
+        type.includes('GREENPLUM')
+      ) {
         return 'postgresql';
       }
       if (type.includes('SQLSERVER') || type.includes('MSSQL')) {

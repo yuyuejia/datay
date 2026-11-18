@@ -53,6 +53,7 @@
 | 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、SAP HANA |
 | 时序数据库 | TDengine |
 | 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum |
+| 数据湖 | DuckLake、Apache Polaris（Iceberg REST Catalog） |
 | 文件系统 | 本地文件、MinIO 对象存储 |
 | CDC | MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput） |
 
@@ -73,6 +74,34 @@ TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏�
 - 每个表必须包含一个 `TIMESTAMP` 时间列，ETL 自动建表时会将该列放在第一列。
 - TDengine 相同时间戳重复写入会覆盖旧值，因此 ETL 的 `update` 模式在 TDengine 上等价于 `insert/upsert`。
 - **超级表（STable）不能直接执行普通 INSERT/UPDATE**。需要写入超级表时，请使用 `SqlSink` 并配置 `INSERT INTO 子表 USING 超级表 TAGS (...) VALUES (...)`；普通 ETL 输出节点会提前拦截并给出提示。
+
+### Apache Polaris 连接说明
+
+Apache Polaris 是 Iceberg REST Catalog 的实现，DataY 通过 DuckDB 的 `iceberg` 扩展完成元数据浏览与读写。新建数据源时类型选择 `POLARIS`：
+
+| 配置项 | 说明 |
+| --- | --- |
+| 连接地址 | `polaris://host:8181/warehouse`，`warehouse` 为 Polaris 的 Catalog 名称 |
+| 默认端口 | `8181` |
+| 用户名 | OAuth2 Client ID |
+| 密码 | OAuth2 Client Secret |
+| 默认 Schema | 目标 Namespace（不存在时自动创建） |
+
+常用扩展参数：
+
+- `polaris.catalog_uri`：REST Catalog 完整地址，默认按 `http://host:port/api/catalog` 推导；通过反向代理或 HTTPS 暴露时填写。
+- `polaris.scope` / `polaris.oauth2_server_uri`：自定义 OAuth2 授权范围与 Token 地址。
+- `polaris.access_delegation_mode`：凭证委派模式，默认 `vended_credentials`；设置为 `none` 时需补充 `s3.key_id` / `s3.secret` 等 S3 凭证。
+- `polaris.stage_create_tables` / `polaris.disable_multi_table_commit` / `polaris.skip_create_table_metadata_updates` / `polaris.remove_files_on_delete`：部分 Catalog 版本对 `CREATE TABLE`、多表提交等 REST 接口支持不完整时，用于透传 DuckDB 的兼容开关。
+- `s3.endpoint` / `s3.region` / `s3.url_style` / `s3.use_ssl`：对象存储连接参数。`s3.endpoint` 可写 `http://host:port` 或 `host:port`，协议会根据 `http://` / `https://` 自动推导 `USE_SSL`（也可用 `s3.use_ssl` 显式指定）。
+
+注意事项：
+
+- 读写实际由 DuckDB 完成，首次连接需要安装 `httpfs`、`iceberg` 扩展，请确保运行环境可访问 DuckDB 扩展仓库或已预装扩展。
+- 每个 Polaris 数据源使用独立的本地 DuckDB 文件挂载一份 Catalog，凭证只写入 DuckDB Secret。
+- DuckDB 目前对 Iceberg REST Catalog 的写入仅支持 S3 / S3 Tables / GCS 作为底层存储，暂不支持其他对象存储或本地文件系统。
+- Iceberg 表没有主键，也不支持 `TRUNCATE`；ETL 的 `update` / `delete` 通过 CDC 变更前镜像（`__before`）匹配旧行，`overwrite` 使用 `DELETE` 清空后写入。
+- 建表语句自动转换为 Iceberg 支持的类型（`TINYINT`/`SMALLINT` 归并为 `INTEGER`，`TEXT`/`JSON` 归并为 `VARCHAR`，`DECIMAL` 精度上限 38），不带主键约束。
 
 ## 下一步
 
