@@ -148,7 +148,7 @@
               </h2>
               <router-link to="/job-instance" class="panel-link">查看全部</router-link>
             </div>
-            <div class="task-table" v-if="failedInstances.length">
+            <div class="task-table task-table-scroll" v-if="failedInstances.length">
               <div class="task-table-head">
                 <span class="col-name">任务名称</span>
                 <span class="col-type">类型</span>
@@ -178,7 +178,7 @@
               </h2>
               <router-link to="/job-instance" class="panel-link">查看全部</router-link>
             </div>
-            <div class="task-table" v-if="runningInstances.length">
+            <div class="task-table task-table-scroll" v-if="runningInstances.length">
               <div class="task-table-head">
                 <span class="col-name">任务名称</span>
                 <span class="col-type">类型</span>
@@ -673,6 +673,20 @@
 .task-table {
   display: flex;
   flex-direction: column;
+}
+
+/* 任务列表限制最大高度，超出后内部滚动，避免撑高首页 */
+.task-table-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.task-table-scroll .task-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
 }
 
 .task-table-head,
