@@ -120,6 +120,7 @@ public class Example {
 - **时序数据库**: TDengine（WebSocket / REST / 原生）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO对象存储
+- **缓存 / KV**: Redis
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams
 
 ## 核心组件
@@ -132,6 +133,7 @@ public class Example {
 - [PostgresCDCInput](docs/component/PostgresCDCInput.md) : 基于PostgreSQL逻辑复制(WAL/pgoutput)实时捕获数据变更
 - [DMCDCInput](docs/component/DMCDCInput.md) : 基于达梦DBMS_LOGMNR归档日志挖掘实时捕获数据变更
 - [SQLServerCDCInput](docs/component/SQLServerCDCInput.md) : 基于SQL Server内置CDC实时捕获数据变更
+- [RedisInput](docs/component/RedisInput.md) : 按 key 模式扫描 Redis，读取 String/Hash/List/Set/ZSet/Stream
 
 ### 处理组件
 - [DuckDBSql](docs/component/DuckDBSql.md) : DuckDB SQL处理
@@ -148,6 +150,7 @@ public class Example {
 - [DuckDBWrite](docs/component/DuckDBWrite.md) : DuckDB写入
 - [DuckLakeWrite](docs/component/DuckLakeWrite.md) : DuckLake写入
 - [DorisStreamLoad](docs/component/DorisStreamLoad.md) : Doris流式加载,支持将数据流式加载到Doris数据库
+- [RedisOutput](docs/component/RedisOutput.md) : 将上游数据按行写入 Redis，支持多数据结构、TTL 与批量写入
 
 ### 路由组件
 - [HashRouter](docs/component/hash-router.md) : Hash路由组件,根据指定字段对数据进行Hash路由

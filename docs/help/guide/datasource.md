@@ -55,7 +55,24 @@
 | 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum、YMatrix |
 | 数据湖 | DuckLake、Apache Polaris（Iceberg REST Catalog） |
 | 文件系统 | 本地文件、MinIO 对象存储 |
+| 缓存 / KV | Redis |
 | CDC | MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput） |
+
+### Redis 连接说明
+
+Redis 作为非 JDBC 缓存 / KV 数据源接入，类型选择 `REDIS`：
+
+| 配置项 | 说明 |
+| --- | --- |
+| 连接 URL | `redis://host:port`，TLS 使用 `rediss://host:port` |
+| 默认端口 | `6379` |
+| 用户名 / 密码 | 可选，支持 Redis ACL 与 `requirepass` |
+| 默认 Schema | Redis DB 索引，例如 `0` |
+| 额外参数 | `redis.timeout_seconds`：连接与命令超时，默认 `5` 秒 |
+
+- 元数据浏览中，Redis key 会作为“表”展示，key 类型（string/hash/list/set/zset/stream）作为表类型。
+- ETL 读写使用 `RedisInput` 与 `RedisOutput` 组件，支持键级 JSON 往返、TTL 与批量写入。
+- 首版仅支持单机 Redis，暂不支持 Cluster / Sentinel。
 
 ### TDengine 连接说明
 

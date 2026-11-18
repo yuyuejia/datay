@@ -63,5 +63,7 @@
   - [HttpListener 监听](components/HttpListener.md)
   - [MqttConsumer MQTT消费](components/MqttConsumer.md)
   - [KafkaProducer Kafka生产](components/KafkaProducer.md)
+  - [RedisInput Redis输入](components/RedisInput.md)
+  - [RedisOutput Redis输出](components/RedisOutput.md)
   - [LlmComponent 大模型](components/LlmComponent.md)
   - [DecisionComponent 决策模型](components/DecisionComponent.md)

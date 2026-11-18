@@ -20,6 +20,7 @@ const HANA_URL_PATTERN = /^jdbc:sap:\/\/([^:/;]+)(?::(\d+))?/i;
 const HANA_DATABASE_PATTERN = /[?&]databaseName=([^&;]*)/i;
 const HTTP_URL_PATTERN = /^(https?):\/\/([^:/]+)(?::(\d+))?/i;
 const MONGO_URL_PATTERN = /^mongodb(?:\+srv)?:\/\/(?:[^@/]*@)?([^:/?]+)(?::(\d+))?(?:\/([^?]*))?/i;
+const REDIS_URL_PATTERN = /^rediss?:\/\/(?:[^@/]*@)?([^:/?]+)(?::(\d+))?(?:\/([^?]*))?/i;
 const POLARIS_URL_PATTERN = /^polaris:\/\/([^:/]+)(?::(\d+))?(?:\/([^?]*))?/i;
 
 const isNetworkType = (type: string): boolean => {
@@ -45,6 +46,10 @@ export function buildSimpleUrl(type: string, fields: SimpleUrlFields, version?: 
 
   if (normalizedType === 'ELASTICSEARCH' || normalizedType === 'INFLUXDB') {
     return `http://${fields.hostname || '{host}'}:${fields.port || '{port}'}`;
+  }
+
+  if (normalizedType === 'REDIS') {
+    return `redis://${fields.hostname || '{host}'}:${fields.port || '{port}'}`;
   }
 
   const dbType = findDbType(type);
@@ -124,6 +129,12 @@ export function parseSimpleUrl(type: string, url?: string | null): SimpleUrlFiel
 
   if (normalizedType === 'MONGODB') {
     const match = MONGO_URL_PATTERN.exec(url);
+    if (!match) return null;
+    return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
+  }
+
+  if (normalizedType === 'REDIS') {
+    const match = REDIS_URL_PATTERN.exec(url);
     if (!match) return null;
     return { hostname: match[1], port: match[2] ?? '', database: match[3] ?? '' };
   }

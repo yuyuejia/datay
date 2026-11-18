@@ -56,6 +56,16 @@ describe('db-types categories', () => {
     expect(ymatrix!.tags).toEqual(expect.arrayContaining([DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.TIMESERIES]));
   });
 
+  it('configures Redis as a non-JDBC key-value datasource', () => {
+    const redis = dbTypes.find(type => type.name === 'REDIS');
+    expect(redis).toBeDefined();
+    expect(redis!.jdbcUrlTemplate).toBe('redis://{host}:{port}');
+    expect(redis!.defaultPort).toBe('6379');
+    expect(redis!.schemaEnabled).toBe(true);
+    expect(redis!.databaseEnabled).toBe(false);
+    expect(redis!.tags).toEqual(expect.arrayContaining([DB_TYPE_CATEGORY.OTHER]));
+  });
+
   it('assigns at least one known category tag to every type', () => {
     const knownTags = new Set(dbTypeCategories.map(category => category.value));
     dbTypes.forEach(type => {

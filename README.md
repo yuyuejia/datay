@@ -172,6 +172,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum, YMatrix
 - **数据湖**: DuckLake, Apache Polaris（Iceberg REST Catalog）
 - **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
+- **缓存 / KV**: Redis
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams
 
 ## 商业支持

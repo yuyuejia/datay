@@ -65,6 +65,10 @@ describe('db-url.util', () => {
         'jdbc:postgresql://127.0.0.1:5432/ymatrix',
       );
     });
+
+    it('builds redis url', () => {
+      expect(buildSimpleUrl('REDIS', { hostname: '127.0.0.1', port: '6379', database: '' })).toBe('redis://127.0.0.1:6379');
+    });
   });
 
   describe('parseSimpleUrl', () => {
@@ -160,6 +164,19 @@ describe('db-url.util', () => {
         hostname: 'localhost',
         port: '',
         database: 'quickstart_catalog',
+      });
+    });
+
+    it('parses redis url', () => {
+      expect(parseSimpleUrl('REDIS', 'redis://:secret@127.0.0.1:6379/2')).toEqual({
+        hostname: '127.0.0.1',
+        port: '6379',
+        database: '2',
+      });
+      expect(parseSimpleUrl('REDIS', 'rediss://redis.example.com:6380')).toEqual({
+        hostname: 'redis.example.com',
+        port: '6380',
+        database: '',
       });
     });
 

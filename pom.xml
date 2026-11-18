@@ -60,6 +60,8 @@
         <jetbrains-annotations.version>17.0.0</jetbrains-annotations.version>
         <mongodb.version>5.6.1</mongodb.version>
         <paho.mqtt.version>1.2.5</paho.mqtt.version>
+        <!-- 复用 datay-web 已有的 Redisson 版本，datay-core 与 datay-web 统一管理 -->
+        <redisson.version>3.13.6</redisson.version>
         <exec-maven-plugin.version>3.6.2</exec-maven-plugin.version>
         <slim.jar.platform>all</slim.jar.platform>
     </properties>
@@ -207,6 +209,16 @@
                 <groupId>org.eclipse.paho</groupId>
                 <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
                 <version>${paho.mqtt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

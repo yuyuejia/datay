@@ -260,7 +260,6 @@
       <dependency>
         <groupId>org.redisson</groupId>
         <artifactId>redisson-spring-boot-starter</artifactId>
-        <version>3.13.6</version>
       </dependency>
       <!-- https://mvnrepository.com/artifact/org.apache.ibatis/ibatis-core -->
       <!--        <dependency>-->

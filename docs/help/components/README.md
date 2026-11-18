@@ -17,6 +17,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | `DMCDCInput` | 达梦 DBMS_LOGMNR 归档日志挖掘实时捕获变更（需归档 + 逻辑日志） | [DMCDCInput](components/DMCDCInput.md) |
 | `SQLServerCDCInput` | SQL Server 内置 CDC 实时捕获变更（需 SQL Server Agent） | [SQLServerCDCInput](components/SQLServerCDCInput.md) |
 | `MqttConsumer` | 订阅 MQTT 主题，实时接收消息并转换为 FlowFile | [MqttConsumer](components/MqttConsumer.md) |
+| `RedisInput` | 按 key 模式扫描 Redis，读取 String/Hash/List/Set/ZSet/Stream | [RedisInput](components/RedisInput.md) |
 
 ## 处理组件
 
@@ -37,6 +38,7 @@ ETL 组件是 DataY Core 数据处理流程中的节点。在 DataY Web 的可�
 | `StreamJdbcOutput` | JDBC 数据源输出，支持 append / update / replace / overwrite 等模式 | [StreamJdbcOutput](components/StreamJdbcOutput.md) |
 | `DorisStreamLoad` | 通过 Stream Load 协议把数据写入 Apache Doris | [DorisStreamLoad](components/DorisStreamLoad.md) |
 | `KafkaProducer` | 将上游数据逐条发送到 Kafka 主题，支持消息 key、指定分区与压缩 | [KafkaProducer](components/KafkaProducer.md) |
+| `RedisOutput` | 将上游数据按行写入 Redis，支持多数据结构、TTL 与批量写入 | [RedisOutput](components/RedisOutput.md) |
 
 ## 其他组件
 

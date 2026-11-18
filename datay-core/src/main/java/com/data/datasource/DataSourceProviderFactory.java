@@ -28,6 +28,7 @@ import com.data.datasource.provider.YMatrixDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
 import com.data.datasource.provider.influxdb.InfluxDbDataSourceProvider;
 import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
+import com.data.datasource.provider.redis.RedisDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -101,6 +102,7 @@ public final class DataSourceProviderFactory {
         register(new ElasticsearchDataSourceProvider());
         register(new MongoDataSourceProvider());
         register(new InfluxDbDataSourceProvider());
+        register(new RedisDataSourceProvider());
         register(new GenericJdbcDataSourceProvider());
     }
 

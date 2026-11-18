@@ -579,6 +579,31 @@ export const dbTypes: DbType[] = [
     ],
   },
   {
+    name: 'REDIS',
+    tags: [DB_TYPE_CATEGORY.OTHER],
+    displayName: 'Redis',
+    jdbcUrlTemplate: 'redis://{host}:{port}',
+    supportedVersions: [],
+    defaultPort: '6379',
+    image: '/content/images/redis.svg',
+    // 非 JDBC 数据源：Schema 作为 Redis DB 索引，key 在元数据浏览中映射为“表”。
+    // 使用自定义 URL 模式，保留 redis:// 与 rediss:// 协议差异。
+    network: false,
+    credentials: true,
+    credentialsOptional: true,
+    schemaEnabled: true,
+    databaseEnabled: false,
+    extraParamsTemplate: [
+      {
+        key: 'redis.timeout_seconds',
+        label: '超时（秒）',
+        required: false,
+        defaultValue: '5',
+        description: '连接与命令超时时间，默认 5 秒',
+      },
+    ],
+  },
+  {
     name: 'INFLUXDB',
     tags: [DB_TYPE_CATEGORY.TIMESERIES],
     displayName: 'InfluxDB',
