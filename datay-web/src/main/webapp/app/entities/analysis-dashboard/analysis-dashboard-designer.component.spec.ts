@@ -3,10 +3,11 @@ import { flushPromises, mount, shallowMount } from '@vue/test-utils';
 import { readDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
 import AnalysisDashboardDesigner from './analysis-dashboard-designer.vue';
 
-const { push, createMock, updateMock } = vi.hoisted(() => ({
+const { push, createMock, updateMock, loadAllMock } = vi.hoisted(() => ({
   push: vi.fn(),
   createMock: vi.fn(),
   updateMock: vi.fn(),
+  loadAllMock: vi.fn(),
 }));
 
 vi.mock('vue-router', () => ({
@@ -49,7 +50,7 @@ vi.mock('@/shared/dashboard/useDashboardData', async () => {
       serverPaginationWidgets: ref({}),
       dataVersion: ref(0),
       loading: ref(false),
-      loadAll: vi.fn().mockResolvedValue(undefined),
+      loadAll: loadAllMock,
       loadWidgetPage: vi.fn().mockResolvedValue(undefined),
     }),
   };
@@ -120,6 +121,8 @@ type DesignerVm = {
   applyCustomOption: () => void;
   resetCustomOption: () => void;
   addFilter: () => void;
+  filterValues: Record<string, any>;
+  onFilterSearch: (values: Record<string, any>) => Promise<void>;
   onLayoutChange: (id: string, layout: WidgetLayout) => void;
   applyAiSpec: (spec: any) => Promise<boolean>;
   openPreview: () => void;
@@ -774,6 +777,18 @@ describe('AnalysisDashboardDesigner history', () => {
     await vm.$nextTick();
 
     expect(vm.spec.filters[0].targets[0]).toMatchObject({ datasetId: 'ds1', field: 'region', mode: 'server' });
+  });
+
+  it('筛选器条件通过查询操作后才刷新预览', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addFilter();
+    await vm.$nextTick();
+    loadAllMock.mockClear();
+
+    await vm.onFilterSearch({ filter1: '华东' });
+
+    expect(vm.filterValues).toEqual({ filter1: '华东' });
+    expect(loadAllMock).toHaveBeenCalledWith({ filter1: '华东' }, { force: true });
   });
 
   it('SQL 数据集字段下拉支持 SQL 参数选项', async () => {

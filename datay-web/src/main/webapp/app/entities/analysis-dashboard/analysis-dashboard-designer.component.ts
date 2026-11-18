@@ -1332,7 +1332,7 @@ export default defineComponent({
       await loadAll(filterValues.value, { force: true });
     }
 
-    const onFiltersChange = async (values: FilterValues) => {
+    const onFilterSearch = async (values: FilterValues) => {
       filterValues.value = values;
       await refreshData();
     };
@@ -2220,7 +2220,7 @@ export default defineComponent({
       setChartType,
       addFilter,
       removeFilter,
-      onFiltersChange,
+      onFilterSearch,
       refreshData,
       commitHistory,
       save,

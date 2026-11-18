@@ -40,7 +40,8 @@
               :model-value="filterValues"
               :dashboard-id="dashboardId"
               :spec="spec"
-              @update:model-value="onFiltersChange"
+              manual-query
+              @search="onFilterSearch"
             />
           </div>
         </template>
@@ -74,7 +75,8 @@
           :model-value="filterValues"
           :dashboard-id="dashboardId"
           :spec="spec"
-          @update:model-value="onFiltersChange"
+          manual-query
+          @search="onFilterSearch"
         />
         <DashboardCanvas
           :spec="spec"
@@ -184,14 +186,10 @@ onBeforeUnmount(() => {
   }
 });
 
-let debounceTimer: number | undefined;
-const onFiltersChange = (values: FilterValues) => {
+const onFilterSearch = async (values: FilterValues) => {
   filterValues.value = values;
-  window.clearTimeout(debounceTimer);
-  debounceTimer = window.setTimeout(async () => {
-    await loadAll(values);
-    scheduleAutoRefresh();
-  }, 300);
+  await loadAll(values, { force: true });
+  scheduleAutoRefresh();
 };
 
 const reload = async () => {

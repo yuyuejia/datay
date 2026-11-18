@@ -54,6 +54,8 @@ const standardSpec = {
   filters: [],
 };
 
+const { loadAllMock } = vi.hoisted(() => ({ loadAllMock: vi.fn() }));
+
 vi.mock('@/shared/dashboard/dashboard.service', () => ({
   default: class {
     static parseSpec = (dashboard: any) => (typeof dashboard.spec === 'string' ? JSON.parse(dashboard.spec) : dashboard.spec);
@@ -87,7 +89,7 @@ vi.mock('@/shared/dashboard/useDashboardData', async () => {
       serverPaginationWidgets: ref({}),
       dataVersion: ref(0),
       loading: ref(false),
-      loadAll: vi.fn().mockResolvedValue(undefined),
+      loadAll: loadAllMock,
       loadWidgetPage: vi.fn().mockResolvedValue(undefined),
     }),
   };
@@ -106,9 +108,20 @@ const DashboardStageStub = defineComponent({
   template: '<div class="stage-stub"></div>',
 });
 
+const DashboardFiltersStub = defineComponent({
+  name: 'DashboardFilters',
+  props: {
+    manualQuery: { type: Boolean, default: false },
+    modelValue: { type: Object, default: () => ({}) },
+  },
+  emits: ['search', 'update:modelValue'],
+  template: '<div class="dashboard-filters-stub"></div>',
+});
+
 describe('dashboard viewer screen settings', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    loadAllMock.mockClear();
     window.history.pushState({}, '', '/dashboard.html?id=db1');
   });
 
@@ -156,6 +169,36 @@ describe('dashboard viewer screen settings', () => {
 
     await wrapper.find('.dashboard-viewer-filters-toggle').trigger('click');
     expect(wrapper.find('.dashboard-viewer-filters-float').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it('applies screen filters only after the user triggers search', async () => {
+    const wrapper = mount(DashboardViewer, {
+      global: {
+        stubs: {
+          DashboardStage: DashboardStageStub,
+          DashboardCanvas: true,
+          DashboardFilters: DashboardFiltersStub,
+        },
+      },
+    });
+    await flushPromises();
+    loadAllMock.mockClear();
+
+    await wrapper.find('.dashboard-viewer-filters-toggle').trigger('click');
+    const filters = wrapper.findComponent(DashboardFiltersStub);
+    expect(filters.exists()).toBe(true);
+    expect(filters.props('manualQuery')).toBe(true);
+
+    filters.vm.$emit('update:modelValue', { region: '华北' });
+    await flushPromises();
+    expect(loadAllMock).not.toHaveBeenCalled();
+
+    filters.vm.$emit('search', { region: '华东' });
+    await flushPromises();
+    expect(loadAllMock).toHaveBeenCalledTimes(1);
+    expect(loadAllMock).toHaveBeenCalledWith({ region: '华东' }, { force: true });
 
     wrapper.unmount();
   });

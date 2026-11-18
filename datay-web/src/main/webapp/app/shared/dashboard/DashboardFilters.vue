@@ -48,6 +48,7 @@
         clearable
         placeholder="请输入"
         @update:model-value="value => onInputChange(filter, value)"
+        @keyup.enter="onEnter"
       />
 
       <div v-else-if="filter.type === 'numberRange'" class="dashboard-filter-range">
@@ -56,6 +57,7 @@
           :controls="false"
           placeholder="最小值"
           @update:model-value="value => onNumberChange(filter, 'min', value)"
+          @keyup.enter="onEnter"
         />
         <span class="dashboard-filter-range-sep">~</span>
         <el-input-number
@@ -63,11 +65,15 @@
           :controls="false"
           placeholder="最大值"
           @update:model-value="value => onNumberChange(filter, 'max', value)"
+          @keyup.enter="onEnter"
         />
       </div>
     </div>
 
-    <el-button text type="primary" @click="reset">重置</el-button>
+    <div class="dashboard-filter-actions">
+      <el-button v-if="manualQuery" type="primary" @click="runSearch">查询</el-button>
+      <el-button text type="primary" @click="reset">重置</el-button>
+    </div>
   </div>
 </template>
 
@@ -77,14 +83,23 @@ import { onMounted, ref, watch } from 'vue';
 import DashboardService from './dashboard.service';
 import type { DashboardFilter, DashboardSpec, FilterValues } from './types';
 
-const props = defineProps<{
-  filters: DashboardFilter[];
-  modelValue: FilterValues;
-  dashboardId?: string;
-  spec?: DashboardSpec;
-}>();
+const props = withDefaults(
+  defineProps<{
+    filters: DashboardFilter[];
+    modelValue: FilterValues;
+    dashboardId?: string;
+    spec?: DashboardSpec;
+    manualQuery?: boolean;
+  }>(),
+  {
+    manualQuery: false,
+  },
+);
 
-const emit = defineEmits<{ 'update:modelValue': [FilterValues] }>();
+const emit = defineEmits<{
+  'update:modelValue': [FilterValues];
+  search: [FilterValues];
+}>();
 
 const service = new DashboardService();
 const local = ref<FilterValues>({ ...(props.modelValue || {}) });
@@ -111,6 +126,23 @@ const defaultForType = (filter: DashboardFilter) => {
 
 const emitChange = () => emit('update:modelValue', { ...local.value });
 
+/**
+ * 手动查询模式下，值变化只更新组件内草稿，等待用户点击“查询”。
+ */
+const applyChange = () => {
+  if (!props.manualQuery) {
+    emitChange();
+  }
+};
+
+const runSearch = () => emit('search', { ...local.value });
+
+const onEnter = () => {
+  if (props.manualQuery) {
+    runSearch();
+  }
+};
+
 const dateValue = (filter: DashboardFilter, key: 'start' | 'end'): string => {
   const value = local.value[filter.id];
   if (Array.isArray(value)) {
@@ -127,7 +159,7 @@ const onDateChange = (filter: DashboardFilter, key: 'start' | 'end', value: stri
   const next = current && typeof current === 'object' && !Array.isArray(current) ? { ...current } : { start: '', end: '' };
   next[key] = value || '';
   local.value[filter.id] = next.start || next.end ? next : null;
-  emitChange();
+  applyChange();
 };
 
 const selectValue = (filter: DashboardFilter): any => local.value[filter.id] ?? (filter.type === 'multiSelect' ? [] : undefined);
@@ -138,12 +170,12 @@ const numberValue = (filter: DashboardFilter, key: 'min' | 'max'): number | unde
 
 const onSelectChange = (filter: DashboardFilter, value: any) => {
   local.value[filter.id] = value;
-  emitChange();
+  applyChange();
 };
 
 const onInputChange = (filter: DashboardFilter, value: string) => {
   local.value[filter.id] = value;
-  emitChange();
+  applyChange();
 };
 
 const onNumberChange = (filter: DashboardFilter, key: 'min' | 'max', value: number | undefined) => {
@@ -151,7 +183,7 @@ const onNumberChange = (filter: DashboardFilter, key: 'min' | 'max', value: numb
   const next = current && typeof current === 'object' ? { ...current } : { min: undefined, max: undefined };
   next[key] = value;
   local.value[filter.id] = next;
-  emitChange();
+  applyChange();
 };
 
 const loadOptions = async (filter: DashboardFilter) => {
@@ -179,6 +211,10 @@ const loadOptions = async (filter: DashboardFilter) => {
 
 const reset = () => {
   local.value = defaults();
+  if (props.manualQuery) {
+    runSearch();
+    return;
+  }
   emitChange();
 };
 
@@ -231,6 +267,17 @@ onMounted(() => {
   color: var(--dashboard-filter-text, #606266);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.dashboard-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dashboard-filter-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 .dashboard-filter-range {

@@ -181,10 +181,11 @@
             :filters="spec.filters || []"
             :model-value="filterValues"
             :spec="spec"
-            @update:model-value="onFiltersChange"
+            manual-query
+            @search="onFilterSearch"
           />
           <div v-else class="designer-preview-filters-empty">
-            <span>暂无筛选器，添加后将在此处显示并实时作用于预览。</span>
+            <span>暂无筛选器，添加后可在预览区设置条件，点击“查询”后作用于预览。</span>
             <el-button text type="primary" size="small" @click="openFiltersPanel">去配置</el-button>
           </div>
         </section>
