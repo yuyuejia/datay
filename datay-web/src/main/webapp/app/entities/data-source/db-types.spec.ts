@@ -47,6 +47,15 @@ describe('db-types categories', () => {
     expect(polaris!.defaultPort).toBe('8181');
   });
 
+  it('configures YMatrix as a Greenplum-compatible time-series database', () => {
+    const ymatrix = dbTypes.find(type => type.name === 'YMATRIX');
+    expect(ymatrix).toBeDefined();
+    expect(ymatrix!.jdbcUrlTemplate).toBe('jdbc:postgresql://{host}:{port}/{database}');
+    expect(ymatrix!.defaultPort).toBe('5432');
+    expect(ymatrix!.schemaEnabled).toBe(true);
+    expect(ymatrix!.tags).toEqual(expect.arrayContaining([DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.TIMESERIES]));
+  });
+
   it('assigns at least one known category tag to every type', () => {
     const knownTags = new Set(dbTypeCategories.map(category => category.value));
     dbTypes.forEach(type => {

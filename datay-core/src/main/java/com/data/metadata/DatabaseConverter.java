@@ -44,6 +44,9 @@ public class DatabaseConverter {
         converters.put("oceanbase", converters.get("mysql"));
         converters.put("polardb", converters.get("mysql"));
         converters.put("gaussdb", converters.get("postgresql"));
+        // Greenplum / YMatrix 均为 PostgreSQL 协议，复用 PostgreSQL 方言
+        converters.put("greenplum", converters.get("postgresql"));
+        converters.put("ymatrix", converters.get("postgresql"));
         converters.put("sqlite", new SqliteConverter());
     }
 

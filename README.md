@@ -169,7 +169,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 
 - **关系型数据库**: MySQL系, Oracle, PostgreSQL系, SQL Server, MariaDB, 达梦（DM）, SAP HANA
 - **时序数据库**: TDengine（WebSocket / REST / 原生三种连接方式）
-- **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
+- **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum, YMatrix
 - **数据湖**: DuckLake, Apache Polaris（Iceberg REST Catalog）
 - **文件系统**: 本地文件、MinIO对象存储、CSV、EXCEL、Parquet
 - **CDC**: MySQL Binlog, PostgreSQL 逻辑复制（WAL / pgoutput）, Oracle LogMiner, 达梦 LogMiner, SQL Server CDC, MongoDB Change Streams

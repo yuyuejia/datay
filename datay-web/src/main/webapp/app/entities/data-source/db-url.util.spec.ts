@@ -59,6 +59,12 @@ describe('db-url.util', () => {
         'polaris://polaris.example.com:8181/quickstart_catalog',
       );
     });
+
+    it('builds ymatrix url with postgresql protocol', () => {
+      expect(buildSimpleUrl('YMATRIX', { hostname: '127.0.0.1', port: '5432', database: 'ymatrix' })).toBe(
+        'jdbc:postgresql://127.0.0.1:5432/ymatrix',
+      );
+    });
   });
 
   describe('parseSimpleUrl', () => {
@@ -85,6 +91,11 @@ describe('db-url.util', () => {
         hostname: 'localhost',
         port: '5432',
         database: 'testdb',
+      });
+      expect(parseSimpleUrl('YMATRIX', 'jdbc:postgresql://localhost:5432/ymatrix')).toEqual({
+        hostname: 'localhost',
+        port: '5432',
+        database: 'ymatrix',
       });
     });
 
@@ -189,6 +200,7 @@ describe('db-url.util', () => {
       expect(isNetworkType('POSTGRESQL')).toBe(true);
       expect(isNetworkType('TDENGINE')).toBe(true);
       expect(isNetworkType('POLARIS')).toBe(true);
+      expect(isNetworkType('YMATRIX')).toBe(true);
     });
 
     it('excludes duckdb and ducklake', () => {

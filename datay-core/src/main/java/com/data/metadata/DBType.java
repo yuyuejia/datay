@@ -164,6 +164,30 @@ public enum DBType {
         Map.of("5", "postgresql-42.2.24.jar", "6", "postgresql-42.5.0.jar", "7", "postgresql-42.7.0.jar")
     ),
 
+    /**
+     * YMatrix（Greenplum 系超融合时序数据库）。
+     * <p>兼容 PostgreSQL / Greenplum 协议，使用 pgJDBC 驱动与 {@code jdbc:postgresql://} URL，
+     * 默认端口 5432；高可用地址可写成 {@code host1:port1,host2:port2}。
+     */
+    YMATRIX(
+        "YMatrix",
+        Arrays.asList("4.8", "5.0", "5.3", "6.0", "6.8"),
+        "org.postgresql.Driver",
+        "jdbc:postgresql://{host}:{port}/{database}",
+        Map.of(
+            "4.8",
+            "postgresql-42.7.0.jar",
+            "5.0",
+            "postgresql-42.7.0.jar",
+            "5.3",
+            "postgresql-42.7.0.jar",
+            "6.0",
+            "postgresql-42.7.0.jar",
+            "6.8",
+            "postgresql-42.7.0.jar"
+        )
+    ),
+
     DORIS(
         "Doris",
         Arrays.asList("1.2", "2.0", "2.1"),
@@ -507,6 +531,7 @@ public enum DBType {
             DUCKDB,
             CLICKHOUSE,
             GREENPLUM,
+            YMATRIX,
             DORIS,
             DM,
             HANA,

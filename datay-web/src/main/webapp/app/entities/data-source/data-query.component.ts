@@ -246,7 +246,8 @@ export default defineComponent({
         type.includes('DUCKDB') ||
         type.includes('DUCKLAKE') ||
         type.includes('POLARIS') ||
-        type.includes('GREENPLUM')
+        type.includes('GREENPLUM') ||
+        type.includes('YMATRIX')
       ) {
         return PostgreSQL;
       }
@@ -963,7 +964,8 @@ export default defineComponent({
         type.includes('DUCKDB') ||
         type.includes('DUCKLAKE') ||
         type.includes('POLARIS') ||
-        type.includes('GREENPLUM')
+        type.includes('GREENPLUM') ||
+        type.includes('YMATRIX')
       ) {
         return 'postgresql';
       }

@@ -487,6 +487,16 @@ export const dbTypes: DbType[] = [
     schemaEnabled: true,
   },
   {
+    name: 'YMATRIX',
+    tags: [DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.TIMESERIES],
+    displayName: 'YMatrix',
+    jdbcUrlTemplate: 'jdbc:postgresql://{host}:{port}/{database}',
+    supportedVersions: ['4.8', '5.0', '5.3', '6.0', '6.8'],
+    defaultPort: '5432',
+    image: '/content/images/ymatrix.png',
+    schemaEnabled: true,
+  },
+  {
     name: 'DORIS',
     tags: [DB_TYPE_CATEGORY.ANALYTICAL],
     displayName: 'Apache Doris',

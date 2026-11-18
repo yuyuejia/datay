@@ -52,7 +52,7 @@
 | --- | --- |
 | 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、SAP HANA |
 | 时序数据库 | TDengine |
-| 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum |
+| 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum、YMatrix |
 | 数据湖 | DuckLake、Apache Polaris（Iceberg REST Catalog） |
 | 文件系统 | 本地文件、MinIO 对象存储 |
 | CDC | MySQL Binlog、PostgreSQL 逻辑复制（WAL / pgoutput） |
@@ -74,6 +74,22 @@ TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏�
 - 每个表必须包含一个 `TIMESTAMP` 时间列，ETL 自动建表时会将该列放在第一列。
 - TDengine 相同时间戳重复写入会覆盖旧值，因此 ETL 的 `update` 模式在 TDengine 上等价于 `insert/upsert`。
 - **超级表（STable）不能直接执行普通 INSERT/UPDATE**。需要写入超级表时，请使用 `SqlSink` 并配置 `INSERT INTO 子表 USING 超级表 TAGS (...) VALUES (...)`；普通 ETL 输出节点会提前拦截并给出提示。
+
+### YMatrix 连接说明
+
+YMatrix 是 Greenplum 系超融合时序数据库，兼容 PostgreSQL 协议。新建数据源时类型选择 `YMATRIX`，使用平台内置的 PostgreSQL 驱动即可：
+
+| 配置项 | 说明 |
+| --- | --- |
+| 连接 URL | `jdbc:postgresql://host:5432/database` |
+| 默认端口 | `5432` |
+| 驱动类 | `org.postgresql.Driver`（平台内置，无需下载） |
+| 用户名 | 初始化 YMatrix 时设置的管理员用户，通常为 `mxadmin` |
+| 默认 Schema | 目标 Schema，一般为 `public` |
+
+- 高可用连接可通过「自定义 URL」填写 `jdbc:postgresql://master:5432,standby:5432/database`。
+- 元数据浏览、SQL 查询、ETL 读写与自动建表均复用 PostgreSQL 方言；自动建表默认不指定 `DISTRIBUTED BY` 与 MARS3 存储，需要针对性优化时可通过 `SqlSink` 自定义 DDL。
+- `ON CONFLICT` UPSERT 需 YMatrix 5.x 及以上版本；4.x 版本请使用 insert/append 写入模式。
 
 ### Apache Polaris 连接说明
 

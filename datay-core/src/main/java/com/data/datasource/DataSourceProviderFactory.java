@@ -24,6 +24,7 @@ import com.data.datasource.provider.SqliteDataSourceProvider;
 import com.data.datasource.provider.StarRocksDataSourceProvider;
 import com.data.datasource.provider.TdengineDataSourceProvider;
 import com.data.datasource.provider.TidbDataSourceProvider;
+import com.data.datasource.provider.YMatrixDataSourceProvider;
 import com.data.datasource.provider.elasticsearch.ElasticsearchDataSourceProvider;
 import com.data.datasource.provider.influxdb.InfluxDbDataSourceProvider;
 import com.data.datasource.provider.mongodb.MongoDataSourceProvider;
@@ -91,6 +92,7 @@ public final class DataSourceProviderFactory {
         register(new PolarisDataSourceProvider());
         register(new ClickHouseDataSourceProvider());
         register(new GreenplumDataSourceProvider());
+        register(new YMatrixDataSourceProvider());
         register(new DorisDataSourceProvider());
         register(new AvroDataSourceProvider());
         register(new DmDataSourceProvider());
