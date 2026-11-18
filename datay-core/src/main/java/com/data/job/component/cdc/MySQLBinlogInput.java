@@ -249,7 +249,7 @@ public class MySQLBinlogInput extends FlowComponent {
         List<CdcSnapshotReader.TableRef> tables = new ArrayList<>();
         try (Connection conn = DBUtils.getConnection(datasource)) {
             for (String database : databases) {
-                for (TableMeta tableMeta : DBUtils.getTableList(conn, database)) {
+                for (TableMeta tableMeta : DBUtils.getBaseTableList(conn, database)) {
                     String table = tableMeta.getTable();
                     if (table == null || table.trim().isEmpty()) {
                         continue;

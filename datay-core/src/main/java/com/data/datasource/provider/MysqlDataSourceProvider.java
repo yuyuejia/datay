@@ -57,9 +57,13 @@ public class MysqlDataSourceProvider extends JdbcDataSourceProvider {
         return JdbcMetadata.getCatalogs(conn);
     }
 
+    /**
+     * 表清单同时包含普通表和视图：MySQL 的视图对迁移/预览同样可读，
+     * 用户在表列表中需要能看到并选择视图。
+     */
     @Override
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        return JdbcMetadata.readTableList(conn, schema, null, new String[] { "TABLE" }, limit, search, false);
+        return JdbcMetadata.readTableList(conn, schema, null, new String[] { "TABLE", "VIEW" }, limit, search, false);
     }
 
     @Override

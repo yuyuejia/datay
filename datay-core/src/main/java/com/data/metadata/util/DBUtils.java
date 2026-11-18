@@ -865,11 +865,38 @@ public class DBUtils {
         } catch (SQLException e) {
             schemaBased = true;
         }
-        String[] types = new String[] { "TABLE" };
+        String[] types = new String[] { "TABLE", "VIEW" };
         if (!schemaBased) {
             return JdbcMetadata.readTableList(conn, schema, null, types, limit, search, false);
         }
         return JdbcMetadata.readTableList(conn, null, schema, types, limit, search, false);
+    }
+
+    /**
+     * 获取基表列表（排除视图）。CDC 等只支持基表的场景使用。
+     *
+     * <p>注意：{@code limit} 会在过滤视图之前生效，需要精确数量时请传 {@code null}。
+     */
+    public static List<TableMeta> getBaseTableList(Connection conn, String schema) throws SQLException {
+        return getBaseTableList(conn, schema, null, null);
+    }
+
+    public static List<TableMeta> getBaseTableList(Connection conn, String schema, Integer limit) throws SQLException {
+        return getBaseTableList(conn, schema, limit, null);
+    }
+
+    public static List<TableMeta> getBaseTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
+        List<TableMeta> tables = getTableList(conn, schema, limit, search);
+        List<TableMeta> baseTables = new ArrayList<>(tables.size());
+        for (TableMeta table : tables) {
+            String tableType = table.getTableType();
+            // 兼容 VIEW / SYSTEM VIEW / MATERIALIZED VIEW 等类型
+            if (tableType != null && tableType.toUpperCase(Locale.ROOT).endsWith("VIEW")) {
+                continue;
+            }
+            baseTables.add(table);
+        }
+        return baseTables;
     }
 
     public static TableMeta getTableMetaData(Connection conn, String schema, String table) throws SQLException {

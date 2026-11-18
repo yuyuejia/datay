@@ -356,7 +356,7 @@ public class PostgresWalCollector {
     }
 
     private List<String> listTargetTables(Connection connection) throws SQLException {
-        List<TableMeta> tableMetas = DBUtils.getTableList(connection, schemaName);
+        List<TableMeta> tableMetas = DBUtils.getBaseTableList(connection, schemaName);
         Set<String> tables = new LinkedHashSet<>();
         for (TableMeta tableMeta : tableMetas) {
             String table = tableMeta.getTable();

@@ -671,7 +671,7 @@ public class OracleLogMinerCollector {
      */
     private void resolveTargetTables(Connection conn) throws SQLException {
         targetTables.clear();
-        List<TableMeta> tables = DBUtils.getTableList(conn, schemaName);
+        List<TableMeta> tables = DBUtils.getBaseTableList(conn, schemaName);
         LinkedHashSet<String> names = new LinkedHashSet<>();
         for (TableMeta tableMeta : tables) {
             String table = tableMeta.getTable();

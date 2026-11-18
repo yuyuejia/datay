@@ -28,6 +28,7 @@ class DuckDbDataSourceProviderTest {
             stmt.execute("CREATE TABLE t1 (id INTEGER, name VARCHAR)");
             stmt.execute("CREATE SCHEMA s1");
             stmt.execute("CREATE TABLE s1.t2 (id INTEGER)");
+            stmt.execute("CREATE VIEW s1.v2 AS SELECT id FROM s1.t2");
         }
 
         DuckDbDataSourceProvider provider = new DuckDbDataSourceProvider();
@@ -46,6 +47,16 @@ class DuckDbDataSourceProviderTest {
             assertTrue(
                 tables.stream().anyMatch(t -> "t1".equals(t.getTable()) && "other_db".equals(t.getCatalog())),
                 "应读取 other_db.main.t1 并回填 catalog"
+            );
+
+            List<TableMeta> s1Tables = provider.getTables(conn, "other_db", "s1", null, null);
+            assertTrue(
+                s1Tables.stream().anyMatch(t -> "t2".equals(t.getTable()) && "other_db".equals(t.getCatalog())),
+                "应读取 other_db.s1.t2"
+            );
+            assertTrue(
+                s1Tables.stream().anyMatch(t -> "v2".equals(t.getTable()) && "other_db".equals(t.getCatalog())),
+                "表清单应包含视图 other_db.s1.v2"
             );
 
             TableMeta meta = provider.getTableMeta(conn, "other_db", "main", "t1");

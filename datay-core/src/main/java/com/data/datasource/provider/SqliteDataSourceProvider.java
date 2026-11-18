@@ -36,7 +36,7 @@ public class SqliteDataSourceProvider extends JdbcDataSourceProvider {
 
     @Override
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        return JdbcMetadata.readTableList(conn, null, null, new String[] { "TABLE" }, limit, search, false);
+        return JdbcMetadata.readTableList(conn, null, null, new String[] { "TABLE", "VIEW" }, limit, search, false);
     }
 
     @Override

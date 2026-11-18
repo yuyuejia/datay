@@ -80,6 +80,7 @@ public final class JdbcMetadata {
                     break;
                 }
                 TableMeta tableMeta = new TableMeta(rs.getString("TABLE_NAME"));
+                tableMeta.setTableType(rs.getString("TABLE_TYPE"));
                 String tableComment = rs.getString("REMARKS");
                 if (tableComment != null) {
                     tableMeta.setComment(tableComment);

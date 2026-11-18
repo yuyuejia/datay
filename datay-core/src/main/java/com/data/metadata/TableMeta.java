@@ -12,6 +12,7 @@ public class TableMeta {
     private String catalog;
     private String schema;
     private String table;
+    private String tableType;
     private String comment;
     private List<ColumnMeta> columns;
     private List<IndexMeta> indexes = new ArrayList<>();
@@ -45,6 +46,17 @@ public class TableMeta {
 
     public void setTable(String table) {
         this.table = table;
+    }
+
+    /**
+     * JDBC 元数据中的表类型，如 {@code TABLE}、{@code BASE TABLE}、{@code VIEW}。
+     */
+    public String getTableType() {
+        return tableType;
+    }
+
+    public void setTableType(String tableType) {
+        this.tableType = tableType;
     }
 
     public String getDbType() {

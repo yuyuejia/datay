@@ -324,10 +324,10 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
-     * 列出表。默认以 schema 作为 schema 参数读取普通表。
+     * 列出表。默认以 schema 作为 schema 参数读取普通表和视图。
      */
     public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
-        return JdbcMetadata.readTableList(conn, null, schema, new String[] { "TABLE" }, limit, search, false);
+        return JdbcMetadata.readTableList(conn, null, schema, new String[] { "TABLE", "VIEW" }, limit, search, false);
     }
 
     /**

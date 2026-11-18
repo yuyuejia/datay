@@ -28,8 +28,8 @@ import java.util.Set;
 /**
  * DuckDB 数据源 Provider。
  *
- * <p>承载 DuckDB 特有的行为：本地 catalog/schema 解析、{@code TABLE} 与 {@code BASE TABLE} 两种表类型，
- * 以及 Quack 远程协议（挂载 {@code quack} catalog、通过 {@code quack.query} 读取远端元数据）。
+ * <p>承载 DuckDB 特有的行为：本地 catalog/schema 解析、{@code TABLE}/{@code BASE TABLE}/{@code VIEW}
+ * 表类型，以及 Quack 远程协议（挂载 {@code quack} catalog、通过 {@code quack.query} 读取远端元数据）。
  * 同时作为 {@link DuckLakeDataSourceProvider} 与 {@link PolarisDataSourceProvider} 的基类复用其元数据能力。
  */
 @DataSourceRegister("duckdb")
@@ -240,7 +240,15 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         if (POLARIS_CATALOG.equals(targetCatalog)) {
             return getPolarisTableList(conn, schema, limit, search);
         }
-        return JdbcMetadata.readTableList(conn, targetCatalog, schema, new String[] { "TABLE", "BASE TABLE" }, limit, search, true);
+        return JdbcMetadata.readTableList(
+            conn,
+            targetCatalog,
+            schema,
+            new String[] { "TABLE", "BASE TABLE", "VIEW" },
+            limit,
+            search,
+            true
+        );
     }
 
     @Override
@@ -404,7 +412,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
 
     private static List<TableMeta> getQuackTableList(Connection conn, String schema, Integer limit, String search) throws SQLException {
         StringBuilder remoteSql = new StringBuilder(
-            "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE'"
+            "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type IN ('BASE TABLE', 'VIEW')"
         );
         if (schema != null && !schema.isEmpty()) {
             remoteSql.append(" AND table_schema = '").append(JdbcMetadata.escapeSqlString(schema)).append("'");
@@ -581,7 +589,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
                 conn,
                 POLARIS_CATALOG,
                 schema,
-                new String[] { "TABLE", "BASE TABLE" },
+                new String[] { "TABLE", "BASE TABLE", "VIEW" },
                 limit,
                 search,
                 true
