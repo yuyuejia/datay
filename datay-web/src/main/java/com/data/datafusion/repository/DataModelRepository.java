@@ -13,4 +13,5 @@ public interface DataModelRepository extends JpaRepository<DataModel, String> {
     List<DataModel> findByModelType(String modelType);
     Optional<DataModel> findFirstByCode(String code);
     Optional<DataModel> findFirstByName(String name);
+    List<DataModel> findAllByDataSourceId(String dataSourceId);
 }

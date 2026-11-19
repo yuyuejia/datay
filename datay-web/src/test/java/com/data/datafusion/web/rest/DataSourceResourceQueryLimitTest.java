@@ -13,10 +13,12 @@ import static org.mockito.Mockito.when;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.DataModelLineageService;
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceReferenceService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.MetadataCollectTaskService;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.DataSourceReferenceDTO;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +35,7 @@ class DataSourceResourceQueryLimitTest {
 
     private DataSourceService dataSourceService;
     private DataSourceQueryService dataSourceQueryService;
+    private DataSourceReferenceService dataSourceReferenceService;
     private DataSourceResource resource;
     private DataSourceDTO dataSource;
 
@@ -40,13 +43,15 @@ class DataSourceResourceQueryLimitTest {
     void setUp() {
         dataSourceService = mock(DataSourceService.class);
         dataSourceQueryService = mock(DataSourceQueryService.class);
+        dataSourceReferenceService = mock(DataSourceReferenceService.class);
         resource = new DataSourceResource(
             dataSourceService,
             mock(DataSourceRepository.class),
             dataSourceQueryService,
             mock(DefaultWarehouseConfigService.class),
             mock(DataModelLineageService.class),
-            mock(MetadataCollectTaskService.class)
+            mock(MetadataCollectTaskService.class),
+            dataSourceReferenceService
         );
         dataSource = new DataSourceDTO();
         dataSource.setId("ds1");
@@ -112,6 +117,33 @@ class DataSourceResourceQueryLimitTest {
         ResponseEntity<Map<String, Object>> result = resource.executeQuery("missing", request("SELECT 1", 100));
 
         assertThat(result.getStatusCode().value()).isEqualTo(404);
+    }
+
+    @Test
+    void shouldRejectDeleteWhenDataSourceIsReferenced() {
+        when(dataSourceReferenceService.findReferences("ds1")).thenReturn(
+            List.of(new DataSourceReferenceDTO("JOB", "SQL 任务", "job-1", "订单 SQL"))
+        );
+
+        ResponseEntity<?> result = resource.deleteDataSource("ds1", false);
+
+        assertThat(result.getStatusCode().value()).isEqualTo(409);
+        Map<?, ?> body = (Map<?, ?>) result.getBody();
+        assertThat(body.get("code")).isEqualTo("DATA_SOURCE_IN_USE");
+        assertThat((List<?>) body.get("references")).hasSize(1);
+        verify(dataSourceService, never()).delete(anyString());
+    }
+
+    @Test
+    void shouldForceDeleteReferencedDataSource() {
+        when(dataSourceReferenceService.findReferences("ds1")).thenReturn(
+            List.of(new DataSourceReferenceDTO("JOB", "SQL 任务", "job-1", "订单 SQL"))
+        );
+
+        ResponseEntity<?> result = resource.deleteDataSource("ds1", true);
+
+        assertThat(result.getStatusCode().value()).isEqualTo(204);
+        verify(dataSourceService).delete("ds1");
     }
 
     private Map<String, Object> request(String sql, Object limit) {

@@ -207,6 +207,22 @@ describe('Service Tests', () => {
         });
       });
 
+      it('should force delete a DataSource', async () => {
+        axiosStub.delete.resolves({ ok: true });
+        return service.delete(123, true).then(res => {
+          expect(res.ok).toBeTruthy();
+          expect(axiosStub.delete.lastCall.args[1]).toMatchObject({ params: { force: true } });
+        });
+      });
+
+      it('should check data source references', async () => {
+        const references = [{ type: 'JOB', typeLabel: 'SQL 任务', id: 'job-1', name: '订单 SQL' }];
+        axiosStub.get.resolves({ data: references });
+        return service.checkReferences(123).then(res => {
+          expect(res).toEqual(references);
+        });
+      });
+
       it('should not delete a DataSource', async () => {
         axiosStub.delete.rejects(error);
 

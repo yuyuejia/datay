@@ -147,16 +147,34 @@ export default defineComponent({
 
     const removeId: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
-    const prepareRemove = (instance: IDataSource) => {
+    const references: Ref<any[]> = ref([]);
+    const forceDelete = ref(false);
+    const referencesLoading = ref(false);
+    const prepareRemove = async (instance: IDataSource) => {
       removeId.value = instance.id;
+      references.value = [];
+      forceDelete.value = false;
       removeEntity.value.show();
+      referencesLoading.value = true;
+      try {
+        references.value = (await dataSourceService().checkReferences(instance.id)) ?? [];
+      } catch (error) {
+        alertService.showHttpError(error.response);
+      } finally {
+        referencesLoading.value = false;
+      }
     };
     const closeDialog = () => {
       removeEntity.value.hide();
+      references.value = [];
+      forceDelete.value = false;
     };
     const removeDataSource = async () => {
+      if (referencesLoading.value || (references.value.length > 0 && !forceDelete.value)) {
+        return;
+      }
       try {
-        await dataSourceService().delete(removeId.value);
+        await dataSourceService().delete(removeId.value, forceDelete.value);
         const message = `A DataSource is deleted with identifier ${removeId.value}`;
         alertService.showInfo(message, { variant: 'danger' });
         removeId.value = null;
@@ -164,7 +182,12 @@ export default defineComponent({
         retrieveDefaultWarehouse();
         closeDialog();
       } catch (error) {
-        alertService.showHttpError(error.response);
+        if (error?.response?.status === 409) {
+          references.value = error.response.data?.references ?? references.value;
+          forceDelete.value = false;
+        } else {
+          alertService.showHttpError(error.response);
+        }
       }
     };
 
@@ -257,6 +280,9 @@ export default defineComponent({
       ...dateFormat,
       removeId,
       removeEntity,
+      references,
+      forceDelete,
+      referencesLoading,
       prepareRemove,
       closeDialog,
       removeDataSource,

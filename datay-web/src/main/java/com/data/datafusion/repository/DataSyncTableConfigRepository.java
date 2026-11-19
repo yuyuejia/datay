@@ -14,6 +14,8 @@ import org.springframework.stereotype.Repository;
 public interface DataSyncTableConfigRepository extends JpaRepository<DataSyncTableConfig, String> {
     List<DataSyncTableConfig> findAllBySyncTask(String taskId);
 
+    List<DataSyncTableConfig> findBySrcDatasourceOrDesDatasource(String srcDatasource, String desDatasource);
+
     List<DataSyncTableConfig> findByDesTableNameIgnoreCase(String desTableName);
 
     void deleteAllBySyncTask(String taskId);

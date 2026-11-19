@@ -1,10 +1,12 @@
 package com.data.datafusion.mcp.harness;
 
+import static com.data.datafusion.mcp.harness.DatayHarnessArgs.boolVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.clamp;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.intVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.mapVal;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.reqStr;
 import static com.data.datafusion.mcp.harness.DatayHarnessArgs.str;
+import static com.data.datafusion.mcp.harness.DatayHarnessSchema.bool;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.integer;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.object;
 import static com.data.datafusion.mcp.harness.DatayHarnessSchema.properties;
@@ -13,8 +15,11 @@ import static com.data.datafusion.mcp.harness.DatayHarnessSchema.stringMap;
 
 import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceReferenceService;
 import com.data.datafusion.service.DataSourceService;
+import com.data.datafusion.service.MetadataCollectTaskService;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.DataSourceReferenceDTO;
 import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProviderFactory;
 import com.data.metadata.ColumnMeta;
@@ -41,15 +46,21 @@ public class DataSourceHarnessTools {
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final DefaultWarehouseConfigService defaultWarehouseConfigService;
+    private final DataSourceReferenceService dataSourceReferenceService;
+    private final MetadataCollectTaskService metadataCollectTaskService;
 
     public DataSourceHarnessTools(
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
-        DefaultWarehouseConfigService defaultWarehouseConfigService
+        DefaultWarehouseConfigService defaultWarehouseConfigService,
+        DataSourceReferenceService dataSourceReferenceService,
+        MetadataCollectTaskService metadataCollectTaskService
     ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.defaultWarehouseConfigService = defaultWarehouseConfigService;
+        this.dataSourceReferenceService = dataSourceReferenceService;
+        this.metadataCollectTaskService = metadataCollectTaskService;
     }
 
     @Bean
@@ -162,16 +173,34 @@ public class DataSourceHarnessTools {
     DatayHarnessTool datasourceDeleteTool() {
         return DatayHarnessTool.write(
             "datasource_delete",
-            "按 ID 删除数据源。删除前请确认没有 ETL 任务或数据模型仍在引用它。",
-            object(properties("id", string("数据源 ID")), "id"),
+            "按 ID 删除数据源。默认会先校验引用，存在引用时返回引用明细且不删除；" +
+            "确认后传 force=true 强制删除。",
+            object(properties("id", string("数据源 ID"), "force", bool("是否忽略引用强制删除，默认 false")), "id"),
             (args, context) -> {
                 String id = reqStr(args, "id");
+                boolean force = boolVal(args, "force", false);
                 DataSourceDTO dto = requireDataSource(id);
-                dataSourceService.delete(id);
+                List<DataSourceReferenceDTO> references = dataSourceReferenceService.findReferences(id);
                 Map<String, Object> result = new LinkedHashMap<>();
+                if (!force && !references.isEmpty()) {
+                    result.put("success", false);
+                    result.put("blocked", true);
+                    result.put(
+                        "message",
+                        "数据源已被 " +
+                        references.size() +
+                        " 个对象引用，删除后相关任务将无法正常运行；确认后传 force=true 强制删除"
+                    );
+                    result.put("references", references);
+                    return result;
+                }
+                metadataCollectTaskService.deleteByDataSourceId(id);
+                dataSourceService.delete(id);
                 result.put("success", true);
                 result.put("deletedId", id);
                 result.put("name", dto.getName());
+                result.put("forced", force);
+                result.put("references", references);
                 return result;
             }
         );

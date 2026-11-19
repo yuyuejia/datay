@@ -14,5 +14,7 @@ import org.springframework.stereotype.Repository;
 public interface ETLNodeRepository extends JpaRepository<ETLNode, String> {
     Optional<List<ETLNode>> findAllByTaskId(String taskId);
 
+    List<ETLNode> findByConfigContaining(String config);
+
     void deleteAllByTaskId(String taskId);
 }

@@ -15,4 +15,6 @@ public interface AnalysisDashboardRepository extends JpaRepository<AnalysisDashb
     Optional<AnalysisDashboard> findByCode(String code);
 
     Optional<AnalysisDashboard> findByCodeAndIdNot(String code, String id);
+
+    java.util.List<AnalysisDashboard> findAllByDataSourceId(String dataSourceId);
 }

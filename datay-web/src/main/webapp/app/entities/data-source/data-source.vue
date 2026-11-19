@@ -84,12 +84,32 @@
       </template>
       <div class="modal-body">
         <p id="jhi-delete-dataSource-heading">确定要删除数据源 {{ removeId }} 吗？</p>
+        <div v-if="referencesLoading" class="text-muted">正在检查引用关系...</div>
+        <el-alert v-else-if="references.length > 0" type="warning" :closable="false" show-icon>
+          <template #title> 该数据源正在被 {{ references.length }} 个对象引用，删除后相关任务、模型或数据服务将无法正常运行。 </template>
+          <ul class="data-source-reference-list">
+            <li v-for="item in references" :key="`${item.type}-${item.id}`">
+              <el-tag size="small" type="warning">{{ item.typeLabel }}</el-tag>
+              <span>{{ item.name || item.id }}</span>
+              <span v-if="item.cascadeDelete" class="text-muted">（删除数据源时一并删除）</span>
+            </li>
+          </ul>
+        </el-alert>
+        <el-checkbox v-if="references.length > 0" v-model="forceDelete" class="data-source-force-delete">
+          我已了解风险，仍要强制删除
+        </el-checkbox>
       </div>
       <template #modal-footer>
         <div>
           <el-button @click="closeDialog()">取消</el-button>
-          <el-button type="primary" id="jhi-confirm-delete-dataSource" data-cy="entityConfirmDeleteButton" @click="removeDataSource()">
-            删除
+          <el-button
+            type="primary"
+            id="jhi-confirm-delete-dataSource"
+            data-cy="entityConfirmDeleteButton"
+            :disabled="referencesLoading || (references.length > 0 && !forceDelete)"
+            @click="removeDataSource()"
+          >
+            {{ references.length > 0 ? '强制删除' : '删除' }}
           </el-button>
         </div>
       </template>
@@ -181,5 +201,23 @@
   color: #409eff;
   font-size: 14px;
   flex-shrink: 0;
+}
+
+.data-source-reference-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.data-source-reference-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.data-source-force-delete {
+  margin-top: 12px;
 }
 </style>

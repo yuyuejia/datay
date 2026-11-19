@@ -33,12 +33,25 @@ export default class DataSourceService {
     });
   }
 
-  delete(id: string): Promise<any> {
+  delete(id: string, force = false): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
-        .delete(`${baseApiUrl}/${id}`)
+        .delete(`${baseApiUrl}/${id}`, { params: force ? { force: true } : {} })
         .then(res => {
           resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  checkReferences(id: string): Promise<any[]> {
+    return new Promise<any[]>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${id}/references`)
+        .then(res => {
+          resolve(res.data);
         })
         .catch(err => {
           reject(err);

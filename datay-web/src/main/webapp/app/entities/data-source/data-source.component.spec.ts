@@ -25,6 +25,7 @@ describe('Component Tests', () => {
     beforeEach(() => {
       dataSourceServiceStub = sinon.createStubInstance<DataSourceService>(DataSourceService);
       dataSourceServiceStub.retrieve.resolves({ headers: {} });
+      dataSourceServiceStub.checkReferences.resolves([]);
 
       alertService = new AlertService();
 
@@ -138,17 +139,38 @@ describe('Component Tests', () => {
         dataSourceServiceStub.delete.resolves({});
 
         // WHEN
-        comp.prepareRemove({ id: 123 });
+        await comp.prepareRemove({ id: 123 });
 
-        comp.removeDataSource();
+        await comp.removeDataSource();
         await comp.$nextTick(); // clear components
 
         // THEN
-        expect(dataSourceServiceStub.delete.called).toBeTruthy();
+        expect(dataSourceServiceStub.delete.calledWith(123, false)).toBeTruthy();
 
         // THEN
         await comp.$nextTick(); // handle component clear watch
         expect(dataSourceServiceStub.retrieve.callCount).toEqual(1);
+      });
+
+      it('Should require confirmation before force deleting a referenced data source', async () => {
+        // GIVEN
+        dataSourceServiceStub.checkReferences.resolves([{ type: 'JOB', typeLabel: 'SQL 任务', id: 'job-1', name: '订单 SQL' }]);
+        dataSourceServiceStub.delete.resolves({});
+
+        // WHEN
+        await comp.prepareRemove({ id: 123 });
+        await comp.removeDataSource();
+
+        // THEN
+        expect(dataSourceServiceStub.delete.called).toBeFalsy();
+        expect(comp.references).toHaveLength(1);
+
+        // WHEN
+        comp.forceDelete = true;
+        await comp.removeDataSource();
+
+        // THEN
+        expect(dataSourceServiceStub.delete.calledWith(123, true)).toBeTruthy();
       });
     });
   });

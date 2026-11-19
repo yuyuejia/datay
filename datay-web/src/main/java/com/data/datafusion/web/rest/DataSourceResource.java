@@ -3,10 +3,12 @@ package com.data.datafusion.web.rest;
 import com.data.datafusion.repository.DataSourceRepository;
 import com.data.datafusion.service.DataModelLineageService;
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceReferenceService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
 import com.data.datafusion.service.MetadataCollectTaskService;
 import com.data.datafusion.service.dto.DataSourceDTO;
+import com.data.datafusion.service.dto.DataSourceReferenceDTO;
 import com.data.datafusion.service.dto.TableLineageDTO;
 import com.data.datasource.DataSourceConnection;
 import com.data.datasource.DataSourceProviderFactory;
@@ -24,6 +26,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -58,13 +61,16 @@ public class DataSourceResource {
 
     private final MetadataCollectTaskService metadataCollectTaskService;
 
+    private final DataSourceReferenceService dataSourceReferenceService;
+
     public DataSourceResource(
         DataSourceService dataSourceService,
         DataSourceRepository dataSourceRepository,
         DataSourceQueryService dataSourceQueryService,
         DefaultWarehouseConfigService defaultWarehouseConfigService,
         DataModelLineageService dataModelLineageService,
-        MetadataCollectTaskService metadataCollectTaskService
+        MetadataCollectTaskService metadataCollectTaskService,
+        DataSourceReferenceService dataSourceReferenceService
     ) {
         this.dataSourceService = dataSourceService;
         this.dataSourceRepository = dataSourceRepository;
@@ -72,6 +78,7 @@ public class DataSourceResource {
         this.defaultWarehouseConfigService = defaultWarehouseConfigService;
         this.dataModelLineageService = dataModelLineageService;
         this.metadataCollectTaskService = metadataCollectTaskService;
+        this.dataSourceReferenceService = dataSourceReferenceService;
     }
 
     /**
@@ -194,14 +201,41 @@ public class DataSourceResource {
     }
 
     /**
+     * {@code GET  /data-sources/:id/references} : 查询引用该数据源的任务、模型或服务。
+     *
+     * @param id the id of the dataSource.
+     * @return 引用列表。
+     */
+    @GetMapping("/{id}/references")
+    public ResponseEntity<List<DataSourceReferenceDTO>> getDataSourceReferences(@PathVariable("id") String id) {
+        LOG.debug("REST request to get references of DataSource : {}", id);
+        return ResponseEntity.ok(dataSourceReferenceService.findReferences(id));
+    }
+
+    /**
      * {@code DELETE  /data-sources/:id} : delete the "id" dataSource.
      *
-     * @param id the id of the dataSourceDTO to delete.
-     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
+     * <p>默认会先校验引用；存在引用时返回 409 和引用明细。调用方确认后可通过
+     * {@code force=true} 强制删除，此时相关任务会保留但将无法继续正常运行。</p>
+     *
+     * @param id    the id of the dataSourceDTO to delete.
+     * @param force 是否忽略引用强制删除。
+     * @return {@code 204 (NO_CONTENT)}；存在引用且未强制删除时返回 {@code 409 (CONFLICT)}。
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDataSource(@PathVariable("id") String id) {
-        LOG.debug("REST request to delete DataSource : {}", id);
+    public ResponseEntity<?> deleteDataSource(
+        @PathVariable("id") String id,
+        @RequestParam(value = "force", defaultValue = "false") boolean force
+    ) {
+        LOG.debug("REST request to delete DataSource : {}, force: {}", id, force);
+        List<DataSourceReferenceDTO> references = dataSourceReferenceService.findReferences(id);
+        if (!force && !references.isEmpty()) {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("code", "DATA_SOURCE_IN_USE");
+            body.put("message", "数据源已被 " + references.size() + " 个对象引用，删除后相关任务将无法正常运行");
+            body.put("references", references);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        }
         metadataCollectTaskService.deleteByDataSourceId(id);
         dataSourceService.delete(id);
         return ResponseEntity.noContent()

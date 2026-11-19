@@ -14,6 +14,8 @@ import org.springframework.stereotype.Repository;
 public interface JobRepository extends JpaRepository<Job, String>, JpaSpecificationExecutor<Job> {
     List<Job> findByStatus(String status);
 
+    List<Job> findByTypeAndJobContextContaining(String type, String jobContext);
+
     List<Job> findByTypeOrderByIdAsc(String type);
 
     List<Job> findByDirectoryId(String directoryId);

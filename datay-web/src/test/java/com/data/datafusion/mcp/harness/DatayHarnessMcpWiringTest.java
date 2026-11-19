@@ -35,6 +35,8 @@ import com.data.datafusion.service.DataApiService;
 import com.data.datafusion.service.DataModelMaterializeService;
 import com.data.datafusion.service.DataModelService;
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DataSourceReferenceService;
+import com.data.datafusion.service.MetadataCollectTaskService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DataSyncService;
 import com.data.datafusion.service.DefaultWarehouseConfigService;
@@ -83,6 +85,8 @@ class DatayHarnessMcpWiringTest {
             .withBean(UserRepository.class, () -> mock(UserRepository.class))
             .withBean(DataSourceService.class, () -> mock(DataSourceService.class))
             .withBean(DataSourceQueryService.class, () -> mock(DataSourceQueryService.class))
+            .withBean(DataSourceReferenceService.class, () -> mock(DataSourceReferenceService.class))
+            .withBean(MetadataCollectTaskService.class, () -> mock(MetadataCollectTaskService.class))
             .withBean(DataSyncService.class, () -> mock(DataSyncService.class))
             .withBean(AiToolRegistry.class, () -> aiToolRegistry)
             .withBean(MetricMcpToolExecutor.class, () ->
@@ -125,6 +129,8 @@ class DatayHarnessMcpWiringTest {
             .withBean(MetricDirectoryService.class, () -> mock(MetricDirectoryService.class))
             .withBean(DataSourceService.class, () -> mock(DataSourceService.class))
             .withBean(DataSourceQueryService.class, () -> mock(DataSourceQueryService.class))
+            .withBean(DataSourceReferenceService.class, () -> mock(DataSourceReferenceService.class))
+            .withBean(MetadataCollectTaskService.class, () -> mock(MetadataCollectTaskService.class))
             .withBean(DataApiService.class, () -> mock(DataApiService.class))
             .withBean(DataApiExecuteService.class, () -> mock(DataApiExecuteService.class))
             .withBean(AnalysisDatasetService.class, () -> mock(AnalysisDatasetService.class))

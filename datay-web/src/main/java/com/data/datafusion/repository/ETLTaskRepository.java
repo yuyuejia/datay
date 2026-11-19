@@ -19,4 +19,6 @@ public interface ETLTaskRepository extends JpaRepository<ETLTask, String>, JpaSp
     Optional<ETLTask> findFirstByTaskName(String taskName);
 
     List<ETLTask> findByDirectoryId(String directoryId);
+
+    List<ETLTask> findByJobContextContaining(String jobContext);
 }
