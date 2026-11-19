@@ -105,7 +105,8 @@ public enum DBType {
             "mssql-jdbc-12.4.1.jre11.jar",
             "2022",
             "mssql-jdbc-12.4.1.jre11.jar"
-        )
+        ),
+        false
     ),
 
     DUCKDB(
@@ -153,7 +154,8 @@ public enum DBType {
             "clickhouse-jdbc-0.4.6.jar",
             "24.1",
             "clickhouse-jdbc-0.4.6.jar"
-        )
+        ),
+        false
     ),
 
     GREENPLUM(
@@ -294,12 +296,13 @@ public enum DBType {
         Arrays.asList("1.8", "1.9", "1.10", "1.11"),
         "org.apache.avro.jdbc.AvroDriver",
         "jdbc:avro://{host}:{port}/{database}",
-        Map.of("1.8", "avro-jdbc-1.8.2.jar", "1.9", "avro-jdbc-1.9.2.jar", "1.10", "avro-jdbc-1.10.2.jar", "1.11", "avro-jdbc-1.11.3.jar")
+        Map.of("1.8", "avro-jdbc-1.8.2.jar", "1.9", "avro-jdbc-1.9.2.jar", "1.10", "avro-jdbc-1.10.2.jar", "1.11", "avro-jdbc-1.11.3.jar"),
+        false
     ),
 
     /**
      * 达梦数据库（DaMeng / DM）。
-     * <p>JDBC 驱动未随平台打包，按需从 Maven 仓库下载到驱动目录（见 {@link com.data.metadata.util.DriverDownloader}）。
+     * <p>JDBC 驱动未随平台预置，需由用户上传到驱动目录（见 {@link com.data.metadata.util.DriverStore}）。
      */
     DM(
         "达梦数据库",
@@ -320,14 +323,13 @@ public enum DBType {
             "8.1.3.140",
             "DmJdbcDriver18-8.1.3.140.jar"
         ),
-        "com.dameng",
-        "DmJdbcDriver18"
+        false
     ),
 
     /**
      * SAP HANA 数据库。
-     * <p>JDBC 驱动（ngdbc）未随平台打包，按需从 Maven 仓库下载到驱动目录
-     * （见 {@link com.data.metadata.util.DriverDownloader}）。
+     * <p>JDBC 驱动（ngdbc）未随平台预置，需由用户上传到驱动目录
+     * （见 {@link com.data.metadata.util.DriverStore}）。
      * <p>JDBC URL 形如 {@code jdbc:sap://host:30015/?databaseName=HXE}，SQL 端口为 {@code 3<instance>15}。
      */
     HANA(
@@ -345,14 +347,13 @@ public enum DBType {
             "2.25.9",
             "ngdbc-2.25.9.jar"
         ),
-        "com.sap.cloud.db.jdbc",
-        "ngdbc"
+        false
     ),
 
     /**
      * TDengine 时序数据库。
      *
-     * <p>JDBC 驱动未随平台打包，按需从 Maven 仓库下载 {@code -dist} 完整包
+     * <p>JDBC 驱动未随平台预置，需用户上传 {@code -dist} 完整包
      * （已包含 Jackson、Guava、WebSocket 等依赖）。支持三种连接协议：
      * <ul>
      *   <li>WebSocket（默认）：{@code jdbc:TAOS-WS://host:6041/db}，驱动
@@ -380,8 +381,7 @@ public enum DBType {
             "3.10.0",
             "taos-jdbcdriver-3.10.0-dist.jar"
         ),
-        "com.taosdata.jdbc",
-        "taos-jdbcdriver"
+        false
     );
 
     private final String displayName;
@@ -389,8 +389,7 @@ public enum DBType {
     private final String driverClassName;
     private final String jdbcUrlTemplate;
     private final Map<String, String> versionToDriverJar;
-    private final String mavenGroupId;
-    private final String mavenArtifactId;
+    private final boolean driverPreinstalled;
 
     DBType(
         String displayName,
@@ -399,7 +398,7 @@ public enum DBType {
         String jdbcUrlTemplate,
         Map<String, String> versionToDriverJar
     ) {
-        this(displayName, supportedVersions, driverClassName, jdbcUrlTemplate, versionToDriverJar, null, null);
+        this(displayName, supportedVersions, driverClassName, jdbcUrlTemplate, versionToDriverJar, true);
     }
 
     DBType(
@@ -408,16 +407,14 @@ public enum DBType {
         String driverClassName,
         String jdbcUrlTemplate,
         Map<String, String> versionToDriverJar,
-        String mavenGroupId,
-        String mavenArtifactId
+        boolean driverPreinstalled
     ) {
         this.displayName = displayName;
         this.supportedVersions = supportedVersions;
         this.driverClassName = driverClassName;
         this.jdbcUrlTemplate = jdbcUrlTemplate;
         this.versionToDriverJar = versionToDriverJar;
-        this.mavenGroupId = mavenGroupId;
-        this.mavenArtifactId = mavenArtifactId;
+        this.driverPreinstalled = driverPreinstalled;
     }
 
     public String getDisplayName() {
@@ -447,19 +444,12 @@ public enum DBType {
         return versionToDriverJar.getOrDefault(resolved, versionToDriverJar.get(getDefaultVersion()));
     }
 
-    public String getMavenGroupId() {
-        return mavenGroupId;
-    }
-
-    public String getMavenArtifactId() {
-        return mavenArtifactId;
-    }
-
     /**
-     * 是否可以通过 Maven 仓库按需下载驱动。仅有 Maven 坐标（groupId/artifactId）的类型才支持。
+     * 驱动是否随平台预置（平台 classpath 已包含）。预置驱动无需用户上传；
+     * 未预置的类型会展示「上传驱动」入口，由用户上传到本地驱动目录。
      */
-    public boolean isDownloadable() {
-        return mavenGroupId != null && !mavenGroupId.isBlank() && mavenArtifactId != null && !mavenArtifactId.isBlank();
+    public boolean isDriverPreinstalled() {
+        return driverPreinstalled;
     }
 
     /**
@@ -467,22 +457,6 @@ public enum DBType {
      */
     public String resolveVersion(String version) {
         return (version == null || version.isBlank() || "default".equalsIgnoreCase(version)) ? getDefaultVersion() : version;
-    }
-
-    /**
-     * 计算驱动 jar 在 Maven 仓库中的相对路径，例如
-     * {@code com/dameng/DmJdbcDriver18/8.1.3.140/DmJdbcDriver18-8.1.3.140.jar}。
-     */
-    public String getMavenDriverRelativePath(String version) {
-        if (!isDownloadable()) {
-            return null;
-        }
-        String resolved = resolveVersion(version);
-        String jarName = getDriverJarForVersion(resolved);
-        if (jarName == null) {
-            jarName = mavenArtifactId + "-" + resolved + ".jar";
-        }
-        return mavenGroupId.replace('.', '/') + "/" + mavenArtifactId + "/" + resolved + "/" + jarName;
     }
 
     public boolean isVersionSupported(String version) {

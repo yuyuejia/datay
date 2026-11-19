@@ -19,7 +19,7 @@ public class DataSourceTypeDescriptor {
     private String defaultPort;
     private String driverClassName;
     private String jdbcUrlTemplate;
-    private boolean downloadable;
+    private boolean driverPreinstalled = true;
 
     public String getType() {
         return type;
@@ -84,12 +84,12 @@ public class DataSourceTypeDescriptor {
         return this;
     }
 
-    public boolean isDownloadable() {
-        return downloadable;
+    public boolean isDriverPreinstalled() {
+        return driverPreinstalled;
     }
 
-    public DataSourceTypeDescriptor setDownloadable(boolean downloadable) {
-        this.downloadable = downloadable;
+    public DataSourceTypeDescriptor setDriverPreinstalled(boolean driverPreinstalled) {
+        this.driverPreinstalled = driverPreinstalled;
         return this;
     }
 }

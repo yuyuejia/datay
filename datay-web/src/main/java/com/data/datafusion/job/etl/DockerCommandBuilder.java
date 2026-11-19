@@ -225,7 +225,7 @@ public final class DockerCommandBuilder {
         for (String[] mount : runtime.getMounts()) {
             addMount(cmd, mount[0], mount[1], mount[2]);
         }
-        // 驱动目录（rw，支持容器内按需下载驱动）
+        // 驱动目录（rw，容器直接读取用户上传的 JDBC 驱动）
         String driverDir = resolveDriverDir(cfg.getDriverDir());
         if (new File(driverDir).isDirectory()) {
             addMount(cmd, driverDir, cfg.getContainerDriverDir(), null);

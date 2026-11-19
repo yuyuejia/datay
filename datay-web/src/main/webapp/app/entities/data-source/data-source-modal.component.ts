@@ -1,4 +1,5 @@
 import { type Ref, computed, defineComponent, inject, nextTick, ref, watch } from 'vue';
+import { ElMessageBox } from 'element-plus';
 
 import DataSourceService from './data-source.service';
 import {
@@ -66,7 +67,9 @@ export default defineComponent({
     const customUrl = ref('');
     const oracleIdentifierType = ref<OracleIdentifierType>('service');
     const driverStatus: Ref<any> = ref(null);
-    const isDownloadingDriver = ref(false);
+    const isUploadingDriver = ref(false);
+    const driverUploadRef = ref<any>(null);
+    const selectedDriverFiles: Ref<File[]> = ref([]);
 
     const selectedDbType = computed<DbType | null>(() => {
       if (!dataSource.value.type) return null;
@@ -75,6 +78,33 @@ export default defineComponent({
 
     // 表单字段/连接能力完全由数据源类型配置驱动
     const formConfig = computed<DbFormConfig>(() => resolveDbFormConfig(selectedDbType.value));
+
+    // 通用 JDBC 驱动按数据源隔离：路径由上传接口返回并写入 jdbc.driverJar
+    const isGenericJdbc = computed(() => selectedDbType.value?.name === 'JDBC');
+    const genericDriverPath = computed(() => {
+      const value = dataSource.value.extraParams?.['jdbc.driverJar'];
+      return typeof value === 'string' ? value.trim() : '';
+    });
+    const genericDriverOwner = computed(() => {
+      if (!isGenericJdbc.value) return undefined;
+      if (genericDriverPath.value) {
+        const match = genericDriverPath.value.replace(/\\/g, '/').match(/drivers\/jdbc\/([^/]+)\/default\/?$/);
+        // 旧版本共享目录 drivers/jdbc/default 不作为归属，重新上传时迁移到独立目录
+        if (match && match[1] !== 'default' && /^[A-Za-z0-9_-]+$/.test(match[1])) {
+          return match[1];
+        }
+      }
+      // 已保存的数据源使用稳定归属，避免路径被清空后重复创建目录
+      const id = dataSource.value.id ? String(dataSource.value.id).replace(/[^A-Za-z0-9_-]/g, '') : '';
+      return id ? `ds${id}` : undefined;
+    });
+    const driverInstalled = computed(() => (isGenericJdbc.value ? !!genericDriverPath.value : !!driverStatus.value?.installed));
+    const driverDisplayName = computed(() => {
+      if (driverStatus.value?.jars?.length) {
+        return driverStatus.value.jars.join('、');
+      }
+      return isGenericJdbc.value ? genericDriverPath.value || '驱动未上传' : '驱动未上传';
+    });
 
     const selectedConnectionModeDef = computed<ConnectionModeDef | undefined>(() =>
       formConfig.value.connectionModes.find(m => m.value === selectedConnectionMode.value),
@@ -125,6 +155,13 @@ export default defineComponent({
     watch(selectedConnectionMode, () => {
       syncExtraParamsFromTemplate();
     });
+
+    watch(
+      () => dataSource.value.version,
+      () => {
+        loadDriverStatus();
+      },
+    );
 
     const effectiveExtraParamsTemplate = computed<ExtraParamDef[]>(() => {
       const mode = selectedConnectionModeDef.value;
@@ -180,29 +217,94 @@ export default defineComponent({
       buildExtraParamsFromRows();
     };
 
+    const showDriverUpload = computed(() => !!driverStatus.value && !driverStatus.value.preinstalled);
+
     const loadDriverStatus = async () => {
-      if (!selectedDbType.value?.downloadable || !dataSource.value.type) {
-        driverStatus.value = null;
+      driverStatus.value = null;
+      if (selectedDbType.value?.jdbc === false || !dataSource.value.type) {
         return;
       }
       try {
-        driverStatus.value = await dataSourceService().getDriverStatus(dataSource.value.type, dataSource.value.version || undefined);
+        driverStatus.value = await dataSourceService().getDriverStatus(
+          dataSource.value.type,
+          dataSource.value.version || undefined,
+          isGenericJdbc.value ? genericDriverOwner.value : undefined,
+        );
       } catch (error) {
         driverStatus.value = null;
       }
     };
 
-    const onDriverDownload = async () => {
-      if (!dataSource.value.type) return;
-      isDownloadingDriver.value = true;
+    let driverSelectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resetDriverFiles = () => {
+      selectedDriverFiles.value = [];
+      driverUploadRef.value?.clearFiles?.();
+    };
+
+    const onDriverFilesSelected = (_file: any, fileList: any[]) => {
+      if (driverSelectTimer) {
+        clearTimeout(driverSelectTimer);
+      }
+      driverSelectTimer = setTimeout(() => {
+        driverSelectTimer = null;
+        selectedDriverFiles.value = (fileList || []).map(item => item?.raw).filter((file): file is File => !!file);
+        onDriverUpload();
+      }, 0);
+    };
+
+    const onDriverFilesExceed = () => {
+      alertService.showWarning('一次最多上传 10 个驱动文件');
+    };
+
+    const applyGenericDriverPath = (path: string) => {
+      if (!isGenericJdbc.value || !path) return;
+      const row = extraParamRows.value.find(item => item.key === 'jdbc.driverJar');
+      if (row) {
+        row.value = path;
+      } else {
+        extraParamRows.value.push({
+          key: 'jdbc.driverJar',
+          value: path,
+          required: false,
+          label: '驱动 Jar 路径',
+          description: '驱动 Jar 文件或目录路径',
+        });
+      }
+      dataSource.value.extraParams = { ...(dataSource.value.extraParams || {}), 'jdbc.driverJar': path };
+    };
+
+    const onDriverUpload = async () => {
+      if (!dataSource.value.type || selectedDriverFiles.value.length === 0) {
+        return;
+      }
+      if (driverInstalled.value) {
+        const target = isGenericJdbc.value ? '该数据源' : '该类型';
+        try {
+          await ElMessageBox.confirm(`上传会替换${target}已有驱动，是否继续？`, '上传驱动', { type: 'warning' });
+        } catch (error) {
+          resetDriverFiles();
+          return;
+        }
+      }
+      isUploadingDriver.value = true;
       try {
-        const result = await dataSourceService().downloadDriver(dataSource.value.type, dataSource.value.version || undefined);
-        alertService.showSuccess(result.message || '驱动下载成功');
+        const result = await dataSourceService().uploadDriver(
+          dataSource.value.type,
+          selectedDriverFiles.value,
+          true,
+          isGenericJdbc.value ? genericDriverOwner.value : undefined,
+        );
+        if (isGenericJdbc.value && (result.driverPath || result.driverDir)) {
+          applyGenericDriverPath(result.driverPath || result.driverDir);
+        }
+        driverStatus.value = result;
+        alertService.showSuccess(result.message || '驱动上传成功');
       } catch (error) {
         alertService.showHttpError(error.response);
       } finally {
-        isDownloadingDriver.value = false;
-        await loadDriverStatus();
+        isUploadingDriver.value = false;
+        resetDriverFiles();
       }
     };
 
@@ -575,8 +677,15 @@ export default defineComponent({
       databaseLabel,
       effectiveExtraParamsTemplate,
       driverStatus,
-      isDownloadingDriver,
-      onDriverDownload,
+      showDriverUpload,
+      driverInstalled,
+      driverDisplayName,
+      isUploadingDriver,
+      driverUploadRef,
+      selectedDriverFiles,
+      onDriverFilesSelected,
+      onDriverFilesExceed,
+      onDriverUpload,
       testConnectionDisabled,
       selectDbType,
       selectAndGo,

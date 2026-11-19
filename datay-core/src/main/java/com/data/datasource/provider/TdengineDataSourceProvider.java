@@ -7,7 +7,7 @@ import com.data.job.DatasourceInfo;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.ConnectionPoolManager;
-import com.data.metadata.util.DriverDownloader;
+import com.data.metadata.util.DriverStore;
 import com.data.metadata.util.TdengineJdbcSupport;
 import java.io.File;
 import java.sql.Connection;
@@ -68,11 +68,10 @@ public class TdengineDataSourceProvider extends JdbcDataSourceProvider {
 
     @Override
     public Connection openConnection(DatasourceInfo info) throws SQLException {
-        // TDengine 驱动不随平台打包，连接前确保本地驱动目录已就绪。
-        ensureDriverAvailable(DEFAULT_VERSION);
-        if (!DriverDownloader.isDriverInstalled(DBType.TDENGINE, DEFAULT_VERSION)) {
+        // TDengine 驱动不随平台预置，连接前检查用户是否已上传驱动。
+        if (!DriverStore.isDriverInstalled(DBType.TDENGINE)) {
             throw new SQLException(
-                "TDengine JDBC 驱动未安装，请先在数据源管理页面下载 taos-jdbcdriver，或检查 Maven 仓库网络配置"
+                "TDengine JDBC 驱动未安装，请在数据源页面「JDBC 驱动」处上传 taos-jdbcdriver-*-dist.jar 后重试"
             );
         }
         String driverClass = TdengineJdbcSupport.driverClassName(info == null ? null : info.getUrl());

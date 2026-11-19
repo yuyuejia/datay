@@ -13,7 +13,7 @@ import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.TypeConverter;
 import com.data.metadata.util.ConnectionPoolManager;
-import com.data.metadata.util.DriverDownloader;
+import com.data.metadata.util.DriverStore;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -247,24 +247,7 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
      */
     public File driverDirectory(String version) {
         DBType dbType = resolveDbType();
-        return dbType == null ? null : DriverDownloader.getDriverDir(dbType, version);
-    }
-
-    /**
-     * 若该类型支持 Maven 下载且本地缺失，则按需下载驱动。默认按 {@link #descriptor()} 类型推导。
-     */
-    public void ensureDriverAvailable(String version) {
-        DBType dbType = resolveDbType();
-        if (dbType == null || !dbType.isDownloadable() || DriverDownloader.isDriverInstalled(dbType, version)) {
-            return;
-        }
-        try {
-            DriverDownloader.downloadDriver(dbType, version);
-        } catch (Exception e) {
-            System.err.println(
-                "Failed to auto-download driver for " + dbType + " version " + version + ": " + e.getMessage()
-            );
-        }
+        return dbType == null ? null : DriverStore.getDriverDir(dbType);
     }
 
     /**
@@ -401,7 +384,7 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
             .setSupportedVersions(dbType.getSupportedVersions())
             .setDriverClassName(dbType.getDriverClassName())
             .setJdbcUrlTemplate(dbType.getJdbcUrlTemplate())
-            .setDownloadable(dbType.isDownloadable());
+            .setDriverPreinstalled(dbType.isDriverPreinstalled());
     }
 
     /**

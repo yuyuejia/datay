@@ -41,7 +41,7 @@ class JdbcDataSourceProviderTest {
     @Test
     void descriptorsReflectDbTypeMetadata() {
         DataSourceTypeDescriptor descriptor = new DmDataSourceProvider().descriptors().get(0);
-        assertTrue(descriptor.isDownloadable());
+        assertFalse(descriptor.isDriverPreinstalled());
         assertNotNull(descriptor.getJdbcUrlTemplate());
         assertNotNull(descriptor.getDriverClassName());
         assertFalse(descriptor.getSupportedVersions().isEmpty());

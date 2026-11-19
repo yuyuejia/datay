@@ -20,8 +20,8 @@ docker compose up -d
 
 ## 运行测试
 
-测试默认跳过，需要显式开启，并确保本机已下载 `taos-jdbcdriver`（可通过数据源管理页下载，
-或允许测试自动从 Maven 仓库下载）：
+测试默认跳过，需要显式开启，并确保本机已下载 `taos-jdbcdriver`（可先在数据源管理页上传
+`taos-jdbcdriver-*-dist.jar` 到 `drivers/tdengine/default/`）：
 
 ```bash
 cd /path/to/datay

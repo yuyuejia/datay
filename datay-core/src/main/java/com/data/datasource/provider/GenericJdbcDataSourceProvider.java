@@ -8,14 +8,16 @@ import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
 import com.data.metadata.TypeConverter;
 import com.data.metadata.util.ConnectionPoolManager;
-import com.data.metadata.util.DriverDownloader;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -38,9 +40,8 @@ import java.util.jar.JarFile;
  * <ul>
  *   <li>{@code jdbc.driverClass}：JDBC 驱动类名（可选；缺省时从驱动 Jar 的
  *       {@code META-INF/services/java.sql.Driver} 解析）</li>
- *   <li>{@code jdbc.driverJar}：驱动 Jar 文件或目录路径（可选；不填则使用平台类路径）</li>
- *   <li>{@code jdbc.maven.groupId} / {@code jdbc.maven.artifactId} / {@code jdbc.maven.version}：
- *       从 Maven 仓库下载驱动 Jar（可选，作为 {@code jdbc.driverJar} 的补充）</li>
+ *   <li>{@code jdbc.driverJar}：驱动 Jar 文件或目录路径（可选；通用 JDBC 数据源上传驱动后会自动填入该参数，
+ *       不同数据源使用独立目录，互不共享；未填写时回退平台类路径）</li>
  *   <li>{@code jdbc.testQuery}：连通性测试语句（可选，默认 {@code SELECT 1}）</li>
  * </ul>
  */
@@ -49,7 +50,11 @@ public class GenericJdbcDataSourceProvider extends JdbcDataSourceProvider {
 
     @Override
     protected DataSourceTypeDescriptor descriptor() {
-        return new DataSourceTypeDescriptor().setType("JDBC").setDisplayName("通用 JDBC").setJdbc(true);
+        return new DataSourceTypeDescriptor()
+            .setType("JDBC")
+            .setDisplayName("通用 JDBC")
+            .setJdbc(true)
+            .setDriverPreinstalled(false);
     }
 
     @Override
@@ -156,27 +161,14 @@ public class GenericJdbcDataSourceProvider extends JdbcDataSourceProvider {
         String driverJar = trimToNull(extra.get("jdbc.driverJar"));
         String testQuery = trimToNull(extra.get("jdbc.testQuery"));
 
-        if (driverJar == null) {
-            String groupId = trimToNull(extra.get("jdbc.maven.groupId"));
-            String artifactId = trimToNull(extra.get("jdbc.maven.artifactId"));
-            String version = trimToNull(extra.get("jdbc.maven.version"));
-            if (groupId != null && artifactId != null && version != null) {
-                try {
-                    File jar = DriverDownloader.downloadJar(
-                        groupId,
-                        artifactId,
-                        version,
-                        new File(DriverDownloader.DRIVER_BASE_DIR, "jdbc")
-                    );
-                    driverJar = jar.getAbsolutePath();
-                } catch (Exception e) {
-                    System.err.println("通用 JDBC 驱动下载失败：" + e.getMessage());
-                }
-            }
-        }
-
         if (driverClass == null && driverJar != null) {
             driverClass = resolveDriverClassFromJar(driverJar);
+        }
+
+        if (driverClass == null) {
+            throw new SQLException(
+                "通用 JDBC 驱动未就绪：请上传驱动 jar（或填写 jdbc.driverJar），并可通过 jdbc.driverClass 指定驱动类名"
+            );
         }
 
         return ConnectionPoolManager.getConnection(info, driverClass, driverJar, testQuery);
@@ -184,9 +176,25 @@ public class GenericJdbcDataSourceProvider extends JdbcDataSourceProvider {
 
     /**
      * 从驱动 Jar 的 {@code META-INF/services/java.sql.Driver} 读取驱动类名。
+     *
+     * <p>支持传入单个 jar 文件或驱动目录；目录下按文件名顺序查找第一个可用声明。
      */
     private static String resolveDriverClassFromJar(String jarPath) {
         File jar = new File(jarPath);
+        if (jar.isDirectory()) {
+            File[] jars = jar.listFiles((d, name) -> name.toLowerCase(Locale.ROOT).endsWith(".jar"));
+            if (jars == null) {
+                return null;
+            }
+            Arrays.sort(jars, Comparator.comparing(File::getName));
+            for (File child : jars) {
+                String resolved = resolveDriverClassFromJar(child.getAbsolutePath());
+                if (resolved != null) {
+                    return resolved;
+                }
+            }
+            return null;
+        }
         if (!jar.isFile()) {
             return null;
         }

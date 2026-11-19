@@ -217,7 +217,7 @@ npm start
 | `datay-web/target/h2db/db/datafusion` | 本地 H2 数据库（账号、租户、任务等） |
 | `datay-web/data` | DuckDB、DuckLake、智能问数索引、上传文件等 |
 | `datay-web/log` | 任务运行日志 |
-| `datay-web/drivers` | 外部 JDBC 驱动 |
+| `datay-web/drivers` | 上传/外部 JDBC 驱动 |
 
 > `mvn clean` 会删除整个 `target`，包括本地 H2 数据库。需要保留演示数据时，请先备份
 > `datay-web/target/h2db`，或改用 MySQL 作为元数据库。

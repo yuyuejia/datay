@@ -31,7 +31,7 @@ class TdengineDataSourceProviderTest {
         DataSourceTypeDescriptor descriptor = provider.descriptors().get(0);
         assertEquals(DBType.TDENGINE.name(), descriptor.getType());
         assertTrue(descriptor.isJdbc());
-        assertTrue(descriptor.isDownloadable());
+        assertFalse(descriptor.isDriverPreinstalled());
         assertEquals("jdbc:TAOS-WS://{host}:{port}/{database}", descriptor.getJdbcUrlTemplate());
         assertNotNull(provider.typeConverter(DBType.TDENGINE.name()));
     }

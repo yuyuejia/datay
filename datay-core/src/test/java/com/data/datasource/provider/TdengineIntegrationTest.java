@@ -9,7 +9,7 @@ import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
-import com.data.metadata.util.DriverDownloader;
+import com.data.metadata.util.DriverStore;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -39,14 +39,9 @@ class TdengineIntegrationTest {
         String url = System.getenv("TDENGINE_IT_URL");
         Assumptions.assumeTrue(url != null && !url.isBlank(), "未设置 TDENGINE_IT_URL，跳过 TDengine 集成测试");
 
-        try {
-            DriverDownloader.downloadDriver(DBType.TDENGINE, "default");
-        } catch (Exception e) {
-            Assumptions.abort("TDengine JDBC 驱动不可用：" + e.getMessage());
-        }
         Assumptions.assumeTrue(
-            DriverDownloader.isDriverInstalled(DBType.TDENGINE, "default"),
-            "TDengine JDBC 驱动未安装"
+            DriverStore.isDriverInstalled(DBType.TDENGINE),
+            "TDengine JDBC 驱动未安装，请先上传 taos-jdbcdriver-*-dist.jar"
         );
 
         DatasourceInfo info = new DatasourceInfo();

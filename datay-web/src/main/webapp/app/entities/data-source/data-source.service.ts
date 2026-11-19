@@ -210,10 +210,13 @@ export default class DataSourceService {
     });
   }
 
-  getDriverStatus(type: string, version?: string): Promise<any> {
+  getDriverStatus(type: string, version?: string, owner?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
+      const params: Record<string, string> = {};
+      if (version) params.version = version;
+      if (owner) params.owner = owner;
       axios
-        .get(`api/drivers/${type}`, { params: version ? { version } : {} })
+        .get(`api/drivers/${type}`, { params })
         .then(res => {
           resolve(res.data);
         })
@@ -223,10 +226,14 @@ export default class DataSourceService {
     });
   }
 
-  downloadDriver(type: string, version?: string): Promise<any> {
+  uploadDriver(type: string, files: File[], replace = true, owner?: string): Promise<any> {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
     return new Promise<any>((resolve, reject) => {
+      const params: Record<string, string | boolean> = { replace };
+      if (owner) params.owner = owner;
       axios
-        .post(`api/drivers/${type}/download`, null, { params: version ? { version } : {} })
+        .post(`api/drivers/${type}/upload`, formData, { params })
         .then(res => {
           resolve(res.data);
         })

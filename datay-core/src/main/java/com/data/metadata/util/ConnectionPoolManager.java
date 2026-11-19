@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 连接池管理器
@@ -28,6 +29,7 @@ public class ConnectionPoolManager {
 
     private static final Map<String, HikariDataSource> dataSourcePool = new ConcurrentHashMap<>();
     private static final Map<String, DriverClassLoader> driverClassLoaders = new ConcurrentHashMap<>();
+    private static final Map<String, List<java.sql.Driver>> registeredDrivers = new ConcurrentHashMap<>();
 
     // 默认连接池配置
     private static final int DEFAULT_MAX_POOL_SIZE = 10;
@@ -35,9 +37,6 @@ public class ConnectionPoolManager {
     private static final long DEFAULT_CONNECTION_TIMEOUT = 10000;
     private static final long DEFAULT_IDLE_TIMEOUT = 600000;
     private static final long DEFAULT_MAX_LIFETIME = 1800000;
-
-    // 驱动包根目录配置
-    private static final String DRIVER_BASE_DIR = "drivers";
 
 
     /**
@@ -274,24 +273,57 @@ public class ConnectionPoolManager {
             synchronized (ConnectionPoolManager.class) {
                 classLoader = driverClassLoaders.get(driverKey);
                 if (classLoader == null) {
-                    classLoader = new DriverClassLoader();
-                    driverClassLoaders.put(driverKey, classLoader);
-
-                    // 按需下载，并加载该数据源驱动目录下的驱动包
-                    provider.ensureDriverAvailable(version);
-                    loadDriverJars(provider.driverDirectory(version), classLoader, provider.typeName(), version);
+                    DriverClassLoader candidate = new DriverClassLoader();
+                    // 加载该数据源驱动目录下的驱动包（平台不再自动下载驱动）
+                    loadDriverJars(provider.driverDirectory(version), candidate, provider.typeName(), version);
 
                     try {
                         // 使用自定义类加载器加载驱动类
-                        Class<?> driverClass = classLoader.loadClass(driverClassName);
+                        Class<?> driverClass = candidate.loadClass(driverClassName);
                         // 注册驱动
                         java.sql.Driver driver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
-                        registerDriverProxy(driver, classLoader);
+                        registerDriverProxy(driver, candidate, driverKey);
+                        classLoader = candidate;
+                        driverClassLoaders.put(driverKey, candidate);
                     } catch (Exception e) {
-                        throw new RuntimeException("Failed to load driver: " + driverClassName, e);
+                        throw driverLoadException(provider, version, driverClassName, e);
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * 构建驱动加载失败异常。未上传驱动时给出明确的上传提示，避免只暴露 NoClassDefFoundError。
+     */
+    private static RuntimeException driverLoadException(
+        JdbcDataSourceProvider provider,
+        String version,
+        String driverClassName,
+        Exception cause
+    ) {
+        File dir = provider.driverDirectory(version);
+        File[] jars = dir == null
+            ? null
+            : dir.listFiles((d, name) -> name.toLowerCase(Locale.ROOT).endsWith(".jar"));
+        boolean hasLocalJar = jars != null && jars.length > 0;
+        if (!hasLocalJar && !isOnPlatformClasspath(driverClassName)) {
+            return new RuntimeException(
+                "JDBC 驱动未安装：" +
+                driverClassName +
+                "。请在数据源页面「JDBC 驱动」处上传对应的驱动 jar 后重试。",
+                cause
+            );
+        }
+        return new RuntimeException("Failed to load driver: " + driverClassName, cause);
+    }
+
+    private static boolean isOnPlatformClasspath(String driverClassName) {
+        try {
+            Class.forName(driverClassName, false, ConnectionPoolManager.class.getClassLoader());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
@@ -322,7 +354,7 @@ public class ConnectionPoolManager {
             try {
                 Class<?> driverClass = classLoader.loadDriverClass(driverClassName);
                 java.sql.Driver driver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
-                registerDriverProxy(driver, classLoader);
+                registerDriverProxy(driver, classLoader, driverKey);
                 System.out.println("Loaded custom JDBC driver: " + driverClassName + " from " + driverJarPath);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to load driver: " + driverClassName, e);
@@ -339,15 +371,23 @@ public class ConnectionPoolManager {
      * 因此优先用系统类加载器加载 {@link DriverProxy} 并创建代理实例，确保过滤通过；
      * 若系统类加载器无法加载（如可执行 fat jar），则回退为当前类加载器直接注册。
      */
-    private static void registerDriverProxy(java.sql.Driver driver, DriverClassLoader classLoader) throws Exception {
+    private static void registerDriverProxy(
+        java.sql.Driver driver,
+        DriverClassLoader classLoader,
+        String driverKey
+    ) throws Exception {
+        java.sql.Driver proxy = createDriverProxy(driver, classLoader);
+        java.sql.DriverManager.registerDriver(proxy);
+        registeredDrivers.computeIfAbsent(driverKey, key -> new CopyOnWriteArrayList<>()).add(proxy);
+    }
+
+    private static java.sql.Driver createDriverProxy(java.sql.Driver driver, DriverClassLoader classLoader) throws Exception {
         ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
         if (systemClassLoader != null && DriverProxy.class.getClassLoader() != systemClassLoader) {
             try {
                 Class<?> proxyClass = Class.forName(DriverProxy.class.getName(), true, systemClassLoader);
                 if (proxyClass != DriverProxy.class) {
-                    java.sql.Driver proxy = (java.sql.Driver) proxyClass.getConstructor(java.sql.Driver.class).newInstance(driver);
-                    java.sql.DriverManager.registerDriver(proxy);
-                    return;
+                    return (java.sql.Driver) proxyClass.getConstructor(java.sql.Driver.class).newInstance(driver);
                 }
             } catch (Throwable e) {
                 System.err.println(
@@ -355,13 +395,13 @@ public class ConnectionPoolManager {
                 );
             }
         }
-        java.sql.DriverManager.registerDriver(new DriverProxy(driver, classLoader));
+        return new DriverProxy(driver, classLoader);
     }
 
     /**
      * 加载指定目录（或单个 jar 文件）下的驱动 jar。
      *
-     * <p>驱动目录解析与按需下载均由各数据源 Provider 提供（见
+     * <p>驱动目录解析由各数据源 Provider 提供（见
      * {@link JdbcDataSourceProvider#driverDirectory(String)}）；目录或文件不存在时仅告警，
      * 驱动类仍可能由平台类路径提供。
      */
@@ -484,6 +524,51 @@ public class ConnectionPoolManager {
     }
 
     /**
+     * 驱动上传/替换后清理该类型的驱动类加载器与连接池，使新驱动立即生效。
+     *
+     * @param type 数据源类型，如 {@code DM}、{@code TDENGINE}；通用 JDBC 传 {@code JDBC}
+     */
+    public static void invalidateDriver(String type) {
+        String normalized = normalizedType(type);
+        if (normalized == null) {
+            return;
+        }
+
+        List<String> poolKeys = new ArrayList<>();
+        String poolSuffix = "|" + normalized;
+        for (String key : dataSourcePool.keySet()) {
+            if (key.endsWith(poolSuffix) || key.contains(poolSuffix + "|")) {
+                poolKeys.add(key);
+            }
+        }
+        for (String key : poolKeys) {
+            closeQuietly(dataSourcePool.remove(key));
+        }
+
+        String driverPrefix = normalized + "|";
+        List<String> driverKeys = new ArrayList<>();
+        for (String key : driverClassLoaders.keySet()) {
+            if (key.startsWith(driverPrefix) || ("JDBC".equals(normalized) && key.startsWith("jdbc|"))) {
+                driverKeys.add(key);
+            }
+        }
+        for (String key : driverKeys) {
+            driverClassLoaders.remove(key);
+            List<java.sql.Driver> drivers = registeredDrivers.remove(key);
+            if (drivers == null) {
+                continue;
+            }
+            for (java.sql.Driver driver : drivers) {
+                try {
+                    java.sql.DriverManager.deregisterDriver(driver);
+                } catch (Exception e) {
+                    System.err.println("Failed to deregister driver: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
      * 关闭所有键以指定前缀开头的连接池。
      */
     private static void closePoolsMatching(String prefix) {
@@ -518,6 +603,16 @@ public class ConnectionPoolManager {
         }
         dataSourcePool.clear();
         driverClassLoaders.clear();
+        registeredDrivers.values().forEach(drivers -> {
+            for (java.sql.Driver driver : drivers) {
+                try {
+                    java.sql.DriverManager.deregisterDriver(driver);
+                } catch (Exception ignored) {
+                    // ignore
+                }
+            }
+        });
+        registeredDrivers.clear();
     }
 
     /**

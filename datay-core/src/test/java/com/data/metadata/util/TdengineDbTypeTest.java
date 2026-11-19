@@ -47,15 +47,10 @@ class TdengineDbTypeTest {
     }
 
     @Test
-    void driverMetadataIsDownloadableFromMaven() {
-        assertTrue(DBType.TDENGINE.isDownloadable());
-        assertEquals("com.taosdata.jdbc", DBType.TDENGINE.getMavenGroupId());
-        assertEquals("taos-jdbcdriver", DBType.TDENGINE.getMavenArtifactId());
+    void driverMetadataRequiresUpload() {
+        assertFalse(DBType.TDENGINE.isDriverPreinstalled());
         assertEquals("3.10.0", DBType.TDENGINE.getDefaultVersion());
-        assertEquals(
-            "com/taosdata/jdbc/taos-jdbcdriver/3.10.0/taos-jdbcdriver-3.10.0-dist.jar",
-            DBType.TDENGINE.getMavenDriverRelativePath("default")
-        );
+        assertEquals("taos-jdbcdriver-3.10.0-dist.jar", DBType.TDENGINE.getDriverJarForVersion("default"));
         assertEquals("taos-jdbcdriver-3.5.2-dist.jar", DBType.TDENGINE.getDriverJarForVersion("3.5.2"));
     }
 }

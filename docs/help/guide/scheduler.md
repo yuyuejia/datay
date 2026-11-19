@@ -272,7 +272,7 @@ docker 模式按以下优先级自动选择 ETL 运行时，**开发模式下通
     自定义别名用 `host-access-alias`。
   - 需要特殊网络模式（如 `host`）时再配置 `network`
 - 未随 jar 内置的 JDBC 驱动（如达梦、Elasticsearch）放在宿主 `driver-dir`，容器可直接加载；
-  如需在容器内按需下载驱动，`driver-dir` 需可写，并可通过 `driver-repos` 指定 Maven 仓库
+  也可在数据源页面「JDBC 驱动」处上传，文件会写入 `driver-dir` 并自动刷新连接池
 
 ### 状态存储
 

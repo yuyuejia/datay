@@ -64,16 +64,24 @@
             <el-option v-for="dbType in dbTypes" :key="dbType.name" :value="dbType.name" :label="dbType.displayName" />
           </el-select>
           </el-form-item>
-            <el-form-item v-if="selectedDbType?.downloadable" label="JDBC 驱动">
-            <div class="driver-status">
-                <el-tag v-if="driverStatus?.installed" type="success" size="small">已安装</el-tag>
-                <el-tag v-else type="warning" size="small">未安装</el-tag>
-                <span class="driver-name text-muted">{{ driverStatus?.jarName || '驱动未下载' }}</span>
-                <el-button type="primary" plain size="small" :loading="isDownloadingDriver" @click="onDriverDownload">
-                  {{ driverStatus?.installed ? '重新下载驱动' : '下载驱动' }}
-                </el-button>
-              </div>
-            <small class="text-muted d-block">该数据库驱动未内置，测试连接或首次连接时会自动下载，也可手动下载到驱动目录</small>
+            <el-form-item v-if="showDriverUpload" label="JDBC 驱动">
+            <div class="driver-upload-row">
+              <el-tag v-if="driverInstalled" type="success" size="small">已安装</el-tag>
+              <el-tag v-else type="warning" size="small">未安装</el-tag>
+              <span class="driver-name text-muted">{{ driverDisplayName }}</span>
+              <el-upload
+                ref="driverUploadRef"
+                :auto-upload="false"
+                :multiple="true"
+                :limit="10"
+                accept=".jar"
+                :show-file-list="false"
+                :on-change="onDriverFilesSelected"
+                :on-exceed="onDriverFilesExceed"
+              >
+                <el-button type="primary" plain size="small" :loading="isUploadingDriver">选择并上传</el-button>
+              </el-upload>
+            </div>
           </el-form-item>
             <el-form-item v-if="showConnectionModeSelector" label="连接方式">
             <div class="d-flex gap-3">
@@ -375,14 +383,14 @@
   color: #212529;
 }
 
-.driver-status {
+.driver-upload-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
 }
 
-.driver-status .driver-name {
+.driver-upload-row .driver-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;

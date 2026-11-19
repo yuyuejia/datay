@@ -341,7 +341,6 @@ public class DockerEtlTask extends AbstractTask {
             env.put("DATAY_STATUS_LOCAL_BASE_PATH", workDir + "/log");
         }
 
-        putIfPresent(env, "DATAY_DRIVER_REPOS", cfg.getDriverRepos());
         if (cfg.getExtraEnv() != null) {
             cfg.getExtraEnv().forEach((k, v) -> putIfPresent(env, k, v));
         }

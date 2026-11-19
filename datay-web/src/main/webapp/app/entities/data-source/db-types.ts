@@ -102,8 +102,8 @@ export interface DbType {
   extraParamsTemplate?: ExtraParamDef[];
   connectionModes?: ConnectionModeDef[];
   defaultConnectionMode?: string;
-  /** 该类型驱动未内置，支持从 Maven 仓库按需下载 */
-  downloadable?: boolean;
+  /** 该类型是否为 JDBC 数据源（决定是否展示 JDBC 驱动上传入口）。默认 true */
+  jdbc?: boolean;
 }
 
 /**
@@ -245,7 +245,6 @@ export const dbTypes: DbType[] = [
     defaultPort: '30015',
     image: '/content/images/hana.svg',
     clearSchemaOnSave: true,
-    downloadable: true,
   },
   {
     name: 'TDENGINE',
@@ -258,7 +257,6 @@ export const dbTypes: DbType[] = [
     image: '/content/images/tdengine.svg',
     // TDengine 无 schema 概念，database 即 catalog
     clearSchemaOnSave: true,
-    downloadable: true,
   },
   {
     name: 'POSTGRESQL',
@@ -290,7 +288,6 @@ export const dbTypes: DbType[] = [
     image: '/content/images/dm.png',
     databaseEnabled: false,
     clearDatabaseOnSave: true,
-    downloadable: true,
   },
   {
     name: 'SQLSERVER',
@@ -524,20 +521,12 @@ export const dbTypes: DbType[] = [
     schemaEnabled: true,
     extraParamsTemplate: [
       { key: 'jdbc.driverClass', label: '驱动类名', required: true, description: 'JDBC 驱动类，如 org.apache.hive.jdbc.HiveDriver' },
-      { key: 'jdbc.driverJar', label: '驱动 Jar 路径', required: false, description: '驱动 Jar 文件或目录路径；留空则使用平台类路径' },
       {
-        key: 'jdbc.maven.groupId',
-        label: 'Maven GroupId',
+        key: 'jdbc.driverJar',
+        label: '驱动 Jar 路径',
         required: false,
-        description: '从 Maven 仓库下载驱动时的 groupId，如 org.apache.hive',
+        description: '驱动 Jar 文件或目录路径；上传驱动后自动填充，每个数据源独立存放，互不共享',
       },
-      {
-        key: 'jdbc.maven.artifactId',
-        label: 'Maven ArtifactId',
-        required: false,
-        description: '从 Maven 仓库下载驱动时的 artifactId，如 hive-jdbc',
-      },
-      { key: 'jdbc.maven.version', label: 'Maven Version', required: false, description: '从 Maven 仓库下载驱动时的版本，如 3.1.3' },
       { key: 'jdbc.testQuery', label: '测试查询', required: false, defaultValue: 'SELECT 1', description: '连通性测试语句，默认 SELECT 1' },
     ],
   },
@@ -550,6 +539,7 @@ export const dbTypes: DbType[] = [
     defaultPort: '27017',
     image: '/content/images/mongodb.svg',
     // 非 JDBC 数据源：文档型数据库，集合即「表」，查询使用 JSON 信封（find/aggregate）。
+    jdbc: false,
     credentials: true,
     credentialsOptional: true,
     databaseEnabled: true,
@@ -568,6 +558,7 @@ export const dbTypes: DbType[] = [
     defaultPort: '9200',
     image: '/content/images/elasticsearch.svg',
     // 非 JDBC 数据源：通过 REST API 访问，无数据库/schema 概念，索引即「表」。
+    jdbc: false,
     // 仅使用自定义 URL 模式（不提供 http/https 连接模式选择），https 证书默认忽略校验。
     network: false,
     databaseEnabled: false,
@@ -587,6 +578,7 @@ export const dbTypes: DbType[] = [
     defaultPort: '6379',
     image: '/content/images/redis.svg',
     // 非 JDBC 数据源：Schema 作为 Redis DB 索引，key 在元数据浏览中映射为“表”。
+    jdbc: false,
     // 使用自定义 URL 模式，保留 redis:// 与 rediss:// 协议差异。
     network: false,
     credentials: true,
@@ -612,6 +604,7 @@ export const dbTypes: DbType[] = [
     defaultPort: '8086',
     image: '/content/images/influxdb.svg',
     // 非 JDBC 时序数据库：通过 HTTP API 访问（1.x InfluxQL / 2.x Flux）。
+    jdbc: false,
     // 仅使用自定义 URL 模式：URL 直接携带协议与主机端口，Bucket（2.x）/ Database（1.x）存入「默认Schema」，
     // 1.x 使用用户名/密码认证；2.x 只需额外的 Org 与 Token 两个参数（填写即自动按 2.x 连接）。
     network: false,

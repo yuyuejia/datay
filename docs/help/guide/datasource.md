@@ -85,12 +85,26 @@ TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏�
 | 原生 | `jdbc:TAOS://127.0.0.1:6030/power` | `6030` | `com.taosdata.jdbc.TSDBDriver` |
 
 - 前端默认按 WebSocket 拼接 URL；REST 或原生连接通过「自定义 URL」直接填写。
-- `taos-jdbcdriver` 不随平台打包，首次连接时按需从 Maven 仓库下载 `-dist` 完整包，请确保运行环境可访问 Maven 仓库。
+- `taos-jdbcdriver` 不随平台预置，需在新建数据源时通过「JDBC 驱动」上传 `-dist` 完整包（已包含 Jackson、Guava、WebSocket 等依赖）。
 - 原生协议依赖本机 TDengine 客户端原生库；容器化部署建议优先使用 WebSocket 或 REST。
 - TDengine 没有 schema 概念，**database 会作为 schema 展示**；左侧元数据树按 `database → table → column` 浏览。
 - 每个表必须包含一个 `TIMESTAMP` 时间列，ETL 自动建表时会将该列放在第一列。
 - TDengine 相同时间戳重复写入会覆盖旧值，因此 ETL 的 `update` 模式在 TDengine 上等价于 `insert/upsert`。
 - **超级表（STable）不能直接执行普通 INSERT/UPDATE**。需要写入超级表时，请使用 `SqlSink` 并配置 `INSERT INTO 子表 USING 超级表 TAGS (...) VALUES (...)`；普通 ETL 输出节点会提前拦截并给出提示。
+
+### JDBC 驱动上传
+
+平台不再自动从 Maven 仓库下载 JDBC 驱动。对于驱动未预置的数据源（如达梦、SAP HANA、SQL Server、ClickHouse、TDengine、通用 JDBC），新建或编辑数据源时会出现「JDBC 驱动」区域：
+
+1. 点击「选择并上传」，选择一个或多个 `.jar` 文件（选择后自动开始上传）；
+2. 上传成功后驱动会保存到运行目录的 `drivers/<type>/default/`，并自动刷新该类型的连接池，无需重启。
+
+说明：
+
+- 上传会替换该类型已有驱动，避免多版本 jar 冲突；需要依赖 jar 时可一次上传多个文件。
+- 请上传与所选数据库版本匹配的驱动。
+- 通用 JDBC 数据源的驱动按数据源隔离，保存在 `drivers/jdbc/<owner>/default/`，不同数据源之间不共享；上传成功后会自动把该目录的相对路径填入 `jdbc.driverJar`，便于 Web 与 Docker worker 共用驱动目录。
+- 分布式部署时，请确保 worker 与 Web 使用相同的驱动目录（或通过 `driver-dir` 挂载共享）。
 
 ### YMatrix 连接说明
 

@@ -142,9 +142,6 @@ public class EtlExecutionProperties {
          */
         private String dataDir;
 
-        /** Maven 驱动仓库，透传给容器的 {@code DATAY_DRIVER_REPOS}。 */
-        private String driverRepos;
-
         /** 附加 lib 目录（宿主路径），逐个挂载到容器 {@code <workDir>/lib/<name>} 并加入 classpath。 */
         private List<String> libDirs = new ArrayList<>();
 
@@ -291,14 +288,6 @@ public class EtlExecutionProperties {
 
         public void setDataDir(String dataDir) {
             this.dataDir = dataDir;
-        }
-
-        public String getDriverRepos() {
-            return driverRepos;
-        }
-
-        public void setDriverRepos(String driverRepos) {
-            this.driverRepos = driverRepos;
         }
 
         public List<String> getLibDirs() {

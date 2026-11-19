@@ -94,8 +94,9 @@ spring:
     name: datafusion
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 10MB
+      # 驱动 jar（如 TDengine -dist 包约 24MB）也通过上传接口写入 drivers/ 目录
+      max-file-size: 50MB
+      max-request-size: 100MB
   docker:
     compose:
       enabled: true
@@ -282,10 +283,7 @@ datay:
     # 允许嵌入本站的父页面来源；* 表示允许所有来源（存在点击劫持风险，生产环境建议收紧）。
     # 多个来源用空格分隔：https://a.example.com https://b.example.com
     allowed-origins: ${DATAY_EMBED_ALLOWED_ORIGINS:*}
-  # 数据库 JDBC 驱动按需下载：平台未内置的驱动（如达梦）在首次连接或手动下载时拉取到 drivers/ 目录
-  driver:
-    # Maven 仓库地址，逗号或分号分隔，按顺序回退；也可通过环境变量 DATAY_DRIVER_REPOS 覆盖
-    repos: ${DATAY_DRIVER_REPOS:https://repo1.maven.org/maven2,https://maven.aliyun.com/repository/public}
+  # 数据库 JDBC 驱动：平台不再自动下载，未预置驱动的数据源由用户在数据源页面「JDBC 驱动」处上传
   # 平台管理 Harness：通过 MCP 端点 /mcp/datay 暴露数据源、ETL 任务、数据模型等对象的增删改查与运行类操作
   mcp:
     harness:
@@ -352,12 +350,10 @@ development:
       cpus: ${DATAY_ETL_DOCKER_CPUS:}
       # 宿主机日志目录，缺省 <工作目录>/log；须与 worker 读取日志的目录一致，否则前端看不到日志
       host-log-dir: ${DATAY_ETL_DOCKER_HOST_LOG_DIR:}
-      # 宿主机驱动目录，缺省 <工作目录>/drivers；挂载后容器可直接加载未内置的 JDBC 驱动
+      # 宿主机驱动目录，缺省 <工作目录>/drivers；挂载后容器可直接加载用户上传的 JDBC 驱动
       driver-dir: ${DATAY_ETL_DOCKER_DRIVER_DIR:}
       # 宿主机数据目录，缺省 <工作目录>/data；挂载后容器可读写相对路径数据文件（如 ./data/xxx.duckdb）
       data-dir: ${DATAY_ETL_DOCKER_DATA_DIR:}
-      # Maven 驱动仓库，透传给容器用于按需下载驱动
-      driver-repos: ${DATAY_DRIVER_REPOS:}
       # 附加 lib 目录（宿主路径），逐个挂载到容器 <workDir>/lib 下并加入 classpath
       # lib-dirs:
       #   - /opt/datay/lib
