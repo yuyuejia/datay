@@ -41,6 +41,7 @@ class MetricQueryServiceTest {
     private ModelFieldRepository modelFieldRepository;
     private RoleDataScopeService roleDataScopeService;
     private DataSourceQueryService dataSourceQueryService;
+    private DataSourceService dataSourceService;
     private MetricQueryService metricQueryService;
 
     private Metric salesAmount;
@@ -54,11 +55,12 @@ class MetricQueryServiceTest {
         modelFieldRepository = mock(ModelFieldRepository.class);
         roleDataScopeService = mock(RoleDataScopeService.class);
         dataSourceQueryService = mock(DataSourceQueryService.class);
+        dataSourceService = mock(DataSourceService.class);
         metricQueryService = new MetricQueryService(
             metricRepository,
             dataModelRepository,
             modelFieldRepository,
-            mock(DataSourceService.class),
+            dataSourceService,
             dataSourceQueryService,
             new ObjectMapper(),
             roleDataScopeService
@@ -359,6 +361,38 @@ class MetricQueryServiceTest {
         assertThat(multiFieldSql).contains("d0.level1_name AS level1_name");
         assertThat(multiFieldSql).contains("d0.level2_name AS level2_name");
         assertThat(multiFieldSql).contains("GROUP BY d0.level1_name, d0.level2_name");
+    }
+
+    @Test
+    void shouldRecognizeHierarchyLevelFieldForDimensionFilter() {
+        DataModel dimCategory = new DataModel();
+        dimCategory.setId("4001");
+        dimCategory.setCode("dim_category");
+        dimCategory.setName("商品分类维度");
+        dimCategory.setSchemaName("main");
+        dimCategory.setTableName("dim_category");
+        dimCategory.setDimensionKind("HIERARCHY");
+        dimCategory.setLevelCount(2);
+
+        when(dataModelRepository.findFirstByCode("dim_category")).thenReturn(Optional.of(dimCategory));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("4001"))
+            .thenReturn(
+                List.of(
+                    hierarchyField("level1_id", "LEVEL_ID", 1, false),
+                    hierarchyField("level1_name", "LEVEL_NAME", 1, false),
+                    hierarchyField("level2_id", "LEVEL_ID", 2, false),
+                    hierarchyField("level2_name", "LEVEL_NAME", 2, false),
+                    hierarchyField("member_id", "MEMBER_ID", null, true),
+                    hierarchyField("member_name", "MEMBER_NAME", null, false)
+                )
+            );
+
+        assertThat(metricQueryService.isDimensionLevelField("dim_category", 2, "level2_name")).isTrue();
+        assertThat(metricQueryService.isDimensionLevelField("dim_category", 2, "level2_id")).isTrue();
+        assertThat(metricQueryService.isDimensionLevelField("dim_category", 2, "level1_name")).isFalse();
+        assertThat(metricQueryService.isDimensionLevelField("dim_category", 2, "member_name")).isFalse();
+        assertThat(metricQueryService.isDimensionLevelField("dim_category", null, "level2_name")).isFalse();
+        assertThat(metricQueryService.isDimensionLevelField("missing_dim", 2, "level2_name")).isFalse();
     }
 
     @Test
@@ -697,6 +731,59 @@ class MetricQueryServiceTest {
         String scopedSql = "SELECT * FROM (SELECT region, sales_amount FROM fact_sales) dp_dataset WHERE ((region = '华东'))";
         verify(dataSourceQueryService).executeQuery(eq(dataSource), eq(scopedSql));
         assertThat(result).containsEntry("sql", scopedSql).containsEntry("columnLabels", Map.of("region", "区域"));
+    }
+
+    @Test
+    void shouldFederateMetricsFromDifferentDataSources() throws Exception {
+        DataModel firstFact = new DataModel();
+        firstFact.setId("3101");
+        firstFact.setName("销售订单明细事实表");
+        firstFact.setSchemaName("main");
+        firstFact.setTableName("fact_sales_order_item");
+        firstFact.setDataSourceId("source-1");
+        when(dataModelRepository.findById("3101")).thenReturn(Optional.of(firstFact));
+
+        DataModel secondFact = new DataModel();
+        secondFact.setId("3102");
+        secondFact.setName("电商销售事实表");
+        secondFact.setSchemaName("main");
+        secondFact.setTableName("fact_sales_order");
+        secondFact.setDataSourceId("source-2");
+        when(dataModelRepository.findById("3102")).thenReturn(Optional.of(secondFact));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3102")).thenReturn(List.of());
+
+        Metric secondSales = atomic("2612", "ecommerce_sales_amount", "SUM(order_amount)");
+        secondSales.setFactModelId("3102");
+        when(metricRepository.findAll()).thenReturn(List.of(salesAmount, secondSales));
+        when(metricRepository.findByCode("ecommerce_sales_amount")).thenReturn(Optional.of(secondSales));
+
+        DataSourceDTO firstSource = new DataSourceDTO();
+        firstSource.setId("source-1");
+        firstSource.setType("DUCKDB");
+        firstSource.setSchemaName("main");
+        DataSourceDTO secondSource = new DataSourceDTO();
+        secondSource.setId("source-2");
+        secondSource.setType("DUCKDB");
+        secondSource.setSchemaName("main");
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(firstSource));
+        when(dataSourceService.findOne("source-2")).thenReturn(Optional.of(secondSource));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenAnswer(invocation -> {
+            DataSourceDTO source = invocation.getArgument(0);
+            String alias = "source-1".equals(source.getId()) ? "m0" : "m1";
+            double value = "source-1".equals(source.getId()) ? 100.0 : 400.0;
+            return Map.of("columns", List.of(alias), "rows", List.of(Map.of(alias, value)));
+        });
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount", "ecommerce_sales_amount"));
+
+        Map<String, Object> result = metricQueryService.queryDataset(dto, List.of(), null);
+
+        assertThat(result).containsEntry("federated", true);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) result.get("rows");
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).containsEntry("sales_amount", 100.0).containsEntry("ecommerce_sales_amount", 400.0);
     }
 
     private static int countOccurrences(String text, String token) {

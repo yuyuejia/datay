@@ -433,7 +433,13 @@ export default defineComponent({
       try {
         const dataset = await datasetService.get(id);
         editingId.value = id;
-        form.value = { ...dataset };
+        // 持久化配置在列表页弹框中维护；编辑保存时继续携带原配置，避免更新数据集时被清空。
+        form.value = {
+          ...dataset,
+          persistEnabled: !!dataset.persistEnabled,
+          persistWriteMode: dataset.persistWriteMode || 'REPLACE',
+          persistStatus: dataset.persistStatus || (dataset.persistEnabled ? 'PENDING' : 'DISABLED'),
+        };
         fieldMetadata.value = DatasetService.columns(DatasetService.parseFields(dataset));
         const def = DatasetService.parseDefinition(dataset);
         if (dataset.type === 'SQL') {

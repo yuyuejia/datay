@@ -88,6 +88,8 @@ public class PostgresqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.INT.name(), PostgresType.INTEGER.name());
         commonDataType2ColumnType.put(AllDataType.INTEGER.name(), PostgresType.INTEGER.name());
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), PostgresType.BIGINT.name());
+        // DuckDB 整数聚合（SUM 等）返回 HUGEINT，超出 BIGINT 范围，落 PG 用 NUMERIC 保精度。
+        commonDataType2ColumnType.put("HUGEINT", PostgresType.NUMERIC.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT.name(), PostgresType.REAL.name());
         commonDataType2ColumnType.put(AllDataType.DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
         commonDataType2ColumnType.put(AllDataType.BINARY_DOUBLE.name(), PostgresType.DOUBLE_PRECISION.getName());
@@ -193,6 +195,15 @@ public class PostgresqlConverter implements TypeConverter {
         }
         int precision = columnMeta.getPrecision();
         int scale = columnMeta.getScale();
+        if ("HUGEINT".equals(baseType)) {
+            // HUGEINT 是 128 位整数，PG 用 NUMERIC(38,0) 承接，避免退化成字符串列。
+            if (precision <= 0) {
+                precision = 38;
+            }
+            if (scale < 0) {
+                scale = 0;
+            }
+        }
         if (unsigned && "BIGINT".equals(baseType)) {
             // BIGINT UNSIGNED 最大 18446744073709551615，共 20 位
             precision = 20;

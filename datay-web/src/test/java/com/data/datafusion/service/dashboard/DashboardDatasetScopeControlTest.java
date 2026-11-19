@@ -19,9 +19,11 @@ import com.data.datafusion.repository.AuthorityRepository;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.RoleDatasetScopeRepository;
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DatasetPersistenceService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.DimensionValueService;
 import com.data.datafusion.service.MetricQueryService;
+import com.data.datafusion.service.RoleDataScopeService;
 import com.data.datafusion.service.RoleDatasetScopeService;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.mapper.RoleDatasetScopeMapper;
@@ -112,6 +114,8 @@ class DashboardDatasetScopeControlTest {
             dataSourceService,
             dataSourceQueryService,
             roleDatasetScopeService,
+            mock(RoleDataScopeService.class),
+            mock(DatasetPersistenceService.class),
             resolver,
             objectMapper
         );

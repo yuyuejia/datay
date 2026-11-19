@@ -29,6 +29,7 @@ import org.duckdb.DuckDBAppender;
 import java.lang.reflect.Field;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.sql.*;
 import java.time.LocalDate;
@@ -419,7 +420,9 @@ public class DBUtils {
             } else if ("INTEGER".equals(type) || "INT".equals(type) || type.endsWith("INTEGER")) {
                 appender.append(toInt(value));
             } else if ("HUGEINT".equals(type)) {
-                appender.append(toLong(value));
+                // DuckDB JDBC 的 append(long) 按 BIGINT 发送，写入 HUGEINT 列会类型不匹配；
+                // 必须使用 BigInteger 重载，由驱动转换为 HUGEINT。
+                appender.append(toBigInteger(value));
             } else if ("DOUBLE".equals(type) || type.endsWith("DOUBLE")) {
                 appender.append(toDouble(value));
             } else if ("FLOAT".equals(type) || "REAL".equals(type) || type.endsWith("FLOAT")) {
@@ -663,6 +666,22 @@ public class DBUtils {
             return ((Boolean) value) ? 1.0f : 0.0f;
         }
         return Float.parseFloat(value.toString().trim());
+    }
+
+    private static BigInteger toBigInteger(Object value) {
+        if (value instanceof BigInteger) {
+            return (BigInteger) value;
+        }
+        if (value instanceof BigDecimal) {
+            return ((BigDecimal) value).toBigInteger();
+        }
+        if (value instanceof Number) {
+            return new BigDecimal(value.toString()).toBigInteger();
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? BigInteger.ONE : BigInteger.ZERO;
+        }
+        return new BigInteger(value.toString().trim());
     }
 
     private static BigDecimal toBigDecimal(Object value) {

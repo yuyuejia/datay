@@ -28,7 +28,8 @@ public class TaskFactory {
         } else if (
             TaskConstants.TASK_TYPE_DATA_COMPARE.equals(jobInstance.getType()) ||
             TaskConstants.TASK_TYPE_DATA_QUALITY.equals(jobInstance.getType()) ||
-            TaskConstants.TASK_TYPE_METADATA_COLLECT.equals(jobInstance.getType())
+            TaskConstants.TASK_TYPE_METADATA_COLLECT.equals(jobInstance.getType()) ||
+            TaskConstants.TASK_TYPE_DATASET.equals(jobInstance.getType())
         ) {
             if (isDockerEtlMode()) {
                 return new DockerEtlTask(jobInstance);

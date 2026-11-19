@@ -68,6 +68,13 @@ public class AnalysisDatasetResolver {
         if (entity.getFields() != null && !entity.getFields().isBlank()) {
             copy.put("fields", entity.getFields());
         }
+        copy.put("persistEnabled", Boolean.TRUE.equals(entity.getPersistEnabled()));
+        copy.put("persistStatus", entity.getPersistStatus());
+        copy.put("persistTargetDataSourceId", entity.getPersistTargetDataSourceId());
+        copy.put("persistTargetSchema", entity.getPersistTargetSchema());
+        copy.put("persistTargetTable", entity.getPersistTargetTable());
+        copy.put("persistWriteMode", entity.getPersistWriteMode());
+        copy.put("persistDefinitionHash", entity.getPersistDefinitionHash());
         // 清掉可能存在的旧快照字段，避免数据集更新后仍使用过期定义
         copy.remove("metricQuery");
         copy.remove("sql");

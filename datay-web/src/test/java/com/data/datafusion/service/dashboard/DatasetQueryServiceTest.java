@@ -11,8 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.service.DataSourceQueryService;
+import com.data.datafusion.service.DatasetPersistenceService;
 import com.data.datafusion.service.DataSourceService;
 import com.data.datafusion.service.MetricQueryService;
+import com.data.datafusion.service.RoleDataScopeService;
 import com.data.datafusion.service.RoleDatasetScopeService;
 import com.data.datafusion.service.dataset.DatasetScopeCondition;
 import com.data.datafusion.service.dto.DataSourceDTO;
@@ -35,6 +37,8 @@ class DatasetQueryServiceTest {
     private DataSourceService dataSourceService;
     private DataSourceQueryService dataSourceQueryService;
     private RoleDatasetScopeService roleDatasetScopeService;
+    private RoleDataScopeService roleDataScopeService;
+    private DatasetPersistenceService datasetPersistenceService;
     private AnalysisDatasetResolver datasetResolver;
     private DatasetQueryService datasetQueryService;
 
@@ -44,12 +48,16 @@ class DatasetQueryServiceTest {
         dataSourceService = mock(DataSourceService.class);
         dataSourceQueryService = mock(DataSourceQueryService.class);
         roleDatasetScopeService = mock(RoleDatasetScopeService.class);
+        roleDataScopeService = mock(RoleDataScopeService.class);
+        datasetPersistenceService = mock(DatasetPersistenceService.class);
         datasetResolver = mock(AnalysisDatasetResolver.class);
         datasetQueryService = new DatasetQueryService(
             metricQueryService,
             dataSourceService,
             dataSourceQueryService,
             roleDatasetScopeService,
+            roleDataScopeService,
+            datasetPersistenceService,
             datasetResolver,
             new ObjectMapper()
         );
@@ -76,11 +84,13 @@ class DatasetQueryServiceTest {
         Map<String, Object> dataset = metricDataset();
         List<DatasetScopeCondition> conditions = List.of(condition("region", "EQ", "华东"));
         when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(conditions);
-        when(metricQueryService.query(any(), anyList())).thenReturn(new LinkedHashMap<>(Map.of("columns", List.of(), "rows", List.of())));
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("columns", List.of(), "rows", List.of()))
+        );
 
         datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
 
-        verify(metricQueryService).query(any(), eq(conditions));
+        verify(metricQueryService).queryDataset(any(), eq(conditions), any());
     }
 
     @Test
@@ -246,11 +256,45 @@ class DatasetQueryServiceTest {
         datasetQueryService.query(dataset, null, List.of(filter), Map.of("f1", "华东"), "lib-1");
 
         ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
-        verify(metricQueryService).query(dto.capture(), anyList());
+        verify(metricQueryService).queryDataset(dto.capture(), anyList(), any());
         assertThat(dto.getValue().getFilterConfig())
             .contains("dim_region")
             .contains("region_name")
             .contains("华东");
+    }
+
+    @Test
+    void shouldResolveHierarchyLevelFieldForMetricFieldFilter() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put(
+            "metricQuery",
+            Map.of(
+                "metricCodes",
+                List.of("sales_amount"),
+                "dimensions",
+                List.of(Map.of("dimensionModelCode", "qs_dim_product_category", "levelIndex", 2))
+            )
+        );
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(metricQueryService.isDimensionLevelField("qs_dim_product_category", 2, "level2_name")).thenReturn(true);
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "multiSelect",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "field", "level2_name", "mode", "server"))
+        );
+
+        datasetQueryService.query(dataset, null, List.of(filter), Map.of("f1", List.of("厨房电器")), "lib-1");
+
+        ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
+        verify(metricQueryService).queryDataset(dto.capture(), anyList(), any());
+        assertThat(dto.getValue().getFilterConfig())
+            .contains("qs_dim_product_category")
+            .contains("level2_name")
+            .contains("厨房电器");
     }
 
     @Test
@@ -346,10 +390,7 @@ class DatasetQueryServiceTest {
         Map<String, Object> dataset = metricDataset();
         List<DatasetScopeCondition> conditions = List.of(condition("region", "EQ", "华东"));
         when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(conditions);
-        when(metricQueryService.plan(any())).thenReturn(
-            new MetricQueryService.QueryPlan("SELECT region, sales_amount FROM metric_result", dataSource(), Map.of())
-        );
-        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows());
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
 
         datasetQueryService.query(
             dataset,
@@ -360,13 +401,9 @@ class DatasetQueryServiceTest {
             new DatasetQueryOptions(null, null, 10, null)
         );
 
-        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(dataSourceQueryService).executeQuery(any(), sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue())
-            .contains("dp_dataset WHERE ((region = '华东'))")
-            .contains("dp_sort")
-            .contains("LIMIT 10");
-        verify(metricQueryService, never()).query(any(), anyList());
+        ArgumentCaptor<DatasetQueryOptions> options = ArgumentCaptor.forClass(DatasetQueryOptions.class);
+        verify(metricQueryService).queryDataset(any(), eq(conditions), options.capture());
+        assertThat(options.getValue().limit()).isEqualTo(10);
     }
 
     @Test
@@ -407,7 +444,7 @@ class DatasetQueryServiceTest {
         Map<String, Object> dataset = metricDataset();
         when(datasetResolver.resolveDataset(Map.of("refId", "lib-1"))).thenReturn(dataset);
         when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
-        when(metricQueryService.query(any(), anyList())).thenReturn(rows());
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
 
         datasetQueryService.queryForApi(
             "lib-1",
@@ -416,9 +453,193 @@ class DatasetQueryServiceTest {
         );
 
         ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
-        verify(metricQueryService).query(dto.capture(), anyList());
+        verify(metricQueryService).queryDataset(dto.capture(), anyList(), any());
         assertThat(dto.getValue().getTimeRange().getStart()).isEqualTo("2026-01-01");
         assertThat(dto.getValue().getTimeRange().getEnd()).isEqualTo("2026-12-31");
+    }
+
+    @Test
+    void shouldReadPersistedSqlDatasetWhenReady() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        DataSourceDTO target = new DataSourceDTO();
+        target.setId("target-1");
+        target.setType("DUCKDB");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(datasetPersistenceService.isPersistedUsable("ds-1")).thenReturn(true);
+        when(dataSourceService.findOne("target-1")).thenReturn(Optional.of(target));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows(Map.of("region", "华东")));
+
+        Map<String, Object> result = datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
+
+        assertThat(result).containsEntry("persisted", true);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(eq(target), sql.capture());
+        assertThat(sql.getValue()).contains("SELECT * FROM \"main\".\"result_table\"");
+    }
+
+    @Test
+    void shouldReadPersistedSqlDatasetUsingRefIdWhenDashboardAliasDiffers() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        dataset.put("id", "ds-local");
+        dataset.put("refId", "lib-1");
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        DataSourceDTO target = new DataSourceDTO();
+        target.setId("target-1");
+        target.setType("DUCKDB");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(datasetPersistenceService.isPersistedUsable("lib-1")).thenReturn(true);
+        when(datasetPersistenceService.isPersistedUsable("ds-local")).thenReturn(false);
+        when(dataSourceService.findOne("target-1")).thenReturn(Optional.of(target));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows(Map.of("region", "华东")));
+
+        Map<String, Object> result = datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
+
+        assertThat(result).containsEntry("persisted", true);
+        verify(datasetPersistenceService).isPersistedUsable("lib-1");
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(eq(target), sql.capture());
+        assertThat(sql.getValue()).contains("SELECT * FROM \"main\".\"result_table\"");
+    }
+
+    @Test
+    void shouldReadPersistedMetricDatasetWithDirectFieldFilter() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put("fields", "{\"columns\":[{\"name\":\"level2_name\"},{\"name\":\"qs_sales_amount\"}]}");
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        DataSourceDTO target = new DataSourceDTO();
+        target.setId("target-1");
+        target.setType("DUCKDB");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(datasetPersistenceService.isPersistedUsable("lib-1")).thenReturn(true);
+        when(dataSourceService.findOne("target-1")).thenReturn(Optional.of(target));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows(Map.of("level2_name", "厨房电器")));
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "multiSelect",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "field", "level2_name", "mode", "server"))
+        );
+
+        Map<String, Object> result = datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            Map.of("f1", List.of("厨房电器")),
+            "lib-1"
+        );
+
+        assertThat(result).containsEntry("persisted", true);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(eq(target), sql.capture());
+        assertThat(sql.getValue())
+            .contains("SELECT * FROM \"main\".\"result_table\"")
+            .contains("dp_filter WHERE ((level2_name = '厨房电器'))");
+        verify(metricQueryService, never()).queryDataset(any(), anyList(), any());
+    }
+
+    @Test
+    void shouldReadPersistedSqlDatasetWithDirectFieldFilter() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        DataSourceDTO target = new DataSourceDTO();
+        target.setId("target-1");
+        target.setType("DUCKDB");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(datasetPersistenceService.isPersistedUsable("ds-1")).thenReturn(true);
+        when(dataSourceService.findOne("target-1")).thenReturn(Optional.of(target));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows(Map.of("region", "华东")));
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "multiSelect",
+            "targets",
+            List.of(Map.of("datasetId", "ds-1", "field", "region", "mode", "server"))
+        );
+
+        Map<String, Object> result = datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            Map.of("f1", List.of("华东")),
+            "lib-1"
+        );
+
+        assertThat(result).containsEntry("persisted", true);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(eq(target), sql.capture());
+        assertThat(sql.getValue())
+            .contains("SELECT * FROM \"main\".\"result_table\"")
+            .contains("dp_filter WHERE ((region = '华东'))");
+    }
+
+    @Test
+    void shouldFallbackLiveForMetricTimePushdown() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put("fields", "{\"columns\":[{\"name\":\"level2_name\"}]}");
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "dateRange",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "mode", "server", "pushdown", Map.of("kind", "metricTime")))
+        );
+
+        datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            Map.of("f1", Map.of("start", "2025-01-01", "end", "2025-12-31")),
+            "lib-1"
+        );
+
+        verify(datasetPersistenceService, never()).isPersistedUsable("lib-1");
+        verify(metricQueryService).queryDataset(any(), anyList(), any());
+    }
+
+    @Test
+    void shouldFallbackLiveForScopedMetricDataset() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetTable", "result_table");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(
+            List.of(new com.data.datafusion.service.metric.ScopedDimension())
+        );
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
+
+        datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1");
+
+        verify(datasetPersistenceService, never()).isPersistedUsable("ds-local");
+        verify(metricQueryService).queryDataset(any(), anyList(), any());
     }
 
     @SafeVarargs

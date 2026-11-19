@@ -1,5 +1,6 @@
 const JOB_TYPE_LABELS: Record<string, string> = {
   ETL: 'ETL 任务',
+  DATASET: '数据集任务',
   DATA_COMPARE: '数据比对',
   DATA_QUALITY: '质检任务',
   METADATA_COLLECT: '元数据采集',

@@ -8,6 +8,7 @@ import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.dag.Flow;
 import com.data.datafusion.job.dag.FlowInstance;
+import com.data.datafusion.job.DatasetTaskContextAssembler;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
 import com.data.datafusion.repository.JobInstanceRepository;
 import com.data.datafusion.repository.JobRepository;
@@ -448,9 +449,11 @@ public class JobInstanceService {
         jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
         jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
         jobInstance.setPriority(normalizePriority(job.getPriority()));
-        if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
+        if (TaskConstants.TASK_TYPE_SQL.equals(job.getType())) {
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
-        }else {
+        } else if (TaskConstants.TASK_TYPE_DATASET.equals(job.getType())) {
+            jobInstance.setJobContext(DatasetTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+        } else {
             jobInstance.setJobContext(job.getJobContext());
         }
         //        jobInstance.setParameter();

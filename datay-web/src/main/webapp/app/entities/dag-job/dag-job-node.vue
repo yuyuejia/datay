@@ -12,11 +12,15 @@ const typeClass = computed(() =>
   String(props.data.jobType || "JOB").toLowerCase(),
 );
 
-const typeLabel = computed(() =>
-  String(props.data.jobType || "JOB").toUpperCase() === "DAG"
-    ? "DAG · 子编排"
-    : props.data.jobType || "JOB",
-);
+const NODE_TYPE_LABELS = {
+  DAG: "DAG · 子编排",
+  DATASET: "数据集任务",
+};
+
+const typeLabel = computed(() => {
+  const jobType = String(props.data.jobType || "JOB").toUpperCase();
+  return NODE_TYPE_LABELS[jobType] ?? (props.data.jobType || "JOB");
+});
 
 const removeSelf = (event) => {
   event.stopPropagation();

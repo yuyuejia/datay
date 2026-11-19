@@ -458,13 +458,23 @@ public class ETLTaskService {
                     criteriaBuilder.equal(criteriaBuilder.upper(root.get("type")), normalizedType)
                 );
             } else if (TaskConstants.ETL_TASK_KIND_BATCH.equals(normalizedType)) {
-                // 历史任务的 type 为空，默认归入批量任务
+                // 历史任务的 type 为空，默认归入批量任务。
                 specification = specification.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.or(
                         criteriaBuilder.isNull(root.get("type")),
                         criteriaBuilder.notEqual(criteriaBuilder.upper(root.get("type")), TaskConstants.ETL_TASK_KIND_STREAM)
                     )
                 );
+                // 数据集持久化生成的是内部任务，只在数据集持久化配置中刷新状态/手动执行，不在批量任务列表展示。
+                List<String> datasetJobIds = jobService.findIdsByType(TaskConstants.TASK_TYPE_DATASET);
+                if (!datasetJobIds.isEmpty()) {
+                    specification = specification.and((root, query, criteriaBuilder) ->
+                        criteriaBuilder.or(
+                            criteriaBuilder.isNull(root.get("jobId")),
+                            criteriaBuilder.not(root.get("jobId").in(datasetJobIds))
+                        )
+                    );
+                }
             }
         }
         if (StringUtils.hasText(directoryId)) {

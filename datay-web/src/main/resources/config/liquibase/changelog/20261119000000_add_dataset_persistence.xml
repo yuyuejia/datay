@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        分析数据集结果持久化：把数据集查询结果通过数据集任务写入目标数据源，
+        看板查询优先读取持久化结果，任务失败或结果过期时回退实时查询。
+    -->
+    <changeSet id="20261119000000-1-dataset-persistence" author="datafusion">
+        <addColumn tableName="dp_analysis_dataset">
+            <column name="persist_enabled" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_target_data_source_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_target_schema" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_target_table" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_write_mode" type="varchar(16)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_cron" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_status" type="varchar(32)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_last_run_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_last_success_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_last_error" type="varchar(2000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_definition_hash" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_etl_task_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_job_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="persist_row_count" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="dp_analysis_dataset" indexName="idx_analysis_dataset_persist_job">
+            <column name="persist_job_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

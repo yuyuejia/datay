@@ -22,6 +22,34 @@ public class AnalysisDatasetDTO implements Serializable {
     private String definition;
     private String fields;
     private String status;
+    /** 是否启用结果持久化。 */
+    private Boolean persistEnabled;
+    /** 持久化目标数据源 id。 */
+    private String persistTargetDataSourceId;
+    /** 持久化目标 schema。 */
+    private String persistTargetSchema;
+    /** 持久化目标表。 */
+    private String persistTargetTable;
+    /** 持久化写入模式：REPLACE / APPEND。 */
+    private String persistWriteMode;
+    /** 持久化任务 cron；为空表示仅手动执行。 */
+    private String persistCron;
+    /** 持久化结果状态。 */
+    private String persistStatus;
+    /** 最近一次触发时间。 */
+    private java.time.ZonedDateTime persistLastRunTime;
+    /** 最近一次成功完成时间。 */
+    private java.time.ZonedDateTime persistLastSuccessTime;
+    /** 最近一次失败原因。 */
+    private String persistLastError;
+    /** 产出结果对应的数据集定义摘要。 */
+    private String persistDefinitionHash;
+    /** 生成的数据集任务 id。 */
+    private String persistEtlTaskId;
+    /** 生成的数据集调度 Job id。 */
+    private String persistJobId;
+    /** 最近一次成功产出的行数。 */
+    private Long persistRowCount;
     /** 已发布的数据服务 id，仅用于列表展示，不落库。 */
     private String publishedApiId;
     /** 已发布的数据服务编码，仅用于列表展示，不落库。 */
@@ -133,6 +161,119 @@ public class AnalysisDatasetDTO implements Serializable {
 
     public void setPublishedApiStatus(String publishedApiStatus) {
         this.publishedApiStatus = publishedApiStatus;
+    }
+
+
+    public Boolean getPersistEnabled() {
+        return persistEnabled;
+    }
+
+    public void setPersistEnabled(Boolean persistEnabled) {
+        this.persistEnabled = persistEnabled;
+    }
+
+    public String getPersistTargetDataSourceId() {
+        return persistTargetDataSourceId;
+    }
+
+    public void setPersistTargetDataSourceId(String persistTargetDataSourceId) {
+        this.persistTargetDataSourceId = persistTargetDataSourceId;
+    }
+
+    public String getPersistTargetSchema() {
+        return persistTargetSchema;
+    }
+
+    public void setPersistTargetSchema(String persistTargetSchema) {
+        this.persistTargetSchema = persistTargetSchema;
+    }
+
+    public String getPersistTargetTable() {
+        return persistTargetTable;
+    }
+
+    public void setPersistTargetTable(String persistTargetTable) {
+        this.persistTargetTable = persistTargetTable;
+    }
+
+    public String getPersistWriteMode() {
+        return persistWriteMode;
+    }
+
+    public void setPersistWriteMode(String persistWriteMode) {
+        this.persistWriteMode = persistWriteMode;
+    }
+
+    public String getPersistCron() {
+        return persistCron;
+    }
+
+    public void setPersistCron(String persistCron) {
+        this.persistCron = persistCron;
+    }
+
+    public String getPersistStatus() {
+        return persistStatus;
+    }
+
+    public void setPersistStatus(String persistStatus) {
+        this.persistStatus = persistStatus;
+    }
+
+    public java.time.ZonedDateTime getPersistLastRunTime() {
+        return persistLastRunTime;
+    }
+
+    public void setPersistLastRunTime(java.time.ZonedDateTime persistLastRunTime) {
+        this.persistLastRunTime = persistLastRunTime;
+    }
+
+    public java.time.ZonedDateTime getPersistLastSuccessTime() {
+        return persistLastSuccessTime;
+    }
+
+    public void setPersistLastSuccessTime(java.time.ZonedDateTime persistLastSuccessTime) {
+        this.persistLastSuccessTime = persistLastSuccessTime;
+    }
+
+    public String getPersistLastError() {
+        return persistLastError;
+    }
+
+    public void setPersistLastError(String persistLastError) {
+        this.persistLastError = persistLastError;
+    }
+
+    public String getPersistDefinitionHash() {
+        return persistDefinitionHash;
+    }
+
+    public void setPersistDefinitionHash(String persistDefinitionHash) {
+        this.persistDefinitionHash = persistDefinitionHash;
+    }
+
+    public String getPersistEtlTaskId() {
+        return persistEtlTaskId;
+    }
+
+    public void setPersistEtlTaskId(String persistEtlTaskId) {
+        this.persistEtlTaskId = persistEtlTaskId;
+    }
+
+    public String getPersistJobId() {
+        return persistJobId;
+    }
+
+    public void setPersistJobId(String persistJobId) {
+        this.persistJobId = persistJobId;
+    }
+
+    public Long getPersistRowCount() {
+        return persistRowCount;
+    }
+
+    public void setPersistRowCount(Long persistRowCount) {
+        this.persistRowCount = persistRowCount;
     }
 
     public ZonedDateTime getCreateTime() {

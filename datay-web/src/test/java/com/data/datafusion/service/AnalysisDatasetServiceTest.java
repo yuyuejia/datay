@@ -41,6 +41,7 @@ class AnalysisDatasetServiceTest {
     private AnalysisDatasetResolver resolver;
     private DatasetQueryService queryService;
     private RoleDatasetScopeService roleDatasetScopeService;
+    private DatasetPersistenceService datasetPersistenceService;
     private AnalysisDatasetService service;
 
     @BeforeEach
@@ -51,6 +52,7 @@ class AnalysisDatasetServiceTest {
         resolver = mock(AnalysisDatasetResolver.class);
         queryService = mock(DatasetQueryService.class);
         roleDatasetScopeService = mock(RoleDatasetScopeService.class);
+        datasetPersistenceService = mock(DatasetPersistenceService.class);
         service = new AnalysisDatasetService(
             repository,
             dashboardRepository,
@@ -59,7 +61,8 @@ class AnalysisDatasetServiceTest {
             resolver,
             queryService,
             roleDatasetScopeService,
-            new ObjectMapper()
+            new ObjectMapper(),
+            datasetPersistenceService
         );
     }
 

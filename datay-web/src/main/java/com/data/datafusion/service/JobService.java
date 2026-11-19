@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.job.DatasetTaskContextAssembler;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.dag.Flow;
 import com.data.datafusion.job.sql.SqlTaskContextAssembler;
@@ -129,9 +130,11 @@ public class JobService {
         jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
         jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
         jobInstance.setPriority(TaskConstants.isValidPriority(job.getPriority()) ? job.getPriority() : TaskConstants.DEFAULT_PRIORITY);
-        if(TaskConstants.TASK_TYPE_SQL.equals(job.getType())){
+        if (TaskConstants.TASK_TYPE_SQL.equals(job.getType())) {
             jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
-        }else {
+        } else if (TaskConstants.TASK_TYPE_DATASET.equals(job.getType())) {
+            jobInstance.setJobContext(DatasetTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+        } else {
             jobInstance.setJobContext(job.getJobContext());
         }
         jobInstance.setCreateTime(ZonedDateTime.now());
@@ -175,6 +178,14 @@ public class JobService {
             })
             .map(jobRepository::save)
             .map(jobMapper::toDto);
+    }
+
+    /**
+     * 按任务类型获取 Job ID，用于列表过滤等不需要完整 DTO 的场景。
+     */
+    @Transactional(readOnly = true)
+    public List<String> findIdsByType(String type) {
+        return jobRepository.findByTypeOrderByIdAsc(type).stream().map(Job::getId).toList();
     }
 
     /**

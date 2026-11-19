@@ -78,6 +78,18 @@ export default class DatasetService {
     return axios.post(`${baseApiUrl}/${id}/preview`, filterValues ?? {}).then(res => res.data);
   }
 
+  persistStatus(id: string): Promise<Record<string, any>> {
+    return axios.get(`${baseApiUrl}/${id}/persist/status`).then(res => res.data);
+  }
+
+  runPersist(id: string): Promise<Record<string, any>> {
+    return axios.post(`${baseApiUrl}/${id}/persist/run`).then(res => res.data);
+  }
+
+  syncPersist(id: string): Promise<AnalysisDataset> {
+    return axios.post(`${baseApiUrl}/${id}/persist/sync`).then(res => res.data);
+  }
+
   /** 指标数据集可选择指标与维度。 */
   loadMetricMeta(metricCodes: string[]): Promise<MetricQueryMeta> {
     return axios.post('api/metrics/query-meta', { metricCodes }).then(res => res.data);

@@ -48,6 +48,7 @@ const nodeTypes = { job: markRaw(JobNode) };
 const typeOrder = [
   "DAG",
   "ETL",
+  "DATASET",
   "SQL",
   "DATA_QUALITY",
   "SHELL",
@@ -58,6 +59,7 @@ const typeOrder = [
 const typeLabels = {
   DAG: "任务编排",
   ETL: "批量任务",
+  DATASET: "数据集任务",
   SQL: "SQL 任务",
   DATA_QUALITY: "质检任务",
   SHELL: "Shell 脚本任务",
@@ -65,6 +67,9 @@ const typeLabels = {
   FLINK: "Flink 任务",
   DEMO: "演示任务",
 };
+
+const jobTypeLabel = (type) =>
+  typeLabels[type] || (type ? `${type} 任务` : "-");
 
 const currentJobId = computed(() =>
   route.params.jobId ? String(route.params.jobId) : null,
@@ -113,7 +118,7 @@ const groupedCandidates = computed(() => {
   });
   return sortedGroups.map((group) => ({
     type: group,
-    label: typeLabels[group] || `${group} 任务`,
+    label: jobTypeLabel(group),
     jobs: map[group],
   }));
 });
@@ -570,12 +575,11 @@ const saveDagJob = async () => {
                 v-for="job in group.jobs"
                 :key="job.id"
                 class="draggable-component"
-                :title="`${job.jobName} (#${job.id}) · ${job.cron || '无调度'}`"
+                :title="`${job.jobName} · ${job.cron || '无调度'}`"
                 :draggable="true"
                 @dragstart="onDragStart($event, job)"
               >
                 {{ job.jobName }}
-                <span class="job-id">#{{ job.id }}</span>
               </div>
             </div>
           </div>
@@ -618,7 +622,7 @@ const saveDagJob = async () => {
               detailJob.id
             }}</el-descriptions-item>
             <el-descriptions-item label="类型">{{
-              detailJob.type
+              jobTypeLabel(detailJob.type)
             }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{
               detailJob.status || "OFFLINE"
@@ -878,11 +882,6 @@ const saveDagJob = async () => {
 .draggable-component:hover {
   border-color: #409eff;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
-}
-
-.job-id {
-  font-size: 11px;
-  color: #909399;
 }
 
 .canvas-container {

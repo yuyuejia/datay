@@ -6,8 +6,11 @@ import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
+import com.data.datafusion.service.dashboard.DatasetQueryOptions;
+import com.data.datafusion.service.dataset.DatasetAggregationSqlBuilder;
 import com.data.datafusion.service.dataset.DatasetScopeCondition;
 import com.data.datafusion.service.dataset.DatasetScopeSqlBuilder;
+import com.data.datafusion.service.dataset.DatasetSortLimitSqlBuilder;
 import com.data.datafusion.service.dto.DataSourceDTO;
 import com.data.datafusion.service.dto.MetricQueryDTO;
 import com.data.datafusion.service.dto.MetricQueryFieldDTO;
@@ -19,7 +22,13 @@ import com.data.datafusion.service.metric.ScopedDimension;
 import com.data.metadata.util.DBUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -86,6 +95,10 @@ public class MetricQueryService {
     /** 事实表缺少受控维度时的策略：SKIP 跳过并告警，DENY 直接拒绝查询。 */
     @Value("${datay.security.data-scope.missing-dimension-policy:SKIP}")
     private String missingDimensionPolicy;
+
+    /** 跨源联邦查询在 DuckDB 中默认返回的最大行数，避免交互查询无限制拉取。 */
+    @Value("${datay.query.max-rows:10000}")
+    private int federatedMaxRows = 10000;
 
     /** 支持聚合 FILTER 子句的聚合函数（用于把指标业务限定下推到聚合上）。 */
     private static final Set<String> AGGREGATE_FUNCTIONS = Set.of(
@@ -161,6 +174,10 @@ public class MetricQueryService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> query(MetricQueryDTO dto, List<DatasetScopeCondition> datasetConditions) throws SQLException {
+        QueryContext context = prepare(dto);
+        if (context.federated) {
+            return queryDataset(dto, datasetConditions, DatasetQueryOptions.NONE);
+        }
         QueryPlan plan = plan(dto);
         String effectiveSql = DatasetScopeSqlBuilder.wrap(plan.sql(), datasetConditions, null);
         Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(plan.dataSource(), effectiveSql));
@@ -170,13 +187,60 @@ public class MetricQueryService {
     }
 
     /**
+     * 执行指标数据集查询。
+     *
+     * <p>单数据源/单事实表沿用原有 SQL 生成逻辑；跨数据源或跨事实表衍生指标进入联邦路径：
+     * 每个事实表单独生成聚合 SQL，执行后写入临时 DuckDB，再按维度键合并并计算衍生公式。
+     * 数据集预览、看板查询和指标接口共用该入口。
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> queryDataset(
+        MetricQueryDTO dto,
+        List<DatasetScopeCondition> datasetConditions,
+        DatasetQueryOptions options
+    ) throws SQLException {
+        DatasetQueryOptions effectiveOptions = options == null ? DatasetQueryOptions.NONE : options;
+        QueryContext context = prepare(dto);
+        if (context.federated) {
+            FederatedPlan federatedPlan = buildFederatedPlan(context);
+            return executeFederated(federatedPlan, context, datasetConditions, effectiveOptions);
+        }
+        String dataSourceId = validateDataSource(context);
+        DataSourceDTO dataSource = dataSourceService
+            .findOne(dataSourceId)
+            .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + dataSourceId));
+        String sql = buildSql(context);
+        String scopedSql = DatasetScopeSqlBuilder.wrap(sql, datasetConditions, null);
+        Map<String, String> columnLabels = buildColumnLabels(context);
+        String finalSql = DatasetAggregationSqlBuilder.apply(
+            dataSource,
+            scopedSql,
+            effectiveOptions.groupFields(),
+            effectiveOptions.aggregations(),
+            effectiveOptions.sortField(),
+            effectiveOptions.sortOrder(),
+            effectiveOptions.limit(),
+            effectiveOptions.offset(),
+            columnLabels.keySet()
+        );
+        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(dataSource, finalSql));
+        result.put("columnLabels", columnLabels);
+        result.put("sql", finalSql);
+        return result;
+    }
+
+    /**
      * 解析指标查询计划：SQL、目标数据源与列标签。
      * <p>
      * 供数据集取值等需要基于指标查询结果二次查询的场景复用，避免重复构建 SQL。
+     * 跨源联邦查询没有单条可执行 SQL，请使用 {@link #queryDataset(MetricQueryDTO, List, DatasetQueryOptions)}。
      */
     @Transactional(readOnly = true)
     public QueryPlan plan(MetricQueryDTO dto) {
         QueryContext context = prepare(dto);
+        if (context.federated) {
+            throw new IllegalArgumentException("跨源指标查询包含多个来源 SQL，请使用查询接口执行");
+        }
         String dataSourceId = validateDataSource(context);
         DataSourceDTO dataSource = dataSourceService
             .findOne(dataSourceId)
@@ -192,6 +256,38 @@ public class MetricQueryService {
      * @param columnLabels  输出列标签
      */
     public record QueryPlan(String sql, DataSourceDTO dataSource, Map<String, String> columnLabels) {}
+
+    /**
+     * 返回跨源联邦查询计划；非联邦查询返回 {@code null}。
+     * <p>用于结果持久化时按来源生成 ETL 节点，不执行查询。
+     */
+    @Transactional(readOnly = true)
+    public FederatedPlan federatedPlan(MetricQueryDTO dto) {
+        QueryContext context = prepare(dto);
+        if (!context.federated) {
+            return null;
+        }
+        return buildFederatedPlan(context);
+    }
+
+    /** 跨源联邦查询计划：每个来源一条 SQL，最终在 DuckDB 中合并。 */
+    public record FederatedPlan(
+        List<FederatedSource> sources,
+        String mergeSql,
+        List<String> outputColumns,
+        Map<String, String> columnLabels
+    ) {}
+
+    /** 单个来源的查询计划。列名统一使用 key_/dim_/mN 内部别名。 */
+    public record FederatedSource(
+        String table,
+        DataSourceDTO dataSource,
+        String sql,
+        List<FederatedColumn> columns
+    ) {}
+
+    /** 联邦来源列定义；metric=true 时按 DOUBLE 建列。 */
+    public record FederatedColumn(String name, boolean metric) {}
 
     /**
      * 构建列标签：维度展示字段使用字段描述（为空回退字段名），指标使用指标名称（为空回退编码）。
@@ -223,7 +319,45 @@ public class MetricQueryService {
      */
     @Transactional(readOnly = true)
     public String buildSqlFor(MetricQueryDTO dto) {
-        return buildSql(prepare(dto));
+        QueryContext context = prepare(dto);
+        if (context.federated) {
+            throw new IllegalArgumentException("跨源指标查询包含多个来源 SQL，请使用查询接口执行");
+        }
+        return buildSql(context);
+    }
+
+    /**
+     * 判断字段是否为指定层级维度的层级字段（层级名称或层级 ID）。
+     * 供看板筛选等场景把直接字段过滤解析为维度过滤条件。
+     */
+    public boolean isDimensionLevelField(String dimensionModelCode, Integer levelIndex, String fieldName) {
+        if (
+            dimensionModelCode == null ||
+            dimensionModelCode.isBlank() ||
+            levelIndex == null ||
+            fieldName == null ||
+            fieldName.isBlank()
+        ) {
+            return false;
+        }
+        DataModel dimensionModel = dataModelRepository.findFirstByCode(dimensionModelCode).orElse(null);
+        if (dimensionModel == null || !isHierarchyLike(dimensionModel.getDimensionKind())) {
+            return false;
+        }
+        for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModel.getId())) {
+            if (
+                fieldName.equals(field.getFieldName()) &&
+                field.getLevelIndex() != null &&
+                field.getLevelIndex().equals(levelIndex)
+            ) {
+                return true;
+            }
+        }
+        // 字段元数据缺失时沿用层级字段命名规则兜底。
+        return (
+            fieldName.equals(levelFieldName(dimensionModel.getId(), levelIndex, ROLE_LEVEL_NAME)) ||
+            fieldName.equals(levelFieldName(dimensionModel.getId(), levelIndex, ROLE_LEVEL_ID))
+        );
     }
 
     /**
@@ -341,19 +475,41 @@ public class MetricQueryService {
 
         LinkedHashMap<String, DataModel> factMap = new LinkedHashMap<>();
         for (Metric metric : context.metrics) {
-            String factModelId = resolveFactModelId(metric, context.byCode);
-            context.metricFactModel.put(metric.getId(), factModelId);
-            DataModel factModel = dataModelRepository
-                .findById(factModelId)
-                .orElseThrow(() -> new IllegalArgumentException("事实表不存在：" + factModelId));
-            factMap.put(factModelId, factModel);
+            Set<String> factModelIds = new LinkedHashSet<>();
+            collectFactModelIds(metric, context.byCode, factModelIds, new HashSet<>());
+            if (factModelIds.isEmpty()) {
+                throw new IllegalArgumentException("无法确定指标的事实表：" + metric.getName());
+            }
+            if (factModelIds.size() == 1) {
+                context.metricFactModel.put(metric.getId(), factModelIds.iterator().next());
+            }
+            for (String factModelId : factModelIds) {
+                DataModel factModel = dataModelRepository
+                    .findById(factModelId)
+                    .orElseThrow(() -> new IllegalArgumentException("事实表不存在：" + factModelId));
+                factMap.put(factModelId, factModel);
+            }
         }
         context.factModels = new ArrayList<>(factMap.values());
         context.single = context.factModels.size() == 1;
 
+        // 只有真正跨数据源时才走 DuckDB 联邦路径；同一数据源的多事实表仍复用既有 SQL 生成逻辑。
+        Set<String> dataSourceIds = new LinkedHashSet<>();
+        for (DataModel factModel : context.factModels) {
+            if (factModel.getDataSourceId() != null) {
+                dataSourceIds.add(factModel.getDataSourceId());
+            }
+        }
+        context.federated = dataSourceIds.size() > 1;
+
         for (DataModel factModel : context.factModels) {
             context.factFields.put(factModel.getId(), modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModel.getId()));
             context.factDimensionMaps.put(factModel.getId(), dimensionJoinMap(factModel.getId()));
+        }
+
+        // 联邦路径需要知道每个原子指标属于哪个事实表，以及统一的内部列别名。
+        if (context.federated) {
+            prepareFederatedAtomics(context);
         }
 
         context.commonDimensionModelIds = commonDimensions(context.factModels);
@@ -449,11 +605,382 @@ public class MetricQueryService {
             }
             if (dataSourceId == null) {
                 dataSourceId = factModel.getDataSourceId();
-            } else if (!dataSourceId.equals(factModel.getDataSourceId())) {
-                throw new IllegalArgumentException("所选指标的事实表来自不同数据源，暂不支持联合查询");
             }
         }
         return dataSourceId;
+    }
+
+    private void prepareFederatedAtomics(QueryContext context) {
+        LinkedHashMap<String, Metric> atomics = new LinkedHashMap<>();
+        for (Metric metric : context.metrics) {
+            collectAtomicMetrics(metric, context.byCode, atomics);
+        }
+        context.atomicMetrics = new ArrayList<>(atomics.values());
+        int aliasIndex = 0;
+        for (Metric metric : context.atomicMetrics) {
+            String factModelId = metric.getFactModelId();
+            if (factModelId == null) {
+                throw new IllegalArgumentException("原子指标未绑定事实表：" + metric.getName());
+            }
+            context.atomicFactModel.put(metric.getCode(), factModelId);
+            context.atomicAlias.put(metric.getCode(), "m" + aliasIndex++);
+            context.atomicByFact.computeIfAbsent(factModelId, key -> new ArrayList<>()).add(metric);
+        }
+    }
+
+    private void collectAtomicMetrics(Metric metric, Map<String, Metric> byCode, Map<String, Metric> out) {
+        if (metric == null) {
+            return;
+        }
+        if (Metric.TYPE_ATOMIC.equals(metric.getMetricType())) {
+            out.putIfAbsent(metric.getCode(), metric);
+            return;
+        }
+        Matcher matcher = FORMULA_REF_PATTERN.matcher(metric.getFormula() == null ? "" : metric.getFormula());
+        while (matcher.find()) {
+            collectAtomicMetrics(byCode.get(matcher.group(1)), byCode, out);
+        }
+    }
+
+    private FederatedPlan buildFederatedPlan(QueryContext context) {
+        List<FederatedSource> sources = new ArrayList<>();
+        Map<String, Integer> tableIndexByAtomic = new HashMap<>();
+        for (DataModel factModel : context.factModels) {
+            List<Metric> atomicMetrics = context.atomicByFact.getOrDefault(factModel.getId(), List.of());
+            if (atomicMetrics.isEmpty()) {
+                continue;
+            }
+            if (factModel.getDataSourceId() == null) {
+                throw new IllegalArgumentException("事实表未绑定数据源，无法查询：" + factModel.getName());
+            }
+            DataSourceDTO dataSource = dataSourceService
+                .findOne(factModel.getDataSourceId())
+                .orElseThrow(() -> new IllegalArgumentException("数据源不存在：" + factModel.getDataSourceId()));
+            int sourceIndex = sources.size();
+            String table = "src_" + sourceIndex;
+            FederatedSource source = buildFederatedSource(context, factModel, atomicMetrics, table, dataSource);
+            sources.add(source);
+            for (Metric metric : atomicMetrics) {
+                tableIndexByAtomic.put(metric.getCode(), sourceIndex);
+            }
+        }
+        if (sources.isEmpty()) {
+            throw new IllegalArgumentException("所选指标没有可执行的原子指标");
+        }
+        String mergeSql = buildFederatedMergeSql(context, sources.size(), tableIndexByAtomic);
+        List<String> outputColumns = new ArrayList<>();
+        for (DimSelection dimension : context.dimensions) {
+            if (dimension.displayFields != null) {
+                outputColumns.addAll(dimension.displayFields);
+            }
+        }
+        for (Metric metric : context.metrics) {
+            outputColumns.add(metric.getCode());
+        }
+        return new FederatedPlan(sources, mergeSql, outputColumns, buildColumnLabels(context));
+    }
+
+    private FederatedSource buildFederatedSource(
+        QueryContext context,
+        DataModel factModel,
+        List<Metric> atomicMetrics,
+        String table,
+        DataSourceDTO dataSource
+    ) {
+        StringBuilder joins = new StringBuilder();
+        Map<String, String> dimensionAlias = new HashMap<>();
+        Map<String, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
+        List<String> selects = new ArrayList<>();
+        List<String> groupBys = new ArrayList<>();
+        List<FederatedColumn> columns = new ArrayList<>();
+
+        for (int i = 0; i < context.dimensions.size(); i++) {
+            DimSelection dimension = context.dimensions.get(i);
+            String alias = ensureDimensionJoin(
+                dimensionJoin.get(dimension.dimensionModelId),
+                dimension.dimensionModelId,
+                dimensionAlias,
+                joins
+            );
+            List<String> groupKeys = dimension.groupKeyFields.isEmpty() ? new ArrayList<>() : new ArrayList<>(dimension.groupKeyFields);
+            if (groupKeys.isEmpty()) {
+                String joinField = dimensionJoin.get(dimension.dimensionModelId);
+                if (joinField != null) {
+                    groupKeys.add(joinField);
+                }
+            }
+            for (String groupKey : groupKeys) {
+                addGroup(groupBys, alias + "." + groupKey);
+            }
+            if (!groupKeys.isEmpty()) {
+                selects.add("CAST(" + alias + "." + groupKeys.get(0) + " AS VARCHAR) AS key_" + i);
+                columns.add(new FederatedColumn("key_" + i, false));
+            }
+            for (String field : dimension.displayFields) {
+                String column = alias + "." + field;
+                selects.add(column + " AS dim_" + i + "_" + field);
+                columns.add(new FederatedColumn("dim_" + i + "_" + field, false));
+                addGroup(groupBys, column);
+            }
+        }
+        for (Metric metric : atomicMetrics) {
+            String alias = context.atomicAlias.get(metric.getCode());
+            selects.add(
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                " AS " +
+                alias
+            );
+            columns.add(new FederatedColumn(alias, true));
+        }
+
+        String where = buildWhere(context, factModel, dimensionJoin, dimensionAlias, joins);
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ").append(String.join(", ", selects));
+        sql.append("\nFROM ").append(physicalTableName(factModel)).append(" ").append(FACT_ALIAS);
+        sql.append(joins);
+        if (!where.isEmpty()) {
+            sql.append("\nWHERE ").append(where);
+        }
+        if (!groupBys.isEmpty()) {
+            sql.append("\nGROUP BY ").append(String.join(", ", groupBys));
+        }
+        LOG.debug("Federated source SQL [{}]: {}", table, sql);
+        return new FederatedSource(table, dataSource, sql.toString(), columns);
+    }
+
+    private String buildFederatedMergeSql(QueryContext context, int sourceCount, Map<String, Integer> tableIndexByAtomic) {
+        List<String> finalSelects = new ArrayList<>();
+        for (int i = 0; i < context.dimensions.size(); i++) {
+            DimSelection dimension = context.dimensions.get(i);
+            for (String field : dimension.displayFields) {
+                List<String> parts = new ArrayList<>();
+                for (int t = 0; t < sourceCount; t++) {
+                    parts.add("t" + t + ".dim_" + i + "_" + field);
+                }
+                finalSelects.add((parts.size() == 1 ? parts.get(0) : "COALESCE(" + String.join(", ", parts) + ")") + " AS " + field);
+            }
+        }
+        for (Metric metric : context.metrics) {
+            finalSelects.add(
+                duckdbMetricExpression(metric.getCode(), context.byCode, context.atomicAlias, tableIndexByAtomic, new HashSet<>()) +
+                " AS " +
+                quoteAlias(metric.getCode())
+            );
+        }
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ").append(String.join(", ", finalSelects));
+        sql.append("\nFROM ").append("src_0 t0");
+        for (int i = 1; i < sourceCount; i++) {
+            sql.append("\nFULL OUTER JOIN src_").append(i).append(" t").append(i).append(" ON ");
+            sql.append(federatedJoinCondition(i, context.dimensions.size()));
+        }
+        LOG.debug("Federated merge SQL: {}", sql);
+        return sql.toString();
+    }
+
+    private String federatedJoinCondition(int factIndex, int dimCount) {
+        if (dimCount == 0) {
+            return "1=1";
+        }
+        List<String> parts = new ArrayList<>();
+        for (int d = 0; d < dimCount; d++) {
+            List<String> left = new ArrayList<>();
+            for (int i = 0; i < factIndex; i++) {
+                left.add("t" + i + ".key_" + d);
+            }
+            String leftExpr = left.size() == 1 ? left.get(0) : "COALESCE(" + String.join(", ", left) + ")";
+            parts.add(leftExpr + " IS NOT DISTINCT FROM t" + factIndex + ".key_" + d);
+        }
+        return String.join(" AND ", parts);
+    }
+
+    private String duckdbMetricExpression(
+        String code,
+        Map<String, Metric> byCode,
+        Map<String, String> atomicAlias,
+        Map<String, Integer> tableIndexByAtomic,
+        Set<String> visiting
+    ) {
+        Metric metric = byCode.get(code);
+        if (metric == null) {
+            throw new IllegalArgumentException("指标不存在：" + code);
+        }
+        if (!visiting.add(code)) {
+            throw new IllegalArgumentException("指标公式存在循环引用：" + code);
+        }
+        String expression;
+        if (Metric.TYPE_ATOMIC.equals(metric.getMetricType())) {
+            Integer tableIndex = tableIndexByAtomic.get(code);
+            if (tableIndex == null) {
+                throw new IllegalArgumentException("原子指标没有可用的联邦来源：" + code);
+            }
+            expression = "t" + tableIndex + "." + atomicAlias.get(code);
+        } else {
+            String formula = metric.getFormula() == null ? "" : metric.getFormula();
+            Matcher matcher = FORMULA_REF_PATTERN.matcher(formula);
+            StringBuilder sb = new StringBuilder();
+            while (matcher.find()) {
+                String refExpr = duckdbMetricExpression(matcher.group(1), byCode, atomicAlias, tableIndexByAtomic, visiting);
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(refExpr));
+            }
+            matcher.appendTail(sb);
+            expression = "(" + sb + ")";
+        }
+        visiting.remove(code);
+        return expression;
+    }
+
+    private static String quoteAlias(String alias) {
+        return "\"" + alias.replace("\"", "\"\"") + "\"";
+    }
+
+    private Map<String, Object> executeFederated(
+        FederatedPlan plan,
+        QueryContext context,
+        List<DatasetScopeCondition> datasetConditions,
+        DatasetQueryOptions options
+    ) throws SQLException {
+        try (Connection duckdb = DriverManager.getConnection("jdbc:duckdb:")) {
+            for (FederatedSource source : plan.sources()) {
+                createFederatedTable(duckdb, source);
+                insertFederatedRows(duckdb, source);
+            }
+            String baseSql = DatasetScopeSqlBuilder.wrap(plan.mergeSql(), datasetConditions, null);
+            DataSourceDTO duckdbDataSource = new DataSourceDTO();
+            duckdbDataSource.setName("duckdb-federated");
+            duckdbDataSource.setType("DUCKDB");
+            String finalSql;
+            if (options.hasAggregation()) {
+                finalSql = DatasetAggregationSqlBuilder.apply(
+                    duckdbDataSource,
+                    baseSql,
+                    options.groupFields(),
+                    options.aggregations(),
+                    options.sortField(),
+                    options.sortOrder(),
+                    options.limit(),
+                    options.offset(),
+                    plan.outputColumns()
+                );
+            } else {
+                int limit = options.limit() == null ? Math.max(1, federatedMaxRows) : options.limit();
+                finalSql = DatasetSortLimitSqlBuilder.apply(
+                    duckdbDataSource,
+                    baseSql,
+                    options.sortField(),
+                    options.sortOrder(),
+                    limit,
+                    options.offset(),
+                    plan.outputColumns()
+                );
+            }
+            List<String> columns = new ArrayList<>();
+            List<Map<String, Object>> rows = new ArrayList<>();
+            try (Statement statement = duckdb.createStatement(); ResultSet rs = statement.executeQuery(finalSql)) {
+                ResultSetMetaData metadata = rs.getMetaData();
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    columns.add(metadata.getColumnLabel(i));
+                }
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                        row.put(columns.get(i - 1), rs.getObject(i));
+                    }
+                    rows.add(row);
+                }
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("columns", columns);
+            result.put("rows", rows);
+            result.put("affectedRows", 0);
+            result.put("columnLabels", plan.columnLabels());
+            result.put("sql", finalSql);
+            result.put("federated", true);
+            return result;
+        }
+    }
+
+    private void createFederatedTable(Connection duckdb, FederatedSource source) throws SQLException {
+        StringBuilder ddl = new StringBuilder("CREATE TABLE ").append(source.table()).append(" (");
+        for (int i = 0; i < source.columns().size(); i++) {
+            FederatedColumn column = source.columns().get(i);
+            if (i > 0) {
+                ddl.append(", ");
+            }
+            ddl.append(column.name()).append(column.metric() ? " DOUBLE" : " VARCHAR");
+        }
+        ddl.append(")");
+        try (Statement statement = duckdb.createStatement()) {
+            statement.execute(ddl.toString());
+        }
+    }
+
+    private void insertFederatedRows(Connection duckdb, FederatedSource source) throws SQLException {
+        Map<String, Object> sourceResult = dataSourceQueryService.executeQuery(source.dataSource(), source.sql());
+        Object rowsObject = sourceResult.get("rows");
+        if (!(rowsObject instanceof List<?> rows) || rows.isEmpty()) {
+            return;
+        }
+        StringBuilder sql = new StringBuilder("INSERT INTO ").append(source.table()).append(" VALUES (");
+        for (int i = 0; i < source.columns().size(); i++) {
+            if (i > 0) {
+                sql.append(", ");
+            }
+            sql.append("?");
+        }
+        sql.append(")");
+        try (PreparedStatement statement = duckdb.prepareStatement(sql.toString())) {
+            for (Object rowObject : rows) {
+                if (!(rowObject instanceof Map<?, ?> row)) {
+                    continue;
+                }
+                for (int i = 0; i < source.columns().size(); i++) {
+                    FederatedColumn column = source.columns().get(i);
+                    Object value = rowValue(row, column.name());
+                    if (column.metric()) {
+                        Double numeric = toDouble(value);
+                        if (numeric == null) {
+                            statement.setNull(i + 1, java.sql.Types.DOUBLE);
+                        } else {
+                            statement.setDouble(i + 1, numeric);
+                        }
+                    } else if (value == null) {
+                        statement.setNull(i + 1, java.sql.Types.VARCHAR);
+                    } else {
+                        statement.setString(i + 1, String.valueOf(value));
+                    }
+                }
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
+    private static Object rowValue(Map<?, ?> row, String key) {
+        if (row.containsKey(key)) {
+            return row.get(key);
+        }
+        for (Map.Entry<?, ?> entry : row.entrySet()) {
+            if (entry.getKey() != null && key.equalsIgnoreCase(String.valueOf(entry.getKey()))) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static Double toDouble(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.valueOf(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private String buildSql(QueryContext context) {
@@ -1343,7 +1870,12 @@ public class MetricQueryService {
         Map<String, Metric> byCode;
         List<DataModel> factModels;
         boolean single;
+        boolean federated;
         Map<String, String> metricFactModel = new LinkedHashMap<>();
+        List<Metric> atomicMetrics = new ArrayList<>();
+        Map<String, String> atomicFactModel = new LinkedHashMap<>();
+        Map<String, String> atomicAlias = new LinkedHashMap<>();
+        Map<String, List<Metric>> atomicByFact = new LinkedHashMap<>();
         Map<String, List<ModelField>> factFields = new HashMap<>();
         Map<String, Map<String, String>> factDimensionMaps = new HashMap<>();
         List<String> commonDimensionModelIds = new ArrayList<>();

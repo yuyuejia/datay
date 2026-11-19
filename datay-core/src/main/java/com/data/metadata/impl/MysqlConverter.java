@@ -76,6 +76,8 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.INT.name(), MysqlType.INT.name());
         commonDataType2ColumnType.put(AllDataType.INTEGER.name(), MysqlType.INT.name());
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), MysqlType.BIGINT.name());
+        // DuckDB 整数聚合（SUM 等）返回 HUGEINT，超出 BIGINT 范围，落 MySQL 用 DECIMAL 保精度。
+        commonDataType2ColumnType.put("HUGEINT", MysqlType.DECIMAL.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT.name(), MysqlType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), MysqlType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), MysqlType.DOUBLE.name());
@@ -275,10 +277,21 @@ public class MysqlConverter implements TypeConverter {
                 type = ("VARBINARY".equals(type) || "BINARY".equals(type)) ? MysqlType.LONGBLOB.name() : MysqlType.LONGTEXT.name();
             }
         }
+        int precision = columnMeta.getPrecision();
+        int scale = columnMeta.getScale();
+        if ("HUGEINT".equals(upperType)) {
+            // HUGEINT 是 128 位整数，MySQL 用 DECIMAL(38,0) 承接，避免退化成字符串列。
+            if (precision <= 0) {
+                precision = 38;
+            }
+            if (scale < 0) {
+                scale = 0;
+            }
+        }
         ColumnMeta column = new ColumnMeta(columnMeta.getName(), type);
         column.setLength(columnMeta.getLength());
-        column.setPrecision(columnMeta.getPrecision());
-        column.setScale(columnMeta.getScale());
+        column.setPrecision(precision);
+        column.setScale(scale);
         column.setNullable(columnMeta.isNullable());
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());

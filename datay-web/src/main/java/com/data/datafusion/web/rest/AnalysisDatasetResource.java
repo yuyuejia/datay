@@ -180,6 +180,36 @@ public class AnalysisDatasetResource {
         }
     }
 
+    /** 查询数据集持久化状态。 */
+    @GetMapping("/{id}/persist/status")
+    public ResponseEntity<Map<String, Object>> persistenceStatus(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.ok(datasetService.persistenceStatus(id));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "datasetNotFound");
+        }
+    }
+
+    /** 手动触发一次数据集持久化任务。 */
+    @PostMapping("/{id}/persist/run")
+    public ResponseEntity<Map<String, Object>> runPersistence(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.ok(datasetService.runPersistence(id));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "persistRunError");
+        }
+    }
+
+    /** 按最新数据集定义重新生成持久化任务（不执行）。 */
+    @PostMapping("/{id}/persist/sync")
+    public ResponseEntity<AnalysisDatasetDTO> syncPersistenceTask(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.ok(datasetService.syncPersistenceTask(id));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "persistSyncError");
+        }
+    }
+
     private String toDefinitionJson(Object definition) {
         if (definition == null) {
             return null;

@@ -50,6 +50,7 @@ public class AnalysisDatasetService {
     private final DatasetQueryService datasetQueryService;
     private final RoleDatasetScopeService roleDatasetScopeService;
     private final ObjectMapper objectMapper;
+    private final DatasetPersistenceService datasetPersistenceService;
 
     public AnalysisDatasetService(
         AnalysisDatasetRepository repository,
@@ -59,7 +60,8 @@ public class AnalysisDatasetService {
         AnalysisDatasetResolver datasetResolver,
         DatasetQueryService datasetQueryService,
         RoleDatasetScopeService roleDatasetScopeService,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        DatasetPersistenceService datasetPersistenceService
     ) {
         this.repository = repository;
         this.dashboardRepository = dashboardRepository;
@@ -69,6 +71,7 @@ public class AnalysisDatasetService {
         this.datasetQueryService = datasetQueryService;
         this.roleDatasetScopeService = roleDatasetScopeService;
         this.objectMapper = objectMapper;
+        this.datasetPersistenceService = datasetPersistenceService;
     }
 
     public AnalysisDatasetDTO save(AnalysisDatasetDTO dto) {
@@ -85,7 +88,21 @@ public class AnalysisDatasetService {
             dto.setStatus(AnalysisDataset.STATUS_ENABLED);
         }
         dto.setDefinition(normalizeDefinition(dto.getType(), dto.getDefinition(), dto.getDataSourceId()));
+        if (dto.getPersistEnabled() == null) {
+            dto.setPersistEnabled(Boolean.FALSE);
+        }
+        // 新建时忽略客户端提交的运行时状态，避免伪造 READY 结果或绑定已有任务。
+        dto.setPersistStatus(AnalysisDataset.PERSIST_STATUS_DISABLED);
+        dto.setPersistLastRunTime(null);
+        dto.setPersistLastSuccessTime(null);
+        dto.setPersistLastError(null);
+        dto.setPersistDefinitionHash(null);
+        dto.setPersistEtlTaskId(null);
+        dto.setPersistJobId(null);
+        dto.setPersistRowCount(null);
+        datasetPersistenceService.validateConfig(dto);
         AnalysisDataset entity = repository.save(mapper.toEntity(dto));
+        entity = datasetPersistenceService.sync(entity);
         return mapper.toDto(entity);
     }
 
@@ -109,7 +126,15 @@ public class AnalysisDatasetService {
                     dto.setFields(definition.equals(existing.getDefinition()) ? existing.getFields() : null);
                 }
                 dto.setDefinition(definition);
+                if (dto.getPersistEnabled() == null) {
+                    copyPersistenceFields(existing, dto);
+                } else {
+                    // 状态、摘要、时间与任务绑定只由服务端维护，不能信任客户端提交值。
+                    copyPersistenceRuntimeState(existing, dto);
+                }
+                datasetPersistenceService.validateConfig(dto);
                 AnalysisDataset entity = repository.save(mapper.toEntity(dto));
+                entity = datasetPersistenceService.sync(entity);
                 return mapper.toDto(entity);
             });
     }
@@ -156,6 +181,7 @@ public class AnalysisDatasetService {
             });
         // 数据集权限规则依附于数据集，删除数据集时一并清理，避免残留孤儿规则
         roleDatasetScopeService.deleteByDatasetId(id);
+        repository.findById(id).ifPresent(datasetPersistenceService::cleanup);
         repository.deleteById(id);
     }
 
@@ -219,7 +245,21 @@ public class AnalysisDatasetService {
         validate(dto);
         dto.setType(normalizeType(dto.getType()));
         dto.setDefinition(normalizeDefinition(dto.getType(), dto.getDefinition(), dto.getDataSourceId()));
+        datasetPersistenceService.validateConfig(dto);
         return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> persistenceStatus(String id) {
+        return datasetPersistenceService.status(id);
+    }
+
+    public Map<String, Object> runPersistence(String id) {
+        return datasetPersistenceService.run(id);
+    }
+
+    public AnalysisDatasetDTO syncPersistenceTask(String id) {
+        return mapper.toDto(datasetPersistenceService.syncTask(id));
     }
 
     private void validate(AnalysisDatasetDTO dto) {
@@ -323,7 +363,39 @@ public class AnalysisDatasetService {
         if (entity.getFields() != null && !entity.getFields().isBlank()) {
             dataset.put("fields", entity.getFields());
         }
+        putPersistenceMetadata(entity, dataset);
         return dataset;
+    }
+
+    private void putPersistenceMetadata(AnalysisDataset entity, Map<String, Object> dataset) {
+        dataset.put("persistEnabled", Boolean.TRUE.equals(entity.getPersistEnabled()));
+        dataset.put("persistStatus", entity.getPersistStatus());
+        dataset.put("persistTargetDataSourceId", entity.getPersistTargetDataSourceId());
+        dataset.put("persistTargetSchema", entity.getPersistTargetSchema());
+        dataset.put("persistTargetTable", entity.getPersistTargetTable());
+        dataset.put("persistWriteMode", entity.getPersistWriteMode());
+        dataset.put("persistDefinitionHash", entity.getPersistDefinitionHash());
+    }
+
+    private void copyPersistenceFields(AnalysisDataset existing, AnalysisDatasetDTO dto) {
+        dto.setPersistEnabled(existing.getPersistEnabled());
+        dto.setPersistTargetDataSourceId(existing.getPersistTargetDataSourceId());
+        dto.setPersistTargetSchema(existing.getPersistTargetSchema());
+        dto.setPersistTargetTable(existing.getPersistTargetTable());
+        dto.setPersistWriteMode(existing.getPersistWriteMode());
+        dto.setPersistCron(existing.getPersistCron());
+        copyPersistenceRuntimeState(existing, dto);
+    }
+
+    private void copyPersistenceRuntimeState(AnalysisDataset existing, AnalysisDatasetDTO dto) {
+        dto.setPersistStatus(existing.getPersistStatus());
+        dto.setPersistLastRunTime(existing.getPersistLastRunTime());
+        dto.setPersistLastSuccessTime(existing.getPersistLastSuccessTime());
+        dto.setPersistLastError(existing.getPersistLastError());
+        dto.setPersistDefinitionHash(existing.getPersistDefinitionHash());
+        dto.setPersistEtlTaskId(existing.getPersistEtlTaskId());
+        dto.setPersistJobId(existing.getPersistJobId());
+        dto.setPersistRowCount(existing.getPersistRowCount());
     }
 
     private Map<String, Object> buildQueryDataset(String id, String type, String definitionJson, String dataSourceId) {

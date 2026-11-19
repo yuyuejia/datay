@@ -15,4 +15,6 @@ public interface AnalysisDatasetRepository extends JpaRepository<AnalysisDataset
     Optional<AnalysisDataset> findByCode(String code);
 
     Optional<AnalysisDataset> findByCodeAndIdNot(String code, String id);
+
+    Optional<AnalysisDataset> findFirstByPersistJobId(String persistJobId);
 }

@@ -47,6 +47,46 @@ public class MigrationTypeFixTest {
     }
 
     @Test
+    public void duckdbHugeIntMapsToNumericTargets() {
+        DatabaseConverter.register("postgresql", new PostgresqlConverter());
+        DatabaseConverter.register("mysql", new MysqlConverter());
+        ColumnMeta source = new ColumnMeta("total", "HUGEINT", 38, 38, 0);
+
+        ColumnMeta postgres = DatabaseConverter.convert("duckdb", "postgresql", source);
+        assertEquals("NUMERIC", postgres.getType());
+        assertEquals(38, postgres.getPrecision());
+        assertEquals(0, postgres.getScale());
+        TableMeta postgresTable = new TableMeta("agg_result");
+        postgresTable.addColumn(postgres);
+        assertTrue(DatabaseConverter.generateTableDDL("postgresql", postgresTable).contains("NUMERIC(38,0)"));
+
+        ColumnMeta mysql = DatabaseConverter.convert("duckdb", "mysql", source);
+        assertEquals("DECIMAL", mysql.getType());
+        assertEquals(38, mysql.getPrecision());
+        assertEquals(0, mysql.getScale());
+        TableMeta mysqlTable = new TableMeta("agg_result");
+        mysqlTable.addColumn(mysql);
+        assertTrue(DatabaseConverter.generateTableDDL("mysql", mysqlTable).contains("DECIMAL(38,0)"));
+    }
+
+    @Test
+    public void hugeIntDefaultsToThirtyEightDigitInteger() {
+        DatabaseConverter.register("postgresql", new PostgresqlConverter());
+        DatabaseConverter.register("mysql", new MysqlConverter());
+        ColumnMeta source = new ColumnMeta("total", "HUGEINT");
+
+        ColumnMeta postgres = DatabaseConverter.convert("duckdb", "postgresql", source);
+        assertEquals("NUMERIC", postgres.getType());
+        assertEquals(38, postgres.getPrecision());
+        assertEquals(0, postgres.getScale());
+
+        ColumnMeta mysql = DatabaseConverter.convert("duckdb", "mysql", source);
+        assertEquals("DECIMAL", mysql.getType());
+        assertEquals(38, mysql.getPrecision());
+        assertEquals(0, mysql.getScale());
+    }
+
+    @Test
     public void mysqlShouldEmitTinyInt1ForLengthOneTinyInt() {
         DatabaseConverter.register("mysql", new MysqlConverter());
         TableMeta table = new TableMeta("t_flag");

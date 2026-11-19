@@ -40,6 +40,30 @@ public class AnalysisDataset implements Serializable, TenantAware {
     /** 状态：停用。 */
     public static final String STATUS_DISABLED = "DISABLED";
 
+    /** 持久化状态：未启用。 */
+    public static final String PERSIST_STATUS_DISABLED = "DISABLED";
+
+    /** 持久化状态：已配置但尚未生成结果。 */
+    public static final String PERSIST_STATUS_PENDING = "PENDING";
+
+    /** 持久化状态：任务执行中。 */
+    public static final String PERSIST_STATUS_RUNNING = "RUNNING";
+
+    /** 持久化状态：结果可用。 */
+    public static final String PERSIST_STATUS_READY = "READY";
+
+    /** 持久化状态：最近一次执行失败。 */
+    public static final String PERSIST_STATUS_FAILED = "FAILED";
+
+    /** 持久化状态：定义已变化或结果过期。 */
+    public static final String PERSIST_STATUS_STALE = "STALE";
+
+    /** 写入模式：覆盖目标表。 */
+    public static final String PERSIST_MODE_REPLACE = "REPLACE";
+
+    /** 写入模式：追加到目标表。 */
+    public static final String PERSIST_MODE_APPEND = "APPEND";
+
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -73,6 +97,62 @@ public class AnalysisDataset implements Serializable, TenantAware {
 
     @Column(name = "status", length = 32)
     private String status;
+
+    /** 是否启用结果持久化。 */
+    @Column(name = "persist_enabled")
+    private Boolean persistEnabled = Boolean.FALSE;
+
+    /** 持久化目标数据源 id。 */
+    @Column(name = "persist_target_data_source_id", length = 36)
+    private String persistTargetDataSourceId;
+
+    /** 持久化目标 schema。 */
+    @Column(name = "persist_target_schema")
+    private String persistTargetSchema;
+
+    /** 持久化目标表。 */
+    @Column(name = "persist_target_table")
+    private String persistTargetTable;
+
+    /** 持久化写入模式：REPLACE / APPEND。 */
+    @Column(name = "persist_write_mode", length = 16)
+    private String persistWriteMode;
+
+    /** 持久化任务 cron；为空表示仅手动执行。 */
+    @Column(name = "persist_cron")
+    private String persistCron;
+
+    /** 持久化结果状态。 */
+    @Column(name = "persist_status", length = 32)
+    private String persistStatus;
+
+    /** 最近一次触发时间。 */
+    @Column(name = "persist_last_run_time")
+    private ZonedDateTime persistLastRunTime;
+
+    /** 最近一次成功完成时间。 */
+    @Column(name = "persist_last_success_time")
+    private ZonedDateTime persistLastSuccessTime;
+
+    /** 最近一次失败原因。 */
+    @Column(name = "persist_last_error", length = 2000)
+    private String persistLastError;
+
+    /** 产出结果对应的数据集定义摘要，用于判断结果是否过期。 */
+    @Column(name = "persist_definition_hash", length = 64)
+    private String persistDefinitionHash;
+
+    /** 生成的数据集任务 id。 */
+    @Column(name = "persist_etl_task_id", length = 36)
+    private String persistEtlTaskId;
+
+    /** 生成的数据集调度 Job id。 */
+    @Column(name = "persist_job_id", length = 36)
+    private String persistJobId;
+
+    /** 最近一次成功产出的行数。 */
+    @Column(name = "persist_row_count")
+    private Long persistRowCount;
 
     @Column(name = "create_time")
     private ZonedDateTime createTime;
@@ -158,6 +238,119 @@ public class AnalysisDataset implements Serializable, TenantAware {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+
+    public Boolean getPersistEnabled() {
+        return persistEnabled;
+    }
+
+    public void setPersistEnabled(Boolean persistEnabled) {
+        this.persistEnabled = persistEnabled;
+    }
+
+    public String getPersistTargetDataSourceId() {
+        return persistTargetDataSourceId;
+    }
+
+    public void setPersistTargetDataSourceId(String persistTargetDataSourceId) {
+        this.persistTargetDataSourceId = persistTargetDataSourceId;
+    }
+
+    public String getPersistTargetSchema() {
+        return persistTargetSchema;
+    }
+
+    public void setPersistTargetSchema(String persistTargetSchema) {
+        this.persistTargetSchema = persistTargetSchema;
+    }
+
+    public String getPersistTargetTable() {
+        return persistTargetTable;
+    }
+
+    public void setPersistTargetTable(String persistTargetTable) {
+        this.persistTargetTable = persistTargetTable;
+    }
+
+    public String getPersistWriteMode() {
+        return persistWriteMode;
+    }
+
+    public void setPersistWriteMode(String persistWriteMode) {
+        this.persistWriteMode = persistWriteMode;
+    }
+
+    public String getPersistCron() {
+        return persistCron;
+    }
+
+    public void setPersistCron(String persistCron) {
+        this.persistCron = persistCron;
+    }
+
+    public String getPersistStatus() {
+        return persistStatus;
+    }
+
+    public void setPersistStatus(String persistStatus) {
+        this.persistStatus = persistStatus;
+    }
+
+    public ZonedDateTime getPersistLastRunTime() {
+        return persistLastRunTime;
+    }
+
+    public void setPersistLastRunTime(ZonedDateTime persistLastRunTime) {
+        this.persistLastRunTime = persistLastRunTime;
+    }
+
+    public ZonedDateTime getPersistLastSuccessTime() {
+        return persistLastSuccessTime;
+    }
+
+    public void setPersistLastSuccessTime(ZonedDateTime persistLastSuccessTime) {
+        this.persistLastSuccessTime = persistLastSuccessTime;
+    }
+
+    public String getPersistLastError() {
+        return persistLastError;
+    }
+
+    public void setPersistLastError(String persistLastError) {
+        this.persistLastError = persistLastError;
+    }
+
+    public String getPersistDefinitionHash() {
+        return persistDefinitionHash;
+    }
+
+    public void setPersistDefinitionHash(String persistDefinitionHash) {
+        this.persistDefinitionHash = persistDefinitionHash;
+    }
+
+    public String getPersistEtlTaskId() {
+        return persistEtlTaskId;
+    }
+
+    public void setPersistEtlTaskId(String persistEtlTaskId) {
+        this.persistEtlTaskId = persistEtlTaskId;
+    }
+
+    public String getPersistJobId() {
+        return persistJobId;
+    }
+
+    public void setPersistJobId(String persistJobId) {
+        this.persistJobId = persistJobId;
+    }
+
+    public Long getPersistRowCount() {
+        return persistRowCount;
+    }
+
+    public void setPersistRowCount(Long persistRowCount) {
+        this.persistRowCount = persistRowCount;
     }
 
     public ZonedDateTime getCreateTime() {

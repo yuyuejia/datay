@@ -27,6 +27,9 @@ public final class TaskConstants {
 
     public static final String TASK_TYPE_METADATA_COLLECT = "METADATA_COLLECT";
 
+    /** 数据集结果持久化任务类型，执行引擎复用 ETL 流程。 */
+    public static final String TASK_TYPE_DATASET = "DATASET";
+
     /** ETL 批量任务类型。 */
     public static final String ETL_TASK_KIND_BATCH = "BATCH";
 

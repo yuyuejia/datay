@@ -4,6 +4,10 @@ export type AnalysisDatasetType = 'METRIC' | 'SQL';
 
 export type AnalysisDatasetStatus = 'ENABLED' | 'DISABLED';
 
+export type DatasetPersistStatus = 'DISABLED' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED' | 'STALE';
+
+export type DatasetPersistWriteMode = 'REPLACE' | 'APPEND';
+
 export interface AnalysisDataset {
   id?: string;
   tenantId?: string;
@@ -17,6 +21,27 @@ export interface AnalysisDataset {
   /** 最近一次预览的列信息 JSON 字符串。 */
   fields?: string;
   status?: AnalysisDatasetStatus;
+  /** 是否启用结果持久化。 */
+  persistEnabled?: boolean;
+  /** 持久化目标数据源。 */
+  persistTargetDataSourceId?: string;
+  /** 持久化目标 schema。 */
+  persistTargetSchema?: string;
+  /** 持久化目标表。 */
+  persistTargetTable?: string;
+  /** 写入模式。 */
+  persistWriteMode?: DatasetPersistWriteMode;
+  /** 持久化 Cron，为空表示仅手动执行。 */
+  persistCron?: string;
+  /** 持久化结果状态。 */
+  persistStatus?: DatasetPersistStatus;
+  persistLastRunTime?: string;
+  persistLastSuccessTime?: string;
+  persistLastError?: string;
+  persistDefinitionHash?: string;
+  persistEtlTaskId?: string;
+  persistJobId?: string;
+  persistRowCount?: number;
   /** 已发布的数据服务信息，由后端列表接口返回。 */
   publishedApiId?: string;
   publishedApiCode?: string;

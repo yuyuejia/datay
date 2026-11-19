@@ -35,19 +35,19 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column label="API 服务" width="150">
+        <el-table-column prop="description" label="描述" min-width="180" show-overflow-tooltip />
+        <el-table-column label="持久化" width="150">
           <template #default="scope">
-            <el-tag v-if="scope.row.publishedApiCode" :type="scope.row.publishedApiStatus === 'ENABLED' ? 'success' : 'info'" size="small">
-              {{ scope.row.publishedApiCode }}
+            <el-tag v-if="scope.row.persistEnabled" :type="persistStatusType(scope.row.persistStatus)" size="small">
+              {{ persistStatusLabel(scope.row.persistStatus) }}
             </el-tag>
-            <span v-else class="text-muted">未发布</span>
+            <span v-else class="text-muted">未启用</span>
           </template>
         </el-table-column>
         <el-table-column prop="updateTime" label="更新时间" width="170">
           <template #default="scope">{{ formatDateShort(scope.row.updateTime) || formatDateShort(scope.row.createTime) || '' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="370">
+        <el-table-column label="操作" fixed="right" width="380">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openPreview(scope.row)">预览</el-button>
@@ -55,7 +55,18 @@
                 {{ scope.row.publishedApiId ? '查看 API' : '发布为 API' }}
               </el-button>
               <el-button type="info" size="small" @click="edit(scope.row)">编辑</el-button>
-              <el-button type="danger" size="small" @click="prepareRemove(scope.row)">删除</el-button>
+              <el-dropdown trigger="click" @command="command => handleRowCommand(command, scope.row)">
+                <el-button type="info" plain size="small">
+                  <span>其他</span>
+                  <font-awesome-icon icon="ellipsis-vertical"></font-awesome-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="persist">持久化</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -96,6 +107,81 @@
         <el-button @click="previewVisible = false">关闭</el-button>
       </template>
     </app-modal>
+
+    <app-modal v-model="persistVisible" size="lg" :title="`结果持久化 · ${persistDataset?.name || ''}`">
+      <div v-loading="persistLoading">
+        <el-form :model="persistForm" label-width="110px" label-position="right">
+          <el-form-item label="启用持久化">
+            <el-switch v-model="persistForm.persistEnabled" active-text="启用" inactive-text="关闭" @change="onPersistToggle" />
+            <span class="dataset-persist-hint">开启后生成「数据集任务」，数据集查询优先读取持久化结果。</span>
+          </el-form-item>
+
+          <template v-if="persistForm.persistEnabled">
+            <el-form-item label="目标数据源" required>
+              <DataSourceSelector
+                :datasource-id="persistForm.persistTargetDataSourceId"
+                :schema="persistForm.persistTargetSchema"
+                @selected="handlePersistDataSourceSelected"
+              />
+            </el-form-item>
+            <el-form-item label="目标表" required>
+              <el-input v-model="persistForm.persistTargetTable" placeholder="表名，如 dataset_result" />
+              <div class="dataset-persist-cron-tip">写入上方选择的数据源和 Schema</div>
+            </el-form-item>
+            <el-form-item label="写入模式">
+              <el-radio-group v-model="persistForm.persistWriteMode">
+                <el-radio-button label="REPLACE">覆盖 REPLACE</el-radio-button>
+                <el-radio-button label="APPEND">追加 APPEND</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="调度 Cron">
+              <CronExpressionSelector v-model:value="persistForm.persistCron" />
+              <div class="dataset-persist-cron-tip">留空表示仅手动执行，配置后按 Cron 自动刷新结果</div>
+            </el-form-item>
+
+            <el-alert
+              v-if="persistDefinitionHasParams"
+              type="warning"
+              :closable="false"
+              show-icon
+              title="包含 ${param} 占位符的 SQL 数据集暂不支持持久化"
+              class="mb-2"
+            />
+            <el-alert v-if="persistMessage" :type="persistMessageType" :title="persistMessage" :closable="false" show-icon class="mb-2" />
+
+            <div v-if="persistDataset?.persistEnabled" class="dataset-persist-status">
+              <div class="dataset-persist-status-row">
+                <el-tag :type="persistStatusType(persistDataset.persistStatus)" size="small">
+                  {{ persistStatusLabel(persistDataset.persistStatus) }}
+                </el-tag>
+                <span v-if="persistDataset.persistLastSuccessTime" class="dataset-persist-time">
+                  最近成功：{{ formatDateShort(persistDataset.persistLastSuccessTime) }}
+                </span>
+                <span v-if="persistDataset.persistRowCount != null" class="dataset-persist-time">
+                  行数：{{ persistDataset.persistRowCount }}
+                </span>
+              </div>
+              <div class="dataset-persist-status-actions">
+                <el-button size="small" :loading="persistLoading" @click="loadPersistStatus">刷新状态</el-button>
+                <el-button size="small" :loading="persistLoading" @click="syncPersist">同步任务</el-button>
+                <el-button type="primary" size="small" :loading="persistLoading" @click="runPersist">立即执行</el-button>
+              </div>
+              <el-alert
+                v-if="persistDataset.persistLastError"
+                type="error"
+                :title="`最近失败：${persistDataset.persistLastError}`"
+                :closable="false"
+                class="mt-2"
+              />
+            </div>
+          </template>
+        </el-form>
+      </div>
+      <template #modal-footer>
+        <el-button @click="persistVisible = false">取消</el-button>
+        <el-button type="primary" :loading="persistSaving" @click="savePersist">保存配置</el-button>
+      </template>
+    </app-modal>
   </div>
 </template>
 
@@ -117,5 +203,40 @@
 
 .dataset-preview-table {
   min-height: 180px;
+}
+
+.dataset-persist-hint {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.dataset-persist-cron-tip {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.dataset-persist-status {
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.dataset-persist-status-row,
+.dataset-persist-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dataset-persist-status-actions {
+  margin-top: 10px;
+}
+
+.dataset-persist-time {
+  color: #909399;
+  font-size: 12px;
 }
 </style>

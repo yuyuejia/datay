@@ -2,7 +2,9 @@ package com.data.datafusion.service.dashboard;
 
 import com.data.datafusion.service.DataSourceQueryService;
 import com.data.datafusion.service.DataSourceService;
+import com.data.datafusion.service.DatasetPersistenceService;
 import com.data.datafusion.service.MetricQueryService;
+import com.data.datafusion.service.RoleDataScopeService;
 import com.data.datafusion.service.RoleDatasetScopeService;
 import com.data.datafusion.service.dataset.DatasetAggregationSqlBuilder;
 import com.data.datafusion.service.dataset.DatasetFieldValueSqlBuilder;
@@ -55,6 +57,8 @@ public class DatasetQueryService {
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final RoleDatasetScopeService roleDatasetScopeService;
+    private final RoleDataScopeService roleDataScopeService;
+    private final DatasetPersistenceService datasetPersistenceService;
     private final AnalysisDatasetResolver datasetResolver;
     private final ObjectMapper objectMapper;
 
@@ -63,6 +67,8 @@ public class DatasetQueryService {
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
         RoleDatasetScopeService roleDatasetScopeService,
+        RoleDataScopeService roleDataScopeService,
+        DatasetPersistenceService datasetPersistenceService,
         AnalysisDatasetResolver datasetResolver,
         ObjectMapper objectMapper
     ) {
@@ -70,6 +76,8 @@ public class DatasetQueryService {
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.roleDatasetScopeService = roleDatasetScopeService;
+        this.roleDataScopeService = roleDataScopeService;
+        this.datasetPersistenceService = datasetPersistenceService;
         this.datasetResolver = datasetResolver;
         this.objectMapper = objectMapper;
     }
@@ -112,20 +120,30 @@ public class DatasetQueryService {
             DatasetScopeSqlBuilder.buildPredicate(scopeConditions, scopeFields);
         }
         String type = asString(dataset.get("type"));
-        Map<String, Object> result;
-        if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
-            result = querySqlDataset(
-                fallbackDataSourceId,
-                dataset,
-                filters,
-                filterValues,
-                scopeConditions,
-                scopeFields,
-                effectiveOptions,
-                null
-            );
-        } else {
-            result = queryMetricDataset(dataset, filters, filterValues, scopeConditions, effectiveOptions);
+        Map<String, Object> result = tryPersistedQuery(
+            dataset,
+            filters,
+            filterValues,
+            scopeConditions,
+            scopeFields,
+            effectiveOptions,
+            null
+        );
+        if (result == null) {
+            if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
+                result = querySqlDataset(
+                    fallbackDataSourceId,
+                    dataset,
+                    filters,
+                    filterValues,
+                    scopeConditions,
+                    scopeFields,
+                    effectiveOptions,
+                    null
+                );
+            } else {
+                result = queryMetricDataset(dataset, filters, filterValues, scopeConditions, effectiveOptions);
+            }
         }
         if (effectiveOptions.hasAggregation() && !Boolean.FALSE.equals(result.get("aggregated"))) {
             result.put("aggregated", true);
@@ -157,28 +175,32 @@ public class DatasetQueryService {
 
         Map<String, Object> effectiveParams = params == null ? Map.of() : params;
         String type = asString(dataset.get("type"));
-        Map<String, Object> result;
-        if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
-            String sql = asString(dataset.get("sql"));
-            Map<String, Object> namedParams = collectApiSqlParams(sql, effectiveParams);
-            result = querySqlDataset(
-                asString(dataset.get("dataSourceId")),
-                dataset,
-                List.of(),
-                Map.of(),
-                scopeConditions,
-                scopeFields,
-                effectiveOptions,
-                namedParams
-            );
-        } else {
-            result = queryMetricDataset(
-                applyApiTimeRange(dataset, effectiveParams),
-                List.of(),
-                Map.of(),
-                scopeConditions,
-                effectiveOptions
-            );
+        Map<String, Object> result = effectiveParams.isEmpty()
+            ? tryPersistedQuery(dataset, List.of(), Map.of(), scopeConditions, scopeFields, effectiveOptions, null)
+            : null;
+        if (result == null) {
+            if (DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type)) {
+                String sql = asString(dataset.get("sql"));
+                Map<String, Object> namedParams = collectApiSqlParams(sql, effectiveParams);
+                result = querySqlDataset(
+                    asString(dataset.get("dataSourceId")),
+                    dataset,
+                    List.of(),
+                    Map.of(),
+                    scopeConditions,
+                    scopeFields,
+                    effectiveOptions,
+                    namedParams
+                );
+            } else {
+                result = queryMetricDataset(
+                    applyApiTimeRange(dataset, effectiveParams),
+                    List.of(),
+                    Map.of(),
+                    scopeConditions,
+                    effectiveOptions
+                );
+            }
         }
         attachColumnLabels(dataset, result);
         return result;
@@ -482,6 +504,91 @@ public class DatasetQueryService {
         return names;
     }
 
+    /**
+     * 尝试读取持久化结果。仅当结果状态为 READY、定义摘要一致、筛选字段都能映射到结果列，
+     * 且当前用户没有无法下推的指标级数据范围时使用；任何异常都回退实时查询。
+     */
+    private Map<String, Object> tryPersistedQuery(
+        Map<String, Object> dataset,
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues,
+        List<DatasetScopeCondition> scopeConditions,
+        Set<String> scopeFields,
+        DatasetQueryOptions options,
+        Map<String, Object> explicitNamedParams
+    ) {
+        // 看板 spec 中的 id 是数据集本地别名，持久化状态必须按真实数据集 id（refId）判断。
+        String datasetId = asString(dataset.get("refId"));
+        if (datasetId == null || datasetId.isBlank()) {
+            datasetId = asString(dataset.get("id"));
+        }
+        if (datasetId == null || datasetId.isBlank() || !Boolean.TRUE.equals(dataset.get("persistEnabled"))) {
+            return null;
+        }
+        if (explicitNamedParams != null && !explicitNamedParams.isEmpty()) {
+            return null;
+        }
+        String type = asString(dataset.get("type"));
+        boolean sqlDataset = DashboardSpecValidator.DATASET_SQL.equalsIgnoreCase(type);
+        // 指标级 RBAC 尚未物化到结果集时，带数据范围的用户必须回退实时查询，避免越权。
+        if (!sqlDataset && !roleDataScopeService.resolveEffectiveScopes().isEmpty()) {
+            return null;
+        }
+        Set<String> datasetFields = resolveDatasetFieldNames(dataset);
+        List<DatasetScopeCondition> filterConditions = collectPersistedFilterConditions(
+            dataset,
+            filters,
+            filterValues,
+            datasetFields,
+            sqlDataset
+        );
+        // 指标时间、事实字段等无法映射到物化结果列的筛选仍回退实时查询。
+        if (filterConditions == null) {
+            return null;
+        }
+        if (!datasetPersistenceService.isPersistedUsable(datasetId)) {
+            return null;
+        }
+        String targetDataSourceId = asString(dataset.get("persistTargetDataSourceId"));
+        String targetTable = asString(dataset.get("persistTargetTable"));
+        if (targetDataSourceId == null || targetDataSourceId.isBlank() || targetTable == null || targetTable.isBlank()) {
+            return null;
+        }
+        try {
+            DataSourceDTO target = dataSourceService
+                .findOne(targetDataSourceId)
+                .orElseThrow(() -> new IllegalArgumentException("持久化目标数据源不存在：" + targetDataSourceId));
+            String baseSql = "SELECT * FROM " + DatasetPersistenceService.qualifiedTable(
+                target,
+                asString(dataset.get("persistTargetSchema")),
+                targetTable
+            );
+            String scopedSql = DatasetScopeSqlBuilder.wrap(baseSql, scopeConditions, scopeFields);
+            String filteredSql = filterConditions.isEmpty()
+                ? scopedSql
+                : DatasetFilterSqlBuilder.wrap(scopedSql, filterConditions, datasetFields);
+            String finalSql = DatasetAggregationSqlBuilder.apply(
+                target,
+                filteredSql,
+                options.groupFields(),
+                options.aggregations(),
+                options.sortField(),
+                options.sortOrder(),
+                options.limit(),
+                options.offset(),
+                datasetFields.isEmpty() ? null : datasetFields
+            );
+            Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(target, finalSql));
+            result.put("sql", finalSql);
+            result.put("querySql", finalSql);
+            result.put("persisted", true);
+            return result;
+        } catch (Exception e) {
+            LOG.debug("读取数据集持久化结果失败，回退实时查询 dataset={}: {}", datasetId, e.getMessage());
+            return null;
+        }
+    }
+
     // ------------------------------------------------------------- metric data
 
     private Map<String, Object> queryMetricDataset(
@@ -492,26 +599,7 @@ public class DatasetQueryService {
         DatasetQueryOptions options
     ) throws SQLException {
         MetricQueryDTO dto = buildMetricQueryDTO(dataset, filters, filterValues);
-        if (options == null || options.isEmpty()) {
-            return metricQueryService.query(dto, scopeConditions);
-        }
-        MetricQueryService.QueryPlan plan = metricQueryService.plan(dto);
-        String scopedSql = DatasetScopeSqlBuilder.wrap(plan.sql(), scopeConditions, null);
-        String finalSql = DatasetAggregationSqlBuilder.apply(
-            plan.dataSource(),
-            scopedSql,
-            options.groupFields(),
-            options.aggregations(),
-            options.sortField(),
-            options.sortOrder(),
-            options.limit(),
-            options.offset(),
-            resolveDatasetFieldNames(dataset)
-        );
-        Map<String, Object> result = new LinkedHashMap<>(dataSourceQueryService.executeQuery(plan.dataSource(), finalSql));
-        result.put("columnLabels", plan.columnLabels());
-        result.put("sql", finalSql);
-        return result;
+        return metricQueryService.queryDataset(dto, scopeConditions, options);
     }
 
     private MetricQueryDTO buildMetricQueryDTO(
@@ -603,7 +691,16 @@ public class DatasetQueryService {
             String modelCode = asString(dimension.get("dimensionModelCode"));
             String singleField = asString(dimension.get("dimensionFieldName"));
             List<String> fieldNames = asStringList(dimension.get("dimensionFieldNames"));
-            if (field.equals(singleField) || fieldNames.contains(field)) {
+            boolean matched = field.equals(singleField) || fieldNames.contains(field);
+            if (!matched) {
+                Long levelIndex = asLong(dimension.get("levelIndex"));
+                matched =
+                    levelIndex != null &&
+                    modelCode != null &&
+                    !modelCode.isBlank() &&
+                    metricQueryService.isDimensionLevelField(modelCode, levelIndex.intValue(), field);
+            }
+            if (matched) {
                 if (modelCode == null || modelCode.isBlank()) {
                     throw new IllegalArgumentException("指标数据集筛选字段缺少维度模型：" + field);
                 }
@@ -754,6 +851,71 @@ public class DatasetQueryService {
             result.put("aggregated", false);
         }
         return result;
+    }
+
+    /**
+     * 把运行时筛选目标转换为物化结果表可执行的列条件。
+     *
+     * @return 无法映射到结果列的筛选返回 {@code null}，调用方应回退实时查询
+     */
+    private List<DatasetScopeCondition> collectPersistedFilterConditions(
+        Map<String, Object> dataset,
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues,
+        Set<String> datasetFields,
+        boolean sqlDataset
+    ) {
+        if (filters == null || filters.isEmpty()) {
+            return List.of();
+        }
+        String datasetId = asString(dataset.get("id"));
+        List<DatasetScopeCondition> conditions = new ArrayList<>();
+        for (Map<String, Object> filter : filters) {
+            String filterType = asString(filter.get("type"));
+            Object value = effectiveValue(filter, filterValues);
+            if (isEmptyValue(value)) {
+                continue;
+            }
+            for (Map<String, Object> target : FilterTargetResolver.targetsFor(filter, datasetId)) {
+                if (!FilterTargetResolver.isServerTarget(target)) {
+                    continue;
+                }
+                Map<String, Object> pushdown = FilterTargetResolver.pushdown(target);
+                String field;
+                if (!pushdown.isEmpty()) {
+                    String kind = asString(pushdown.get("kind"));
+                    if (BINDING_METRIC_DIMENSION.equals(kind)) {
+                        field = asString(pushdown.get("dimensionFieldName"));
+                        if (field == null || field.isBlank()) {
+                            field = FilterTargetResolver.field(target);
+                        }
+                        if (field == null || field.isBlank()) {
+                            return null;
+                        }
+                    } else {
+                        // metricTime / metricFactField / sqlParam 等无法稳定映射到结果列。
+                        return null;
+                    }
+                } else {
+                    field = FilterTargetResolver.field(target);
+                    if (field == null) {
+                        continue;
+                    }
+                }
+                if (!datasetFields.isEmpty() && !datasetFields.contains(field)) {
+                    if (sqlDataset) {
+                        throw new IllegalArgumentException("数据集筛选字段不存在：" + field);
+                    }
+                    // 指标维度可能不在当前物化结果中，回退实时查询。
+                    return null;
+                }
+                DatasetScopeCondition condition = buildSqlColumnCondition(filterType, field, value);
+                if (condition != null) {
+                    conditions.add(condition);
+                }
+            }
+        }
+        return conditions;
     }
 
     /**

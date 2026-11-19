@@ -2,6 +2,7 @@ package com.data.datafusion.service.jobevent;
 
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
+import com.data.datafusion.service.DatasetPersistenceService;
 import com.data.datafusion.service.JobInstanceService;
 import com.data.datafusion.service.alert.AlertEventService;
 import com.data.datafusion.service.datamap.DataMapIndexService;
@@ -39,6 +40,14 @@ public class JobStatusEventHandler implements Runnable {
                     latestJobInstance.setJobMessage(event.getJobInstance().getJobMessage());
                 }
                 jobInstanceService.save(latestJobInstance);
+                if (TaskConstants.TASK_TYPE_DATASET.equalsIgnoreCase(latestJobInstance.getType())) {
+                    try {
+                        SpringUtils.getBean(DatasetPersistenceService.class).updateFromJobInstance(latestJobInstance);
+                    } catch (Exception e) {
+                        // 持久化状态是旁路能力，不能影响任务状态事件循环。
+                        log.error("Failed to update dataset persistence status for instance {}", latestJobInstance.getInstanceCode(), e);
+                    }
+                }
                 try {
                     SpringUtils.getBean(AlertEventService.class).onJobInstanceStatus(latestJobInstance);
                 } catch (Exception e) {

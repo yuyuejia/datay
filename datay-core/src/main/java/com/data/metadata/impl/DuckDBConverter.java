@@ -21,6 +21,7 @@ public class DuckDBConverter implements TypeConverter {
         UTINYINT,
         TINYINT,
         BIGINT,
+        HUGEINT,
         FLOAT,
         DOUBLE,
         BOOLEAN,
@@ -64,6 +65,9 @@ public class DuckDBConverter implements TypeConverter {
         commonDataType2ColumnType.put(AllDataType.INT.name(), DuckDBType.INT.name());
         commonDataType2ColumnType.put(AllDataType.INTEGER.name(), DuckDBType.INT.name());
         commonDataType2ColumnType.put(AllDataType.BIGINT.name(), DuckDBType.BIGINT.name());
+        // DuckDB 对整数聚合（如 SUM(BIGINT)）返回 HUGEINT；JDBC 元数据会直接给出 HUGEINT。
+        // 若不登记，会退化为 VARCHAR，导致 Appender 写入整数时类型不匹配。
+        commonDataType2ColumnType.put(DuckDBType.HUGEINT.name(), DuckDBType.HUGEINT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT.name(), DuckDBType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT4.name(), DuckDBType.FLOAT.name());
         commonDataType2ColumnType.put(AllDataType.FLOAT8.name(), DuckDBType.DOUBLE.name());
