@@ -38,6 +38,14 @@ public class WaitingJobQuartzTask implements Job {
                     log.info("waiting jobInstance {} is ready to start", jobInstance);
                     jobInstanceService.startInstance(jobInstance);
                 }
+            } catch (Exception e) {
+                // 单个等待任务失败不能中断整批检查，同时要留下可观测的失败实例。
+                log.error("等待任务启动失败: instanceCode={}", jobInstance.getInstanceCode(), e);
+                try {
+                    jobInstanceService.recordDispatchFailure(jobInstance.getJobCode(), jobInstance, e);
+                } catch (Exception recordError) {
+                    log.error("记录等待任务启动失败实例失败: instanceCode={}", jobInstance.getInstanceCode(), recordError);
+                }
             } finally {
                 TenantContext.clear();
             }

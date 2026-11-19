@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.ETLTaskDirectory;
@@ -15,12 +18,15 @@ import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.JobRepository;
 import com.data.datafusion.service.dto.JobDTO;
+import com.data.datafusion.service.jobevent.EventServiceFactory;
+import com.data.datafusion.service.jobevent.IEventService;
 import com.data.datafusion.service.mapper.JobMapper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 
 class JobServiceTest {
 
@@ -189,6 +195,28 @@ class JobServiceTest {
         ArgumentCaptor<JobInstance> captor = ArgumentCaptor.forClass(JobInstance.class);
         verify(jobInstanceService).startInstance(captor.capture());
         assertThat(captor.getValue().getPriority()).isEqualTo(3);
+    }
+
+    @Test
+    void executeOnceRecordsFailedInstanceWhenDispatchThrows() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobInstanceService jobInstanceService = mock(JobInstanceService.class);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, jobInstanceService);
+
+        Job job = new Job();
+        job.setId("job-1");
+        job.setJobName("broken-job");
+        job.setType("SQL");
+        job.setPriority(3);
+        IllegalStateException error = new IllegalStateException("SQL 任务绑定的数据源不存在: ds-1");
+        org.mockito.Mockito.doThrow(error).when(jobInstanceService).startInstance(any(JobInstance.class));
+
+        assertThatThrownBy(() -> jobService.executeOnce(job)).isSameAs(error);
+
+        ArgumentCaptor<JobInstance> captor = ArgumentCaptor.forClass(JobInstance.class);
+        verify(jobInstanceService).recordDispatchFailure(eq("job-1"), captor.capture(), eq(error));
+        assertThat(captor.getValue().getJobCode()).isEqualTo("job-1");
     }
 
     @Test
@@ -499,5 +527,79 @@ class JobServiceTest {
 
         assertThat(jobService.moveToDirectory("shell-1", "shell-dir-1")).isNotNull();
         assertThat(job.getDirectoryId()).isEqualTo("shell-dir-1");
+    }
+
+    @Test
+    void updateReschedulesOnlineJobWhenCronChanges() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
+
+        Job existing = new Job();
+        existing.setId("job-1");
+        existing.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+        existing.setCron("0 30 1 * * ?");
+        when(jobRepository.findById("job-1")).thenReturn(Optional.of(existing));
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId(dto.getId());
+            entity.setStatus(dto.getStatus());
+            entity.setCron(dto.getCron());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        IEventService eventService = mock(IEventService.class);
+        try (MockedStatic<EventServiceFactory> eventFactory = mockStatic(EventServiceFactory.class)) {
+            eventFactory.when(EventServiceFactory::getEventService).thenReturn(eventService);
+
+            JobDTO update = new JobDTO();
+            update.setId("job-1");
+            update.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+            update.setCron("0 0 2 * * ?");
+            jobService.update(update);
+        }
+
+        ArgumentCaptor<Job> captor = ArgumentCaptor.forClass(Job.class);
+        verify(eventService).addJob(captor.capture());
+        assertThat(captor.getValue().getCron()).isEqualTo("0 0 2 * * ?");
+    }
+
+    @Test
+    void updateDoesNotRescheduleOnlineJobWhenCronUnchanged() {
+        JobRepository jobRepository = mock(JobRepository.class);
+        JobMapper jobMapper = mock(JobMapper.class);
+        JobService jobService = createJobService(jobRepository, mock(ETLTaskDirectoryRepository.class), jobMapper, mock(JobInstanceService.class));
+
+        Job existing = new Job();
+        existing.setId("job-1");
+        existing.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+        existing.setCron("0 30 1 * * ?");
+        when(jobRepository.findById("job-1")).thenReturn(Optional.of(existing));
+        when(jobMapper.toEntity(any(JobDTO.class))).thenAnswer(invocation -> {
+            JobDTO dto = invocation.getArgument(0);
+            Job entity = new Job();
+            entity.setId(dto.getId());
+            entity.setStatus(dto.getStatus());
+            entity.setCron(dto.getCron());
+            return entity;
+        });
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobMapper.toDto(any(Job.class))).thenReturn(new JobDTO());
+
+        IEventService eventService = mock(IEventService.class);
+        try (MockedStatic<EventServiceFactory> eventFactory = mockStatic(EventServiceFactory.class)) {
+            eventFactory.when(EventServiceFactory::getEventService).thenReturn(eventService);
+
+            JobDTO update = new JobDTO();
+            update.setId("job-1");
+            update.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+            update.setCron("0 30 1 * * ?");
+            jobService.update(update);
+        }
+
+        verifyNoInteractions(eventService);
     }
 }

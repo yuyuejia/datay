@@ -93,7 +93,7 @@ public class QuartzService implements ElectionListener {
      */
     public void addJob(Class<? extends Job> jobClass, String jobName, String jobGroupName, String jobTime, Map jobData) {
         if (jobTime == null || jobTime.isEmpty()) {
-            log.error("cron is null or empty");
+            log.error("cron is null or empty, jobName={}", jobName);
             return;
         }
         try {
@@ -114,10 +114,12 @@ public class QuartzService implements ElectionListener {
                 .withSchedule(CronScheduleBuilder.cronSchedule(jobTime))
                 .startNow()
                 .build();
-            // 把作业和触发器注册到任务调度中
-            scheduler.scheduleJob(jobDetail, trigger);
+            // replace=true：已存在同名 Job/Trigger 时直接替换，避免任务更新或调度重新初始化时
+            // 因 ObjectAlreadyExistsException 被静默吞掉，导致任务实际上没有新触发器。
+            scheduler.scheduleJob(jobDetail, Set.of(trigger), true);
+            log.info("调度任务已注册/更新: {}.{}, cron={}", jobGroupName, jobName, jobTime);
         } catch (Exception e) {
-            log.error("add job error ", e);
+            log.error("add job error, jobName={}, cron={}", jobName, jobTime, e);
         }
     }
 
@@ -131,12 +133,21 @@ public class QuartzService implements ElectionListener {
     public void updateJob(String jobName, String jobGroupName, String jobTime) {
         try {
             TriggerKey triggerKey = TriggerKey.triggerKey(jobName, jobGroupName);
-            CronTrigger trigger = (CronTrigger) scheduler.getTrigger(triggerKey);
-            trigger = trigger.getTriggerBuilder().withIdentity(triggerKey).withSchedule(CronScheduleBuilder.cronSchedule(jobTime)).build();
+            Trigger existingTrigger = scheduler.getTrigger(triggerKey);
+            if (!(existingTrigger instanceof CronTrigger existingCronTrigger)) {
+                log.warn("update job skipped, trigger not found or not cron: {}.{}", jobGroupName, jobName);
+                return;
+            }
+            CronTrigger trigger = existingCronTrigger
+                .getTriggerBuilder()
+                .withIdentity(triggerKey)
+                .withSchedule(CronScheduleBuilder.cronSchedule(jobTime))
+                .build();
             // 重启触发器
             scheduler.rescheduleJob(triggerKey, trigger);
+            log.info("调度任务已更新: {}.{}, cron={}", jobGroupName, jobName, jobTime);
         } catch (SchedulerException e) {
-            log.error("update job error ", e);
+            log.error("update job error, jobName={}, cron={}", jobName, jobTime, e);
         }
     }
 

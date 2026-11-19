@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -130,16 +131,23 @@ public class JobService {
         jobInstance.setRetryCount(job.getRetryCount() == null ? 0 : job.getRetryCount());
         jobInstance.setTimeoutSeconds(job.getTimeoutSeconds() == null ? 0 : job.getTimeoutSeconds());
         jobInstance.setPriority(TaskConstants.isValidPriority(job.getPriority()) ? job.getPriority() : TaskConstants.DEFAULT_PRIORITY);
-        if (TaskConstants.TASK_TYPE_SQL.equals(job.getType())) {
-            jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
-        } else if (TaskConstants.TASK_TYPE_DATASET.equals(job.getType())) {
-            jobInstance.setJobContext(DatasetTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
-        } else {
-            jobInstance.setJobContext(job.getJobContext());
-        }
         jobInstance.setCreateTime(ZonedDateTime.now());
 
-        jobInstanceService.startInstance(jobInstance);
+        try {
+            if (TaskConstants.TASK_TYPE_SQL.equals(job.getType())) {
+                jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+            } else if (TaskConstants.TASK_TYPE_DATASET.equals(job.getType())) {
+                jobInstance.setJobContext(DatasetTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+            } else {
+                jobInstance.setJobContext(job.getJobContext());
+            }
+            jobInstanceService.startInstance(jobInstance);
+        } catch (Exception e) {
+            // 手工运行也要留下可观测的失败实例，而不是只返回一个 500。
+            LOG.error("手工运行任务失败: jobId={}, jobName={}", job.getId(), job.getJobName(), e);
+            jobInstanceService.recordDispatchFailure(String.valueOf(job.getId()), jobInstance, e);
+            throw e;
+        }
     }
 
     /**
@@ -150,13 +158,17 @@ public class JobService {
      */
     public JobDTO update(JobDTO jobDTO) {
         LOG.debug("Request to update Job : {}", jobDTO);
-        preserveSchedulingFromExisting(jobDTO);
+        Job existing = jobDTO.getId() == null ? null : jobRepository.findById(jobDTO.getId()).orElse(null);
+        String previousStatus = existing == null ? null : existing.getStatus();
+        String previousCron = existing == null ? null : existing.getCron();
+        preserveSchedulingFromExisting(jobDTO, existing);
         normalizeScheduling(jobDTO);
         validateJobDirectory(jobDTO);
         validateDagNesting(jobDTO);
         Job job = jobMapper.toEntity(jobDTO);
         normalizeScheduling(job);
         job = jobRepository.save(job);
+        rescheduleIfNeeded(previousStatus, previousCron, job);
         return jobMapper.toDto(job);
     }
 
@@ -172,11 +184,14 @@ public class JobService {
         return jobRepository
             .findById(jobDTO.getId())
             .map(existingJob -> {
+                String previousStatus = existingJob.getStatus();
+                String previousCron = existingJob.getCron();
                 jobMapper.partialUpdate(existingJob, jobDTO);
-
-                return existingJob;
+                normalizeScheduling(existingJob);
+                Job saved = jobRepository.save(existingJob);
+                rescheduleIfNeeded(previousStatus, previousCron, saved);
+                return saved;
             })
-            .map(jobRepository::save)
             .map(jobMapper::toDto);
     }
 
@@ -423,26 +438,44 @@ public class JobService {
      * 更新任务时，编辑页不再提交调度设置。对于未提交的字段沿用数据库中的现有配置，
      * 避免仅修改任务内容时把已配置的 Cron、重试次数、超时时间或优先级清空。
      */
-    private void preserveSchedulingFromExisting(JobDTO jobDTO) {
-        if (jobDTO.getId() == null) {
+    private void preserveSchedulingFromExisting(JobDTO jobDTO, Job existing) {
+        if (existing == null) {
             return;
         }
-        jobRepository
-            .findById(jobDTO.getId())
-            .ifPresent(existing -> {
-                if (jobDTO.getRetryCount() == null) {
-                    jobDTO.setRetryCount(existing.getRetryCount());
-                }
-                if (jobDTO.getTimeoutSeconds() == null) {
-                    jobDTO.setTimeoutSeconds(existing.getTimeoutSeconds());
-                }
-                if (jobDTO.getPriority() == null) {
-                    jobDTO.setPriority(existing.getPriority());
-                }
-                if (!StringUtils.hasText(jobDTO.getCron())) {
-                    jobDTO.setCron(existing.getCron());
-                }
-            });
+        if (jobDTO.getRetryCount() == null) {
+            jobDTO.setRetryCount(existing.getRetryCount());
+        }
+        if (jobDTO.getTimeoutSeconds() == null) {
+            jobDTO.setTimeoutSeconds(existing.getTimeoutSeconds());
+        }
+        if (jobDTO.getPriority() == null) {
+            jobDTO.setPriority(existing.getPriority());
+        }
+        if (!StringUtils.hasText(jobDTO.getCron())) {
+            jobDTO.setCron(existing.getCron());
+        }
+    }
+
+    /**
+     * 任务已上线时，定时表达式变化或状态从下线变为上线需要同步刷新 Quartz 触发器。
+     *
+     * <p>否则只修改保存任务内容时，Quartz 仍按旧触发器执行，或者新上线的任务完全没有触发器。</p>
+     */
+    private void rescheduleIfNeeded(String previousStatus, String previousCron, Job saved) {
+        if (saved == null || !TaskConstants.TASK_STATUS_ONLINE.equals(saved.getStatus())) {
+            return;
+        }
+        boolean wasOnline = TaskConstants.TASK_STATUS_ONLINE.equals(previousStatus);
+        boolean cronChanged = !Objects.equals(previousCron, saved.getCron());
+        if (wasOnline && !cronChanged) {
+            return;
+        }
+        try {
+            EventServiceFactory.getEventService().addJob(saved);
+        } catch (Exception e) {
+            // 调度刷新失败不能影响任务内容保存；Quartz 重新初始化时仍会从数据库恢复 ONLINE 任务。
+            LOG.warn("任务调度刷新失败: id={}, cron={}", saved.getId(), saved.getCron(), e);
+        }
     }
 
     private void normalizeScheduling(JobDTO jobDTO) {

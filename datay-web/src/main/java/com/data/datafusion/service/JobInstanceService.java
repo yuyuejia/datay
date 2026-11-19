@@ -1,6 +1,7 @@
 package com.data.datafusion.service;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datafusion.config.SkipTenantFilter;
 import com.data.datafusion.config.StatusStorageConfig;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobDepend;
@@ -33,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -308,6 +310,81 @@ public class JobInstanceService {
     }
 
     /**
+     * 记录“调度阶段”失败（构建实例、解析编排、组装数据源等），避免异常在落库前抛出后
+     * 既不产生实例、也无法在任务实例列表和告警中看到失败原因。
+     *
+     * <p>使用独立事务：调用方的 {@link #startInstance(JobInstance)} 可能因构建子实例失败而回滚，
+     * 这里需要在其回滚后仍然把父实例保存为 {@code FAILED}。</p>
+     *
+     * @param jobCode     Quartz 任务编码（任务 ID）。
+     * @param jobInstance 已构建的实例，允许为 {@code null}。
+     * @param error       调度阶段异常。
+     * @return 已保存（或尽力保存）的失败实例。
+     */
+    @SkipTenantFilter
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public JobInstance recordDispatchFailure(String jobCode, JobInstance jobInstance, Throwable error) {
+        JobInstance failed = jobInstance;
+        try {
+            if (failed == null) {
+                failed = new JobInstance();
+                failed.setJobCode(jobCode);
+                failed.setJobName(jobCode);
+                failed.setInstanceCode(buildInstanceCode(jobCode));
+                failed.setCreateTime(ZonedDateTime.now());
+                if (StringUtils.hasText(jobCode)) {
+                    // 调度线程可能尚未设置租户上下文，这里直接按任务所属租户落库，保证实例可见。
+                    Job job = jobRepository.findById(jobCode).orElse(null);
+                    if (job != null) {
+                        failed.setJobName(job.getJobName());
+                        failed.setType(job.getType());
+                        failed.setProject(job.getProject());
+                        failed.setTenantId(job.getTenantId());
+                        failed.setRetryCount(job.getRetryCount());
+                        failed.setTimeoutSeconds(job.getTimeoutSeconds());
+                        failed.setPriority(normalizePriority(job.getPriority()));
+                    }
+                }
+            }
+            if (failed.getCreateTime() == null) {
+                failed.setCreateTime(ZonedDateTime.now());
+            }
+            if (!StringUtils.hasText(failed.getJobCode())) {
+                failed.setJobCode(jobCode);
+            }
+            if (!StringUtils.hasText(failed.getJobName())) {
+                failed.setJobName(failed.getJobCode());
+            }
+            if (!StringUtils.hasText(failed.getInstanceCode())) {
+                failed.setInstanceCode(buildInstanceCode(jobCode));
+            }
+            if (failed.getTenantId() == null && TenantContext.getTenantId() != null) {
+                failed.setTenantId(String.valueOf(TenantContext.getTenantId()));
+            }
+            long now = System.currentTimeMillis();
+            if (!StringUtils.hasText(failed.getStartTime())) {
+                failed.setStartTime(String.valueOf(now));
+            }
+            failed.setEndTime(String.valueOf(now));
+            failed.setStatus(TaskConstants.TASK_STATUS_FAILED);
+            failed.setJobMessage(dispatchFailureMessage(error));
+            return save(failed);
+        } catch (Exception recordError) {
+            LOG.error("记录调度失败实例失败: jobCode={}", jobCode, recordError);
+            return failed;
+        }
+    }
+
+    private static String dispatchFailureMessage(Throwable error) {
+        String message = error == null ? null : error.getMessage();
+        if (message == null || message.isBlank()) {
+            message = error == null ? "未知错误" : error.getClass().getSimpleName();
+        }
+        String detail = message.length() > 2000 ? message.substring(0, 2000) + "..." : message;
+        return "调度触发失败：" + detail;
+    }
+
+    /**
      * 解析任务所属租户的状态存储配置。解析失败时返回 null，由 worker 回退到数据库读取，
      * 不影响任务投递本身。
      */
@@ -439,7 +516,7 @@ public class JobInstanceService {
     }
 
     public JobInstance buildJobInstance(String jobId) {
-        Job job = jobRepository.findById(jobId).orElseThrow();
+        Job job = jobRepository.findById(jobId).orElseThrow(() -> new IllegalStateException("任务不存在或已删除: " + jobId));
         JobInstance jobInstance = new JobInstance();
         jobInstance.setJobName(job.getJobName());
         jobInstance.setInstanceCode(buildInstanceCode(job.getId()));

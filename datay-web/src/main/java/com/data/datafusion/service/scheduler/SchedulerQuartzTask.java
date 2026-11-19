@@ -19,18 +19,29 @@ public class SchedulerQuartzTask implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         JobInstanceService jobInstanceService = SpringUtils.getBean(JobInstanceService.class);
-        JobInstance jobInstance = jobInstanceService.buildJobInstance(context.getJobDetail().getKey().getName());
-        jobInstance.setCreateTime(ZonedDateTime.now());
-        // 调度线程无请求上下文，需按任务所属租户设置租户上下文，否则租户过滤器会以 dummy 租户拦截。
-        Long tenantId = parseTenantId(jobInstance.getTenantId());
-        if (tenantId != null) {
-            TenantContext.setTenantId(tenantId);
-        }
+        String jobCode = context.getJobDetail().getKey().getName();
+        JobInstance jobInstance = null;
         try {
+            jobInstance = jobInstanceService.buildJobInstance(jobCode);
+            jobInstance.setCreateTime(ZonedDateTime.now());
+            // 调度线程无请求上下文，需按任务所属租户设置租户上下文，否则租户过滤器会以 dummy 租户拦截。
+            Long tenantId = parseTenantId(jobInstance.getTenantId());
+            if (tenantId != null) {
+                TenantContext.setTenantId(tenantId);
+            }
             if (jobInstanceService.checkDependIsNullOrSuccess(jobInstance)) {
                 jobInstanceService.startInstance(jobInstance);
             } else {
                 jobInstanceService.waitingInstance(jobInstance);
+            }
+        } catch (Exception e) {
+            // 调度阶段异常不能静默丢失：事务回滚后单独落一条 FAILED 实例，
+            // 便于在任务实例列表、告警和排查日志中看到失败原因。
+            log.error("调度触发失败: jobCode={}", jobCode, e);
+            try {
+                jobInstanceService.recordDispatchFailure(jobCode, jobInstance, e);
+            } catch (Exception recordError) {
+                log.error("记录调度失败实例失败: jobCode={}", jobCode, recordError);
             }
         } finally {
             TenantContext.clear();
