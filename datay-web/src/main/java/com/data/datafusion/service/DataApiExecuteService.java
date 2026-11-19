@@ -62,8 +62,8 @@ import org.springframework.stereotype.Service;
  * 数据服务对外调用入口。
  *
  * <p>复用用户的 {@code mcp_token} 鉴权：令牌所属用户默认租户下配置的“数据服务”才会被解析和执行。
- * 表来源类型支持按列等值过滤与分页；SQL 来源类型把 {@code ${param}} 占位符替换为预编译参数后只读执行；
- * 分析数据集来源复用数据集查询链路，并继承 Token 用户的行级数据权限。</p>
+ * 表来源类型支持按列等值过滤与分页；SQL 来源类型把 {@code ${param}} 占位符替换为预编译参数后只读执行
+ * （未传的参数按 SQL {@code NULL} 绑定）；分析数据集来源复用数据集查询链路，并继承 Token 用户的行级数据权限。</p>
  */
 @Service
 @SkipTenantFilter
@@ -474,6 +474,13 @@ public class DataApiExecuteService {
 
     // ------------------------------------------------------------------- sql
 
+    /**
+     * 执行自定义 SQL 数据服务。
+     *
+     * <p>SQL 中的 {@code ${param}} 占位符会被替换为 JDBC 预编译参数；调用方未传该参数，
+     * 或传入空值时，按 SQL {@code NULL} 绑定，而不是报错，便于 {@code param IS NULL}、
+     * {@code COALESCE(param, ...)} 等写法在缺参时继续执行。</p>
+     */
     private Map<String, Object> invokeFromSql(DataApiDTO api, DatasourceInfo datasourceInfo, Map<String, Object> params) {
         String originalSql = api.getSqlText();
 //        assertReadOnlySql(originalSql);
@@ -490,18 +497,15 @@ public class DataApiExecuteService {
         }
         parsedSql.append(originalSql.substring(lastEnd));
 
-        List<String> missing = new ArrayList<>();
         List<Object> bindValues = new ArrayList<>();
         for (String name : placeholderNames) {
             Object value = params.get(name);
             if (value == null || toStringValue(value).isEmpty()) {
-                missing.add(name);
+                // 未传参（或传空值）时以 SQL NULL 绑定，交由 SQL 自身的逻辑处理。
+                bindValues.add(null);
             } else {
                 bindValues.add(toBindableValue(value));
             }
-        }
-        if (!missing.isEmpty()) {
-            throw new DataApiAccessException(400, "缺少参数：" + String.join(", ", missing));
         }
 
         String sql = parsedSql.toString();

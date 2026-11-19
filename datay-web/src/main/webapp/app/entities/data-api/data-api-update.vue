@@ -171,7 +171,7 @@
         <div class="filter-hint">
           <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
           <span>
-            SQL 中可使用 <code>$&#123;param&#125;</code> 占位符，调用时同名参数将作为预编译参数安全绑定；服务仅允许 SELECT 等只读语句。
+            SQL 中可使用 <code>$&#123;param&#125;</code> 占位符，调用时同名参数将作为预编译参数安全绑定，未传参数时按 SQL NULL 处理；服务仅允许 SELECT 等只读语句。
           </span>
         </div>
       </div>

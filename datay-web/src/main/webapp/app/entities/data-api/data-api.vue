@@ -227,7 +227,7 @@
             </tr>
             <tr v-else-if="docApi.sourceType === 'SQL'">
               <th>SQL 参数</th>
-              <td>SQL 中形如 <code>$&#123;param&#125;</code> 的占位符需在调用时以同名参数传入，服务仅支持只读查询。</td>
+              <td>SQL 中形如 <code>$&#123;param&#125;</code> 的占位符会在调用时按同名参数绑定，未传参数时按 SQL NULL 处理；服务仅支持只读查询。</td>
             </tr>
             <tr v-else-if="docApi.sourceType === 'DATASET'">
               <th>数据集参数</th>
