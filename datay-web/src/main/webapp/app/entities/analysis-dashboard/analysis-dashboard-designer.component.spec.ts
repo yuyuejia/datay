@@ -806,6 +806,41 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(target.pushdown).toBeUndefined();
   });
 
+  it('指标数据集日期范围支持选择结果字段或指标时间范围', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'METRIC' }];
+    (vm as any).datasetData = {
+      ds1: {
+        columns: ['month_name', 'qs_sales_amount'],
+        rows: [{ month_name: '2025-01', qs_sales_amount: 120 }],
+      },
+    };
+    await vm.$nextTick();
+
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    (filter as any).type = 'dateRange';
+    (vm as any).onFilterTypeChange();
+
+    const target = filter.targets[0];
+    expect(target.pushdown).toMatchObject({ kind: 'metricTime' });
+
+    (vm as any).onFilterTargetFieldSelect(target, 'month_name');
+    expect(target.field).toBe('month_name');
+    expect(target.pushdown).toBeUndefined();
+
+    (vm as any).onFilterTargetFieldSelect(target, (vm as any).METRIC_TIME_OPTION);
+    expect(target.pushdown).toMatchObject({ kind: 'metricTime' });
+    expect(target.field).toBeUndefined();
+
+    const dimensionPushdown = {
+      datasetId: 'ds1',
+      mode: 'server',
+      pushdown: { kind: 'metricDimension', dimensionModelCode: 'dim_date', dimensionFieldName: 'month_name' },
+    };
+    expect((vm as any).isMetricDateRangeTarget(dimensionPushdown)).toBe(false);
+  });
+
   it('AI 模式复用设计器并默认打开助手', async () => {
     const aiWrapper = shallowMount(AnalysisDashboardDesigner, {
       props: { aiMode: true },

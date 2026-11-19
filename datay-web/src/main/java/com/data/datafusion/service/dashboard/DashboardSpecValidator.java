@@ -1151,11 +1151,6 @@ public class DashboardSpecValidator {
             throw new IllegalArgumentException("筛选器 " + filterId + " 缺少字段");
         }
         String trimmedField = field.trim();
-        if (FILTER_DATE_RANGE.equals(type) && DATASET_METRIC.equals(datasetTypes.get(datasetId))) {
-            throw new IllegalArgumentException(
-                "筛选器 " + filterId + " 不能直接按指标数据集字段做日期筛选，请改用 metricTime 绑定"
-            );
-        }
         Set<String> fields = datasetFields.get(datasetId);
         if (fields != null && !fields.isEmpty() && !fields.contains(trimmedField)) {
             throw new IllegalArgumentException(

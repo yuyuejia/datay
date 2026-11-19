@@ -264,6 +264,48 @@ class DatasetQueryServiceTest {
     }
 
     @Test
+    void shouldPushDirectMetricDateRangeFieldToDimensionCondition() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put(
+            "metricQuery",
+            Map.of(
+                "metricCodes",
+                List.of("sales_amount"),
+                "dimensions",
+                List.of(Map.of("dimensionModelCode", "dim_date", "dimensionFieldName", "month_name"))
+            )
+        );
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(metricQueryService.queryDataset(any(), anyList(), any())).thenReturn(rows());
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "dateRange",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "field", "month_name", "mode", "server"))
+        );
+
+        datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            Map.of("f1", Map.of("start", "2025-01-01", "end", "2025-12-31")),
+            "lib-1"
+        );
+
+        ArgumentCaptor<MetricQueryDTO> dto = ArgumentCaptor.forClass(MetricQueryDTO.class);
+        verify(metricQueryService).queryDataset(dto.capture(), anyList(), any());
+        assertThat(dto.getValue().getFilterConfig())
+            .contains("dim_date")
+            .contains("month_name")
+            .contains("BETWEEN")
+            .contains("2025-01")
+            .contains("2025-12")
+            .doesNotContain("2025-01-01");
+    }
+
+    @Test
     void shouldResolveHierarchyLevelFieldForMetricFieldFilter() throws Exception {
         Map<String, Object> dataset = metricDataset();
         dataset.put(
@@ -549,6 +591,48 @@ class DatasetQueryServiceTest {
         assertThat(sql.getValue())
             .contains("SELECT * FROM \"main\".\"result_table\"")
             .contains("dp_filter WHERE ((level2_name = '厨房电器'))");
+        verify(metricQueryService, never()).queryDataset(any(), anyList(), any());
+    }
+
+    @Test
+    void shouldReadPersistedMetricDatasetWithDateRangeFieldFilter() throws Exception {
+        Map<String, Object> dataset = metricDataset();
+        dataset.put("fields", "{\"columns\":[{\"name\":\"month_name\"},{\"name\":\"qs_sales_amount\"}]}");
+        dataset.put("persistEnabled", true);
+        dataset.put("persistTargetDataSourceId", "target-1");
+        dataset.put("persistTargetSchema", "main");
+        dataset.put("persistTargetTable", "result_table");
+        DataSourceDTO target = new DataSourceDTO();
+        target.setId("target-1");
+        target.setType("DUCKDB");
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(roleDataScopeService.resolveEffectiveScopes()).thenReturn(List.of());
+        when(datasetPersistenceService.isPersistedUsable("lib-1")).thenReturn(true);
+        when(dataSourceService.findOne("target-1")).thenReturn(Optional.of(target));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(rows(Map.of("month_name", "2025-01")));
+        Map<String, Object> filter = Map.of(
+            "id",
+            "f1",
+            "type",
+            "dateRange",
+            "targets",
+            List.of(Map.of("datasetId", "ds-local", "field", "month_name", "mode", "server"))
+        );
+
+        Map<String, Object> result = datasetQueryService.query(
+            dataset,
+            null,
+            List.of(filter),
+            Map.of("f1", Map.of("start", "2025-01-01", "end", "2025-12-31")),
+            "lib-1"
+        );
+
+        assertThat(result).containsEntry("persisted", true);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(dataSourceQueryService).executeQuery(eq(target), sql.capture());
+        assertThat(sql.getValue())
+            .contains("SELECT * FROM \"main\".\"result_table\"")
+            .contains("dp_filter WHERE ((month_name BETWEEN '2025-01' AND '2025-12'))");
         verify(metricQueryService, never()).queryDataset(any(), anyList(), any());
     }
 

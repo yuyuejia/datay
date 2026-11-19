@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -683,9 +684,6 @@ public class DatasetQueryService {
         String field,
         Object value
     ) {
-        if (DashboardSpecValidator.FILTER_DATE_RANGE.equals(filterType)) {
-            throw new IllegalArgumentException("指标数据集日期筛选请使用 metricTime pushdown：" + field);
-        }
         Map<String, Object> metricQuery = asMap(dataset.get("metricQuery"));
         for (Map<String, Object> dimension : asMapList(metricQuery.get("dimensions"))) {
             String modelCode = asString(dimension.get("dimensionModelCode"));
@@ -734,11 +732,25 @@ public class DatasetQueryService {
         if (DashboardSpecValidator.FILTER_INPUT.equals(filterType)) {
             condition.setOperator("LIKE");
             condition.setValue("%" + firstValue(value) + "%");
-        } else if (DashboardSpecValidator.FILTER_NUMBER_RANGE.equals(filterType)) {
-            String[] range = readRange(value);
-            condition.setOperator("BETWEEN");
-            condition.setValue(range[0]);
-            condition.setValueEnd(range[1]);
+        } else if (
+            DashboardSpecValidator.FILTER_NUMBER_RANGE.equals(filterType) ||
+            DashboardSpecValidator.FILTER_DATE_RANGE.equals(filterType)
+        ) {
+            String[] range = normalizeRangeForField(dimensionFieldName, filterType, readRange(value));
+            if (range[0] == null && range[1] == null) {
+                return null;
+            }
+            if (range[0] != null && range[1] != null) {
+                condition.setOperator("BETWEEN");
+                condition.setValue(range[0]);
+                condition.setValueEnd(range[1]);
+            } else if (range[0] != null) {
+                condition.setOperator("GE");
+                condition.setValue(range[0]);
+            } else {
+                condition.setOperator("LE");
+                condition.setValue(range[1]);
+            }
         } else {
             List<String> values = asStringList(value);
             if (values.isEmpty()) {
@@ -964,7 +976,7 @@ public class DatasetQueryService {
             return condition;
         }
         if (DashboardSpecValidator.FILTER_DATE_RANGE.equals(filterType) || DashboardSpecValidator.FILTER_NUMBER_RANGE.equals(filterType)) {
-            String[] range = readRange(value);
+            String[] range = normalizeRangeForField(field, filterType, readRange(value));
             if (range[0] == null && range[1] == null) {
                 return null;
             }
@@ -1296,6 +1308,64 @@ public class DatasetQueryService {
             return new String[] { blankToNull(parts[0]), blankToNull(parts[1]) };
         }
         return new String[] { null, null };
+    }
+
+    /**
+     * 日期范围筛选绑定月份字段时，把日期值收敛到月份粒度。
+     *
+     * <p>例如 {@code month_name} 的值为 {@code 2025-01}，而日期控件提交
+     * {@code 2025-01-01 ~ 2025-12-31}；直接使用 BETWEEN 会把 1 月排除在外。
+     */
+    private String[] normalizeRangeForField(String field, String filterType, String[] range) {
+        if (
+            range == null ||
+            !DashboardSpecValidator.FILTER_DATE_RANGE.equals(filterType) ||
+            field == null ||
+            field.isBlank()
+        ) {
+            return range;
+        }
+        String name = field.toLowerCase(Locale.ROOT);
+        if (!isMonthField(name)) {
+            return range;
+        }
+        return new String[] { normalizeMonthValue(range[0], name), normalizeMonthValue(range[1], name) };
+    }
+
+    private boolean isMonthField(String fieldName) {
+        if (fieldName.contains("date") || fieldName.contains("time") || fieldName.contains("day")) {
+            return false;
+        }
+        return fieldName.contains("month") || fieldName.equals("ym") || fieldName.endsWith("_ym");
+    }
+
+    private String normalizeMonthValue(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        String digits = value.replaceAll("\\D", "");
+        if (digits.length() < 6) {
+            return value;
+        }
+        String year = digits.substring(0, 4);
+        String month = digits.substring(4, 6);
+        int monthNumber;
+        try {
+            monthNumber = Integer.parseInt(month);
+        } catch (NumberFormatException e) {
+            return value;
+        }
+        if (monthNumber < 1 || monthNumber > 12) {
+            return value;
+        }
+        boolean numericKey =
+            fieldName.endsWith("_id") ||
+            fieldName.endsWith("_key") ||
+            fieldName.endsWith("_code") ||
+            fieldName.endsWith("_no") ||
+            fieldName.endsWith("_num") ||
+            fieldName.endsWith("_number");
+        return numericKey ? year + month : year + "-" + month;
     }
 
     private String firstValue(Object value) {

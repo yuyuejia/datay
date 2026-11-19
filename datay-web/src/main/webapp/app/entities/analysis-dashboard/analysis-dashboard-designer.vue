@@ -877,6 +877,26 @@
                   />
                 </div>
               </template>
+              <template v-else-if="isMetricDateRangeTarget(target)">
+                <div class="designer-filter-target-field">
+                  <el-select
+                    :model-value="filterTargetFieldValue(target)"
+                    clearable
+                    filterable
+                    allow-create
+                    placeholder="选择指标时间范围或字段"
+                    @update:model-value="value => onFilterTargetFieldSelect(target, String(value))"
+                  >
+                    <el-option
+                      v-for="field in fieldCandidates(target.datasetId)"
+                      :key="field.name"
+                      :label="field.label || field.name"
+                      :value="field.name"
+                    />
+                    <el-option :value="METRIC_TIME_OPTION" label="指标时间范围（事实表时间）" />
+                  </el-select>
+                </div>
+              </template>
               <el-tag v-else-if="target.pushdown" type="success">{{ pushdownDetail(target) }}</el-tag>
               <el-select
                 v-else
@@ -900,7 +920,10 @@
               </el-button>
             </div>
             <el-button text type="primary" @click="addFilterTarget">添加目标</el-button>
-            <div class="designer-hint">SQL 参数目标表示数据集 SQL 中的 ${参数名}；普通字段目标可选择服务端或客户端过滤。</div>
+            <div class="designer-hint">
+              SQL 参数目标表示数据集 SQL 中的
+              ${参数名}；普通字段目标可选择服务端或客户端过滤。指标数据集的日期范围可选择“指标时间范围”（事实表时间），或直接绑定已有结果字段。
+            </div>
 
             <div v-if="selectedFilter.type === 'select' || selectedFilter.type === 'multiSelect'" class="designer-hint">
               下拉选项将从字段目标的数据集去重值中加载；pushdown 目标由服务端处理。

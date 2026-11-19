@@ -350,7 +350,8 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
-    void shouldRejectDirectDateRangeForMetricDataset() {
+    @SuppressWarnings("unchecked")
+    void shouldAllowDirectDateRangeForMetricDataset() {
         String spec =
             """
             {
@@ -362,9 +363,10 @@ class DashboardSpecValidatorTest {
               ]
             }
             """;
-        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("metricTime");
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> filters = (List<Map<String, Object>>) normalized.get("filters");
+        List<Map<String, Object>> targets = (List<Map<String, Object>>) filters.get(0).get("targets");
+        assertThat(targets.get(0)).containsEntry("field", "stat_date").containsEntry("mode", "server");
     }
 
     @Test

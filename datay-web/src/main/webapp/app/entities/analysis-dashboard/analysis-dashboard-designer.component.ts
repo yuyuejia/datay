@@ -1792,6 +1792,7 @@ export default defineComponent({
     };
 
     const SQL_PARAM_OPTION = '__sql_param__';
+    const METRIC_TIME_OPTION = '__metric_time__';
 
     /** 所有筛选目标统一服务端执行；保留函数便于集中维护目标默认值。 */
     const filterTargetMode = (_datasetId: string | undefined): 'server' => 'server';
@@ -1799,11 +1800,27 @@ export default defineComponent({
     const isSqlDataset = (datasetId: string | undefined): boolean =>
       spec.value.datasets.some(item => item.id === datasetId && item.type === 'SQL');
 
-    const filterTargetFieldValue = (target: DashboardFilter['targets'][number]): string =>
-      target.pushdown?.kind === 'sqlParam' ? SQL_PARAM_OPTION : (target.field ?? '');
+    const isMetricDateRangeTarget = (target: DashboardFilter['targets'][number]): boolean =>
+      selectedFilter.value?.type === 'dateRange' &&
+      spec.value.datasets.some(item => item.id === target.datasetId && item.type === 'METRIC') &&
+      (!target.pushdown || target.pushdown.kind === 'metricTime');
+
+    const filterTargetFieldValue = (target: DashboardFilter['targets'][number]): string => {
+      if (target.pushdown?.kind === 'sqlParam') {
+        return SQL_PARAM_OPTION;
+      }
+      if (target.pushdown?.kind === 'metricTime') {
+        return METRIC_TIME_OPTION;
+      }
+      return target.field ?? '';
+    };
 
     const onFilterTargetFieldSelect = (target: DashboardFilter['targets'][number], value: string) => {
-      if (value === SQL_PARAM_OPTION) {
+      if (value === METRIC_TIME_OPTION) {
+        target.mode = 'server';
+        target.pushdown = { kind: 'metricTime' };
+        delete target.field;
+      } else if (value === SQL_PARAM_OPTION) {
         const param = target.pushdown?.param || target.field || '';
         target.mode = 'server';
         target.pushdown = { kind: 'sqlParam', ...(param ? { param } : {}) };
@@ -2193,7 +2210,9 @@ export default defineComponent({
       filterDefaultText,
       fieldCandidates,
       isSqlDataset,
+      isMetricDateRangeTarget,
       SQL_PARAM_OPTION,
+      METRIC_TIME_OPTION,
       filterTargetFieldValue,
       onFilterTargetFieldSelect,
       addFilterTarget,
