@@ -56,6 +56,16 @@ describe('db-types categories', () => {
     expect(ymatrix!.tags).toEqual(expect.arrayContaining([DB_TYPE_CATEGORY.ANALYTICAL, DB_TYPE_CATEGORY.TIMESERIES]));
   });
 
+  it('configures KingbaseES as a PostgreSQL-compatible relational database', () => {
+    const kingbase = dbTypes.find(type => type.name === 'KINGBASE');
+    expect(kingbase).toBeDefined();
+    expect(kingbase!.displayName).toBe('人大金仓 KingbaseES');
+    expect(kingbase!.jdbcUrlTemplate).toBe('jdbc:kingbase8://{host}:{port}/{database}');
+    expect(kingbase!.defaultPort).toBe('54321');
+    expect(kingbase!.schemaEnabled).toBe(true);
+    expect(kingbase!.tags).toEqual(expect.arrayContaining([DB_TYPE_CATEGORY.RELATIONAL]));
+  });
+
   it('configures Redis as a non-JDBC key-value datasource', () => {
     const redis = dbTypes.find(type => type.name === 'REDIS');
     expect(redis).toBeDefined();

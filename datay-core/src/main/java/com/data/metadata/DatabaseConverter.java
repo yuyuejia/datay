@@ -35,6 +35,7 @@ public class DatabaseConverter {
         converters.put("doris", new DorisConverter());
         converters.put("avro", new AVROConverter());
         converters.put("dm", new DmConverter());
+        converters.put("kingbase", converters.get("postgresql"));
         converters.put("hana", new HanaConverter());
         converters.put("tdengine", new TdengineConverter());
         converters.put("sqlserver", new SqlServerConverter());

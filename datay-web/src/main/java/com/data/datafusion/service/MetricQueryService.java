@@ -1581,7 +1581,7 @@ public class MetricQueryService {
             .map(url -> {
                 String type = DBUtils.getDBType(url);
                 return "DUCKDB".equalsIgnoreCase(type) || "DUCKLAKE".equalsIgnoreCase(type) ||
-                    "POLARIS".equalsIgnoreCase(type) || "POSTGRESQL".equalsIgnoreCase(type);
+                    "POLARIS".equalsIgnoreCase(type) || "POSTGRESQL".equalsIgnoreCase(type) || "KINGBASE".equalsIgnoreCase(type);
             })
             .orElse(false);
     }

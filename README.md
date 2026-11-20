@@ -38,7 +38,7 @@ datay/
 
 ### 数据集成（Data Integration）
 
-- 支持 MySQL / PostgreSQL / Oracle / SAP HANA / TDengine / Doris / ClickHouse / DuckDB 等二十余种数据源，并可通过 Apache Polaris 读写 Iceberg 数据湖
+- 支持 MySQL / PostgreSQL / Oracle / 人大金仓 KingbaseES / SAP HANA / TDengine / Doris / ClickHouse / DuckDB 等二十余种数据源，并可通过 Apache Polaris 读写 Iceberg 数据湖
 - 可视化拖拽画布编排 ETL 数据流，也可 JSON 配置文件一键跑任务
 - 支持全量同步、增量同步、MySQL CDC / PostgreSQL CDC / Oracle CDC / 达梦 CDC / SQL Server CDC 实时同步
 - 自动建表（DDL 转换），源表改字段自动同步到目标
@@ -167,7 +167,7 @@ java -jar datay-core/target/datay-core-*-jar-with-dependencies.jar taskConfig.js
 
 ## 支持的数据源
 
-- **关系型数据库**: MySQL系, Oracle, PostgreSQL系, SQL Server, MariaDB, 达梦（DM）, SAP HANA
+- **关系型数据库**: MySQL系, Oracle, PostgreSQL系, SQL Server, MariaDB, 达梦（DM）, 人大金仓（KingbaseES）, SAP HANA
 - **时序数据库**: TDengine（WebSocket / REST / 原生三种连接方式）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum, YMatrix
 - **数据湖**: DuckLake, Apache Polaris（Iceberg REST Catalog）

@@ -832,7 +832,7 @@ public class DBUtils {
             statement.setFetchSize(1000);
         } else if (DBType.SQLSERVER.name().equalsIgnoreCase(dbType)) {
             statement.setFetchSize(1000);
-        } else if (DBType.POSTGRESQL.name().equalsIgnoreCase(dbType)) {
+        } else if (DBType.POSTGRESQL.name().equalsIgnoreCase(dbType) || DBType.KINGBASE.name().equalsIgnoreCase(dbType)) {
             statement.setFetchSize(1);
         } else {
             statement.setFetchSize(1000);
@@ -1025,6 +1025,8 @@ public class DBUtils {
             return DBType.SQLSERVER.toString();
         } else if (jdbcUrl.startsWith("jdbc:dm:")) {
             return DBType.DM.toString();
+        } else if (jdbcUrl.startsWith("jdbc:kingbase8:")) {
+            return DBType.KINGBASE.toString();
         } else if (jdbcUrl.startsWith("jdbc:sap:")) {
             return DBType.HANA.toString();
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
@@ -1059,6 +1061,8 @@ public class DBUtils {
             return DBType.SQLSERVER;
         } else if (jdbcUrl.startsWith("jdbc:dm:")) {
             return DBType.DM;
+        } else if (jdbcUrl.startsWith("jdbc:kingbase8:")) {
+            return DBType.KINGBASE;
         } else if (jdbcUrl.startsWith("jdbc:sap:")) {
             return DBType.HANA;
         } else if (jdbcUrl.startsWith("jdbc:duckdb:") || jdbcUrl.startsWith("quack:")) {
@@ -1179,6 +1183,18 @@ public class DBUtils {
         // 达梦 URL格式: jdbc:dm://hostname:port[/schema]
         else if (urlLower.startsWith("jdbc:dm:")) {
             Pattern pattern = Pattern.compile("jdbc:dm://([^:/?]+)(?::(\\d+))?(?:/([^?]+))?");
+            Matcher matcher = pattern.matcher(datasourceInfo.getUrl());
+            if (matcher.find()) {
+                info.setHostname(matcher.group(1));
+                info.setPort(matcher.group(2));
+                if (matcher.group(3) != null && !matcher.group(3).isEmpty()) {
+                    info.setDbschema(matcher.group(3));
+                }
+            }
+        }
+        // 人大金仓 URL格式: jdbc:kingbase8://hostname:port/database
+        else if (urlLower.startsWith("jdbc:kingbase8:")) {
+            Pattern pattern = Pattern.compile("jdbc:kingbase8://([^:/?]+)(?::(\\d+))?(?:/([^?]+))?");
             Matcher matcher = pattern.matcher(datasourceInfo.getUrl());
             if (matcher.find()) {
                 info.setHostname(matcher.group(1));

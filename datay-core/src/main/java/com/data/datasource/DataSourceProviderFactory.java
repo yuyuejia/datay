@@ -12,6 +12,7 @@ import com.data.datasource.provider.GaussDbDataSourceProvider;
 import com.data.datasource.provider.GenericJdbcDataSourceProvider;
 import com.data.datasource.provider.GreenplumDataSourceProvider;
 import com.data.datasource.provider.HanaDataSourceProvider;
+import com.data.datasource.provider.KingbaseDataSourceProvider;
 import com.data.datasource.provider.MariaDbDataSourceProvider;
 import com.data.datasource.provider.MysqlDataSourceProvider;
 import com.data.datasource.provider.OceanBaseDataSourceProvider;
@@ -97,6 +98,7 @@ public final class DataSourceProviderFactory {
         register(new DorisDataSourceProvider());
         register(new AvroDataSourceProvider());
         register(new DmDataSourceProvider());
+        register(new KingbaseDataSourceProvider());
         register(new HanaDataSourceProvider());
         register(new TdengineDataSourceProvider());
         register(new ElasticsearchDataSourceProvider());

@@ -66,6 +66,12 @@ describe('db-url.util', () => {
       );
     });
 
+    it('builds kingbase url with kingbase8 protocol', () => {
+      expect(buildSimpleUrl('KINGBASE', { hostname: '127.0.0.1', port: '54321', database: 'test' })).toBe(
+        'jdbc:kingbase8://127.0.0.1:54321/test',
+      );
+    });
+
     it('builds redis url', () => {
       expect(buildSimpleUrl('REDIS', { hostname: '127.0.0.1', port: '6379', database: '' })).toBe('redis://127.0.0.1:6379');
     });
@@ -100,6 +106,14 @@ describe('db-url.util', () => {
         hostname: 'localhost',
         port: '5432',
         database: 'ymatrix',
+      });
+    });
+
+    it('parses kingbase url', () => {
+      expect(parseSimpleUrl('KINGBASE', 'jdbc:kingbase8://localhost:54321/test')).toEqual({
+        hostname: 'localhost',
+        port: '54321',
+        database: 'test',
       });
     });
 
@@ -218,6 +232,7 @@ describe('db-url.util', () => {
       expect(isNetworkType('TDENGINE')).toBe(true);
       expect(isNetworkType('POLARIS')).toBe(true);
       expect(isNetworkType('YMATRIX')).toBe(true);
+      expect(isNetworkType('KINGBASE')).toBe(true);
     });
 
     it('excludes duckdb and ducklake', () => {

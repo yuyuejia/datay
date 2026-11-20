@@ -50,7 +50,7 @@
 
 | 分类 | 数据源 |
 | --- | --- |
-| 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、SAP HANA |
+| 关系型数据库 | MySQL、Oracle、PostgreSQL、SQL Server、MariaDB、人大金仓 KingbaseES、SAP HANA |
 | 时序数据库 | TDengine |
 | 分析数据库 | DuckDB、Doris、ClickHouse、GreenPlum、YMatrix |
 | 数据湖 | DuckLake、Apache Polaris（Iceberg REST Catalog） |
@@ -94,7 +94,7 @@ TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏�
 
 ### JDBC 驱动上传
 
-平台不再自动从 Maven 仓库下载 JDBC 驱动。对于驱动未预置的数据源（如达梦、SAP HANA、SQL Server、ClickHouse、TDengine、通用 JDBC），新建或编辑数据源时会出现「JDBC 驱动」区域：
+平台不再自动从 Maven 仓库下载 JDBC 驱动。对于驱动未预置的数据源（如达梦、人大金仓、SAP HANA、SQL Server、ClickHouse、TDengine、通用 JDBC），新建或编辑数据源时会出现「JDBC 驱动」区域：
 
 1. 点击「选择并上传」，选择一个或多个 `.jar` 文件（选择后自动开始上传）；
 2. 上传成功后驱动会保存到运行目录的 `drivers/<type>/default/`，并自动刷新该类型的连接池，无需重启。
@@ -105,6 +105,29 @@ TDengine 是一种时序数据库，DataY 支持数据源管理、元数据浏�
 - 请上传与所选数据库版本匹配的驱动。
 - 通用 JDBC 数据源的驱动按数据源隔离，保存在 `drivers/jdbc/<owner>/default/`，不同数据源之间不共享；上传成功后会自动把该目录的相对路径填入 `jdbc.driverJar`，便于 Web 与 Docker worker 共用驱动目录。
 - 分布式部署时，请确保 worker 与 Web 使用相同的驱动目录（或通过 `driver-dir` 挂载共享）。
+
+### 人大金仓 KingbaseES 连接说明
+
+KingbaseES 在 PostgreSQL 兼容模式下使用 PostgreSQL 协议语义，DataY 复用 PostgreSQL 方言完成元数据浏览、SQL 查询、ETL 读写与自动建表。新建数据源时类型选择 `KINGBASE`：
+
+| 配置项 | 说明 |
+| --- | --- |
+| 连接 URL | `jdbc:kingbase8://host:54321/database` |
+| 默认端口 | `54321` |
+| 驱动类 | `com.kingbase8.Driver`（需上传 kingbase8 驱动 jar） |
+| 用户名 | 数据库账号，通常为 `system` 或业务账号 |
+| 默认 Schema | 目标 Schema，一般为 `public`，也可使用业务 Schema |
+
+- 驱动未随平台预置，新建数据源时请上传**与数据库版本匹配**的 `kingbase8-*.jar`，保存到 `drivers/kingbase/default/`。推荐对应关系：
+  - V8R3：`kingbase8-8.2.0-V008R003C002B0100.jar`（8.2.x 驱动）
+  - V8R6：`kingbase8-8.6.0.jar`（8.6.x 驱动）
+  - V9R1：`kingbase8-9.0.1.jar`（9.0.x 驱动）
+- V8R3 必须使用 8.2.x 驱动。使用 8.6.x 驱动连接 V8R3 时，驱动会查询 `PG_CATALOG.PG_namespace` 等新版本系统视图，可能报 `relation "PG_CATALOG.PG_namespace" does not exist`，并导致元数据浏览、建表和部分写入失败。
+- 建议数据库使用 PostgreSQL 兼容模式（而非 Oracle 兼容模式）；Oracle 兼容模式下标识符大小写折叠与类型语义不同，可能导致建表与元数据回读不一致。
+- 自动建表使用未加引号的小写标识符，`COMMENT ON` 注释语句与 PostgreSQL 一致。
+- V8R3 在 `--case-insensitive` 模式下默认 schema 在元数据中显示为 `PUBLIC`，按元数据中实际展示的值选择即可；SQL 中写 `public` 或 `PUBLIC` 均可正常访问。
+- `INSERT ... ON CONFLICT` UPSERT 已实测在 V8R3（8.2.x 驱动）上可用；V8R6 / V9R1 请使用对应版本驱动，如遇不支持请改用 insert/append 写入模式。
+- CDC 暂未接入 Kingbase 逻辑复制，实时同步场景可先使用 JDBC 增量同步。
 
 ### YMatrix 连接说明
 

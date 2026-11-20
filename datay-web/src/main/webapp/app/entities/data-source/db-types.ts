@@ -290,6 +290,16 @@ export const dbTypes: DbType[] = [
     clearDatabaseOnSave: true,
   },
   {
+    name: 'KINGBASE',
+    tags: [DB_TYPE_CATEGORY.RELATIONAL],
+    displayName: '人大金仓 KingbaseES',
+    jdbcUrlTemplate: 'jdbc:kingbase8://{host}:{port}/{database}',
+    supportedVersions: ['V8R3', 'V8R6', 'V9R1'],
+    defaultPort: '54321',
+    image: '/content/images/kingbase.svg',
+    schemaEnabled: true,
+  },
+  {
     name: 'SQLSERVER',
     tags: [DB_TYPE_CATEGORY.RELATIONAL],
     displayName: 'Microsoft SQL Server',

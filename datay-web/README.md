@@ -287,7 +287,7 @@ OpenAI / DeepSeek / 通义千问 / Ollama 等只要兼容该协议，替换 `bas
 
 ## 支持的数据源
 
-- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB
+- **关系型数据库**: MySQL, Oracle, PostgreSQL, SQL Server, MariaDB, 人大金仓 KingbaseES
 - **时序数据库**: TDengine（WebSocket / REST / 原生）
 - **分析数据库**: DuckDB, Doris, ClickHouse, GreenPlum
 - **文件系统**: 本地文件、MinIO 对象存储

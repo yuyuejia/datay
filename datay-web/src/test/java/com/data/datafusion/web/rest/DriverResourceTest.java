@@ -50,6 +50,30 @@ class DriverResourceTest {
     }
 
     @Test
+    void kingbaseStatusSuggestsDriverJarPerVersion() {
+        DriverResource resource = new DriverResource();
+
+        Map<String, Object> v8r3 = status(resource, "V8R3");
+        assertEquals("KINGBASE", v8r3.get("type"));
+        assertEquals("人大金仓 KingbaseES", v8r3.get("displayName"));
+        assertEquals("com.kingbase8.Driver", v8r3.get("driverClassName"));
+        assertEquals(false, v8r3.get("preinstalled"));
+        assertEquals("V8R3", v8r3.get("version"));
+        assertEquals(List.of("V8R3", "V8R6", "V9R1"), v8r3.get("supportedVersions"));
+        assertEquals("kingbase8-8.2.0-V008R003C002B0100.jar", v8r3.get("suggestedJar"));
+
+        assertEquals("kingbase8-8.6.0.jar", status(resource, "V8R6").get("suggestedJar"));
+        assertEquals("kingbase8-9.0.1.jar", status(resource, "V9R1").get("suggestedJar"));
+    }
+
+    private static Map<String, Object> status(DriverResource resource, String version) {
+        ResponseEntity<Map<String, Object>> response = resource.getDriverStatus("KINGBASE", version, null);
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        return response.getBody();
+    }
+
+    @Test
     void genericUploadCreatesIsolatedDriverDirAndFillsRelativePath() {
         DriverResource resource = new DriverResource();
         MockMultipartFile file = new MockMultipartFile(

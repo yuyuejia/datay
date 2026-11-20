@@ -1,0 +1,16 @@
+services:
+  kingbase:
+    image: haloking/kingbase:v8r3
+    container_name: datay-kingbase-r3
+    environment:
+      SYSTEM_USER: system
+      SYSTEM_PWD: Kingbase123
+      DB_VERSION: V008R003C002B0320
+    ports:
+      - "54321:54321"
+    volumes:
+      - ${KINGBASE_LICENSE_FILE:-./license.dat}:/opt/kingbase/license.dat
+      - kingbase-data:/opt/kingbase/data
+
+volumes:
+  kingbase-data:

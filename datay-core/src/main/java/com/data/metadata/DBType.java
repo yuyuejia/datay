@@ -327,6 +327,31 @@ public enum DBType {
     ),
 
     /**
+     * 人大金仓 KingbaseES（PostgreSQL 协议兼容）。
+     *
+     * <p>使用 Kingbase 官方 JDBC 驱动 {@code com.kingbase8.Driver}，默认端口 54321，
+     * 连接串形如 {@code jdbc:kingbase8://host:54321/database}。驱动未随平台预置，需由用户
+     * 上传 kingbase8 jar 到驱动目录（见 {@link com.data.metadata.util.DriverStore}）。
+     *
+     * <p>元数据、DDL 与写入 SQL 复用 PostgreSQL 方言，建议数据库使用 PostgreSQL 兼容模式。
+     */
+    KINGBASE(
+        "人大金仓 KingbaseES",
+        Arrays.asList("V8R3", "V8R6", "V9R1"),
+        "com.kingbase8.Driver",
+        "jdbc:kingbase8://{host}:{port}/{database}",
+        Map.of(
+            "V8R3",
+            "kingbase8-8.2.0-V008R003C002B0100.jar",
+            "V8R6",
+            "kingbase8-8.6.0.jar",
+            "V9R1",
+            "kingbase8-9.0.1.jar"
+        ),
+        false
+    ),
+
+    /**
      * SAP HANA 数据库。
      * <p>JDBC 驱动（ngdbc）未随平台预置，需由用户上传到驱动目录
      * （见 {@link com.data.metadata.util.DriverStore}）。
@@ -508,6 +533,7 @@ public enum DBType {
             YMATRIX,
             DORIS,
             DM,
+            KINGBASE,
             HANA,
             TDENGINE
         );

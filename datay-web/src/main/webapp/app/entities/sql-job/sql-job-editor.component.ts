@@ -203,7 +203,8 @@ export default defineComponent({
         type.includes('DUCKLAKE') ||
         type.includes('POLARIS') ||
         type.includes('GREENPLUM') ||
-        type.includes('YMATRIX')
+        type.includes('YMATRIX') ||
+        type.includes('KINGBASE')
       ) {
         return PostgreSQL;
       }
@@ -481,7 +482,8 @@ export default defineComponent({
         type.includes('DUCKLAKE') ||
         type.includes('POLARIS') ||
         type.includes('GREENPLUM') ||
-        type.includes('YMATRIX')
+        type.includes('YMATRIX') ||
+        type.includes('KINGBASE')
       ) {
         return 'postgresql';
       }
