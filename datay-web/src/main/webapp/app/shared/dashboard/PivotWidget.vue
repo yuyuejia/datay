@@ -33,8 +33,8 @@
 import { computed } from 'vue';
 
 import { formatRuleStyle, resolveFormatRule } from './format-rules';
-import { applyEncodeRows } from './spec-to-option';
-import type { Aggregation, DashboardWidget, DatasetResult, WidgetFormat } from './types';
+import { aggregateValues, applyEncodeRows } from './spec-to-option';
+import type { DashboardWidget, DatasetResult, WidgetFormat } from './types';
 
 const props = defineProps<{
   widget: DashboardWidget;
@@ -63,26 +63,6 @@ type PivotTable = {
 };
 
 const labelFor = (field: string): string => props.result?.columnLabels?.[field] || field;
-
-const aggregateValues = (values: number[], agg: Aggregation): number | null => {
-  if (values.length === 0) {
-    return null;
-  }
-  switch (agg) {
-    case 'avg':
-      return values.reduce((sum, value) => sum + value, 0) / values.length;
-    case 'min':
-      return Math.min(...values);
-    case 'max':
-      return Math.max(...values);
-    case 'count':
-      return values.length;
-    case 'none':
-      return values[0];
-    default:
-      return values.reduce((sum, value) => sum + value, 0);
-  }
-};
 
 const toNumber = (value: any): number | null => {
   if (value === null || value === undefined || value === '') {

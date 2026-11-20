@@ -54,9 +54,30 @@ describe('server-aggregation', () => {
     });
   });
 
-  it('表格/KPI 不启用聚合下推', () => {
+  it('表格不启用聚合下推，KPI 使用全局聚合下推', () => {
     expect(buildServerAggregation(widget({ type: 'table' }))).toEqual({ groupFields: [], aggregations: [] });
-    expect(buildServerAggregation(widget({ type: 'kpi' }))).toEqual({ groupFields: [], aggregations: [] });
+    expect(buildServerAggregation(widget({ type: 'kpi' }))).toEqual({
+      groupFields: [],
+      aggregations: [{ field: 'amount', agg: 'sum' }],
+    });
+  });
+
+  it('仪表盘使用全局聚合下推', () => {
+    expect(buildServerAggregation(widget({ chart: { type: 'gauge' }, encode: { ...widget({}).encode, groupBy: false } }))).toEqual({
+      groupFields: [],
+      aggregations: [{ field: 'amount', agg: 'sum' }],
+    });
+  });
+
+  it('KPI 的 none 聚合不需要下推', () => {
+    expect(
+      buildServerAggregation(
+        widget({
+          type: 'kpi',
+          encode: { measures: [{ field: 'amount', agg: 'none', role: 'value' }] },
+        }),
+      ),
+    ).toEqual({ groupFields: [], aggregations: [] });
   });
 
   it('groupBy=false 的图表不启用下推', () => {

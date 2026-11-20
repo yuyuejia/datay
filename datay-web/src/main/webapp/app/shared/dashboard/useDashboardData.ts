@@ -44,7 +44,8 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
       const sortField = encode?.sortField || undefined;
       const serverPaged = widget.type === 'table' && !!encode?.pageSize;
       const aggregation = buildServerAggregation(widget);
-      const hasAggregation = aggregation.groupFields.length > 0 && aggregation.aggregations.length > 0;
+      // 分组字段可以为空（KPI / 仪表盘等全局聚合），只要存在度量聚合就下推。
+      const hasAggregation = aggregation.aggregations.length > 0;
       const limit = serverQueryLimit(widget, serverPaged);
       const offset = serverPaged ? 0 : undefined;
       if (!sortField && !limit && !hasAggregation) {

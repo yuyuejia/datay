@@ -142,13 +142,29 @@ export function aggregationFor(encode: WidgetEncode | undefined, field: string):
   return encode?.measures?.find(measure => measure.field === field)?.agg ?? 'sum';
 }
 
-function aggregateValues(values: number[], agg: Aggregation): number | null {
+/**
+ * 聚合结果按指定小数位四舍五入。
+ *
+ * <p>通过十进制指数转换规避二进制浮点误差，例如 1.005 取两位应为 1.01 而不是 1.00。
+ */
+export function roundAggregationValue(value: number, decimals = 2): number {
+  const factor = 10 ** decimals;
+  const sign = value < 0 ? -1 : 1;
+  const shifted = Number(`${Math.abs(value)}e${decimals}`);
+  if (!Number.isFinite(shifted)) {
+    return Math.round(value * factor) / factor;
+  }
+  return (sign * Math.round(shifted)) / factor;
+}
+
+export function aggregateValues(values: number[], agg: Aggregation): number | null {
   if (values.length === 0) {
     return null;
   }
   switch (agg) {
     case 'avg':
-      return values.reduce((sum, value) => sum + value, 0) / values.length;
+      // 平均值最多保留两位小数，避免除不尽时在图表中展示长尾小数。
+      return roundAggregationValue(values.reduce((sum, value) => sum + value, 0) / values.length);
     case 'min':
       return Math.min(...values);
     case 'max':
@@ -494,7 +510,8 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     const valueField = measureFields[0];
     const measure = measures.find(item => item.field === valueField);
     const values = result.rows.map(row => toNumber(row[valueField])).filter((value): value is number => value !== null);
-    const value = measure ? aggregateValues(values, measure.agg) : (values[0] ?? null);
+    // 服务端已聚合时结果只有一行，直接取该值，避免 count 等聚合被二次计算。
+    const value = result.aggregated ? (values[0] ?? null) : measure ? aggregateValues(values, measure.agg) : (values[0] ?? null);
     const base = seriesTemplate(baseSeries(option), 0);
     option.series = [
       {

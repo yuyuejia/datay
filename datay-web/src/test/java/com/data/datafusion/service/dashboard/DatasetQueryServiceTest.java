@@ -205,6 +205,33 @@ class DatasetQueryServiceTest {
     }
 
     @Test
+    void shouldPushGlobalAggregationWithoutGroupFields() throws Exception {
+        Map<String, Object> dataset = sqlDataset();
+        when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());
+        when(dataSourceService.findOne("source-1")).thenReturn(Optional.of(dataSource()));
+        when(dataSourceQueryService.executeQuery(any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("columns", List.of("amount"), "rows", List.of()))
+        );
+        DatasetQueryOptions options = new DatasetQueryOptions(
+            null,
+            null,
+            null,
+            0,
+            List.of(),
+            List.of(new DatasetQueryOptions.Aggregation("amount", "avg"))
+        );
+
+        Map<String, Object> result = datasetQueryService.query(dataset, null, List.of(), Map.of(), "lib-1", options);
+
+        verify(dataSourceQueryService)
+            .executeQuery(
+                any(),
+                eq("SELECT ROUND(CAST(AVG(amount) AS DECIMAL(38,10)), 2) AS amount FROM (SELECT region, amount FROM orders) dp_agg")
+            );
+        assertThat(result).containsEntry("aggregated", true);
+    }
+
+    @Test
     void shouldPushDirectFieldFilterToSqlDataset() throws Exception {
         Map<String, Object> dataset = sqlDataset();
         when(roleDatasetScopeService.resolveConditions("lib-1")).thenReturn(List.of());

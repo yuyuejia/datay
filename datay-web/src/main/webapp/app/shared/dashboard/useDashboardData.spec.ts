@@ -75,4 +75,37 @@ describe('useDashboardData server-side filters', () => {
     expect(queryWidgetsMock.mock.calls[1][3]).toEqual({ region: '华南' });
     expect(data.datasetData.value.ds1.rows).toEqual(serverResult.rows);
   });
+
+  it('KPI 全局聚合同样通过服务端查询下推', async () => {
+    queryWidgetsMock.mockResolvedValue({
+      datasets: { ds1: serverResult },
+      widgets: { q1: { ...serverResult, aggregated: true } },
+    });
+    const kpiSpec = ref<DashboardSpec>({
+      version: 2,
+      datasets: [{ id: 'ds1', type: 'SQL' }],
+      widgets: [
+        {
+          id: 'kpi1',
+          type: 'kpi',
+          layout: { x: 0, y: 0, w: 6, h: 4 },
+          datasetId: 'ds1',
+          encode: { measures: [{ field: 'amount', agg: 'avg', role: 'value' }] },
+        },
+      ],
+    });
+    const dashboardId = ref('dashboard-1');
+    const data = useDashboardData({ dashboardId, spec: kpiSpec });
+
+    await data.loadAll({});
+
+    const queries = queryWidgetsMock.mock.calls[0][2];
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toMatchObject({
+      datasetId: 'ds1',
+      groupFields: [],
+      aggregations: [{ field: 'amount', agg: 'avg' }],
+    });
+    expect(data.widgetData.value.kpi1.aggregated).toBe(true);
+  });
 });

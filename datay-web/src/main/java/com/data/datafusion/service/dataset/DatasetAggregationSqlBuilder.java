@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -32,7 +33,7 @@ public final class DatasetAggregationSqlBuilder {
         Integer offset,
         Collection<String> allowedFields
     ) {
-        if (groupFields == null || groupFields.isEmpty() || aggregations == null || aggregations.isEmpty()) {
+        if (aggregations == null || aggregations.isEmpty()) {
             return DatasetSortLimitSqlBuilder.apply(
                 dataSource,
                 baseSql,
@@ -43,12 +44,11 @@ public final class DatasetAggregationSqlBuilder {
                 allowedFields
             );
         }
-        List<String> groups = validatedFields(groupFields, allowedFields, "分组字段");
-        if (groups.isEmpty()) {
-            throw new IllegalArgumentException("服务端聚合至少需要一个分组字段");
-        }
+        // 分组字段为空表示全局聚合（如 KPI / 仪表盘单值），直接在子查询上执行聚合函数。
+        List<String> groups = groupFields == null ? List.of() : validatedFields(groupFields, allowedFields, "分组字段");
         List<String> selectItems = new ArrayList<>(groups);
         Set<String> usedAliases = new LinkedHashSet<>(groups);
+        String dbType = dataSource == null ? "" : String.valueOf(dataSource.getType()).toUpperCase(Locale.ROOT);
         for (Aggregation aggregation : aggregations) {
             String field = DatasetScopeSqlBuilder.requireIdentifier(aggregation.field());
             if (allowedFields != null && !allowedFields.isEmpty() && !allowedFields.contains(field)) {
@@ -61,7 +61,7 @@ public final class DatasetAggregationSqlBuilder {
             if (!AGGREGATIONS.contains(agg)) {
                 throw new IllegalArgumentException("不支持的聚合方式：" + agg);
             }
-            selectItems.add(accessor(agg, field) + " AS " + field);
+            selectItems.add(accessor(agg, field, dbType) + " AS " + field);
         }
         String groupedSql =
             "SELECT " +
@@ -70,8 +70,7 @@ public final class DatasetAggregationSqlBuilder {
             DatasetScopeSqlBuilder.stripTrailingSemicolon(baseSql) +
             ") " +
             AGG_ALIAS +
-            " GROUP BY " +
-            String.join(", ", groups);
+            (groups.isEmpty() ? "" : " GROUP BY " + String.join(", ", groups));
         return DatasetSortLimitSqlBuilder.apply(
             dataSource,
             groupedSql,
@@ -97,9 +96,13 @@ public final class DatasetAggregationSqlBuilder {
         return result;
     }
 
-    private static String accessor(String agg, String field) {
+    private static String accessor(String agg, String field, String dbType) {
         return switch (agg) {
-            case "avg" -> "AVG(" + field + ")";
+            // 先转 DECIMAL 再取整，避免浮点 AVG（如 1.005）向下舍入成 1.00。
+            // TDengine 的 DECIMAL 支持有限，保留原生 ROUND 形式。
+            case "avg" -> "TDENGINE".equals(dbType)
+                ? "ROUND(AVG(" + field + "), 2)"
+                : "ROUND(CAST(AVG(" + field + ") AS DECIMAL(38,10)), 2)";
             case "min" -> "MIN(" + field + ")";
             case "max" -> "MAX(" + field + ")";
             case "count" -> "COUNT(" + field + ")";

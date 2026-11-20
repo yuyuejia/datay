@@ -1,4 +1,4 @@
-import { applyEncodeRows, buildEchartsOption, resolveKpiValue } from './spec-to-option';
+import { aggregateValues, applyEncodeRows, buildEchartsOption, resolveKpiValue, roundAggregationValue } from './spec-to-option';
 import type { DashboardWidget, DatasetResult } from './types';
 
 const result: DatasetResult = {
@@ -213,6 +213,23 @@ describe('spec-to-option', () => {
     expect(option.series[0].data).toEqual([{ value: 375.75, name: '总销售额' }]);
     expect(option.xAxis).toBeUndefined();
     expect(option.yAxis).toBeUndefined();
+  });
+
+  it('仪表盘使用服务端聚合结果时不会再次聚合', () => {
+    const option = buildEchartsOption(
+      widget({
+        title: '订单数',
+        echartsOption: { series: [{ type: 'gauge' }] },
+        chart: { type: 'gauge' },
+        encode: {
+          measures: [{ field: 'amount', agg: 'count', role: 'value' }],
+          groupBy: false,
+        },
+      }),
+      { columns: ['amount'], rows: [{ amount: 5 }], aggregated: true },
+    );
+
+    expect(option.series[0].data).toEqual([{ value: 5, name: '订单数' }]);
   });
 
   it('组合图按 chart.series 生成双轴系列', () => {
@@ -574,6 +591,30 @@ describe('spec-to-option', () => {
       result,
     );
     expect(countKpi.value).toBe(5);
+  });
+
+  it('平均值最多保留两位小数', () => {
+    expect(aggregateValues([1, 2, 2], 'avg')).toBe(1.67);
+    expect(aggregateValues([120.5, 60], 'avg')).toBe(90.25);
+  });
+
+  it('聚合取整按十进制四舍五入，不受二进制浮点误差影响', () => {
+    expect(roundAggregationValue(1.005)).toBe(1.01);
+    expect(roundAggregationValue(-1.005)).toBe(-1.01);
+    expect(roundAggregationValue(26.787142857142857)).toBe(26.79);
+  });
+
+  it('KPI 使用服务端聚合结果时不会再次聚合', () => {
+    const kpi = resolveKpiValue(
+      widget({
+        type: 'kpi',
+        chart: undefined,
+        encode: { measures: [{ field: 'amount', agg: 'count', role: 'value' }] },
+      }),
+      { columns: ['amount'], rows: [{ amount: 5 }], aggregated: true },
+    );
+
+    expect(kpi.value).toBe(5);
   });
 
   it('KPI 对指定度量字段求和', () => {

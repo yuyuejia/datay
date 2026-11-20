@@ -22,7 +22,7 @@ public record DatasetQueryOptions(
     }
 
     public boolean hasAggregation() {
-        return groupFields != null && !groupFields.isEmpty() && aggregations != null && !aggregations.isEmpty();
+        return aggregations != null && !aggregations.isEmpty();
     }
 
     public boolean isEmpty() {

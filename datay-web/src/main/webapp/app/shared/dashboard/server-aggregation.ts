@@ -10,8 +10,8 @@ const EMPTY: ServerAggregation = { groupFields: [], aggregations: [] };
 /**
  * 生成服务端聚合下推参数。
  *
- * <p>图表与透视表在 groupBy（或透视表行列维度）明确时，直接把分组与聚合下推到数据库。
- * 筛选器统一由服务端执行，因此聚合前已经完成过滤。
+ * <p>图表与透视表在 groupBy（或透视表行列维度）明确时下推分组聚合；KPI、仪表盘没有分组维度，
+ * 以空 groupFields 下推全局聚合。筛选器统一由服务端执行，因此聚合前已经完成过滤。
  */
 export function buildServerAggregation(widget: DashboardWidget): ServerAggregation {
   if (!widget.datasetId) {
@@ -25,10 +25,19 @@ export function buildServerAggregation(widget: DashboardWidget): ServerAggregati
   if (measures.length === 0) {
     return EMPTY;
   }
+  const aggregations = measures.map(measure => ({ field: measure.field, agg: measure.agg ?? 'sum' }));
+  const hasAggregatableMeasure = aggregations.some(aggregation => aggregation.agg !== 'none');
+  if (widget.type === 'kpi') {
+    // KPI 没有分组维度，但仍把单值聚合下推到数据源执行。
+    return hasAggregatableMeasure ? { groupFields: [], aggregations } : EMPTY;
+  }
   const dimensions = encode.dimensions ?? [];
   let selectedDimensions = dimensions;
   if (widget.type === 'pivot') {
     selectedDimensions = dimensions.filter(dimension => dimension.role === 'row' || dimension.role === 'column');
+  } else if (widget.type === 'echarts' && widget.chart?.type === 'gauge') {
+    // 仪表盘同样只需要全局聚合，不能只对前端拿到的前 N 行求值。
+    return hasAggregatableMeasure ? { groupFields: [], aggregations } : EMPTY;
   } else if (widget.type === 'echarts' && encode.groupBy) {
     const chartType = widget.chart?.type;
     if (chartType === 'boxplot') {
@@ -51,10 +60,7 @@ export function buildServerAggregation(widget: DashboardWidget): ServerAggregati
   if (groupFields.length === 0) {
     return EMPTY;
   }
-  return {
-    groupFields,
-    aggregations: measures.map(measure => ({ field: measure.field, agg: measure.agg ?? 'sum' })),
-  };
+  return { groupFields, aggregations };
 }
 
 /**
