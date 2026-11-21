@@ -821,6 +821,8 @@ public class AppPackageImportService {
             dto.setDataSourceId(dataSourceId);
             dto.setDefinition(definition == null ? null : definition.toString());
             dto.setFields(item.fields == null ? null : item.fields.toString());
+            // 资产包不携带结果持久化配置；覆盖导入时重置，避免沿用旧持久化目标或旧任务导致导入失败。
+            dto.setPersistEnabled(Boolean.FALSE);
             String existingId = STRATEGY_OVERWRITE.equals(strategy) ? existingIds.get(item.code) : null;
             AnalysisDatasetDTO saved;
             if (existingId != null) {
