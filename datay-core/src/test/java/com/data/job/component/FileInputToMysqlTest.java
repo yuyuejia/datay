@@ -13,11 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 端到端验证：本地 CSV 文件（FileInput） -> MySQL（StreamJdbcOutput）。
+ * 端到端验证：本地 CSV / Excel 文件（FileInput） -> MySQL（StreamJdbcOutput）。
  * <p>依赖本地 MySQL（127.0.0.1:3306），可通过系统属性覆盖：
  * <pre>
  *   -Dmysql.url=... -Dmysql.username=... -Dmysql.password=... -Dmysql.dbschema=...
  *   -Dfileinput.csv=/absolute/path/to/employees.csv
+ *   -Dfileinput.excel=/absolute/path/to/employees.xlsx
  * </pre>
  */
 public class FileInputToMysqlTest {
@@ -29,6 +30,9 @@ public class FileInputToMysqlTest {
 
     private static final String CSV_PATH = System.getProperty("fileinput.csv",
         System.getProperty("user.dir") + "/src/test/fileinput/employees.csv");
+
+    private static final String EXCEL_PATH = System.getProperty("fileinput.excel",
+        System.getProperty("user.dir") + "/src/test/fileinput/employees.xlsx");
 
     @Test
     @Timeout(120000)
@@ -121,7 +125,73 @@ public class FileInputToMysqlTest {
         }
     }
 
+    @Test
+    @Timeout(120000)
+    public void testExcelToMysqlAppend() throws Exception {
+        String targetTable = "fileinput_excel_employees";
+        prepareTable(targetTable);
+
+        String job = buildJob(targetTable, true, EXCEL_PATH, "excel", null);
+
+        ETLFlowTask runner = new ETLFlowTask();
+        runner.runJob(job);
+
+        verifyAppendResult(targetTable);
+    }
+
+    @Test
+    @Timeout(120000)
+    public void testExcelToMysqlAutoCreate() throws Exception {
+        String targetTable = "fileinput_excel_auto_employees";
+        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS " + targetTable);
+        }
+
+        String job = buildJob(targetTable, false, EXCEL_PATH, "excel", null);
+
+        ETLFlowTask runner = new ETLFlowTask();
+        runner.runJob(job);
+
+        verifyAutoCreateResult(targetTable);
+    }
+
+    @Test
+    @Timeout(120000)
+    public void testExcelSheetSelection() throws Exception {
+        String targetTable = "fileinput_excel_departments";
+        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS " + targetTable);
+            stmt.execute("CREATE TABLE " + targetTable + " (" +
+                "department VARCHAR(128), " +
+                "emp_count BIGINT" +
+                ")");
+        }
+
+        String job = buildJob(targetTable, true, EXCEL_PATH, "excel", "Departments");
+
+        ETLFlowTask runner = new ETLFlowTask();
+        runner.runJob(job);
+
+        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery(
+                "SELECT department, emp_count FROM " + targetTable + " ORDER BY department")) {
+                int rows = 0;
+                while (rs.next()) {
+                    rows++;
+                    if ("Engineering".equals(rs.getString("department"))) {
+                        assertEquals(4, rs.getLong("emp_count"));
+                    }
+                }
+                assertEquals(4, rows, "should have 4 departments");
+            }
+        }
+    }
+
     private String buildJob(String targetTable, boolean preCreate) {
+        return buildJob(targetTable, preCreate, CSV_PATH, "csv", null);
+    }
+
+    private String buildJob(String targetTable, boolean preCreate, String filePath, String format, String excelSheet) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
         sb.append("  \"units\": [\n");
@@ -129,9 +199,17 @@ public class FileInputToMysqlTest {
         sb.append("      \".id\": \"FileInput\",\n");
         sb.append("      \".name\": \"FileInput\",\n");
         sb.append("      \"storageType\": \"local\",\n");
-        sb.append("      \"filePath\": \"").append(CSV_PATH.replace("\\", "/")).append("\",\n");
-        sb.append("      \"format\": \"csv\",\n");
-        sb.append("      \"csvHasHeader\": true\n");
+        sb.append("      \"filePath\": \"").append(filePath.replace("\\", "/")).append("\",\n");
+        sb.append("      \"format\": \"").append(format).append("\",\n");
+        if ("csv".equals(format)) {
+            sb.append("      \"csvHasHeader\": true\n");
+        } else {
+            if (excelSheet != null) {
+                sb.append("      \"excelSheet\": \"").append(excelSheet).append("\"\n");
+            } else {
+                sb.append("      \"query\": \"\"\n");
+            }
+        }
         sb.append("    },\n");
         sb.append("    {\n");
         sb.append("      \".id\": \"StreamJdbcOutput\",\n");

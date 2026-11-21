@@ -24,9 +24,10 @@ import java.util.List;
  * 通过 DuckDB 流式查询，将结果批量输出到下游。
  * <p>支持两种存储后端：
  * <ul>
- *   <li>local  - 直接使用本地绝对路径，DuckDB 原生 read_csv / read_parquet / read_excel 读取</li>
+ *   <li>local  - 直接使用本地绝对路径，DuckDB 原生 read_csv / read_parquet / read_xlsx 读取</li>
  *   <li>minio  - 构造 s3:// URL，并在 DuckDB 连接上 CREATE SECRET 注入 MinIO 凭证</li>
  * </ul>
+ * <p>Excel 仅支持 .xlsx（DuckDB excel 扩展不支持旧版二进制 .xls）。
  */
 @ComponentRegister(
     value = "FileInput",
@@ -75,11 +76,15 @@ public class FileInput extends FlowComponent {
             throw new IllegalArgumentException("FileInput 未配置 filePath");
         }
 
+        String fileFormat = resolveFormat();
+        if ("excel".equalsIgnoreCase(fileFormat) && filePath.toLowerCase().endsWith(".xls")) {
+            throw new IllegalArgumentException("FileInput 仅支持 .xlsx 格式的 Excel 文件，请先将 .xls 文件另存为 .xlsx");
+        }
+
         try (Connection duckdbConn = DuckDBEngine.getInstance().getConnection(getContext().getJobInstanceCode())) {
             ensureDuckDBExtension(duckdbConn);
 
             String resolvedPath = resolveFileUrl();
-            String fileFormat = resolveFormat();
             String readFunc = buildReadFunction(resolvedPath, fileFormat);
             String querySql = (query != null && !query.trim().isEmpty())
                 ? query.trim()
@@ -151,8 +156,8 @@ public class FileInput extends FlowComponent {
         try (Statement stmt = conn.createStatement()) {
             String fmt = resolveFormat();
             if ("excel".equalsIgnoreCase(fmt)) {
-                stmt.execute("INSTALL spatial;");
-                stmt.execute("LOAD spatial;");
+                stmt.execute("INSTALL excel;");
+                stmt.execute("LOAD excel;");
             }
         } catch (SQLException e) {
             logInfo("扩展安装失败（可能已安装）: " + e.getMessage());
@@ -207,7 +212,7 @@ public class FileInput extends FlowComponent {
                 return "read_parquet('" + escapedPath + "')";
             case "excel": {
                 StringBuilder sb = new StringBuilder();
-                sb.append("read_excel('").append(escapedPath).append("'");
+                sb.append("read_xlsx('").append(escapedPath).append("'");
                 if (excelSheet != null && !excelSheet.trim().isEmpty()) {
                     sb.append(", sheet = '").append(excelSheet.replace("'", "''")).append("'");
                 }
