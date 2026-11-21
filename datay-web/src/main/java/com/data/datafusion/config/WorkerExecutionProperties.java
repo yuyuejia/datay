@@ -16,10 +16,11 @@ import org.springframework.stereotype.Component;
  *   worker:
  *     thread-count: 50       # 同时执行的任务数上限
  *     queue-capacity: 50     # 待执行队列容量，满后暂停从事件队列取任务（背压）
+ *     ip: 192.168.1.10       # 执行节点上报给 master 的 IP/主机名，留空自动探测
  * </pre>
  *
  * <p>也可以使用环境变量 {@code DEVELOPMENT_WORKER_THREAD_COUNT} /
- * {@code DEVELOPMENT_WORKER_QUEUE_CAPACITY} 覆盖。</p>
+ * {@code DEVELOPMENT_WORKER_QUEUE_CAPACITY} / {@code DEVELOPMENT_WORKER_IP} 覆盖。</p>
  *
  * <p>注意：{@code StartJobEventHandler} 是通过 {@code new} 创建的（不经过 Spring 容器），
  * 因此这里提供静态 {@link #get()} 入口，容器启动后返回绑定了配置的实例，未启动时回退到
@@ -43,6 +44,13 @@ public class WorkerExecutionProperties {
     /** 待执行队列容量，队列满后 worker 暂停从事件队列取任务，避免进程内无限堆积。 */
     private int queueCapacity = DEFAULT_QUEUE_CAPACITY;
 
+    /**
+     * 执行节点上报给 master 的 IP/主机名，留空时自动探测本机地址。
+     *
+     * <p>多网卡或容器环境可显式绑定，避免自动探测到 docker / 网桥等内部网络地址。</p>
+     */
+    private String ip;
+
     private static volatile WorkerExecutionProperties instance;
 
     public WorkerExecutionProperties() {}
@@ -51,7 +59,12 @@ public class WorkerExecutionProperties {
     public void init() {
         instance = this;
         normalize();
-        log.info("######################## Worker 并发配置 threadCount={}, queueCapacity={}", threadCount, queueCapacity);
+        log.info(
+            "######################## Worker 并发配置 threadCount={}, queueCapacity={}, ip={}",
+            threadCount,
+            queueCapacity,
+            ip == null || ip.isBlank() ? "自动探测" : ip
+        );
     }
 
     /**
@@ -70,6 +83,7 @@ public class WorkerExecutionProperties {
             fallback.setQueueCapacity(
                 environment.getProperty("development.worker.queue-capacity", Integer.class, DEFAULT_QUEUE_CAPACITY)
             );
+            fallback.setIp(environment.getProperty("development.worker.ip"));
         }
         fallback.normalize();
         return fallback;
@@ -87,6 +101,12 @@ public class WorkerExecutionProperties {
             log.warn("development.worker.queue-capacity={} 非法，回退默认值 {}", queueCapacity, DEFAULT_QUEUE_CAPACITY);
             queueCapacity = DEFAULT_QUEUE_CAPACITY;
         }
+        if (ip != null) {
+            ip = ip.trim();
+            if (ip.isEmpty()) {
+                ip = null;
+            }
+        }
     }
 
     public int getThreadCount() {
@@ -103,5 +123,13 @@ public class WorkerExecutionProperties {
 
     public void setQueueCapacity(int queueCapacity) {
         this.queueCapacity = queueCapacity;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
     }
 }

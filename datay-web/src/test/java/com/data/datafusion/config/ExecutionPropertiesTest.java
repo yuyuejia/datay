@@ -14,6 +14,7 @@ class ExecutionPropertiesTest {
         WorkerExecutionProperties properties = new WorkerExecutionProperties();
         assertThat(properties.getThreadCount()).isEqualTo(WorkerExecutionProperties.DEFAULT_THREAD_COUNT);
         assertThat(properties.getQueueCapacity()).isEqualTo(WorkerExecutionProperties.DEFAULT_QUEUE_CAPACITY);
+        assertThat(properties.getIp()).isNull();
     }
 
     @Test
@@ -21,9 +22,19 @@ class ExecutionPropertiesTest {
         WorkerExecutionProperties properties = new WorkerExecutionProperties();
         properties.setThreadCount(200);
         properties.setQueueCapacity(2000);
+        properties.setIp(" 10.20.30.40 ");
         properties.normalize();
         assertThat(properties.getThreadCount()).isEqualTo(200);
         assertThat(properties.getQueueCapacity()).isEqualTo(2000);
+        assertThat(properties.getIp()).isEqualTo("10.20.30.40");
+    }
+
+    @Test
+    void workerBlankIpIsNormalizedToNull() {
+        WorkerExecutionProperties properties = new WorkerExecutionProperties();
+        properties.setIp("   ");
+        properties.normalize();
+        assertThat(properties.getIp()).isNull();
     }
 
     @Test
@@ -62,7 +73,8 @@ class ExecutionPropertiesTest {
     void workerPropertiesBindFromEnvironment() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("development.worker.thread-count", "200")
-            .withProperty("development.worker.queue-capacity", "2000");
+            .withProperty("development.worker.queue-capacity", "2000")
+            .withProperty("development.worker.ip", "10.20.30.40");
 
         WorkerExecutionProperties properties = Binder.get(environment)
             .bind("development.worker", Bindable.of(WorkerExecutionProperties.class))
@@ -70,6 +82,7 @@ class ExecutionPropertiesTest {
 
         assertThat(properties.getThreadCount()).isEqualTo(200);
         assertThat(properties.getQueueCapacity()).isEqualTo(2000);
+        assertThat(properties.getIp()).isEqualTo("10.20.30.40");
     }
 
     @Test

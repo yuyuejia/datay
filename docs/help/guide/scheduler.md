@@ -106,6 +106,7 @@ docker compose -f src/main/docker/scheduler-cluster.yml up -d --scale worker=3
 | --- | --- | --- |
 | `development.worker.thread-count` | 50 | 单节点同时执行的任务数上限，超出后进入待执行队列 |
 | `development.worker.queue-capacity` | 50 | 待执行队列容量，满后 worker 暂停从事件队列取任务（背压） |
+| `development.worker.ip` | 空（自动探测） | 执行节点上报给 master 的 IP/主机名，端口取 `server.port` |
 | `development.scheduler.thread-count` | 10 | Quartz 触发线程数，决定同秒大量任务到期时并发拉起实例的能力 |
 
 ```yaml
@@ -115,10 +116,25 @@ development:
   worker:
     thread-count: 200
     queue-capacity: 2000
+    # 多网卡/容器环境建议显式绑定 master 可达的地址
+    ip: 192.168.1.10
 ```
 
 也可以用环境变量覆盖：`DEVELOPMENT_SCHEDULER_THREAD_COUNT`、`DEVELOPMENT_WORKER_THREAD_COUNT`、
-`DEVELOPMENT_WORKER_QUEUE_CAPACITY`。
+`DEVELOPMENT_WORKER_QUEUE_CAPACITY`、`DEVELOPMENT_WORKER_IP`。
+
+### 执行节点地址
+
+worker 上报的任务实例会带上 `exec_node`（`IP:server.port`），master 依赖该地址把日志查看等请求
+转发到实际执行任务的节点。多网卡服务器上自动获取的地址可能落在 docker0、`br-xxxx`、`veth*`、
+`virbr*`、`cni*`、`flannel*` 等内部网卡上，导致 master 无法访问。
+
+- 默认不配置 `development.worker.ip` 时，worker 自动遍历本机网卡并排除上述内部网卡，优先选择
+  IPv4 私网地址；
+- 容器、NAT、端口映射或存在多块业务网卡的场景，应显式配置 `development.worker.ip`（或环境变量
+  `DEVELOPMENT_WORKER_IP`）为 master 可达的 IP/主机名；
+- 启动日志会打印自动解析时发现的候选地址与最终选择，便于排查；
+- 修改后需确保 master 能访问该地址的 `server.port` 端口，并保持 master / worker 的 JWT 签名密钥一致。
 
 调优建议：
 

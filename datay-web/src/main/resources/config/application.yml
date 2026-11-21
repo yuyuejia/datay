@@ -324,6 +324,10 @@ development:
     thread-count: ${DEVELOPMENT_WORKER_THREAD_COUNT:50}
     # 待执行队列容量；队列满后 worker 暂停从事件队列取任务，形成背压。
     queue-capacity: ${DEVELOPMENT_WORKER_QUEUE_CAPACITY:50}
+    # 执行节点上报给 master 的 IP/主机名（端口取 server.port），用于 master 转发日志等请求。
+    # 留空时自动探测本机地址，并排除 docker / br- / veth / virbr / cni 等内部网卡。
+    # 多网卡、容器或 NAT 环境建议显式绑定为 master 可达的地址。
+    ip: ${DEVELOPMENT_WORKER_IP:}
   # ETL 任务执行方式：local 在当前 worker 进程内执行，docker 在独立容器中执行
   etl:
     mode: ${DATAY_ETL_MODE:local}

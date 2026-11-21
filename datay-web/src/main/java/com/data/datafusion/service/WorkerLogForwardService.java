@@ -1,9 +1,9 @@
 package com.data.datafusion.service;
 
-import cn.hutool.core.net.NetUtil;
 import com.data.datafusion.config.DeploymentProperties;
 import com.data.datafusion.config.SkipTenantFilter;
 import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.util.WorkerNodeAddress;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -17,7 +17,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -57,12 +56,8 @@ public class WorkerLogForwardService {
     private final HttpClient httpClient;
 
     @Autowired
-    public WorkerLogForwardService(
-        DeploymentProperties deploymentProperties,
-        ObjectMapper objectMapper,
-        @Value("${server.port:8080}") String serverPort
-    ) {
-        this(deploymentProperties, objectMapper, resolveCurrentExecNode(serverPort), HTTP_CLIENT);
+    public WorkerLogForwardService(DeploymentProperties deploymentProperties, ObjectMapper objectMapper) {
+        this(deploymentProperties, objectMapper, WorkerNodeAddress.currentExecNode(), HTTP_CLIENT);
     }
 
     WorkerLogForwardService(
@@ -184,13 +179,6 @@ public class WorkerLogForwardService {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized;
-    }
-
-    private static String resolveCurrentExecNode(String serverPort) {
-        if (!StringUtils.hasText(serverPort)) {
-            return null;
-        }
-        return NetUtil.getLocalhostStr() + ":" + serverPort;
     }
 
     private static String abbreviate(String text) {

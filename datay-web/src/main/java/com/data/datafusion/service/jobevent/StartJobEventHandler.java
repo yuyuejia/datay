@@ -1,6 +1,5 @@
 package com.data.datafusion.service.jobevent;
 
-import cn.hutool.core.net.NetUtil;
 import com.data.datafusion.config.SpringUtil;
 import com.data.datafusion.config.WorkerExecutionProperties;
 import com.data.datafusion.domain.JobInstance;
@@ -10,6 +9,7 @@ import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.TaskExecutionSupport;
 import com.data.datafusion.job.TaskFactory;
 import com.data.datafusion.security.TenantContext;
+import com.data.datafusion.util.WorkerNodeAddress;
 import com.data.datafusion.web.rest.WorkerResource;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -37,9 +37,8 @@ public class StartJobEventHandler implements Runnable {
     // 任务跟踪映射：instanceCode -> 任务执行信息
     public static final Map<String, TaskExecutionInfo> runningTasks = new ConcurrentHashMap<>();
 
-    // 获取当前执行节点的ip和端口信息
-    public static final String EXECNODE =
-        NetUtil.getLocalhostStr() + ":" + SpringUtil.getEnvironment().getProperty("server.port", "8080");
+    // 获取当前执行节点的ip和端口信息（优先使用 development.worker.ip，未配置时自动探测）
+    public static final String EXECNODE = WorkerNodeAddress.currentExecNode();
 
     public StartJobEventHandler() {
         // 创建可配置的线程池，支持任务停止和状态监控
