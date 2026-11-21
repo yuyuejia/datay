@@ -2,74 +2,104 @@
   <el-form name="editForm" label-position="top">
     <el-form-item label="关联数据源">
       <DataSourceSelector :datasourceId="formData.sourceId" :schema="formData.schema" @selected="handleDataSourceSelected" />
-      <small class="form-text text-muted"> 查询另一个数据库中的表，可与上游数据源不同 </small>
+      <small class="form-text text-muted"> 所有关联表须位于同一数据源；查询另一个数据库中的表，可与上游数据源不同 </small>
     </el-form-item>
 
-    <el-form-item label="关联表">
-      <DataSourceTableSelector
-        :key="tableSelectorKey"
-        :dataSourceId="formData.sourceId"
-        :schema="formData.schema"
-        :selectedTable="formData.table || null"
-        :selectedTables="[]"
-        :multiple="false"
-        @selected="handleTableSelected"
-      />
-    </el-form-item>
-
-    <el-form-item label="关联条件">
-      <div class="condition-block">
-        <div class="condition-title">上游字段 = 关联表字段</div>
-        <div class="mapping-row">
-          <div class="field-with-action">
-            <el-select v-model="formData.localField" placeholder="上游字段" filterable allow-create default-first-option>
-              <el-option v-for="field in upstreamFieldOptions" :key="field.name" :value="field.name" :label="columnLabel(field)" />
-            </el-select>
-            <el-button size="small" :loading="loadingUpstream" @click="refreshUpstream(true)">调试上游</el-button>
+    <el-form-item label="关联表配置">
+      <div class="lookup-container">
+        <div v-for="(item, index) in formData.tables" :key="item._key" class="lookup-item">
+          <div class="lookup-item-header">
+            <span>关联表 {{ index + 1 }}</span>
+            <div class="lookup-item-actions">
+              <el-button link size="small" :disabled="index === 0" @click="moveLookup(index, -1)">上移</el-button>
+              <el-button link size="small" :disabled="index === formData.tables.length - 1" @click="moveLookup(index, 1)">下移</el-button>
+              <el-button type="danger" link size="small" @click="removeLookup(index)">删除</el-button>
+            </div>
           </div>
-          <span class="mapping-arrow">=</span>
-          <DataSourceTableFieldSelector
-            :dataSourceId="formData.sourceId"
-            :schema="formData.schema"
-            :table="formData.table"
-            :selectedFields="[]"
-            :selectedField="formData.lookupField || ''"
-            :multiple="false"
-            @selected="handleLookupFieldSelected"
-          />
+
+          <div class="lookup-field">
+            <div class="lookup-field-label">关联表</div>
+            <DataSourceTableSelector
+              :key="`table-${item._key}-${formData.sourceId || ''}-${formData.schema || ''}`"
+              :dataSourceId="formData.sourceId"
+              :schema="formData.schema"
+              :selectedTable="item.table || null"
+              :selectedTables="[]"
+              :multiple="false"
+              @selected="selection => handleTableSelected(index, selection)"
+            />
+          </div>
+
+          <div class="lookup-field">
+            <div class="lookup-field-label">关联条件（上游字段 = 关联表字段）</div>
+            <div class="mapping-row">
+              <div class="field-with-action">
+                <el-select v-model="item.localField" placeholder="上游字段" filterable allow-create default-first-option>
+                  <el-option
+                    v-for="field in upstreamFieldOptionsFor(index)"
+                    :key="field.name"
+                    :value="field.name"
+                    :label="columnLabel(field)"
+                  />
+                </el-select>
+                <el-button size="small" :loading="loadingUpstream" @click="refreshUpstream(true)">调试上游</el-button>
+              </div>
+              <span class="mapping-arrow">=</span>
+              <DataSourceTableFieldSelector
+                :key="`lookup-field-${item._key}-${item.table || ''}`"
+                :dataSourceId="formData.sourceId"
+                :schema="formData.schema"
+                :table="item.table"
+                :selectedFields="[]"
+                :selectedField="item.lookupField || ''"
+                :multiple="false"
+                @selected="field => handleLookupFieldSelected(index, field)"
+              />
+            </div>
+            <small v-if="index === 0" class="form-text text-muted">{{ upstreamHint }}</small>
+            <small v-else class="form-text text-muted"> 可选择上游调试字段、手工输入，或引用前面关联表回填出的字段（前缀 + 字段名） </small>
+          </div>
+
+          <div class="lookup-field">
+            <div class="lookup-field-label">回填字段</div>
+            <DataSourceTableFieldSelector
+              :key="`output-${item._key}-${item.table || ''}-${item.selectColumns || ''}`"
+              :dataSourceId="formData.sourceId"
+              :schema="formData.schema"
+              :table="item.table"
+              :selectedFields="parseSelectedColumns(item.selectColumns)"
+              :selectedField="null"
+              :multiple="true"
+              @selected="fields => handleOutputFieldsSelected(index, fields)"
+            />
+            <small class="form-text text-muted"> 选择需要回填的关联表字段；不选择时默认回填全部字段 </small>
+          </div>
+
+          <div class="lookup-grid">
+            <div class="lookup-field">
+              <div class="lookup-field-label">关联类型</div>
+              <el-select v-model="item.joinType">
+                <el-option value="LEFT" label="LEFT - 保留未匹配记录" />
+                <el-option value="INNER" label="INNER - 仅保留匹配记录" />
+              </el-select>
+            </div>
+            <div class="lookup-field">
+              <div class="lookup-field-label">回填字段前缀</div>
+              <el-input v-model="item.outputPrefix" placeholder="例如 user_" />
+              <small class="form-text text-muted"> 留空则直接使用关联表字段名（同名字段会被覆盖） </small>
+            </div>
+          </div>
+
+          <div class="lookup-field">
+            <div class="lookup-field-label">附加过滤条件</div>
+            <el-input type="textarea" v-model="item.where" :rows="2" placeholder="例如 status = 1，不需要写 WHERE" />
+            <small class="form-text text-muted"> 会以 AND 追加到当前关联表的查询条件中 </small>
+          </div>
         </div>
-        <small class="form-text text-muted">
-          {{ upstreamHint }}
-        </small>
+
+        <el-button type="primary" size="small" @click="addLookup">添加关联表</el-button>
       </div>
-    </el-form-item>
-
-    <el-form-item label="回填字段">
-      <DataSourceTableFieldSelector
-        :key="outputFieldsSelectorKey"
-        :dataSourceId="formData.sourceId"
-        :schema="formData.schema"
-        :table="formData.table"
-        :selectedFields="selectedOutputFields"
-        :selectedField="null"
-        :multiple="true"
-        @selected="handleOutputFieldsSelected"
-      />
-      <small class="form-text text-muted"> 选择需要回填的关联表字段；不选择时默认回填全部字段 </small>
-    </el-form-item>
-
-    <el-form-item label="关联类型">
-      <el-select v-model="formData.joinType">
-        <el-option value="LEFT" label="LEFT - 保留未匹配记录" />
-        <el-option value="INNER" label="INNER - 仅保留匹配记录" />
-      </el-select>
-    </el-form-item>
-
-    <el-form-item label="回填字段前缀">
-      <el-input v-model="formData.outputPrefix" placeholder="例如 user_" />
-      <small class="form-text text-muted">
-        回填字段会以「前缀 + 关联表字段名」写入记录；留空则直接使用关联表字段名（同名字段会被覆盖）
-      </small>
+      <small class="form-text text-muted"> 按列表顺序依次执行；后面的关联表可以使用前面关联表回填出的字段进行链式 lookup。 </small>
     </el-form-item>
 
     <el-form-item label="输出表名">
@@ -77,11 +107,6 @@
       <small class="form-text text-muted">
         本组件结果集的表名；多个关联/查询组件接入同一个 Join 时请配置不同表名，留空则沿用上游表名
       </small>
-    </el-form-item>
-
-    <el-form-item label="附加过滤条件">
-      <el-input type="textarea" v-model="formData.where" :rows="2" placeholder="例如 status = 1，不需要写 WHERE" />
-      <small class="form-text text-muted"> 会以 AND 追加到关联查询条件中 </small>
     </el-form-item>
 
     <el-form-item label="批量查询大小">
@@ -116,6 +141,9 @@ const upstreamTables = ref([]);
 const loadingUpstream = ref(false);
 const upstreamError = ref('');
 
+let lookupKeySeed = 0;
+const nextLookupKey = () => ++lookupKeySeed;
+
 const parseSelectedColumns = value => {
   const text = (value || '').trim();
   if (!text) {
@@ -128,34 +156,44 @@ const parseSelectedColumns = value => {
     .map(name => ({ name }));
 };
 
+const normalizeLookup = source => ({
+  _key: nextLookupKey(),
+  table: source?.table || '',
+  localField: source?.localField || '',
+  lookupField: source?.lookupField || '',
+  selectColumns: source?.selectColumns || '',
+  joinType: source?.joinType || 'LEFT',
+  outputPrefix: source?.outputPrefix || '',
+  where: source?.where || '',
+});
+
+const buildTables = config => {
+  if (Array.isArray(config.tables) && config.tables.length) {
+    return config.tables.map(item => normalizeLookup(item));
+  }
+  if (config.table) {
+    return [normalizeLookup(config)];
+  }
+  return [normalizeLookup({})];
+};
+
 const buildForm = () => {
   const config = props.node?.data?.config || {};
   return {
     sourceId: config.sourceId || '',
     schema: config.schema || '',
-    table: config.table || '',
-    localField: config.localField || '',
-    lookupField: config.lookupField || '',
-    selectColumns: config.selectColumns || '',
-    joinType: config.joinType || 'LEFT',
-    outputPrefix: config.outputPrefix || '',
     outputTable: config.outputTable || '',
-    where: config.where || '',
     batchSize: Number(config.batchSize) > 0 ? Number(config.batchSize) : 500,
     cache: config.cache !== false,
+    tables: buildTables(config),
   };
 };
 
 const formData = reactive(buildForm());
-const selectedOutputFields = ref(parseSelectedColumns(formData.selectColumns));
 
 const resetForm = () => {
   Object.assign(formData, buildForm());
-  selectedOutputFields.value = parseSelectedColumns(formData.selectColumns);
 };
-
-const tableSelectorKey = computed(() => `${formData.sourceId || ''}-${formData.schema || ''}-${formData.table || ''}`);
-const outputFieldsSelectorKey = computed(() => `${tableSelectorKey.value}-${formData.selectColumns || ''}`);
 
 const upstreamHint = computed(() => {
   if (upstreamError.value) {
@@ -180,12 +218,33 @@ const upstreamFieldOptions = computed(() => {
       fields.push({ name, type: columnTypes[name] || '' });
     }
   }
-  const current = (formData.localField || '').trim();
+  return fields;
+});
+
+// 当前关联表可用的上游字段：上游调试字段 + 前面关联表回填出的字段
+const upstreamFieldOptionsFor = index => {
+  const fields = [];
+  const seen = new Set();
+  const push = field => {
+    if (!field.name || seen.has(field.name)) {
+      return;
+    }
+    seen.add(field.name);
+    fields.push(field);
+  };
+  upstreamFieldOptions.value.forEach(push);
+  formData.tables.slice(0, index).forEach(previous => {
+    const prefix = previous.outputPrefix || '';
+    parseSelectedColumns(previous.selectColumns).forEach(column => {
+      push({ name: `${prefix}${column.name}`, type: '' });
+    });
+  });
+  const current = (formData.tables[index]?.localField || '').trim();
   if (current && !seen.has(current)) {
     fields.unshift({ name: current, type: '' });
   }
   return fields;
-});
+};
 
 const columnLabel = field => (field.type ? `${field.name} (${field.type})` : field.name);
 
@@ -229,38 +288,63 @@ const handleDataSourceSelected = selectedData => {
   const dataSourceId = selectedData?.dataSourceId || '';
   const schema = selectedData?.schema || '';
   if (dataSourceId !== formData.sourceId || schema !== formData.schema) {
-    formData.table = '';
-    formData.lookupField = '';
-    formData.selectColumns = '';
-    selectedOutputFields.value = [];
+    formData.tables.forEach(item => {
+      item.table = '';
+      item.lookupField = '';
+      item.selectColumns = '';
+    });
   }
   formData.sourceId = dataSourceId;
   formData.schema = schema;
 };
 
-const handleTableSelected = selection => {
+const handleTableSelected = (index, selection) => {
+  const item = formData.tables[index];
+  if (!item) {
+    return;
+  }
   const table = selection?.table || '';
-  if (table !== formData.table) {
-    formData.lookupField = '';
-    formData.selectColumns = '';
-    selectedOutputFields.value = [];
+  if (table !== item.table) {
+    item.lookupField = '';
+    item.selectColumns = '';
   }
-  formData.table = table;
+  item.table = table;
 };
 
-const handleLookupFieldSelected = field => {
-  if (field?.name) {
-    formData.lookupField = field.name;
+const handleLookupFieldSelected = (index, field) => {
+  const item = formData.tables[index];
+  if (item && field?.name) {
+    item.lookupField = field.name;
   }
 };
 
-const handleOutputFieldsSelected = selection => {
+const handleOutputFieldsSelected = (index, selection) => {
+  const item = formData.tables[index];
+  if (!item) {
+    return;
+  }
   const fields = Array.isArray(selection) ? selection : [];
-  selectedOutputFields.value = fields;
-  formData.selectColumns = fields
+  item.selectColumns = fields
     .map(field => field.name)
     .filter(Boolean)
     .join(',');
+};
+
+const addLookup = () => {
+  formData.tables.push(normalizeLookup({}));
+};
+
+const removeLookup = index => {
+  formData.tables.splice(index, 1);
+};
+
+const moveLookup = (index, offset) => {
+  const target = index + offset;
+  if (target < 0 || target >= formData.tables.length) {
+    return;
+  }
+  const [item] = formData.tables.splice(index, 1);
+  formData.tables.splice(target, 0, item);
 };
 
 const saveConfig = async () => {
@@ -268,32 +352,47 @@ const saveConfig = async () => {
     ElMessage.error('请选择关联数据源');
     return;
   }
-  if (!(formData.table || '').trim()) {
-    ElMessage.error('请选择关联表');
+  if (!formData.tables.length) {
+    ElMessage.error('请至少添加一个关联表');
     return;
   }
-  if (!(formData.localField || '').trim()) {
-    ElMessage.error('请选择或输入上游关联字段');
-    return;
-  }
-  if (!(formData.lookupField || '').trim()) {
-    ElMessage.error('请选择关联表字段');
-    return;
+
+  const savedTables = [];
+  for (let i = 0; i < formData.tables.length; i++) {
+    const item = formData.tables[i];
+    const table = (item.table || '').trim();
+    const localField = (item.localField || '').trim();
+    const lookupField = (item.lookupField || '').trim();
+    if (!table) {
+      ElMessage.error(`请选择第 ${i + 1} 个关联表`);
+      return;
+    }
+    if (!localField) {
+      ElMessage.error(`请选择或输入第 ${i + 1} 个关联表的上游关联字段`);
+      return;
+    }
+    if (!lookupField) {
+      ElMessage.error(`请选择第 ${i + 1} 个关联表的关联字段`);
+      return;
+    }
+    savedTables.push({
+      table,
+      localField,
+      lookupField,
+      selectColumns: (item.selectColumns || '').trim(),
+      joinType: item.joinType || 'LEFT',
+      outputPrefix: (item.outputPrefix || '').trim(),
+      where: (item.where || '').trim(),
+    });
   }
 
   emits('save', {
     sourceId: formData.sourceId,
     schema: formData.schema,
-    table: formData.table.trim(),
-    localField: formData.localField.trim(),
-    lookupField: formData.lookupField.trim(),
-    selectColumns: (formData.selectColumns || '').trim(),
-    joinType: formData.joinType || 'LEFT',
-    outputPrefix: (formData.outputPrefix || '').trim(),
     outputTable: (formData.outputTable || '').trim(),
-    where: (formData.where || '').trim(),
     batchSize: Number(formData.batchSize) > 0 ? Number(formData.batchSize) : 500,
     cache: formData.cache !== false,
+    tables: savedTables,
   });
 };
 
@@ -301,17 +400,59 @@ defineExpose({ saveConfig });
 </script>
 
 <style scoped>
-.condition-block {
+.lookup-container {
   width: 100%;
-  padding: 10px 12px;
+  border: 1px solid #ebeef5;
   border-radius: 6px;
-  background-color: #f7f9fc;
+  padding: 12px;
+  background-color: #fafcff;
 }
 
-.condition-title {
-  margin-bottom: 8px;
-  color: #909399;
+.lookup-item {
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.lookup-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
+  color: #303133;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lookup-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lookup-field {
+  margin-bottom: 10px;
+}
+
+.lookup-field:last-child {
+  margin-bottom: 0;
+}
+
+.lookup-field-label {
+  margin-bottom: 4px;
+  color: #606266;
   font-size: 12px;
+}
+
+.lookup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
 }
 
 .mapping-row {

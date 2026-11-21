@@ -258,7 +258,9 @@ public class DataQualityCheck extends FlowComponent {
         try (Statement statement = connection.createStatement()) {
             statement.setFetchSize(5000);
             try (ResultSet rs = statement.executeQuery("SELECT * FROM " + table)) {
-                TableMeta tableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
+                Object sourceMetaAttr = sourceAttributes.get(FlowFile.ATTRIBUTE_TABLE_METADATA);
+                TableMeta sourceMeta = sourceMetaAttr instanceof TableMeta ? (TableMeta) sourceMetaAttr : null;
+                TableMeta tableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData(), sourceMeta);
                 tableMeta.setDbType("duckdb");
                 tableMeta.setSchema(DQ_SCHEMA);
                 tableMeta.setTable(sourceTable);

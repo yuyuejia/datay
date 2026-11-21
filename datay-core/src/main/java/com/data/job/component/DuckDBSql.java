@@ -14,7 +14,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @ComponentRegister(
     value = "DuckDBSql",
@@ -35,12 +37,16 @@ public class DuckDBSql extends FlowComponent {
 
     private static final int FETCH_SIZE = 10000;
 
+    // 上游表元数据：用于从 DuckDB 结果集补全 VARCHAR 长度
+    private final Map<String, TableMeta> upstreamTableMetaMap = new LinkedHashMap<>();
+
     public DuckDBSql() {
         setType(ComponentType.OPERATOR);  // 设置为Operator类型
     }
 
     @Override
     public void execute(FlowFile flowFile) {
+        rememberUpstreamTableMeta(flowFile);
         if (!upstreamFinish) {
             return;
         }
@@ -77,6 +83,24 @@ public class DuckDBSql extends FlowComponent {
 
 
     /**
+     * 在流式接收阶段记录上游表元数据，供结果集补全 VARCHAR 长度使用。
+     */
+    private void rememberUpstreamTableMeta(FlowFile flowFile) {
+        if (flowFile == null) {
+            return;
+        }
+        Object meta = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        if (!(meta instanceof TableMeta)) {
+            return;
+        }
+        TableMeta tableMeta = (TableMeta) meta;
+        String key = tableMeta.getTable() == null || tableMeta.getTable().trim().isEmpty()
+            ? "table_" + upstreamTableMetaMap.size()
+            : tableMeta.getTable().trim().toLowerCase();
+        upstreamTableMetaMap.putIfAbsent(key, tableMeta);
+    }
+
+    /**
      * 执行SELECT查询语句（单条）
      */
     private void executeSelectQuery(Connection conn, String sql) throws SQLException {
@@ -87,6 +111,7 @@ public class DuckDBSql extends FlowComponent {
             try (ResultSet rs = stmt.executeQuery(sql)) {
                 // 获取结果集元数据
                 TableMeta outputTableMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
+                DBUtils.fillCharacterColumnLengths(outputTableMeta, upstreamTableMetaMap.values());
                 outputTableMeta.setDbType("duckdb");
                 outputTableMeta.setTable(resolveOutputTable());
                 // 分页处理结果集数据

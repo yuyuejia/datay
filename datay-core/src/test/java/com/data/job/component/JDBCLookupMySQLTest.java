@@ -80,6 +80,15 @@ public class JDBCLookupMySQLTest extends ComponentTestBase {
                     + "status TINYINT"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             statement.execute(
+                "CREATE TABLE " + DIM_DB + ".member_levels ("
+                    + "code VARCHAR(10) PRIMARY KEY,"
+                    + "level_name VARCHAR(20)"
+                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            statement.execute(
+                "INSERT INTO " + DIM_DB + ".member_levels (code, level_name) VALUES "
+                    + "('金卡', '黄金会员'), ('银卡', '白银会员'), ('普通', '普通会员')"
+            );
+            statement.execute(
                 "CREATE TABLE " + ORDERS_DB + ".orders ("
                     + "order_id BIGINT PRIMARY KEY,"
                     + "customer_id BIGINT,"
@@ -261,6 +270,45 @@ public class JDBCLookupMySQLTest extends ComponentTestBase {
         JSONObject first = output.getJsonArray().getJSONObject(0);
         assertEquals("华东", first.getString("region"));
         assertEquals("金卡", first.getString("member_level"));
+    }
+
+    @Test
+    public void testMultipleLookupsAcrossTwoTables() throws Exception {
+        JDBCLookup lookup = newLookup();
+        lookup.setTables(
+            List.of(
+                lookupSpec("customers", "customer_id", "id", "name, member_level", "customer_", "LEFT", null),
+                lookupSpec("member_levels", "customer_member_level", "code", "level_name", "level_", "LEFT", null)
+            )
+        );
+        lookup.setCache(true);
+        prepareOutput(lookup);
+
+        FlowFile output = execute(lookup, loadOrders(), ordersMeta());
+
+        JSONObject first = output.getJsonArray().getJSONObject(0);
+        assertEquals("张伟", first.getString("customer_name"));
+        assertEquals("金卡", first.getString("customer_member_level"));
+        assertEquals("黄金会员", first.getString("level_level_name"));
+
+        TableMeta meta = (TableMeta) output.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        assertNotNull(meta);
+        assertNotNull(findColumn(meta, "customer_name"));
+        assertNotNull(findColumn(meta, "customer_member_level"));
+        assertNotNull(findColumn(meta, "level_level_name"));
+    }
+
+    private JDBCLookup.LookupSpec lookupSpec(String table, String localField, String lookupField,
+                                             String selectColumns, String outputPrefix, String joinType, String where) {
+        JDBCLookup.LookupSpec spec = new JDBCLookup.LookupSpec();
+        spec.setTable(table);
+        spec.setLocalField(localField);
+        spec.setLookupField(lookupField);
+        spec.setSelectColumns(selectColumns);
+        spec.setOutputPrefix(outputPrefix);
+        spec.setJoinType(joinType);
+        spec.setWhere(where);
+        return spec;
     }
 
     private JDBCLookup newLookup() {

@@ -6,16 +6,22 @@ import com.data.job.DuckDBEngine;
 import com.data.job.ExecutionContext;
 import com.data.job.FlowFile;
 import com.data.job.TaskLogger;
+import com.data.metadata.ColumnMeta;
+import com.data.metadata.TableMeta;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DuckDBSqlTest {
@@ -74,6 +80,66 @@ public class DuckDBSqlTest {
         } finally {
             DuckDBEngine.deleteDBFile(instanceCode);
         }
+    }
+
+    @Test
+    public void testVarcharLengthPreservedFromUpstreamMetadata() throws Exception {
+        String instanceCode = "duckdb-sql-varchar-" + System.currentTimeMillis();
+        try {
+            try (Connection conn = DuckDBEngine.getInstance().getConnection(instanceCode); Statement st = conn.createStatement()) {
+                st.execute("CREATE TABLE src (id INTEGER, name VARCHAR)");
+                st.execute("INSERT INTO src VALUES (1, 'alice')");
+            }
+
+            DuckDBSql component = new DuckDBSql();
+            ExecutionContext context = new ExecutionContext();
+            context.setJobInstanceCode(instanceCode);
+            context.setJobCode("test-job");
+            component.setContext(context);
+            component.setTaskLogger(new TaskLogger("test-job", instanceCode));
+            component.setId("sql_varchar");
+            component.setName("DuckDBSql");
+            component.setActiveThreads(new AtomicInteger(1));
+            component.setOutputTable("varchar_result");
+            component.setSql("SELECT id, name FROM main.src");
+            component.getOutput().add(new com.data.job.Connection("sql_varchar", "sink", 0));
+            LinkedBlockingQueue<Object> outputQueue = new LinkedBlockingQueue<>();
+            context.getConnections().put("sql_varchar_sink", outputQueue);
+
+            TableMeta source = new TableMeta("src");
+            source.addColumn(new ColumnMeta("id", "INTEGER"));
+            ColumnMeta name = new ColumnMeta("name", "VARCHAR");
+            name.setLength(50);
+            name.setPrecision(50);
+            source.addColumn(name);
+
+            FlowFile metaFile = new FlowFile();
+            metaFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, source);
+            // 第一次执行仅记录上游元数据（upstreamFinish=false 时不会执行 SQL）
+            component.execute(metaFile);
+
+            component.upstreamFinish = true;
+            component.execute(new FlowFile());
+
+            FlowFile out = (FlowFile) outputQueue.poll();
+            assertNotNull(out, "应输出 SELECT 结果");
+            TableMeta outputMeta = (TableMeta) out.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+            assertNotNull(outputMeta);
+            ColumnMeta outputName = findColumn(outputMeta, "name");
+            assertNotNull(outputName);
+            assertEquals(50, outputName.getLength(), "应保留上游 VARCHAR 长度");
+        } finally {
+            DuckDBEngine.deleteDBFile(instanceCode);
+        }
+    }
+
+    private ColumnMeta findColumn(TableMeta meta, String name) {
+        for (ColumnMeta column : meta.columns()) {
+            if (column.getName() != null && column.getName().equalsIgnoreCase(name)) {
+                return column;
+            }
+        }
+        return null;
     }
 
     @Test

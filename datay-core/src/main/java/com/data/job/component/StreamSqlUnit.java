@@ -61,7 +61,7 @@ public class StreamSqlUnit extends FlowComponent {
                 try (ResultSet rs = srcStmt.executeQuery(sql)) {
                     JSONArray batchRecords = new JSONArray();
                     //                    List<GenericRecord> records = new ArrayList<>();
-                    TableMeta output = getTableMetaFromRsMeta(rs.getMetaData());
+                    TableMeta output = DBUtils.getTableMetaFromResultSet(rs.getMetaData(), tempTable);
                     output.setTable("tmp_" + getId());
                     //                    Schema avroSchema = AvroUtils.createAvroSchema(output);
                     while (rs.next()) {
@@ -86,17 +86,6 @@ public class StreamSqlUnit extends FlowComponent {
         } catch (SQLException e) {
             throw new RuntimeException("数据迁移失败", e);
         }
-    }
-
-    private TableMeta getTableMetaFromRsMeta(ResultSetMetaData metaData) throws SQLException {
-        TableMeta tableMeta = new TableMeta();
-        int columnCount = metaData.getColumnCount();
-        for (int i = 1; i <= columnCount; i++) {
-            String columnName = metaData.getColumnName(i);
-            String columnType = metaData.getColumnTypeName(i);
-            tableMeta.addColumn(new ColumnMeta(columnName, columnType));
-        }
-        return tableMeta;
     }
 
     private TableMeta getTableMeta(FlowFile flowFile) {

@@ -119,7 +119,7 @@ public class DatabaseConverter {
         if (targetConverter == null) {
             throw new IllegalArgumentException("未注册的数据库类型转换器");
         }
-        ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(sourceColumnMeta);
+        ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(sourceColumnMeta, sourceDB);
 
         // 两级转换
         //        ColumnMeta ColumnMeta = sourceConverter.toLogicalType(sourceColumnMeta);

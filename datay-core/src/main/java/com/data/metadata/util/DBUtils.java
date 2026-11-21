@@ -980,7 +980,81 @@ public class DBUtils {
         }
 
         applyPrimaryKeys(tableMeta, sourceMeta);
+        fillCharacterColumnLengths(tableMeta, sourceMeta);
         return tableMeta;
+    }
+
+    /**
+     * 用上游表元数据补全结果集中字符字段的长度。
+     *
+     * <p>DuckDB 的 {@code VARCHAR} 结果集元数据不携带长度（JDBC 返回
+     * {@link Integer#MAX_VALUE}），处理组件从 DuckDB 重新读取元数据后会丢失原始
+     * {@code VARCHAR(n)} 长度。这里按字段名（忽略大小写）从上游元数据回填实际长度，
+     * 保证下游建表时仍能使用原始长度，而不是退化成无限长字符串。
+     *
+     * @param targetMeta  从 DuckDB 结果集构建的目标元数据
+     * @param sourceMetas 上游表元数据，可包含多张表
+     */
+    public static void fillCharacterColumnLengths(TableMeta targetMeta, Collection<TableMeta> sourceMetas) {
+        if (targetMeta == null || sourceMetas == null || sourceMetas.isEmpty()) {
+            return;
+        }
+        for (ColumnMeta target : targetMeta.columns()) {
+            if (!isCharacterColumn(target) || hasUsableLength(target.getLength())) {
+                continue;
+            }
+            int length = findCharacterLength(target.getName(), sourceMetas);
+            if (hasUsableLength(length)) {
+                target.setLength(length);
+                target.setPrecision(length);
+            }
+        }
+    }
+
+    /**
+     * 用单个或多个上游表元数据补全字符字段长度。
+     */
+    public static void fillCharacterColumnLengths(TableMeta targetMeta, TableMeta... sourceMetas) {
+        if (sourceMetas == null) {
+            return;
+        }
+        fillCharacterColumnLengths(targetMeta, Arrays.asList(sourceMetas));
+    }
+
+    private static int findCharacterLength(String columnName, Collection<TableMeta> sourceMetas) {
+        if (columnName == null || columnName.trim().isEmpty()) {
+            return 0;
+        }
+        for (TableMeta source : sourceMetas) {
+            if (source == null) {
+                continue;
+            }
+            for (ColumnMeta column : source.columns()) {
+                if (
+                    column.getName() != null &&
+                    column.getName().equalsIgnoreCase(columnName) &&
+                    isCharacterColumn(column)
+                ) {
+                    int length = column.getLength() > 0 ? column.getLength() : column.getPrecision();
+                    if (hasUsableLength(length)) {
+                        return length;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static boolean isCharacterColumn(ColumnMeta column) {
+        if (column == null || column.getType() == null) {
+            return false;
+        }
+        String type = column.getType().trim().toUpperCase(Locale.ROOT);
+        return type.startsWith("VARCHAR") || type.contains("CHAR");
+    }
+
+    private static boolean hasUsableLength(int length) {
+        return length > 0 && length < Integer.MAX_VALUE;
     }
 
     /**

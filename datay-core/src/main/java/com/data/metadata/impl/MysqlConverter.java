@@ -18,6 +18,9 @@ import java.util.regex.Pattern;
 
 public class MysqlConverter implements TypeConverter {
 
+    /** MySQL VARCHAR/CHAR 的常用长度上限；超过该值按 LONGTEXT/LONGBLOB 处理。 */
+    private static final int MYSQL_VARCHAR_MAX_LENGTH = 16383;
+
     enum MysqlType {
         CHAR,
         VARCHAR,
@@ -272,7 +275,7 @@ public class MysqlConverter implements TypeConverter {
         }
         // 超长字符串/二进制列（VARCHAR(MAX)/NVARCHAR(MAX)/VARBINARY(MAX)）映射为 LONGTEXT/LONGBLOB
         if ("VARCHAR".equals(type) || "CHAR".equals(type) || "VARBINARY".equals(type) || "BINARY".equals(type)) {
-            int maxLength = ("VARCHAR".equals(type) || "CHAR".equals(type)) ? 16383 : 16383;
+            int maxLength = MYSQL_VARCHAR_MAX_LENGTH;
             if (columnMeta.getLength() > maxLength) {
                 type = ("VARBINARY".equals(type) || "BINARY".equals(type)) ? MysqlType.LONGBLOB.name() : MysqlType.LONGTEXT.name();
             }
@@ -297,6 +300,40 @@ public class MysqlConverter implements TypeConverter {
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
         return column;
+    }
+
+    /**
+     * DuckDB 结果集中的 {@code VARCHAR} 没有长度概念，JDBC 元数据会返回
+     * {@link Integer#MAX_VALUE}。直接按超长字符串处理会落成 {@code LONGTEXT}，
+     * 与用户期望的普通字符串列不一致；这里在转换为 MySQL/SQLite 等 MySQL 方言目标时，
+     * 将其归一化为默认的 {@code VARCHAR(255)}。
+     */
+    @Override
+    public ColumnMeta toTargetColumnType(ColumnMeta columnMeta, String sourceDbType) {
+        return toTargetColumnType(normalizeDuckDbUnboundedVarchar(columnMeta, sourceDbType));
+    }
+
+    private ColumnMeta normalizeDuckDbUnboundedVarchar(ColumnMeta columnMeta, String sourceDbType) {
+        if (columnMeta == null || sourceDbType == null || !"duckdb".equalsIgnoreCase(sourceDbType.trim())) {
+            return columnMeta;
+        }
+        String type = columnMeta.getType();
+        if (type == null || !type.trim().toUpperCase().startsWith(MysqlType.VARCHAR.name())) {
+            return columnMeta;
+        }
+        // DuckDB 结果集元数据中 VARCHAR 的长度为 Integer.MAX_VALUE。
+        // 已有明确长度（包括 0，DDL 会自动补默认长度）时保持原值。
+        if (columnMeta.getLength() <= MYSQL_VARCHAR_MAX_LENGTH) {
+            return columnMeta;
+        }
+        int defaultLength = getDefaultLength(MysqlType.VARCHAR.name());
+        ColumnMeta normalized = new ColumnMeta(columnMeta.getName(), columnMeta.getType(), defaultLength, defaultLength, columnMeta.getScale());
+        normalized.setComment(columnMeta.getComment());
+        normalized.setDefaultValue(columnMeta.getDefaultValue());
+        normalized.setNullable(columnMeta.isNullable());
+        normalized.setTypeDefinition(columnMeta.getTypeDefinition());
+        normalized.setPrimaryKey(columnMeta.isPrimaryKey());
+        return normalized;
     }
 
     //    public String generateColumnDDL(ColumnMeta column) {

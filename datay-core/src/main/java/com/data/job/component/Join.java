@@ -262,6 +262,7 @@ public class Join extends FlowComponent {
             stmt.setFetchSize(FETCH_SIZE);
             try (ResultSet rs = stmt.executeQuery(query)) {
                 TableMeta outputMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
+                DBUtils.fillCharacterColumnLengths(outputMeta, tableMetaMap.values());
                 outputMeta.setDbType("duckdb");
                 outputMeta.setSchema(DUCKDB_SCHEMA);
                 outputMeta.setTable(resolveOutputTable());

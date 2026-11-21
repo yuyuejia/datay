@@ -75,14 +75,51 @@ public class StreamSqlUnitDecimalTest {
         assertEquals(2, out.getJsonArray().size(), "应按门店聚合为 2 行");
     }
 
+    @Test
+    @Timeout(120000)
+    public void testVarcharLengthPreservedInOutputMetadata() {
+        component.setSql("SELECT store_key FROM ods_order");
+
+        JSONArray records = new JSONArray();
+        records.add(record("S001", new BigDecimal("100.50")));
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(records);
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE, "ods_order");
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, tableMeta());
+
+        assertDoesNotThrow(() -> component.execute(flowFile));
+
+        FlowFile out = (FlowFile) outputQueue.poll();
+        assertNotNull(out, "应输出查询结果");
+        TableMeta outputMeta = (TableMeta) out.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        assertNotNull(outputMeta);
+        ColumnMeta storeKey = findColumn(outputMeta, "store_key");
+        assertNotNull(storeKey);
+        assertEquals(20, storeKey.getLength(), "应保留上游 VARCHAR 长度");
+    }
+
+    private ColumnMeta findColumn(TableMeta meta, String name) {
+        for (ColumnMeta column : meta.columns()) {
+            if (column.getName() != null && column.getName().equalsIgnoreCase(name)) {
+                return column;
+            }
+        }
+        return null;
+    }
+
     private TableMeta tableMeta() {
         TableMeta table = new TableMeta();
         table.setTable("ods_order");
         table.setSchema("main");
         // 与真实 StreamJdbcInput 一致：DBType.DUCKDB.toString()
         table.setDbType("DUCKDB");
-        table.addColumn(new ColumnMeta("order_id", "VARCHAR"));
-        table.addColumn(new ColumnMeta("store_key", "VARCHAR"));
+        ColumnMeta orderId = new ColumnMeta("order_id", "VARCHAR");
+        orderId.setLength(10);
+        table.addColumn(orderId);
+        ColumnMeta storeKey = new ColumnMeta("store_key", "VARCHAR");
+        storeKey.setLength(20);
+        table.addColumn(storeKey);
         ColumnMeta amount = new ColumnMeta("order_amount", "DECIMAL(18,2)");
         amount.setPrecision(18);
         amount.setScale(2);

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.data.metadata.ColumnMeta;
+import com.data.metadata.DatabaseConverter;
+import com.data.metadata.TableMeta;
 import org.junit.jupiter.api.Test;
 
 class MysqlConverterTest {
@@ -33,6 +35,34 @@ class MysqlConverterTest {
         ColumnMeta varbinaryMax = new ColumnMeta("c", "VARBINARY");
         varbinaryMax.setLength(2147483647);
         assertEquals("LONGBLOB", converter.toTargetColumnType(varbinaryMax).getType());
+    }
+
+    @Test
+    void duckDbUnboundedVarcharUsesDefaultVarcharLength() {
+        ColumnMeta varchar = new ColumnMeta("c", "VARCHAR");
+        varchar.setLength(Integer.MAX_VALUE);
+        varchar.setPrecision(Integer.MAX_VALUE);
+
+        // 不带源库上下文时保持既有行为：超长 VARCHAR 仍按 LONGTEXT 处理
+        assertEquals("LONGTEXT", converter.toTargetColumnType(varchar).getType());
+
+        // DuckDB 的 VARCHAR 不携带长度，转换为 MySQL 方言时使用默认 VARCHAR 长度
+        ColumnMeta converted = converter.toTargetColumnType(varchar, "duckdb");
+        assertEquals("VARCHAR", converted.getType());
+        assertEquals(255, converted.getLength());
+        assertEquals(255, converted.getPrecision());
+
+        // 走统一的 DatabaseConverter 入口时也必须携带 DuckDB 源类型上下文
+        ColumnMeta viaDatabaseConverter = DatabaseConverter.convert("duckdb", "mysql", varchar);
+        assertEquals("VARCHAR", viaDatabaseConverter.getType());
+        assertEquals(255, viaDatabaseConverter.getLength());
+
+        TableMeta table = new TableMeta("t_varchar");
+        table.addColumn(viaDatabaseConverter);
+        assertTrue(
+            DatabaseConverter.generateTableDDL("mysql", table).contains("`c` VARCHAR(255)"),
+            DatabaseConverter.generateTableDDL("mysql", table)
+        );
     }
 
     @Test

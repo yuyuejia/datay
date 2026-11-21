@@ -202,6 +202,239 @@ public class JDBCLookupTest extends ComponentTestBase {
         assertEquals("bob", output.getJsonArray().getJSONObject(1).getString("name"));
     }
 
+    @Test
+    public void testMultipleLookupsEnrichRecordsInOrder() throws Exception {
+        createUserAndDeptTables();
+
+        JDBCLookup lookup = new JDBCLookup();
+        initComponent(lookup, "lookup_multi", "JDBCLookup");
+        lookup.setSourceId(sqliteDatasource());
+        lookup.setSchema("main");
+        lookup.setTables(
+            List.of(
+                lookupConfig("users", "user_id", "id", "name, dept_id", "u_", "LEFT", null),
+                // 第二个关联表引用第一个关联表回填出的 u_dept_id，验证链式 lookup
+                lookupConfig("depts", "u_dept_id", "id", "dept_name", "d_", "LEFT", null)
+            )
+        );
+        prepareOutput(lookup);
+
+        JSONArray rows = new JSONArray();
+        rows.add(orderRow(1, 10));
+        rows.add(orderRow(2, 11));
+        rows.add(orderRow(3, 99));
+
+        FlowFile input = new FlowFile();
+        input.setJsonArray(rows);
+        input.setAttribute(FlowFile.ATTRIBUTE_TABLE, "orders");
+        input.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, ordersMeta());
+
+        lookup.execute(input);
+
+        FlowFile output = pollOutput();
+        assertNotNull(output);
+        JSONArray outputRows = output.getJsonArray();
+        assertEquals(3, outputRows.size());
+
+        JSONObject first = outputRows.getJSONObject(0);
+        assertEquals("alice", first.getString("u_name"));
+        assertEquals(100, first.getIntValue("u_dept_id"));
+        assertEquals("finance", first.getString("d_dept_name"));
+
+        JSONObject second = outputRows.getJSONObject(1);
+        assertEquals("bob", second.getString("u_name"));
+        assertEquals(200, second.getIntValue("u_dept_id"));
+        assertEquals("sales", second.getString("d_dept_name"));
+
+        JSONObject missing = outputRows.getJSONObject(2);
+        assertTrue(missing.containsKey("u_name"));
+        assertNull(missing.get("u_name"));
+        assertTrue(missing.containsKey("u_dept_id"));
+        assertNull(missing.get("u_dept_id"));
+        assertTrue(missing.containsKey("d_dept_name"));
+        assertNull(missing.get("d_dept_name"));
+
+        TableMeta outputMeta = (TableMeta) output.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        assertNotNull(outputMeta);
+        assertNotNull(findColumn(outputMeta, "u_name"));
+        assertNotNull(findColumn(outputMeta, "u_dept_id"));
+        assertNotNull(findColumn(outputMeta, "d_dept_name"));
+    }
+
+    @Test
+    public void testInnerJoinInLaterLookupFiltersRecords() throws Exception {
+        createUserAndDeptTables(false);
+
+        JDBCLookup lookup = new JDBCLookup();
+        initComponent(lookup, "lookup_multi_inner", "JDBCLookup");
+        lookup.setSourceId(sqliteDatasource());
+        lookup.setSchema("main");
+        lookup.setTables(
+            List.of(
+                lookupConfig("users", "user_id", "id", "name, dept_id", "u_", "LEFT", null),
+                // depts 中只有 100，user 11 的 dept_id=200 在第二个关联表被 INNER 过滤
+                lookupConfig("depts", "u_dept_id", "id", "dept_name", "d_", "INNER", null)
+            )
+        );
+        prepareOutput(lookup);
+
+        JSONArray rows = new JSONArray();
+        rows.add(orderRow(1, 10));
+        rows.add(orderRow(2, 11));
+
+        FlowFile input = new FlowFile();
+        input.setJsonArray(rows);
+        input.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, ordersMeta());
+
+        lookup.execute(input);
+
+        FlowFile output = pollOutput();
+        assertNotNull(output);
+        assertEquals(1, output.getJsonArray().size());
+        assertEquals("alice", output.getJsonArray().getJSONObject(0).getString("u_name"));
+        assertEquals("finance", output.getJsonArray().getJSONObject(0).getString("d_dept_name"));
+    }
+
+    @Test
+    public void testFactoryBindsMultipleLookupTables() {
+        Map<String, Object> params = new HashMap<>();
+        params.put(".id", "lookup_multi_factory");
+        params.put(".name", "JDBCLookup");
+        Map<String, Object> sourceId = new HashMap<>();
+        sourceId.put("type", "mysql");
+        sourceId.put("url", "jdbc:mysql://localhost:3306/demo");
+        params.put("sourceId", sourceId);
+        params.put("schema", "demo");
+        params.put("batchSize", 100);
+        params.put("cache", false);
+        params.put(
+            "tables",
+            List.of(
+                lookupConfig("users", "user_id", "id", "name", "u_", "LEFT", "status = 1"),
+                lookupConfig("depts", "u_dept_id", "id", "dept_name", "d_", "INNER", null)
+            )
+        );
+
+        Component created = ComponentFactory.create("JDBCLookup", params);
+
+        assertTrue(created instanceof JDBCLookup);
+        JDBCLookup lookup = (JDBCLookup) created;
+        List<JDBCLookup.LookupSpec> specs = lookup.resolveLookupSpecs();
+        assertEquals(2, specs.size());
+        assertEquals("users", specs.get(0).getTable());
+        assertEquals("status = 1", specs.get(0).getWhere());
+        assertEquals("depts", specs.get(1).getTable());
+        assertEquals("INNER", specs.get(1).getJoinType());
+        assertEquals(100, lookup.getBatchSize());
+        assertFalse(lookup.isCache());
+        assertNotNull(lookup.getSourceId());
+        assertEquals("jdbc:mysql://localhost:3306/demo", lookup.getSourceId().getUrl());
+    }
+
+    @Test
+    public void testBuildLookupSqlWithLookupSpec() {
+        JDBCLookup lookup = new JDBCLookup();
+        lookup.setSchema("demo");
+
+        JDBCLookup.LookupSpec spec = new JDBCLookup.LookupSpec();
+        spec.setTable("users");
+        spec.setLocalField("user_id");
+        spec.setLookupField("id");
+        spec.setSelectColumns("name, dept");
+        spec.setWhere("status = 1");
+
+        assertEquals(
+            "SELECT id, name, dept FROM demo.users WHERE id IN (?, ?, ?) AND (status = 1)",
+            lookup.buildLookupSql(spec, 3)
+        );
+    }
+
+    @Test
+    public void testFactoryBindsJsonArrayTables() {
+        JSONObject params = new JSONObject();
+        params.put(".id", "lookup_json_tables");
+        params.put(".name", "JDBCLookup");
+        JSONObject sourceId = new JSONObject();
+        sourceId.put("type", "sqlite");
+        sourceId.put("url", "jdbc:sqlite::memory:");
+        params.put("sourceId", sourceId);
+        params.put("schema", "main");
+
+        JSONArray tables = new JSONArray();
+        JSONObject first = new JSONObject();
+        first.put("table", "users");
+        first.put("localField", "user_id");
+        first.put("lookupField", "id");
+        first.put("selectColumns", "name");
+        tables.add(first);
+        params.put("tables", tables);
+
+        Component created = ComponentFactory.create("JDBCLookup", params);
+
+        assertTrue(created instanceof JDBCLookup);
+        List<JDBCLookup.LookupSpec> specs = ((JDBCLookup) created).resolveLookupSpecs();
+        assertEquals(1, specs.size());
+        assertEquals("users", specs.get(0).getTable());
+        assertEquals("name", specs.get(0).getSelectColumns());
+    }
+
+    @Test
+    public void testLookupSpecListIsAccepted() {
+        JDBCLookup lookup = new JDBCLookup();
+
+        JDBCLookup.LookupSpec first = new JDBCLookup.LookupSpec();
+        first.setTable("users");
+        first.setLocalField("user_id");
+        first.setLookupField("id");
+
+        JDBCLookup.LookupSpec second = new JDBCLookup.LookupSpec();
+        second.setTable("depts");
+        second.setLocalField("u_dept_id");
+        second.setLookupField("id");
+
+        lookup.setTables(List.of(first, second));
+
+        List<JDBCLookup.LookupSpec> specs = lookup.resolveLookupSpecs();
+        assertEquals(2, specs.size());
+        assertEquals("users", specs.get(0).getTable());
+        assertEquals("depts", specs.get(1).getTable());
+    }
+
+    private Map<String, Object> lookupConfig(String table, String localField, String lookupField,
+                                             String selectColumns, String outputPrefix, String joinType, String where) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("table", table);
+        config.put("localField", localField);
+        config.put("lookupField", lookupField);
+        config.put("selectColumns", selectColumns);
+        config.put("outputPrefix", outputPrefix);
+        config.put("joinType", joinType);
+        config.put("where", where);
+        return config;
+    }
+
+    private void createUserAndDeptTables() throws Exception {
+        createUserAndDeptTables(true);
+    }
+
+    private void createUserAndDeptTables(boolean includeSalesDept) throws Exception {
+        Path dbFile = tempDir.resolve("lookup_multi.db");
+        jdbcUrl = "jdbc:sqlite:" + dbFile.toAbsolutePath();
+        try (
+            java.sql.Connection conn = DriverManager.getConnection(jdbcUrl);
+            Statement statement = conn.createStatement()
+        ) {
+            statement.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, dept_id INTEGER)");
+            statement.execute("INSERT INTO users (id, name, dept_id) VALUES (10, 'alice', 100)");
+            statement.execute("INSERT INTO users (id, name, dept_id) VALUES (11, 'bob', 200)");
+            statement.execute("CREATE TABLE depts (id INTEGER PRIMARY KEY, dept_name TEXT)");
+            statement.execute("INSERT INTO depts (id, dept_name) VALUES (100, 'finance')");
+            if (includeSalesDept) {
+                statement.execute("INSERT INTO depts (id, dept_name) VALUES (200, 'sales')");
+            }
+        }
+    }
+
     private void createLookupTable() throws Exception {
         Path dbFile = tempDir.resolve("lookup.db");
         jdbcUrl = "jdbc:sqlite:" + dbFile.toAbsolutePath();

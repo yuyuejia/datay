@@ -13,6 +13,15 @@ public interface TypeConverter {
     // 转换为目标物理类型
     ColumnMeta toTargetColumnType(ColumnMeta columnMeta);
 
+    /**
+     * 转换为目标物理类型，并携带源数据库类型上下文。
+     *
+     * <p>默认忽略源数据库类型，保持既有实现兼容；需要按源方言区分类型映射的转换器可覆写。
+     */
+    default ColumnMeta toTargetColumnType(ColumnMeta columnMeta, String sourceDbType) {
+        return toTargetColumnType(columnMeta);
+    }
+
     String generateColumnDDL(ColumnMeta column);
 
     String generateTableDDL(TableMeta tableMeta);
