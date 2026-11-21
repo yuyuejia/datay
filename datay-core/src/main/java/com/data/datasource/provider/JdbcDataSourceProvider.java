@@ -286,6 +286,43 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 给查询 SQL 追加行数限制，用于调试模式采样，避免从源库读取全量数据。
+     *
+     * <p>默认使用通用的 {@code LIMIT n} 语法；不支持该语法的数据库由对应 Provider 覆写
+     * （如 Oracle 使用 {@code ROWNUM}，SQL Server / HANA 使用 {@code TOP}）。</p>
+     *
+     * @param sql   原始查询
+     * @param limit 最大返回行数，{@code <= 0} 时原样返回
+     * @return 追加行数限制后的查询
+     */
+    public String applyRowLimit(String sql, int limit) {
+        if (sql == null || limit <= 0) {
+            return sql;
+        }
+        return sql + " LIMIT " + limit;
+    }
+
+    /**
+     * 使用 {@code SELECT TOP n * FROM (sql) t} 包装查询以限制行数。
+     */
+    protected String wrapWithTopRowLimit(String sql, int limit) {
+        if (sql == null || limit <= 0) {
+            return sql;
+        }
+        return "SELECT TOP " + limit + " * FROM (" + sql + ") t";
+    }
+
+    /**
+     * 使用 Oracle 的 {@code ROWNUM} 包装查询以限制行数。
+     */
+    protected String wrapWithRownumRowLimit(String sql, int limit) {
+        if (sql == null || limit <= 0) {
+            return sql;
+        }
+        return "SELECT * FROM (" + sql + ") t WHERE ROWNUM <= " + limit;
+    }
+
+    /**
      * 列出 catalog。默认无 catalog 概念，返回空列表；DuckDB 等支持挂载库的数据源可覆写。
      */
     public List<String> getCatalogs(Connection conn) throws SQLException {

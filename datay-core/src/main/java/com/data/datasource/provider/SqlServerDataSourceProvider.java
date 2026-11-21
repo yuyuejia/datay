@@ -56,6 +56,14 @@ public class SqlServerDataSourceProvider extends JdbcDataSourceProvider {
     }
 
     /**
+     * SQL Server 不支持 {@code LIMIT}，使用 {@code SELECT TOP n} 限制返回行数。
+     */
+    @Override
+    public String applyRowLimit(String sql, int limit) {
+        return wrapWithTopRowLimit(sql, limit);
+    }
+
+    /**
      * SQL Server 标识符使用方括号引用，避免保留字、空格或特殊字符导致 DDL/DML 失败。
      */
     @Override

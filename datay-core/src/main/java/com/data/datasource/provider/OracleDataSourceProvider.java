@@ -39,6 +39,14 @@ public class OracleDataSourceProvider extends JdbcDataSourceProvider {
         return "SELECT 1 FROM DUAL";
     }
 
+    /**
+     * Oracle 11g 不支持 {@code FETCH FIRST} / {@code LIMIT}，使用 {@code ROWNUM} 包装以兼容各版本。
+     */
+    @Override
+    public String applyRowLimit(String sql, int limit) {
+        return wrapWithRownumRowLimit(sql, limit);
+    }
+
     @Override
     public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
         TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);

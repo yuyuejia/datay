@@ -850,6 +850,22 @@ public class DBUtils {
         return provider != null ? provider.getTestQuery() : "SELECT 1";
     }
 
+    /**
+     * 给查询 SQL 追加行数限制，具体语法由对应数据源 Provider 决定。
+     *
+     * @param sql            原始查询
+     * @param datasourceInfo 数据源配置，用于解析 Provider
+     * @param limit          最大返回行数
+     * @return 追加行数限制后的查询
+     */
+    public static String applyRowLimit(String sql, DatasourceInfo datasourceInfo, int limit) {
+        if (sql == null || limit <= 0) {
+            return sql;
+        }
+        JdbcDataSourceProvider provider = resolveJdbcProvider(datasourceInfo);
+        return provider != null ? provider.applyRowLimit(sql, limit) : sql + " LIMIT " + limit;
+    }
+
     //获取schema信息（由对应数据源 Provider 提供）
     public static List<String> getSchemas(Connection conn) throws SQLException {
         JdbcDataSourceProvider provider = resolveJdbcProvider(conn);

@@ -37,6 +37,14 @@ public class HanaDataSourceProvider extends JdbcDataSourceProvider {
         return "SELECT 1 FROM DUMMY";
     }
 
+    /**
+     * HANA 使用 {@code SELECT TOP n} 限制返回行数。
+     */
+    @Override
+    public String applyRowLimit(String sql, int limit) {
+        return wrapWithTopRowLimit(sql, limit);
+    }
+
     @Override
     public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
         TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);

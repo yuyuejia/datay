@@ -424,7 +424,12 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      */
     protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile) {
         StringBuilder query = new StringBuilder();
-        query.append("SELECT * FROM ").append(srcTable.getSchema()).append(".").append(srcTable.getTable());
+        query.append("SELECT * FROM ");
+        String tableSchema = srcTable.getSchema();
+        if (tableSchema != null && !tableSchema.trim().isEmpty()) {
+            query.append(tableSchema).append(".");
+        }
+        query.append(srcTable.getTable());
 
         // 处理 where 条件，支持 ${ytenantid} 以及 ${attr:属性名}、${属性名}、${FLOW_FILE_DATA}、#{...} 等动态参数
         String processedWhere = resolveWhere(where, flowFile);
@@ -456,7 +461,12 @@ public abstract class AbstractJdbcInput extends FlowComponent {
             }
         }
 
-        return query.toString();
+        String sql = query.toString();
+        if (getContext() != null && getContext().isDebugMode()) {
+            // 调试模式：把采样行数上限下推到 SQL，具体语法由数据源 Provider 决定
+            return DBUtils.applyRowLimit(sql, datasource, getContext().getDebugRowLimit());
+        }
+        return sql;
     }
 
     /**

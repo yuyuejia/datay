@@ -159,6 +159,16 @@ StreamJdbcInput 使用标准的 DatasourceInfo 对象配置数据源连接：
 3. **状态保存**: 自动保存每个表的最后增量值
 4. **断点续传**: 支持从上次中断的位置继续同步
 
+## 调试模式
+
+调试运行时不会加载历史增量状态，同时会把采样行数上限（默认 100 行）直接下推到 SQL，避免大表调试时执行完整查询：
+
+- MySQL、PostgreSQL、DuckDB、达梦等：`SELECT ... LIMIT 100`
+- SQL Server、HANA：`SELECT TOP 100 * FROM (...) t`
+- Oracle：`SELECT * FROM (...) t WHERE ROWNUM <= 100`
+
+因此调试时源库最多返回采样上限条记录。多表同步时按表分别限制行数。
+
 ## 性能配置
 
 - **批量大小**: 每10,000条记录作为一个批次
