@@ -228,7 +228,8 @@ public class DataTransform extends FlowComponent {
         try (Statement stmt = conn.createStatement()) {
             stmt.setFetchSize(FETCH_SIZE);
             try (ResultSet rs = stmt.executeQuery(sql)) {
-                TableMeta outputMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData());
+                TableMeta sourceMeta = getSourceTableMeta(sourceFile);
+                TableMeta outputMeta = DBUtils.getTableMetaFromResultSet(rs.getMetaData(), sourceMeta);
                 outputMeta.setDbType("duckdb");
                 outputMeta.setSchema(DUCKDB_SCHEMA);
                 outputMeta.setTable(resolveOutputTable());
@@ -255,6 +256,14 @@ public class DataTransform extends FlowComponent {
                 logInfo("数据转换输出 " + output.size() + " 条记录");
             }
         }
+    }
+
+    /**
+     * 获取上游传递的表元数据，用于向下游补充结果集无法体现的主键信息。
+     */
+    private TableMeta getSourceTableMeta(FlowFile flowFile) {
+        Object meta = flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        return meta instanceof TableMeta ? (TableMeta) meta : null;
     }
 
     /**

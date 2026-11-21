@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -187,6 +188,56 @@ public class DataTransformTest {
             component.outputs.clear();
             DuckDBEngine.deleteDBFile(DB_FILE);
         }
+    }
+
+    @Test
+    @Timeout(60000)
+    public void testOutputMetaRetainsPrimaryKeyFromUpstream() throws Exception {
+        JSONArray records = new JSONArray();
+        records.add(row(1, "alice", 20, "95.5"));
+
+        TableMeta meta = new TableMeta("upstream_orders");
+        meta.setDbType("duckdb");
+        ColumnMeta id = new ColumnMeta("id", "INTEGER");
+        id.setPrimaryKey(true);
+        meta.addColumn(id);
+        meta.addColumn(new ColumnMeta("name", "VARCHAR"));
+        meta.addColumn(new ColumnMeta("age", "INTEGER"));
+        meta.addColumn(new ColumnMeta("score", "VARCHAR"));
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(records);
+        flowFile.setAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA, meta);
+
+        component.execute(flowFile);
+
+        assertEquals(1, component.outputs.size());
+        TableMeta outputMeta = (TableMeta) component.outputs.get(0).getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        ColumnMeta idColumn = findColumn(outputMeta, "id");
+        assertNotNull(idColumn);
+        assertTrue(idColumn.isPrimaryKey());
+        for (ColumnMeta column : outputMeta.columns()) {
+            if (!"id".equalsIgnoreCase(column.getName())) {
+                assertFalse(column.isPrimaryKey(), "非主键列不应被标记: " + column.getName());
+            }
+        }
+
+        try (Connection conn = DuckDBEngine.getInstance().getConnection(DB_FILE);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE IF EXISTS main.tmp_dt1");
+        } finally {
+            component.outputs.clear();
+            DuckDBEngine.deleteDBFile(DB_FILE);
+        }
+    }
+
+    private ColumnMeta findColumn(TableMeta tableMeta, String name) {
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (name.equalsIgnoreCase(column.getName())) {
+                return column;
+            }
+        }
+        return null;
     }
 
     private JSONArray buildRules() {

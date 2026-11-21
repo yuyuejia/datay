@@ -946,6 +946,19 @@ public class DBUtils {
      * 从ResultSet元数据构建TableMeta
      */
     public static TableMeta getTableMetaFromResultSet(ResultSetMetaData metaData) throws SQLException {
+        return getTableMetaFromResultSet(metaData, null);
+    }
+
+    /**
+     * 从ResultSet元数据构建TableMeta，并根据上游元数据补充主键信息。
+     *
+     * <p>结果集本身不携带主键约束，直接使用会丢失上游的主键标记。这里按字段名
+     * （忽略大小写）把上游元数据中的主键列回填到结果集列上；改名的列不会继承主键。
+     *
+     * @param metaData   结果集元数据
+     * @param sourceMeta 上游表元数据，可为 null；为 null 时仅按结果集推导
+     */
+    public static TableMeta getTableMetaFromResultSet(ResultSetMetaData metaData, TableMeta sourceMeta) throws SQLException {
         TableMeta tableMeta = new TableMeta();
         int columnCount = metaData.getColumnCount();
 
@@ -966,7 +979,31 @@ public class DBUtils {
             tableMeta.addColumn(column);
         }
 
+        applyPrimaryKeys(tableMeta, sourceMeta);
         return tableMeta;
+    }
+
+    /**
+     * 按字段名（忽略大小写）把上游元数据中的主键标记回填到目标表元数据。
+     */
+    private static void applyPrimaryKeys(TableMeta targetMeta, TableMeta sourceMeta) {
+        if (sourceMeta == null || sourceMeta.columns().isEmpty()) {
+            return;
+        }
+        Set<String> primaryKeyNames = new HashSet<>();
+        for (ColumnMeta column : sourceMeta.columns()) {
+            if (column.isPrimaryKey() && column.getName() != null) {
+                primaryKeyNames.add(column.getName().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (primaryKeyNames.isEmpty()) {
+            return;
+        }
+        for (ColumnMeta column : targetMeta.columns()) {
+            if (column.getName() != null) {
+                column.setPrimaryKey(primaryKeyNames.contains(column.getName().toLowerCase(Locale.ROOT)));
+            }
+        }
     }
 
     public static TableMeta getTableMetaData(Connection conn, String catalog, String schema, String table) throws SQLException {
