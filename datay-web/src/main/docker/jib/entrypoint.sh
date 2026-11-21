@@ -36,4 +36,7 @@ file_env 'SPRING_LIQUIBASE_USER'
 file_env 'SPRING_LIQUIBASE_PASSWORD'
 file_env 'JHIPSTER_REGISTRY_PASSWORD'
 
+# Apache Arrow（Doris Arrow Flight SQL）需要反射访问 java.nio 内部字段
+JAVA_OPTS="${JAVA_OPTS:-} --add-opens=java.base/java.nio=ALL-UNNAMED"
+
 exec java ${JAVA_OPTS} -noverify -XX:+AlwaysPreTouch -Djava.security.egd=file:/dev/./urandom -cp /app/resources/:/app/classes/:/app/libs/* "com.data.datafusion.DatafusionApp"  "$@"

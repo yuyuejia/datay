@@ -48,6 +48,8 @@
         <druid.version>1.2.18</druid.version>
         <jsqlparser.version>5.3</jsqlparser.version>
         <minio.version>8.6.0</minio.version>
+        <!-- Apache Arrow Flight SQL：Doris 高速读取通道。18.2.0 修复了 17.x 在 prepare 场景下的 protobuf 兼容问题 -->
+        <arrow.version>18.2.0</arrow.version>
         <!-- minio 8.6.0 传递依赖 okhttp 5.x，这里统一固定为 4.12.0 以与 datay-core 保持一致 -->
         <okhttp.version>4.12.0</okhttp.version>
 
@@ -159,6 +161,11 @@
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
                 <version>${minio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-sql</artifactId>
+                <version>${arrow.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>

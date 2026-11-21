@@ -46,6 +46,7 @@
 - **ETL 组件介绍**
   - [组件总览](components/README.md)
   - [StreamJdbcInput 输入](components/StreamJdbcInput.md)
+  - [DorisArrowFlightInput Doris读取](components/DorisArrowFlightInput.md)
   - [MySQLBinlogInput CDC](components/MySQLBinlogInput.md)
   - [PostgresCDCInput CDC](components/PostgresCDCInput.md)
   - [MongoCDCInput CDC](components/MongoCDCInput.md)

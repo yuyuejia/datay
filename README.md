@@ -92,6 +92,9 @@ datay/
 - Maven 3.6+
 - Node 22+（构建 DataY Web 前端）
 
+> 使用 Doris Arrow Flight SQL 读取组件时，Java 启动参数需增加
+> `--add-opens=java.base/java.nio=ALL-UNNAMED`；Docker 镜像已默认添加。
+
 ## 一键部署
 
 **方式一：直接下载运行包**

@@ -148,6 +148,11 @@
           <artifactId>httpclient</artifactId>
           <version>4.5.13</version>
       </dependency>
+      <!-- Apache Arrow Flight SQL：Doris Arrow Flight 高速读取-->
+      <dependency>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>flight-sql</artifactId>
+      </dependency>
 <!--      <dependency>-->
 <!--          <groupId>org.apache.iceberg</groupId>-->
 <!--          <artifactId>iceberg-core</artifactId>-->
@@ -201,6 +206,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
+                <configuration>
+                    <!-- Arrow 内存实现需要反射访问 java.nio 内部字段 -->
+                    <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED</argLine>
+                </configuration>
             </plugin>
             
             <!-- 添加 maven-assembly-plugin 用于创建可执行 jar 包 -->
