@@ -113,6 +113,7 @@ type DesignerVm = {
   setChartType: (type: string) => void;
   chartLegendVisible: boolean;
   chartDataLabelVisible: boolean;
+  chartMapRoam: boolean;
   chartAxesVisible: boolean;
   chartGridLinesVisible: boolean;
   addWidget: (type: string, chartType?: string) => void;
@@ -220,6 +221,31 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(html.layout.w).toBe(12);
     expect(html.layout.h).toBe(4);
     expect(html.html).toContain('HTML');
+  });
+
+  it('地图组件使用省级名称字段与单值度量', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+
+    vm.addWidget('echarts', 'map');
+    await vm.$nextTick();
+
+    const map = vm.spec.widgets[0];
+    expect(map.chart).toMatchObject({ type: 'map', map: 'china' });
+    expect(map.encode).toEqual({
+      dimensions: [{ field: '', role: 'x' }],
+      measures: [{ field: '', agg: 'sum', role: 'value' }],
+      limit: 100,
+      groupBy: true,
+    });
+    expect(map.echartsOption.series[0]).toMatchObject({ type: 'map', map: 'china', roam: false });
+    expect(map.echartsOption.xAxis).toBeUndefined();
+    expect(map.echartsOption.yAxis).toBeUndefined();
+
+    vm.chartDataLabelVisible = true;
+    vm.chartMapRoam = true;
+    await vm.$nextTick();
+    expect(map.echartsOption.series[0].label.show).toBe(true);
+    expect(map.echartsOption.series[0].roam).toBe(true);
   });
 
   it('图表选项可控制图例、数据标签、坐标轴和网格线', async () => {

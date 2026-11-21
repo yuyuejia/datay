@@ -228,8 +228,16 @@
                 "waterfall",
                 "sankey",
                 "graph",
-                "boxplot"
+                "boxplot",
+                "map"
               ]
+            },
+            "map": {
+              "type": "string",
+              "enum": [
+                "china"
+              ],
+              "description": "地图区域；当前仅内置中国省级地图。"
             },
             "subtype": {
               "type": "string",

@@ -509,4 +509,37 @@ describe('chart configuration matrix', () => {
 
     expect(option.series[0].type).toBe('pie');
   });
+
+  it('地图按省级名称匹配并生成区域填色数据', () => {
+    const option = buildEchartsOption(
+      widget({
+        chart: { type: 'map', map: 'china' },
+        encode: {
+          dimensions: [{ field: 'province', role: 'x' }],
+          measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      {
+        columns: ['province', 'amount'],
+        rows: [
+          { province: '广东省', amount: 100 },
+          { province: '广东', amount: 50 },
+          { province: '北京市', amount: 80 },
+          { province: '未知地区', amount: 999 },
+        ],
+      },
+    );
+
+    expect(option.series[0]).toMatchObject({ type: 'map', map: 'china', roam: false });
+    expect(option.series[0].data).toEqual([
+      { name: '广东', value: 150 },
+      { name: '北京', value: 80 },
+    ]);
+    expect(option.visualMap).toMatchObject({ calculable: true, orient: 'horizontal' });
+    expect(option.visualMap.max).toBe(150);
+    expect(option.xAxis).toBeUndefined();
+    expect(option.yAxis).toBeUndefined();
+  });
 });

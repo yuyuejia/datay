@@ -7,6 +7,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { echarts } from './echarts';
 import type { ECharts } from './echarts';
+import './geo/china-map';
 import type { DashboardTheme } from './types';
 
 const props = withDefaults(

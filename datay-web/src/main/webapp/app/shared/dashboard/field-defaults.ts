@@ -181,6 +181,7 @@ export function resolveChartType(source?: DashboardWidget | Record<string, any>)
     'sankey',
     'graph',
     'boxplot',
+    'map',
   ].includes(first?.type)
     ? (first.type as ChartType)
     : 'bar';
@@ -233,7 +234,7 @@ export function createDefaultEncode(
   if ((chartType === 'heatmap' || chartType === 'sankey' || chartType === 'graph') && secondCategory && secondCategory !== categoryField) {
     dimensions.push({ field: secondCategory, role: 'series' });
   }
-  const valueOnly = ['pie', 'donut', 'funnel', 'treemap', 'heatmap', 'sankey', 'graph'].includes(chartType ?? '');
+  const valueOnly = ['pie', 'donut', 'funnel', 'treemap', 'heatmap', 'sankey', 'graph', 'map'].includes(chartType ?? '');
   const measureRole: 'y' | 'value' = valueOnly ? 'value' : 'y';
   return {
     dimensions,
@@ -303,7 +304,7 @@ export function ensureDefaultFields(widget: DashboardWidget, fields: DashboardFi
     }
     if (fields.length > 0) {
       const categoryField = encode.dimensions?.find(dimension => dimension.role === 'x')?.field;
-      const role: 'y' | 'value' = chartType === 'gauge' ? 'value' : 'y';
+      const role: 'y' | 'value' = chartType === 'gauge' || chartType === 'map' ? 'value' : 'y';
       if (!encode.measures?.length) {
         encode.measures = [{ field: pickValueField(fields, categoryField) ?? '', agg: 'sum', role }];
         changed = true;

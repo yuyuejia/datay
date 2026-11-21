@@ -18,7 +18,7 @@ const result: DatasetResult = {
 };
 
 const widget = (type: ChartType, overrides: Partial<DashboardWidget> = {}): DashboardWidget => {
-  const singleValue = type === 'pie' || type === 'donut' || type === 'funnel' || type === 'treemap';
+  const singleValue = type === 'pie' || type === 'donut' || type === 'funnel' || type === 'treemap' || type === 'map';
   const nodeLink = type === 'sankey' || type === 'graph';
   const noDimension = type === 'gauge';
   return {
@@ -93,6 +93,7 @@ describe('chart ECharts SSR render', () => {
     'sankey',
     'graph',
     'boxplot',
+    'map',
   ];
 
   it.each(chartTypes)('%s 生成有效 SVG', type => {

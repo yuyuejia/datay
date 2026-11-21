@@ -1,4 +1,5 @@
 import { sanitizeEchartsOption } from './echarts-option-sanitizer';
+import { CHINA_MAP_NAME, matchChinaProvinceName } from './geo/china-map';
 import type {
   Aggregation,
   ChartOrientation,
@@ -644,6 +645,68 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
         name: fieldLabel(valueField),
         data,
         label: seriesTemplate(baseSeries(option), 0).label ?? { show: true },
+      },
+    ];
+    return option;
+  }
+
+  if (chartType === 'map') {
+    if (!xField) {
+      option.series = [];
+      return option;
+    }
+    const measure = measures.find(item => item.role === 'value') ?? measures.find(item => item.role === 'y') ?? measures[0];
+    const valueField = measure?.field && measureFields.includes(measure.field) ? measure.field : measureFields[0];
+    if (!valueField) {
+      option.series = [];
+      return option;
+    }
+    const valuesByRegion = new Map<string, number[]>();
+    for (const row of rows) {
+      const region = matchChinaProvinceName(row[xField]);
+      const value = toNumber(row[valueField]);
+      if (!region || value === null) {
+        continue;
+      }
+      const bucket = valuesByRegion.get(region);
+      if (bucket) {
+        bucket.push(value);
+      } else {
+        valuesByRegion.set(region, [value]);
+      }
+    }
+    const data = Array.from(valuesByRegion, ([name, values]) => ({
+      name,
+      value: aggregateValues(values, measure?.agg ?? 'sum'),
+    }));
+    const numericValues = data.map(item => item.value).filter((value): value is number => value !== null);
+    const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
+    const minValue = numericValues.length > 0 ? Math.min(...numericValues) : 0;
+    const visualMap = option.visualMap && !Array.isArray(option.visualMap) ? option.visualMap : {};
+    option.visualMap = {
+      ...visualMap,
+      min: visualMap.min ?? Math.min(0, minValue),
+      max: visualMap.max ?? (maxValue > 0 ? maxValue : 1),
+      calculable: visualMap.calculable ?? true,
+      orient: visualMap.orient ?? 'horizontal',
+      left: visualMap.left ?? 'center',
+      bottom: visualMap.bottom ?? 0,
+      inRange: visualMap.inRange ?? { color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'] },
+    };
+    const base = seriesTemplate(baseSeries(option), 0);
+    option.series = [
+      {
+        ...base,
+        type: 'map',
+        map: widget.chart?.map ?? base.map ?? CHINA_MAP_NAME,
+        name: base.name || fieldLabel(valueField),
+        roam: base.roam ?? false,
+        label: base.label ?? { show: false },
+        emphasis: {
+          ...(base.emphasis ?? {}),
+          label: { ...(base.emphasis?.label ?? {}), show: true },
+        },
+        data,
       },
     ];
     return option;

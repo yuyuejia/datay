@@ -402,6 +402,7 @@
                     <el-option value="sankey" label="桑基图" />
                     <el-option value="graph" label="关系图" />
                     <el-option value="boxplot" label="箱线图" />
+                    <el-option value="map" label="地图（中国省级）" />
                   </el-select>
 
                   <template v-if="chartSubtypeOptions.length > 0">
@@ -430,9 +431,19 @@
 
                   <label>图表选项</label>
                   <div class="designer-chart-options">
-                    <el-checkbox v-model="chartLegendVisible" class="designer-chart-option" @change="commitHistory"> 显示图例 </el-checkbox>
+                    <el-checkbox
+                      v-if="chartType !== 'map'"
+                      v-model="chartLegendVisible"
+                      class="designer-chart-option"
+                      @change="commitHistory"
+                    >
+                      显示图例
+                    </el-checkbox>
                     <el-checkbox v-model="chartDataLabelVisible" class="designer-chart-option" @change="commitHistory">
-                      数据标签
+                      {{ chartType === 'map' ? '显示区域名称' : '数据标签' }}
+                    </el-checkbox>
+                    <el-checkbox v-if="chartType === 'map'" v-model="chartMapRoam" class="designer-chart-option" @change="commitHistory">
+                      允许缩放拖动
                     </el-checkbox>
                     <el-checkbox v-if="hasChartAxes" v-model="chartAxesVisible" class="designer-chart-option" @change="commitHistory">
                       坐标轴
@@ -443,13 +454,13 @@
                   </div>
 
                   <template v-if="selectedWidget.encode">
-                    <template v-if="['pie', 'donut', 'funnel', 'treemap'].includes(chartType)">
-                      <label>分类字段</label>
+                    <template v-if="['pie', 'donut', 'funnel', 'treemap', 'map'].includes(chartType)">
+                      <label>{{ chartType === 'map' ? '区域名称字段' : '分类字段' }}</label>
                       <el-select v-model="widgetCategoryField" clearable filterable allow-create placeholder="选择或输入分类字段">
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
 
-                      <label>数值字段</label>
+                      <label>{{ chartType === 'map' ? '指标数值字段' : '数值字段' }}</label>
                       <el-select v-model="widgetPrimaryValueField" clearable filterable allow-create placeholder="选择或输入数值字段">
                         <el-option
                           v-for="field in widgetValueFieldOptions"
@@ -458,7 +469,13 @@
                           :value="field.name"
                         />
                       </el-select>
-                      <div class="designer-hint">饼图/环形图/漏斗图/矩形树图按分类字段展开，数值字段决定面积大小；不绘制坐标轴。</div>
+                      <div v-if="chartType === 'map'" class="designer-hint">
+                        当前内置中国省级地图；区域名称字段需为省级名称或可识别写法（如
+                        北京、广东省、广西壮族自治区），数值字段决定区域填色深浅。
+                      </div>
+                      <div v-else class="designer-hint">
+                        饼图/环形图/漏斗图/矩形树图按分类字段展开，数值字段决定面积大小；不绘制坐标轴。
+                      </div>
 
                       <label>聚合方式</label>
                       <el-select v-model="widgetAggregation">

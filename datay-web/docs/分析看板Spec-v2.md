@@ -64,7 +64,7 @@
 | role | 用途 |
 | --- | --- |
 | `y` | 坐标轴数值 |
-| `value` | 饼图、环形图、漏斗图、矩形树图、仪表盘、热力图、透视表 |
+| `value` | 饼图、环形图、漏斗图、矩形树图、仪表盘、热力图、地图、透视表 |
 | `size` | 散点大小 |
 
 ### 聚合方式
@@ -90,6 +90,33 @@
 | `sankey` | `role=x` 源节点 + `role=series` 目标节点 + 权重 |
 | `graph` | 同桑基图 |
 | `boxplot` | 分类 + 原始明细数值 |
+| `map` | `chart.map: china`，`role=x` 中国省级名称 + `role=value` 指标值 |
+
+中国地图示例：
+
+```json
+{
+  "id": "map_province_sales",
+  "type": "echarts",
+  "datasetId": "ds_sales",
+  "encode": {
+    "dimensions": [{ "field": "province", "role": "x" }],
+    "measures": [{ "field": "sales_amount", "agg": "sum", "role": "value" }],
+    "groupBy": true,
+    "limit": 100
+  },
+  "chart": { "type": "map", "map": "china" },
+  "echartsOption": {
+    "tooltip": { "trigger": "item" },
+    "visualMap": { "calculable": true, "orient": "horizontal", "left": "center", "bottom": 0 },
+    "series": [{ "type": "map", "map": "china", "roam": false }]
+  }
+}
+```
+
+- `chart.map` 当前仅支持 `china`（内置中国省级地图）。
+- 区域字段支持 `北京`、`北京市`、`广东省`、`广西壮族自治区` 等写法，无法匹配省级区域的行会被忽略。
+- 地图只使用第一个 `role=value` 度量；区域填色与图例由 `visualMap` 控制。
 
 组合图 / 双轴通过 `chart.series[]` 声明：
 
@@ -172,7 +199,7 @@
 后端返回 `aggregated: true`，前端不再重复聚合。
 
 - 筛选器先由服务端执行，再进行分组聚合。
-- 单值图表（饼图/环形图/漏斗图/矩形树图/雷达图/瀑布图）只按 `x` 分组。
+- 单值图表（饼图/环形图/漏斗图/矩形树图/雷达图/瀑布图/地图）只按 `x` 分组。
 - 热力图/桑基图/关系图/柱折面积图按 `x + series` 分组。
 - 透视表按 `row + column` 分组。
 

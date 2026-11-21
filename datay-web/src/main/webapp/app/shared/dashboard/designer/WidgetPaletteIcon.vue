@@ -41,6 +41,11 @@
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M3 9h18M3 14h18M9 4v16" />
     </g>
+    <g v-else-if="name === 'map'">
+      <path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z" />
+      <path d="M9 4v13.5M15 6.5V20" />
+      <circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
+    </g>
     <g v-else>
       <polyline points="8 6 4 12 8 18" />
       <polyline points="16 6 20 12 16 18" />

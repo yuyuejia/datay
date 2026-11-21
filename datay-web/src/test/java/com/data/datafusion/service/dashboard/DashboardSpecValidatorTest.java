@@ -922,6 +922,60 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void shouldAcceptMapChartAndDefaultRegion() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1", "type": "echarts", "datasetId": "ds1",
+                  "layout": { "x":0,"y":0,"w":24,"h":12 },
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": { "type": "map" },
+                  "echartsOption": { "series": [ { "type": "map" } ] }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        assertThat(((Map<String, Object>) widgets.get(0).get("chart")).get("type")).isEqualTo("map");
+        assertThat(((Map<String, Object>) widgets.get(0).get("chart")).get("map")).isEqualTo("china");
+    }
+
+    @Test
+    void shouldRejectUnsupportedMapRegion() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1", "type": "echarts", "datasetId": "ds1",
+                  "layout": { "x":0,"y":0,"w":24,"h":12 },
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": { "type": "map", "map": "world" },
+                  "echartsOption": { "series": [ { "type": "map" } ] }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不支持的地图区域");
+    }
+
+    @Test
     void shouldRejectInvalidFormatRule() {
         String spec =
             """

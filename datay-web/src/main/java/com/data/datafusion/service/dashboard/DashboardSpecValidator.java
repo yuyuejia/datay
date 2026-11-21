@@ -97,10 +97,13 @@ public class DashboardSpecValidator {
         "waterfall",
         "sankey",
         "graph",
-        "boxplot"
+        "boxplot",
+        "map"
     );
 
     private static final Set<String> CHART_DIMENSION_ROLES = Set.of("x", "series");
+
+    private static final Set<String> MAP_REGIONS = Set.of("china");
 
     private static final Set<String> NODE_LINK_CHART_TYPES = Set.of("sankey", "graph");
 
@@ -120,7 +123,8 @@ public class DashboardSpecValidator {
         "graph",
         "sankey",
         "boxplot",
-        "waterfall"
+        "waterfall",
+        "map"
     );
 
     private static final Map<String, String> CHART_SUBTYPES = Map.of(
@@ -679,6 +683,17 @@ public class DashboardSpecValidator {
             throw new IllegalArgumentException("不支持的图表类型：" + chartType);
         }
         chart.put("type", chartType);
+
+        if ("map".equals(chartType)) {
+            String map = trimToNull(asString(chart.get("map")));
+            map = map == null ? "china" : map.toLowerCase();
+            if (!MAP_REGIONS.contains(map)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 不支持的地图区域：" + map);
+            }
+            chart.put("map", map);
+        } else {
+            chart.remove("map");
+        }
 
         String subtype = trimToNull(asString(chart.get("subtype")));
         if (subtype != null) {

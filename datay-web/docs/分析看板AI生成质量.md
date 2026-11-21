@@ -49,6 +49,7 @@ AI 输出在严格校验前会修复以下常见问题：
 - `chart.type` 缺失
 - `chart.series[].measure` 引用了未声明的度量
 - 热力图/桑基图/关系图缺少 `role=series`
+- 中国地图缺少 `role=x` 省级名称字段或 `role=value` 度量
 - 透视表缺少 `role=row` 或度量不是 `role=value`
 - 条件格式 operator 非法、between 缺 value2、颜色非法
 - 字段不在数据集字段缓存中
@@ -61,12 +62,13 @@ AI 输出在严格校验前会修复以下常见问题：
 2. 每个图表都有 `chart.type`
 3. `dimensions` role 合法，`measures` role 与 agg 合法
 4. 热力图/桑基图/关系图有 `x + series`
-5. 透视表有 `row + value`
-6. `chart.series` 只引用已声明度量
-7. `formatRules` 只用于 table/pivot/kpi，between 有 value2
-8. 24 栅格布局不重叠、不越界
-9. 不输出 dataRef / bindings / 内嵌数据集 / v1 encode
-10. 只输出 JSON，不输出解释文字
+5. 中国地图有 `x` 省级名称字段与 `role=value` 度量
+6. 透视表有 `row + value`
+7. `chart.series` 只引用已声明度量
+8. `formatRules` 只用于 table/pivot/kpi，between 有 value2
+9. 24 栅格布局不重叠、不越界
+10. 不输出 dataRef / bindings / 内嵌数据集 / v1 encode
+11. 只输出 JSON，不输出解释文字
 
 ## 5. 推荐示例
 

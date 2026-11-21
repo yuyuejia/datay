@@ -108,6 +108,7 @@ describe('field-defaults', () => {
     expect(shouldGroupByCategory('echarts', 'gauge')).toBe(false);
     expect(shouldGroupByCategory('echarts', 'scatter')).toBe(false);
     expect(shouldGroupByCategory('echarts', 'boxplot')).toBe(false);
+    expect(shouldGroupByCategory('echarts', 'map')).toBe(true);
     expect(shouldGroupByCategory('table', undefined)).toBe(false);
     expect(shouldGroupByCategory('kpi', undefined)).toBe(false);
   });
@@ -129,6 +130,11 @@ describe('field-defaults', () => {
       measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
     });
     expect(createDefaultEncode('echarts', 'boxplot', fields)).toMatchObject({ groupBy: false });
+    expect(createDefaultEncode('echarts', 'map', fields)).toMatchObject({
+      dimensions: [{ field: 'region', role: 'x' }],
+      measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+      groupBy: true,
+    });
 
     const pivot = createDefaultEncode('pivot', undefined, fields);
     expect(pivot).toMatchObject({
@@ -173,6 +179,7 @@ describe('field-defaults', () => {
     expect(resolveChartType({ series: [{ type: 'sankey' }] })).toBe('sankey');
     expect(resolveChartType({ series: [{ type: 'graph' }] })).toBe('graph');
     expect(resolveChartType({ series: [{ type: 'boxplot' }] })).toBe('boxplot');
+    expect(resolveChartType({ series: [{ type: 'map' }] })).toBe('map');
     expect(resolveChartType(undefined)).toBe('bar');
   });
 });

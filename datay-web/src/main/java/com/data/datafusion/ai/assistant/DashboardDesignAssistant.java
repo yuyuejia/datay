@@ -55,12 +55,14 @@ public class DashboardDesignAssistant implements AiAssistant {
         "waterfall",
         "sankey",
         "graph",
-        "boxplot"
+        "boxplot",
+        "map"
     );
 
     private static final List<String> SAMPLES = List.of(
         "帮我做一个电商销售分析看板",
         "生成一个按区域和品类分析销售与毛利的看板",
+        "做一个按省份展示销售额的中国地图看板",
         "做一个近期订单趋势与门店 Top10 的看板"
     );
 
@@ -156,10 +158,12 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("   - 一个看板默认只使用一个指标数据集，多个图表共享该数据集的不同指标/维度字段。\n");
         sb.append("2. 基于已确定的指标数据集设计布局与图表：为每个数据集选取合适的可视化（趋势用折线/面积、对比用柱状、\n");
         sb.append("   占比用饼图/环形图/漏斗图、层级占比用矩形树图、相关关系用散点图、多维对比用雷达图/热力图、\n");
-        sb.append("   核心数字用 KPI 卡片或仪表盘、明细用表格、交叉汇总用透视表。\n");
+        sb.append("   省份/区域分布用中国地图、核心数字用 KPI 卡片或仪表盘、明细用表格、交叉汇总用透视表。\n");
         sb.append("   chart.type 是图表类型的唯一权威来源；echartsOption 只提供样式模板，不要再靠 echartsOption.series[0].type 表达类型。\n");
         sb.append("   可用 chart.type：bar / line / area / pie / donut / gauge / scatter / radar / funnel / heatmap / treemap /\n");
-        sb.append("   waterfall / sankey / graph / boxplot；桑基图/关系图需要 role=x 源节点与 role=series 目标节点。\n");
+        sb.append("   waterfall / sankey / graph / boxplot / map；桑基图/关系图需要 role=x 源节点与 role=series 目标节点。\n");
+        sb.append("   中国地图需要 chart.map=china，role=x 使用省级名称字段（如 北京、广东省、广西壮族自治区），\n");
+        sb.append("   度量使用 role=value；地图不绘制坐标轴，echartsOption 只需保留 tooltip 与 visualMap 样式。\n");
         sb.append("   bar 可用 subtype：grouped / stacked / stackedPercent，并可用 orientation: vertical / horizontal；\n");
         sb.append("   line、area 可用 subtype：smooth / step。\n");
         sb.append("   默认 x 轴规则：encode.dimensions 中使用 role=x 的字段作为分类轴，字段使用该数据集维度对应的默认显示字段，\n");
@@ -244,7 +248,7 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("- encode 约定：dimensions[] 使用 {field, role:x|series|row|column}，其中 role=x 为分类轴、role=series 为可选系列拆分，\n");
         sb.append("  透视表使用 role=row / role=column；禁止使用 *_sk / *_id 作为展示维度。\n");
         sb.append("  measures[] 使用 {field, agg, role:y|value|size}，agg 取值 sum/avg/min/max/count/none；\n");
-        sb.append("  kpi/仪表盘/饼图/环形图/漏斗图/矩形树图/热力图/透视表的度量使用 role=value，坐标轴图表使用 role=y，散点大小使用 role=size。\n");
+        sb.append("  kpi/仪表盘/饼图/环形图/漏斗图/矩形树图/热力图/地图/透视表的度量使用 role=value，坐标轴图表使用 role=y，散点大小使用 role=size。\n");
         sb.append("  groupBy=true 表示图表按分类字段聚合；散点图通常使用 groupBy=false；limit/sortField/sortOrder 控制排序与截断。\n");
         sb.append("- 组合图/双轴：在 chart.series[] 中用 {measure, type:bar|line|area, axis:left|right} 声明多个系列；measure 必须引用 encode.measures 中的字段。\n");
         sb.append("  饼图/环形图/漏斗图/矩形树图只使用第一个 role=value 度量；仪表盘不需要 dimensions；雷达图每个 role=y 度量生成一条系列。\n");
@@ -262,7 +266,7 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("1. 顶层 version=2；每个 echarts 组件都有 chart.type，且类型在可用列表内。\n");
         sb.append("2. encode.dimensions 使用 role=x/series/row/column；encode.measures 使用 role=y/value/size，且 agg 合法。\n");
         sb.append("   同一组件内 dimensions/measures 的 field 不得重复，即使 role 不同；透视表行列维度必须使用不同字段。\n");
-        sb.append("3. 热力图/桑基图/关系图必须有 role=x 与 role=series；透视表必须有 role=row 与 role=value 度量。\n");
+        sb.append("3. 热力图/桑基图/关系图必须有 role=x 与 role=series；地图必须有 role=x 省级名称字段与 role=value 度量；透视表必须有 role=row 与 role=value 度量。\n");
         sb.append("4. chart.series[].measure 必须引用 encode.measures 中的字段；组合图/双轴才使用 chart.series。\n");
         sb.append("5. formatRules 仅用于 table/pivot/kpi，operator 与 value 必须齐全；between 需要 value2。\n");
         sb.append("6. 布局使用 24 栅格，组件不重叠，宽高不越界；不要输出解释性文字，只输出 JSON。\n");

@@ -23,7 +23,8 @@ export type ChartType =
   | 'waterfall'
   | 'sankey'
   | 'graph'
-  | 'boxplot';
+  | 'boxplot'
+  | 'map';
 
 export type ChartSubtype = 'grouped' | 'stacked' | 'stackedPercent' | 'smooth' | 'step';
 
@@ -177,6 +178,8 @@ export interface DashboardChart {
   subtype?: ChartSubtype;
   orientation?: ChartOrientation;
   series?: ChartSeries[];
+  /** 地图区域；当前仅内置中国省级地图。 */
+  map?: 'china';
   [key: string]: any;
 }
 

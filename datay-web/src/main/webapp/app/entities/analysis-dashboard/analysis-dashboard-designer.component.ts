@@ -118,6 +118,7 @@ const CHART_LABELS: Record<ChartType, string> = {
   sankey: '桑基图',
   graph: '关系图',
   boxplot: '箱线图',
+  map: '中国地图',
 };
 
 const PALETTE_CATEGORIES: Array<{ key: PaletteCategory; label: string; icon: string }> = [
@@ -143,6 +144,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'sankey', label: '桑基图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'sankey', w: 12, h: 8 },
   { key: 'graph', label: '关系图', icon: 'area', category: 'charts', type: 'echarts', chartType: 'graph', w: 12, h: 8 },
   { key: 'boxplot', label: '箱线图', icon: 'bar', category: 'charts', type: 'echarts', chartType: 'boxplot', w: 12, h: 8 },
+  { key: 'map', label: '中国地图', icon: 'map', category: 'charts', type: 'echarts', chartType: 'map', w: 12, h: 8 },
   { key: 'kpi', label: 'KPI 指标', icon: 'kpi', category: 'kpi', type: 'kpi', w: 6, h: 4 },
   { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 12, h: 8 },
   { key: 'pivot', label: '透视表', icon: 'table', category: 'table', type: 'pivot', w: 12, h: 8 },
@@ -171,16 +173,20 @@ const DEFAULT_ECHARTS_OPTION = (type: ChartType) => {
   const isNodeLink = seriesType === 'sankey' || seriesType === 'graph';
   const isBoxplot = seriesType === 'boxplot';
   const isWaterfall = type === 'waterfall';
+  const isMap = type === 'map';
   const option: Record<string, any> = {
-    tooltip: { trigger: isSingleValue || isGauge || isRadar || isScatter || isHeatmap || isNodeLink || isBoxplot ? 'item' : 'axis' },
-    legend: { top: 0 },
+    tooltip: {
+      trigger: isSingleValue || isGauge || isRadar || isScatter || isHeatmap || isNodeLink || isBoxplot || isMap ? 'item' : 'axis',
+    },
+    ...(isMap ? {} : { legend: { top: 0 } }),
+    ...(isMap ? { visualMap: { calculable: true, orient: 'horizontal', left: 'center', bottom: 0 } } : {}),
     series: [
       {
         type: seriesType,
         smooth: seriesType === 'line',
         areaStyle: type === 'area' ? {} : undefined,
         radius: type === 'donut' ? ['42%', '68%'] : undefined,
-        emphasis: { focus: 'series' },
+        emphasis: isMap ? { label: { show: true } } : { focus: 'series' },
         ...(isGauge
           ? {
               progress: { show: true },
@@ -191,10 +197,11 @@ const DEFAULT_ECHARTS_OPTION = (type: ChartType) => {
         ...(isHeatmap ? { label: { show: true } } : {}),
         ...(isBoxplot ? { boxWidth: [8, 32] } : {}),
         ...(isNodeLink ? { layout: seriesType === 'graph' ? 'force' : undefined, roam: true } : {}),
+        ...(isMap ? { map: 'china', roam: false, label: { show: false } } : {}),
       },
     ],
   };
-  if (isGauge || isSingleValue || isRadar || isNodeLink) {
+  if (isGauge || isSingleValue || isRadar || isNodeLink || isMap) {
     return option;
   }
   option.grid = { left: 48, right: 24, top: 40, bottom: 36 };
@@ -887,7 +894,8 @@ export default defineComponent({
         chartType === 'treemap' ||
         chartType === 'heatmap' ||
         chartType === 'sankey' ||
-        chartType === 'graph'
+        chartType === 'graph' ||
+        chartType === 'map'
       ) {
         return 'value';
       }
@@ -1430,6 +1438,7 @@ export default defineComponent({
           type: chartType,
           ...(subtype ? { subtype } : {}),
           ...(chartType === 'bar' ? { orientation: 'vertical' as const } : {}),
+          ...(chartType === 'map' ? { map: 'china' as const } : {}),
         };
       } else if (type === 'html') {
         widget.html = '<div>在此编写 HTML 说明</div>';
@@ -1517,7 +1526,7 @@ export default defineComponent({
     };
 
     const chartType = computed<ChartType>(() => resolveChartType(selectedWidget.value));
-    const hasChartAxes = computed(() => !['pie', 'donut', 'gauge', 'funnel', 'radar', 'treemap'].includes(chartType.value));
+    const hasChartAxes = computed(() => !['pie', 'donut', 'gauge', 'funnel', 'radar', 'treemap', 'map'].includes(chartType.value));
 
     const chartSubtypeOptions = computed<Array<{ value: string; label: string }>>(() => {
       if (chartType.value === 'bar') {
@@ -1661,6 +1670,23 @@ export default defineComponent({
       },
     });
 
+    const chartMapRoam = computed<boolean>({
+      get: () => {
+        const option = selectedWidget.value?.echartsOption;
+        return option ? chartSeries(option)[0]?.roam === true : false;
+      },
+      set: value => {
+        const option = selectedWidget.value?.echartsOption;
+        if (!option) {
+          return;
+        }
+        const series = chartSeries(option);
+        if (series[0]) {
+          series[0].roam = value;
+        }
+      },
+    });
+
     const chartAxesVisible = computed<boolean>({
       get: () => {
         const option = selectedWidget.value?.echartsOption;
@@ -1722,9 +1748,10 @@ export default defineComponent({
         type,
         ...(subtype ? { subtype } : {}),
         ...(type === 'bar' ? { orientation: 'vertical' as const } : {}),
+        ...(type === 'map' ? { map: 'china' as const } : {}),
       };
       if (widget.encode) {
-        const singleValue = type === 'pie' || type === 'donut' || type === 'funnel' || type === 'treemap';
+        const singleValue = type === 'pie' || type === 'donut' || type === 'funnel' || type === 'treemap' || type === 'map';
         const nodeLink = type === 'sankey' || type === 'graph';
         if (type === 'gauge') {
           delete widget.encode.dimensions;
@@ -2202,6 +2229,7 @@ export default defineComponent({
       hasChartAxes,
       chartLegendVisible,
       chartDataLabelVisible,
+      chartMapRoam,
       chartAxesVisible,
       chartGridLinesVisible,
       applyCustomOption,

@@ -49,7 +49,8 @@ export function buildServerAggregation(widget: DashboardWidget): ServerAggregati
       chartType === 'funnel' ||
       chartType === 'treemap' ||
       chartType === 'radar' ||
-      chartType === 'waterfall';
+      chartType === 'waterfall' ||
+      chartType === 'map';
     selectedDimensions = dimensions.filter(dimension =>
       singleDimension ? dimension.role === 'x' : dimension.role === 'x' || dimension.role === 'series',
     );

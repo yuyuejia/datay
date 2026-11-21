@@ -4,7 +4,7 @@
   "meta": {
     "name": "DataY 快速入门应用",
     "code": "datay_quickstart_app",
-    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、可绑定的 MySQL / PostgreSQL CDC 演示数据源与本地 DuckLake 数据源、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、1 个 MySQL Binlog CDC 实时同步演示 ETL、1 个 PostgreSQL CDC 实时入湖（DuckLake）演示 ETL、1 个决策模型工单分派演示 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标、1 个 SQL 分析数据集、1 个标准分析看板和 1 个 1920×1080 暗色大屏看板。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排 → 分析看板」的完整链路；CDC、DuckLake 入湖与决策模型演示任务独立运行，分别依赖本地 MySQL / PostgreSQL / Ollama。新增 1 个数据质量检核任务和 1 个包含 DataQualityCheck 组件的 ETL 任务。",
+    "description": "DataY 入门教学资产包：2 个开箱即用的 DuckDB 数据源（源库 + 数仓）、可绑定的 MySQL / PostgreSQL CDC 演示数据源与本地 DuckLake 数据源、4 种常见类型的数据模型（时间维度/层级维度/普通维度/DWD 事实表 + ADS 汇总）、4 个 JdbcInput→ModelWrite 同步 ETL、1 个属性路由（RouteOnAttribute）分流演示 ETL、4 个常用处理 ETL（DataTransform 清洗转换 / Join 多表关联 / StreamSqlUnit SQL 聚合 / 增量同步）、1 个 MySQL Binlog CDC 实时同步演示 ETL、1 个 PostgreSQL CDC 实时入湖（DuckLake）演示 ETL、1 个决策模型工单分派演示 ETL、2 个 SQL 任务（ODS 样例数据与 ADS 汇总）与 1 个一键编排任务，并预置 4 个入门指标、1 个 SQL 分析数据集、1 个标准分析看板和 1 个 1920×1080 暗色大屏看板（均含中国省级销售地图）。初始化后在「任务编排」中运行 qs_daily_orchestration，即可跑通「数据源 → ETL → 数据模型 → SQL 任务 → 任务编排 → 分析看板」的完整链路；CDC、DuckLake 入湖与决策模型演示任务独立运行，分别依赖本地 MySQL / PostgreSQL / Ollama。新增 1 个数据质量检核任务和 1 个包含 DataQualityCheck 组件的 ETL 任务。",
     "category": "快速入门",
     "version": "1.5.0",
     "source": "SYSTEM"
@@ -602,7 +602,7 @@
       "type": "SQL",
       "status": "ENABLED",
       "definition": {
-        "sql": "SELECT\n    d.month_name AS month_name,\n    s.store_name AS store_name,\n    s.city AS city,\n    SUM(a.sales_amount) AS sales_amount,\n    SUM(a.order_count) AS order_count\nFROM ads_daily_sales a\nJOIN dim_date d ON a.stat_date_key = d.date_key\nJOIN dim_store s ON a.store_key = s.store_id\nWHERE s.store_name = ${store_name}\nGROUP BY d.month_name, s.store_name, s.city\nORDER BY d.month_name, s.store_name",
+        "sql": "SELECT\n    d.month_name AS month_name,\n    s.store_name AS store_name,\n    s.city AS city,\n    CASE s.city\n        WHEN '北京' THEN '北京'\n        WHEN '上海' THEN '上海'\n        WHEN '广州' THEN '广东'\n        WHEN '成都' THEN '四川'\n        WHEN '杭州' THEN '浙江'\n        ELSE s.city\n    END AS province,\n    SUM(a.sales_amount) AS sales_amount,\n    SUM(a.order_count) AS order_count\nFROM ads_daily_sales a\nJOIN dim_date d ON a.stat_date_key = d.date_key\nJOIN dim_store s ON a.store_key = s.store_id\nWHERE s.store_name = ${store_name}\nGROUP BY d.month_name, s.store_name, s.city,\n    CASE s.city\n        WHEN '北京' THEN '北京'\n        WHEN '上海' THEN '上海'\n        WHEN '广州' THEN '广东'\n        WHEN '成都' THEN '四川'\n        WHEN '杭州' THEN '浙江'\n        ELSE s.city\n    END\nORDER BY d.month_name, s.store_name",
         "params": []
       },
       "fields": {
@@ -623,6 +623,11 @@
             "description": "城市"
           },
           {
+            "name": "province",
+            "type": "VARCHAR",
+            "description": "省份"
+          },
+          {
             "name": "sales_amount",
             "type": "DECIMAL",
             "description": "销售额（元）"
@@ -638,7 +643,8 @@
           "store_name": "门店",
           "city": "城市",
           "sales_amount": "销售额（元）",
-          "order_count": "订单数"
+          "order_count": "订单数",
+          "province": "省份"
         }
       }
     }
@@ -649,11 +655,11 @@
       "dataSourceOldId": 9001,
       "name": "入门门店销售分析看板",
       "code": "qs_dashboard_store_sales",
-      "description": "基于入门 SQL 数据集的分析看板：销售额 / 订单数 KPI、月度销售趋势、门店销售占比与明细表。",
+      "description": "基于入门 SQL 数据集的分析看板：销售额 / 订单数 KPI、月度销售趋势、门店销售占比、明细表与省份销售地图。",
       "status": "ENABLED",
       "spec": {
         "title": "入门门店销售分析",
-        "description": "数据来自分析数据集「入门门店月度销售数据集」。首次使用请先在「任务编排」运行 qs_daily_orchestration 生成 ADS 数据。",
+        "description": "数据来自分析数据集「入门门店月度销售数据集」，包含省份销售地图。首次使用请先在「任务编排」运行 qs_daily_orchestration 生成 ADS 数据。",
         "layout": {
           "mode": "standard"
         },
@@ -995,6 +1001,65 @@
                 }
               ]
             }
+          },
+          {
+            "id": "chart_province_map",
+            "title": "省份销售地图",
+            "type": "echarts",
+            "layout": {
+              "x": 0,
+              "y": 36,
+              "w": 24,
+              "h": 12
+            },
+            "datasetId": "ds_store_sales",
+            "encode": {
+              "dimensions": [
+                {
+                  "field": "province",
+                  "role": "x"
+                }
+              ],
+              "measures": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum",
+                  "role": "value"
+                }
+              ],
+              "groupBy": true,
+              "limit": 100
+            },
+            "chart": {
+              "type": "map",
+              "map": "china"
+            },
+            "echartsOption": {
+              "tooltip": {
+                "trigger": "item"
+              },
+              "visualMap": {
+                "calculable": true,
+                "orient": "horizontal",
+                "left": "center",
+                "bottom": 0
+              },
+              "series": [
+                {
+                  "type": "map",
+                  "map": "china",
+                  "roam": false,
+                  "label": {
+                    "show": false
+                  },
+                  "emphasis": {
+                    "label": {
+                      "show": true
+                    }
+                  }
+                }
+              ]
+            }
           }
         ],
         "filters": [
@@ -1032,11 +1097,11 @@
       "dataSourceOldId": 9001,
       "name": "入门门店销售分析大屏",
       "code": "qs_dashboard_store_sales_screen",
-      "description": "基于入门 SQL 数据集的大屏看板：销售额 / 订单数 KPI、月度趋势、门店占比与明细表，默认暗色主题。",
+      "description": "基于入门 SQL 数据集的大屏看板：销售额 / 订单数 KPI、月度趋势、门店占比、明细表与省份销售地图，默认暗色主题。",
       "status": "ENABLED",
       "spec": {
         "title": "入门门店销售分析大屏",
-        "description": "1920×1080 暗色大屏，按 24 栅格布局，适配后自动刷新。",
+        "description": "1920×1080 暗色大屏，按 24 栅格布局，包含省份销售地图，适配后自动刷新。",
         "layout": {
           "mode": "screen",
           "screen": {
@@ -1253,14 +1318,73 @@
             "title": "门店月度销售明细",
             "type": "table",
             "layout": {
-              "x": 0,
+              "x": 12,
               "y": 12,
-              "w": 24,
+              "w": 12,
               "h": 8
             },
             "datasetId": "ds_store_sales",
             "encode": {
               "limit": 100
+            }
+          },
+          {
+            "id": "chart_province_map",
+            "title": "省份销售地图",
+            "type": "echarts",
+            "layout": {
+              "x": 0,
+              "y": 12,
+              "w": 12,
+              "h": 8
+            },
+            "datasetId": "ds_store_sales",
+            "encode": {
+              "dimensions": [
+                {
+                  "field": "province",
+                  "role": "x"
+                }
+              ],
+              "measures": [
+                {
+                  "field": "sales_amount",
+                  "agg": "sum",
+                  "role": "value"
+                }
+              ],
+              "groupBy": true,
+              "limit": 100
+            },
+            "chart": {
+              "type": "map",
+              "map": "china"
+            },
+            "echartsOption": {
+              "tooltip": {
+                "trigger": "item"
+              },
+              "visualMap": {
+                "calculable": true,
+                "orient": "horizontal",
+                "left": "center",
+                "bottom": 0
+              },
+              "series": [
+                {
+                  "type": "map",
+                  "map": "china",
+                  "roam": false,
+                  "label": {
+                    "show": false
+                  },
+                  "emphasis": {
+                    "label": {
+                      "show": true
+                    }
+                  }
+                }
+              ]
             }
           }
         ],
