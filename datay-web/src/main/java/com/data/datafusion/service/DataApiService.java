@@ -1,5 +1,7 @@
 package com.data.datafusion.service;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.domain.DataApi;
 import com.data.datafusion.domain.ETLTaskDirectory;
@@ -39,6 +41,8 @@ import org.springframework.util.StringUtils;
 public class DataApiService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataApiService.class);
+
+    private static final int MAX_PRE_PROCESS_SCRIPT_LENGTH = 64 * 1024;
 
     private final DataApiRepository dataApiRepository;
 
@@ -342,6 +346,7 @@ public class DataApiService {
             if (dto.getApiConfig() == null || dto.getApiConfig().trim().isEmpty()) {
                 throw new IllegalArgumentException("请配置要注册的 API");
             }
+            validateApiPreProcessScript(dto.getApiConfig());
         } else if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
             if (dto.getDatasetId() == null || dto.getDatasetId().trim().isEmpty()) {
                 throw new IllegalArgumentException("请选择要发布的分析数据集");
@@ -352,6 +357,32 @@ public class DataApiService {
                 .orElseThrow(() -> new IllegalArgumentException("数据集不存在：" + dto.getDatasetId()));
         } else {
             throw new IllegalArgumentException("数据来源类型必须是 TABLE、SQL、DATASET 或 API");
+        }
+    }
+
+    /**
+     * 校验 API 前置处理脚本配置；非脚本模式或配置无法解析时交由执行期处理。
+     */
+    private void validateApiPreProcessScript(String apiConfig) {
+        JSONObject config;
+        try {
+            config = JSON.parseObject(apiConfig);
+        } catch (Exception e) {
+            return;
+        }
+        JSONObject preProcess = config.getJSONObject("preProcess");
+        if (preProcess == null || !preProcess.getBooleanValue("enabled", false)) {
+            return;
+        }
+        if (!"script".equalsIgnoreCase(preProcess.getString("type"))) {
+            return;
+        }
+        String script = preProcess.getString("script");
+        if (script == null || script.isBlank()) {
+            throw new IllegalArgumentException("请填写前置处理脚本");
+        }
+        if (script.length() > MAX_PRE_PROCESS_SCRIPT_LENGTH) {
+            throw new IllegalArgumentException("前置处理脚本过长，最多支持 " + MAX_PRE_PROCESS_SCRIPT_LENGTH + " 个字符");
         }
     }
 

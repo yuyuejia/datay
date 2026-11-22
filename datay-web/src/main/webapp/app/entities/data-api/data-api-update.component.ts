@@ -7,6 +7,7 @@ import DatasetService from '@/shared/dataset/dataset.service';
 import DataApiService from './data-api.service';
 import {
   DataApi,
+  type ApiPreProcessType,
   type IApiConfig,
   type IDataApi,
   type IDataApiDebugResult,
@@ -24,6 +25,13 @@ import { useAlertService } from '@/shared/alert/alert.service';
 /** 数据服务目录在公共目录表中的类型标识。 */
 const DIRECTORY_TASK_TYPE = 'DATA_API';
 
+const PRE_PROCESS_SCRIPT_EXAMPLE = `// params 为调用方传入的参数
+return {
+  token: 'Bearer ' + params.appId,
+  timestamp: String(Date.now()),
+  sign: utils.md5(params.appId + params.secret)
+};`;
+
 const createDefaultApiConfig = (): IApiConfig => ({
   url: '',
   method: 'GET',
@@ -34,6 +42,7 @@ const createDefaultApiConfig = (): IApiConfig => ({
   jsonPath: '',
   preProcess: {
     enabled: false,
+    type: 'http',
     url: '',
     method: 'POST',
     headers: {},
@@ -41,6 +50,7 @@ const createDefaultApiConfig = (): IApiConfig => ({
     tokenPath: '',
     cacheTtlSeconds: 0,
     sslVerify: true,
+    script: '',
   },
 });
 
@@ -62,6 +72,11 @@ const parseHeadersSafely = (text: string): Record<string, string> => {
 
 const PLACEHOLDER_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
+/** 前置脚本里通过 params.xxx / params['xxx'] 读取的调用参数。 */
+const SCRIPT_PARAM_PATTERN = /\bparams\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*['"]([^'"]+)['"]\s*\])/g;
+
+type PreProcessMode = 'none' | 'http' | 'script';
+
 /** 从配置文本中提取 ${param} 占位符名称。 */
 const extractPlaceholderNames = (...texts: Array<string | null | undefined>): string[] => {
   const names = new Set<string>();
@@ -75,6 +90,23 @@ const extractPlaceholderNames = (...texts: Array<string | null | undefined>): st
       names.add(match[1]);
     }
   });
+  return Array.from(names);
+};
+
+/** 从脚本中提取 params.xxx / params['xxx'] 形式的参数名。 */
+const extractScriptParameterNames = (script?: string | null): string[] => {
+  const names = new Set<string>();
+  if (!script) {
+    return [];
+  }
+  SCRIPT_PARAM_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = SCRIPT_PARAM_PATTERN.exec(script)) !== null) {
+    const name = match[1] || match[2];
+    if (name) {
+      names.add(name);
+    }
+  }
   return Array.from(names);
 };
 
@@ -153,6 +185,22 @@ export default defineComponent({
       debugResult.value?.data === undefined || debugResult.value?.data === null ? '' : JSON.stringify(debugResult.value.data, null, 2),
     );
     const debugUpstream = computed(() => debugResult.value?.upstream ?? null);
+    const debugPreProcess = computed(() => debugResult.value?.preProcess ?? null);
+    const debugPreProcessJson = computed(() => {
+      const preProcess = debugPreProcess.value;
+      if (!preProcess) {
+        return '';
+      }
+      return JSON.stringify(
+        {
+          type: preProcess.type,
+          durationMs: preProcess.durationMs,
+          output: preProcess.output ?? {},
+        },
+        null,
+        2,
+      );
+    });
     const debugShowRawBody = computed(() => {
       if (!debugResult.value) {
         return false;
@@ -170,7 +218,7 @@ export default defineComponent({
       // 调试结果中 durationMs、upstream 仅用于调试展示，不属于服务实际返回体。
       const body: Record<string, unknown> = {};
       Object.entries(result).forEach(([key, value]) => {
-        if (key !== 'durationMs' && key !== 'upstream') {
+        if (key !== 'durationMs' && key !== 'upstream' && key !== 'preProcess') {
           body[key] = value;
         }
       });
@@ -198,6 +246,30 @@ export default defineComponent({
     ];
 
     const hasApiBody = computed(() => apiConfig.value.method !== 'GET' && apiConfig.value.method !== 'HEAD');
+
+    const preProcessMode = computed<PreProcessMode>({
+      get() {
+        const preProcess = apiConfig.value.preProcess;
+        if (!preProcess?.enabled) {
+          return 'none';
+        }
+        return preProcess.type === 'script' ? 'script' : 'http';
+      },
+      set(mode) {
+        const preProcess = apiConfig.value.preProcess;
+        if (!preProcess) {
+          return;
+        }
+        preProcess.enabled = mode !== 'none';
+        preProcess.type = (mode === 'script' ? 'script' : 'http') as ApiPreProcessType;
+      },
+    });
+
+    const fillScriptExample = () => {
+      if (apiConfig.value.preProcess) {
+        apiConfig.value.preProcess.script = PRE_PROCESS_SCRIPT_EXAMPLE;
+      }
+    };
 
     const loadDataSources = async () => {
       try {
@@ -514,11 +586,15 @@ export default defineComponent({
       debugHasTable,
       debugJson,
       debugUpstream,
+      debugPreProcess,
+      debugPreProcessJson,
       debugShowRawBody,
       debugRawBody,
       debugUpstreamHeaders,
       httpMethods,
       hasApiBody,
+      preProcessMode,
+      fillScriptExample,
       sourceTypeOptions,
       statusOptions,
       loadDataSources,
@@ -564,25 +640,46 @@ export default defineComponent({
         jsonPath: config.jsonPath?.trim() || '',
       };
       if (config.preProcess?.enabled) {
-        if (!config.preProcess.url || !config.preProcess.url.trim()) {
-          this.alertService.showError('请输入前置处理请求地址');
-          return null;
+        if (config.preProcess.type === 'script') {
+          const script = (config.preProcess.script || '').trim();
+          if (!script) {
+            this.alertService.showError('请填写前置处理脚本');
+            return null;
+          }
+          if (script.length > 64 * 1024) {
+            this.alertService.showError('前置处理脚本过长，最多支持 64KB');
+            return null;
+          }
+          result.preProcess = {
+            enabled: true,
+            type: 'script',
+            script,
+          };
+        } else {
+          if (!config.preProcess.url || !config.preProcess.url.trim()) {
+            this.alertService.showError('请输入前置处理请求地址');
+            return null;
+          }
+          let preHeaders: Record<string, string>;
+          try {
+            preHeaders = parseJsonObject(this.preHeadersText);
+          } catch {
+            this.alertService.showError('前置请求头 JSON 格式错误');
+            return null;
+          }
+          result.preProcess = {
+            enabled: true,
+            type: 'http',
+            url: config.preProcess.url.trim(),
+            method: config.preProcess.method || 'POST',
+            headers: preHeaders,
+            body: config.preProcess.body || '',
+            tokenPath: config.preProcess.tokenPath || '',
+            sslVerify: config.preProcess.sslVerify !== false,
+            cacheTtlSeconds: Number(config.preProcess.cacheTtlSeconds) || 0,
+            timeout: Number(config.preProcess.timeout) || undefined,
+          };
         }
-        let preHeaders: Record<string, string>;
-        try {
-          preHeaders = parseJsonObject(this.preHeadersText);
-        } catch {
-          this.alertService.showError('前置请求头 JSON 格式错误');
-          return null;
-        }
-        result.preProcess = {
-          ...config.preProcess,
-          url: config.preProcess.url.trim(),
-          method: config.preProcess.method || 'POST',
-          headers: preHeaders,
-          sslVerify: config.preProcess.sslVerify !== false,
-          cacheTtlSeconds: Number(config.preProcess.cacheTtlSeconds) || 0,
-        };
       }
       return result;
     },
@@ -742,13 +839,17 @@ export default defineComponent({
         const config = this.apiConfig;
         names.push(...extractPlaceholderNames(config.url, config.body, ...Object.values(parseHeadersSafely(this.apiHeadersText))));
         if (config.preProcess?.enabled) {
-          names.push(
-            ...extractPlaceholderNames(
-              config.preProcess.url,
-              config.preProcess.body,
-              ...Object.values(parseHeadersSafely(this.preHeadersText)),
-            ),
-          );
+          if (config.preProcess.type === 'script') {
+            names.push(...extractScriptParameterNames(config.preProcess.script));
+          } else {
+            names.push(
+              ...extractPlaceholderNames(
+                config.preProcess.url,
+                config.preProcess.body,
+                ...Object.values(parseHeadersSafely(this.preHeadersText)),
+              ),
+            );
+          }
         }
       }
       return Array.from(new Set(names)).filter(name => name !== 'token');

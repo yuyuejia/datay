@@ -122,6 +122,55 @@ describe('Component Tests', () => {
       });
     });
 
+    describe('api pre-process script', () => {
+      it('Should build script preProcess without http fields', () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.apiConfig.url = 'https://api.example.com/orders';
+        comp.apiConfig.preProcess = {
+          enabled: true,
+          type: 'script',
+          script: "return { token: 'T' };",
+        };
+
+        const config = comp.buildApiConfig();
+
+        expect(config?.preProcess).toEqual({
+          enabled: true,
+          type: 'script',
+          script: "return { token: 'T' };",
+        });
+        expect(config?.preProcess).not.toHaveProperty('url');
+      });
+
+      it('Should treat legacy preProcess without type as http', () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.apiConfig.url = 'https://api.example.com/orders';
+        comp.apiConfig.preProcess = {
+          enabled: true,
+          url: 'https://auth.example.com/token',
+          method: 'POST',
+          headers: {},
+          tokenPath: '$.data.token',
+        } as any;
+
+        const config = comp.buildApiConfig();
+
+        expect(config?.preProcess?.type).toBe('http');
+        expect(config?.preProcess?.url).toBe('https://auth.example.com/token');
+      });
+
+      it('Should not save script preProcess without script', () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.apiConfig.url = 'https://api.example.com/orders';
+        comp.apiConfig.preProcess = { enabled: true, type: 'script', script: '  ' };
+
+        expect(comp.buildApiConfig()).toBeNull();
+      });
+    });
+
     describe('debug', () => {
       it('Should detect SQL placeholders and call debug service', async () => {
         const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
@@ -178,6 +227,27 @@ describe('Component Tests', () => {
         expect(names).toContain('keyword');
         expect(names).toContain('authToken');
         expect(names).toContain('appId');
+        expect(names).not.toContain('token');
+      });
+
+      it('Should detect script parameter names from preProcess script', async () => {
+        const wrapper = shallowMount(DataApiUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataApi = { sourceType: 'API', status: 'ENABLED' };
+        comp.apiConfig.url = 'https://api.example.com/orders?day=${day}';
+        comp.apiConfig.preProcess = {
+          enabled: true,
+          type: 'script',
+          script: "return { token: 'T', sign: utils.md5(params.appId + params['app-id']) };",
+        };
+
+        comp.openDebug();
+        await comp.$nextTick();
+
+        const names = comp.debugParams.map(param => param.name);
+        expect(names).toContain('day');
+        expect(names).toContain('appId');
+        expect(names).toContain('app-id');
         expect(names).not.toContain('token');
       });
 

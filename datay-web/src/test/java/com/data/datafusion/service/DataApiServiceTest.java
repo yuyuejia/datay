@@ -141,6 +141,31 @@ class DataApiServiceTest {
     }
 
     @Test
+    void shouldRejectEmptyScriptPreProcess() {
+        DataApiDTO dto = new DataApiDTO();
+        dto.setSourceType(DataApi.SOURCE_TYPE_API);
+        dto.setApiConfig(
+            "{\"url\":\"https://api.example.com/orders\",\"preProcess\":{\"enabled\":true,\"type\":\"script\",\"script\":\"  \"}}"
+        );
+
+        assertThatThrownBy(() -> service.validateSourceConfig(dto))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("请填写前置处理脚本");
+    }
+
+    @Test
+    void shouldAcceptScriptPreProcessWithScript() {
+        DataApiDTO dto = new DataApiDTO();
+        dto.setSourceType(DataApi.SOURCE_TYPE_API);
+        dto.setApiConfig(
+            "{\"url\":\"https://api.example.com/orders\",\"preProcess\":{\"enabled\":true,\"type\":\"script\"," +
+            "\"script\":\"return { token: 'T' };\"}}"
+        );
+
+        assertThatCode(() -> service.validateSourceConfig(dto)).doesNotThrowAnyException();
+    }
+
+    @Test
     void shouldClearCallLogsWhenDeletingApi() {
         service.delete("api-1");
 

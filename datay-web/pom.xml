@@ -78,6 +78,7 @@
         <spotless-maven-plugin.version>2.44.4</spotless-maven-plugin.version>
         <spring.profiles.active>dev</spring.profiles.active>
         <springdoc-openapi-starter-webmvc-api.version>2.8.8</springdoc-openapi-starter-webmvc-api.version>
+        <rhino.version>1.7.15</rhino.version>
     </properties>
 
     <dependencies>
@@ -291,6 +292,12 @@
       <dependency>
         <groupId>com.alibaba.fastjson2</groupId>
         <artifactId>fastjson2</artifactId>
+      </dependency>
+      <!-- 数据服务 API 前置处理脚本（JavaScript） -->
+      <dependency>
+        <groupId>org.mozilla</groupId>
+        <artifactId>rhino</artifactId>
+        <version>${rhino.version}</version>
       </dependency>
       <dependency>
         <groupId>commons-dbutils</groupId>

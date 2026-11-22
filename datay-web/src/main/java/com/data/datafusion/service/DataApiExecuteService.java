@@ -38,6 +38,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -125,6 +126,8 @@ public class DataApiExecuteService {
 
     private final DataApiCallLogService callLogService;
 
+    private final DataApiScriptPreProcessService scriptPreProcessService;
+
     /** 前置处理 Token 缓存，键为「服务 ID + 前置配置」，值为 Token 与过期时间。 */
     private final Map<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
 
@@ -135,7 +138,8 @@ public class DataApiExecuteService {
         DataSourceService dataSourceService,
         AnalysisDatasetService analysisDatasetService,
         UserRepository userRepository,
-        DataApiCallLogService callLogService
+        DataApiCallLogService callLogService,
+        DataApiScriptPreProcessService scriptPreProcessService
     ) {
         this.mcpTokenService = mcpTokenService;
         this.tenantRepository = tenantRepository;
@@ -144,6 +148,7 @@ public class DataApiExecuteService {
         this.analysisDatasetService = analysisDatasetService;
         this.userRepository = userRepository;
         this.callLogService = callLogService;
+        this.scriptPreProcessService = scriptPreProcessService;
     }
 
     /**
@@ -568,9 +573,9 @@ public class DataApiExecuteService {
     /**
      * 代理调用已注册的 HTTP API。
      *
-     * <p>支持两种能力：其一，直接按配置的地址、方法、请求头、请求体转发；其二，先调用前置接口获取
-     * Token。URL、请求头、请求体中均可使用 {@code ${param}} 占位符，调用方同名参数会在转发前替换；
-     * 前置接口获取到的 Token 则以 {@code ${token}} 引用。</p>
+     * <p>支持三种前置处理方式：不启用；调用前置接口获取 Token；执行 JavaScript 脚本。
+     * URL、请求头、请求体中均可使用 {@code ${param}} 占位符，调用方同名参数会在转发前替换；
+     * 前置接口获取到的 Token 以 {@code ${token}} 引用，脚本返回的对象则整体合并进参数上下文。</p>
      */
     private Map<String, Object> invokeFromApi(DataApiDTO api, Map<String, Object> params, boolean debug) {
         JSONObject config = parseApiConfig(api.getApiConfig());
@@ -599,8 +604,25 @@ public class DataApiExecuteService {
         }
 
         JSONObject preProcess = config.getJSONObject("preProcess");
+        Map<String, Object> preProcessDebug = null;
         if (preProcess != null && preProcess.getBooleanValue("enabled", false)) {
-            context.put("token", resolvePreProcessToken(api, preProcess, context, !debug));
+            String preProcessType = preProcess.getString("type");
+            if ("script".equalsIgnoreCase(preProcessType)) {
+                long preProcessStartNanos = System.nanoTime();
+                Map<String, Object> scriptOutput = scriptPreProcessService.execute(
+                    preProcess.getString("script"),
+                    context
+                );
+                context.putAll(scriptOutput);
+                if (debug) {
+                    preProcessDebug = new LinkedHashMap<>();
+                    preProcessDebug.put("type", "script");
+                    preProcessDebug.put("output", scriptOutput);
+                    preProcessDebug.put("durationMs", elapsedMs(preProcessStartNanos));
+                }
+            } else {
+                context.put("token", resolvePreProcessToken(api, preProcess, context, !debug));
+            }
         }
 
         url = substitutePlaceholders(url, context, "请求地址");
@@ -620,19 +642,22 @@ public class DataApiExecuteService {
             if (!debug) {
                 throw new DataApiAccessException(502, message);
             }
-            return debugError(502, message, upstream);
+            return debugError(502, message, upstream, preProcessDebug);
         }
         try {
             Map<String, Object> result = buildApiResult(response.body(), config.getString("jsonPath"));
             if (debug) {
                 result.put("upstream", upstream);
+                if (preProcessDebug != null) {
+                    result.put("preProcess", preProcessDebug);
+                }
             }
             return result;
         } catch (DataApiAccessException e) {
             if (!debug) {
                 throw e;
             }
-            return debugError(e.getStatus(), e.getMessage(), upstream);
+            return debugError(e.getStatus(), e.getMessage(), upstream, preProcessDebug);
         }
     }
 
@@ -873,7 +898,7 @@ public class DataApiExecuteService {
                 missing.add(name);
                 matcher.appendReplacement(builder, Matcher.quoteReplacement(matcher.group(0)));
             } else {
-                matcher.appendReplacement(builder, Matcher.quoteReplacement(String.valueOf(value)));
+                matcher.appendReplacement(builder, Matcher.quoteReplacement(placeholderValue(value)));
             }
         }
         matcher.appendTail(builder);
@@ -881,6 +906,13 @@ public class DataApiExecuteService {
             throw new DataApiAccessException(400, label + "缺少参数：" + String.join(", ", missing));
         }
         return builder.toString();
+    }
+
+    private static String placeholderValue(Object value) {
+        if (value instanceof Map || value instanceof Collection || value instanceof Object[]) {
+            return JSON.toJSONString(value);
+        }
+        return String.valueOf(value);
     }
 
     private static JSONObject substituteHeaders(JSONObject headers, Map<String, Object> context) {
@@ -926,6 +958,15 @@ public class DataApiExecuteService {
      * 构造调试错误返回体；HTTP 状态由控制器统一返回 200，错误码放在 {@code code} 中。
      */
     private static Map<String, Object> debugError(int code, String message, Map<String, Object> upstream) {
+        return debugError(code, message, upstream, null);
+    }
+
+    private static Map<String, Object> debugError(
+        int code,
+        String message,
+        Map<String, Object> upstream,
+        Map<String, Object> preProcess
+    ) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("code", code);
         result.put("message", message == null || message.isBlank() ? "调试失败" : message);
@@ -934,6 +975,9 @@ public class DataApiExecuteService {
         result.put("total", 0);
         if (upstream != null) {
             result.put("upstream", upstream);
+        }
+        if (preProcess != null) {
+            result.put("preProcess", preProcess);
         }
         return result;
     }

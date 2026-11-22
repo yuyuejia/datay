@@ -24,9 +24,12 @@ import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.data.datafusion.service.dto.DataApiDTO;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
@@ -63,6 +66,11 @@ public class DataApiHarnessTools {
     private static final String DATASET_PARAMETER_HINT =
         "数据集来源：SQL 数据集需要传入 SQL 中声明的全部 ${param} 参数；指标数据集可选 start / end 覆盖时间范围；" +
         "另支持 pageNum / pageSize 分页。";
+
+    /** 前置处理脚本里通过 params.xxx / params['xxx'] 读取的调用参数。 */
+    private static final Pattern SCRIPT_PARAMETER_PATTERN = Pattern.compile(
+        "\\bparams\\s*(?:\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)|\\[\\s*['\"]([^'\"]+)['\"]\\s*\\])"
+    );
 
     private final DataApiService dataApiService;
 
@@ -230,7 +238,7 @@ public class DataApiHarnessTools {
 
     /**
      * 汇总服务需要的调用参数：SQL 来源取 {@code sqlText}，DATASET 来源取数据集 SQL 占位符，
-     * API 来源扫描整份 {@code apiConfig}（URL / 请求头 / 请求体里的占位符都在其中）。
+     * API 来源按 URL / 请求头 / 请求体以及前置处理配置分别提取。
      */
     List<String> requiredParameters(DataApiDTO dto) {
         List<String> names = new ArrayList<>();
@@ -239,10 +247,62 @@ public class DataApiHarnessTools {
         } else if (DataApi.SOURCE_TYPE_DATASET.equals(dto.getSourceType())) {
             names.addAll(datasetRequiredParameters(dto));
         } else if (DataApi.SOURCE_TYPE_API.equals(dto.getSourceType())) {
-            names.addAll(DataApiExecuteService.extractParameterNames(dto.getApiConfig()));
+            names.addAll(apiRequiredParameters(dto.getApiConfig()));
         }
         names.removeIf(INTERNAL_PARAMETERS::contains);
+        return new ArrayList<>(new LinkedHashSet<>(names));
+    }
+
+    /**
+     * API 来源的参数：优先从结构化字段提取，避免把脚本里的 JS 模板字符串误判为占位符；
+     * 脚本模式额外识别 {@code params.xxx} 形式读取的参数。
+     */
+    private static List<String> apiRequiredParameters(String apiConfig) {
+        JSONObject config = parseConfig(apiConfig);
+        if (config == null) {
+            return DataApiExecuteService.extractParameterNames(apiConfig);
+        }
+
+        List<String> names = new ArrayList<>();
+        List<String> templates = new ArrayList<>();
+        templates.add(config.getString("url"));
+        addHeaderTemplates(templates, config.getJSONObject("headers"));
+        templates.add(config.getString("body"));
+
+        JSONObject preProcess = config.getJSONObject("preProcess");
+        if (preProcess != null && preProcess.getBooleanValue("enabled", false)) {
+            if ("script".equalsIgnoreCase(preProcess.getString("type"))) {
+                names.addAll(extractScriptParameterNames(preProcess.getString("script")));
+            } else {
+                templates.add(preProcess.getString("url"));
+                addHeaderTemplates(templates, preProcess.getJSONObject("headers"));
+                templates.add(preProcess.getString("body"));
+            }
+        }
+        names.addAll(DataApiExecuteService.extractParameterNames(templates.toArray(new String[0])));
         return names;
+    }
+
+    private static void addHeaderTemplates(List<String> templates, JSONObject headers) {
+        if (headers == null) {
+            return;
+        }
+        headers.values().forEach(value -> templates.add(value == null ? null : String.valueOf(value)));
+    }
+
+    private static List<String> extractScriptParameterNames(String script) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        if (script == null || script.isBlank()) {
+            return new ArrayList<>(names);
+        }
+        Matcher matcher = SCRIPT_PARAMETER_PATTERN.matcher(script);
+        while (matcher.find()) {
+            String name = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            if (name != null && !name.isBlank()) {
+                names.add(name);
+            }
+        }
+        return new ArrayList<>(names);
     }
 
     /**
@@ -308,7 +368,12 @@ public class DataApiHarnessTools {
         summary.put("httpMethod", method == null ? "AUTO" : String.valueOf(method));
         summary.put("jsonPath", config.getString("jsonPath"));
         JSONObject preProcess = config.getJSONObject("preProcess");
-        summary.put("preProcessEnabled", preProcess != null && preProcess.getBooleanValue("enabled", false));
+        boolean preProcessEnabled = preProcess != null && preProcess.getBooleanValue("enabled", false);
+        summary.put("preProcessEnabled", preProcessEnabled);
+        summary.put(
+            "preProcessType",
+            !preProcessEnabled ? "none" : ("script".equalsIgnoreCase(preProcess.getString("type")) ? "script" : "http")
+        );
         summary.put("hasRequestBody", config.getString("body") != null && !config.getString("body").isBlank());
         return summary;
     }

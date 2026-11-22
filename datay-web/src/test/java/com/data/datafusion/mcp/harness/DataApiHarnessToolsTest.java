@@ -117,8 +117,25 @@ class DataApiHarnessToolsTest {
 
         assertThat(asList(result.get("parameters"))).containsExactly("day", "tenant", "city");
         assertThat(result).containsEntry("httpMethod", "POST").containsEntry("jsonPath", "$.result.rows");
-        assertThat(result).containsEntry("preProcessEnabled", true).containsEntry("hasRequestBody", true);
+        assertThat(result).containsEntry("preProcessEnabled", true).containsEntry("preProcessType", "http").containsEntry("hasRequestBody", true);
         assertThat(result).doesNotContainKeys("url", "headers", "apiConfig", "sqlText");
+    }
+
+    @Test
+    void shouldDescribeScriptPreProcessWithoutLeakingScript() throws Exception {
+        DataApiDTO dto = dataApi("5", "script_api", DataApi.SOURCE_TYPE_API);
+        dto.setApiConfig(
+            "{\"url\":\"https://up.example.com/data?day=${day}\",\"method\":\"GET\"," +
+            "\"preProcess\":{\"enabled\":true,\"type\":\"script\"," +
+            "\"script\":\"return { sign: utils.md5(params.appId + params.day) };\"}}"
+        );
+        when(dataApiService.findByCode("script_api")).thenReturn(Optional.of(dto));
+
+        Map<String, Object> result = asMap(tools.dataapiDescribeTool().execute(Map.of("code", "script_api"), context()));
+
+        assertThat(asList(result.get("parameters"))).containsExactly("appId", "day");
+        assertThat(result).containsEntry("preProcessEnabled", true).containsEntry("preProcessType", "script");
+        assertThat(result).doesNotContainKeys("script", "url", "apiConfig");
     }
 
     @Test

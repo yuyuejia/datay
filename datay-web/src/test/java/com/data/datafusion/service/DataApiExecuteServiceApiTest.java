@@ -70,7 +70,8 @@ class DataApiExecuteServiceApiTest {
             mock(DataSourceService.class),
             analysisDatasetService,
             mock(UserRepository.class),
-            callLogService
+            callLogService,
+            new DataApiScriptPreProcessService(3000)
         );
 
         User user = new User();
@@ -134,6 +135,91 @@ class DataApiExecuteServiceApiTest {
 
         JSONObject data = (JSONObject) result.get("data");
         assertThat(data.getString("query")).isEqualTo("status=PAID");
+    }
+
+    @Test
+    void shouldRunScriptPreProcessAndReferenceOutput() {
+        when(dataApiService.findByCode("orders")).thenReturn(Optional.of(api(
+            "{\"url\":\"http://127.0.0.1:" +
+            port +
+            "/orders?ts=${ts}\",\"method\":\"GET\",\"headers\":{\"Authorization\":\"${token}\"}," +
+            "\"preProcess\":{\"enabled\":true,\"type\":\"script\"," +
+            "\"script\":\"return { token: 'Bearer ' + params.appId, ts: 'T1' };\"}}"
+        )));
+
+        Map<String, Object> result = service.invokeApi("mcp_token", "orders", Map.of("appId", "A1"));
+
+        assertThat(result.get("code")).isEqualTo(0);
+        JSONObject data = (JSONObject) result.get("data");
+        assertThat(data.getString("auth")).isEqualTo("Bearer A1");
+        assertThat(data.getString("query")).isEqualTo("ts=T1");
+    }
+
+    @Test
+    void shouldLetScriptOutputOverrideCallerParameter() {
+        when(dataApiService.findByCode("orders")).thenReturn(Optional.of(api(
+            "{\"url\":\"http://127.0.0.1:" +
+            port +
+            "/orders?status=${status}\",\"method\":\"GET\"," +
+            "\"preProcess\":{\"enabled\":true,\"type\":\"script\",\"script\":\"return { status: 'SCRIPT' };\"}}"
+        )));
+
+        Map<String, Object> result = service.invokeApi("mcp_token", "orders", Map.of("status", "PAID"));
+
+        JSONObject data = (JSONObject) result.get("data");
+        assertThat(data.getString("query")).isEqualTo("status=SCRIPT");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldReturnScriptOutputWhenDebugging() {
+        DataApiDTO dto = api(
+            "{\"url\":\"http://127.0.0.1:" +
+            port +
+            "/orders\",\"method\":\"GET\",\"preProcess\":{\"enabled\":true,\"type\":\"script\"," +
+            "\"script\":\"return { token: 'Bearer ' + params.appId, ts: 'T1' };\"}}"
+        );
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of("appId", "A1"));
+
+        assertThat(result.get("code")).isEqualTo(0);
+        Map<String, Object> preProcess = (Map<String, Object>) result.get("preProcess");
+        assertThat(preProcess.get("type")).isEqualTo("script");
+        assertThat((Map<String, Object>) preProcess.get("output"))
+            .containsEntry("token", "Bearer A1")
+            .containsEntry("ts", "T1");
+        assertThat(preProcess.get("durationMs")).isNotNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldKeepScriptOutputWhenDebugUpstreamFails() {
+        DataApiDTO dto = api(
+            "{\"url\":\"http://127.0.0.1:" +
+            port +
+            "/fail\",\"method\":\"GET\",\"preProcess\":{\"enabled\":true,\"type\":\"script\"," +
+            "\"script\":\"return { token: 'T' };\"}}"
+        );
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(502);
+        Map<String, Object> preProcess = (Map<String, Object>) result.get("preProcess");
+        assertThat((Map<String, Object>) preProcess.get("output")).containsEntry("token", "T");
+    }
+
+    @Test
+    void shouldReturnScriptErrorWhenDebugging() {
+        DataApiDTO dto = api(
+            "{\"url\":\"http://127.0.0.1:" +
+            port +
+            "/orders\",\"method\":\"GET\",\"preProcess\":{\"enabled\":true,\"type\":\"script\",\"script\":\"return 1;\"}}"
+        );
+
+        Map<String, Object> result = service.debugInvoke(dto, Map.of());
+
+        assertThat(result.get("code")).isEqualTo(500);
+        assertThat(result.get("message")).asString().contains("必须返回一个对象");
     }
 
     @Test

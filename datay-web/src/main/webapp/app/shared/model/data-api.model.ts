@@ -19,19 +19,28 @@ export interface IDataApi {
   createTime?: Date | null;
 }
 
-/** 前置处理：调用其他接口获取 Token 的配置。 */
+/** 前置处理方式：接口取 Token 或 JavaScript 脚本。 */
+export type ApiPreProcessType = 'http' | 'script';
+
+/** 前置处理：调用其他接口获取 Token，或执行 JavaScript 脚本。 */
 export interface IApiPreProcess {
   enabled: boolean;
-  url: string;
-  method: string;
+  /** 前置处理类型，旧配置缺省视为 http。 */
+  type?: ApiPreProcessType;
+  url?: string;
+  method?: string;
   headers?: Record<string, string>;
   body?: string;
   /** 从响应中提取 Token 的 JSONPath，如 $.data.accessToken。 */
   tokenPath?: string;
   /** 缓存秒数，<=0 表示不缓存。 */
   cacheTtlSeconds?: number;
+  /** 前置请求超时毫秒数。 */
+  timeout?: number;
   /** 前置请求是否校验 SSL 证书，默认校验。 */
   sslVerify?: boolean;
+  /** type=script 时执行的 JavaScript 源码。 */
+  script?: string;
 }
 
 /** 已注册 HTTP API 的转发配置，序列化后存入 apiConfig 字段。 */
@@ -100,6 +109,12 @@ export interface IDataApiDebugResult {
   pageSize?: number;
   durationMs?: number;
   upstream?: IDataApiDebugUpstream;
+  /** 脚本前置处理的调试信息。 */
+  preProcess?: {
+    type?: string;
+    output?: Record<string, any>;
+    durationMs?: number;
+  };
 }
 
 /** 数据服务调用日志。 */

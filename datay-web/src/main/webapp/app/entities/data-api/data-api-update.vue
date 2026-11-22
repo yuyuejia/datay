@@ -171,7 +171,8 @@
         <div class="filter-hint">
           <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
           <span>
-            SQL 中可使用 <code>$&#123;param&#125;</code> 占位符，调用时同名参数将作为预编译参数安全绑定，未传参数时按 SQL NULL 处理；服务仅允许 SELECT 等只读语句。
+            SQL 中可使用 <code>$&#123;param&#125;</code> 占位符，调用时同名参数将作为预编译参数安全绑定，未传参数时按 SQL NULL
+            处理；服务仅允许 SELECT 等只读语句。
           </span>
         </div>
       </div>
@@ -255,9 +256,15 @@
 
         <div class="pre-process">
           <div class="pre-process-header">
-            <el-checkbox v-model="apiConfig.preProcess.enabled">启用前置处理（先调用接口获取 Token）</el-checkbox>
+            <span class="pre-process-title">前置处理</span>
+            <el-radio-group v-model="preProcessMode" size="small">
+              <el-radio-button value="none">不启用</el-radio-button>
+              <el-radio-button value="http">接口获取 Token</el-radio-button>
+              <el-radio-button value="script">JavaScript 脚本</el-radio-button>
+            </el-radio-group>
           </div>
-          <div v-if="apiConfig.preProcess.enabled" class="pre-process-body">
+
+          <div v-if="preProcessMode === 'http'" class="pre-process-body">
             <div class="curl-import">
               <el-button size="small" @click="showPreCurlImport = !showPreCurlImport">
                 {{ showPreCurlImport ? '收起 cURL 导入' : '从 cURL 导入' }}
@@ -330,6 +337,35 @@
               <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
               主请求地址、请求头、请求体中均可使用 <code>$&#123;param&#125;</code> 占位符引用调用参数，使用
               <code>$&#123;token&#125;</code> 引用前置接口获取的 Token；Token 路径留空时直接使用响应文本。
+            </div>
+          </div>
+
+          <div v-else-if="preProcessMode === 'script'" class="pre-process-body">
+            <div class="script-header">
+              <span class="script-hint">脚本返回的对象会合并到调用参数中，供请求地址、请求头、请求体使用。</span>
+              <el-button size="small" @click="fillScriptExample">填入示例</el-button>
+            </div>
+
+            <el-form-item label="处理脚本">
+              <el-input
+                type="textarea"
+                class="code-area"
+                v-model="apiConfig.preProcess.script"
+                :rows="12"
+                placeholder="return { token: 'Bearer ' + params.appId };"
+              />
+            </el-form-item>
+
+            <div class="filter-hint">
+              <div class="filter-hint-title">
+                <font-awesome-icon icon="exclamation-circle" class="mr-1"></font-awesome-icon>
+                脚本入参 <code>params</code> 为调用方传入的参数；返回对象中的键值会合并到参数上下文，同名时覆盖原参数。
+              </div>
+              <div>
+                内置工具：<code>utils.md5</code>、<code>utils.sha1</code>、<code>utils.sha256</code>、
+                <code>utils.hmacSha256</code>、<code>utils.base64Encode</code>、<code>utils.base64Decode</code>、
+                <code>utils.urlEncode</code>、<code>utils.uuid</code>、<code>utils.now</code>、 <code>utils.formatDate</code>。
+              </div>
             </div>
           </div>
         </div>
@@ -460,6 +496,10 @@
               </template>
               <el-empty v-else description="本次调试没有上游响应" />
             </el-tab-pane>
+
+            <el-tab-pane v-if="debugPreProcess" label="前置处理" name="preProcess">
+              <pre class="debug-json">{{ debugPreProcessJson }}</pre>
+            </el-tab-pane>
           </el-tabs>
         </div>
         <el-empty v-else-if="!debugLoading" description="填写参数后点击「发送调试请求」" />
@@ -573,6 +613,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.pre-process-title {
+  font-weight: 500;
+  color: #303133;
+}
+
+.script-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.script-hint {
+  color: #909399;
+  font-size: 12px;
 }
 
 .inline-toggle {
