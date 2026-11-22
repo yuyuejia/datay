@@ -225,6 +225,45 @@ export default class DataSourceService {
     });
   }
 
+  getTableMaintenanceActions(dataSourceId: string, schema: string, table: string, catalog?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}/maintenance`, {
+          params: catalog ? { catalog } : {},
+        })
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  executeTableMaintenance(
+    dataSourceId: string,
+    schema: string,
+    table: string,
+    action: string,
+    params: Record<string, any>,
+    catalog?: string,
+  ): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(
+          `${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}/maintenance/${encodeURIComponent(action)}`,
+          params,
+          { params: catalog ? { catalog } : {} },
+        )
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   testConnection(entity: IDataSource): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

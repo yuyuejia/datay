@@ -131,6 +131,36 @@ public class DuckLakeAttachTest {
             assertEquals(100L, ((Number) summary.get("totalRecords")).longValue());
             assertTrue(((Number) summary.get("snapshotCount")).longValue() >= 2);
             assertNotNull(health.get("location"));
+
+            List<Map<String, Object>> actions = provider.getTableMaintenanceActions(conn, "ducklake", "main", "orders");
+            assertFalse(actions.isEmpty(), "DuckLake 应提供运维操作");
+            Map<String, Object> refresh = provider.executeTableMaintenance(
+                conn,
+                "ducklake",
+                "main",
+                "orders",
+                "refresh_metadata",
+                Map.of()
+            );
+            assertEquals(Boolean.TRUE, refresh.get("success"));
+            Map<String, Object> merge = provider.executeTableMaintenance(
+                conn,
+                "ducklake",
+                "main",
+                "orders",
+                "merge_adjacent_files",
+                Map.of("maxCompactedFiles", 10)
+            );
+            assertEquals(Boolean.TRUE, merge.get("success"));
+            Map<String, Object> checkpoint = provider.executeTableMaintenance(
+                conn,
+                "ducklake",
+                "main",
+                "orders",
+                "checkpoint",
+                Map.of()
+            );
+            assertEquals(Boolean.TRUE, checkpoint.get("success"));
         }
     }
 

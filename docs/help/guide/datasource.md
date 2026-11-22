@@ -200,6 +200,25 @@ DuckLake 数据源的表在「数据查询」预览页同样提供「健康监�
 
 > DuckLake 会把较小的数据内联在元数据 Catalog 中。此时物理文件数为 0，健康页会显示「内联数据」行数，不会误判为小文件。需要查看文件级指标时，写入超过内联阈值的数据即可生成 Parquet 文件。
 
+#### 常用运维操作
+
+健康监控页签下方的「常用运维」区域可以直接执行表维护操作，执行前会弹出确认框；删除类操作默认使用演练模式（dry-run），确认影响范围后再关闭演练执行。
+
+DuckLake 支持的运维操作：
+
+- 刷新元数据
+- 落盘内联数据（`ducklake_flush_inlined_data`）
+- 合并小文件（`ducklake_merge_adjacent_files`）
+- 清理删除标记（`ducklake_rewrite_data_files`）
+- 过期快照（`ducklake_expire_snapshots`，Catalog 级）
+- 清理旧文件（`ducklake_cleanup_old_files`，Catalog 级）
+- 清理孤儿文件（`ducklake_delete_orphaned_files`，Catalog 级）
+- 一键维护（`CHECKPOINT`，Catalog 级）
+
+标记为 `CATALOG` 的操作会作用于整个 DuckLake Catalog，而不是单张表。快照过期/文件清理会丢失时间旅行能力或删除存储文件，请先使用演练模式确认。
+
+Apache Polaris / Iceberg 表目前支持「刷新元数据」。DuckDB 的 Iceberg 扩展尚未提供 `rewrite_data_files`、`expire_snapshots`、`rewrite_manifests`、`remove_orphan_files` 等维护过程，页面会将这些操作置灰并提示使用 Spark 或 Floe 执行。
+
 ## 下一步
 
 - [数据集成与同步](guide/integration.md)：用注册好的数据源编排同步任务

@@ -149,6 +149,47 @@ interface TableHealthDetail {
   snapshots?: TableHealthSnapshot[];
 }
 
+interface TableMaintenanceParam {
+  name: string;
+  label?: string;
+  type?: string;
+  default?: any;
+  min?: number | null;
+  max?: number | null;
+  step?: number | null;
+  description?: string;
+}
+
+interface TableMaintenanceAction {
+  id: string;
+  label?: string;
+  description?: string;
+  scope?: string;
+  danger?: boolean;
+  available?: boolean;
+  unavailableReason?: string;
+  confirm?: string;
+  params?: TableMaintenanceParam[];
+}
+
+interface TableMaintenanceResult {
+  success?: boolean;
+  message?: string;
+  rowCount?: number;
+  rowsTruncated?: boolean;
+  dryRun?: boolean;
+  rows?: any[];
+}
+
+interface MaintenanceDialogState {
+  visible: boolean;
+  tab: PreviewTab | null;
+  action: TableMaintenanceAction | null;
+  params: Record<string, any>;
+  running: boolean;
+  result: TableMaintenanceResult | null;
+}
+
 interface PreviewTab {
   key: string;
   title: string;
@@ -168,6 +209,7 @@ interface PreviewTab {
   healthLoading: boolean;
   healthError: string;
   healthLoaded: boolean;
+  maintenanceActions: TableMaintenanceAction[];
 }
 
 export default defineComponent({
@@ -233,6 +275,14 @@ export default defineComponent({
 
     const activeTab = ref('sql');
     const previewTabs = ref<PreviewTab[]>([]);
+    const maintenanceDialog = ref<MaintenanceDialogState>({
+      visible: false,
+      tab: null,
+      action: null,
+      params: {},
+      running: false,
+      result: null,
+    });
 
     const contextMenu = ref<{ visible: boolean; x: number; y: number; data: TableNode | null }>({
       visible: false,
@@ -1005,8 +1055,13 @@ export default defineComponent({
       tab.healthLoading = true;
       tab.healthError = '';
       try {
-        const res = await dataSourceService().getTableHealth(dataSourceId.value, tab.schema, tab.table, tab.catalog);
+        const healthPromise = dataSourceService().getTableHealth(dataSourceId.value, tab.schema, tab.table, tab.catalog);
+        const actionsPromise = dataSourceService()
+          .getTableMaintenanceActions(dataSourceId.value, tab.schema, tab.table, tab.catalog)
+          .catch(() => null);
+        const [res, actionsRes] = await Promise.all([healthPromise, actionsPromise]);
         tab.health = res.data || res || null;
+        tab.maintenanceActions = actionsRes?.data?.actions || [];
         tab.healthLoaded = true;
       } catch (err: any) {
         tab.healthError = err.response?.data?.message || err.response?.data?.detail || err.message || '获取表健康信息失败';
@@ -1021,6 +1076,62 @@ export default defineComponent({
       if (String(name) === 'health' && !tab.healthLoaded && !tab.healthLoading) {
         loadTableHealth(tab);
       }
+    };
+
+    const openMaintenance = (tab: PreviewTab, action: TableMaintenanceAction) => {
+      if (!action || action.available === false) return;
+      const params: Record<string, any> = {};
+      (action.params || []).forEach(param => {
+        params[param.name] = param.default;
+      });
+      maintenanceDialog.value = {
+        visible: true,
+        tab,
+        action,
+        params,
+        running: false,
+        result: null,
+      };
+    };
+
+    const closeMaintenance = () => {
+      maintenanceDialog.value.visible = false;
+    };
+
+    const runMaintenance = async () => {
+      const state = maintenanceDialog.value;
+      if (!state.tab || !state.action || state.running) return;
+      state.running = true;
+      state.result = null;
+      try {
+        const res = await dataSourceService().executeTableMaintenance(
+          dataSourceId.value,
+          state.tab.schema,
+          state.tab.table,
+          state.action.id,
+          state.params,
+          state.tab.catalog,
+        );
+        const result = (res.data || res) as TableMaintenanceResult;
+        state.result = result;
+        if (result?.success) {
+          alertService.showSuccess(result.message || '运维操作已完成');
+          await loadTableHealth(state.tab);
+        } else {
+          alertService.showError(result?.message || '运维操作失败');
+        }
+      } catch (err: any) {
+        const message = err.response?.data?.message || err.response?.data?.detail || err.message || '运维操作失败';
+        state.result = { success: false, message, rows: [] };
+        alertService.showError(message);
+      } finally {
+        state.running = false;
+      }
+    };
+
+    const formatMaintenanceRows = (rows?: any[]) => {
+      if (!rows || rows.length === 0) return '';
+      return JSON.stringify(rows.slice(0, 100), null, 2);
     };
 
     const refreshPreview = (tab: PreviewTab) => {
@@ -1054,6 +1165,7 @@ export default defineComponent({
           healthLoading: false,
           healthError: '',
           healthLoaded: false,
+          maintenanceActions: [],
         });
         tab = previewTabs.value[previewTabs.value.length - 1];
         loadTableDetail(tab);
@@ -1309,6 +1421,11 @@ export default defineComponent({
       healthStatusText,
       healthStatusTagType,
       healthScoreColor,
+      maintenanceDialog,
+      openMaintenance,
+      closeMaintenance,
+      runMaintenance,
+      formatMaintenanceRows,
       handleTabRemove,
       openContextMenu,
       handleTableCommand,

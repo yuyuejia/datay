@@ -73,6 +73,45 @@ public class DuckLakeDataSourceProvider extends DuckDbDataSourceProvider {
     }
 
     @Override
+    public List<Map<String, Object>> getTableMaintenanceActions(
+        Connection conn,
+        String catalog,
+        String schema,
+        String table
+    ) throws SQLException {
+        if (!isDuckLakeTable(conn, catalog)) {
+            return List.of();
+        }
+        return DuckLakeMaintenanceExecutor.actions();
+    }
+
+    @Override
+    public Map<String, Object> executeTableMaintenance(
+        Connection conn,
+        String catalog,
+        String schema,
+        String table,
+        String action,
+        Map<String, Object> params
+    ) throws SQLException {
+        if (!isDuckLakeTable(conn, catalog)) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", false);
+            result.put("message", "当前数据源不支持 DuckLake 运维操作");
+            result.put("rows", List.of());
+            return result;
+        }
+        return DuckLakeMaintenanceExecutor.INSTANCE.execute(conn, DUCKLAKE_CATALOG, schema, table, action, params);
+    }
+
+    private boolean isDuckLakeTable(Connection conn, String catalog) throws SQLException {
+        if (!isDuckLakeConnection(conn)) {
+            return false;
+        }
+        return catalog == null || catalog.isBlank() || DUCKLAKE_CATALOG.equalsIgnoreCase(catalog);
+    }
+
+    @Override
     public Connection openConnection(DatasourceInfo info) throws SQLException {
         // 本地 scratch 库无需用户名密码：DuckDB 会拒绝以不同 user 配置打开同一文件
         Connection conn = ConnectionPoolManager.getConnection(DBUtils.resolveDuckLakeJdbcUrl(info), null, null);

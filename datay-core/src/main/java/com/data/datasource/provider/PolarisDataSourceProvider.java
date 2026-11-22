@@ -13,7 +13,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -120,6 +122,155 @@ public class PolarisDataSourceProvider extends DuckDbDataSourceProvider {
             return unsupported;
         }
         return PolarisTableHealthAnalyzer.INSTANCE.analyze(conn, POLARIS_CATALOG, schema, table);
+    }
+
+    @Override
+    public List<Map<String, Object>> getTableMaintenanceActions(
+        Connection conn,
+        String catalog,
+        String schema,
+        String table
+    ) throws SQLException {
+        if (!isPolarisTable(conn, catalog)) {
+            return List.of();
+        }
+        List<Map<String, Object>> actions = new ArrayList<>();
+        actions.add(
+            maintenanceAction(
+                "refresh_metadata",
+                "刷新元数据",
+                "重新读取当前 Iceberg 表的最新元数据与快照信息。",
+                "TABLE",
+                false,
+                "刷新元数据不会修改数据，是否继续？",
+                true,
+                null,
+                List.of()
+            )
+        );
+        actions.add(
+            unavailableAction(
+                "rewrite_data_files",
+                "合并小文件",
+                "Iceberg rewrite_data_files：合并小文件并重写删除比例较高的数据文件。",
+                "DuckDB Iceberg 引擎暂不支持该过程，请使用 Spark 或 Floe 执行。"
+            )
+        );
+        actions.add(
+            unavailableAction(
+                "expire_snapshots",
+                "过期快照",
+                "Iceberg expire_snapshots：清理不再需要的旧快照与数据文件。",
+                "DuckDB Iceberg 引擎暂不支持该过程，请使用 Spark 或 Floe 执行。"
+            )
+        );
+        actions.add(
+            unavailableAction(
+                "rewrite_manifests",
+                "重写 Manifest",
+                "Iceberg rewrite_manifests：合并碎片化 Manifest，提升查询规划效率。",
+                "DuckDB Iceberg 引擎暂不支持该过程，请使用 Spark 或 Floe 执行。"
+            )
+        );
+        actions.add(
+            unavailableAction(
+                "remove_orphan_files",
+                "清理孤儿文件",
+                "Iceberg remove_orphan_files：删除 Catalog 未引用的孤儿文件。",
+                "DuckDB Iceberg 引擎暂不支持该过程，请使用 Spark 或 Floe 执行。"
+            )
+        );
+        return actions;
+    }
+
+    @Override
+    public Map<String, Object> executeTableMaintenance(
+        Connection conn,
+        String catalog,
+        String schema,
+        String table,
+        String action,
+        Map<String, Object> params
+    ) throws SQLException {
+        if (!isPolarisTable(conn, catalog)) {
+            return maintenanceFailure("当前数据源不支持 Iceberg 运维操作");
+        }
+        if (!"refresh_metadata".equals(action)) {
+            return maintenanceFailure("DuckDB Iceberg 引擎暂不支持该运维操作，请使用 Spark 或 Floe 执行");
+        }
+        String tableRef =
+            POLARIS_CATALOG + "." + quoteIdentifier(schema) + "." + quoteIdentifier(table);
+        long snapshots = 0L;
+        try (
+            Statement statement = conn.createStatement();
+            ResultSet rs = statement.executeQuery(
+                "SELECT COUNT(*) FROM iceberg_snapshots(" + quoteLiteral(tableRef) + ")"
+            )
+        ) {
+            if (rs.next()) {
+                snapshots = rs.getLong(1);
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("message", "元数据已刷新，当前共 " + snapshots + " 个快照");
+        result.put("rowCount", 0);
+        result.put("rows", List.of());
+        return result;
+    }
+
+    private boolean isPolarisTable(Connection conn, String catalog) throws SQLException {
+        if (!isPolarisConnection(conn)) {
+            return false;
+        }
+        return catalog == null || catalog.isBlank() || POLARIS_CATALOG.equalsIgnoreCase(catalog);
+    }
+
+    private static Map<String, Object> maintenanceAction(
+        String id,
+        String label,
+        String description,
+        String scope,
+        boolean danger,
+        String confirm,
+        boolean available,
+        String unavailableReason,
+        List<Map<String, Object>> params
+    ) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("id", id);
+        action.put("label", label);
+        action.put("description", description);
+        action.put("scope", scope);
+        action.put("danger", danger);
+        action.put("confirm", confirm);
+        action.put("available", available);
+        if (unavailableReason != null) {
+            action.put("unavailableReason", unavailableReason);
+        }
+        action.put("params", params);
+        return action;
+    }
+
+    private static Map<String, Object> unavailableAction(
+        String id,
+        String label,
+        String description,
+        String reason
+    ) {
+        return maintenanceAction(id, label, description, "TABLE", false, null, false, reason, List.of());
+    }
+
+    private static Map<String, Object> maintenanceFailure(String message) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", false);
+        result.put("message", message);
+        result.put("rows", List.of());
+        return result;
+    }
+
+    private static String quoteLiteral(String value) {
+        return "'" + String.valueOf(value == null ? "" : value).replace("'", "''") + "'";
     }
 
     @Override

@@ -451,6 +451,83 @@ public class DataSourceResource {
     }
 
     /**
+     * 获取表可用的运维操作及参数定义。
+     */
+    @GetMapping("/{id}/schemas/{schema}/tables/{table}/maintenance")
+    public ResponseEntity<Map<String, Object>> getTableMaintenanceActions(
+        @PathVariable("id") String id,
+        @PathVariable("schema") String schema,
+        @PathVariable("table") String table,
+        @RequestParam(value = "catalog", required = false) String catalog
+    ) throws SQLException {
+        LOG.debug("REST request to get DataSource table maintenance actions : {} {}.{}", id, schema, table);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        List<Map<String, Object>> actions;
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            actions = connection.getTableMaintenanceActions(catalog, schema, table);
+        } catch (SQLException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("supported", actions != null && !actions.isEmpty());
+        result.put("actions", actions == null ? List.of() : actions);
+        return ResponseEntity.ok().body(result);
+    }
+
+    /**
+     * 执行表运维操作（小文件合并、删除标记清理、快照过期、文件清理等）。
+     */
+    @PostMapping("/{id}/schemas/{schema}/tables/{table}/maintenance/{action}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
+    public ResponseEntity<Map<String, Object>> executeTableMaintenance(
+        @PathVariable("id") String id,
+        @PathVariable("schema") String schema,
+        @PathVariable("table") String table,
+        @PathVariable("action") String action,
+        @RequestParam(value = "catalog", required = false) String catalog,
+        @RequestBody(required = false) Map<String, Object> params
+    ) {
+        LOG.debug("REST request to execute DataSource table maintenance : {} {}.{} action={}", id, schema, table, action);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            Map<String, Object> result = connection.executeTableMaintenance(
+                catalog,
+                schema,
+                table,
+                action,
+                params == null ? Map.of() : params
+            );
+            if (result == null) {
+                result = new LinkedHashMap<>();
+                result.put("success", false);
+                result.put("message", "当前数据源不支持表运维操作");
+                result.put("rows", List.of());
+            }
+            return ResponseEntity.ok().body(result);
+        } catch (SQLException e) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+
+    /**
      * 列出平台支持的数据源类型（由数据源 SPI 注册表提供），供前端数据源表单动态渲染。
      */
     @GetMapping("/types")

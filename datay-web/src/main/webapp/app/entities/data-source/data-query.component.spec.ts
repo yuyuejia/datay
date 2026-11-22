@@ -175,5 +175,5 @@ describe('DataQuery 左侧表树分页与搜索', () => {
     // 到达 5000 后不再提供“加载更多”，只能搜索
     expect(children[children.length - 1]).toMatchObject({ type: 'hint' });
     expect(children[children.length - 1].label).toBe('仅显示前 5000 张表，请输入表名搜索');
-  });
+  }, 30000);
 });

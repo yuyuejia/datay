@@ -103,6 +103,29 @@ public interface DataSourceConnection extends AutoCloseable {
     }
 
     /**
+     * 获取表可用的运维操作（小文件合并、删除标记清理、快照过期、文件清理等）。
+     *
+     * <p>默认不支持；支持表维护的数据源可覆写。返回空列表表示当前数据源不支持运维操作。</p>
+     */
+    default List<Map<String, Object>> getTableMaintenanceActions(String catalog, String schema, String table)
+        throws Exception {
+        return List.of();
+    }
+
+    /**
+     * 执行表运维操作。默认不支持，返回 {@code null} 或 {@code success=false} 的结果。
+     */
+    default Map<String, Object> executeTableMaintenance(
+        String catalog,
+        String schema,
+        String table,
+        String action,
+        Map<String, Object> params
+    ) throws Exception {
+        return null;
+    }
+
+    /**
      * 测试连接是否可用。
      */
     boolean testConnection() throws Exception;

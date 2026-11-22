@@ -199,7 +199,22 @@ class PolarisEndToEndTest {
             assertTrue(((Number) summary.get("currentMetadataSizeBytes")).longValue() > 0);
             assertEquals("overwrite", health.get("lastOperation"));
 
-            // 9. 清理
+            // 9. 运维操作：Iceberg 至少提供元数据刷新，其余维护过程给出明确的不支持提示
+            assertFalse(
+                provider.getTableMaintenanceActions(conn, DBUtils.POLARIS_CATALOG, schema, table).isEmpty(),
+                "Polaris 应返回运维操作清单"
+            );
+            Map<String, Object> refresh = provider.executeTableMaintenance(
+                conn,
+                DBUtils.POLARIS_CATALOG,
+                schema,
+                table,
+                "refresh_metadata",
+                Map.of()
+            );
+            assertEquals(Boolean.TRUE, refresh.get("success"));
+
+            // 10. 清理
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(
                     "DROP TABLE IF EXISTS \"" + DBUtils.POLARIS_CATALOG + "\".\"" + schema + "\".\"" + table + "\""

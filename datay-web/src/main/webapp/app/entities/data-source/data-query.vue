@@ -418,6 +418,38 @@
                           </el-descriptions-item>
                         </el-descriptions>
 
+                        <div v-if="tab.maintenanceActions?.length" class="health-block health-actions-block">
+                          <div class="health-block-title">
+                            常用运维
+                            <span class="preview-status">执行前会二次确认</span>
+                          </div>
+                          <div class="health-actions">
+                            <el-tooltip
+                              v-for="action in tab.maintenanceActions"
+                              :key="action.id"
+                              :content="
+                                action.available === false ? action.unavailableReason || '当前不可用' : action.description || action.label
+                              "
+                              placement="top"
+                            >
+                              <span class="health-action-item">
+                                <el-button
+                                  size="small"
+                                  :type="action.danger ? 'danger' : 'default'"
+                                  :plain="!action.danger"
+                                  :disabled="action.available === false"
+                                  @click="openMaintenance(tab, action)"
+                                >
+                                  {{ action.label || action.id }}
+                                </el-button>
+                              </span>
+                            </el-tooltip>
+                          </div>
+                          <div v-if="tab.maintenanceActions.some(action => action.scope === 'CATALOG')" class="health-action-hint">
+                            标记为 Catalog 的操作会作用于整个 DuckLake Catalog；删除类操作建议先使用演练模式确认影响范围。
+                          </div>
+                        </div>
+
                         <div class="health-block">
                           <div class="health-block-title">分区信息</div>
                           <el-table
@@ -611,6 +643,53 @@
         </div>
       </div>
     </teleport>
+
+    <el-dialog
+      v-model="maintenanceDialog.visible"
+      :title="maintenanceDialog.action?.label || '运维操作'"
+      width="580px"
+      append-to-body
+      class="maintenance-dialog"
+    >
+      <div v-if="maintenanceDialog.action" class="maintenance-body">
+        <p class="maintenance-description">{{ maintenanceDialog.action.description }}</p>
+        <el-alert
+          :title="maintenanceDialog.action.confirm || '是否执行该操作？'"
+          :type="maintenanceDialog.action.danger ? 'warning' : 'info'"
+          :closable="false"
+          show-icon
+        />
+        <el-form v-if="maintenanceDialog.action.params?.length" label-width="140px" class="maintenance-form">
+          <el-form-item v-for="param in maintenanceDialog.action.params" :key="param.name" :label="param.label || param.name">
+            <el-switch v-if="param.type === 'boolean'" v-model="maintenanceDialog.params[param.name]" />
+            <el-input-number
+              v-else-if="param.type === 'number'"
+              v-model="maintenanceDialog.params[param.name]"
+              :min="param.min ?? undefined"
+              :max="param.max ?? undefined"
+              :step="param.step ?? 1"
+            />
+            <el-input v-else v-model="maintenanceDialog.params[param.name]" />
+            <div v-if="param.description" class="maintenance-param-desc">{{ param.description }}</div>
+          </el-form-item>
+        </el-form>
+        <div v-if="maintenanceDialog.result" class="maintenance-result">
+          <el-alert
+            :title="maintenanceDialog.result.message || (maintenanceDialog.result.success ? '操作完成' : '操作失败')"
+            :type="maintenanceDialog.result.success ? 'success' : 'error'"
+            :closable="false"
+            show-icon
+          />
+          <pre v-if="maintenanceDialog.result.rows?.length" class="maintenance-result-json">{{
+            formatMaintenanceRows(maintenanceDialog.result.rows)
+          }}</pre>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="closeMaintenance">关闭</el-button>
+        <el-button type="primary" :loading="maintenanceDialog.running" @click="runMaintenance">执行</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1328,6 +1407,76 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary, #303133);
+}
+
+.health-actions-block {
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter, #fafafa);
+}
+
+.health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.health-action-item {
+  display: inline-flex;
+}
+
+.health-action-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.maintenance-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.maintenance-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular, #606266);
+}
+
+.maintenance-form {
+  margin-top: 4px;
+}
+
+.maintenance-param-desc {
+  width: 100%;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.maintenance-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.maintenance-result-json {
+  max-height: 240px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 6px;
+  background: var(--el-fill-color-light, #f5f7fa);
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 @media (max-width: 1280px) {
