@@ -137,6 +137,12 @@ class DorisArrowFlightInputTest extends ComponentTestBase {
                 .stream()
                 .anyMatch(field -> "arrowFlightPort".equals(field.getKey()))
         );
+        // Schema 在数据源选择弹窗中确定，不再单独暴露表单字段
+        assertTrue(
+            ComponentFactory.getFields("DorisArrowFlightInput")
+                .stream()
+                .noneMatch(field -> "schema".equals(field.getKey()))
+        );
     }
 
     @Test

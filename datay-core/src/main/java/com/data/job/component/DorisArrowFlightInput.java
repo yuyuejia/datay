@@ -71,19 +71,14 @@ public class DorisArrowFlightInput extends FlowComponent {
         schemaField = "schema",
         group = "基础配置",
         order = 10,
-        help = "选择 Doris 数据源；表元数据通过该数据源的 MySQL 查询端口读取"
+        help = "选择 Doris 数据源，并在选择弹窗中确认 Schema；表元数据通过该数据源的 MySQL 查询端口读取"
     )
     private DatasourceInfo sourceId;
 
-    @ComponentField(
-        key = "schema",
-        label = "Schema",
-        type = ComponentFieldType.SCHEMA,
-        dataSourceField = "sourceId",
-        group = "基础配置",
-        order = 20,
-        placeholder = "请选择 Doris 数据库"
-    )
+    /**
+     * Doris 数据库名。由数据源选择弹窗在选定 Schema 后自动回写，不再单独作为表单字段展示；
+     * 保留该属性用于兼容已有任务配置，未配置时回退到数据源的 dbschema。
+     */
     private String schema;
 
     @ComponentField(

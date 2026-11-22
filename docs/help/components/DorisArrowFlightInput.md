@@ -53,8 +53,8 @@
 
 | 参数名 | 类型 | 必填 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
-| `sourceId` | DatasourceInfo | 是 | - | Doris 数据源 |
-| `schema` | String | 否 | 数据源 dbschema | Doris 数据库名 |
+| `sourceId` | DatasourceInfo | 是 | - | Doris 数据源；选择数据源时在弹窗中一并确认 Schema |
+| `schema` | String | 否 | 数据源 dbschema | Doris 数据库名；由数据源选择时回写，无需单独配置（兼容直接传入配置） |
 | `table` | String | 否 | - | 表名，支持逗号分隔多表；为空时同步 schema 下所有表 |
 | `where` | String | 否 | - | 过滤条件，不需要写 `WHERE` |
 | `incrColumn` | String | 否 | - | 增量字段。单表填字段名；多表填 JSON |
