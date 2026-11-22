@@ -418,6 +418,39 @@ public class DataSourceResource {
     }
 
     /**
+     * 获取表健康信息（数据文件、小文件、删除文件、分区、Manifest/元数据大小等）。
+     * 目前由 Apache Polaris / Iceberg 数据源提供，其他数据源返回 supported=false。
+     */
+    @GetMapping("/{id}/schemas/{schema}/tables/{table}/health")
+    public ResponseEntity<Map<String, Object>> getTableHealth(
+        @PathVariable("id") String id,
+        @PathVariable("schema") String schema,
+        @PathVariable("table") String table,
+        @RequestParam(value = "catalog", required = false) String catalog
+    ) throws SQLException {
+        LOG.debug("REST request to get DataSource table health : {} {}.{}", id, schema, table);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        Map<String, Object> health;
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            health = connection.getTableHealth(catalog, schema, table);
+        } catch (SQLException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        if (health == null) {
+            health = new LinkedHashMap<>();
+            health.put("supported", false);
+            health.put("message", "当前数据源不支持表健康监控");
+        }
+        return ResponseEntity.ok().body(health);
+    }
+
+    /**
      * 列出平台支持的数据源类型（由数据源 SPI 注册表提供），供前端数据源表单动态渲染。
      */
     @GetMapping("/types")

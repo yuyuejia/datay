@@ -183,7 +183,23 @@ class PolarisEndToEndTest {
             provider.writeTable(info, conn, meta, overwrite, "OVERWRITE", null);
             assertEquals(1, queryCount(conn, schema, table));
 
-            // 8. 清理
+            // 8. 表健康监控：文件、Manifest 与元数据大小
+            Map<String, Object> health = provider.getTableHealth(conn, DBUtils.POLARIS_CATALOG, schema, table);
+            assertNotNull(health);
+            assertEquals(Boolean.TRUE, health.get("supported"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> summary = (Map<String, Object>) health.get("summary");
+            assertNotNull(summary);
+            assertTrue(((Number) summary.get("dataFiles")).longValue() >= 1);
+            assertTrue(((Number) summary.get("totalRecords")).longValue() >= 1);
+            assertTrue(((Number) summary.get("manifestFileCount")).longValue() > 0);
+            assertTrue(((Number) summary.get("manifestListSizeBytes")).longValue() > 0);
+            assertTrue(((Number) summary.get("manifestSizeBytes")).longValue() > 0);
+            assertTrue(((Number) summary.get("metadataFileCount")).longValue() > 0);
+            assertTrue(((Number) summary.get("currentMetadataSizeBytes")).longValue() > 0);
+            assertEquals("overwrite", health.get("lastOperation"));
+
+            // 9. 清理
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(
                     "DROP TABLE IF EXISTS \"" + DBUtils.POLARIS_CATALOG + "\".\"" + schema + "\".\"" + table + "\""

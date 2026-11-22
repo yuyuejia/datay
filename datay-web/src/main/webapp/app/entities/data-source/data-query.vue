@@ -252,7 +252,7 @@
                 <span v-else-if="!tab.metaLoading" class="preview-status">暂无表信息</span>
               </div>
 
-              <el-tabs v-model="tab.subTab" class="preview-subtabs">
+              <el-tabs v-model="tab.subTab" class="preview-subtabs" @tab-change="handlePreviewSubTabChange(tab, $event)">
                 <el-tab-pane label="字段信息" name="columns">
                   <div class="preview-section" v-loading="tab.metaLoading">
                     <el-table :data="tab.detail?.columns || []" stripe border size="small" style="width: 100%">
@@ -275,6 +275,250 @@
                         <el-empty description="暂无字段信息" />
                       </template>
                     </el-table>
+                  </div>
+                </el-tab-pane>
+
+                <el-tab-pane label="健康监控" name="health">
+                  <div class="preview-section table-health-section" v-loading="tab.healthLoading">
+                    <div v-if="tab.healthError" class="error-tag">
+                      <font-awesome-icon icon="exclamation-circle" />
+                      <span>{{ tab.healthError }}</span>
+                    </div>
+                    <template v-else-if="tab.health">
+                      <template v-if="tab.health.supported">
+                        <div class="health-overview">
+                          <div class="health-score-box">
+                            <el-progress
+                              type="dashboard"
+                              :percentage="tab.health.healthScore ?? 0"
+                              :width="96"
+                              :stroke-width="8"
+                              :color="healthScoreColor(tab.health.healthScore)"
+                            >
+                              <template #default="{ percentage }">
+                                <div class="health-score-value">{{ percentage }}</div>
+                                <div class="health-score-label">健康分</div>
+                              </template>
+                            </el-progress>
+                          </div>
+                          <div class="health-overview-main">
+                            <div class="health-overview-title">
+                              <el-tag :type="healthStatusTagType(tab.health.status)" effect="dark" size="small">
+                                {{ healthStatusText(tab.health.status) }}
+                              </el-tag>
+                              <span class="health-overview-format">{{ tab.health.format || 'ICEBERG' }}</span>
+                              <span class="preview-status">最近更新：{{ formatTimestamp(tab.health.lastUpdatedMs) }}</span>
+                              <span v-if="tab.health.lastOperation" class="preview-status"> 最近操作：{{ tab.health.lastOperation }} </span>
+                            </div>
+                            <div class="health-location" :title="tab.health.location || ''">{{ tab.health.location || '-' }}</div>
+                            <div v-if="tab.health.warnings?.length" class="health-warnings">
+                              <el-alert
+                                v-for="(warning, index) in tab.health.warnings"
+                                :key="index"
+                                :title="warning"
+                                :type="tab.health.status === 'CRITICAL' ? 'error' : 'warning'"
+                                :closable="false"
+                                show-icon
+                              />
+                            </div>
+                            <div v-else class="health-ok">
+                              <font-awesome-icon icon="check-circle" />
+                              <span>未发现明显的存储健康问题</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="health-cards">
+                          <div class="health-card">
+                            <div class="health-card-label">数据文件</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.dataFiles) }}</div>
+                            <div class="health-card-sub">{{ formatBytes(tab.health.summary?.dataSizeBytes) }}</div>
+                          </div>
+                          <div class="health-card" :class="{ 'is-warning': (tab.health.summary?.smallFiles ?? 0) > 0 }">
+                            <div class="health-card-label">小文件</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.smallFiles) }}</div>
+                            <div class="health-card-sub">阈值 {{ formatBytes(tab.health.summary?.smallFileThresholdBytes) }}</div>
+                          </div>
+                          <div class="health-card" :class="{ 'is-danger': (tab.health.summary?.deleteFiles ?? 0) > 0 }">
+                            <div class="health-card-label">删除文件</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.deleteFiles) }}</div>
+                            <div class="health-card-sub">{{ formatBytes(tab.health.summary?.deleteSizeBytes) }}</div>
+                          </div>
+                          <div class="health-card">
+                            <div class="health-card-label">分区</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.partitionCount) }}</div>
+                            <div class="health-card-sub">{{ tab.health.partitioning?.partitioned ? '已分区' : '未分区' }}</div>
+                          </div>
+                          <div class="health-card">
+                            <div class="health-card-label">快照</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.snapshotCount) }}</div>
+                            <div class="health-card-sub">展示 {{ tab.health.snapshots?.length ?? 0 }} 条</div>
+                          </div>
+                          <div v-if="(tab.health.summary?.dataFiles ?? 0) > 0" class="health-card">
+                            <div class="health-card-label">平均文件大小</div>
+                            <div class="health-card-value">{{ formatBytes(tab.health.summary?.avgFileSizeBytes) }}</div>
+                            <div class="health-card-sub">推荐 ≥ 128 MB</div>
+                          </div>
+                          <div v-if="tab.health.format === 'DUCKLAKE'" class="health-card">
+                            <div class="health-card-label">内联数据</div>
+                            <div class="health-card-value">{{ formatCount(tab.health.summary?.inlinedRows) }}</div>
+                            <div class="health-card-sub">内联删除 {{ formatCount(tab.health.summary?.inlinedDeleteRows) }} 条</div>
+                          </div>
+                        </div>
+
+                        <el-descriptions class="health-descriptions" :column="3" border size="small">
+                          <el-descriptions-item label="表位置" :span="3">
+                            <span class="health-location-text">{{ tab.health.location || '-' }}</span>
+                          </el-descriptions-item>
+                          <template v-if="tab.health.format === 'ICEBERG'">
+                            <el-descriptions-item label="当前元数据文件">
+                              {{ formatBytes(tab.health.summary?.currentMetadataSizeBytes) }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="元数据版本">
+                              {{ formatCount(tab.health.summary?.metadataFileCount) }} 个 /
+                              {{ formatBytes(tab.health.summary?.metadataSizeBytes) }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="Manifest List">
+                              {{ formatBytes(tab.health.summary?.manifestListSizeBytes) }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="Manifest 文件">
+                              {{ formatCount(tab.health.summary?.manifestFileCount) }} 个 /
+                              {{ formatBytes(tab.health.summary?.manifestSizeBytes) }}
+                            </el-descriptions-item>
+                          </template>
+                          <template v-else>
+                            <el-descriptions-item label="Catalog 类型">
+                              {{ tab.health.catalogType || 'duckdb' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="元数据格式">
+                              {{ tab.health.metadataVersion || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="元数据存储">
+                              {{ formatBytes(tab.health.summary?.metadataSizeBytes) }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="数据路径" :span="3">
+                              <span class="health-location-text">{{ tab.health.dataPath || '-' }}</span>
+                            </el-descriptions-item>
+                            <el-descriptions-item label="内联数据">
+                              {{ formatCount(tab.health.summary?.inlinedRows) }} 行
+                            </el-descriptions-item>
+                            <el-descriptions-item label="内联删除">
+                              {{ formatCount(tab.health.summary?.inlinedDeleteRows) }} 条
+                            </el-descriptions-item>
+                            <el-descriptions-item label="元数据文件数">
+                              {{ formatCount(tab.health.summary?.metadataFileCount) }} 个
+                            </el-descriptions-item>
+                          </template>
+                          <el-descriptions-item label="数据文件总量">
+                            {{ formatCount(tab.health.summary?.totalFiles) }} 个 /
+                            {{ formatBytes(tab.health.summary?.totalSizeBytes) }}
+                          </el-descriptions-item>
+                          <el-descriptions-item label="总行数">
+                            {{ formatCount(tab.health.summary?.totalRecords) }}
+                          </el-descriptions-item>
+                        </el-descriptions>
+
+                        <div class="health-block">
+                          <div class="health-block-title">分区信息</div>
+                          <el-table
+                            v-if="tab.health.partitioning?.fields?.length"
+                            :data="tab.health.partitioning?.fields || []"
+                            stripe
+                            border
+                            size="small"
+                          >
+                            <el-table-column prop="name" label="分区字段" min-width="180" show-overflow-tooltip />
+                            <el-table-column prop="transform" label="转换" width="120" />
+                            <el-table-column prop="sourceId" label="源字段 ID" width="110" align="center" />
+                            <el-table-column prop="specId" label="Spec" width="80" align="center" />
+                          </el-table>
+                          <el-empty v-else description="未分区" :image-size="56" />
+                        </div>
+
+                        <div v-if="tab.health.format === 'ICEBERG'" class="health-block">
+                          <div class="health-block-title">
+                            Manifest 清单
+                            <span v-if="tab.health.manifestsTruncated" class="preview-status">
+                              仅展示前 {{ tab.health.manifests?.length ?? 0 }} 个
+                            </span>
+                          </div>
+                          <el-table :data="tab.health.manifests || []" stripe border size="small" max-height="260">
+                            <el-table-column label="类型" width="90">
+                              <template #default="{ row }">
+                                <el-tag size="small" :type="row.contentType === 'DELETES' ? 'danger' : 'success'">
+                                  {{ row.contentType === 'DELETES' ? '删除' : '数据' }}
+                                </el-tag>
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="path" label="Manifest 文件" min-width="280" show-overflow-tooltip />
+                            <el-table-column label="大小" width="100">
+                              <template #default="{ row }">{{ formatBytes(row.sizeBytes) }}</template>
+                            </el-table-column>
+                            <el-table-column label="新增 / 存在 / 删除" width="150" align="center">
+                              <template #default="{ row }">
+                                {{ formatCount(row.addedFiles) }} / {{ formatCount(row.existingFiles) }} /
+                                {{ formatCount(row.deletedFiles) }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column label="新增行数" width="100" align="right">
+                              <template #default="{ row }">{{ formatCount(row.addedRows) }}</template>
+                            </el-table-column>
+                          </el-table>
+                        </div>
+
+                        <div class="health-block">
+                          <div class="health-block-title">
+                            数据文件（按大小升序）
+                            <span v-if="tab.health.filesTruncated" class="preview-status">
+                              仅展示最小的 {{ tab.health.files?.length ?? 0 }} 个
+                            </span>
+                          </div>
+                          <el-table :data="tab.health.files || []" stripe border size="small" max-height="300">
+                            <el-table-column label="类型" width="100">
+                              <template #default="{ row }">
+                                <el-tag size="small" :type="row.contentType === 'DATA' ? 'success' : 'danger'">
+                                  {{
+                                    row.contentType === 'DATA' ? '数据' : row.contentType === 'POSITION_DELETES' ? '位置删除' : '等值删除'
+                                  }}
+                                </el-tag>
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="path" label="文件" min-width="340" show-overflow-tooltip />
+                            <el-table-column prop="format" label="格式" width="80" />
+                            <el-table-column label="大小" width="100">
+                              <template #default="{ row }">{{ formatBytes(row.sizeBytes) }}</template>
+                            </el-table-column>
+                            <el-table-column label="记录数" width="90" align="right">
+                              <template #default="{ row }">{{ formatCount(row.recordCount) }}</template>
+                            </el-table-column>
+                            <el-table-column prop="partition" label="分区" min-width="150" show-overflow-tooltip />
+                          </el-table>
+                        </div>
+
+                        <div class="health-block">
+                          <div class="health-block-title">快照</div>
+                          <el-table :data="tab.health.snapshots || []" stripe border size="small" max-height="240">
+                            <el-table-column prop="snapshotId" label="Snapshot ID" min-width="170" />
+                            <el-table-column prop="sequenceNumber" label="序号" width="80" align="right" />
+                            <el-table-column label="时间" width="170">
+                              <template #default="{ row }">{{ formatTimestamp(row.timestampMs) }}</template>
+                            </el-table-column>
+                            <el-table-column prop="operation" label="操作" width="100" />
+                            <el-table-column label="总行数" width="100" align="right">
+                              <template #default="{ row }">{{ formatCount(row.totalRecords) }}</template>
+                            </el-table-column>
+                            <el-table-column label="数据文件" width="100" align="right">
+                              <template #default="{ row }">{{ formatCount(row.totalDataFiles) }}</template>
+                            </el-table-column>
+                            <el-table-column label="删除文件" width="100" align="right">
+                              <template #default="{ row }">{{ formatCount(row.totalDeleteFiles) }}</template>
+                            </el-table-column>
+                          </el-table>
+                        </div>
+                      </template>
+                      <el-empty v-else :description="tab.health.message || '当前表不支持健康监控'" />
+                    </template>
+                    <el-empty v-else-if="!tab.healthLoading" description="切换到本页签以加载表健康信息" />
                   </div>
                 </el-tab-pane>
 
@@ -930,6 +1174,176 @@
   overflow: auto;
   padding: 8px;
   box-sizing: border-box;
+}
+
+.table-health-section {
+  background: var(--el-bg-color, #fff);
+}
+
+.health-overview {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter, #fafafa);
+}
+
+.health-score-box {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.health-score-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.2;
+}
+
+.health-score-label {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.health-overview-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.health-overview-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.health-overview-format {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-primary, #409eff);
+}
+
+.health-location {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  font-family: Menlo, Monaco, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.health-warnings :deep(.el-alert) {
+  padding: 6px 10px;
+}
+
+.health-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--el-color-success, #67c23a);
+}
+
+.health-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.health-card {
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  background: var(--el-bg-color, #fff);
+  min-width: 0;
+}
+
+.health-card.is-warning {
+  border-color: var(--el-color-warning-light-5, #f3d19e);
+  background: var(--el-color-warning-light-9, #fdf6ec);
+}
+
+.health-card.is-danger {
+  border-color: var(--el-color-danger-light-5, #fab6b6);
+  background: var(--el-color-danger-light-9, #fef0f0);
+}
+
+.health-card-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  margin-bottom: 4px;
+}
+
+.health-card-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.3;
+}
+
+.health-card-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.health-descriptions {
+  margin-bottom: 12px;
+}
+
+.health-location-text {
+  word-break: break-all;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.health-block {
+  margin-bottom: 14px;
+}
+
+.health-block-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+}
+
+@media (max-width: 1280px) {
+  .health-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .health-overview {
+    flex-direction: column;
+  }
+
+  .health-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .pk-icon {

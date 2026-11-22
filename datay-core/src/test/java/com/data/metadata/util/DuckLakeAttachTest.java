@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -107,6 +108,29 @@ public class DuckLakeAttachTest {
             assertTrue(provider.getSchemas(conn, "attached_db").contains("main"));
             List<TableMeta> tables = provider.getTables(conn, "attached_db", "main", null, null);
             assertTrue(tables.stream().anyMatch(t -> "attached_orders".equals(t.getTable())));
+        }
+    }
+
+    @Test
+    public void reportsTableHealthForDuckLake() throws Exception {
+        String[] meta = createDuckLake();
+
+        try (Connection conn = DBUtils.getConnection(duckLakeInfo(meta[0], meta[1], null, null))) {
+            try (Statement st = conn.createStatement()) {
+                st.execute("INSERT INTO ducklake.main.orders SELECT i FROM range(100) t(i)");
+            }
+
+            DuckLakeDataSourceProvider provider = new DuckLakeDataSourceProvider();
+            Map<String, Object> health = provider.getTableHealth(conn, "ducklake", "main", "orders");
+            assertNotNull(health);
+            assertEquals(Boolean.TRUE, health.get("supported"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> summary = (Map<String, Object>) health.get("summary");
+            assertNotNull(summary);
+            assertTrue(((Number) summary.get("dataFiles")).longValue() >= 1);
+            assertEquals(100L, ((Number) summary.get("totalRecords")).longValue());
+            assertTrue(((Number) summary.get("snapshotCount")).longValue() >= 2);
+            assertNotNull(health.get("location"));
         }
     }
 

@@ -210,6 +210,21 @@ export default class DataSourceService {
     });
   }
 
+  getTableHealth(dataSourceId: string, schema: string, table: string, catalog?: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}/health`, {
+          params: catalog ? { catalog } : {},
+        })
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   testConnection(entity: IDataSource): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

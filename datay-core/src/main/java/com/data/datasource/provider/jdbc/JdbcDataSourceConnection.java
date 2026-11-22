@@ -128,6 +128,11 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     }
 
     @Override
+    public Map<String, Object> getTableHealth(String catalog, String schema, String table) throws SQLException {
+        return provider.getTableHealth(connection, catalog, schema, table);
+    }
+
+    @Override
     public boolean testConnection() throws SQLException {
         try (Statement statement = connection.createStatement()) {
             try (ResultSet rs = statement.executeQuery(provider.getTestQuery())) {

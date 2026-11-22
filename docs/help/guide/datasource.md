@@ -173,6 +173,33 @@ Apache Polaris 是 Iceberg REST Catalog 的实现，DataY 通过 DuckDB 的 `ice
 - Iceberg 表没有主键，也不支持 `TRUNCATE`；ETL 的 `update` / `delete` 通过 CDC 变更前镜像（`__before`）匹配旧行，`overwrite` 使用 `DELETE` 清空后写入。
 - 建表语句自动转换为 Iceberg 支持的类型（`TINYINT`/`SMALLINT` 归并为 `INTEGER`，`TEXT`/`JSON` 归并为 `VARCHAR`，`DECIMAL` 精度上限 38），不带主键约束。
 
+#### 表健康监控
+
+在「数据查询」左侧表树中打开表预览后，切换到「健康监控」页签，可以查看 Iceberg 表的存储健康情况：
+
+- 数据文件数量、总大小、平均文件大小；
+- 小文件数量（默认阈值 128 MB）及小文件占比；
+- 删除文件数量与大小（Position Deletes / Equality Deletes）；
+- 分区字段、分区转换与分区数量；
+- Manifest List 大小、Manifest 文件数量与总大小；
+- 当前元数据文件大小、元数据版本数量；
+- 快照数量、最近操作与最近更新时间；
+- 自动生成健康分、风险提示与治理建议。
+
+健康监控目前仅支持 Apache Polaris / Iceberg 表，其他数据源会提示不支持。
+
+#### DuckLake 表健康监控
+
+DuckLake 数据源的表在「数据查询」预览页同样提供「健康监控」页签，统计口径适配 DuckLake：
+
+- 物理 Parquet 数据文件数量、大小与小文件占比；
+- 物理删除文件（`ducklake_delete_file`）与内联删除标记（`ducklake_inlined_delete_*`）；
+- 分区字段、转换方式与分区数量（支持 `ALTER TABLE ... SET PARTITIONED BY` 的表）；
+- 内联数据行数（小表会被 DuckLake 内联到元数据 Catalog 中）；
+- 快照数量、最近操作，以及 DuckLake 元数据 Catalog 文件与 WAL 大小。
+
+> DuckLake 会把较小的数据内联在元数据 Catalog 中。此时物理文件数为 0，健康页会显示「内联数据」行数，不会误判为小文件。需要查看文件级指标时，写入超过内联阈值的数据即可生成 Parquet 文件。
+
 ## 下一步
 
 - [数据集成与同步](guide/integration.md)：用注册好的数据源编排同步任务

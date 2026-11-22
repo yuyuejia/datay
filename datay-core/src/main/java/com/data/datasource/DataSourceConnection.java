@@ -2,6 +2,7 @@ package com.data.datasource;
 
 import com.data.metadata.TableMeta;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 与具体数据源无关的连接抽象。
@@ -89,6 +90,16 @@ public interface DataSourceConnection extends AutoCloseable {
      */
     default TableMeta getTableDetail(String catalog, String schema, String table) throws Exception {
         return getTableDetail(schema, table);
+    }
+
+    /**
+     * 获取表健康信息（文件、小文件、删除文件、分区、Manifest/元数据大小等）。
+     *
+     * <p>默认返回不支持；支持 Iceberg 等表格式的数据源可覆写。返回值结构由数据源实现定义，
+     * 未支持时返回 {@code supported=false} 的 Map。</p>
+     */
+    default Map<String, Object> getTableHealth(String catalog, String schema, String table) throws Exception {
+        return null;
     }
 
     /**

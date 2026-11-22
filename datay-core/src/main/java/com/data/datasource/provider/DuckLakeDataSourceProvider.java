@@ -13,6 +13,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +52,24 @@ public class DuckLakeDataSourceProvider extends DuckDbDataSourceProvider {
             return DBUtils.resolveDuckLakeJdbcUrl(info);
         }
         return url;
+    }
+
+    /**
+     * DuckLake 表健康监控：读取 DuckLake 元数据表，统计文件、删除标记、分区与快照。
+     */
+    @Override
+    public Map<String, Object> getTableHealth(Connection conn, String catalog, String schema, String table)
+        throws SQLException {
+        Map<String, Object> unsupported = new LinkedHashMap<>();
+        unsupported.put("supported", false);
+        unsupported.put("message", "表健康监控目前仅支持 DuckLake 表");
+        if (!isDuckLakeConnection(conn)) {
+            return unsupported;
+        }
+        if (catalog != null && !catalog.isBlank() && !DUCKLAKE_CATALOG.equalsIgnoreCase(catalog)) {
+            return unsupported;
+        }
+        return DuckLakeTableHealthAnalyzer.INSTANCE.analyze(conn, DUCKLAKE_CATALOG, schema, table);
     }
 
     @Override

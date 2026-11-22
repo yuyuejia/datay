@@ -56,6 +56,99 @@ interface TableDetail {
   indexes?: IndexInfo[];
 }
 
+interface TableHealthSummary {
+  dataFiles?: number;
+  deleteFiles?: number;
+  totalFiles?: number;
+  smallFiles?: number;
+  smallFileThresholdBytes?: number;
+  dataSizeBytes?: number;
+  deleteSizeBytes?: number;
+  totalSizeBytes?: number;
+  avgFileSizeBytes?: number;
+  totalRecords?: number;
+  partitionCount?: number;
+  snapshotCount?: number;
+  dataManifests?: number;
+  deleteManifests?: number;
+  manifestFileCount?: number;
+  manifestSizeBytes?: number;
+  manifestListSizeBytes?: number;
+  metadataFileCount?: number;
+  metadataSizeBytes?: number;
+  currentMetadataSizeBytes?: number;
+  inlinedRows?: number;
+  inlinedDeleteRows?: number;
+}
+
+interface TableHealthPartitionField {
+  specId?: number;
+  name?: string;
+  transform?: string;
+  sourceId?: number;
+}
+
+interface TableHealthFile {
+  path?: string;
+  contentType?: string;
+  format?: string;
+  sizeBytes?: number;
+  recordCount?: number;
+  partition?: string;
+}
+
+interface TableHealthManifest {
+  path?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  addedFiles?: number;
+  existingFiles?: number;
+  deletedFiles?: number;
+  addedRows?: number;
+  existingRows?: number;
+  deletedRows?: number;
+}
+
+interface TableHealthSnapshot {
+  snapshotId?: number;
+  sequenceNumber?: number;
+  timestampMs?: number;
+  operation?: string;
+  totalRecords?: number;
+  totalDataFiles?: number;
+  totalDeleteFiles?: number;
+  manifestList?: string;
+}
+
+interface TableHealthDetail {
+  supported?: boolean;
+  message?: string;
+  format?: string;
+  status?: string;
+  healthScore?: number;
+  location?: string;
+  generatedAt?: number;
+  lastUpdatedMs?: number;
+  lastOperation?: string;
+  smallFileThresholdBytes?: number;
+  catalogType?: string;
+  dataPath?: string;
+  metadataVersion?: string;
+  summary?: TableHealthSummary;
+  partitioning?: {
+    partitioned?: boolean;
+    defaultSpecId?: number;
+    partitionCount?: number;
+    fields?: TableHealthPartitionField[];
+  };
+  warnings?: string[];
+  files?: TableHealthFile[];
+  filesTruncated?: boolean;
+  manifests?: TableHealthManifest[];
+  manifestsTruncated?: boolean;
+  snapshots?: TableHealthSnapshot[];
+}
+
 interface PreviewTab {
   key: string;
   title: string;
@@ -71,6 +164,10 @@ interface PreviewTab {
   metaError: string;
   detail: TableDetail | null;
   subTab: string;
+  health: TableHealthDetail | null;
+  healthLoading: boolean;
+  healthError: string;
+  healthLoaded: boolean;
 }
 
 export default defineComponent({
@@ -748,6 +845,50 @@ export default defineComponent({
       return col.type || 'VARCHAR';
     };
 
+    const formatBytes = (bytes?: number | null) => {
+      if (bytes === null || bytes === undefined || Number.isNaN(bytes)) return '-';
+      if (bytes < 1024) return `${bytes} B`;
+      const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+      let value = bytes;
+      let index = -1;
+      do {
+        value /= 1024;
+        index += 1;
+      } while (value >= 1024 && index < units.length - 1);
+      const digits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+      return `${value.toFixed(digits)} ${units[index]}`;
+    };
+
+    const formatCount = (value?: number | null) => {
+      if (value === null || value === undefined || Number.isNaN(value)) return '-';
+      return Number(value).toLocaleString('zh-CN');
+    };
+
+    const formatTimestamp = (ms?: number | null) => {
+      if (!ms || ms <= 0) return '-';
+      return new Date(ms).toLocaleString('zh-CN', { hour12: false });
+    };
+
+    const healthStatusText = (status?: string) => {
+      if (status === 'HEALTHY') return '健康';
+      if (status === 'WARNING') return '需关注';
+      if (status === 'CRITICAL') return '有风险';
+      return '未知';
+    };
+
+    const healthStatusTagType = (status?: string) => {
+      if (status === 'HEALTHY') return 'success';
+      if (status === 'WARNING') return 'warning';
+      return 'danger';
+    };
+
+    const healthScoreColor = (score?: number) => {
+      const value = score ?? 0;
+      if (value >= 85) return '#67c23a';
+      if (value >= 60) return '#e6a23c';
+      return '#f56c6c';
+    };
+
     const buildDdlSql = (data: TableNode, columns: ColumnInfo[]) => {
       const dialect = getDialect();
       const name = qualifiedName(data, dialect.quote);
@@ -859,9 +1000,35 @@ export default defineComponent({
       }
     };
 
+    const loadTableHealth = async (tab: PreviewTab) => {
+      if (tab.healthLoading) return;
+      tab.healthLoading = true;
+      tab.healthError = '';
+      try {
+        const res = await dataSourceService().getTableHealth(dataSourceId.value, tab.schema, tab.table, tab.catalog);
+        tab.health = res.data || res || null;
+        tab.healthLoaded = true;
+      } catch (err: any) {
+        tab.healthError = err.response?.data?.message || err.response?.data?.detail || err.message || '获取表健康信息失败';
+        tab.health = null;
+        tab.healthLoaded = false;
+      } finally {
+        tab.healthLoading = false;
+      }
+    };
+
+    const handlePreviewSubTabChange = (tab: PreviewTab, name: string | number) => {
+      if (String(name) === 'health' && !tab.healthLoaded && !tab.healthLoading) {
+        loadTableHealth(tab);
+      }
+    };
+
     const refreshPreview = (tab: PreviewTab) => {
       loadTableDetail(tab);
       loadPreview(tab);
+      if (tab.subTab === 'health') {
+        loadTableHealth(tab);
+      }
     };
 
     const openPreviewTab = (data: TableNode) => {
@@ -883,6 +1050,10 @@ export default defineComponent({
           metaError: '',
           detail: null,
           subTab: 'columns',
+          health: null,
+          healthLoading: false,
+          healthError: '',
+          healthLoaded: false,
         });
         tab = previewTabs.value[previewTabs.value.length - 1];
         loadTableDetail(tab);
@@ -1129,7 +1300,15 @@ export default defineComponent({
       previewTable,
       loadPreview,
       loadTableDetail,
+      loadTableHealth,
+      handlePreviewSubTabChange,
       refreshPreview,
+      formatBytes,
+      formatCount,
+      formatTimestamp,
+      healthStatusText,
+      healthStatusTagType,
+      healthScoreColor,
       handleTabRemove,
       openContextMenu,
       handleTableCommand,

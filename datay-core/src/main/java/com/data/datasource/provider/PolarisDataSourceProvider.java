@@ -13,6 +13,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,6 +102,24 @@ public class PolarisDataSourceProvider extends DuckDbDataSourceProvider {
     @Override
     public boolean useTruncateForOverwrite() {
         return false;
+    }
+
+    /**
+     * 表健康监控仅对 Iceberg 表生效，统计文件、Manifest 与元数据信息。
+     */
+    @Override
+    public Map<String, Object> getTableHealth(Connection conn, String catalog, String schema, String table)
+        throws SQLException {
+        Map<String, Object> unsupported = new LinkedHashMap<>();
+        unsupported.put("supported", false);
+        unsupported.put("message", "表健康监控目前仅支持 Apache Polaris / Iceberg 表");
+        if (!isPolarisConnection(conn)) {
+            return unsupported;
+        }
+        if (catalog != null && !catalog.isBlank() && !POLARIS_CATALOG.equalsIgnoreCase(catalog)) {
+            return unsupported;
+        }
+        return PolarisTableHealthAnalyzer.INSTANCE.analyze(conn, POLARIS_CATALOG, schema, table);
     }
 
     @Override

@@ -19,6 +19,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -390,6 +391,17 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
      */
     public TableMeta getTableDetail(Connection conn, String catalog, String schema, String table) throws SQLException {
         return getTableDetail(conn, schema, table);
+    }
+
+    /**
+     * 获取表健康信息。默认不支持，支持 Iceberg 等表格式的数据源可覆写。
+     */
+    public Map<String, Object> getTableHealth(Connection conn, String catalog, String schema, String table)
+        throws SQLException {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("supported", false);
+        result.put("message", "当前数据源不支持表健康监控");
+        return result;
     }
 
     /**
