@@ -252,6 +252,7 @@ public class DataModelHarnessTools {
                     field.setModelId(id);
                     fields.add(field);
                 }
+                modelFieldService.validateDimensionRoles(fields);
                 modelFieldService.deleteByModelId(id);
                 return DatayHarnessViews.list(modelFieldService.saveAll(fields), DatayHarnessViews::modelField);
             }
@@ -486,6 +487,7 @@ public class DataModelHarnessTools {
                 "isPrimaryKey", bool("是否主键（可选）"),
                 "dimensionModelId", string("关联维度模型 ID（可选）"),
                 "dimensionFieldId", string("关联维度字段 ID（可选）"),
+                "dimensionRole", string("维度角色编码（可选，需先在维度模型中定义）"),
                 "fieldRole", string("字段角色（可选，如 DIMENSION_KEY / MEASURE）"),
                 "levelIndex", integer("层级维度中的层号（可选）")
             ),

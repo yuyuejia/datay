@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { type IDataModel } from "@/shared/model/data-model.model";
+import type { IDimensionRole } from "@/shared/model/dimension-role.model";
 
 const baseApiUrl = "api/data-models";
 
@@ -239,5 +240,38 @@ export default class DataModelService {
           reject(err);
         });
     });
+  }
+
+  getDimensionRoles(modelId: string): Promise<IDimensionRole[]> {
+    return axios
+      .get(`${baseApiUrl}/${modelId}/dimension-roles`)
+      .then((res) => res.data);
+  }
+
+  saveDimensionRoles(
+    modelId: string,
+    roles: IDimensionRole[],
+  ): Promise<IDimensionRole[]> {
+    return axios
+      .put(`${baseApiUrl}/${modelId}/dimension-roles`, roles)
+      .then((res) => res.data);
+  }
+
+  createDimensionRole(
+    modelId: string,
+    role: IDimensionRole,
+  ): Promise<IDimensionRole> {
+    return axios
+      .post(`${baseApiUrl}/${modelId}/dimension-roles`, role)
+      .then((res) => res.data);
+  }
+
+  batchCreateDimensionRoles(
+    modelId: string,
+    roles: IDimensionRole[],
+  ): Promise<IDimensionRole[]> {
+    return axios
+      .post(`${baseApiUrl}/${modelId}/dimension-roles/batch`, roles)
+      .then((res) => res.data);
   }
 }

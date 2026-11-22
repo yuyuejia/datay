@@ -20,6 +20,7 @@ public class ModelFieldDTO implements Serializable {
     private Boolean isPrimaryKey;
     private String dimensionModelId;
     private String dimensionFieldId;
+    private String dimensionRole;
     private String fieldRole;
     private Integer levelIndex;
     private ZonedDateTime createTime;
@@ -127,6 +128,14 @@ public class ModelFieldDTO implements Serializable {
 
     public void setDimensionFieldId(String dimensionFieldId) {
         this.dimensionFieldId = dimensionFieldId;
+    }
+
+    public String getDimensionRole() {
+        return dimensionRole;
+    }
+
+    public void setDimensionRole(String dimensionRole) {
+        this.dimensionRole = dimensionRole;
     }
 
     public String getFieldRole() {

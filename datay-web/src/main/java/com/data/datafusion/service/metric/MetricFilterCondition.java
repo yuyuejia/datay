@@ -31,6 +31,9 @@ public class MetricFilterCondition {
     /** 维度字段名（仅维度条件或维度时间字段时使用）。 */
     private String dimensionFieldName;
 
+    /** 维度角色编码（可选；不指定时使用默认关联）。 */
+    private String dimensionRole;
+
     /** 运算符，取值见 {@link MetricFilterOperator}。 */
     private String operator;
 
@@ -81,6 +84,14 @@ public class MetricFilterCondition {
 
     public void setDimensionFieldName(String dimensionFieldName) {
         this.dimensionFieldName = dimensionFieldName;
+    }
+
+    public String getDimensionRole() {
+        return dimensionRole;
+    }
+
+    public void setDimensionRole(String dimensionRole) {
+        this.dimensionRole = dimensionRole;
     }
 
     public String getOperator() {

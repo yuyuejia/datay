@@ -13,6 +13,7 @@ import ModelDirectoryService from "./model-directory.service";
 import DataSourceService from "../data-source/data-source.service";
 import { DataModel, type IDataModel } from "@/shared/model/data-model.model";
 import { ModelField, type IModelField } from "@/shared/model/model-field.model";
+import { DimensionRole, type IDimensionRole } from "@/shared/model/dimension-role.model";
 import { type IModelDirectory } from "@/shared/model/model-directory.model";
 import { type IDataSource } from "@/shared/model/data-source.model";
 import { useAlertService } from "@/shared/alert/alert.service";
@@ -96,10 +97,75 @@ export default defineComponent({
     const directoryTreeData: Ref<TreeNode[]> = ref([]);
     const dimensionModels: Ref<IDataModel[]> = ref([]);
     const dimensionFieldsCache: Ref<Record<string, IModelField[]>> = ref({});
+    const dimensionRolesCache: Ref<Record<string, IDimensionRole[]>> = ref({});
+    const dimensionRoles: Ref<IDimensionRole[]> = ref([]);
+    const dimensionRolesLoading = ref(false);
+
+    const quickRoleDialogVisible = ref(false);
+    const quickRoleSuggestions = ref<
+      Array<{
+        fieldIndex: number;
+        fieldName: string;
+        dimensionModelId: string;
+        dimensionModelName: string;
+        code: string;
+        name: string;
+        selected: boolean;
+      }>
+    >([]);
 
     const logicalTypes: Ref<{ type: string; label: string }[]> = ref([]);
 
     const previousState = () => router.go(-1);
+
+    const saveDimensionRoleList = async (modelId: string) => {
+      if (dataModel.value.modelType !== "DIMENSION") {
+        return;
+      }
+      const normalized: IDimensionRole[] = [];
+      const seen = new Set<string>();
+      for (let i = 0; i < dimensionRoles.value.length; i++) {
+        const role = dimensionRoles.value[i];
+        const code = normalizeRoleCode(role.code);
+        const name = (role.name || "").trim() || code;
+        if (!code) {
+          throw new Error("维度角色编码不能为空");
+        }
+        if (!/^[A-Z][A-Z0-9_]*$/.test(code)) {
+          throw new Error(
+            `维度角色编码只能包含大写字母、数字和下划线，且必须以字母开头：${code}`,
+          );
+        }
+        if (seen.has(code)) {
+          throw new Error(`维度角色编码重复：${code}`);
+        }
+        seen.add(code);
+        normalized.push({
+          id: role.id,
+          dimensionModelId: modelId,
+          code,
+          name,
+          description: role.description,
+          sortOrder: i,
+        });
+      }
+      const saved = await dataModelService().saveDimensionRoles(
+        modelId,
+        normalized,
+      );
+      dimensionRolesCache.value[modelId] = saved;
+      dimensionRoles.value = saved.map(
+        (role) =>
+          new DimensionRole(
+            role.id,
+            role.dimensionModelId,
+            role.code,
+            role.name,
+            role.description,
+            role.sortOrder,
+          ),
+      );
+    };
 
     const loadDirectoryTree = async () => {
       try {
@@ -156,6 +222,30 @@ export default defineComponent({
       }
     };
 
+    const loadDimensionRoles = async (modelId: string) => {
+      if (dimensionRolesCache.value[modelId]) {
+        return dimensionRolesCache.value[modelId];
+      }
+      try {
+        const roles = await dataModelService().getDimensionRoles(modelId);
+        dimensionRolesCache.value[modelId] = roles;
+        return roles;
+      } catch (err) {
+        alertService.showHttpError(err.response);
+        return [];
+      }
+    };
+
+    const getDimensionRoles = (modelId?: string | null) => {
+      if (!modelId) {
+        return [];
+      }
+      if (!dimensionRolesCache.value[modelId]) {
+        loadDimensionRoles(modelId);
+      }
+      return dimensionRolesCache.value[modelId] || [];
+    };
+
     const getDimensionFields = (modelId: string) => {
       if (!dimensionFieldsCache.value[modelId]) {
         loadDimensionFields(modelId);
@@ -169,14 +259,184 @@ export default defineComponent({
     ) => {
       row.dimensionModelId = modelId || null;
       row.dimensionFieldId = null;
+      row.dimensionRole = null;
       if (!modelId) {
         return;
       }
-      await loadDimensionFields(modelId);
+      const dimensionModel = dimensionModels.value.find((m) => m.id === modelId);
+      if (dimensionModel?.dimensionKind === "DEGENERATE") {
+        row.dimensionFieldId = null;
+        await loadDimensionRoles(modelId);
+        return;
+      }
+      await Promise.all([loadDimensionFields(modelId), loadDimensionRoles(modelId)]);
       const fields = dimensionFieldsCache.value[modelId] || [];
       const pk = fields.find((f) => f.isPrimaryKey);
       if (pk) {
         row.dimensionFieldId = pk.id;
+      }
+    };
+
+    const onDimensionRoleChange = (row: IModelField, roleCode: string | null) => {
+      row.dimensionRole = roleCode || null;
+    };
+
+    const addDimensionRole = () => {
+      dimensionRoles.value.push(
+        new DimensionRole(
+          undefined,
+          dataModel.value.id,
+          "",
+          "",
+          "",
+          dimensionRoles.value.length,
+        ),
+      );
+    };
+
+    const removeDimensionRole = (index: number) => {
+      dimensionRoles.value.splice(index, 1);
+      dimensionRoles.value.forEach((role, i) => {
+        role.sortOrder = i;
+      });
+    };
+
+    const moveDimensionRole = (index: number, offset: number) => {
+      const target = index + offset;
+      if (target < 0 || target >= dimensionRoles.value.length) {
+        return;
+      }
+      const roles = dimensionRoles.value;
+      [roles[index], roles[target]] = [roles[target], roles[index]];
+      roles.forEach((role, i) => {
+        role.sortOrder = i;
+      });
+    };
+
+    const normalizeRoleCode = (value?: string | null) =>
+      (value || "").trim().toUpperCase();
+
+    const roleCodeFromFieldName = (fieldName?: string | null) => {
+      const raw = (fieldName || "").trim();
+      if (!raw) {
+        return "";
+      }
+      return raw
+        .replace(/_(key|sk|id|fk|no)$/i, "")
+        .replace(/[^A-Za-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .toUpperCase();
+    };
+
+    const ROLE_NAME_HINTS: Record<string, string> = {
+      ORDER_DATE: "下单日期",
+      PAY_DATE: "支付日期",
+      SHIP_DATE: "发货日期",
+      RECEIVE_DATE: "签收日期",
+      CREATE_DATE: "创建日期",
+      UPDATE_DATE: "更新日期",
+      REFUND_DATE: "退款日期",
+      CUSTOMER: "客户",
+      PRODUCT: "商品",
+      STORE: "门店",
+      REGION: "区域",
+    };
+
+    const openQuickRoleDialog = async () => {
+      const groups = new Map<string, { name: string; rows: Array<{ row: IModelField; index: number }> }>();
+      fields.value.forEach((field, index) => {
+        if (!field.dimensionModelId) {
+          return;
+        }
+        const group = groups.get(field.dimensionModelId) || {
+          name:
+            dimensionModels.value.find((m) => m.id === field.dimensionModelId)
+              ?.name || field.dimensionModelId,
+          rows: [],
+        };
+        group.rows.push({ row: field, index });
+        groups.set(field.dimensionModelId, group);
+      });
+      const suggestions: typeof quickRoleSuggestions.value = [];
+      for (const [dimensionModelId, group] of groups) {
+        const roles = await loadDimensionRoles(dimensionModelId);
+        const existing = new Set(
+          (roles || []).map((role) => normalizeRoleCode(role.code)),
+        );
+        group.rows.forEach(({ row, index }) => {
+          if (row.dimensionRole) {
+            return;
+          }
+          let code = roleCodeFromFieldName(row.fieldName);
+          if (!code) {
+            return;
+          }
+          let candidate = code;
+          let suffix = 2;
+          while (existing.has(candidate)) {
+            candidate = `${code}_${suffix++}`;
+          }
+          existing.add(candidate);
+          suggestions.push({
+            fieldIndex: index,
+            fieldName: row.fieldName || "",
+            dimensionModelId,
+            dimensionModelName: group.name,
+            code: candidate,
+            name: ROLE_NAME_HINTS[candidate] || candidate,
+            selected: true,
+          });
+        });
+      }
+      if (!suggestions.length) {
+        alertService.showInfo("没有需要生成角色的维度关联");
+        return;
+      }
+      quickRoleSuggestions.value = suggestions;
+      quickRoleDialogVisible.value = true;
+    };
+
+    const confirmQuickRoles = async () => {
+      const selected = quickRoleSuggestions.value.filter(
+        (item) => item.selected && item.code.trim(),
+      );
+      if (!selected.length) {
+        quickRoleDialogVisible.value = false;
+        return;
+      }
+      try {
+        const byDimension = new Map<string, typeof selected>();
+        selected.forEach((item) => {
+          const list = byDimension.get(item.dimensionModelId) || [];
+          list.push(item);
+          byDimension.set(item.dimensionModelId, list);
+        });
+        for (const [dimensionModelId, items] of byDimension) {
+          await dataModelService().batchCreateDimensionRoles(
+            dimensionModelId,
+            items.map((item) => ({
+              code: normalizeRoleCode(item.code),
+              name: item.name || item.code,
+              sortOrder: (dimensionRolesCache.value[dimensionModelId] || [])
+                .length,
+            })),
+          );
+          const roles = await dataModelService().getDimensionRoles(
+            dimensionModelId,
+          );
+          dimensionRolesCache.value[dimensionModelId] = roles;
+          const byCode = new Map(
+            roles.map((role) => [normalizeRoleCode(role.code), role]),
+          );
+          for (const item of items) {
+            const role = byCode.get(normalizeRoleCode(item.code));
+            fields.value[item.fieldIndex].dimensionRole = role?.code || null;
+          }
+        }
+        quickRoleDialogVisible.value = false;
+        alertService.showSuccess("维度角色已生成");
+      } catch (err) {
+        alertService.showHttpError(err.response);
       }
     };
 
@@ -190,6 +450,31 @@ export default defineComponent({
         const fieldsRes = await dataModelService().getFields(modelId);
         fields.value = fieldsRes.data;
         originalFields.value = JSON.parse(JSON.stringify(fieldsRes.data));
+        await Promise.all(
+          Array.from(
+            new Set(
+              fields.value
+                .map((f) => f.dimensionModelId)
+                .filter((id): id is string => !!id),
+            ),
+          ).map((dimensionId) => loadDimensionRoles(dimensionId)),
+        );
+        if (res.modelType === "DIMENSION") {
+          const roles = await loadDimensionRoles(modelId);
+          dimensionRoles.value = (roles || []).map(
+            (role) =>
+              new DimensionRole(
+                role.id,
+                role.dimensionModelId,
+                role.code,
+                role.name,
+                role.description,
+                role.sortOrder,
+              ),
+          );
+        } else {
+          dimensionRoles.value = [];
+        }
       } catch (err) {
         alertService.showHttpError(err.response);
       }
@@ -436,6 +721,7 @@ export default defineComponent({
         dataModel.value.timeStart = null;
         dataModel.value.timeEnd = null;
         dataModel.value.displayFieldName = null;
+        dimensionRoles.value = [];
       }
       if (dataModel.value.modelType !== "DWD") {
         dataModel.value.timeFieldName = null;
@@ -459,6 +745,12 @@ export default defineComponent({
         if (!dataModel.value.timeEnd) {
           dataModel.value.timeEnd = "2024-12-31";
         }
+      } else if (dataModel.value.dimensionKind === "DEGENERATE") {
+        dataModel.value.levelCount = null;
+        dataModel.value.timeLevels = null;
+        dataModel.value.timeStart = null;
+        dataModel.value.timeEnd = null;
+        dataModel.value.displayFieldName = null;
       }
       syncDimensionFields();
     };
@@ -987,12 +1279,27 @@ export default defineComponent({
       registerFieldsLoading,
       registerAutoAdded,
       fields,
+      originalFields,
       timeFieldOptions,
       displayFieldOptions,
       directoryTreeData,
       flatDirectoryOptions,
       dimensionModels,
       dimensionFieldsCache,
+      dimensionRolesCache,
+      dimensionRoles,
+      dimensionRolesLoading,
+      quickRoleDialogVisible,
+      quickRoleSuggestions,
+      getDimensionRoles,
+      loadDimensionRoles,
+      onDimensionRoleChange,
+      addDimensionRole,
+      removeDimensionRole,
+      moveDimensionRole,
+      openQuickRoleDialog,
+      confirmQuickRoles,
+      saveDimensionRoleList,
       logicalTypes,
       previousState,
       getDimensionFields,
@@ -1109,8 +1416,26 @@ export default defineComponent({
           this.dataModel.levelCount = null;
         }
 
+        const duplicateRole = new Map<string, string>();
+        for (const field of this.fields) {
+          if (!field.dimensionModelId) {
+            field.dimensionRole = null;
+            continue;
+          }
+          const key = `${field.dimensionModelId}|${field.dimensionRole || ""}`;
+          if (duplicateRole.has(key)) {
+            this.alertService.showWarning(
+              `同一事实表对同一维度的角色不能重复：${field.dimensionModelId}`,
+            );
+            this.isSaving = false;
+            return;
+          }
+          duplicateRole.set(key, field.fieldName || "");
+        }
+
         if (this.dataModel.id) {
           await this.dataModelService().update(this.dataModel);
+          await this.saveDimensionRoleList(this.dataModel.id!);
           if (this.fields.length > 0 || this.originalFields.length > 0) {
             const fieldsToSave = this.fields.map((f, index) => ({
               ...f,
@@ -1130,6 +1455,7 @@ export default defineComponent({
           });
         } else {
           const created = await this.dataModelService().create(this.dataModel);
+          this.dataModel.id = created.id;
           if (this.fields.length > 0) {
             const fieldsToSave = this.fields.map((f, index) => ({
               ...f,
@@ -1149,6 +1475,10 @@ export default defineComponent({
         this.isSaving = false;
       } catch (err) {
         this.isSaving = false;
+        if (err instanceof Error && !(err as any).response) {
+          this.alertService.showWarning(err.message);
+          return;
+        }
         this.alertService.showHttpError(err.response);
       }
     },

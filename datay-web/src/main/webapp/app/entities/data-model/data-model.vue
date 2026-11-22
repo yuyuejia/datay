@@ -124,6 +124,7 @@
             <h4>{{ selectedModel.name }}</h4>
             <div class="detail-actions">
               <el-button
+                v-if="!isDegenerateDimensionModel"
                 type="warning"
                 size="small"
                 @click="openMaterializeDialog"
@@ -186,6 +187,20 @@
                         {{ modelTypeLabel }}
                       </el-tag>
                     </span>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row v-if="selectedModel.modelType === 'DIMENSION'" :gutter="20">
+                <el-col :span="8">
+                  <el-form-item label="维度类型">
+                    <span class="detail-value">
+                      <el-tag type="info" size="small">{{ dimensionKindLabel }}</el-tag>
+                    </span>
+                  </el-form-item>
+                </el-col>
+                <el-col v-if="isDegenerateDimensionModel" :span="16">
+                  <el-form-item label="计算方式">
+                    <span class="detail-value">直接使用事实表字段，无物理维表</span>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -258,6 +273,12 @@
           </div>
           <el-tabs v-model="activeDetailTab" class="detail-tabs">
             <el-tab-pane label="字段信息" name="fields">
+              <div
+                v-if="isDegenerateDimensionModel"
+                class="dimension-role-hint degenerate-fields-hint"
+              >
+                退化维度没有物理维表，字段值直接来自事实表；查询时按事实表字段分组和过滤。
+              </div>
               <el-table
                 :data="modelFields"
                 border
@@ -317,7 +338,94 @@
                     <span v-else>-</span>
                   </template>
                 </el-table-column>
+                <el-table-column label="维度角色" width="140">
+                  <template #default="{ row }">
+                    <span v-if="row.dimensionRole">{{ row.dimensionRole }}</span>
+                    <span v-else class="muted">默认</span>
+                  </template>
+                </el-table-column>
               </el-table>
+            </el-tab-pane>
+            <el-tab-pane
+              v-if="selectedModel.modelType === 'DIMENSION'"
+              label="维度角色"
+              name="roles"
+            >
+              <div class="dimension-role-header">
+                <div class="dimension-role-hint">
+                  维护该维度在事实表中可以扮演的角色，例如日期维度的下单日期、支付日期、发货日期。已被事实字段使用的角色不能删除。
+                </div>
+                <div class="dimension-role-actions">
+                  <el-button size="small" type="primary" plain @click="addDimensionRole">
+                    <font-awesome-icon icon="plus" /> 添加角色
+                  </el-button>
+                  <el-button size="small" type="primary" :loading="dimensionRolesSaving" @click="saveDimensionRoles">
+                    保存角色
+                  </el-button>
+                </div>
+              </div>
+              <el-table
+                :data="dimensionRoleList"
+                border
+                style="width: 100%"
+                v-loading="dimensionRolesLoading"
+              >
+                <el-table-column label="序号" width="60" align="center">
+                  <template #default="{ $index }">{{ $index + 1 }}</template>
+                </el-table-column>
+                <el-table-column label="角色编码" width="220">
+                  <template #default="{ row }">
+                    <el-input
+                      v-model="row.code"
+                      placeholder="如 ORDER_DATE"
+                      :disabled="!!row.id"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="角色名称" width="200">
+                  <template #default="{ row }">
+                    <el-input v-model="row.name" placeholder="如 下单日期" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="描述" min-width="220">
+                  <template #default="{ row }">
+                    <el-input v-model="row.description" placeholder="角色说明" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="140" align="center">
+                  <template #default="{ $index }">
+                    <el-button
+                      link
+                      type="primary"
+                      size="small"
+                      :disabled="$index === 0"
+                      @click="moveDimensionRole($index, -1)"
+                    >
+                      <font-awesome-icon icon="arrow-up" />
+                    </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      size="small"
+                      :disabled="$index === dimensionRoleList.length - 1"
+                      @click="moveDimensionRole($index, 1)"
+                    >
+                      <font-awesome-icon icon="arrow-down" />
+                    </el-button>
+                    <el-button
+                      link
+                      type="danger"
+                      size="small"
+                      @click="removeDimensionRole($index)"
+                    >
+                      <font-awesome-icon icon="trash" />
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <div v-if="!dimensionRolesLoading && !dimensionRoleList.length" class="dimension-role-empty">
+                该维度还没有配置角色
+              </div>
             </el-tab-pane>
             <el-tab-pane label="数据预览" name="preview" lazy>
               <ModelDataPreview v-if="selectedModel" :model="selectedModel" />
@@ -854,5 +962,37 @@
   line-height: 1.6;
   overflow-x: auto;
   max-height: 300px;
+}
+
+.dimension-role-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dimension-role-hint {
+  flex: 1 1 320px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dimension-role-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dimension-role-empty {
+  padding: 24px;
+  color: #909399;
+  text-align: center;
+  font-size: 13px;
+}
+
+.degenerate-fields-hint {
+  margin-bottom: 8px;
 }
 </style>

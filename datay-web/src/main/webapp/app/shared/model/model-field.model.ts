@@ -12,6 +12,8 @@ export interface IModelField {
   isPrimaryKey?: boolean | null;
   dimensionModelId?: string | null;
   dimensionFieldId?: string | null;
+  /** 事实表关联维度时选择的维度角色编码。 */
+  dimensionRole?: string | null;
   fieldRole?: string | null;
   levelIndex?: number | null;
   createTime?: Date | null;
@@ -33,6 +35,7 @@ export class ModelField implements IModelField {
     public isPrimaryKey?: boolean | null,
     public dimensionModelId?: string | null,
     public dimensionFieldId?: string | null,
+    public dimensionRole?: string | null,
     public fieldRole?: string | null,
     public levelIndex?: number | null,
     public createTime?: Date | null,

@@ -37,6 +37,8 @@ public class AppPackageExportService {
 
     private final ModelFieldRepository modelFieldRepository;
 
+    private final DimensionRoleRepository dimensionRoleRepository;
+
     private final ModelDirectoryRepository modelDirectoryRepository;
 
     private final MetricRepository metricRepository;
@@ -63,6 +65,7 @@ public class AppPackageExportService {
         DataSourceRepository dataSourceRepository,
         DataModelRepository dataModelRepository,
         ModelFieldRepository modelFieldRepository,
+        DimensionRoleRepository dimensionRoleRepository,
         ModelDirectoryRepository modelDirectoryRepository,
         MetricRepository metricRepository,
         MetricDirectoryRepository metricDirectoryRepository,
@@ -78,6 +81,7 @@ public class AppPackageExportService {
         this.dataSourceRepository = dataSourceRepository;
         this.dataModelRepository = dataModelRepository;
         this.modelFieldRepository = modelFieldRepository;
+        this.dimensionRoleRepository = dimensionRoleRepository;
         this.modelDirectoryRepository = modelDirectoryRepository;
         this.metricRepository = metricRepository;
         this.metricDirectoryRepository = metricDirectoryRepository;
@@ -353,6 +357,11 @@ public class AppPackageExportService {
                         .stream()
                         .map(this::toFieldItem)
                         .toList();
+                    item.dimensionRoles = dimensionRoleRepository
+                        .findByDimensionModelIdOrderBySortOrderAscCodeAsc(id)
+                        .stream()
+                        .map(this::toDimensionRoleItem)
+                        .toList();
                     items.add(item);
                 });
         }
@@ -373,8 +382,18 @@ public class AppPackageExportService {
         item.isPrimaryKey = field.getIsPrimaryKey();
         item.dimensionModelOldId = field.getDimensionModelId();
         item.dimensionFieldOldId = field.getDimensionFieldId();
+        item.dimensionRole = field.getDimensionRole();
         item.fieldRole = field.getFieldRole();
         item.levelIndex = field.getLevelIndex();
+        return item;
+    }
+
+    private AppPackageModel.AppPackageDimensionRole toDimensionRoleItem(DimensionRole role) {
+        AppPackageModel.AppPackageDimensionRole item = new AppPackageModel.AppPackageDimensionRole();
+        item.code = role.getCode();
+        item.name = role.getName();
+        item.description = role.getDescription();
+        item.sortOrder = role.getSortOrder();
         return item;
     }
 

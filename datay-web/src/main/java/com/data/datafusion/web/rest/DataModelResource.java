@@ -226,13 +226,22 @@ public class DataModelResource {
         @RequestBody List<ModelFieldDTO> modelFieldDTOs
     ) {
         LOG.debug("REST request to save ModelFields for DataModel : {}", id);
-        modelFieldService.deleteByModelId(id);
         for (ModelFieldDTO field : modelFieldDTOs) {
             field.setModelId(id);
             field.setId(null);
         }
-        List<ModelFieldDTO> saved = modelFieldService.saveAll(modelFieldDTOs);
-        return ResponseEntity.ok().body(saved);
+        try {
+            modelFieldService.validateDimensionRoles(modelFieldDTOs);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "invalidModelField");
+        }
+        modelFieldService.deleteByModelId(id);
+        try {
+            List<ModelFieldDTO> saved = modelFieldService.saveAll(modelFieldDTOs);
+            return ResponseEntity.ok().body(saved);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "invalidModelField");
+        }
     }
 
     @GetMapping("/materialize-types")

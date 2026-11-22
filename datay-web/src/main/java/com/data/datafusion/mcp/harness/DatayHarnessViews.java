@@ -182,6 +182,7 @@ public final class DatayHarnessViews {
         view.put("isPrimaryKey", dto.getIsPrimaryKey());
         view.put("dimensionModelId", dto.getDimensionModelId());
         view.put("dimensionFieldId", dto.getDimensionFieldId());
+        view.put("dimensionRole", dto.getDimensionRole());
         view.put("fieldRole", dto.getFieldRole());
         view.put("levelIndex", dto.getLevelIndex());
         return view;

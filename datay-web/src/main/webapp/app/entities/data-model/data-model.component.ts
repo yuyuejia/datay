@@ -20,6 +20,7 @@ import {
   ModelDirectory,
 } from "@/shared/model/model-directory.model";
 import { type IModelField } from "@/shared/model/model-field.model";
+import { DimensionRole, type IDimensionRole } from "@/shared/model/dimension-role.model";
 import { useDateFormat } from "@/shared/composables";
 import { useAlertService } from "@/shared/alert/alert.service";
 
@@ -99,6 +100,10 @@ export default defineComponent({
     const fieldsLoading = ref(false);
     const activeDetailTab = ref("fields");
 
+    const dimensionRoleList: Ref<IDimensionRole[]> = ref([]);
+    const dimensionRolesLoading = ref(false);
+    const dimensionRolesSaving = ref(false);
+
     const directoryDialogVisible = ref(false);
     const directoryDialogTitle = ref("新增目录");
     const directoryForm: Ref<IModelDirectory> = ref(new ModelDirectory());
@@ -134,6 +139,27 @@ export default defineComponent({
         selectedModel.value?.modelType === "DIMENSION" &&
         selectedModel.value?.dimensionKind === "TIME",
     );
+
+    const isDegenerateDimensionModel = computed(
+      () =>
+        selectedModel.value?.modelType === "DIMENSION" &&
+        selectedModel.value?.dimensionKind === "DEGENERATE",
+    );
+
+    const dimensionKindLabel = computed(() => {
+      const kind = selectedModel.value?.dimensionKind;
+      if (selectedModel.value?.modelType !== "DIMENSION") {
+        return "-";
+      }
+      return (
+        {
+          NORMAL: "普通维度",
+          HIERARCHY: "层级维度",
+          TIME: "时间维度",
+          DEGENERATE: "退化维度",
+        }[kind || "NORMAL"] || kind || "普通维度"
+      );
+    });
 
     const canMaterialize = computed(() => {
       return (
@@ -576,9 +602,15 @@ export default defineComponent({
       if (data.type === "model") {
         selectedModel.value = data.data;
         await loadModelFields(data.data.id!);
+        if (data.data.modelType === "DIMENSION") {
+          await loadDimensionRoles(data.data.id!);
+        } else {
+          dimensionRoleList.value = [];
+        }
       } else {
         selectedModel.value = null;
         modelFields.value = [];
+        dimensionRoleList.value = [];
       }
     };
 
@@ -627,6 +659,133 @@ export default defineComponent({
         alertService.showHttpError(err.response);
       } finally {
         fieldsLoading.value = false;
+      }
+    };
+
+    const loadDimensionRoles = async (modelId: string) => {
+      dimensionRolesLoading.value = true;
+      try {
+        const roles = await dataModelService().getDimensionRoles(modelId);
+        dimensionRoleList.value = (roles || []).map(
+          (role) =>
+            new DimensionRole(
+              role.id,
+              role.dimensionModelId,
+              role.code,
+              role.name,
+              role.description,
+              role.sortOrder,
+            ),
+        );
+      } catch (err) {
+        alertService.showHttpError(err.response);
+      } finally {
+        dimensionRolesLoading.value = false;
+      }
+    };
+
+    const addDimensionRole = () => {
+      if (!selectedModel.value?.id) {
+        return;
+      }
+      dimensionRoleList.value.push(
+        new DimensionRole(
+          undefined,
+          selectedModel.value.id,
+          "",
+          "",
+          "",
+          dimensionRoleList.value.length,
+        ),
+      );
+    };
+
+    const removeDimensionRole = (index: number) => {
+      dimensionRoleList.value.splice(index, 1);
+      dimensionRoleList.value.forEach((role, i) => {
+        role.sortOrder = i;
+      });
+    };
+
+    const moveDimensionRole = (index: number, offset: number) => {
+      const target = index + offset;
+      if (target < 0 || target >= dimensionRoleList.value.length) {
+        return;
+      }
+      const roles = dimensionRoleList.value;
+      [roles[index], roles[target]] = [roles[target], roles[index]];
+      roles.forEach((role, i) => {
+        role.sortOrder = i;
+      });
+    };
+
+    const saveDimensionRoles = async () => {
+      if (!selectedModel.value?.id) {
+        return;
+      }
+      const normalized: IDimensionRole[] = [];
+      const seen = new Set<string>();
+      for (let i = 0; i < dimensionRoleList.value.length; i++) {
+        const role = dimensionRoleList.value[i];
+        const code = (role.code || "").trim().toUpperCase();
+        if (!code) {
+          alertService.showWarning("维度角色编码不能为空");
+          return;
+        }
+        if (!/^[A-Z][A-Z0-9_]*$/.test(code)) {
+          alertService.showWarning(
+            `维度角色编码只能包含大写字母、数字和下划线，且必须以字母开头：${code}`,
+          );
+          return;
+        }
+        if (seen.has(code)) {
+          alertService.showWarning(`维度角色编码重复：${code}`);
+          return;
+        }
+        seen.add(code);
+        normalized.push({
+          id: role.id,
+          dimensionModelId: selectedModel.value.id,
+          code,
+          name: (role.name || "").trim() || code,
+          description: role.description,
+          sortOrder: i,
+        });
+      }
+      dimensionRolesSaving.value = true;
+      const previous = dimensionRoleList.value.map(
+        (role) =>
+          new DimensionRole(
+            role.id,
+            role.dimensionModelId,
+            role.code,
+            role.name,
+            role.description,
+            role.sortOrder,
+          ),
+      );
+      try {
+        const saved = await dataModelService().saveDimensionRoles(
+          selectedModel.value.id,
+          normalized,
+        );
+        dimensionRoleList.value = (saved || []).map(
+          (role) =>
+            new DimensionRole(
+              role.id,
+              role.dimensionModelId,
+              role.code,
+              role.name,
+              role.description,
+              role.sortOrder,
+            ),
+        );
+        alertService.showSuccess("维度角色已保存");
+      } catch (err) {
+        dimensionRoleList.value = previous;
+        alertService.showHttpError(err.response);
+      } finally {
+        dimensionRolesSaving.value = false;
       }
     };
 
@@ -768,6 +927,15 @@ export default defineComponent({
       modelFields,
       fieldsLoading,
       activeDetailTab,
+      dimensionRoleList,
+      dimensionRolesLoading,
+      dimensionRolesSaving,
+      addDimensionRole,
+      removeDimensionRole,
+      moveDimensionRole,
+      saveDimensionRoles,
+      isDegenerateDimensionModel,
+      dimensionKindLabel,
       directoryDialogVisible,
       directoryDialogTitle,
       directoryForm,

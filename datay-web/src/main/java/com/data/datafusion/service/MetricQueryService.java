@@ -1,9 +1,11 @@
 package com.data.datafusion.service;
 
 import com.data.datafusion.domain.DataModel;
+import com.data.datafusion.domain.DimensionRole;
 import com.data.datafusion.domain.Metric;
 import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.repository.DimensionRoleRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.service.dashboard.DatasetQueryOptions;
@@ -22,6 +24,7 @@ import com.data.datafusion.service.metric.ScopedDimension;
 import com.data.metadata.util.DBUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -68,6 +71,9 @@ public class MetricQueryService {
 
     /** 时间维度类型，与层级维度一样支持按层级（时间粒度）分组。 */
     private static final String DIMENSION_KIND_TIME = "TIME";
+
+    /** 退化维度类型：不存在物理维表，直接使用事实表字段。 */
+    private static final String DIMENSION_KIND_DEGENERATE = "DEGENERATE";
 
     /** 时间维度层级字段的中文标签，用于元数据展示。 */
     private static final Map<String, String> TIME_LEVEL_LABELS = Map.of(
@@ -132,6 +138,7 @@ public class MetricQueryService {
     private final MetricRepository metricRepository;
     private final DataModelRepository dataModelRepository;
     private final ModelFieldRepository modelFieldRepository;
+    private final DimensionRoleRepository dimensionRoleRepository;
     private final DataSourceService dataSourceService;
     private final DataSourceQueryService dataSourceQueryService;
     private final ObjectMapper objectMapper;
@@ -141,6 +148,7 @@ public class MetricQueryService {
         MetricRepository metricRepository,
         DataModelRepository dataModelRepository,
         ModelFieldRepository modelFieldRepository,
+        DimensionRoleRepository dimensionRoleRepository,
         DataSourceService dataSourceService,
         DataSourceQueryService dataSourceQueryService,
         ObjectMapper objectMapper,
@@ -149,6 +157,7 @@ public class MetricQueryService {
         this.metricRepository = metricRepository;
         this.dataModelRepository = dataModelRepository;
         this.modelFieldRepository = modelFieldRepository;
+        this.dimensionRoleRepository = dimensionRoleRepository;
         this.dataSourceService = dataSourceService;
         this.dataSourceQueryService = dataSourceQueryService;
         this.objectMapper = objectMapper;
@@ -299,12 +308,26 @@ public class MetricQueryService {
                 continue;
             }
             Map<String, String> descriptions = new LinkedHashMap<>();
-            for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimension.dimensionModelId)) {
-                descriptions.put(field.getFieldName(), field.getDescription());
+            if (isDegenerateDimension(context, dimension.dimensionModelId)) {
+                for (List<ModelField> factFields : context.factFields.values()) {
+                    for (ModelField field : factFields) {
+                        if (dimension.dimensionModelId.equals(field.getDimensionModelId())) {
+                            descriptions.putIfAbsent(field.getFieldName(), field.getDescription());
+                        }
+                    }
+                }
+            } else {
+                for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimension.dimensionModelId)) {
+                    descriptions.put(field.getFieldName(), field.getDescription());
+                }
             }
             for (String fieldName : dimension.displayFields) {
                 String description = descriptions.get(fieldName);
-                labels.put(fieldName, description != null && !description.isBlank() ? description : fieldName);
+                String label = description != null && !description.isBlank() ? description : fieldName;
+                if (dimension.dimensionRole != null && !dimension.dimensionRole.isBlank()) {
+                    label = label + "（" + dimension.dimensionRole + "）";
+                }
+                labels.put(dimensionOutputFieldName(fieldName, dimension.dimensionRole), label);
             }
         }
         for (Metric metric : context.metrics) {
@@ -380,17 +403,44 @@ public class MetricQueryService {
         for (String dimensionModelId : context.commonDimensionModelIds) {
             Map<String, Object> item = new LinkedHashMap<>();
             DataModel dimensionModel = dataModelRepository.findById(dimensionModelId).orElse(null);
+            boolean degenerate = dimensionModel != null && DIMENSION_KIND_DEGENERATE.equalsIgnoreCase(dimensionModel.getDimensionKind());
             item.put("dimensionModelCode", dimensionModel == null ? null : dimensionModel.getCode());
             item.put("dimensionModelName", dimensionModel == null ? null : dimensionModel.getName());
+            item.put("isDegenerateDimension", degenerate);
             item.put("factFieldName", context.single ? context.factDimensionMaps.get(context.factModels.get(0).getId()).get(dimensionModelId) : null);
+            List<Map<String, Object>> roles = new ArrayList<>();
+            for (DimensionRole role : dimensionRoleRepository.findByDimensionModelIdOrderBySortOrderAscCodeAsc(dimensionModelId)) {
+                Map<String, Object> roleItem = new LinkedHashMap<>();
+                roleItem.put("code", role.getCode());
+                roleItem.put("name", role.getName());
+                roleItem.put("description", role.getDescription());
+                roleItem.put("sortOrder", role.getSortOrder());
+                if (context.single) {
+                    roleItem.put(
+                        "factFieldName",
+                        context.factDimensionMaps
+                            .get(context.factModels.get(0).getId())
+                            .get(dimensionJoinKey(dimensionModelId, role.getCode()))
+                    );
+                }
+                roles.add(roleItem);
+            }
+            item.put("roles", roles);
             boolean hierarchy = dimensionModel != null && isHierarchyLike(dimensionModel.getDimensionKind());
             item.put("isHierarchy", hierarchy);
             item.put("dimensionKind", dimensionModel == null ? null : dimensionModel.getDimensionKind());
             boolean timeKind = dimensionModel != null && DIMENSION_KIND_TIME.equalsIgnoreCase(dimensionModel.getDimensionKind());
             item.put("levelCount", hierarchy ? resolveLevelCount(dimensionModel) : null);
             item.put("isTimeDimension", isTimeDimension(context, dimensionModelId) || timeKind);
-            // 维度的默认显示字段：供看板设计助手确定图表 x 轴字段
-            if (dimensionModel != null) {
+            if (degenerate) {
+                String defaultField = context.single
+                    ? context.factDimensionMaps.get(context.factModels.get(0).getId()).get(dimensionModelId)
+                    : null;
+                if (defaultField != null) {
+                    item.put("displayFieldName", defaultField);
+                    item.put("recommendedDisplayField", defaultField);
+                }
+            } else if (dimensionModel != null) {
                 if (dimensionModel.getDisplayFieldName() != null && !dimensionModel.getDisplayFieldName().isBlank()) {
                     item.put("displayFieldName", dimensionModel.getDisplayFieldName());
                 }
@@ -415,7 +465,24 @@ public class MetricQueryService {
             }
             List<Map<String, Object>> dimensionFields = new ArrayList<>();
             List<String> periodFields = new ArrayList<>();
-            for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId)) {
+            List<ModelField> metadataFields;
+            if (degenerate) {
+                LinkedHashMap<String, ModelField> uniqueFactFields = new LinkedHashMap<>();
+                for (List<ModelField> factFields : context.factFields.values()) {
+                    for (ModelField field : factFields) {
+                        if (
+                            field.getFieldName() != null &&
+                            dimensionModelId.equals(field.getDimensionModelId())
+                        ) {
+                            uniqueFactFields.putIfAbsent(field.getFieldName(), field);
+                        }
+                    }
+                }
+                metadataFields = new ArrayList<>(uniqueFactFields.values());
+            } else {
+                metadataFields = modelFieldRepository.findByModelIdOrderBySortOrderAsc(dimensionModelId);
+            }
+            for (ModelField field : metadataFields) {
                 Map<String, Object> fieldItem = new LinkedHashMap<>();
                 fieldItem.put("fieldName", field.getFieldName());
                 fieldItem.put("fieldType", field.getFieldType());
@@ -501,20 +568,35 @@ public class MetricQueryService {
             }
         }
         context.federated = dataSourceIds.size() > 1;
+        // MySQL/MariaDB 等不支持 FULL OUTER JOIN：同数据源多事实表也走 DuckDB 联邦合并，保证查询可用。
+        if (!context.federated && context.factModels.size() > 1) {
+            String dataSourceId = context.factModels.get(0).getDataSourceId();
+            if (dataSourceId != null) {
+                DataSourceDTO dataSource = dataSourceService.findOne(dataSourceId).orElse(null);
+                if (dataSource != null && !supportsFullOuterJoin(dataSource.getType())) {
+                    context.federated = true;
+                }
+            }
+        }
 
         for (DataModel factModel : context.factModels) {
             context.factFields.put(factModel.getId(), modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModel.getId()));
             context.factDimensionMaps.put(factModel.getId(), dimensionJoinMap(factModel.getId()));
         }
 
-        // 联邦路径需要知道每个原子指标属于哪个事实表，以及统一的内部列别名。
+        // 预解析原子指标所属事实表：多事实表查询和联邦查询都需要。
+        prepareAtomicMetrics(context);
         if (context.federated) {
-            prepareFederatedAtomics(context);
+            assignFederatedAliases(context);
         }
 
         context.commonDimensionModelIds = commonDimensions(context.factModels);
+        for (String dimensionModelId : context.commonDimensionModelIds) {
+            dataModelRepository.findById(dimensionModelId).ifPresent(model -> context.dimensionModels.put(dimensionModelId, model));
+        }
 
         context.dimensions = new ArrayList<>();
+        Set<String> dimensionSelectionKeys = new HashSet<>();
         for (MetricQueryFieldDTO dimension : dto.getDimensions() == null ? List.<MetricQueryFieldDTO>of() : dto.getDimensions()) {
             String dimensionModelCode = dimension.getDimensionModelCode();
             if (dimensionModelCode == null || dimensionModelCode.isBlank()) {
@@ -527,11 +609,32 @@ public class MetricQueryService {
             if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
                 throw new IllegalArgumentException("维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
             }
+            String dimensionRole = normalizeDimensionRole(dimension.getDimensionRole());
+            validateDimensionRole(dimensionModelId, dimensionRole);
+            String selectionKey = dimensionJoinKey(dimensionModelId, dimensionRole);
+            if (!dimensionSelectionKeys.add(selectionKey)) {
+                throw new IllegalArgumentException("维度重复选择：" + dimensionModelCode + (dimensionRole == null ? "" : " / " + dimensionRole));
+            }
             boolean hierarchy = isHierarchyLike(dimensionModel.getDimensionKind());
+            boolean degenerate = DIMENSION_KIND_DEGENERATE.equalsIgnoreCase(dimensionModel.getDimensionKind());
             List<String> requestedDisplayFields = requestedDisplayFields(dimension);
 
             DimSelection selection = new DimSelection();
             selection.dimensionModelId = dimensionModelId;
+            selection.dimensionRole = dimensionRole;
+
+            if (degenerate) {
+                String fieldName = resolveDegenerateDimensionField(context, dimensionModelId, dimensionRole);
+                if (!requestedDisplayFields.isEmpty() && !requestedDisplayFields.contains(fieldName)) {
+                    throw new IllegalArgumentException(
+                        "退化维度直接使用事实表字段 " + fieldName + "，不支持指定其他展示字段：" + requestedDisplayFields
+                    );
+                }
+                selection.groupKeyFields = List.of(fieldName);
+                selection.displayFields = List.of(fieldName);
+                context.dimensions.add(selection);
+                continue;
+            }
 
             if (hierarchy && requestedDisplayFields.isEmpty()) {
                 int levelCount = resolveLevelCount(dimensionModel);
@@ -586,6 +689,8 @@ public class MetricQueryService {
                 if (!context.commonDimensionModelIds.contains(dimensionModelId)) {
                     throw new IllegalArgumentException("业务限定维度不在所选指标事实表的共同维度中：" + dimensionModelCode);
                 }
+                condition.setDimensionRole(normalizeDimensionRole(condition.getDimensionRole()));
+                validateDimensionRole(dimensionModelId, condition.getDimensionRole());
                 context.conditions.add(condition);
             }
         }
@@ -610,21 +715,44 @@ public class MetricQueryService {
         return dataSourceId;
     }
 
-    private void prepareFederatedAtomics(QueryContext context) {
+    /**
+     * 判断数据源是否原生支持 FULL OUTER JOIN。不支持时多事实表查询改走 DuckDB 合并。
+     */
+    private static boolean supportsFullOuterJoin(String dataSourceType) {
+        if (dataSourceType == null || dataSourceType.isBlank()) {
+            return true;
+        }
+        String type = dataSourceType.trim().toUpperCase(Locale.ROOT);
+        return !(
+            "MYSQL".equals(type) ||
+            "MARIADB".equals(type) ||
+            "TIDB".equals(type) ||
+            "CLICKHOUSE".equals(type) ||
+            "HIVE".equals(type) ||
+            "DORIS".equals(type)
+        );
+    }
+
+    private void prepareAtomicMetrics(QueryContext context) {
         LinkedHashMap<String, Metric> atomics = new LinkedHashMap<>();
         for (Metric metric : context.metrics) {
             collectAtomicMetrics(metric, context.byCode, atomics);
         }
         context.atomicMetrics = new ArrayList<>(atomics.values());
-        int aliasIndex = 0;
         for (Metric metric : context.atomicMetrics) {
             String factModelId = metric.getFactModelId();
             if (factModelId == null) {
                 throw new IllegalArgumentException("原子指标未绑定事实表：" + metric.getName());
             }
             context.atomicFactModel.put(metric.getCode(), factModelId);
-            context.atomicAlias.put(metric.getCode(), "m" + aliasIndex++);
             context.atomicByFact.computeIfAbsent(factModelId, key -> new ArrayList<>()).add(metric);
+        }
+    }
+
+    private void assignFederatedAliases(QueryContext context) {
+        int aliasIndex = 0;
+        for (Metric metric : context.atomicMetrics) {
+            context.atomicAlias.put(metric.getCode(), "m" + aliasIndex++);
         }
     }
 
@@ -671,7 +799,9 @@ public class MetricQueryService {
         List<String> outputColumns = new ArrayList<>();
         for (DimSelection dimension : context.dimensions) {
             if (dimension.displayFields != null) {
-                outputColumns.addAll(dimension.displayFields);
+                for (String field : dimension.displayFields) {
+                    outputColumns.add(dimensionOutputFieldName(field, dimension.dimensionRole));
+                }
             }
         }
         for (Metric metric : context.metrics) {
@@ -697,14 +827,15 @@ public class MetricQueryService {
         for (int i = 0; i < context.dimensions.size(); i++) {
             DimSelection dimension = context.dimensions.get(i);
             String alias = ensureDimensionJoin(
-                dimensionJoin.get(dimension.dimensionModelId),
+                context,
+                resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole),
                 dimension.dimensionModelId,
                 dimensionAlias,
                 joins
             );
             List<String> groupKeys = dimension.groupKeyFields.isEmpty() ? new ArrayList<>() : new ArrayList<>(dimension.groupKeyFields);
             if (groupKeys.isEmpty()) {
-                String joinField = dimensionJoin.get(dimension.dimensionModelId);
+                String joinField = resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole);
                 if (joinField != null) {
                     groupKeys.add(joinField);
                 }
@@ -713,7 +844,7 @@ public class MetricQueryService {
                 addGroup(groupBys, alias + "." + groupKey);
             }
             if (!groupKeys.isEmpty()) {
-                selects.add("CAST(" + alias + "." + groupKeys.get(0) + " AS VARCHAR) AS key_" + i);
+                selects.add(alias + "." + groupKeys.get(0) + " AS key_" + i);
                 columns.add(new FederatedColumn("key_" + i, false));
             }
             for (String field : dimension.displayFields) {
@@ -726,7 +857,7 @@ public class MetricQueryService {
         for (Metric metric : atomicMetrics) {
             String alias = context.atomicAlias.get(metric.getCode());
             selects.add(
-                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(context, factModel, dimensionJoin, dimensionAlias, joins)) +
                 " AS " +
                 alias
             );
@@ -757,7 +888,11 @@ public class MetricQueryService {
                 for (int t = 0; t < sourceCount; t++) {
                     parts.add("t" + t + ".dim_" + i + "_" + field);
                 }
-                finalSelects.add((parts.size() == 1 ? parts.get(0) : "COALESCE(" + String.join(", ", parts) + ")") + " AS " + field);
+                finalSelects.add(
+                    (parts.size() == 1 ? parts.get(0) : "COALESCE(" + String.join(", ", parts) + ")") +
+                    " AS " +
+                    dimensionOutputFieldName(field, dimension.dimensionRole)
+                );
             }
         }
         for (Metric metric : context.metrics) {
@@ -948,7 +1083,10 @@ public class MetricQueryService {
                     } else if (value == null) {
                         statement.setNull(i + 1, java.sql.Types.VARCHAR);
                     } else {
-                        statement.setString(i + 1, String.valueOf(value));
+                        String text = column.name().startsWith("key_")
+                            ? federatedKeyValue(value)
+                            : String.valueOf(value);
+                        statement.setString(i + 1, text);
                     }
                 }
                 statement.addBatch();
@@ -957,8 +1095,24 @@ public class MetricQueryService {
         }
     }
 
-    private static Object rowValue(Map<?, ?> row, String key) {
-        if (row.containsKey(key)) {
+    /**
+     * 联邦合并键统一为规范化字符串，避免 Oracle 的 2024.0 与 MySQL 的 2024 被当作不同键。
+     */
+    private static String federatedKeyValue(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal.stripTrailingZeros().toPlainString();
+        }
+        if (value instanceof Number number) {
+            try {
+                return new BigDecimal(number.toString()).stripTrailingZeros().toPlainString();
+            } catch (NumberFormatException e) {
+                return String.valueOf(value);
+            }
+        }
+        return String.valueOf(value);
+    }
+
+    private static Object rowValue(Map<?, ?> row, String key) {        if (row.containsKey(key)) {
             return row.get(key);
         }
         for (Map.Entry<?, ?> entry : row.entrySet()) {
@@ -1001,7 +1155,8 @@ public class MetricQueryService {
 
         for (DimSelection dimension : context.dimensions) {
             String alias = ensureDimensionJoin(
-                dimensionJoin.get(dimension.dimensionModelId),
+                context,
+                resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole),
                 dimension.dimensionModelId,
                 dimensionAlias,
                 joins
@@ -1011,13 +1166,13 @@ public class MetricQueryService {
             }
             for (String field : dimension.displayFields) {
                 String column = alias + "." + field;
-                selects.add(column + " AS " + field);
+                selects.add(column + " AS " + dimensionOutputFieldName(field, dimension.dimensionRole));
                 addGroup(groupBys, column);
             }
         }
         for (Metric metric : metrics) {
             selects.add(
-                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(context, factModel, dimensionJoin, dimensionAlias, joins)) +
                 " AS " +
                 metric.getCode()
             );
@@ -1041,27 +1196,37 @@ public class MetricQueryService {
 
     private String buildMultiFactSql(QueryContext context) {
         List<String> subqueries = new ArrayList<>();
-        List<List<Metric>> metricsByFact = new ArrayList<>();
-        for (DataModel factModel : context.factModels) {
-            List<Metric> metrics = context.metrics
-                .stream()
-                .filter(m -> factModel.getId().equals(context.metricFactModel.get(m.getId())))
-                .collect(java.util.stream.Collectors.toList());
-            metricsByFact.add(metrics);
-            subqueries.add(buildFactSubquery(context, factModel, metrics));
+        Map<String, Integer> factIndexByAtomic = new HashMap<>();
+        for (int i = 0; i < context.factModels.size(); i++) {
+            DataModel factModel = context.factModels.get(i);
+            List<Metric> atomicMetrics = context.atomicByFact.getOrDefault(factModel.getId(), List.of());
+            for (Metric metric : atomicMetrics) {
+                factIndexByAtomic.put(metric.getCode(), i);
+            }
+            subqueries.add(buildFactSubquery(context, factModel, atomicMetrics));
         }
 
         List<String> finalSelects = new ArrayList<>();
         for (int i = 0; i < context.dimensions.size(); i++) {
             DimSelection dimension = context.dimensions.get(i);
             for (String field : dimension.displayFields) {
-                finalSelects.add(coalesceDimField(i, field, context.factModels.size()) + " AS " + field);
+                finalSelects.add(
+                    coalesceDimField(i, field, context.factModels.size()) +
+                    " AS " +
+                    dimensionOutputFieldName(field, dimension.dimensionRole)
+                );
             }
         }
-        for (int i = 0; i < context.factModels.size(); i++) {
-            for (Metric metric : metricsByFact.get(i)) {
-                finalSelects.add("t" + i + "." + metric.getCode());
-            }
+        for (Metric metric : context.metrics) {
+            finalSelects.add(
+                multiFactMetricExpression(metric.getCode(), context.byCode, factIndexByAtomic, new HashSet<>()) +
+                " AS " +
+                metric.getCode()
+            );
+        }
+
+        if (finalSelects.isEmpty()) {
+            throw new IllegalArgumentException("所选指标没有可执行的原子指标");
         }
 
         StringBuilder sql = new StringBuilder();
@@ -1074,6 +1239,44 @@ public class MetricQueryService {
         return sql.toString();
     }
 
+    /**
+     * 多事实表最终查询中的指标表达式：原子指标引用对应事实子查询列，衍生指标递归展开。
+     */
+    private String multiFactMetricExpression(
+        String code,
+        Map<String, Metric> byCode,
+        Map<String, Integer> factIndexByAtomic,
+        Set<String> visiting
+    ) {
+        Metric metric = byCode.get(code);
+        if (metric == null) {
+            throw new IllegalArgumentException("指标不存在：" + code);
+        }
+        if (!visiting.add(code)) {
+            throw new IllegalArgumentException("指标公式存在循环引用：" + code);
+        }
+        String expression;
+        if (Metric.TYPE_ATOMIC.equals(metric.getMetricType())) {
+            Integer factIndex = factIndexByAtomic.get(code);
+            if (factIndex == null) {
+                throw new IllegalArgumentException("原子指标没有可执行的事实子查询：" + code);
+            }
+            expression = "t" + factIndex + "." + code;
+        } else {
+            String formula = metric.getFormula() == null ? "" : metric.getFormula();
+            Matcher matcher = FORMULA_REF_PATTERN.matcher(formula);
+            StringBuilder sb = new StringBuilder();
+            while (matcher.find()) {
+                String refExpr = multiFactMetricExpression(matcher.group(1), byCode, factIndexByAtomic, visiting);
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(refExpr));
+            }
+            matcher.appendTail(sb);
+            expression = "(" + sb + ")";
+        }
+        visiting.remove(code);
+        return expression;
+    }
+
     private String buildFactSubquery(QueryContext context, DataModel factModel, List<Metric> metrics) {
         StringBuilder joins = new StringBuilder();
         Map<String, String> dimensionAlias = new HashMap<>();
@@ -1084,14 +1287,15 @@ public class MetricQueryService {
         for (int i = 0; i < context.dimensions.size(); i++) {
             DimSelection dimension = context.dimensions.get(i);
             String alias = ensureDimensionJoin(
-                dimensionJoin.get(dimension.dimensionModelId),
+                context,
+                resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole),
                 dimension.dimensionModelId,
                 dimensionAlias,
                 joins
             );
             List<String> groupKeys = dimension.groupKeyFields.isEmpty() ? new ArrayList<>() : new ArrayList<>(dimension.groupKeyFields);
             if (groupKeys.isEmpty()) {
-                String joinField = dimensionJoin.get(dimension.dimensionModelId);
+                String joinField = resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole);
                 if (joinField != null) {
                     groupKeys.add(joinField);
                 }
@@ -1110,7 +1314,7 @@ public class MetricQueryService {
         }
         for (Metric metric : metrics) {
             selects.add(
-                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(factModel, dimensionJoin, dimensionAlias, joins)) +
+                metricExpression(metric.getCode(), context.byCode, new HashSet<>(), filterPredicateProvider(context, factModel, dimensionJoin, dimensionAlias, joins)) +
                 " AS " +
                 metric.getCode()
             );
@@ -1172,8 +1376,30 @@ public class MetricQueryService {
         List<String> groupPredicates = new ArrayList<>();
         for (ScopedDimension scope : context.dataScopes) {
             String dimensionModelId = scope.getDimensionModelId();
-            String factFieldName = dimensionJoin.get(dimensionModelId);
-            if (factFieldName == null) {
+            List<String> factFieldNames = new ArrayList<>();
+            for (DimSelection dimension : context.dimensions) {
+                if (dimensionModelId.equals(dimension.dimensionModelId)) {
+                    String field = resolveDimensionJoinField(dimensionJoin, dimension.dimensionModelId, dimension.dimensionRole);
+                    if (field != null && !factFieldNames.contains(field)) {
+                        factFieldNames.add(field);
+                    }
+                }
+            }
+            for (MetricFilterCondition condition : context.conditions) {
+                if (dimensionModelId.equals(condition.getDimensionModelId())) {
+                    String field = resolveDimensionJoinField(dimensionJoin, condition.getDimensionModelId(), condition.getDimensionRole());
+                    if (field != null && !factFieldNames.contains(field)) {
+                        factFieldNames.add(field);
+                    }
+                }
+            }
+            if (factFieldNames.isEmpty()) {
+                String defaultField = dimensionJoin.get(dimensionModelId);
+                if (defaultField != null) {
+                    factFieldNames.add(defaultField);
+                }
+            }
+            if (factFieldNames.isEmpty()) {
                 if ("DENY".equalsIgnoreCase(missingDimensionPolicy)) {
                     throw new IllegalArgumentException(
                         "当前指标事实表缺少受控维度，无法应用数据权限：" + physicalTableName(factModel) + " 缺少维度 " + dimensionModelId
@@ -1187,18 +1413,21 @@ public class MetricQueryService {
                 );
                 continue;
             }
-            String alias = ensureDimensionJoin(factFieldName, dimensionModelId, dimensionAlias, joins);
-            List<String> inner = new ArrayList<>();
-            for (MetricFilterCondition condition : scope.getConditions()) {
-                // 层级维度按层级字段过滤时，自然包含该层级下的所有下级成员，无需额外展开
-                String column = alias + "." + condition.getDimensionFieldName();
-                String predicate = buildPredicate(condition, column);
-                if (predicate != null) {
-                    inner.add("(" + predicate + ")");
+            // 同一维度可能以多个角色出现；每个实际使用的角色关联都必须应用权限条件，避免通过角色绕过数据权限。
+            for (String factFieldName : factFieldNames) {
+                String alias = ensureDimensionJoin(context, factFieldName, dimensionModelId, dimensionAlias, joins);
+                List<String> inner = new ArrayList<>();
+                for (MetricFilterCondition condition : scope.getConditions()) {
+                    // 层级维度按层级字段过滤时，自然包含该层级下的所有下级成员，无需额外展开
+                    String column = alias + "." + condition.getDimensionFieldName();
+                    String predicate = buildPredicate(condition, column);
+                    if (predicate != null) {
+                        inner.add("(" + predicate + ")");
+                    }
                 }
-            }
-            if (!inner.isEmpty()) {
-                groupPredicates.add("(" + String.join(" OR ", inner) + ")");
+                if (!inner.isEmpty()) {
+                    groupPredicates.add("(" + String.join(" OR ", inner) + ")");
+                }
             }
         }
         return String.join(" AND ", groupPredicates);
@@ -1213,7 +1442,8 @@ public class MetricQueryService {
         StringBuilder predicate = new StringBuilder();
         for (MetricFilterCondition condition : context.conditions) {
             String alias = ensureDimensionJoin(
-                dimensionJoin.get(condition.getDimensionModelId()),
+                context,
+                resolveDimensionJoinField(dimensionJoin, condition.getDimensionModelId(), condition.getDimensionRole()),
                 condition.getDimensionModelId(),
                 dimensionAlias,
                 joins
@@ -1400,6 +1630,15 @@ public class MetricQueryService {
         return metrics;
     }
 
+    private void validateDimensionRole(String dimensionModelId, String dimensionRole) {
+        if (dimensionRole == null || dimensionRole.isBlank()) {
+            return;
+        }
+        if (!dimensionRoleRepository.existsByDimensionModelIdAndCodeIgnoreCase(dimensionModelId, dimensionRole)) {
+            throw new IllegalArgumentException("维度角色未在维度模型中定义：" + dimensionRole);
+        }
+    }
+
     private Map<String, Metric> loadByCode() {
         Map<String, Metric> byCode = new HashMap<>();
         for (Metric metric : metricRepository.findAll()) {
@@ -1411,11 +1650,94 @@ public class MetricQueryService {
     private Map<String, String> dimensionJoinMap(String factModelId) {
         Map<String, String> map = new HashMap<>();
         for (ModelField field : modelFieldRepository.findByModelIdOrderBySortOrderAsc(factModelId)) {
-            if (field.getDimensionModelId() != null) {
-                map.putIfAbsent(field.getDimensionModelId(), field.getFieldName());
+            if (field.getDimensionModelId() == null) {
+                continue;
+            }
+            // 默认关联：每个维度模型只保留第一个关联，兼容原有查询逻辑。
+            map.putIfAbsent(field.getDimensionModelId(), field.getFieldName());
+            String role = normalizeDimensionRole(field.getDimensionRole());
+            if (role != null) {
+                map.putIfAbsent(dimensionJoinKey(field.getDimensionModelId(), role), field.getFieldName());
             }
         }
         return map;
+    }
+
+    /**
+     * 维度关联键：默认关联使用维度模型 ID，指定角色时追加角色编码。
+     */
+    private static String dimensionJoinKey(String dimensionModelId, String dimensionRole) {
+        String role = normalizeDimensionRole(dimensionRole);
+        return role == null ? dimensionModelId : dimensionModelId + "#" + role;
+    }
+
+    /**
+     * 解析实际使用的关联键：指定角色存在时用角色关联，否则回退到默认关联。
+     * 这样不同事实表对同一维度使用不同角色时，仍可识别为共有维度。
+     */
+    private static String resolveDimensionJoinKey(Map<String, String> dimensionJoin, String dimensionModelId, String dimensionRole) {
+        String roleKey = dimensionJoinKey(dimensionModelId, dimensionRole);
+        if (dimensionJoin.containsKey(roleKey)) {
+            return roleKey;
+        }
+        if (dimensionJoin.containsKey(dimensionModelId)) {
+            return dimensionModelId;
+        }
+        return roleKey;
+    }
+
+    private static String resolveDimensionJoinField(Map<String, String> dimensionJoin, String dimensionModelId, String dimensionRole) {
+        return dimensionJoin.get(resolveDimensionJoinKey(dimensionJoin, dimensionModelId, dimensionRole));
+    }
+
+    /**
+     * 输出列名：带角色时追加角色后缀，避免同一维度多角色列名冲突。
+     */
+    public static String dimensionOutputFieldName(String fieldName, String dimensionRole) {
+        String role = normalizeDimensionRole(dimensionRole);
+        return role == null ? fieldName : fieldName + "__" + role;
+    }
+
+    private static String normalizeDimensionRole(String dimensionRole) {
+        if (dimensionRole == null || dimensionRole.isBlank()) {
+            return null;
+        }
+        return dimensionRole.trim().toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * 退化维度不存在物理维表，值直接来自事实表字段。
+     * 多事实表查询时要求各事实表使用同名字段，才能作为共同维度合并。
+     */
+    private String resolveDegenerateDimensionField(QueryContext context, String dimensionModelId, String dimensionRole) {
+        Set<String> fieldNames = new LinkedHashSet<>();
+        for (DataModel factModel : context.factModels) {
+            Map<String, String> dimensionJoin = context.factDimensionMaps.get(factModel.getId());
+            String fieldName = resolveDimensionJoinField(dimensionJoin, dimensionModelId, dimensionRole);
+            if (fieldName == null) {
+                throw new IllegalArgumentException(
+                    "退化维度未与事实表建立关联：" + physicalTableName(factModel) + " / " + dimensionModelId
+                );
+            }
+            fieldNames.add(fieldName);
+        }
+        if (fieldNames.isEmpty()) {
+            throw new IllegalArgumentException("退化维度未与所选事实表建立关联：" + dimensionModelId);
+        }
+        if (fieldNames.size() > 1) {
+            throw new IllegalArgumentException(
+                "退化维度在不同事实表中的字段名不一致，无法作为共同维度：" + dimensionModelId + " -> " + fieldNames
+            );
+        }
+        return fieldNames.iterator().next();
+    }
+
+    private boolean isDegenerateDimension(QueryContext context, String dimensionModelId) {
+        DataModel model = context.dimensionModels.get(dimensionModelId);
+        if (model == null) {
+            model = dataModelRepository.findById(dimensionModelId).orElse(null);
+        }
+        return model != null && DIMENSION_KIND_DEGENERATE.equalsIgnoreCase(model.getDimensionKind());
     }
 
     /** 层级维度与时间维度均支持按层级分组。 */
@@ -1472,9 +1794,18 @@ public class MetricQueryService {
                 continue;
             }
             Map<String, String> joinMap = context.factDimensionMaps.get(factModel.getId());
-            String joinField = joinMap == null ? null : joinMap.get(dimensionModelId);
-            if (timeField.equalsIgnoreCase(joinField)) {
+            if (joinMap == null) {
+                continue;
+            }
+            String defaultJoinField = joinMap.get(dimensionModelId);
+            if (timeField.equalsIgnoreCase(defaultJoinField)) {
                 return true;
+            }
+            String rolePrefix = dimensionModelId + "#";
+            for (Map.Entry<String, String> entry : joinMap.entrySet()) {
+                if (entry.getKey().startsWith(rolePrefix) && timeField.equalsIgnoreCase(entry.getValue())) {
+                    return true;
+                }
             }
         }
         return false;
@@ -1547,6 +1878,7 @@ public class MetricQueryService {
      * 避免生成对方无法解析的 SQL。
      */
     private Function<Metric, String> filterPredicateProvider(
+        QueryContext context,
         DataModel factModel,
         Map<String, String> dimensionJoin,
         Map<String, String> dimensionAlias,
@@ -1565,7 +1897,7 @@ public class MetricQueryService {
                 );
                 return null;
             }
-            return metricFilterPredicate(metric, factModel, dimensionJoin, dimensionAlias, joins);
+            return metricFilterPredicate(context, metric, factModel, dimensionJoin, dimensionAlias, joins);
         };
     }
 
@@ -1591,6 +1923,7 @@ public class MetricQueryService {
      * 其余条件（事实表字段 / 事实表时间字段）直接作用在事实表别名上。
      */
     private String metricFilterPredicate(
+        QueryContext context,
         Metric metric,
         DataModel factModel,
         Map<String, String> dimensionJoin,
@@ -1616,6 +1949,7 @@ public class MetricQueryService {
                     throw new IllegalArgumentException("指标业务限定的维度条件缺少关联维度：" + metric.getCode());
                 }
                 String alias = ensureDimensionJoin(
+                    context,
                     dimensionJoin == null ? null : dimensionJoin.get(dimensionModelId),
                     dimensionModelId,
                     dimensionAlias,
@@ -1706,13 +2040,24 @@ public class MetricQueryService {
         return -1;
     }
 
-    private String ensureDimensionJoin(String factFieldName, String dimensionModelId, Map<String, String> dimensionAlias, StringBuilder joins) {
-        String existing = dimensionAlias.get(dimensionModelId);
+    private String ensureDimensionJoin(
+        QueryContext context,
+        String factFieldName,
+        String dimensionModelId,
+        Map<String, String> dimensionAlias,
+        StringBuilder joins
+    ) {
+        String cacheKey = dimensionModelId + "#" + factFieldName;
+        String existing = dimensionAlias.get(cacheKey);
         if (existing != null) {
             return existing;
         }
         if (factFieldName == null) {
             throw new IllegalArgumentException("维度未与所选事实表建立关联：" + dimensionModelId);
+        }
+        if (isDegenerateDimension(context, dimensionModelId)) {
+            dimensionAlias.put(cacheKey, FACT_ALIAS);
+            return FACT_ALIAS;
         }
         DataModel dimensionModel = dataModelRepository
             .findById(dimensionModelId)
@@ -1725,7 +2070,7 @@ public class MetricQueryService {
             .findFirst()
             .orElseGet(() -> dimensionFields.stream().map(ModelField::getFieldName).filter(factFieldName::equals).findFirst().orElse(null));
         String alias = "d" + dimensionAlias.size();
-        dimensionAlias.put(dimensionModelId, alias);
+        dimensionAlias.put(cacheKey, alias);
         joins.append("\nLEFT JOIN ").append(physicalTableName(dimensionModel)).append(" ").append(alias);
         if (joinField != null) {
             joins.append(" ON ").append(FACT_ALIAS).append(".").append(factFieldName).append(" = ").append(alias).append(".").append(joinField);
@@ -1878,6 +2223,7 @@ public class MetricQueryService {
         Map<String, List<Metric>> atomicByFact = new LinkedHashMap<>();
         Map<String, List<ModelField>> factFields = new HashMap<>();
         Map<String, Map<String, String>> factDimensionMaps = new HashMap<>();
+        Map<String, DataModel> dimensionModels = new LinkedHashMap<>();
         List<String> commonDimensionModelIds = new ArrayList<>();
         List<DimSelection> dimensions = new ArrayList<>();
         List<MetricFilterCondition> conditions = new ArrayList<>();
@@ -1889,6 +2235,7 @@ public class MetricQueryService {
     private static class DimSelection {
 
         String dimensionModelId;
+        String dimensionRole;
         List<String> groupKeyFields = new ArrayList<>();
         List<String> displayFields;
     }

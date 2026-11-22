@@ -36,7 +36,7 @@ public class MetricMetaTool implements AiTool {
         return """
             查询指定指标可用的查询元数据：可分组维度、各维度的字段与层级、时间字段、事实表。
             在选出指标编码（metricCodes）后调用，用于确定用户需求中的维度、业务限定字段与时间字段。
-            返回的 dimensions[].dimensionModelCode 用于构造维度与业务限定；timeFields[].fieldName 为事实表时间字段。
+            返回的 dimensions[].dimensionModelCode 用于构造维度与业务限定；dimensions[].roles 为该维度维护的维度角色（如 ORDER_DATE 下单日期、PAY_DATE 支付日期），query_metric_data 的 dimensions[]/conditions[] 可传 dimensionRole；timeFields[].fieldName 为事实表时间字段。
             层级维度（isHierarchy=true）会给出 levels[].levelIndex 与对应的 idField/nameField，按某层级汇总时传 levelIndex。
             时间维度（isTimeDimension=true）为日期维度，periodFields 列出可用于时间分组的周期字段（如 year/quarter/month/week_of_year/day 等）。
             每个维度会返回其默认显示字段（recommendedDisplayField，可能含 displayFieldName）；维度分组与图表 x 轴应使用该字段，

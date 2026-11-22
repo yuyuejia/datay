@@ -70,6 +70,8 @@ public class AppPackageImportService {
 
     private final ModelFieldRepository modelFieldRepository;
 
+    private final DimensionRoleRepository dimensionRoleRepository;
+
     private final ModelDirectoryRepository modelDirectoryRepository;
 
     private final MetricRepository metricRepository;
@@ -106,6 +108,7 @@ public class AppPackageImportService {
         DataSourceRepository dataSourceRepository,
         DataModelRepository dataModelRepository,
         ModelFieldRepository modelFieldRepository,
+        DimensionRoleRepository dimensionRoleRepository,
         ModelDirectoryRepository modelDirectoryRepository,
         MetricRepository metricRepository,
         MetricDirectoryRepository metricDirectoryRepository,
@@ -126,6 +129,7 @@ public class AppPackageImportService {
         this.dataSourceRepository = dataSourceRepository;
         this.dataModelRepository = dataModelRepository;
         this.modelFieldRepository = modelFieldRepository;
+        this.dimensionRoleRepository = dimensionRoleRepository;
         this.modelDirectoryRepository = modelDirectoryRepository;
         this.metricRepository = metricRepository;
         this.metricDirectoryRepository = metricDirectoryRepository;
@@ -539,6 +543,33 @@ public class AppPackageImportService {
         result.counts.put("modelsSkipped", skipped);
         result.counts.put("modelsOverwritten", overwritten);
 
+        // 先同步维度角色，事实字段的 dimensionRole 依赖角色编码。
+        for (AppPackageModel item : nonNull(content.getModels())) {
+            String newModelId = item.oldId == null ? null : modelMap.get(item.oldId);
+            if (newModelId == null) {
+                continue;
+            }
+            for (AppPackageModel.AppPackageDimensionRole role : nonNull(item.dimensionRoles)) {
+                if (role.code == null || role.code.isBlank()) {
+                    continue;
+                }
+                DimensionRole entity = dimensionRoleRepository
+                    .findByDimensionModelIdAndCodeIgnoreCase(newModelId, role.code)
+                    .orElseGet(() -> {
+                        DimensionRole createdRole = new DimensionRole();
+                        createdRole.setDimensionModelId(newModelId);
+                        createdRole.setCode(role.code.trim().toUpperCase(Locale.ROOT));
+                        createdRole.setCreateTime(ZonedDateTime.now());
+                        return createdRole;
+                    });
+                entity.setName(role.name == null || role.name.isBlank() ? entity.getCode() : role.name);
+                entity.setDescription(role.description);
+                entity.setSortOrder(role.sortOrder);
+                entity.setUpdateTime(ZonedDateTime.now());
+                dimensionRoleRepository.save(entity);
+            }
+        }
+
         // 字段分两轮写入：第一轮按字段名 upsert（覆盖时保留原字段 ID），第二轮补上「关联维度字段」
         // （dimensionFieldId 依赖第一轮生成的字段 ID）
         List<String[]> pendingDimensionField = new ArrayList<>();
@@ -579,6 +610,11 @@ public class AppPackageImportService {
                     result.warnings.add("字段关联的维度模型不在资产包内，已忽略该关联：" + item.code + "." + field.fieldName);
                 }
                 entity.setDimensionModelId(field.dimensionModelOldId == null ? null : modelMap.get(field.dimensionModelOldId));
+                entity.setDimensionRole(
+                    field.dimensionRole == null || field.dimensionRole.isBlank()
+                        ? null
+                        : field.dimensionRole.trim().toUpperCase(Locale.ROOT)
+                );
                 entity.setFieldRole(field.fieldRole);
                 entity.setLevelIndex(field.levelIndex);
                 if (isNew) {

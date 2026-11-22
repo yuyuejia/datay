@@ -10,10 +10,13 @@ const dimension = (fieldNames: string[]): DimensionOption => ({
     { fieldName: 'level1_name', description: '一级分类' },
     { fieldName: 'level2_name', description: '二级分类' },
   ],
+  roles: [],
+  selectedRoles: [],
 });
 
 const condition = (overrides: Partial<MetricFilterConditionOption> = {}): MetricFilterConditionOption => ({
   dimensionModelCode: 'dim_store',
+  dimensionRole: '',
   dimensionFieldName: 'region',
   operator: 'EQ',
   value: '华东',
@@ -52,6 +55,34 @@ describe('analysis dataset edit', () => {
       dimensionModelCode: 'dim_category',
       levelIndex: 3,
     });
+  });
+
+  it('expands the same dimension into multiple role selections', () => {
+    const definition = buildDatasetDefinition('METRIC', '', ['sales_amount'], [
+      {
+        ...dimension(['year', 'month']),
+        dimensionModelCode: 'dim_date',
+        dimensionModelName: '日期维度',
+        roles: [
+          { code: 'ORDER_DATE', name: '下单日期' },
+          { code: 'PAY_DATE', name: '支付日期' },
+        ],
+        selectedRoles: ['ORDER_DATE', 'PAY_DATE'],
+      },
+    ]);
+
+    expect(JSON.parse(definition).metricQuery.dimensions).toEqual([
+      {
+        dimensionModelCode: 'dim_date',
+        dimensionRole: 'ORDER_DATE',
+        dimensionFieldNames: ['year', 'month'],
+      },
+      {
+        dimensionModelCode: 'dim_date',
+        dimensionRole: 'PAY_DATE',
+        dimensionFieldNames: ['year', 'month'],
+      },
+    ]);
   });
 
   it('saves business filters and time range', () => {

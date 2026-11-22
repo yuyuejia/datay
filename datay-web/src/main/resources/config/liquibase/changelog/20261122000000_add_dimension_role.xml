@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        维度角色：角色维护在维度模型上，事实表字段选择角色。
+        例如日期维度维护 ORDER_DATE / PAY_DATE / SHIP_DATE，事实表通过 dimension_role 引用。
+    -->
+    <changeSet id="20261122000000-1-dimension-role" author="datafusion">
+        <createTable tableName="dp_dimension_role">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="${uuidType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="dimension_model_id" type="${uuidType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="sort_order" type="int">
+                <constraints nullable="true"/>
+            </column>
+            <column name="create_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+            <column name="update_time" type="${datetimeType}">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="dp_dimension_role"
+            columnNames="dimension_model_id, code"
+            constraintName="ux_dimension_role_model_code"/>
+
+        <createIndex tableName="dp_dimension_role" indexName="idx_dimension_role_model">
+            <column name="dimension_model_id"/>
+        </createIndex>
+
+        <addForeignKeyConstraint
+            baseColumnNames="dimension_model_id"
+            baseTableName="dp_dimension_role"
+            constraintName="fk_dimension_role_model"
+            referencedColumnNames="id"
+            referencedTableName="data_model"
+            onDelete="CASCADE"/>
+
+        <addColumn tableName="model_field">
+            <column name="dimension_role" type="varchar(64)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

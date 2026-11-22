@@ -58,6 +58,7 @@
             <el-option value="NORMAL" label="普通维度" />
             <el-option value="HIERARCHY" label="层级维度" />
             <el-option value="TIME" label="时间维度" />
+            <el-option value="DEGENERATE" label="退化维度（直接使用事实表字段）" />
           </el-select>
           </el-form-item>
         </el-col>
@@ -68,7 +69,17 @@
         </el-col>
       </el-row>
 
-      <el-row v-if="dataModel.modelType === 'DIMENSION'" :gutter="20">
+      <el-row v-if="dataModel.modelType === 'DIMENSION' && dataModel.dimensionKind === 'DEGENERATE'" :gutter="20">
+        <el-col :span="24">
+          <el-form-item label="说明">
+            <span class="dimension-degenerate-hint">
+              退化维度没有物理维表，也不需要在维度模型中维护字段。事实表字段关联到该维度后，查询时直接使用事实表字段进行分组和过滤。
+            </span>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row v-if="dataModel.modelType === 'DIMENSION' && dataModel.dimensionKind !== 'DEGENERATE'" :gutter="20">
         <el-col :span="12">
           <el-form-item label="默认显示字段">
             <el-select v-model="dataModel.displayFieldName" style="width: 100%">
@@ -118,6 +129,54 @@
         <el-col :span="6">
           <el-form-item label="结束日期">
             <el-date-picker type="date" value-format="YYYY-MM-DD" v-model="dataModel.timeEnd" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row v-if="isEdit && dataModel.modelType === 'DIMENSION'" :gutter="20">
+        <el-col :span="24">
+          <el-form-item label="维度角色">
+            <div class="dimension-roles">
+              <div class="dimension-roles-hint">
+                定义同一维度在事实表中的业务角色，例如日期维度的下单日期、支付日期、发货日期。
+              </div>
+              <el-table :data="dimensionRoles" border size="small">
+                <el-table-column label="序号" width="60" align="center">
+                  <template #default="{ $index }">{{ $index + 1 }}</template>
+                </el-table-column>
+                <el-table-column label="角色编码" width="200">
+                  <template #default="{ row }">
+                    <el-input v-model="row.code" placeholder="如 ORDER_DATE" :disabled="!!row.id" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="角色名称" width="200">
+                  <template #default="{ row }">
+                    <el-input v-model="row.name" placeholder="如 下单日期" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="描述" min-width="220">
+                  <template #default="{ row }">
+                    <el-input v-model="row.description" placeholder="角色说明" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="130" align="center">
+                  <template #default="{ $index }">
+                    <el-button link type="primary" size="small" :disabled="$index === 0" @click="moveDimensionRole($index, -1)">
+                      <font-awesome-icon icon="arrow-up" />
+                    </el-button>
+                    <el-button link type="primary" size="small" :disabled="$index === dimensionRoles.length - 1" @click="moveDimensionRole($index, 1)">
+                      <font-awesome-icon icon="arrow-down" />
+                    </el-button>
+                    <el-button link type="danger" size="small" @click="removeDimensionRole($index)">
+                      <font-awesome-icon icon="trash" />
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-button size="small" type="primary" plain @click="addDimensionRole">
+                <font-awesome-icon icon="plus" /> 添加角色
+              </el-button>
+            </div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -216,10 +275,19 @@
           <el-button type="primary" size="small" @click="addField">
             <font-awesome-icon icon="plus" /> 添加字段
           </el-button>
+          <el-button v-if="dataModel.modelType !== 'DIMENSION'" type="warning" size="small" plain @click="openQuickRoleDialog">
+            <font-awesome-icon icon="wand-magic-sparkles" /> 快速生成维度角色
+          </el-button>
           <el-button type="success" size="small" @click="showImportDialog">
             <font-awesome-icon icon="file-import" /> 从已有表引入字段
           </el-button>
         </div>
+      </div>
+      <div
+        v-if="dataModel.modelType === 'DIMENSION' && dataModel.dimensionKind === 'DEGENERATE'"
+        class="dimension-degenerate-hint fields-degenerate-hint"
+      >
+        退化维度无需维护维度字段；请在事实模型中将字段关联到该维度。
       </div>
       <el-table :data="fields" border style="width: 100%" row-key="id">
         <el-table-column label="序号" width="60" align="center">
@@ -329,6 +397,29 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="维度角色" width="200">
+          <template #default="{ row }">
+            <el-select
+              v-if="row.dimensionModelId && getDimensionRoles(row.dimensionModelId).length"
+              :model-value="row.dimensionRole || ''"
+              clearable
+              filterable
+              placeholder="默认关联"
+              style="width: 100%"
+              :disabled="isGeneratedField(row)"
+              @change="val => onDimensionRoleChange(row, val)"
+            >
+              <el-option value="" label="默认关联" />
+              <el-option
+                v-for="role in getDimensionRoles(row.dimensionModelId)"
+                :key="role.id || role.code"
+                :value="role.code"
+                :label="role.name ? `${role.name} (${role.code})` : role.code"
+              />
+            </el-select>
+            <span v-else class="field-placeholder">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="110" align="center">
           <template #default="{ row, $index }">
             <div class="field-actions">
@@ -367,6 +458,39 @@
         </el-table-column>
       </el-table>
     </div>
+
+    <app-modal v-model="quickRoleDialogVisible" title="快速生成维度角色" size="lg">
+      <div class="modal-body">
+        <p class="dimension-roles-hint">
+          根据事实字段名生成角色建议。确认后会先把缺失的角色写入对应维度模型，再回填到字段。
+        </p>
+        <el-table :data="quickRoleSuggestions" border size="small">
+          <el-table-column label="启用" width="60" align="center">
+            <template #default="{ row }">
+              <el-checkbox v-model="row.selected" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="dimensionModelName" label="维度" width="160" />
+          <el-table-column prop="fieldName" label="事实字段" width="180" />
+          <el-table-column label="角色编码" width="180">
+            <template #default="{ row }">
+              <el-input v-model="row.code" placeholder="如 ORDER_DATE" />
+            </template>
+          </el-table-column>
+          <el-table-column label="角色名称" min-width="160">
+            <template #default="{ row }">
+              <el-input v-model="row.name" placeholder="如 下单日期" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #modal-footer>
+        <div>
+          <el-button @click="quickRoleDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmQuickRoles">生成并应用</el-button>
+        </div>
+      </template>
+    </app-modal>
 
     <app-modal v-model="importDialogVisible" title="从已有表引入字段" size="lg">
       <div class="modal-body">
@@ -527,6 +651,32 @@
 .dimension-select {
   display: flex;
   flex-direction: column;
+}
+
+.dimension-roles {
+  width: 100%;
+}
+
+.dimension-roles-hint {
+  margin-bottom: 8px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dimension-roles .el-button {
+  margin-top: 8px;
+}
+
+.dimension-degenerate-hint {
+  display: block;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.fields-degenerate-hint {
+  margin-bottom: 8px;
 }
 
 .field-actions {

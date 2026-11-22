@@ -60,6 +60,10 @@ public class ModelField implements Serializable, TenantAware {
     @Column(name = "dimension_field_id", length = 36)
     private String dimensionFieldId;
 
+    /** 事实表关联维度时选择的维度角色编码（角色维护在维度模型上）。 */
+    @Column(name = "dimension_role", length = 64)
+    private String dimensionRole;
+
     @Column(name = "field_role")
     private String fieldRole;
 
@@ -254,6 +258,19 @@ public class ModelField implements Serializable, TenantAware {
         this.dimensionFieldId = dimensionFieldId;
     }
 
+    public String getDimensionRole() {
+        return this.dimensionRole;
+    }
+
+    public ModelField dimensionRole(String dimensionRole) {
+        this.setDimensionRole(dimensionRole);
+        return this;
+    }
+
+    public void setDimensionRole(String dimensionRole) {
+        this.dimensionRole = dimensionRole;
+    }
+
     public String getFieldRole() {
         return this.fieldRole;
     }
@@ -338,6 +355,7 @@ public class ModelField implements Serializable, TenantAware {
             ", isPrimaryKey=" + getIsPrimaryKey() +
             ", dimensionModelId=" + getDimensionModelId() +
             ", dimensionFieldId=" + getDimensionFieldId() +
+            ", dimensionRole='" + getDimensionRole() + "'" +
             ", fieldRole='" + getFieldRole() + "'" +
             ", levelIndex=" + getLevelIndex() +
             ", createTime='" + getCreateTime() + "'" +

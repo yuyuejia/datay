@@ -66,6 +66,14 @@ export interface DatasetFields {
   columnLabels?: Record<string, string>;
 }
 
+export interface MetricDimensionRoleMeta {
+  code: string;
+  name?: string;
+  description?: string;
+  sortOrder?: number;
+  factFieldName?: string;
+}
+
 export interface MetricDimensionMeta {
   dimensionModelCode: string;
   dimensionModelName?: string;
@@ -75,6 +83,7 @@ export interface MetricDimensionMeta {
   isTimeDimension?: boolean;
   displayFieldName?: string;
   recommendedDisplayField?: string;
+  roles?: MetricDimensionRoleMeta[];
   fields?: Array<{ fieldName: string; fieldType?: string; description?: string }>;
   levels?: Array<{
     levelIndex: number;
@@ -83,6 +92,7 @@ export interface MetricDimensionMeta {
     granularity?: string;
     label?: string;
   }>;
+  levelCount?: number;
 }
 
 export interface MetricTimeFieldMeta {

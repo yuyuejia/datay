@@ -14,6 +14,9 @@ public class MetricQueryFieldDTO implements Serializable {
     private String dimensionModelCode;
     private String dimensionFieldName;
 
+    /** 维度角色编码（角色维护在维度模型上，可选）。 */
+    private String dimensionRole;
+
     /** 维度显示字段（可多个）。 */
     private List<String> dimensionFieldNames = new ArrayList<>();
 
@@ -42,6 +45,14 @@ public class MetricQueryFieldDTO implements Serializable {
 
     public void setDimensionFieldName(String dimensionFieldName) {
         this.dimensionFieldName = dimensionFieldName;
+    }
+
+    public String getDimensionRole() {
+        return dimensionRole;
+    }
+
+    public void setDimensionRole(String dimensionRole) {
+        this.dimensionRole = dimensionRole;
     }
 
     public List<String> getDimensionFieldNames() {

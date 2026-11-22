@@ -140,6 +140,24 @@
                   </el-checkbox>
                   <div class="dataset-dimension-controls">
                     <el-select
+                      v-if="dimension.roles && dimension.roles.length"
+                      v-model="dimension.selectedRoles"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      clearable
+                      placeholder="默认关联（可选多个角色）"
+                      class="dataset-dimension-role-select"
+                      :disabled="!dimension.selected"
+                    >
+                      <el-option
+                        v-for="role in dimension.roles"
+                        :key="role.code"
+                        :label="role.name ? `${role.name} (${role.code})` : role.code"
+                        :value="role.code"
+                      />
+                    </el-select>
+                    <el-select
                       v-if="dimension.isHierarchy && dimensionLevels(dimension).length"
                       v-model="dimension.levelIndex"
                       placeholder="选择层级"
@@ -201,6 +219,21 @@
                     :key="dimension.dimensionModelCode"
                     :label="dimension.dimensionModelName || dimension.dimensionModelCode"
                     :value="dimension.dimensionModelCode"
+                  />
+                </el-select>
+                <el-select
+                  v-model="condition.dimensionRole"
+                  class="dataset-condition-control dataset-condition-role"
+                  placeholder="维度角色"
+                  clearable
+                  :disabled="!conditionDimensionRoles(condition).length"
+                  @change="onFilterRoleChange(condition)"
+                >
+                  <el-option
+                    v-for="role in conditionDimensionRoles(condition)"
+                    :key="role.code"
+                    :label="role.name ? `${role.name} (${role.code})` : role.code"
+                    :value="role.code"
                   />
                 </el-select>
                 <el-select
@@ -523,6 +556,15 @@
 .dataset-dimension-field-select {
   width: 380px;
   max-width: 100%;
+}
+
+.dataset-dimension-role-select {
+  width: 240px;
+  max-width: 100%;
+}
+
+.dataset-condition-role {
+  flex: 0 1 170px;
 }
 
 .dataset-dimension-level-select {

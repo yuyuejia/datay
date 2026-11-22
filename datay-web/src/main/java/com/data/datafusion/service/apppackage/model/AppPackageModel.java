@@ -53,6 +53,23 @@ public class AppPackageModel {
 
     public List<AppPackageModelField> fields = new ArrayList<>();
 
+    /** 维度角色（仅维度模型使用），事实字段通过角色编码引用。 */
+    public List<AppPackageDimensionRole> dimensionRoles = new ArrayList<>();
+
+    /** 资产包中的维度角色条目。 */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class AppPackageDimensionRole {
+
+        public String code;
+
+        public String name;
+
+        public String description;
+
+        public Integer sortOrder;
+    }
+
     /** 资产包中的数据模型字段条目。 */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -84,6 +101,9 @@ public class AppPackageModel {
 
         /** 关联维度字段的包内逻辑 ID。 */
         public String dimensionFieldOldId;
+
+        /** 事实字段选择的维度角色编码。 */
+        public String dimensionRole;
 
         public String fieldRole;
 

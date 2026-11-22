@@ -108,6 +108,7 @@ public class MetricQueryDataTool implements AiTool {
         item.put("type", "object");
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("dimensionModelCode", Map.of("type", "string", "description", "维度模型编码，来自 describe_metrics"));
+        props.put("dimensionRole", Map.of("type", "string", "description", "维度角色编码，来自 describe_metrics 的 dimensions[].roles；不填使用默认关联"));
         props.put("dimensionFieldNames", Map.of("type", "array", "description", "维度显示字段", "items", Map.of("type", "string")));
         props.put("dimensionFieldName", Map.of("type", "string", "description", "维度显示字段（单个）"));
         props.put("levelIndex", Map.of("type", "integer", "description", "层级维度按第几层汇总，1..N"));
@@ -121,6 +122,7 @@ public class MetricQueryDataTool implements AiTool {
         item.put("type", "object");
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("dimensionModelCode", Map.of("type", "string", "description", "维度模型编码"));
+        props.put("dimensionRole", Map.of("type", "string", "description", "维度角色编码（可选）"));
         props.put("dimensionFieldName", Map.of("type", "string", "description", "维度字段名"));
         props.put("operator", Map.of("type", "string", "description", "运算符，默认 EQ"));
         props.put("value", Map.of("type", "string", "description", "取值；IN 时英文逗号分隔"));
@@ -208,6 +210,10 @@ public class MetricQueryDataTool implements AiTool {
             }
             MetricQueryFieldDTO field = new MetricQueryFieldDTO();
             field.setDimensionModelCode(code);
+            String role = asString(map.get("dimensionRole"));
+            if (role != null && !role.isBlank()) {
+                field.setDimensionRole(role);
+            }
             List<String> fieldNames = asStringList(map.get("dimensionFieldNames"));
             if (!fieldNames.isEmpty()) {
                 field.setDimensionFieldNames(fieldNames);
@@ -244,6 +250,10 @@ public class MetricQueryDataTool implements AiTool {
             condition.setType(MetricFilterCondition.TYPE_DIMENSION);
             condition.setDimensionModelCode(code);
             condition.setDimensionFieldName(fieldName);
+            String role = asString(map.get("dimensionRole"));
+            if (role != null && !role.isBlank()) {
+                condition.setDimensionRole(role);
+            }
             String operator = asString(map.get("operator"));
             condition.setOperator(operator == null || operator.isBlank() ? "EQ" : operator);
             condition.setValue(asString(map.get("value")));

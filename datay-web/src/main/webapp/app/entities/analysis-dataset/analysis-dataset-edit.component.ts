@@ -42,10 +42,14 @@ export interface DimensionOption {
   levels?: Array<{ levelIndex: number; label?: string }>;
   levelCount?: number;
   levelIndex?: number | null;
+  roles: Array<{ code: string; name?: string; description?: string }>;
+  /** 选中的维度角色；空数组表示默认关联。 */
+  selectedRoles: string[];
 }
 
 export interface MetricFilterConditionOption {
   dimensionModelCode: string;
+  dimensionRole: string;
   dimensionFieldName: string;
   operator: string;
   value: string;
@@ -74,6 +78,7 @@ export function buildMetricFilterConfig(conditions: MetricFilterConditionOption[
       return {
         type: FILTER_TYPE_DIMENSION,
         dimensionModelCode: condition.dimensionModelCode,
+        dimensionRole: condition.dimensionRole || undefined,
         dimensionFieldName: condition.dimensionFieldName,
         operator,
         value: unary ? null : condition.value || null,
@@ -124,13 +129,15 @@ export function buildDatasetDefinition(
       metricCodes,
       dimensions: dimensions
         .filter(dimension => dimension.selected)
-        .map(dimension => {
+        .flatMap(dimension => {
           const fieldNames = dimension.fieldNames.filter(field => !!field);
-          return {
+          const roles = dimension.selectedRoles?.length ? dimension.selectedRoles : [''];
+          return roles.map(role => ({
             dimensionModelCode: dimension.dimensionModelCode,
+            dimensionRole: role || undefined,
             dimensionFieldNames: fieldNames.length ? fieldNames : undefined,
             levelIndex: dimension.levelIndex ?? undefined,
-          };
+          }));
         }),
       filterConfig: filterConfig?.conditions?.length ? filterConfig : undefined,
       timeRange: normalizedTimeRange,
@@ -267,6 +274,12 @@ export default defineComponent({
             levels,
             levelCount: dimension.levelCount ?? levels.length,
             levelIndex: isHierarchy ? (levels.length ? levels[levels.length - 1].levelIndex : (dimension.levelCount ?? 1)) : null,
+            roles: (dimension.roles ?? []).map(role => ({
+              code: role.code,
+              name: role.name,
+              description: role.description,
+            })),
+            selectedRoles: [],
           };
         });
       } catch (err: any) {
@@ -276,7 +289,7 @@ export default defineComponent({
       }
     };
 
-    const dimensionLevels = (dimension: DimensionOption) => {
+    const dimensionLevels = (dimension: DimensionOption): Array<{ levelIndex: number; label?: string }> => {
       if (!dimension.isHierarchy) {
         return [] as Array<{ levelIndex: number; label?: string }>;
       }
@@ -305,12 +318,24 @@ export default defineComponent({
 
     const createFilterCondition = (): MetricFilterConditionOption => ({
       dimensionModelCode: '',
+      dimensionRole: '',
       dimensionFieldName: '',
       operator: 'EQ',
       value: '',
       valueEnd: '',
       logic: 'AND',
     });
+
+    const conditionDimensionRoles = (condition: MetricFilterConditionOption) => {
+      return (
+        dimensions.value.find(dimension => dimension.dimensionModelCode === condition.dimensionModelCode)
+          ?.roles ?? []
+      );
+    };
+
+    const onFilterRoleChange = (condition: MetricFilterConditionOption) => {
+      condition.dimensionFieldName = '';
+    };
 
     const addFilterCondition = () => {
       filterConditions.value.push(createFilterCondition());
@@ -341,6 +366,7 @@ export default defineComponent({
         .filter((condition: any) => condition?.dimensionModelCode && condition?.dimensionFieldName)
         .map((condition: any, index: number) => ({
           dimensionModelCode: String(condition.dimensionModelCode),
+          dimensionRole: condition.dimensionRole ? String(condition.dimensionRole) : '',
           dimensionFieldName: String(condition.dimensionFieldName),
           operator: condition.operator || 'EQ',
           value: condition.value == null ? '' : String(condition.value),
@@ -351,11 +377,19 @@ export default defineComponent({
 
     const applySelectedDimensions = (selected: any[]) => {
       for (const dimension of dimensions.value) {
-        const hit = selected.find(item => item.dimensionModelCode === dimension.dimensionModelCode);
-        if (!hit) {
+        const hits = selected.filter(item => item.dimensionModelCode === dimension.dimensionModelCode);
+        if (!hits.length) {
           continue;
         }
         dimension.selected = true;
+        dimension.selectedRoles = Array.from(
+          new Set(
+            hits
+              .map(item => (item.dimensionRole == null ? '' : String(item.dimensionRole)))
+              .filter(role => !!role),
+          ),
+        );
+        const hit = hits[0];
         const fieldNames = Array.isArray(hit.dimensionFieldNames)
           ? hit.dimensionFieldNames
           : hit.dimensionFieldName
@@ -679,9 +713,11 @@ export default defineComponent({
       dimensionLevels,
       dimensionLevelLabel,
       conditionDimensionFields,
+      conditionDimensionRoles,
       addFilterCondition,
       removeFilterCondition,
       onFilterDimensionChange,
+      onFilterRoleChange,
       clearTimeRange,
       isUnaryOperator,
       isRangeOperator,

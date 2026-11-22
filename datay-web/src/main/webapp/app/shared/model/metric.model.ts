@@ -13,6 +13,7 @@ export interface IMetricFilterCondition {
   factFieldName?: string | null;
   dimensionModelId?: string | null;
   dimensionModelCode?: string | null;
+  dimensionRole?: string | null;
   dimensionFieldName?: string | null;
   operator?: string | null;
   value?: string | null;
@@ -27,6 +28,7 @@ export interface IMetricFilterConfig {
 export interface IMetricQueryField {
   factFieldName?: string | null;
   dimensionModelCode?: string | null;
+  dimensionRole?: string | null;
   dimensionFieldName?: string | null;
   dimensionFieldNames?: string[] | null;
   levelIndex?: number | null;

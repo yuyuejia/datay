@@ -11,9 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.data.datafusion.domain.DataModel;
+import com.data.datafusion.domain.DimensionRole;
 import com.data.datafusion.domain.Metric;
 import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.repository.DimensionRoleRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.service.dataset.DatasetScopeCondition;
@@ -39,6 +41,7 @@ class MetricQueryServiceTest {
     private MetricRepository metricRepository;
     private DataModelRepository dataModelRepository;
     private ModelFieldRepository modelFieldRepository;
+    private DimensionRoleRepository dimensionRoleRepository;
     private RoleDataScopeService roleDataScopeService;
     private DataSourceQueryService dataSourceQueryService;
     private DataSourceService dataSourceService;
@@ -53,6 +56,7 @@ class MetricQueryServiceTest {
         metricRepository = mock(MetricRepository.class);
         dataModelRepository = mock(DataModelRepository.class);
         modelFieldRepository = mock(ModelFieldRepository.class);
+        dimensionRoleRepository = mock(DimensionRoleRepository.class);
         roleDataScopeService = mock(RoleDataScopeService.class);
         dataSourceQueryService = mock(DataSourceQueryService.class);
         dataSourceService = mock(DataSourceService.class);
@@ -60,6 +64,7 @@ class MetricQueryServiceTest {
             metricRepository,
             dataModelRepository,
             modelFieldRepository,
+            dimensionRoleRepository,
             dataSourceService,
             dataSourceQueryService,
             new ObjectMapper(),
@@ -582,6 +587,162 @@ class MetricQueryServiceTest {
         field.setLevelIndex(levelIndex);
         field.setIsPrimaryKey(primaryKey);
         return field;
+    }
+
+    @Test
+    void shouldBuildRolePlayingDateDimensions() {
+        DataModel factModel = new DataModel();
+        factModel.setId("3101");
+        factModel.setCode("fact_case");
+        factModel.setModelType("DWD");
+        factModel.setName("带多个日期角色的事实表");
+        factModel.setSchemaName("main");
+        factModel.setTableName("fact_case");
+        factModel.setTimeFieldName("order_date_key");
+
+        DataModel dimDate = new DataModel();
+        dimDate.setId("3200");
+        dimDate.setCode("dim_date");
+        dimDate.setName("日期维度");
+        dimDate.setModelType("DIMENSION");
+        dimDate.setDimensionKind("TIME");
+        dimDate.setSchemaName("main");
+        dimDate.setTableName("dim_date");
+
+        ModelField orderDateKey = new ModelField();
+        orderDateKey.setFieldName("order_date_key");
+        orderDateKey.setDimensionModelId("3200");
+        orderDateKey.setDimensionRole("ORDER_DATE");
+        ModelField payDateKey = new ModelField();
+        payDateKey.setFieldName("pay_date_key");
+        payDateKey.setDimensionModelId("3200");
+        payDateKey.setDimensionRole("PAY_DATE");
+        ModelField amount = new ModelField();
+        amount.setFieldName("amount");
+        ModelField dateKey = new ModelField();
+        dateKey.setFieldName("date_key");
+        dateKey.setIsPrimaryKey(true);
+        ModelField year = new ModelField();
+        year.setFieldName("year");
+        ModelField month = new ModelField();
+        month.setFieldName("month");
+
+        when(dataModelRepository.findById("3101")).thenReturn(Optional.of(factModel));
+        when(dataModelRepository.findById("3200")).thenReturn(Optional.of(dimDate));
+        when(dataModelRepository.findFirstByCode("dim_date")).thenReturn(Optional.of(dimDate));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3101")).thenReturn(List.of(orderDateKey, payDateKey, amount));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3200")).thenReturn(List.of(dateKey, year, month));
+        when(dimensionRoleRepository.existsByDimensionModelIdAndCodeIgnoreCase("3200", "ORDER_DATE")).thenReturn(true);
+        when(dimensionRoleRepository.existsByDimensionModelIdAndCodeIgnoreCase("3200", "PAY_DATE")).thenReturn(true);
+
+        DimensionRole orderRole = new DimensionRole();
+        orderRole.setDimensionModelId("3200");
+        orderRole.setCode("ORDER_DATE");
+        orderRole.setName("下单日期");
+        DimensionRole payRole = new DimensionRole();
+        payRole.setDimensionModelId("3200");
+        payRole.setCode("PAY_DATE");
+        payRole.setName("支付日期");
+        when(dimensionRoleRepository.findByDimensionModelIdOrderBySortOrderAscCodeAsc("3200")).thenReturn(List.of(orderRole, payRole));
+
+        MetricQueryFieldDTO orderDimension = new MetricQueryFieldDTO();
+        orderDimension.setDimensionModelCode("dim_date");
+        orderDimension.setDimensionRole("ORDER_DATE");
+        orderDimension.setDimensionFieldNames(List.of("year", "month"));
+        MetricQueryFieldDTO payDimension = new MetricQueryFieldDTO();
+        payDimension.setDimensionModelCode("dim_date");
+        payDimension.setDimensionRole("PAY_DATE");
+        payDimension.setDimensionFieldNames(List.of("year", "month"));
+
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("sales_amount"));
+        dto.setDimensions(List.of(orderDimension, payDimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("LEFT JOIN main.dim_date d0 ON f.order_date_key = d0.date_key");
+        assertThat(sql).contains("LEFT JOIN main.dim_date d1 ON f.pay_date_key = d1.date_key");
+        assertThat(sql).contains("d0.year AS year__ORDER_DATE");
+        assertThat(sql).contains("d1.year AS year__PAY_DATE");
+        assertThat(sql).contains("d0.month AS month__ORDER_DATE");
+        assertThat(sql).contains("d1.month AS month__PAY_DATE");
+
+        Map<String, Object> meta = metricQueryService.queryMeta(dto);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) meta.get("dimensions");
+        assertThat(dimensions.get(0)).containsEntry("dimensionModelCode", "dim_date");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> roles = (List<Map<String, Object>>) dimensions.get(0).get("roles");
+        assertThat(roles).extracting(role -> role.get("code")).containsExactly("ORDER_DATE", "PAY_DATE");
+    }
+
+    @Test
+    void shouldTreatSameDimensionWithDifferentRolesAsCommonDimension() {
+        DataModel orderFact = new DataModel();
+        orderFact.setId("3300");
+        orderFact.setModelType("DWD");
+        orderFact.setName("下单事实");
+        orderFact.setSchemaName("main");
+        orderFact.setTableName("fact_order");
+        ModelField orderDateKey = new ModelField();
+        orderDateKey.setFieldName("order_date_key");
+        orderDateKey.setDimensionModelId("3200");
+        orderDateKey.setDimensionRole("ORDER_DATE");
+        ModelField orderAmount = new ModelField();
+        orderAmount.setFieldName("order_amount");
+
+        DataModel payFact = new DataModel();
+        payFact.setId("3301");
+        payFact.setModelType("DWD");
+        payFact.setName("支付事实");
+        payFact.setSchemaName("main");
+        payFact.setTableName("fact_pay");
+        ModelField payDateKey = new ModelField();
+        payDateKey.setFieldName("pay_date_key");
+        payDateKey.setDimensionModelId("3200");
+        payDateKey.setDimensionRole("PAY_DATE");
+        ModelField payAmount = new ModelField();
+        payAmount.setFieldName("pay_amount");
+
+        DataModel dimDate = new DataModel();
+        dimDate.setId("3200");
+        dimDate.setCode("dim_date");
+        dimDate.setName("日期维度");
+        dimDate.setModelType("DIMENSION");
+        dimDate.setDimensionKind("TIME");
+        dimDate.setSchemaName("main");
+        dimDate.setTableName("dim_date");
+        ModelField dateKey = new ModelField();
+        dateKey.setFieldName("date_key");
+        dateKey.setIsPrimaryKey(true);
+        ModelField year = new ModelField();
+        year.setFieldName("year");
+
+        Metric orderMetric = atomic("2710", "order_amount_metric", "SUM(order_amount)");
+        orderMetric.setFactModelId("3300");
+        Metric payMetric = atomic("2711", "pay_amount_metric", "SUM(pay_amount)");
+        payMetric.setFactModelId("3301");
+
+        when(dataModelRepository.findById("3300")).thenReturn(Optional.of(orderFact));
+        when(dataModelRepository.findById("3301")).thenReturn(Optional.of(payFact));
+        when(dataModelRepository.findById("3200")).thenReturn(Optional.of(dimDate));
+        when(dataModelRepository.findFirstByCode("dim_date")).thenReturn(Optional.of(dimDate));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3300")).thenReturn(List.of(orderDateKey, orderAmount));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3301")).thenReturn(List.of(payDateKey, payAmount));
+        when(modelFieldRepository.findByModelIdOrderBySortOrderAsc("3200")).thenReturn(List.of(dateKey, year));
+        when(metricRepository.findAll()).thenReturn(List.of(orderMetric, payMetric));
+        when(metricRepository.findByCode("order_amount_metric")).thenReturn(Optional.of(orderMetric));
+        when(metricRepository.findByCode("pay_amount_metric")).thenReturn(Optional.of(payMetric));
+
+        MetricQueryFieldDTO dimension = new MetricQueryFieldDTO();
+        dimension.setDimensionModelCode("dim_date");
+        dimension.setDimensionFieldNames(List.of("year"));
+        MetricQueryDTO dto = new MetricQueryDTO();
+        dto.setMetricCodes(List.of("order_amount_metric", "pay_amount_metric"));
+        dto.setDimensions(List.of(dimension));
+
+        String sql = metricQueryService.buildSqlFor(dto);
+        assertThat(sql).contains("f.order_date_key = d0.date_key");
+        assertThat(sql).contains("f.pay_date_key = d0.date_key");
     }
 
     @Test

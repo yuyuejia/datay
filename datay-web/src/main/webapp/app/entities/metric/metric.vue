@@ -288,6 +288,20 @@
                   />
                 </el-select>
                 <el-select
+                  v-if="dim.dimensionModelCode && dimensionRolesFor(dim).length"
+                  class="query-control query-role-control"
+                  v-model="dim.dimensionRole"
+                  clearable
+                  placeholder="默认角色"
+                >
+                  <el-option
+                    v-for="role in dimensionRolesFor(dim)"
+                    :key="role.code"
+                    :value="role.code"
+                    :label="role.name ? `${role.name} (${role.code})` : role.code"
+                  />
+                </el-select>
+                <el-select
                   v-if="dim.dimensionModelCode && isHierarchyDimension(dim)"
                   class="query-control"
                   v-model="dim.levelIndex"
@@ -370,6 +384,21 @@
                       dimension.dimensionModelName ||
                       dimension.dimensionModelCode
                     "
+                  />
+                </el-select>
+                <el-select
+                  v-if="condition.dimensionModelCode && dimensionRolesFor(condition).length"
+                  class="query-control query-role-control"
+                  v-model="condition.dimensionRole"
+                  clearable
+                  placeholder="默认角色"
+                  @change="onQueryConditionRoleChange(condition)"
+                >
+                  <el-option
+                    v-for="role in dimensionRolesFor(condition)"
+                    :key="role.code"
+                    :value="role.code"
+                    :label="role.name ? `${role.name} (${role.code})` : role.code"
                   />
                 </el-select>
                 <el-select
@@ -1128,6 +1157,11 @@
 
 .query-control.operator {
   flex: 0 0 120px;
+  min-width: 0;
+}
+
+.query-control.query-role-control {
+  flex: 0 1 180px;
   min-width: 0;
 }
 

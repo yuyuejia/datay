@@ -687,22 +687,46 @@ public class DatasetQueryService {
         Map<String, Object> metricQuery = asMap(dataset.get("metricQuery"));
         for (Map<String, Object> dimension : asMapList(metricQuery.get("dimensions"))) {
             String modelCode = asString(dimension.get("dimensionModelCode"));
+            String dimensionRole = asString(dimension.get("dimensionRole"));
             String singleField = asString(dimension.get("dimensionFieldName"));
             List<String> fieldNames = asStringList(dimension.get("dimensionFieldNames"));
+            String conditionField = field;
             boolean matched = field.equals(singleField) || fieldNames.contains(field);
+            if (!matched && dimensionRole != null && !dimensionRole.isBlank()) {
+                // 结果列会追加角色后缀：year -> year__ORDER_DATE
+                String suffix = "__" + dimensionRole.trim().toUpperCase(Locale.ROOT);
+                if (field.endsWith(suffix)) {
+                    String baseField = field.substring(0, field.length() - suffix.length());
+                    matched = fieldNames.contains(baseField) || baseField.equals(singleField);
+                    if (matched) {
+                        conditionField = baseField;
+                    } else {
+                        Long levelIndex = asLong(dimension.get("levelIndex"));
+                        if (
+                            levelIndex != null &&
+                            modelCode != null &&
+                            !modelCode.isBlank() &&
+                            metricQueryService.isDimensionLevelField(modelCode, levelIndex.intValue(), baseField)
+                        ) {
+                            matched = true;
+                            conditionField = baseField;
+                        }
+                    }
+                }
+            }
             if (!matched) {
                 Long levelIndex = asLong(dimension.get("levelIndex"));
                 matched =
                     levelIndex != null &&
                     modelCode != null &&
                     !modelCode.isBlank() &&
-                    metricQueryService.isDimensionLevelField(modelCode, levelIndex.intValue(), field);
+                    metricQueryService.isDimensionLevelField(modelCode, levelIndex.intValue(), conditionField);
             }
             if (matched) {
                 if (modelCode == null || modelCode.isBlank()) {
                     throw new IllegalArgumentException("指标数据集筛选字段缺少维度模型：" + field);
                 }
-                return buildDimensionCondition(filterType, modelCode, field, value);
+                return buildDimensionCondition(filterType, modelCode, dimensionRole, conditionField, value);
             }
         }
         throw new IllegalArgumentException(
@@ -714,6 +738,7 @@ public class DatasetQueryService {
         return buildDimensionCondition(
             filterType,
             asString(binding.get("dimensionModelCode")),
+            asString(binding.get("dimensionRole")),
             asString(binding.get("dimensionFieldName")),
             value
         );
@@ -725,9 +750,20 @@ public class DatasetQueryService {
         String dimensionFieldName,
         Object value
     ) {
+        return buildDimensionCondition(filterType, dimensionModelCode, null, dimensionFieldName, value);
+    }
+
+    private MetricFilterCondition buildDimensionCondition(
+        String filterType,
+        String dimensionModelCode,
+        String dimensionRole,
+        String dimensionFieldName,
+        Object value
+    ) {
         MetricFilterCondition condition = new MetricFilterCondition();
         condition.setType(MetricFilterCondition.TYPE_DIMENSION);
         condition.setDimensionModelCode(dimensionModelCode);
+        condition.setDimensionRole(dimensionRole == null || dimensionRole.isBlank() ? null : dimensionRole);
         condition.setDimensionFieldName(dimensionFieldName);
         if (DashboardSpecValidator.FILTER_INPUT.equals(filterType)) {
             condition.setOperator("LIKE");
@@ -1202,6 +1238,10 @@ public class DatasetQueryService {
             }
             MetricQueryFieldDTO field = new MetricQueryFieldDTO();
             field.setDimensionModelCode(code);
+            String role = asString(item.get("dimensionRole"));
+            if (role != null && !role.isBlank()) {
+                field.setDimensionRole(role);
+            }
             List<String> fieldNames = asStringList(item.get("dimensionFieldNames"));
             if (!fieldNames.isEmpty()) {
                 field.setDimensionFieldNames(fieldNames);

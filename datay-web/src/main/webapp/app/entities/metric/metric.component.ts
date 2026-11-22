@@ -562,6 +562,7 @@ export default defineComponent({
 
     const onDimensionModelChange = async (dimension: any) => {
       dimension.dimensionFieldNames = [];
+      dimension.dimensionRole = null;
       dimension.levelIndex = null;
       await loadDimensionFieldsFor(dimension);
       if (isHierarchyDimension(dimension)) {
@@ -569,6 +570,14 @@ export default defineComponent({
         dimension.levelIndex =
           levels.length > 0 ? levels[levels.length - 1].levelIndex : 1;
       }
+    };
+
+    const dimensionRolesFor = (target: any) => {
+      return (
+        queryDimensionOptions.value.find(
+          (o: any) => o.dimensionModelCode === target.dimensionModelCode,
+        )?.roles || []
+      );
     };
 
     const toggleDimensionField = (dimension: any, fieldName: string) => {
@@ -590,6 +599,7 @@ export default defineComponent({
 
     const createQueryCondition = () => ({
       dimensionModelCode: null,
+      dimensionRole: null,
       dimensionFieldName: null,
       operator: "EQ",
       value: null,
@@ -607,8 +617,13 @@ export default defineComponent({
     };
 
     const onQueryConditionModelChange = async (condition: any) => {
+      condition.dimensionRole = null;
       condition.dimensionFieldName = null;
       await loadDimensionFieldsFor(condition);
+    };
+
+    const onQueryConditionRoleChange = (condition: any) => {
+      condition.dimensionFieldName = null;
     };
 
     const clearQueryTimeRange = () => {
@@ -627,12 +642,14 @@ export default defineComponent({
             }
             return {
               dimensionModelCode: d.dimensionModelCode,
+              dimensionRole: d.dimensionRole || undefined,
               levelIndex: d.levelIndex,
             };
           }
           // 未选择显示字段时不传字段，后端默认按维度主键汇总并显示主键
           return {
             dimensionModelCode: d.dimensionModelCode,
+            dimensionRole: d.dimensionRole || undefined,
             dimensionFieldNames: d.dimensionFieldNames || [],
           };
         })
@@ -642,6 +659,7 @@ export default defineComponent({
         .map((c: any) => ({
           type: FILTER_TYPE_DIMENSION,
           dimensionModelCode: c.dimensionModelCode,
+          dimensionRole: c.dimensionRole || undefined,
           dimensionFieldName: c.dimensionFieldName,
           operator: c.operator,
           value: c.value,
@@ -874,6 +892,7 @@ export default defineComponent({
       addDimension,
       removeDimension,
       onDimensionModelChange,
+      dimensionRolesFor,
       toggleDimensionField,
       dimensionSelectionText,
       isHierarchyDimension,
@@ -882,6 +901,7 @@ export default defineComponent({
       addQueryCondition,
       removeQueryCondition,
       onQueryConditionModelChange,
+      onQueryConditionRoleChange,
       clearQueryTimeRange,
       runQuery,
       previewQuerySql,

@@ -12,6 +12,7 @@ import com.data.datafusion.repository.AnalysisDatasetRepository;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.repository.DataQualityTaskRepository;
 import com.data.datafusion.repository.DataSourceRepository;
+import com.data.datafusion.repository.DimensionRoleRepository;
 import com.data.datafusion.repository.ETLTaskDirectoryRepository;
 import com.data.datafusion.repository.ETLTaskRepository;
 import com.data.datafusion.repository.JobDependRepository;
@@ -119,6 +120,7 @@ class AppPackageEtlDirectoryImportTest {
             mock(DataSourceRepository.class),
             mock(DataModelRepository.class),
             mock(ModelFieldRepository.class),
+            mock(DimensionRoleRepository.class),
             mock(ModelDirectoryRepository.class),
             mock(MetricRepository.class),
             mock(MetricDirectoryRepository.class),

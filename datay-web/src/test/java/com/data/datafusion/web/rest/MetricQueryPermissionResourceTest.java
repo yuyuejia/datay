@@ -18,6 +18,7 @@ import com.data.datafusion.domain.ModelField;
 import com.data.datafusion.domain.RoleDataScope;
 import com.data.datafusion.repository.AuthorityRepository;
 import com.data.datafusion.repository.DataModelRepository;
+import com.data.datafusion.repository.DimensionRoleRepository;
 import com.data.datafusion.repository.MetricRepository;
 import com.data.datafusion.repository.ModelFieldRepository;
 import com.data.datafusion.repository.RoleDataScopeRepository;
@@ -77,6 +78,9 @@ class MetricQueryPermissionResourceTest {
 
     @MockitoBean
     private ModelFieldRepository modelFieldRepository;
+
+    @MockitoBean
+    private DimensionRoleRepository dimensionRoleRepository;
 
     @MockitoBean
     private DataSourceService dataSourceService;
