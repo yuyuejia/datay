@@ -125,7 +125,42 @@ export default defineComponent({
     const executionTime = ref<number | null>(null);
     const affectedRows = ref<number | null>(null);
     const isExecuting = ref(false);
+    const hasExecuted = ref(false);
+    const executedSuccessfully = ref(false);
+    const executedSql = ref('');
+    const activeResultTab = ref('result');
     const aiDrawerVisible = ref(false);
+
+    /**
+     * 结果区在没有结果集时的占位文案：DDL/DML 执行成功后也应给出明确反馈，
+     * 而不是继续显示「点击调试运行」的初始提示。
+     */
+    const resultPlaceholder = computed(() => {
+      if (!hasExecuted.value) {
+        return '点击「调试运行」执行 SQL';
+      }
+      if (!executedSuccessfully.value) {
+        return 'SQL 执行失败';
+      }
+      if (affectedRows.value !== null && affectedRows.value > 0) {
+        return `执行成功，影响 ${affectedRows.value} 行`;
+      }
+      return '执行成功';
+    });
+
+    const executionStatusLabel = computed(() => {
+      if (isExecuting.value) {
+        return '执行中';
+      }
+      return executedSuccessfully.value ? '执行成功' : '执行失败';
+    });
+
+    const executionStatusType = computed(() => {
+      if (isExecuting.value) {
+        return 'info';
+      }
+      return executedSuccessfully.value ? 'success' : 'danger';
+    });
 
     const getActiveSql = (): string => {
       if (!editorView) return sqlCode.value.trim();
@@ -154,12 +189,16 @@ export default defineComponent({
       resultData.value = [];
       executionTime.value = null;
       affectedRows.value = null;
+      executedSql.value = activeSql;
+      hasExecuted.value = true;
+      executedSuccessfully.value = false;
 
       const startTime = performance.now();
       try {
         const res = await sqlJobService().debugQuery(dataSourceId.value, activeSql);
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
+        executedSuccessfully.value = true;
 
         const columns = res.columns || res.columnNames || res.fields || [];
         const rows = res.rows || res.data || res.result || [];
@@ -178,6 +217,7 @@ export default defineComponent({
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
         queryError.value = err.response?.data?.message || err.response?.data?.detail || err.message || 'SQL 执行失败';
+        activeResultTab.value = 'log';
       } finally {
         isExecuting.value = false;
       }
@@ -698,9 +738,16 @@ export default defineComponent({
       hasSelection,
       resultColumns,
       resultData,
+      resultPlaceholder,
       queryError,
       executionTime,
       affectedRows,
+      hasExecuted,
+      executedSuccessfully,
+      executedSql,
+      executionStatusLabel,
+      executionStatusType,
+      activeResultTab,
       isExecuting,
       aiDrawerVisible,
       startResize,

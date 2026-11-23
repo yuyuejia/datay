@@ -140,4 +140,36 @@ class DataSourceQueryServiceRowLimitTest {
 
         assertThat(result.get("affectedRows")).isEqualTo(3);
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldReturnResultForValuesStatement() throws Exception {
+        // VALUES 不是 SELECT 开头，旧实现会把它当成更新语句而报错。
+        Map<String, Object> result = service.executeQuery(dataSource, "VALUES (1, 2)", null);
+
+        assertThat((List<Map<String, Object>>) result.get("rows")).hasSize(1);
+        assertThat((List<String>) result.get("columns")).hasSize(2);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldReturnResultForSelectPrefixedWithComment() throws Exception {
+        // 带注释的 SELECT 首关键字不是 SELECT，旧实现同样会误判。
+        Map<String, Object> result = service.executeQuery(dataSource, "-- 调试注释\nSELECT 1 AS v", null);
+
+        assertThat((List<Map<String, Object>>) result.get("rows")).hasSize(1);
+        assertThat(result.get("rows").toString()).contains("v=1");
+    }
+
+    @Test
+    void shouldExecuteMultiStatementScriptAndReturnLastResultSet() throws Exception {
+        Map<String, Object> result = service.executeQuery(
+            dataSource,
+            "CREATE TABLE t (id INTEGER); INSERT INTO t VALUES (1), (2); SELECT * FROM t ORDER BY id",
+            null
+        );
+
+        assertThat((List<Map<String, Object>>) result.get("rows")).hasSize(2);
+        assertThat(result.get("affectedRows")).isEqualTo(2);
+    }
 }

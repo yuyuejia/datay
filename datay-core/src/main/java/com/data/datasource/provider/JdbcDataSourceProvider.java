@@ -266,23 +266,12 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
-     * 该连接是否为 Quack 远程挂载连接。默认否，DuckDB 覆写。
+     * 执行前对语句做数据源方言准备。
+     *
+     * <p>默认原样返回；需要远端执行包装等特殊处理的数据源由对应 Provider 覆写，
+     * 调用方无需感知具体是哪种数据库。
      */
-    public boolean isQuackConnection(Connection conn) {
-        return false;
-    }
-
-    /**
-     * 该连接是否为 DuckLake 挂载连接。默认否，DuckDB 覆写。
-     */
-    public boolean isDuckLakeConnection(Connection conn) {
-        return false;
-    }
-
-    /**
-     * 执行前对语句的方言包装。默认原样返回，Quack 覆写为 {@code quack.query(...)} 包装。
-     */
-    public String wrapQuery(String sql) {
+    public String prepareStatement(Connection conn, String sql) {
         return sql;
     }
 

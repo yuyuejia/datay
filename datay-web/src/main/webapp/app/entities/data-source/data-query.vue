@@ -11,11 +11,6 @@
         </h3>
       </div>
       <div class="header-right">
-        <span class="execute-info" v-if="executionTime !== null">
-          <font-awesome-icon icon="clock" />
-          <span>耗时: {{ formatTime(executionTime) }}</span>
-          <span v-if="affectedRows !== null"> | 行数: {{ affectedRows }}</span>
-        </span>
         <el-dropdown
           trigger="click"
           placement="bottom-end"
@@ -200,35 +195,69 @@
               </div>
 
               <div class="result-section">
-                <div class="section-header">
-                  <span>查询结果</span>
-                  <span class="result-header-right">
-                    <span v-if="resultTruncated" class="truncate-hint">
-                      <font-awesome-icon icon="circle-info" />
-                      <span>结果已截断，仅返回前 {{ resultRowLimit }} 行</span>
-                    </span>
-                    <span v-if="queryError" class="error-tag">
-                      <font-awesome-icon icon="exclamation-circle" />
-                      <span>{{ queryError }}</span>
-                    </span>
-                  </span>
-                </div>
-                <div class="result-content">
-                  <el-table v-if="resultColumns.length > 0" :data="resultData" stripe border style="width: 100%" height="100%" size="small">
-                    <el-table-column
-                      v-for="col in resultColumns"
-                      :key="col"
-                      :prop="col"
-                      :label="col"
-                      show-overflow-tooltip
-                      min-width="120"
-                    />
-                    <template #empty>
-                      <el-empty description="查询成功，无数据返回" />
-                    </template>
-                  </el-table>
-                  <el-empty v-else description="请执行 SQL 查询" />
-                </div>
+                <el-tabs v-model="activeResultTab" class="result-tabs">
+                  <el-tab-pane label="查询结果" name="result">
+                    <div class="result-content query-result-content">
+                      <div v-if="resultTruncated" class="truncate-hint">
+                        <font-awesome-icon icon="circle-info" />
+                        <span>结果已截断，仅返回前 {{ resultRowLimit }} 行</span>
+                      </div>
+                      <div class="result-table-wrap">
+                        <el-table
+                          v-if="resultColumns.length > 0"
+                          :data="resultData"
+                          stripe
+                          border
+                          style="width: 100%"
+                          height="100%"
+                          size="small"
+                        >
+                          <el-table-column
+                            v-for="col in resultColumns"
+                            :key="col"
+                            :prop="col"
+                            :label="col"
+                            show-overflow-tooltip
+                            min-width="120"
+                          />
+                          <template #empty>
+                            <el-empty description="查询成功，无数据返回" />
+                          </template>
+                        </el-table>
+                        <el-empty v-else description="请执行 SQL 查询" />
+                      </div>
+                    </div>
+                  </el-tab-pane>
+                  <el-tab-pane label="执行日志" name="log">
+                    <div class="result-content log-content">
+                      <template v-if="hasExecuted">
+                        <div class="log-item">
+                          <span class="log-label">执行状态</span>
+                          <el-tag size="small" :type="executionStatusType" effect="light">
+                            {{ executionStatusLabel }}
+                          </el-tag>
+                        </div>
+                        <div class="log-item">
+                          <span class="log-label">耗时</span>
+                          <span class="log-value">{{ executionTime !== null ? formatTime(executionTime) : '-' }}</span>
+                        </div>
+                        <div class="log-item">
+                          <span class="log-label">影响行数</span>
+                          <span class="log-value">{{ affectedRows !== null ? affectedRows : '-' }}</span>
+                        </div>
+                        <div class="log-block">
+                          <span class="log-label">执行 SQL</span>
+                          <pre class="log-sql">{{ executedSql }}</pre>
+                        </div>
+                        <div v-if="queryError" class="log-error">
+                          <font-awesome-icon icon="exclamation-circle" />
+                          <span>{{ queryError }}</span>
+                        </div>
+                      </template>
+                      <el-empty v-else description="暂无执行日志" />
+                    </div>
+                  </el-tab-pane>
+                </el-tabs>
               </div>
             </div>
           </el-tab-pane>
@@ -788,14 +817,6 @@
   gap: 16px;
 }
 
-.execute-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--el-text-color-secondary, #909399);
-  font-size: 13px;
-}
-
 .query-body {
   flex: 1;
   display: flex;
@@ -1078,13 +1099,6 @@
   flex-shrink: 0;
 }
 
-.result-header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
 .truncate-hint {
   display: flex;
   align-items: center;
@@ -1093,6 +1107,7 @@
   font-weight: normal;
   color: var(--el-color-warning, #e6a23c);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sql-editor {
@@ -1122,6 +1137,114 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 80px;
+}
+
+.result-tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.result-tabs :deep(.el-tabs__header) {
+  margin: 0;
+  padding: 0 16px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  flex-shrink: 0;
+}
+
+.result-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.result-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.result-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.query-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.result-table-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.log-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.log-label {
+  width: 64px;
+  color: var(--el-text-color-secondary, #909399);
+  flex-shrink: 0;
+}
+
+.log-value {
+  color: var(--el-text-color-primary, #303133);
+}
+
+.log-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.log-sql {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  max-height: 200px;
+  overflow: auto;
+  border-radius: 4px;
+  background: var(--el-fill-color-light, #f5f7fa);
+  color: var(--el-text-color-primary, #303133);
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--el-color-danger, #f56c6c);
+  background: var(--el-color-danger-light-9, #fef0f0);
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex-shrink: 0;
 }
 
 .resizer {

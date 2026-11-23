@@ -267,11 +267,29 @@ export default defineComponent({
     const queryError = ref('');
     const executionTime = ref<number | null>(null);
     const affectedRows = ref<number | null>(null);
+    const hasExecuted = ref(false);
+    const executedSuccessfully = ref(false);
+    const executedSql = ref('');
+    const activeResultTab = ref('result');
     // 单次查询最大返回行数：默认 1000，避免用户不写 LIMIT 时触发全量查询
     const queryLimitOptions = [100, 500, 1000, 5000, 10000];
     const queryLimit = ref(1000);
     const resultTruncated = ref(false);
     const resultRowLimit = ref<number | null>(null);
+
+    const executionStatusLabel = computed(() => {
+      if (isExecuting.value) {
+        return '执行中';
+      }
+      return executedSuccessfully.value ? '执行成功' : '执行失败';
+    });
+
+    const executionStatusType = computed(() => {
+      if (isExecuting.value) {
+        return 'info';
+      }
+      return executedSuccessfully.value ? 'success' : 'danger';
+    });
 
     const activeTab = ref('sql');
     const previewTabs = ref<PreviewTab[]>([]);
@@ -316,6 +334,9 @@ export default defineComponent({
       resultData.value = [];
       executionTime.value = null;
       affectedRows.value = null;
+      executedSql.value = activeSql;
+      hasExecuted.value = true;
+      executedSuccessfully.value = false;
       resultTruncated.value = false;
       resultRowLimit.value = null;
 
@@ -325,6 +346,7 @@ export default defineComponent({
         const res = await dataQueryService().executeQuery(dataSourceId.value, activeSql, queryLimit.value);
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
+        executedSuccessfully.value = true;
 
         const columns = res.columns || res.columnNames || res.fields || [];
         const rows = res.rows || res.data || res.result || [];
@@ -350,6 +372,7 @@ export default defineComponent({
         const elapsed = Math.round(performance.now() - startTime);
         executionTime.value = elapsed;
         queryError.value = err.response?.data?.message || err.response?.data?.detail || err.message || '查询执行失败';
+        activeResultTab.value = 'log';
       } finally {
         isExecuting.value = false;
       }
@@ -1442,6 +1465,12 @@ export default defineComponent({
       queryError,
       executionTime,
       affectedRows,
+      hasExecuted,
+      executedSuccessfully,
+      executedSql,
+      activeResultTab,
+      executionStatusLabel,
+      executionStatusType,
       queryLimitOptions,
       queryLimit,
       resultTruncated,

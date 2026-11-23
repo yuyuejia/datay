@@ -149,8 +149,15 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         return super.openConnection(info);
     }
 
+    /**
+     * 执行前准备语句：Quack 连接需要把语句交给远端执行，其余连接原样执行。
+     */
     @Override
-    public boolean isQuackConnection(Connection conn) {
+    public String prepareStatement(Connection conn, String sql) {
+        return isQuackConnection(conn) ? DBUtils.wrapQuackQuery(sql) : sql;
+    }
+
+    private boolean isQuackConnection(Connection conn) {
         try (ResultSet rs = conn.getMetaData().getCatalogs()) {
             while (rs.next()) {
                 if (QUACK_CATALOG.equals(rs.getString("TABLE_CAT"))) {
@@ -161,11 +168,6 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
             // ignore
         }
         return false;
-    }
-
-    @Override
-    public String wrapQuery(String sql) {
-        return DBUtils.wrapQuackQuery(sql);
     }
 
     /**
@@ -319,8 +321,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
         }
     }
 
-    @Override
-    public boolean isDuckLakeConnection(Connection conn) {
+    protected boolean isDuckLakeConnection(Connection conn) {
         try (ResultSet rs = conn.getMetaData().getCatalogs()) {
             while (rs.next()) {
                 if (DUCKLAKE_CATALOG.equals(rs.getString("TABLE_CAT"))) {
@@ -336,7 +337,7 @@ public class DuckDbDataSourceProvider extends JdbcDataSourceProvider {
     /**
      * 该连接是否挂载了 Polaris（Iceberg REST）catalog。
      */
-    public boolean isPolarisConnection(Connection conn) {
+    protected boolean isPolarisConnection(Connection conn) {
         try (ResultSet rs = conn.getMetaData().getCatalogs()) {
             while (rs.next()) {
                 if (POLARIS_CATALOG.equals(rs.getString("TABLE_CAT"))) {

@@ -44,37 +44,70 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
             throw new IllegalArgumentException("SQL语句不能为空");
         }
         String normalized = stripTrailingSemicolons(statement);
-        if (isSelect(normalized)) {
-            String execSql = provider.isQuackConnection(connection) ? provider.wrapQuery(normalized) : normalized;
-            if (params != null && !params.isEmpty()) {
-                try (PreparedStatement ps = connection.prepareStatement(execSql)) {
-                    applyMaxRows(ps, maxRows);
-                    bind(ps, params);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        return readResult(rs, maxRows);
-                    }
-                }
+        if (params != null && !params.isEmpty()) {
+            String execSql = provider.prepareStatement(connection, normalized);
+            try (PreparedStatement ps = connection.prepareStatement(execSql)) {
+                applyMaxRows(ps, maxRows);
+                bind(ps, params);
+                return executeAndRead(ps, maxRows);
             }
-            try (Statement stmt = connection.createStatement()) {
-                applyMaxRows(stmt, maxRows);
-                try (ResultSet rs = stmt.executeQuery(execSql)) {
-                    return readResult(rs, maxRows);
+        }
+        String execSql = provider.prepareStatement(connection, normalized);
+        try (Statement stmt = connection.createStatement()) {
+            applyMaxRows(stmt, maxRows);
+            return executeAndRead(stmt, execSql, maxRows);
+        }
+    }
+
+    /**
+     * 不预判语句类型，交由数据库自己决定返回结果集还是更新行数。
+     *
+     * <p>这样 {@code VALUES}、带注释的 {@code SELECT}、{@code PRAGMA}/{@code CALL}
+     * 以及同时包含 DDL/DML/SELECT 的多语句脚本都能按数据库的实际行为返回，
+     * 不会因为首关键字不在白名单里被误当成更新语句。
+     */
+    private static QueryResult executeAndRead(PreparedStatement statement, int maxRows) throws SQLException {
+        ExecutionResult result = new ExecutionResult();
+        result.drain(statement, statement.execute(), maxRows);
+        return result.toQueryResult();
+    }
+
+    private static QueryResult executeAndRead(Statement statement, String sql, int maxRows) throws SQLException {
+        ExecutionResult result = new ExecutionResult();
+        result.drain(statement, statement.execute(sql), maxRows);
+        return result.toQueryResult();
+    }
+
+    /**
+     * 单个 SQL 脚本的执行结果：保留最后一个结果集，并累计前面 DML 的影响行数。
+     */
+    private static final class ExecutionResult {
+
+        private QueryResult lastResultSet;
+        private int affectedRows;
+
+        private void drain(Statement statement, boolean hasResultSet, int maxRows) throws SQLException {
+            while (true) {
+                if (hasResultSet) {
+                    try (ResultSet rs = statement.getResultSet()) {
+                        if (rs != null) {
+                            lastResultSet = readResult(rs, maxRows);
+                        }
+                    }
+                } else {
+                    int updateCount = statement.getUpdateCount();
+                    if (updateCount == -1) {
+                        break;
+                    }
+                    affectedRows += updateCount;
                 }
+                hasResultSet = statement.getMoreResults();
             }
         }
 
-        int affectedRows;
-        if (params != null && !params.isEmpty()) {
-            try (PreparedStatement ps = connection.prepareStatement(normalized)) {
-                bind(ps, params);
-                affectedRows = ps.executeUpdate();
-            }
-        } else {
-            try (Statement stmt = connection.createStatement()) {
-                affectedRows = stmt.executeUpdate(normalized);
-            }
+        private QueryResult toQueryResult() {
+            return lastResultSet != null ? lastResultSet : QueryResult.updates(Math.max(affectedRows, 0));
         }
-        return QueryResult.updates(affectedRows);
     }
 
     @Override
@@ -171,18 +204,6 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     @Override
     public void close() throws SQLException {
         connection.close();
-    }
-
-    private static boolean isSelect(String sql) {
-        String upper = sql.trim().toUpperCase();
-        return (
-            upper.startsWith("SELECT") ||
-            upper.startsWith("WITH") ||
-            upper.startsWith("SHOW") ||
-            upper.startsWith("DESCRIBE") ||
-            upper.startsWith("DESC") ||
-            upper.startsWith("EXPLAIN")
-        );
     }
 
     private static void applyMaxRows(Statement statement, int maxRows) throws SQLException {
