@@ -54,6 +54,19 @@ const standardSpec = {
   filters: [],
 };
 
+const defaultedSpec = {
+  ...standardSpec,
+  title: '默认值看板',
+  filters: [
+    {
+      id: 'date',
+      type: 'dateRange',
+      targets: [{ datasetId: 'ds1', field: 'stat_date', mode: 'server' }],
+      defaultValue: { start: '2026-01-01', end: '2026-01-31' },
+    },
+  ],
+};
+
 const { loadAllMock } = vi.hoisted(() => ({ loadAllMock: vi.fn() }));
 
 vi.mock('@/shared/dashboard/dashboard.service', () => ({
@@ -64,11 +77,13 @@ vi.mock('@/shared/dashboard/dashboard.service', () => ({
         id: 'db1',
         name: '看板',
         spec: JSON.stringify(
-          window.location.search.includes('standard')
-            ? standardSpec
-            : window.location.search.includes('nofilters')
-              ? { ...dashboardSpec, filters: [] }
-              : dashboardSpec,
+          window.location.search.includes('defaults')
+            ? defaultedSpec
+            : window.location.search.includes('standard')
+              ? standardSpec
+              : window.location.search.includes('nofilters')
+                ? { ...dashboardSpec, filters: [] }
+                : dashboardSpec,
         ),
       }),
     );
@@ -199,6 +214,26 @@ describe('dashboard viewer screen settings', () => {
     await flushPromises();
     expect(loadAllMock).toHaveBeenCalledTimes(1);
     expect(loadAllMock).toHaveBeenCalledWith({ region: '华东' }, { force: true });
+
+    wrapper.unmount();
+  });
+
+  it('applies filter defaults on the initial query and passes them to the filter bar', async () => {
+    window.history.pushState({}, '', '/dashboard.html?id=defaults');
+    const wrapper = mount(DashboardViewer, {
+      global: {
+        stubs: {
+          DashboardStage: DashboardStageStub,
+          DashboardCanvas: true,
+          DashboardFilters: DashboardFiltersStub,
+        },
+      },
+    });
+    await flushPromises();
+
+    const expected = { date: { start: '2026-01-01', end: '2026-01-31' } };
+    expect(loadAllMock).toHaveBeenCalledWith(expected, { force: true });
+    expect(wrapper.findComponent(DashboardFiltersStub).props('modelValue')).toEqual(expected);
 
     wrapper.unmount();
   });

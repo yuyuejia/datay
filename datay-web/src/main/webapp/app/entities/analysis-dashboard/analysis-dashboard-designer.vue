@@ -956,8 +956,8 @@
               <el-input v-model="filterOptionsText" type="textarea" :rows="3" placeholder="华东,华南,华北" />
             </template>
 
-            <label>默认值（多值用逗号分隔）</label>
-            <el-input v-model="filterDefaultText" placeholder="可选" />
+            <label>{{ filterDefaultHint.label }}</label>
+            <el-input v-model="filterDefaultDraft" :placeholder="filterDefaultHint.placeholder" @change="commitFilterDefault" />
 
             <div class="designer-hint">筛选值会直接作用于所选数据集字段。</div>
           </div>

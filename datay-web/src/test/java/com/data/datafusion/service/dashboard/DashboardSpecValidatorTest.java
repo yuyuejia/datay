@@ -689,6 +689,29 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
+    void shouldKeepValidDateRangeDefaultValue() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "layout": { "x":0,"y":0,"w":6,"h":4 }, "datasetId": "ds1" } ],
+              "filters": [
+                {
+                  "id": "f1",
+                  "type": "dateRange",
+                  "targets": [ { "datasetId": "ds1", "mode": "server", "pushdown": { "kind": "metricTime" } } ],
+                  "defaultValue": { "start": "2026-01-01", "end": "2026-01-31" }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> filters = (List<Map<String, Object>>) normalized.get("filters");
+        assertThat(filters.get(0).get("defaultValue")).isEqualTo(Map.of("start", "2026-01-01", "end", "2026-01-31"));
+    }
+
+    @Test
     void shouldRejectMissingAggregation() {
         String spec =
             """

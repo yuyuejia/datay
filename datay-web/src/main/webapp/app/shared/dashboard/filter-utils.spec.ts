@@ -18,6 +18,13 @@ describe('filter-utils', () => {
     });
   });
 
+  it('keeps range defaults as objects', () => {
+    const rangeFilters: DashboardFilter[] = [
+      { id: 'date', type: 'dateRange', defaultValue: { start: '2026-01-01', end: '2026-01-31' } },
+    ];
+    expect(initFilterValues(rangeFilters)).toEqual({ date: { start: '2026-01-01', end: '2026-01-31' } });
+  });
+
   it('restores values from query string', () => {
     expect(filtersFromQuery(filters, '?f_region=华南&f_cities=广州,深圳&f_keyword=手机')).toEqual({
       region: '华南',

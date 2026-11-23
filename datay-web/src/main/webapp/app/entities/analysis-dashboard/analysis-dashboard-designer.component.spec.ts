@@ -95,7 +95,7 @@ type DesignerVm = {
       html?: string;
       layout: WidgetLayout;
     }>;
-    filters: Array<{ id: string; targets: any[] }>;
+    filters: Array<{ id: string; type?: string; defaultValue?: any; targets: any[] }>;
     datasets: Array<{ id: string; type?: string }>;
   };
   canUndo: boolean;
@@ -122,6 +122,9 @@ type DesignerVm = {
   applyCustomOption: () => void;
   resetCustomOption: () => void;
   addFilter: () => void;
+  filterDefaultText: string;
+  filterDefaultDraft: string;
+  commitFilterDefault: () => void;
   filterValues: Record<string, any>;
   onFilterSearch: (values: Record<string, any>) => Promise<void>;
   onLayoutChange: (id: string, layout: WidgetLayout) => void;
@@ -815,6 +818,72 @@ describe('AnalysisDashboardDesigner history', () => {
 
     expect(vm.filterValues).toEqual({ filter1: '华东' });
     expect(loadAllMock).toHaveBeenCalledWith({ filter1: '华东' }, { force: true });
+  });
+
+  it('日期范围筛选器默认值保存为 {start,end} 对象', async () => {
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    filter.type = 'dateRange';
+
+    vm.filterDefaultText = '2026-01-01,2026-01-31';
+
+    expect(filter.defaultValue).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+    expect(vm.filterValues.filter1).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+    expect(vm.filterDefaultText).toBe('2026-01-01,2026-01-31');
+  });
+
+  it('日期范围筛选器只填开始日期时保存为 {start}', async () => {
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    filter.type = 'dateRange';
+
+    vm.filterDefaultText = '2026-01-01';
+
+    expect(filter.defaultValue).toEqual({ start: '2026-01-01' });
+    expect(vm.filterDefaultText).toBe('2026-01-01');
+  });
+
+  it('日期范围默认值输入过程中可以正常输入逗号', async () => {
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    filter.type = 'dateRange';
+    await vm.$nextTick();
+
+    vm.filterDefaultDraft = '2026-01-01,';
+    expect(vm.filterDefaultDraft).toBe('2026-01-01,');
+    expect(filter.defaultValue).toBeUndefined();
+
+    vm.filterDefaultDraft = '2026-01-01,2026-01-31';
+    vm.commitFilterDefault();
+
+    expect(filter.defaultValue).toEqual({ start: '2026-01-01', end: '2026-01-31' });
+    expect(vm.filterDefaultDraft).toBe('2026-01-01,2026-01-31');
+  });
+
+  it('日期范围筛选器回显已有对象默认值', async () => {
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    filter.type = 'dateRange';
+    filter.defaultValue = { start: '2026-01-01', end: '2026-01-31' };
+
+    expect(vm.filterDefaultText).toBe('2026-01-01,2026-01-31');
+  });
+
+  it('数值范围筛选器默认值保存为 {min,max} 对象', async () => {
+    vm.addFilter();
+    await vm.$nextTick();
+    const filter = vm.spec.filters[0];
+    filter.type = 'numberRange';
+
+    vm.filterDefaultText = '10,20';
+
+    expect(filter.defaultValue).toEqual({ min: 10, max: 20 });
+    expect(vm.filterValues.filter1).toEqual({ min: 10, max: 20 });
+    expect(vm.filterDefaultText).toBe('10,20');
   });
 
   it('SQL 数据集字段下拉支持 SQL 参数选项', async () => {

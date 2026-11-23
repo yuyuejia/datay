@@ -1934,6 +1934,9 @@ export default defineComponent({
       if (!filter) {
         return;
       }
+      // 类型切换后旧默认值（如文本/数组/区间对象）形态不再匹配，清空避免保存校验失败。
+      delete filter.defaultValue;
+      filterValues.value[filter.id] = undefined;
       for (const target of filter.targets ?? []) {
         configureFilterTarget(filter, target);
       }
@@ -2038,25 +2041,71 @@ export default defineComponent({
       },
     });
 
+    /** 区间默认值读取：兼容 {start,end}/{min,max} 对象与 [a,b] 数组。 */
+    const rangeBound = (value: any, key: 'start' | 'end' | 'min' | 'max'): string => {
+      const index = key === 'start' || key === 'min' ? 0 : 1;
+      if (Array.isArray(value)) {
+        return value[index] === undefined || value[index] === null ? '' : String(value[index]);
+      }
+      if (value && typeof value === 'object') {
+        const raw = value[key];
+        return raw === undefined || raw === null ? '' : String(raw);
+      }
+      return '';
+    };
+
+    const parseNumberOrDefault = (raw?: string): number | undefined => {
+      if (raw === undefined || raw === '') {
+        return undefined;
+      }
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : undefined;
+    };
+
     const filterDefaultText = computed({
       get: () => {
-        const value = selectedFilter.value?.defaultValue;
+        const filter = selectedFilter.value;
+        const value = filter?.defaultValue;
+        if (value === undefined || value === null) {
+          return '';
+        }
+        if (filter?.type === 'dateRange') {
+          return [rangeBound(value, 'start'), rangeBound(value, 'end')].filter(Boolean).join(',');
+        }
+        if (filter?.type === 'numberRange') {
+          return [rangeBound(value, 'min'), rangeBound(value, 'max')].filter(Boolean).join(',');
+        }
         if (Array.isArray(value)) {
           return value.join(',');
         }
-        return value === undefined || value === null ? '' : String(value);
+        return String(value);
       },
       set: (value: string) => {
         const filter = selectedFilter.value;
         if (!filter) {
           return;
         }
+        const rangeType = filter.type === 'dateRange' || filter.type === 'numberRange';
+        const separator = rangeType && value.includes('~') && !value.includes(',') ? '~' : ',';
         const parts = value
-          .split(',')
+          .split(separator)
           .map(item => item.trim())
           .filter(Boolean);
         if (filter.type === 'multiSelect') {
           filter.defaultValue = parts;
+        } else if (filter.type === 'dateRange') {
+          // 后端要求日期范围默认值必须是 {start,end} 对象。
+          filter.defaultValue = parts.length
+            ? { ...(parts[0] ? { start: parts[0] } : {}), ...(parts[1] ? { end: parts[1] } : {}) }
+            : undefined;
+        } else if (filter.type === 'numberRange') {
+          // 后端要求数值范围默认值必须是 {min,max} 对象。
+          const min = parseNumberOrDefault(parts[0]);
+          const max = parseNumberOrDefault(parts[1]);
+          filter.defaultValue =
+            min === undefined && max === undefined
+              ? undefined
+              : { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) };
         } else {
           filter.defaultValue = parts[0];
         }
@@ -2064,7 +2113,41 @@ export default defineComponent({
       },
     });
 
+    const filterDefaultHint = computed(() => {
+      switch (selectedFilter.value?.type) {
+        case 'dateRange':
+          return { label: '默认值（开始日期,结束日期）', placeholder: '2026-01-01,2026-12-31' };
+        case 'numberRange':
+          return { label: '默认值（最小值,最大值）', placeholder: '0,100' };
+        default:
+          return { label: '默认值（多值用逗号分隔）', placeholder: '可选' };
+      }
+    });
+
+    /**
+     * 默认值输入草稿：输入过程中保留原文（如结尾逗号），
+     * 只在 change/blur 时解析成 spec 需要的结构，避免刚输入的分隔符被立即吞掉。
+     */
+    const filterDefaultDraft = ref('');
+
+    const syncFilterDefaultDraft = () => {
+      filterDefaultDraft.value = filterDefaultText.value;
+    };
+
+    watch(
+      () => [selectedFilterId.value, selectedFilter.value?.type, selectedFilter.value?.defaultValue] as const,
+      syncFilterDefaultDraft,
+      { deep: true, immediate: true },
+    );
+
+    const commitFilterDefault = () => {
+      if (filterDefaultText.value !== filterDefaultDraft.value) {
+        filterDefaultText.value = filterDefaultDraft.value;
+      }
+    };
+
     const save = async () => {
+      commitFilterDefault();
       if (!name.value.trim()) {
         alertService.showError('请填写看板名称');
         return;
@@ -2102,6 +2185,7 @@ export default defineComponent({
     };
 
     const openPreview = () => {
+      commitFilterDefault();
       const previewName = name.value.trim() || '未命名看板';
       const previewSpec: DashboardSpec = {
         ...(JSON.parse(JSON.stringify(spec.value)) as DashboardSpec),
@@ -2236,6 +2320,9 @@ export default defineComponent({
       resetCustomOption,
       filterOptionsText,
       filterDefaultText,
+      filterDefaultHint,
+      filterDefaultDraft,
+      commitFilterDefault,
       fieldCandidates,
       isSqlDataset,
       isMetricDateRangeTarget,
