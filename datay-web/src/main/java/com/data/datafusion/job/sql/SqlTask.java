@@ -6,9 +6,11 @@ import com.data.datafusion.job.AbstractTask;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.util.DBUtils;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -87,9 +89,12 @@ public class SqlTask extends AbstractTask {
                 ScriptRunner scriptRunner = new ScriptRunner(dbConnection);
                 scriptRunner.setStopOnError(true);
                 scriptRunner.setStatementListener(statement -> this.currentStatement = statement);
-                // 将 ScriptRunner 的执行日志输出到 TaskLogger 的日志文件中
+                // 将 ScriptRunner 的执行日志输出到 TaskLogger 的日志文件中。
+                // 必须显式指定 UTF-8：PrintWriter(OutputStream, boolean) 使用的是 JVM 默认字符集，
+                // 在非 UTF-8 环境（如 Windows GBK、容器内 POSIX locale）会把中文写成乱码，
+                // 而日志读取端固定按 UTF-8 解码。
                 OutputStream taskLogStream = this.getTaskLogger().getLogWriter();
-                PrintWriter writer = new PrintWriter(taskLogStream, true);
+                PrintWriter writer = new PrintWriter(new OutputStreamWriter(taskLogStream, StandardCharsets.UTF_8), true);
                 scriptRunner.setLogWriter(writer);
                 scriptRunner.setErrorLogWriter(writer);
                 Reader reader = new StringReader(script);
