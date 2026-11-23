@@ -19,7 +19,7 @@ vitest.mock('vue-router', () => ({
   useRouter: () => ({ go: routerGoMock }),
 }));
 
-const dataSyncSample = { id: 123 };
+const dataSyncSample = { id: 123, jobName: 'test-job', type: 'FULL_SYNC' };
 
 describe('Component Tests', () => {
   let mountOptions: MountingOptions<DataSyncUpdateComponentType>['global'];
@@ -95,7 +95,7 @@ describe('Component Tests', () => {
 
       it('Should call create service on save for new entity', async () => {
         // GIVEN
-        const entity = {};
+        const entity = { jobName: 'test-job', type: 'FULL_SYNC' };
         dataSyncServiceStub.create.resolves(entity);
         const wrapper = shallowMount(DataSyncUpdate, { global: mountOptions });
         comp = wrapper.vm;
@@ -107,6 +107,22 @@ describe('Component Tests', () => {
 
         // THEN
         expect(dataSyncServiceStub.create.calledWith(entity)).toBeTruthy();
+        expect(comp.isSaving).toEqual(false);
+      });
+
+      it('Should not call create service when job name is empty', async () => {
+        // GIVEN
+        const entity = { jobName: '   ', type: 'FULL_SYNC' };
+        const wrapper = shallowMount(DataSyncUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        comp.dataSync = entity;
+
+        // WHEN
+        comp.save();
+        await comp.$nextTick();
+
+        // THEN
+        expect(dataSyncServiceStub.create.called).toBeFalsy();
         expect(comp.isSaving).toEqual(false);
       });
     });

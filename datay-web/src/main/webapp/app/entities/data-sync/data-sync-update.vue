@@ -36,12 +36,12 @@
 
         <el-row :gutter="20">
           <el-col :xs="24" :md="12">
-            <el-form-item label="任务名称" required>
+            <el-form-item label="任务名称" required :error="fieldError(v$.jobName, '请输入任务名称')">
               <el-input name="jobName" id="data-sync-jobName" data-cy="jobName" v-model="v$.jobName.$model" placeholder="请输入任务名称" />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :md="12">
-            <el-form-item label="同步类型" required>
+            <el-form-item label="同步类型" required :error="fieldError(v$.type, '请选择同步类型')">
               <el-radio-group v-model="v$.type.$model" data-cy="type">
                 <el-radio value="FULL_SYNC">结构和数据</el-radio>
                 <el-radio value="DATA_ONLY">仅数据</el-radio>

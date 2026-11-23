@@ -67,12 +67,14 @@ export default defineComponent({
 
     const validations = useValidation();
     const validationRules = {
-      jobName: {},
+      jobName: {
+        required: validations.required('请输入任务名称'),
+      },
       jobCode: {},
       jobDesc: {},
       dir: {},
       type: {
-        required: true,
+        required: validations.required('请选择同步类型'),
       },
       source: {},
       target: {},
@@ -131,7 +133,17 @@ export default defineComponent({
   },
   created(): void {},
   methods: {
+    /** 只在校验过且已改动时提示，避免一进页面就显示红字. */
+    fieldError(field: any, message: string): string {
+      return field?.$anyDirty && field?.$invalid ? message : '';
+    },
     save(): void {
+      const jobName = this.dataSync.jobName?.trim();
+      this.dataSync.jobName = jobName ?? '';
+      if (!jobName || this.v$.$invalid) {
+        this.v$.$touch();
+        return;
+      }
       this.isSaving = true;
       // 构建表配置信息
       this.dataSync.selectedTables = this.selectedTables.map(table => ({
