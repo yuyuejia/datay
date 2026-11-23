@@ -1,0 +1,40 @@
+{
+  "units": [
+    {
+      ".id": "MongoDBInput",
+      ".name": "MongoDBInput",
+      "sourceId": {
+        "type": "mongodb",
+        "url": "mongodb://127.0.0.1:27017",
+        "dbschema": "test",
+        "extraParams": {
+          "directConnection": "true"
+        }
+      },
+      "database": "test",
+      "collection": "mongo_input_demo",
+      "incrColumn": "seq",
+      "batchSize": 200
+    },
+    {
+      ".id": "StreamJdbcOutput",
+      ".name": "StreamJdbcOutput",
+      "sourceId": {
+        "url": "jdbc:duckdb:./target/mongo-input-duckdb-test.db",
+        "driver": "org.duckdb.DuckDBDriver",
+        "dbschema": "main"
+      },
+      "schema": "main",
+      "table": "",
+      "model": "append"
+    }
+  ],
+  "connections": [
+    {
+      "sourceId": "MongoDBInput",
+      "targetId": "StreamJdbcOutput",
+      "sourcePort": 0
+    }
+  ],
+  "version": "1.0.0"
+}

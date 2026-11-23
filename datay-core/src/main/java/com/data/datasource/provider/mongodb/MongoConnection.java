@@ -266,6 +266,9 @@ public class MongoConnection implements DataSourceConnection {
 
     /**
      * 按过滤/投影/排序查询文档，返回规范化后的行（BSON 值转为 JSON 友好形式）。
+     *
+     * <p>注意：该方法会把全部结果物化到内存，仅适用于结果集较小的场景（如 SQL 预览）；
+     * 大批量同步请使用 {@link #findIterable} 流式遍历游标。
      */
     public List<Map<String, Object>> findDocuments(
         String database,
@@ -274,6 +277,30 @@ public class MongoConnection implements DataSourceConnection {
         Map<String, Object> projection,
         Map<String, Object> sort,
         int limit
+    ) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Document doc : findIterable(database, collection, filter, projection, sort, limit, 0)) {
+            rows.add(normalizeDocument(doc));
+        }
+        return rows;
+    }
+
+    /**
+     * 构建 find 查询（支持 filter / projection / sort / limit），并设置游标批次大小。
+     *
+     * <p>返回的 {@link FindIterable} 不会预取全部结果，调用方按游标逐条读取并负责关闭游标，
+     * 内存占用只与单批数据量相关，适合大批量同步。
+     *
+     * @param cursorBatchSize 游标每批从服务端获取的文档数，{@code <= 0} 时使用驱动默认值
+     */
+    public FindIterable<Document> findIterable(
+        String database,
+        String collection,
+        Map<String, Object> filter,
+        Map<String, Object> projection,
+        Map<String, Object> sort,
+        int limit,
+        int cursorBatchSize
     ) {
         MongoCollection<Document> coll = client.getDatabase(resolveDatabase(database)).getCollection(collection);
         FindIterable<Document> iterable = coll.find(toDocument(filter));
@@ -286,11 +313,10 @@ public class MongoConnection implements DataSourceConnection {
         if (limit > 0) {
             iterable = iterable.limit(limit);
         }
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (Document doc : iterable) {
-            rows.add(normalizeDocument(doc));
+        if (cursorBatchSize > 0) {
+            iterable = iterable.batchSize(cursorBatchSize);
         }
-        return rows;
+        return iterable;
     }
 
     /**
