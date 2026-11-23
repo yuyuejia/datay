@@ -256,11 +256,25 @@ const validate = (): boolean => {
   return true;
 };
 
+// 多选字段的值可能来自数组或逗号分隔字符串（例如旧配置、外部字段组件），保存前统一成数组
+const toArrayValue = (value: any): any[] => {
+  if (Array.isArray(value)) {
+    return value.filter(item => item !== undefined && item !== null && String(item).trim().length > 0);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 const serializeValue = (field: IETLComponentField, value: any): any => {
   const type = (field.type || 'INPUT').toUpperCase();
   const format = (field.valueFormat || 'AUTO').toUpperCase();
   if (type === 'MULTI_SELECT' || type === 'CHECKBOX_GROUP' || ((type === 'TABLE' || type === 'COLUMN') && field.multiple)) {
-    const arrayValue = Array.isArray(value) ? value : [];
+    const arrayValue = toArrayValue(value);
     if (format === 'COMMA_STRING' || format === 'STRING') {
       return arrayValue.join(',');
     }

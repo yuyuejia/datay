@@ -259,15 +259,11 @@ const handleDataSourceSelected = (selected: { dataSourceId?: string; schema?: st
   });
 };
 
-const serializeSelection = (names: string[]): any => {
-  const format = (props.field.valueFormat || 'AUTO').toUpperCase();
-  return format === 'ARRAY' ? names : names.join(',');
-};
-
+// 多选时统一向上传递数组，由表单层按 valueFormat 序列化，避免表单内部值与保存格式不一致
 const handleTableSelected = (selection: any) => {
   if (props.field.multiple) {
     const names = (Array.isArray(selection) ? selection : []).map((item: any) => item?.table).filter(Boolean);
-    emitValue(serializeSelection(names));
+    emitValue(names);
     return;
   }
   emitValue(selection?.table || '');
@@ -276,7 +272,7 @@ const handleTableSelected = (selection: any) => {
 const handleColumnSelected = (selection: any) => {
   if (props.field.multiple) {
     const names = (Array.isArray(selection) ? selection : []).map((item: any) => item?.name).filter(Boolean);
-    emitValue(serializeSelection(names));
+    emitValue(names);
     return;
   }
   emitValue(selection?.name || '');

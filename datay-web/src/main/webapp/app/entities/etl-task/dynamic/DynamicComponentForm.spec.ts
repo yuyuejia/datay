@@ -133,6 +133,34 @@ describe('DynamicComponentForm', () => {
     });
   });
 
+  it('表选择后保存仍保留表名（多选值以数组形式写回表单）', async () => {
+    const wrapper = createWrapper({ table: '' });
+    await nextTick();
+
+    const fieldComponents = wrapper.findAllComponents(DynamicFieldStub);
+    fieldComponents[2].vm.$emit('change', { value: ['t3', 't4'] });
+    await nextTick();
+
+    await (wrapper.vm as any).saveConfig();
+
+    const saved = wrapper.emitted('save')?.[0]?.[0] as Record<string, any>;
+    expect(saved.table).toBe('t3,t4');
+  });
+
+  it('兼容以逗号字符串写回的多选值，保存时不会被清空', async () => {
+    const wrapper = createWrapper({ table: '' });
+    await nextTick();
+
+    const fieldComponents = wrapper.findAllComponents(DynamicFieldStub);
+    fieldComponents[2].vm.$emit('change', { value: 't5,t6' });
+    await nextTick();
+
+    await (wrapper.vm as any).saveConfig();
+
+    const saved = wrapper.emitted('save')?.[0]?.[0] as Record<string, any>;
+    expect(saved.table).toBe('t5,t6');
+  });
+
   it('数据源变更时清空下游表和字段选择', async () => {
     const wrapper = createWrapper();
     await nextTick();
