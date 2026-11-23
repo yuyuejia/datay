@@ -824,18 +824,63 @@ public class DBUtils {
         }
     }
 
+    /** 默认流式读取的游标预取行数（Oracle / SQL Server / PostgreSQL 协议等）。 */
+    private static final int DEFAULT_STREAM_FETCH_SIZE = 1000;
+
+    /**
+     * 使用 MySQL 协议（MySQL Connector/J）的数据源类型。
+     * <p>这些类型仅凭正数 {@code fetchSize} 不会流式读取，必须使用 {@link Integer#MIN_VALUE}。
+     */
+    private static final Set<String> MYSQL_PROTOCOL_TYPES = Set.of(
+        DBType.MYSQL.name(),
+        DBType.TIDB.name(),
+        DBType.DORIS.name(),
+        DBType.MARIADB.name(),
+        DBType.STARROCKS.name(),
+        DBType.OCEANBASE.name(),
+        DBType.POLARDB.name()
+    );
+
+    /**
+     * 使用 PostgreSQL 协议的数据源类型。
+     * <p>PostgreSQL 驱动只有在 {@code autoCommit=false} 时才会使用服务端游标，
+     * 否则 {@code setFetchSize} 会被忽略并把全部结果加载到内存。
+     */
+    private static final Set<String> POSTGRESQL_PROTOCOL_TYPES = Set.of(
+        DBType.POSTGRESQL.name(),
+        DBType.KINGBASE.name(),
+        DBType.GREENPLUM.name(),
+        DBType.GAUSSDB.name(),
+        DBType.YMATRIX.name()
+    );
+
+    /**
+     * 创建用于大批量读取的流式 {@link Statement}（只进、只读游标）。
+     *
+     * <p>不同驱动的流式读取开关不同：
+     * <ul>
+     *   <li>MySQL 协议（MySQL/MariaDB/TiDB/Doris/StarRocks/OceanBase/PolarDB）使用
+     *       {@link Integer#MIN_VALUE} 开启逐行流式读取；</li>
+     *   <li>PostgreSQL 协议（PostgreSQL/Kingbase/Greenplum/GaussDB/YMatrix）必须先关闭
+     *       {@code autoCommit}，否则 {@code fetchSize} 不生效并全量加载；</li>
+     *   <li>Oracle / SQL Server / 其他驱动按 {@link #DEFAULT_STREAM_FETCH_SIZE} 分批预取
+     *       （SQL Server 依赖驱动默认的 {@code responseBuffering=adaptive}；DuckDB 由
+     *       数据源 Provider 设置 {@code jdbc_stream_results=true} 后按 chunk 流式返回）。</li>
+     * </ul>
+     */
     public static Statement createStreamStatement(String dbType, Connection conn) throws SQLException {
+        String type = dbType == null ? "" : dbType.trim().toUpperCase(Locale.ROOT);
+
+        // PostgreSQL 协议：游标模式要求关闭自动提交，否则 fetchSize 被驱动忽略
+        if (POSTGRESQL_PROTOCOL_TYPES.contains(type) && conn.getAutoCommit()) {
+            conn.setAutoCommit(false);
+        }
+
         Statement statement = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-        if (DBType.MYSQL.name().equalsIgnoreCase(dbType)) {
+        if (MYSQL_PROTOCOL_TYPES.contains(type)) {
             statement.setFetchSize(Integer.MIN_VALUE);
-        } else if (DBType.ORACLE.name().equalsIgnoreCase(dbType)) {
-            statement.setFetchSize(1000);
-        } else if (DBType.SQLSERVER.name().equalsIgnoreCase(dbType)) {
-            statement.setFetchSize(1000);
-        } else if (DBType.POSTGRESQL.name().equalsIgnoreCase(dbType) || DBType.KINGBASE.name().equalsIgnoreCase(dbType)) {
-            statement.setFetchSize(1);
         } else {
-            statement.setFetchSize(1000);
+            statement.setFetchSize(DEFAULT_STREAM_FETCH_SIZE);
         }
         return statement;
     }

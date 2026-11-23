@@ -14,6 +14,23 @@ StreamJdbcInput 是一个数据输入组件，该组件特别适合需要处理�
 - ✅ **条件过滤**: 支持自定义WHERE条件过滤数据
 - ✅ **动态参数**: WHERE 条件支持 `${attr:属性名}`、`${FLOW_FILE_DATA}`、`#{...}` 等动态参数
 
+## 流式读取的驱动前提
+
+组件通过「只进、只读游标 + 分批预取」读取数据，内存占用与单批数据量相关，而不是整表数据量。不同驱动的流式开关不同，平台已在 `DBUtils.createStreamStatement` 中统一适配：
+
+| 数据源协议 | 适配方式 |
+|------------|----------|
+| MySQL / MariaDB / TiDB / Doris / StarRocks / OceanBase / PolarDB | `fetchSize = Integer.MIN_VALUE`，逐行流式读取 |
+| PostgreSQL / Kingbase / Greenplum / GaussDB / YMatrix | 查询连接关闭 `autoCommit`，`fetchSize = 1000`，使用服务端游标 |
+| Oracle / SQL Server / ClickHouse / HANA / 达梦 / TDengine / SQLite 等 | `fetchSize = 1000`，按批预取 |
+| DuckDB | 数据源 Provider 设置 `jdbc_stream_results=true`，驱动按 chunk 流式返回（`fetchSize` 会被驱动调整为内部块大小） |
+
+注意事项：
+
+1. PostgreSQL 协议必须关闭 `autoCommit`，否则驱动会忽略 `fetchSize` 并一次性加载全部结果（组件已自动处理，无需手工配置）。
+2. SQL Server 请保持驱动默认的 `responseBuffering=adaptive`，不要显式设置为 `full`，否则会整包缓存查询结果。
+3. 使用「通用 JDBC」数据源时，请确认驱动支持 `setFetchSize` 或服务端游标；不支持流式读取的驱动仍可能把结果全量加载到内存。
+
 ## 配置参数
 
 ### 必需参数
