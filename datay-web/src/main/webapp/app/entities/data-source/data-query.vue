@@ -16,6 +16,44 @@
           <span>耗时: {{ formatTime(executionTime) }}</span>
           <span v-if="affectedRows !== null"> | 行数: {{ affectedRows }}</span>
         </span>
+        <el-dropdown
+          trigger="click"
+          placement="bottom-end"
+          :disabled="!hasAvailableMaintenanceAction(catalogMaintenanceActions)"
+          @command="openCatalogMaintenance"
+        >
+          <el-button
+            size="small"
+            text
+            type="warning"
+            class="maintenance-dropdown-trigger"
+            :disabled="!hasAvailableMaintenanceAction(catalogMaintenanceActions)"
+            :title="
+              hasAvailableMaintenanceAction(catalogMaintenanceActions)
+                ? 'Catalog 级运维操作（作用于当前表的 Catalog）'
+                : '请先打开表预览，且当前 Catalog 支持运维操作'
+            "
+          >
+            <font-awesome-icon icon="database" />
+            <span>Catalog 运维</span>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="action in catalogMaintenanceActions"
+                :key="action.id"
+                :command="action"
+                :disabled="action.available === false"
+              >
+                <span class="maintenance-menu-item" :title="action.available === false ? action.unavailableReason : action.description">
+                  <font-awesome-icon :icon="action.danger ? 'exclamation-circle' : 'wrench'" class="maintenance-menu-icon" />
+                  <span>{{ action.label || action.id }}</span>
+                  <span v-if="action.available === false" class="maintenance-menu-unavailable">暂不支持</span>
+                </span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
 
@@ -220,6 +258,36 @@
                     <el-option :value="500" label="500 行" />
                     <el-option :value="1000" label="1000 行" />
                   </el-select>
+                  <el-dropdown
+                    v-if="hasAvailableMaintenanceAction(tableMaintenanceActions(tab))"
+                    trigger="click"
+                    placement="bottom-end"
+                    @command="action => openMaintenance(tab, action)"
+                  >
+                    <el-button size="small" text class="maintenance-dropdown-trigger" title="表级运维操作">
+                      <font-awesome-icon icon="wrench" />
+                      <span>表运维</span>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-for="action in tableMaintenanceActions(tab)"
+                          :key="action.id"
+                          :command="action"
+                          :disabled="action.available === false"
+                        >
+                          <span
+                            class="maintenance-menu-item"
+                            :title="action.available === false ? action.unavailableReason : action.description"
+                          >
+                            <font-awesome-icon :icon="action.danger ? 'exclamation-circle' : 'wrench'" class="maintenance-menu-icon" />
+                            <span>{{ action.label || action.id }}</span>
+                            <span v-if="action.available === false" class="maintenance-menu-unavailable">暂不支持</span>
+                          </span>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                   <el-button size="small" text :loading="tab.metaLoading || tab.loading" @click="refreshPreview(tab)">
                     <font-awesome-icon icon="sync" />
                     <span>刷新</span>
@@ -417,38 +485,6 @@
                             {{ formatCount(tab.health.summary?.totalRecords) }}
                           </el-descriptions-item>
                         </el-descriptions>
-
-                        <div v-if="tab.maintenanceActions?.length" class="health-block health-actions-block">
-                          <div class="health-block-title">
-                            常用运维
-                            <span class="preview-status">执行前会二次确认</span>
-                          </div>
-                          <div class="health-actions">
-                            <el-tooltip
-                              v-for="action in tab.maintenanceActions"
-                              :key="action.id"
-                              :content="
-                                action.available === false ? action.unavailableReason || '当前不可用' : action.description || action.label
-                              "
-                              placement="top"
-                            >
-                              <span class="health-action-item">
-                                <el-button
-                                  size="small"
-                                  :type="action.danger ? 'danger' : 'default'"
-                                  :plain="!action.danger"
-                                  :disabled="action.available === false"
-                                  @click="openMaintenance(tab, action)"
-                                >
-                                  {{ action.label || action.id }}
-                                </el-button>
-                              </span>
-                            </el-tooltip>
-                          </div>
-                          <div v-if="tab.maintenanceActions.some(action => action.scope === 'CATALOG')" class="health-action-hint">
-                            标记为 Catalog 的操作会作用于整个 DuckLake Catalog；删除类操作建议先使用演练模式确认影响范围。
-                          </div>
-                        </div>
 
                         <div class="health-block">
                           <div class="health-block-title">分区信息</div>
@@ -1409,28 +1445,28 @@
   color: var(--el-text-color-primary, #303133);
 }
 
-.health-actions-block {
-  padding: 10px 12px;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  border-radius: 8px;
-  background: var(--el-fill-color-lighter, #fafafa);
-}
-
-.health-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.health-action-item {
+.maintenance-dropdown-trigger {
   display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.health-action-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.5;
+.maintenance-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+}
+
+.maintenance-menu-icon {
+  width: 14px;
   color: var(--el-text-color-secondary, #909399);
+}
+
+.maintenance-menu-unavailable {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--el-text-color-disabled, #c0c4cc);
 }
 
 .maintenance-body {

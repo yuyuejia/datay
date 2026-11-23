@@ -31,6 +31,22 @@ public final class DuckLakeMaintenanceExecutor {
         return ACTIONS;
     }
 
+    public static List<Map<String, Object>> catalogActions() {
+        return ACTIONS.stream().filter(action -> "CATALOG".equals(action.get("scope"))).toList();
+    }
+
+    /**
+     * 执行 Catalog 级运维操作，无需表上下文。
+     */
+    public Map<String, Object> executeCatalog(Connection conn, String action, Map<String, Object> params)
+        throws SQLException {
+        Map<String, Object> actionMeta = findAction(action);
+        if (actionMeta == null || !"CATALOG".equals(actionMeta.get("scope"))) {
+            return failure("不支持的 Catalog 级运维操作：" + action);
+        }
+        return execute(conn, DUCKLAKE_CATALOG, "", "", action, params == null ? Map.of() : params);
+    }
+
     public Map<String, Object> execute(
         Connection conn,
         String catalog,

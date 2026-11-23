@@ -528,6 +528,70 @@ public class DataSourceResource {
     }
 
     /**
+     * 获取 Catalog 级运维操作（无需打开表详情）。
+     */
+    @GetMapping("/{id}/catalog-maintenance")
+    public ResponseEntity<Map<String, Object>> getCatalogMaintenanceActions(@PathVariable("id") String id)
+        throws SQLException {
+        LOG.debug("REST request to get DataSource catalog maintenance actions : {}", id);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        List<Map<String, Object>> actions;
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            actions = connection.getCatalogMaintenanceActions();
+        } catch (SQLException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("supported", actions != null && !actions.isEmpty());
+        result.put("actions", actions == null ? List.of() : actions);
+        return ResponseEntity.ok().body(result);
+    }
+
+    /**
+     * 执行 Catalog 级运维操作（无需打开表详情）。
+     */
+    @PostMapping("/{id}/catalog-maintenance/{action}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_TENANT_ADMIN')")
+    public ResponseEntity<Map<String, Object>> executeCatalogMaintenance(
+        @PathVariable("id") String id,
+        @PathVariable("action") String action,
+        @RequestBody(required = false) Map<String, Object> params
+    ) {
+        LOG.debug("REST request to execute DataSource catalog maintenance : {} action={}", id, action);
+        Optional<DataSourceDTO> dataSourceDTO = dataSourceService.findOne(id);
+        if (dataSourceDTO.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DataSourceDTO dataSource = dataSourceDTO.orElseThrow();
+        try (DataSourceConnection connection = DataSourceProviderFactory.connect(DataSourceQueryService.toDatasourceInfo(dataSource))) {
+            Map<String, Object> result = connection.executeCatalogMaintenance(action, params == null ? Map.of() : params);
+            if (result == null) {
+                result = new LinkedHashMap<>();
+                result.put("success", false);
+                result.put("message", "当前数据源不支持 Catalog 级运维操作");
+                result.put("rows", List.of());
+            }
+            return ResponseEntity.ok().body(result);
+        } catch (SQLException e) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+
+    /**
      * 列出平台支持的数据源类型（由数据源 SPI 注册表提供），供前端数据源表单动态渲染。
      */
     @GetMapping("/types")

@@ -112,6 +112,30 @@ public class DuckLakeDataSourceProvider extends DuckDbDataSourceProvider {
     }
 
     @Override
+    public List<Map<String, Object>> getCatalogMaintenanceActions(Connection conn) throws SQLException {
+        if (!isDuckLakeConnection(conn)) {
+            return List.of();
+        }
+        return DuckLakeMaintenanceExecutor.catalogActions();
+    }
+
+    @Override
+    public Map<String, Object> executeCatalogMaintenance(
+        Connection conn,
+        String action,
+        Map<String, Object> params
+    ) throws SQLException {
+        if (!isDuckLakeConnection(conn)) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", false);
+            result.put("message", "当前数据源不支持 DuckLake Catalog 级运维操作");
+            result.put("rows", List.of());
+            return result;
+        }
+        return DuckLakeMaintenanceExecutor.INSTANCE.executeCatalog(conn, action, params);
+    }
+
+    @Override
     public Connection openConnection(DatasourceInfo info) throws SQLException {
         // 本地 scratch 库无需用户名密码：DuckDB 会拒绝以不同 user 配置打开同一文件
         Connection conn = ConnectionPoolManager.getConnection(DBUtils.resolveDuckLakeJdbcUrl(info), null, null);

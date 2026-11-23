@@ -225,6 +225,32 @@ export default class DataSourceService {
     });
   }
 
+  getCatalogMaintenanceActions(dataSourceId: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${dataSourceId}/catalog-maintenance`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  executeCatalogMaintenance(dataSourceId: string, action: string, params: Record<string, any>): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`${baseApiUrl}/${dataSourceId}/catalog-maintenance/${encodeURIComponent(action)}`, params)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   getTableMaintenanceActions(dataSourceId: string, schema: string, table: string, catalog?: string): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

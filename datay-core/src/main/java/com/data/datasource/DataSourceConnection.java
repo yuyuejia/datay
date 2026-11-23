@@ -126,6 +126,20 @@ public interface DataSourceConnection extends AutoCloseable {
     }
 
     /**
+     * 获取 Catalog 级运维操作（不需要打开表详情即可执行）。
+     */
+    default List<Map<String, Object>> getCatalogMaintenanceActions() throws Exception {
+        return List.of();
+    }
+
+    /**
+     * 执行 Catalog 级运维操作。
+     */
+    default Map<String, Object> executeCatalogMaintenance(String action, Map<String, Object> params) throws Exception {
+        return null;
+    }
+
+    /**
      * 测试连接是否可用。
      */
     boolean testConnection() throws Exception;

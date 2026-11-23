@@ -434,6 +434,27 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 获取 Catalog 级运维操作。默认不支持。
+     */
+    public List<Map<String, Object>> getCatalogMaintenanceActions(Connection conn) throws SQLException {
+        return List.of();
+    }
+
+    /**
+     * 执行 Catalog 级运维操作。默认不支持。
+     */
+    public Map<String, Object> executeCatalogMaintenance(
+        Connection conn,
+        String action,
+        Map<String, Object> params
+    ) throws SQLException {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", false);
+        result.put("message", "当前数据源不支持 Catalog 级运维操作");
+        return result;
+    }
+
+    /**
      * 判断表是否存在。默认以 {@code (schema, null, table)} 组合查询。
      */
     public boolean tableExists(Connection conn, String schema, String table) throws SQLException {

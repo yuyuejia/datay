@@ -150,6 +150,16 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     }
 
     @Override
+    public List<Map<String, Object>> getCatalogMaintenanceActions() throws SQLException {
+        return provider.getCatalogMaintenanceActions(connection);
+    }
+
+    @Override
+    public Map<String, Object> executeCatalogMaintenance(String action, Map<String, Object> params) throws SQLException {
+        return provider.executeCatalogMaintenance(connection, action, params);
+    }
+
+    @Override
     public boolean testConnection() throws SQLException {
         try (Statement statement = connection.createStatement()) {
             try (ResultSet rs = statement.executeQuery(provider.getTestQuery())) {

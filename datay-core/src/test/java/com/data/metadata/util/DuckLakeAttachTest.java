@@ -161,6 +161,13 @@ public class DuckLakeAttachTest {
                 Map.of()
             );
             assertEquals(Boolean.TRUE, checkpoint.get("success"));
+            assertFalse(provider.getCatalogMaintenanceActions(conn).isEmpty(), "DuckLake 应提供 Catalog 级运维操作");
+            Map<String, Object> expire = provider.executeCatalogMaintenance(
+                conn,
+                "expire_snapshots",
+                Map.of("olderThanDays", 7, "dryRun", true)
+            );
+            assertEquals(Boolean.TRUE, expire.get("success"));
         }
     }
 

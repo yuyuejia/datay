@@ -284,6 +284,8 @@ export default defineComponent({
       result: null,
     });
 
+    const catalogMaintenanceActions = ref<TableMaintenanceAction[]>([]);
+
     const contextMenu = ref<{ visible: boolean; x: number; y: number; data: TableNode | null }>({
       visible: false,
       x: 0,
@@ -1055,13 +1057,8 @@ export default defineComponent({
       tab.healthLoading = true;
       tab.healthError = '';
       try {
-        const healthPromise = dataSourceService().getTableHealth(dataSourceId.value, tab.schema, tab.table, tab.catalog);
-        const actionsPromise = dataSourceService()
-          .getTableMaintenanceActions(dataSourceId.value, tab.schema, tab.table, tab.catalog)
-          .catch(() => null);
-        const [res, actionsRes] = await Promise.all([healthPromise, actionsPromise]);
+        const res = await dataSourceService().getTableHealth(dataSourceId.value, tab.schema, tab.table, tab.catalog);
         tab.health = res.data || res || null;
-        tab.maintenanceActions = actionsRes?.data?.actions || [];
         tab.healthLoaded = true;
       } catch (err: any) {
         tab.healthError = err.response?.data?.message || err.response?.data?.detail || err.message || '获取表健康信息失败';
@@ -1071,6 +1068,31 @@ export default defineComponent({
         tab.healthLoading = false;
       }
     };
+
+    const loadMaintenanceActions = async (tab: PreviewTab) => {
+      try {
+        const res = await dataSourceService().getTableMaintenanceActions(dataSourceId.value, tab.schema, tab.table, tab.catalog);
+        tab.maintenanceActions = res.data?.actions || [];
+      } catch {
+        tab.maintenanceActions = [];
+      }
+    };
+
+    const loadCatalogMaintenanceActions = async () => {
+      try {
+        const res = await dataSourceService().getCatalogMaintenanceActions(dataSourceId.value);
+        catalogMaintenanceActions.value = res.data?.actions || [];
+      } catch {
+        catalogMaintenanceActions.value = [];
+      }
+    };
+
+    const maintenanceActionsForScope = (tab: PreviewTab, scope: string) =>
+      (tab.maintenanceActions || []).filter(action => (action.scope || 'TABLE') === scope);
+
+    const tableMaintenanceActions = (tab: PreviewTab) => maintenanceActionsForScope(tab, 'TABLE');
+
+    const hasAvailableMaintenanceAction = (actions: TableMaintenanceAction[]) => actions.some(action => action.available !== false);
 
     const handlePreviewSubTabChange = (tab: PreviewTab, name: string | number) => {
       if (String(name) === 'health' && !tab.healthLoaded && !tab.healthLoading) {
@@ -1094,29 +1116,60 @@ export default defineComponent({
       };
     };
 
+    const openCatalogMaintenance = (action: TableMaintenanceAction) => {
+      if (!action || action.available === false) return;
+      const params: Record<string, any> = {};
+      (action.params || []).forEach(param => {
+        params[param.name] = param.default;
+      });
+      maintenanceDialog.value = {
+        visible: true,
+        tab: null,
+        action,
+        params,
+        running: false,
+        result: null,
+      };
+    };
+
     const closeMaintenance = () => {
       maintenanceDialog.value.visible = false;
     };
 
     const runMaintenance = async () => {
       const state = maintenanceDialog.value;
-      if (!state.tab || !state.action || state.running) return;
+      if (!state.action || state.running) return;
+      const action = state.action;
+      const isCatalogAction = action.scope === 'CATALOG';
+      if (!isCatalogAction && !state.tab) {
+        alertService.showError('请先打开表详情后再执行表级运维操作');
+        return;
+      }
       state.running = true;
       state.result = null;
       try {
-        const res = await dataSourceService().executeTableMaintenance(
-          dataSourceId.value,
-          state.tab.schema,
-          state.tab.table,
-          state.action.id,
-          state.params,
-          state.tab.catalog,
-        );
+        const res = isCatalogAction
+          ? await dataSourceService().executeCatalogMaintenance(dataSourceId.value, action.id, state.params)
+          : await dataSourceService().executeTableMaintenance(
+              dataSourceId.value,
+              state.tab!.schema,
+              state.tab!.table,
+              action.id,
+              state.params,
+              state.tab!.catalog,
+            );
         const result = (res.data || res) as TableMaintenanceResult;
         state.result = result;
         if (result?.success) {
           alertService.showSuccess(result.message || '运维操作已完成');
-          await loadTableHealth(state.tab);
+          if (isCatalogAction) {
+            await loadCatalogMaintenanceActions();
+          } else if (state.tab) {
+            await loadMaintenanceActions(state.tab);
+            if (state.tab.healthLoaded || state.tab.subTab === 'health') {
+              await loadTableHealth(state.tab);
+            }
+          }
         } else {
           alertService.showError(result?.message || '运维操作失败');
         }
@@ -1137,6 +1190,7 @@ export default defineComponent({
     const refreshPreview = (tab: PreviewTab) => {
       loadTableDetail(tab);
       loadPreview(tab);
+      loadMaintenanceActions(tab);
       if (tab.subTab === 'health') {
         loadTableHealth(tab);
       }
@@ -1170,6 +1224,7 @@ export default defineComponent({
         tab = previewTabs.value[previewTabs.value.length - 1];
         loadTableDetail(tab);
         loadPreview(tab);
+        loadMaintenanceActions(tab);
       }
       activeTab.value = key;
     };
@@ -1343,6 +1398,7 @@ export default defineComponent({
       } catch {
         // ignore
       }
+      loadCatalogMaintenanceActions();
       initEditor();
       await loadSchemas();
       document.addEventListener('click', onDocumentClick);
@@ -1423,9 +1479,13 @@ export default defineComponent({
       healthScoreColor,
       maintenanceDialog,
       openMaintenance,
+      openCatalogMaintenance,
       closeMaintenance,
       runMaintenance,
       formatMaintenanceRows,
+      tableMaintenanceActions,
+      catalogMaintenanceActions,
+      hasAvailableMaintenanceAction,
       handleTabRemove,
       openContextMenu,
       handleTableCommand,
