@@ -4,13 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.datay</groupId>
+    <groupId>cn.com.yuyuejia</groupId>
     <artifactId>datay</artifactId>
     <version>1.2.3</version>
     <packaging>pom</packaging>
 
     <name>datay</name>
     <description>datay multi-module project</description>
+
+    <url>https://gitee.com/yuyuejia/datay</url>
 
     <licenses>
         <license>
@@ -19,6 +21,19 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <scm>
+        <url>https://gitee.com/yuyuejia/datay</url>
+        <connection>scm:git:https://gitee.com/yuyuejia/datay.git</connection>
+        <developerConnection>scm:git:https://gitee.com/yuyuejia/datay.git</developerConnection>
+    </scm>
+
+    <developers>
+        <developer>
+            <name>datay</name>
+            <email>datay@yuyuejia.com.cn</email>
+        </developer>
+    </developers>
 
     <modules>
         <module>datay-core</module>
@@ -66,6 +81,12 @@
         <redisson.version>3.13.6</redisson.version>
         <exec-maven-plugin.version>3.6.2</exec-maven-plugin.version>
         <slim.jar.platform>all</slim.jar.platform>
+
+        <!-- 发布到 Maven Central（Sonatype Central Portal）所用插件版本 -->
+        <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -229,4 +250,92 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <!--
+      发布到 Maven Central（Sonatype Central Portal）。
+      用法（只发布父 POM 与 datay-core）：
+        mvn clean deploy -Prelease -DskipTests -pl datay-core -am -Dgpg.passphrase=<GPG 私钥口令>
+      Central Portal 的用户令牌配置在 ~/.m2/settings.xml 的 server id=central 中。
+    -->
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- 生成 sources jar，Maven Central 要求 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>${maven-source-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- 生成 javadoc jar，Maven Central 要求；文档问题不阻断发布 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>${maven-javadoc-plugin.version}</version>
+                        <configuration>
+                            <encoding>UTF-8</encoding>
+                            <doclint>none</doclint>
+                            <failOnError>false</failOnError>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- GPG 签名，Maven Central 要求 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- 上传到 Central Portal 并等待校验通过后自动发布 -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

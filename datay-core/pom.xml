@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.datay</groupId>
+        <groupId>cn.com.yuyuejia</groupId>
         <artifactId>datay</artifactId>
         <version>1.2.3</version>
     </parent>
@@ -13,6 +13,29 @@
 
     <name>datay-core</name>
     <description>core module</description>
+
+
+    <url>https://gitee.com/yuyuejia/datay</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://gitee.com/yuyuejia/datay</url>
+        <connection>scm:git:https://gitee.com/yuyuejia/datay.git</connection>
+        <developerConnection>scm:git:https://gitee.com/yuyuejia/datay.git</developerConnection>
+    </scm>
+
+    <developers>
+        <developer>
+            <name>datay</name>
+            <email>datay@yuyuejia.com.cn</email>
+        </developer>
+    </developers>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -221,6 +244,8 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <!-- 胖包仅用于本地产出/瘦身，不附加到构件，避免发布到 Maven Central -->
+                    <attach>false</attach>
                     <archive>
                         <manifest>
                             <mainClass>${mainClass}</mainClass>

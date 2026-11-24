@@ -133,6 +133,28 @@ java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx
 
 ---
 
+## 发布到 Maven Central
+
+`datay-core` 已发布到 Maven Central，可直接作为依赖引入：
+
+```xml
+<dependency>
+    <groupId>cn.com.yuyuejia</groupId>
+    <artifactId>datay-core</artifactId>
+    <version>1.2.3</version>
+</dependency>
+```
+
+发布新版本（需要 Central Portal 凭据与 GPG 私钥口令）：
+
+```bash
+# 只发布 datay 父 POM 与 datay-core
+mvn clean deploy -Prelease -DskipTests -pl datay-core -am -Dgpg.passphrase=<GPG 私钥口令>
+```
+
+- Central Portal 用户令牌配置在 `~/.m2/settings.xml`，server id 为 `central`
+- `release` profile 会自动生成 sources/javadoc 并做 GPG 签名；`datay-core` 的 `jar-with-dependencies` 仅本地使用，不参与发布
+
 ## Core 独立运行（嵌入 / CLI 模式）
 
 ```bash

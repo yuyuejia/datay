@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.datay</groupId>
+        <groupId>cn.com.yuyuejia</groupId>
         <artifactId>datay</artifactId>
         <version>1.2.3</version>
     </parent>
@@ -23,7 +23,7 @@
     <dependencies>
         <!-- 编译期使用核心 API，运行期由宿主应用提供，不能打进插件 JAR -->
         <dependency>
-            <groupId>com.datay</groupId>
+            <groupId>cn.com.yuyuejia</groupId>
             <artifactId>datay-core</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>

@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.datay</groupId>
+        <groupId>cn.com.yuyuejia</groupId>
         <artifactId>datay</artifactId>
         <version>1.2.3</version>
     </parent>
@@ -347,7 +347,7 @@
         <scope>test</scope>
       </dependency>
         <dependency>
-            <groupId>com.datay</groupId>
+            <groupId>cn.com.yuyuejia</groupId>
             <artifactId>datay-core</artifactId>
             <version>${project.version}</version>
         </dependency>
