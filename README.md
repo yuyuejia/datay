@@ -121,7 +121,7 @@ mvn clean package -DskipTests
 
 # 仅构建指定平台的精简包（jar 小于 150MB）：
 # mvn clean package -DskipTests -Dslim.jar.platform=linux-amd64
-# 可选平台：linux-amd64 / linux-arm64 / macos / windows（macos 仅支持 Apple Silicon，DuckDB 2.0 起不再提供 macOS x86_64 原生库）
+# 可选平台：linux-amd64 / linux-arm64 / macos / windows
 
 # 3. 启动（单机模式，调度+执行合一），AI 能力需要提供 AI API Key，默认为 Deepseek 原厂Key
 java -jar datay-web/target/*.jar --DATAY_AI_API_KEY=sk-xxxxxxxxx

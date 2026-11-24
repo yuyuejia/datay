@@ -232,8 +232,7 @@ public final class SlimJar {
 
         if (lower.contains("libduckdb_java.so_")) {
             if (mac) {
-                // DuckDB 2.0 起不再发布 macOS x86_64 原生库，仅保留 arm64（Apple Silicon）
-                return lower.contains("libduckdb_java.so_macos_arm64");
+                return lower.contains("libduckdb_java.so_osx_universal");
             }
             if (windows) {
                 return lower.contains("libduckdb_java.so_windows_amd64");

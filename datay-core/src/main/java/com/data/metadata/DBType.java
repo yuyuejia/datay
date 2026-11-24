@@ -137,7 +137,7 @@ public enum DBType {
         Arrays.asList("1.0"),
         "org.duckdb.DuckDBDriver",
         "polaris://{host}:{port}/{database}",
-        Map.of("1.0", "duckdb_jdbc-2.0.1.0.jar")
+        Map.of("1.0", "duckdb_jdbc-1.5.3.0.jar")
     ),
 
     CLICKHOUSE(

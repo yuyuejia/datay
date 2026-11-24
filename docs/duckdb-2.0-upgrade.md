@@ -1,15 +1,18 @@
-# DuckDB 升级到 2.0.1
+# DuckDB 2.0.1 升级评估（已回退）
 
-## 版本变更
+> **当前状态：已回退到 `duckdb_jdbc 1.5.3.0`。** 本文保留 2.0.1 的升级评估记录；
+> `DuckDBRegister` 的修复已保留，并已随代码编译验证。
 
-| 项目 | 变更前 | 变更后 |
+## 版本状态
+
+| 项目 | 当前版本 | 说明 |
 | --- | --- | --- |
-| `org.duckdb:duckdb_jdbc` | `1.5.3.0` | `2.0.1.0`（DuckDB `v2.0.1`） |
+| `org.duckdb:duckdb_jdbc` | `1.5.3.0` | 2.0.1.0 升级评估后已回退 |
 
 版本统一在根 `pom.xml` 的 `duckdb_jdbc.version` 中管理，`datay-core` 与 `datay-web` 共用。
-`DBType.POLARIS` 中展示用的推荐驱动 Jar 名同步更新为 `duckdb_jdbc-2.0.1.0.jar`。
+`DBType.POLARIS` 中展示用的推荐驱动 Jar 名为 `duckdb_jdbc-1.5.3.0.jar`。
 
-## 打包相关调整
+## 打包相关调整（2.0.1 评估时适用，已随回退撤销）
 
 DuckDB 2.0 起不再发布 macOS x86_64 原生库，JDBC 包内只保留：
 
@@ -24,7 +27,7 @@ DuckDB 2.0 起不再发布 macOS x86_64 原生库，JDBC 包内只保留：
 
 ## 已验证的 DuckDB 功能
 
-升级后执行了以下回归，全部通过（148 个 core 测试 + 26 个 web 测试）：
+2.0.1 评估期间执行了以下回归，全部通过（148 个 core 测试 + 26 个 web 测试）：
 
 - **嵌入式引擎与连接池**：DuckDBEngine、HikariCP、`jdbc_stream_results=true` 流式读取
 - **写入链路**：`DuckDBAppender`（含 DECIMAL 精度归一化、HUGEINT、BLOB、UUID、时间类型）、
@@ -61,8 +64,9 @@ DuckDB 2.0 起不再发布 macOS x86_64 原生库，JDBC 包内只保留：
 
 验证：新增 `DuckDBRegisterTest`（6 个用例）覆盖 DuckDB 文件、MySQL、PostgreSQL、SQLite、
 DuckLake 挂载及不支持类型的报错；`ETLRunnerTest#testDuckDBRegister` 端到端流程通过。
+以上用例在 2.0.1 评估时执行通过，版本回退后仅做了编译验证（可按需重新运行）。
 
-## 升级注意事项
+## 2.0.1 升级注意事项（供后续升级参考）
 
 1. **存储格式**
    - 2.0 新建的 DuckDB 数据库文件使用存储版本 69，1.5.x 无法打开。
