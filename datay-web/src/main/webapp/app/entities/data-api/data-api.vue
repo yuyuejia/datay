@@ -129,7 +129,7 @@
             <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
               <template #default="scope">{{ formatDateShort(scope.row.createTime) || '' }}</template>
             </el-table-column>
-            <el-table-column label="操作" fixed="right" width="330">
+            <el-table-column label="操作" fixed="right" width="300">
               <template #default="scope">
                 <div class="btn-group">
                   <router-link :to="{ name: 'DataApiEdit', params: { dataApiId: scope.row.id } }" custom v-slot="{ navigate }">

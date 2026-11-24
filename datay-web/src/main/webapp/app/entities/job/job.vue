@@ -35,7 +35,7 @@
           <template #default="scope">{{ jobTypeLabel(scope.row.type) }}</template>
         </el-table-column>
         <el-table-column prop="cron" label="调度表达式" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="jobContext" label="配置" sortable="custom" width="250" show-overflow-tooltip>
+        <el-table-column prop="jobContext" label="配置" sortable="custom" min-width="250" show-overflow-tooltip>
           <template #default="scope">
             <el-tooltip :content="scope.row.jobContext" placement="top">
               <span class="single-line-overflow">{{ scope.row.jobContext }}</span>
@@ -55,7 +55,7 @@
         </el-table-column>
         <!-- <el-table-column prop="project" label="Project" sortable="custom" width="150"></el-table-column> -->
         <!-- <el-table-column prop="tenantId" label="Tenant Id" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column label="操作" fixed="right" min-width="220">
+        <el-table-column label="操作" fixed="right" width="210">
           <template #default="scope">
             <div class="btn-group">
               <router-link :to="{ name: 'JobView', params: { jobId: scope.row.id } }" custom v-slot="{ navigate }">

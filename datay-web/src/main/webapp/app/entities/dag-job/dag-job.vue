@@ -134,7 +134,7 @@
                 {{ directoryPath(scope.row) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" fixed="right" min-width="400">
+            <el-table-column label="操作" fixed="right" width="300">
               <template #default="scope">
                 <div class="btn-group">
                   <router-link :to="{ name: 'DagJobDesign', params: { jobId: scope.row.id } }" custom v-slot="{ navigate }">

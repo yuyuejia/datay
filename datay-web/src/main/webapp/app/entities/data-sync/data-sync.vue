@@ -41,7 +41,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="" fixed="right" min-width="260">
+        <el-table-column label="" fixed="right" width="270">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="success" size="small" @click="executeDataSync(scope.row)" data-cy="entityExecuteButton">

@@ -43,7 +43,7 @@
         <el-table-column prop="lastModifiedDate" label="最近修改时间" sortable="custom" width="170">
           <template #default="{ row }">{{ formatDate(row.lastModifiedDate) }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="230">
+        <el-table-column label="操作" fixed="right" width="260">
           <template #default="{ row }">
             <div class="btn-group">
               <router-link :to="{ name: 'JhiUserView', params: { userId: row.login } }" custom v-slot="{ navigate }">

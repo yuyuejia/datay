@@ -68,7 +68,7 @@
         <el-table-column label="最近执行" width="170">
           <template #default="scope">{{ formatDate(scope.row.lastRunTime || scope.row.lastResult?.createTime) || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="300">
+        <el-table-column label="操作" fixed="right" width="280">
           <template #default="scope">
             <el-button type="primary" size="small" @click="goEdit(scope.row)">编辑</el-button>
             <el-button
@@ -223,7 +223,7 @@
             <el-table-column v-if="activeResult.compareDetail !== false" label="值差异" width="80">
               <template #default="scope">{{ scope.row.valueDiffCount ?? '-' }}</template>
             </el-table-column>
-            <el-table-column label="操作" :width="activeResult.compareDetail === false ? 100 : 170" fixed="right">
+            <el-table-column label="操作" :width="activeResult.compareDetail === false ? 90 : 210" fixed="right">
               <template #default="scope">
                 <template v-if="activeResult.compareDetail !== false">
                   <el-button link type="primary" @click.stop="selectTable(scope.row.index)">查看明细</el-button>
@@ -295,7 +295,7 @@
             <el-table-column label="开始时间" width="170">
               <template #default="scope">{{ formatDate(scope.row.startTime || scope.row.createTime) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="100">
+            <el-table-column label="操作" width="90">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="selectHistoryResult(scope.row)">查看</el-button>
               </template>

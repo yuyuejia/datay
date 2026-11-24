@@ -38,7 +38,7 @@
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="240">
+        <el-table-column label="操作" fixed="right" width="190">
           <template #default="scope">
             <div class="btn-group">
               <router-link

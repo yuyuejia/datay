@@ -99,7 +99,7 @@
             <el-table-column label="创建时间" width="170">
               <template #default="{ row }">{{ formatTokenTime(row.createTime, '-') }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" @click="openEditToken(row)">编辑</el-button>
                 <el-button link type="primary" @click="rotateToken(row)">重新生成</el-button>

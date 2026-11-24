@@ -38,7 +38,7 @@
       <!-- 使用 el-table 组件，添加高度支持滚动条，绑定排序事件 -->
       <el-table :data="jobInstances" style="width: 100%" @sort-change="handleSortChange">
         <!-- <el-table-column prop="instanceCode" label="Instance Code" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column prop="jobName" label="任务名称" sortable="custom" width="420" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="jobName" label="任务名称" sortable="custom" min-width="420" show-overflow-tooltip></el-table-column>
         <!-- <el-table-column prop="jobCode" label="Job Code" sortable="custom" width="150"></el-table-column> -->
         <el-table-column prop="type" label="类型" sortable="custom" width="110">
           <template #default="scope">{{ jobTypeLabel(scope.row.type) }}</template>
@@ -63,7 +63,7 @@
         <el-table-column prop="execNode" label="执行节点" sortable="custom" width="180"></el-table-column>
         <!-- <el-table-column prop="project" label="Project" sortable="custom" width="150"></el-table-column> -->
         <!-- <el-table-column prop="tenantId" label="Tenant Id" sortable="custom" width="150"></el-table-column> -->
-        <el-table-column label="" fixed="right" min-width="250">
+        <el-table-column label="" fixed="right" width="190">
           <template #default="scope">
             <div class="btn-group">
               <!-- 新增：查看日志按钮 -->

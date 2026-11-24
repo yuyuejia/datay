@@ -47,7 +47,7 @@
         <el-table-column prop="updateTime" label="更新时间" width="170">
           <template #default="scope">{{ formatDateShort(scope.row.updateTime) || formatDateShort(scope.row.createTime) || '' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="380">
+        <el-table-column label="操作" fixed="right" width="300">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openPreview(scope.row)">预览</el-button>

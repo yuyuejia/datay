@@ -61,7 +61,7 @@
         <el-table-column label="最近执行" width="170">
           <template #default="scope">{{ formatDate(scope.row.lastRunTime || scope.row.lastResult?.createTime) || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="300">
+        <el-table-column label="操作" fixed="right" width="280">
           <template #default="scope">
             <el-button type="primary" size="small" @click="goEdit(scope.row)">编辑</el-button>
             <el-button

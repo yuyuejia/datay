@@ -71,7 +71,7 @@
         <el-table-column label="修改时间" width="180">
           <template #default="scope">{{ formatDate(scope.row.lastModified) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="scope">
             <div class="btn-group">
               <el-button

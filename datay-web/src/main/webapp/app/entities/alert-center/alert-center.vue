@@ -72,7 +72,7 @@
             <el-table-column label="最近触发" width="160">
               <template #default="scope">{{ dateFormat.formatDateShort(scope.row.lastSeen) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
+            <el-table-column label="操作" width="140" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" size="small" @click="openEvent(scope.row)">详情</el-button>
                 <el-button v-if="scope.row.status === 'FIRING'" link type="warning" size="small" @click="acknowledgeEvent(scope.row)">
@@ -142,7 +142,7 @@
                 <el-switch v-model="scope.row.enabled" @change="toggleRule(scope.row)" />
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column label="操作" width="100" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" size="small" @click="openEditRule(scope.row)">编辑</el-button>
                 <el-button link type="danger" size="small" @click="deleteRule(scope.row)">删除</el-button>
@@ -186,7 +186,7 @@
             <el-table-column label="更新时间" width="160">
               <template #default="scope">{{ dateFormat.formatDateShort(scope.row.updateTime) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="210" fixed="right">
+            <el-table-column label="操作" width="140" fixed="right">
               <template #default="scope">
                 <el-button link type="success" size="small" :loading="testingChannelId === scope.row.id" @click="testChannel(scope.row)">
                   测试

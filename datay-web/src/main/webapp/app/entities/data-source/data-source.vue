@@ -32,9 +32,9 @@
     </div>
     <div v-if="dataSources && dataSources.length > 0" class="list-page-scroll">
       <el-table :data="dataSources" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="name" label="名称" sortable="custom" width="150"></el-table-column>
-        <el-table-column prop="description" label="描述" sortable="custom" width="260" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="type" label="类型" sortable="custom" width="140">
+        <el-table-column prop="name" label="名称" sortable="custom" min-width="150"></el-table-column>
+        <el-table-column prop="description" label="描述" sortable="custom" min-width="240" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="type" label="类型" sortable="custom" min-width="130">
           <template #default="scope">
             <span class="type-cell">
               <img v-if="getTypeImage(scope.row.type)" :src="getTypeImage(scope.row.type)" class="type-icon" :alt="scope.row.type" />
@@ -43,14 +43,14 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="url" label="地址" sortable="custom" width="350" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="schemaName" label="数据库名" sortable="custom" width="150"></el-table-column>
+        <el-table-column prop="url" label="地址" sortable="custom" min-width="320" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="schemaName" label="数据库名" sortable="custom" min-width="130"></el-table-column>
         <el-table-column prop="createTime" label="创建时间" sortable="custom" width="150">
           <template #default="scope">
             {{ formatDateShort(scope.row.createTime) || '' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="360">
+        <el-table-column label="操作" fixed="right" width="230">
           <template #default="scope">
             <div class="btn-group">
               <el-button type="primary" size="small" @click="openEditModal(scope.row)" class="edit" data-cy="entityEditButton">

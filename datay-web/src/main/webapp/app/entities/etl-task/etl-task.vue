@@ -139,7 +139,7 @@
                 {{ directoryPath(scope.row) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" fixed="right" min-width="360">
+            <el-table-column label="操作" fixed="right" width="320">
               <template #default="scope">
                 <div class="btn-group">
                   <router-link :to="{ name: editRouteName, params: { eTLTaskId: scope.row.id } }" custom v-slot="{ navigate }">

@@ -25,7 +25,7 @@
           <el-tag :type="isBuiltIn(row.name) ? 'info' : 'primary'" size="small">{{ isBuiltIn(row.name) ? '内置' : '自定义' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180">
+      <el-table-column label="操作" width="140">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
           <el-button

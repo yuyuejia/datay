@@ -44,7 +44,7 @@
                 <el-switch :model-value="row.enabled" @change="toggleEnabled(row)" />
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="180">
+            <el-table-column label="操作" width="140">
               <template #default="{ row }">
                 <el-button type="primary" size="small" @click="openEdit(row)">编辑</el-button>
                 <el-button type="danger" size="small" @click="removeScope(row)">删除</el-button>
@@ -78,7 +78,7 @@
                 <el-switch :model-value="row.enabled" @change="toggleDatasetEnabled(row)" />
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="180">
+            <el-table-column label="操作" width="140">
               <template #default="{ row }">
                 <el-button type="primary" size="small" @click="openEditDataset(row)">编辑</el-button>
                 <el-button type="danger" size="small" @click="removeDatasetScope(row)">删除</el-button>
