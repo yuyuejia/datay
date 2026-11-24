@@ -1,5 +1,10 @@
 <template>
-  <AppModal :model-value="modelValue" size="xl" @update:model-value="value => emit('update:modelValue', value)">
+  <AppModal
+    :model-value="modelValue"
+    size="xl"
+    :class="theme === 'dark' ? 'dashboard-theme-dark' : 'dashboard-theme-light'"
+    @update:model-value="value => emit('update:modelValue', value)"
+  >
     <template #modal-title>
       <div class="drill-dialog-title">
         <span class="drill-dialog-title-text">明细数据{{ widget?.title ? ` · ${widget.title}` : '' }}</span>
@@ -55,7 +60,7 @@ import { computed, ref, watch } from 'vue';
 import AppModal from '@/shared/ui/AppModal.vue';
 
 import { drillFieldLabel } from './drill-utils';
-import type { DashboardWidget, DatasetResult, DrillDimension, WidgetDrillLoader } from './types';
+import type { DashboardTheme, DashboardWidget, DatasetResult, DrillDimension, WidgetDrillLoader } from './types';
 
 const props = withDefaults(
   defineProps<{
@@ -66,12 +71,15 @@ const props = withDefaults(
     /** 图表当前结果，用于明细加载前展示字段标签。 */
     chartResult?: DatasetResult;
     pageSize?: number;
+    /** 看板主题；弹窗会套用对应主题变量，避免深色看板出现浅色弹窗。 */
+    theme?: DashboardTheme;
   }>(),
   {
     widget: undefined,
     loader: undefined,
     chartResult: undefined,
     pageSize: 50,
+    theme: 'light',
   },
 );
 
@@ -194,13 +202,13 @@ watch(
 }
 
 .drill-dialog-title-text {
-  color: #303133;
+  color: var(--el-text-color-primary, #303133);
   font-size: 16px;
   font-weight: 600;
 }
 
 .drill-dialog-subtitle {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
   font-weight: 400;
 }
@@ -219,7 +227,7 @@ watch(
 }
 
 .drill-conditions-label {
-  color: #606266;
+  color: var(--el-text-color-regular, #606266);
   font-size: 12px;
 }
 
@@ -239,7 +247,7 @@ watch(
 }
 
 .drill-truncated {
-  color: #e6a23c;
+  color: var(--el-color-warning, #e6a23c);
   font-size: 12px;
 }
 
@@ -252,7 +260,7 @@ watch(
 }
 
 .drill-page-info {
-  color: #909399;
+  color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
 }
 

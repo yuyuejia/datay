@@ -33,6 +33,7 @@
     :dimensions="drillDimensions"
     :loader="drillLoader"
     :chart-result="result"
+    :theme="theme"
   />
 </template>
 

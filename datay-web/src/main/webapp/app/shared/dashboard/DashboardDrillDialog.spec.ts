@@ -120,6 +120,34 @@ describe('DashboardDrillDialog', () => {
     expect(loader).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 1 }));
   });
 
+  it('深色主题下弹窗使用暗色主题变量', async () => {
+    const loader = vi.fn().mockResolvedValue({ columns: ['region'], rows: [{ region: '华东' }] });
+    const wrapper = mount(DashboardDrillDialog, {
+      props: {
+        modelValue: true,
+        widget,
+        dimensions: [{ field: 'region', values: ['华东'] }],
+        loader,
+        theme: 'dark',
+      },
+      global: {
+        stubs: {
+          AppModal: AppModalStub,
+          ElButton: ButtonStub,
+          ElAlert: AlertStub,
+          ElTag: true,
+          ElEmpty: true,
+          ElTable: true,
+          ElTableColumn: true,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.find('.app-modal-stub').classes()).toContain('dashboard-theme-dark');
+  });
+
   it('加载失败时展示服务端错误', async () => {
     const loader = vi.fn().mockRejectedValue({
       response: {
