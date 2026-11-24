@@ -194,7 +194,13 @@ public class DorisStreamLoad extends FlowComponent {
             put.setHeader(HttpHeaders.AUTHORIZATION, basicAuthHeader(this.datasource.getUsername(), this.datasource.getPassword()));
             put.setHeader("format", "json");
             put.setHeader("strip_outer_array", "true");
-            put.setHeader("fuzzy_parse", "true");
+            // 不能开启 fuzzy_parse：Doris 会按 JSON key 的位置而不是字段名解析，
+            // 而 LEFT JOIN 产生的 NULL 列在 JSON 中会被省略（fastjson 默认不输出 null），
+            // 导致后续字段整体左移，轻则写错列、重则触发数据质量错误整批失败。
+            // 按字段名解析虽然稍慢，但能保证列值正确。
+            // 不允许 Doris 静默过滤行：一旦有行被过滤，说明数据质量或目标表结构有问题，
+            // 必须让批次失败，而不是把少写的数据当成写入成功。
+            put.setHeader("max_filter_ratio", "0");
             if ("DELETE".equals(eventType)) {
                 put.setHeader("merge_type", "DELETE");
             }
@@ -209,13 +215,14 @@ public class DorisStreamLoad extends FlowComponent {
                     loadResult = EntityUtils.toString(response.getEntity());
                 }
                 final int statusCode = response.getStatusLine().getStatusCode();
-                // statusCode 200 just indicates that doris be service is ok, not stream load
-                // you should see the output content to find whether stream load is success
+                // statusCode 200 只代表 FE/BE 服务可用，Doris 的 Stream Load 失败（如 data quality、
+                // publish timeout、label 冲突）同样会返回 200，真正的结果在响应体的 Status 字段里。
+                // 这里必须校验响应体，否则失败批次会被当成成功，表现为“少写了数据但任务成功”。
                 if (statusCode != 200) {
                     throw new IOException(
                             String.format("Stream load failed, statusCode=%s load result=%s", statusCode, loadResult));
                 }
-                this.logInfo("已成功写入 " + records.size() + " 条记录到表 " + targetTable.getTable());
+                validateStreamLoadResult(loadResult, records.size(), targetTable);
             }
         }
     }
@@ -266,16 +273,73 @@ public class DorisStreamLoad extends FlowComponent {
     }
 
     /**
-     * 检查StreamLoad是否成功
+     * 校验 Stream Load 响应体。
+     *
+     * <p>Doris 在 HTTP 200 下也可能返回 {@code Status=Fail}（例如数据质量不满足、导入超时、
+     * label 冲突等），这些批次实际上没有写入。旧逻辑只看 HTTP 状态码，会把失败当成成功，
+     * 造成“日志显示写入成功、实际数据缺失”。这里解析响应体并记录真实行数。</p>
+     *
+     * @param responseBody 响应体
+     * @param recordCount  本批提交的记录数
+     * @param targetTable  目标表
      */
-    private boolean isStreamLoadSuccess(String responseBody) {
+    void validateStreamLoadResult(String responseBody, int recordCount, TableMeta targetTable) throws IOException {
+        String table = targetTable == null ? "" : targetTable.getSchema() + "." + targetTable.getTable();
+        JSONObject responseJson;
         try {
-            JSONObject responseJson = JSONObject.parseObject(responseBody);
-            String status = responseJson.getString("Status");
-            return "Success".equals(status);
+            responseJson = JSONObject.parseObject(responseBody);
         } catch (Exception e) {
-            return false;
+            throw new IOException(
+                String.format("StreamLoad 响应无法解析, 目标表=%s, 本批记录数=%d, 响应体=%s", table, recordCount, responseBody),
+                e
+            );
         }
+        if (responseJson == null) {
+            throw new IOException(String.format("StreamLoad 响应为空, 目标表=%s, 本批记录数=%d", table, recordCount));
+        }
+
+        String status = responseJson.getString("Status");
+        if (!"Success".equalsIgnoreCase(status)) {
+            throw new IOException(
+                String.format(
+                    "StreamLoad 写入失败, 目标表=%s, 本批记录数=%d, Status=%s, Message=%s, ErrorURL=%s",
+                    table,
+                    recordCount,
+                    status,
+                    responseJson.getString("Message"),
+                    responseJson.getString("ErrorURL")
+                )
+            );
+        }
+
+        long totalRows = responseJson.getLongValue("NumberTotalRows");
+        long loadedRows = responseJson.getLongValue("NumberLoadedRows");
+        long filteredRows = responseJson.getLongValue("NumberFilteredRows");
+        long unselectedRows = responseJson.getLongValue("NumberUnselectedRows");
+        if (filteredRows > 0 || (totalRows > 0 && loadedRows < totalRows)) {
+            logWarn(
+                String.format(
+                    "StreamLoad 存在未写入的行, 目标表=%s, 本批记录数=%d, NumberTotalRows=%d, NumberLoadedRows=%d, " +
+                    "NumberFilteredRows=%d, NumberUnselectedRows=%d, ErrorURL=%s",
+                    table,
+                    recordCount,
+                    totalRows,
+                    loadedRows,
+                    filteredRows,
+                    unselectedRows,
+                    responseJson.getString("ErrorURL")
+                )
+            );
+        }
+        this.logInfo(
+            String.format(
+                "已成功写入 %d 条记录到表 %s（NumberLoadedRows=%d, NumberFilteredRows=%d）",
+                recordCount,
+                targetTable == null ? "" : targetTable.getTable(),
+                loadedRows,
+                filteredRows
+            )
+        );
     }
 
     /**
