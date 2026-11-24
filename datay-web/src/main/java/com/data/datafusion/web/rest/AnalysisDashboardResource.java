@@ -174,6 +174,24 @@ public class AnalysisDashboardResource {
     }
 
     /**
+     * 图表明细下钻：按点击维度过滤同一数据集，返回未做组件级聚合的明细行。
+     */
+    @PostMapping("/{id}/drill")
+    public ResponseEntity<Map<String, Object>> drillDataset(
+        @PathVariable("id") String id,
+        @RequestBody(required = false) Map<String, Object> body
+    ) {
+        LOG.debug("REST request to drill dashboard {} dataset {}", id, body == null ? null : body.get("datasetId"));
+        try {
+            return ResponseEntity.ok().body(dashboardDataService.drillDataset(id, body));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "drillQueryError");
+        } catch (SQLException e) {
+            throw new BadRequestAlertException("查询执行失败：" + e.getMessage(), ENTITY_NAME, "drillQueryError");
+        }
+    }
+
+    /**
      * 加载筛选器选项（动态维度成员或静态值）。
      */
     @GetMapping("/{id}/filters/{filterId}/options")
@@ -268,6 +286,23 @@ public class AnalysisDashboardResource {
             return ResponseEntity.ok().body(dashboardDataService.queryWidgets(spec, dataSourceId, datasetIds, queries, filterValues));
         } catch (IllegalArgumentException e) {
             throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "datasetQueryError");
+        }
+    }
+
+    /**
+     * 未保存看板的实时明细下钻：基于内存 spec 查询未聚合明细。
+     */
+    @PostMapping("/preview-drill")
+    public ResponseEntity<Map<String, Object>> previewDrill(@RequestBody Map<String, Object> body) {
+        LOG.debug("REST request to preview drill dashboard dataset {}", body.get("datasetId"));
+        try {
+            Map<String, Object> spec = parseSpecObject(body.get("spec"));
+            String dataSourceId = body.get("dataSourceId") == null ? null : String.valueOf(body.get("dataSourceId"));
+            return ResponseEntity.ok().body(dashboardDataService.drillDataset(spec, dataSourceId, body));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestAlertException(e.getMessage(), ENTITY_NAME, "drillQueryError");
+        } catch (SQLException e) {
+            throw new BadRequestAlertException("查询执行失败：" + e.getMessage(), ENTITY_NAME, "drillQueryError");
         }
     }
 

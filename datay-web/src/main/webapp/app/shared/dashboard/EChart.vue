@@ -1,5 +1,5 @@
 <template>
-  <div ref="container" class="shared-echart"></div>
+  <div ref="container" class="shared-echart" :class="{ 'is-clickable': clickable }"></div>
 </template>
 
 <script setup lang="ts">
@@ -14,11 +14,18 @@ const props = withDefaults(
   defineProps<{
     option: Record<string, any>;
     theme?: DashboardTheme;
+    /** 是否允许点击数据项；由图表下钻能力决定。 */
+    clickable?: boolean;
   }>(),
   {
     theme: 'light',
+    clickable: false,
   },
 );
+
+const emit = defineEmits<{
+  click: [params: Record<string, any>];
+}>();
 
 const container = ref<HTMLElement | null>(null);
 let chart: ECharts | null = null;
@@ -37,6 +44,7 @@ const initChart = () => {
   }
   chart?.dispose();
   chart = echarts.init(container.value, props.theme === 'dark' ? 'dashboard-dark' : undefined);
+  chart.on('click', params => emit('click', params as Record<string, any>));
   render();
 };
 
@@ -74,5 +82,9 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+.shared-echart.is-clickable {
+  cursor: pointer;
 }
 </style>

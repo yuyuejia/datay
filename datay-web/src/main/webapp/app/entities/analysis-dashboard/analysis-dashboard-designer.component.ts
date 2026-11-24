@@ -329,6 +329,7 @@ export default defineComponent({
       loading: loadingData,
       loadAll,
       loadWidgetPage,
+      loadDrill,
     } = useDashboardData({ spec });
 
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
@@ -586,6 +587,7 @@ export default defineComponent({
       widgetErrors: widgetErrors.value,
       serverPaginationWidgets: serverPaginationWidgets.value,
       loadWidgetPage,
+      loadDrill,
       dataVersion: dataVersion.value,
       selectedId: selectedWidgetId.value,
       dragItem: paletteDragItem.value,
@@ -2134,11 +2136,10 @@ export default defineComponent({
       filterDefaultDraft.value = filterDefaultText.value;
     };
 
-    watch(
-      () => [selectedFilterId.value, selectedFilter.value?.type, selectedFilter.value?.defaultValue] as const,
-      syncFilterDefaultDraft,
-      { deep: true, immediate: true },
-    );
+    watch(() => [selectedFilterId.value, selectedFilter.value?.type, selectedFilter.value?.defaultValue] as const, syncFilterDefaultDraft, {
+      deep: true,
+      immediate: true,
+    });
 
     const commitFilterDefault = () => {
       if (filterDefaultText.value !== filterDefaultDraft.value) {

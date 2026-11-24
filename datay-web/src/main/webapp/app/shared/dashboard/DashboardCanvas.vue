@@ -18,6 +18,7 @@
           :server-paged="serverPaginationWidgets?.[widget.id]"
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
+          :drill-loader="loadDrill"
         />
       </div>
     </div>
@@ -30,7 +31,7 @@ import { computed } from 'vue';
 import DashboardWidget from './DashboardWidget.vue';
 import { DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
 import { normalizeTheme } from './layout-defaults';
-import type { DashboardSpec, DashboardWidget as Widget, DatasetResult, WidgetPageLoader } from './types';
+import type { DashboardSpec, DashboardWidget as Widget, DatasetResult, WidgetDrillLoader, WidgetPageLoader } from './types';
 
 const props = defineProps<{
   spec: DashboardSpec;
@@ -41,6 +42,7 @@ const props = defineProps<{
   widgetErrors?: Record<string, string>;
   serverPaginationWidgets?: Record<string, boolean>;
   loadWidgetPage?: WidgetPageLoader;
+  loadDrill?: WidgetDrillLoader;
   dataVersion?: number;
   /** 是否展示标题/描述头部；独立查看器由顶栏展示时可传 false。 */
   showHeader?: boolean;

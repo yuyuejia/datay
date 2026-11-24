@@ -10,7 +10,7 @@
         <div class="dashboard-widget-error-title">数据加载失败</div>
         <div class="dashboard-widget-error-detail">{{ error }}</div>
       </div>
-      <EChart v-else-if="widget.type === 'echarts'" :option="option" :theme="theme" />
+      <EChart v-else-if="widget.type === 'echarts'" :option="option" :theme="theme" :clickable="canDrill" @click="onChartClick" />
       <KpiWidget v-else-if="widget.type === 'kpi'" :widget="widget" :result="result" />
       <DataTableWidget
         v-else-if="widget.type === 'table'"
@@ -25,18 +25,29 @@
       <div v-else class="dashboard-widget-empty">不支持的组件类型：{{ widget.type }}</div>
     </div>
   </div>
+
+  <DashboardDrillDialog
+    v-if="drillLoader"
+    v-model="drillVisible"
+    :widget="widget"
+    :dimensions="drillDimensions"
+    :loader="drillLoader"
+    :chart-result="result"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
+import DashboardDrillDialog from './DashboardDrillDialog.vue';
 import DataTableWidget from './DataTableWidget.vue';
 import EChart from './EChart.vue';
+import { isDrillableWidget, resolveDrillDimensions } from './drill-utils';
 import HtmlWidget from './HtmlWidget.vue';
 import KpiWidget from './KpiWidget.vue';
 import PivotWidget from './PivotWidget.vue';
 import { buildEchartsOption } from './spec-to-option';
-import type { DashboardTheme, DashboardWidget, DatasetResult, TablePageLoader } from './types';
+import type { DashboardTheme, DashboardWidget, DatasetResult, DrillDimension, TablePageLoader, WidgetDrillLoader } from './types';
 
 const props = defineProps<{
   widget: DashboardWidget;
@@ -47,12 +58,29 @@ const props = defineProps<{
   serverPaged?: boolean;
   pageLoader?: TablePageLoader;
   pageResetKey?: number;
+  drillLoader?: WidgetDrillLoader;
 }>();
 
 const option = computed(() => buildEchartsOption(props.widget, props.result));
 
 /** 文本组件未设置标题时不渲染标题栏，让 HTML 内容占满整个组件。 */
 const showHeader = computed(() => props.widget.type !== 'html' || !!props.widget.title?.trim());
+
+const canDrill = computed(() => !!props.drillLoader && isDrillableWidget(props.widget));
+const drillVisible = ref(false);
+const drillDimensions = ref<DrillDimension[]>([]);
+
+const onChartClick = (params: Record<string, any>) => {
+  if (!props.drillLoader) {
+    return;
+  }
+  const dimensions = resolveDrillDimensions(params, props.widget, option.value);
+  if (!dimensions) {
+    return;
+  }
+  drillDimensions.value = dimensions;
+  drillVisible.value = true;
+};
 </script>
 
 <style scoped>

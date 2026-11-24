@@ -1,6 +1,7 @@
 package com.data.datafusion.service.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * 看板数据集执行路径与空筛选条件占位符中和逻辑测试。
@@ -302,6 +304,157 @@ class DashboardDataServiceTest {
 
         verify(repository, times(2)).findById("dashboard-cache");
         verify(queryService, times(2)).query(any(), any(), anyList(), any(), any(), any());
+    }
+
+    @Test
+    void shouldDrillDatasetWithoutAggregationAndApplyDimensionFilters() throws Exception {
+        Map<String, Object> dataset = dataset("ds1", "lib-1");
+        Map<String, Object> existingFilter = Map.of("id", "global", "type", "select");
+        Map<String, Object> resolvedSpec = new LinkedHashMap<>();
+        resolvedSpec.put("datasets", List.of(dataset));
+        resolvedSpec.put("filters", List.of(existingFilter));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("datasetId", "ds1");
+        body.put(
+            "dimensions",
+            List.of(
+                Map.of("field", "region", "values", List.of("华东")),
+                Map.of("field", "channel", "values", List.of("官网", "APP"))
+            )
+        );
+        body.put("filterValues", Map.of("global", "all", "__drill_9", "injected"));
+        body.put("limit", 50);
+        body.put("offset", 100);
+        body.put("sortField", "sales_amount");
+        body.put("sortOrder", "desc");
+
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(any())).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("rows", List.of()))
+        );
+
+        Map<String, Object> spec = Map.of("datasets", List.of(dataset));
+        newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class)).drillDataset(
+            spec,
+            "fallback-source",
+            body
+        );
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Map<String, Object>>> filtersCaptor = ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> valuesCaptor = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<DatasetQueryOptions> optionsCaptor = ArgumentCaptor.forClass(DatasetQueryOptions.class);
+        verify(queryService).query(
+            eq(dataset),
+            eq("fallback-source"),
+            filtersCaptor.capture(),
+            valuesCaptor.capture(),
+            eq("lib-1"),
+            optionsCaptor.capture()
+        );
+
+        List<Map<String, Object>> filters = filtersCaptor.getValue();
+        assertThat(filters).hasSize(3);
+        assertThat(filters.get(1)).containsEntry("id", "__drill_0").containsEntry("type", "select");
+        assertThat(filters.get(2)).containsEntry("id", "__drill_1").containsEntry("type", "select");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> targets = (List<Map<String, Object>>) filters.get(1).get("targets");
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0))
+            .containsEntry("datasetId", "ds1")
+            .containsEntry("field", "region")
+            .containsEntry("mode", "server");
+
+        Map<String, Object> values = valuesCaptor.getValue();
+        assertThat(values).containsEntry("global", "all");
+        assertThat(values).doesNotContainKey("__drill_9");
+        assertThat(values).containsEntry("__drill_0", "华东");
+        assertThat(values.get("__drill_1")).isEqualTo(List.of("官网", "APP"));
+
+        DatasetQueryOptions options = optionsCaptor.getValue();
+        assertThat(options.groupFields()).isEmpty();
+        assertThat(options.aggregations()).isEmpty();
+        assertThat(options.limit()).isEqualTo(50);
+        assertThat(options.offset()).isEqualTo(100);
+        assertThat(options.sortField()).isEqualTo("sales_amount");
+        assertThat(options.sortOrder()).isEqualTo("desc");
+    }
+
+    @Test
+    void shouldUseDefaultDrillLimitAndRejectInvalidDimension() throws Exception {
+        Map<String, Object> dataset = dataset("ds1", null);
+        Map<String, Object> resolvedSpec = new LinkedHashMap<>();
+        resolvedSpec.put("datasets", List.of(dataset));
+        resolvedSpec.put("filters", List.of());
+
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(any())).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("rows", List.of()))
+        );
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("datasetId", "ds1");
+        body.put("dimensions", List.of(Map.of("field", "region", "values", List.of("华东"))));
+        newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class)).drillDataset(
+            Map.of("datasets", List.of(dataset)),
+            "fallback-source",
+            body
+        );
+
+        ArgumentCaptor<DatasetQueryOptions> optionsCaptor = ArgumentCaptor.forClass(DatasetQueryOptions.class);
+        verify(queryService).query(any(), any(), anyList(), any(), any(), optionsCaptor.capture());
+        assertThat(optionsCaptor.getValue().limit()).isEqualTo(50);
+        assertThat(optionsCaptor.getValue().offset()).isZero();
+
+        Map<String, Object> invalidBody = new LinkedHashMap<>();
+        invalidBody.put("datasetId", "ds1");
+        invalidBody.put("dimensions", List.of(Map.of("field", "region; drop table", "values", List.of("华东"))));
+        assertThatThrownBy(() ->
+            newService(resolver, queryService, mock(AnalysisDashboardRepository.class), mock(DashboardSpecValidator.class)).drillDataset(
+                Map.of("datasets", List.of(dataset)),
+                "fallback-source",
+                invalidBody
+            )
+        )
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("字段名不合法");
+    }
+
+    @Test
+    void shouldDrillSavedDashboardWithFallbackDataSource() throws Exception {
+        Map<String, Object> dataset = dataset("local-1", "lib-1");
+        Map<String, Object> spec = Map.of("datasets", List.of(Map.of("id", "local-1", "refId", "lib-1")));
+        Map<String, Object> resolvedSpec = new LinkedHashMap<>();
+        resolvedSpec.put("datasets", List.of(dataset));
+        resolvedSpec.put("filters", List.of());
+        AnalysisDashboard dashboard = new AnalysisDashboard();
+        dashboard.setId("dashboard-1");
+        dashboard.setDataSourceId("fallback-source");
+        dashboard.setSpec("dashboard-spec");
+
+        AnalysisDashboardRepository repository = mock(AnalysisDashboardRepository.class);
+        DashboardSpecValidator validator = mock(DashboardSpecValidator.class);
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(repository.findById("dashboard-1")).thenReturn(Optional.of(dashboard));
+        when(validator.parse("dashboard-spec")).thenReturn(spec);
+        when(resolver.resolveSpec(spec)).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("rows", List.of()))
+        );
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("datasetId", "local-1");
+        body.put("dimensions", List.of(Map.of("field", "region", "values", List.of("华东"))));
+        newService(resolver, queryService, repository, validator).drillDataset("dashboard-1", body);
+
+        verify(queryService).query(eq(dataset), eq("fallback-source"), anyList(), any(), eq("lib-1"), any());
     }
 
     private DashboardDataService newService(

@@ -1,3 +1,4 @@
+import { DRILL_LINK_META_KEY, DRILL_META_KEY } from './drill-utils';
 import { aggregateValues, applyEncodeRows, buildEchartsOption, resolveKpiValue, roundAggregationValue } from './spec-to-option';
 import type { DashboardWidget, DatasetResult } from './types';
 
@@ -687,5 +688,134 @@ describe('spec-to-option', () => {
     expect(option.tooltip.formatter).toContain('{b}: {c}');
     expect(option.xAxis.axisLabel.formatter).not.toContain('onerror');
     expect(option.xAxis.axisLabel.formatter).toContain('{value}');
+  });
+});
+
+describe('图表明细下钻元数据', () => {
+  it('柱状图按分类生成下钻条件', () => {
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'bar' }] },
+        chart: { type: 'bar' },
+        encode: {
+          dimensions: [{ field: 'region', role: 'x' }],
+          measures: [{ field: 'amount', agg: 'sum', role: 'y' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      result,
+    );
+
+    expect(option.series[0][DRILL_META_KEY]).toEqual([
+      [{ field: 'region', values: ['华东'] }],
+      [{ field: 'region', values: ['华南'] }],
+      [{ field: 'region', values: ['华北'] }],
+      [{ field: 'region', values: ['西南'] }],
+    ]);
+  });
+
+  it('系列拆分的柱状图同时记录分类与系列维度', () => {
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'bar' }] },
+        chart: { type: 'bar' },
+        encode: {
+          dimensions: [
+            { field: 'region', role: 'x' },
+            { field: 'channel', role: 'series' },
+          ],
+          measures: [{ field: 'amount', agg: 'sum', role: 'y' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      result,
+    );
+
+    expect(option.series[0][DRILL_META_KEY][0]).toEqual([
+      { field: 'region', values: ['华东'] },
+      { field: 'channel', values: ['官网'] },
+    ]);
+    expect(option.series[0][DRILL_META_KEY][3]).toEqual([
+      { field: 'region', values: ['西南'] },
+      { field: 'channel', values: ['官网'] },
+    ]);
+  });
+
+  it('饼图按扇区生成下钻条件', () => {
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'pie' }] },
+        chart: { type: 'pie' },
+        encode: {
+          dimensions: [{ field: 'region', role: 'x' }],
+          measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      result,
+    );
+
+    expect(option.series[0][DRILL_META_KEY][0]).toEqual([{ field: 'region', values: ['华东'] }]);
+  });
+
+  it('地图保留原始省份写法用于 IN 过滤', () => {
+    const mapResult: DatasetResult = {
+      columns: ['province', 'amount'],
+      rows: [
+        { province: '广东省', amount: 10 },
+        { province: '广东', amount: 20 },
+        { province: '北京市', amount: 30 },
+      ],
+    };
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'map' }] },
+        chart: { type: 'map', map: 'china' },
+        encode: {
+          dimensions: [{ field: 'province', role: 'x' }],
+          measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      mapResult,
+    );
+
+    const meta = option.series[0][DRILL_META_KEY] as any[];
+    expect(meta[0][0].field).toBe('province');
+    expect(meta[0][0].values).toEqual(expect.arrayContaining(['广东省', '广东']));
+  });
+
+  it('桑基图在 links 上记录边下钻条件', () => {
+    const sankeyResult: DatasetResult = {
+      columns: ['source', 'target', 'amount'],
+      rows: [{ source: '官网', target: '华东', amount: 10 }],
+    };
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'sankey' }] },
+        chart: { type: 'sankey' },
+        encode: {
+          dimensions: [
+            { field: 'source', role: 'x' },
+            { field: 'target', role: 'series' },
+          ],
+          measures: [{ field: 'amount', agg: 'sum', role: 'value' }],
+          groupBy: true,
+          limit: 100,
+        },
+      }),
+      sankeyResult,
+    );
+
+    expect(option.series[0][DRILL_LINK_META_KEY]).toEqual([
+      [
+        { field: 'source', values: ['官网'] },
+        { field: 'target', values: ['华东'] },
+      ],
+    ]);
   });
 });

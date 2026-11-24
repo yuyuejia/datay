@@ -297,3 +297,22 @@ export type FilterValues = Record<string, any>;
 
 export type WidgetPageLoader = (widgetId: string, page: number) => Promise<void>;
 export type TablePageLoader = (page: number) => Promise<void>;
+
+/** 图表明细下钻的单个维度条件。 */
+export interface DrillDimension {
+  field: string;
+  values: Array<string | number>;
+}
+
+/** 明细下钻请求参数（分页由服务端执行）。 */
+export interface WidgetDrillRequest {
+  datasetId: string;
+  dimensions: DrillDimension[];
+  page: number;
+  pageSize: number;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+/** 明细加载器：由 useDashboardData 提供，内部负责拼接当前筛选器与分页参数。 */
+export type WidgetDrillLoader = (request: WidgetDrillRequest) => Promise<DatasetResult>;

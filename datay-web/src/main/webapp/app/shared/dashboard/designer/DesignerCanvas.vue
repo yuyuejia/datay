@@ -34,6 +34,7 @@
           :server-paged="serverPaginationWidgets?.[widget.id]"
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
+          :drill-loader="loadDrill"
         />
       </div>
       <div class="designer-resize-handle" title="拖动调整大小" @pointerdown.stop="startResize($event, widget)"></div>
@@ -54,6 +55,7 @@ import type {
   DashboardSpec,
   DashboardWidget as Widget,
   DatasetResult,
+  WidgetDrillLoader,
   WidgetLayout,
   WidgetPalettePayload,
   WidgetPageLoader,
@@ -72,6 +74,7 @@ const props = defineProps<{
   widgetErrors?: Record<string, string>;
   serverPaginationWidgets?: Record<string, boolean>;
   loadWidgetPage?: WidgetPageLoader;
+  loadDrill?: WidgetDrillLoader;
   dataVersion?: number;
   selectedId?: string;
   dragItem?: WidgetPalettePayload | null;

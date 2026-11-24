@@ -5,7 +5,6 @@
         <span class="dashboard-viewer-title">{{ brandTitle }}</span>
         <el-tag v-if="isPreview" size="small" type="warning">设计预览</el-tag>
       </div>
-      <el-button text type="primary" @click="reload">刷新</el-button>
     </div>
 
     <el-result v-if="error" icon="error" title="看板加载失败" :sub-title="error" class="dashboard-viewer-error" />
@@ -63,6 +62,7 @@
             :widget-errors="widgetErrors"
             :server-pagination-widgets="serverPaginationWidgets"
             :load-widget-page="loadWidgetPage"
+            :load-drill="loadDrill"
             :data-version="dataVersion"
             :show-header="false"
           />
@@ -87,6 +87,7 @@
           :widget-errors="widgetErrors"
           :server-pagination-widgets="serverPaginationWidgets"
           :load-widget-page="loadWidgetPage"
+          :load-drill="loadDrill"
           :data-version="dataVersion"
           :show-header="false"
         />
@@ -166,6 +167,7 @@ const {
   dataVersion,
   loadAll,
   loadWidgetPage,
+  loadDrill,
 } = useDashboardData({
   dashboardId,
   spec,
@@ -190,13 +192,6 @@ const onFilterSearch = async (values: FilterValues) => {
   filterValues.value = values;
   await loadAll(values, { force: true });
   scheduleAutoRefresh();
-};
-
-const reload = async () => {
-  if (spec.value) {
-    await loadAll(filterValues.value, { force: true });
-    scheduleAutoRefresh();
-  }
 };
 
 const applyPreviewDraft = async (draftId: string) => {

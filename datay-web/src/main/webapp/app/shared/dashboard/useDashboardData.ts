@@ -2,9 +2,9 @@ import { computed, ref } from 'vue';
 import type { Ref } from 'vue';
 
 import DashboardService from './dashboard.service';
-import type { DashboardQuery } from './dashboard.service';
+import type { DashboardQuery, DrillQuery } from './dashboard.service';
 import { buildServerAggregation, serverQueryLimit } from './server-aggregation';
-import type { Aggregation, DashboardSpec, DatasetResult, FilterValues } from './types';
+import type { Aggregation, DashboardSpec, DatasetResult, FilterValues, WidgetDrillLoader } from './types';
 
 /**
  * 看板取数组合式函数。
@@ -260,6 +260,31 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
     await loadAll(filterValues, options);
   };
 
+  /**
+   * 图表明细下钻：使用当前看板筛选值，查询指定数据集未做组件级聚合的明细行。
+   */
+  const loadDrill: WidgetDrillLoader = async request => {
+    const body: DrillQuery = {
+      datasetId: request.datasetId,
+      dimensions: request.dimensions,
+      filterValues: currentFilterValues,
+      limit: request.pageSize,
+      offset: Math.max(0, (request.page - 1) * request.pageSize),
+    };
+    if (request.sortField) {
+      body.sortField = request.sortField;
+      body.sortOrder = request.sortOrder;
+    }
+    const id = config.dashboardId?.value;
+    if (id) {
+      return service.drill(id, body);
+    }
+    if (!config.spec.value) {
+      throw new Error('看板尚未就绪');
+    }
+    return service.previewDrill(config.spec.value, body);
+  };
+
   return {
     datasetData,
     rawDatasetData,
@@ -272,5 +297,6 @@ export function useDashboardData(config: { dashboardId?: Ref<string | undefined>
     loading,
     loadAll: loadAllWrapped,
     loadWidgetPage,
+    loadDrill,
   };
 }

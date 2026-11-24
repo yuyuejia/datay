@@ -5,6 +5,7 @@ import com.data.datafusion.domain.DataModel;
 import com.data.datafusion.repository.AnalysisDashboardRepository;
 import com.data.datafusion.repository.DataModelRepository;
 import com.data.datafusion.service.DimensionValueService;
+import com.data.datafusion.service.dataset.DatasetScopeSqlBuilder;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +33,14 @@ public class DashboardDataService {
     /** 已保存看板的批量查询结果缓存；设计页预览不缓存，避免草稿互相污染。 */
     private static final long QUERY_CACHE_TTL_MS = 30_000L;
     private static final int QUERY_CACHE_MAX_ENTRIES = 256;
+
+    /** 图表明细下钻的临时筛选器前缀与请求约束。 */
+    private static final String DRILL_FILTER_PREFIX = "__drill_";
+    private static final int MAX_DRILL_DIMENSIONS = 10;
+    private static final int DEFAULT_DRILL_LIMIT = 50;
+    private static final int MAX_DRILL_LIMIT = 500;
+    private static final int MAX_DRILL_OFFSET = 1_000_000;
+
     private final Map<String, CacheEntry> queryCache = Collections.synchronizedMap(
         new LinkedHashMap<>(16, 0.75f, true) {
             @Override
@@ -226,6 +235,110 @@ public class DashboardDataService {
         Map<String, Object> filterValues
     ) {
         return queryAll(spec, fallbackDataSourceId, datasetIds, queries, filterValues);
+    }
+
+    /**
+     * 图表明细下钻：按点击维度过滤数据集，并去掉组件级分组聚合。
+     *
+     * <p>请求体包含 {@code datasetId}、{@code dimensions}、{@code filterValues} 以及分页/排序参数。
+     * 明细查询复用数据集筛选链路，只追加点击维度的等值/IN 条件，不修改数据集本身。</p>
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> drillDataset(String dashboardId, Map<String, Object> body) throws SQLException {
+        AnalysisDashboard dashboard = dashboardRepository
+            .findById(dashboardId)
+            .orElseThrow(() -> new IllegalArgumentException("看板不存在：" + dashboardId));
+        Map<String, Object> spec = specValidator.parse(dashboard.getSpec());
+        return drillDataset(spec, dashboard.getDataSourceId(), body);
+    }
+
+    /**
+     * 基于内存中的看板 spec 执行图表明细下钻，供设计页未保存预览使用。
+     */
+    public Map<String, Object> drillDataset(
+        Map<String, Object> spec,
+        String fallbackDataSourceId,
+        Map<String, Object> body
+    ) throws SQLException {
+        Map<String, Object> request = body == null ? Map.of() : body;
+        Map<String, Object> resolved = datasetResolver.resolveSpec(spec);
+        String datasetId = DatasetQueryService.asString(request.get("datasetId"));
+        if (datasetId == null || datasetId.isBlank()) {
+            throw new IllegalArgumentException("下钻数据集不能为空");
+        }
+        Map<String, Object> dataset = findDataset(resolved, datasetId);
+
+        List<Map<String, Object>> dimensions = DatasetQueryService.asMapList(request.get("dimensions"));
+        if (dimensions.isEmpty()) {
+            throw new IllegalArgumentException("下钻维度不能为空");
+        }
+        if (dimensions.size() > MAX_DRILL_DIMENSIONS) {
+            throw new IllegalArgumentException("下钻维度最多 " + MAX_DRILL_DIMENSIONS + " 个");
+        }
+        List<Map<String, Object>> filters = new ArrayList<>(asMapList(resolved.get("filters")));
+        Map<String, Object> filterValues = sanitizeDrillFilterValues(request.get("filterValues"));
+        int index = 0;
+        for (Map<String, Object> dimension : dimensions) {
+            String rawField = DatasetQueryService.asString(dimension.get("field"));
+            if (rawField == null || rawField.isBlank()) {
+                throw new IllegalArgumentException("下钻维度字段不能为空");
+            }
+            String field = DatasetScopeSqlBuilder.requireIdentifier(rawField);
+            List<String> values = DatasetQueryService.asStringList(dimension.get("values"));
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException("下钻维度 " + field + " 缺少取值");
+            }
+            String filterId = DRILL_FILTER_PREFIX + index++;
+            Map<String, Object> target = new LinkedHashMap<>();
+            target.put("datasetId", datasetId);
+            target.put("field", field);
+            target.put("mode", FilterTargetResolver.MODE_SERVER);
+            Map<String, Object> filter = new LinkedHashMap<>();
+            filter.put("id", filterId);
+            filter.put("type", DashboardSpecValidator.FILTER_SELECT);
+            filter.put("targets", List.of(target));
+            filters.add(filter);
+            filterValues.put(filterId, values.size() == 1 ? values.get(0) : values);
+        }
+        Map<String, Object> drillSpec = new LinkedHashMap<>(resolved);
+        drillSpec.put("filters", filters);
+        return executeDataset(dataset, drillSpec, fallbackDataSourceId, filterValues, drillOptions(request));
+    }
+
+    /** 过滤掉调用方可能伪造的临时下钻条件，避免覆盖服务端生成的条件。 */
+    private Map<String, Object> sanitizeDrillFilterValues(Object raw) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (raw instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() == null) {
+                    continue;
+                }
+                String key = String.valueOf(entry.getKey());
+                if (!key.startsWith(DRILL_FILTER_PREFIX)) {
+                    result.put(key, entry.getValue());
+                }
+            }
+        }
+        return result;
+    }
+
+    /** 下钻查询不携带分组与聚合，只保留排序和分页。 */
+    private DatasetQueryOptions drillOptions(Map<String, Object> request) {
+        Long limit = DatasetQueryService.asLong(request.get("limit"));
+        int rowLimit = limit == null ? DEFAULT_DRILL_LIMIT : (int) Math.max(1, Math.min(limit, MAX_DRILL_LIMIT));
+        Long offset = DatasetQueryService.asLong(request.get("offset"));
+        int rowOffset = offset == null ? 0 : (int) Math.max(0, Math.min(offset, MAX_DRILL_OFFSET));
+        String sortField = DatasetQueryService.asString(request.get("sortField"));
+        if (sortField != null && !sortField.isBlank()) {
+            sortField = DatasetScopeSqlBuilder.requireIdentifier(sortField);
+        } else {
+            sortField = null;
+        }
+        String sortOrder = DatasetQueryService.asString(request.get("sortOrder"));
+        if (sortOrder != null && !"asc".equalsIgnoreCase(sortOrder) && !"desc".equalsIgnoreCase(sortOrder)) {
+            throw new IllegalArgumentException("排序方向只能是 asc 或 desc：" + sortOrder);
+        }
+        return new DatasetQueryOptions(sortField, sortOrder, rowLimit, rowOffset, List.of(), List.of());
     }
 
     private Map<String, Object> queryAll(

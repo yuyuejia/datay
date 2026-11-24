@@ -1,4 +1,5 @@
 import { sanitizeEchartsOption } from './echarts-option-sanitizer';
+import { DRILL_LINK_META_KEY, DRILL_META_KEY } from './drill-utils';
 import { CHINA_MAP_NAME, matchChinaProvinceName } from './geo/china-map';
 import type {
   Aggregation,
@@ -7,6 +8,7 @@ import type {
   ChartType,
   DashboardWidget,
   DatasetResult,
+  DrillDimension,
   WidgetEncode,
   WidgetEncodeDimension,
   WidgetEncodeMeasure,
@@ -28,6 +30,39 @@ function toNumber(value: any): number | null {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * 从数据行提取下钻条件：只保留有值的维度字段。
+ *
+ * <p>用于写入 series.__datayDrill，点击时按 dataIndex 直接读取，避免从 ECharts
+ * 展示名称反推字段值（尤其是地图省份写法与系列拆分场景）。</p>
+ */
+function drillForRow(row: Record<string, any> | undefined, fields: Array<string | undefined>): DrillDimension[] | undefined {
+  if (!row) {
+    return undefined;
+  }
+  const dimensions: DrillDimension[] = [];
+  const seen = new Set<string>();
+  for (const field of fields) {
+    if (!field || seen.has(field)) {
+      continue;
+    }
+    const value = row[field];
+    if (value === null || value === undefined || value === '') {
+      continue;
+    }
+    seen.add(field);
+    dimensions.push({ field, values: Array.isArray(value) ? value : [value as string | number] });
+  }
+  return dimensions.length > 0 ? dimensions : undefined;
+}
+
+/** 只在下钻元数据存在时附加到 series，避免污染普通图表配置。 */
+function attachDrillMeta(series: Record<string, any>, metas: Array<DrillDimension[] | undefined>): void {
+  if (metas.some(Boolean)) {
+    series[DRILL_META_KEY] = metas;
+  }
 }
 
 function sortRows(rows: Record<string, any>[], field: string, order?: 'asc' | 'desc'): Record<string, any>[] {
@@ -503,6 +538,10 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       series.roam = base.roam ?? false;
       series.label = base.label ?? { show: true };
     }
+    attachDrillMeta(
+      series,
+      rows.map(row => drillForRow(row, [xField])),
+    );
     option.series = [series];
     return option;
   }
@@ -586,24 +625,34 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
         const yField = measure.field;
         for (const group of groups) {
           const groupRows = rows.filter(row => row[seriesField] === group);
-          generated.push({
+          const series: Record<string, any> = {
             ...seriesTemplate(base, measureIndex),
             type: 'scatter',
             name: `${fieldLabel(yField)} · ${String(group)}`,
             data: groupRows.map(row => pointFor(row, yField)),
-          });
+          };
+          attachDrillMeta(
+            series,
+            groupRows.map(row => drillForRow(row, [xField, seriesField])),
+          );
+          generated.push(series);
         }
       }
     } else {
       for (const measure of scatterMeasures) {
         const field = measure.field;
         const fieldName = fieldLabel(field);
-        generated.push({
+        const series: Record<string, any> = {
           ...seriesTemplate(base, generated.length),
           type: 'scatter',
           name: fieldName,
           data: rows.map(row => pointFor(row, field)),
-        });
+        };
+        attachDrillMeta(
+          series,
+          rows.map(row => drillForRow(row, [xField])),
+        );
+        generated.push(series);
       }
     }
     option.series = generated;
@@ -617,14 +666,16 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       measures.find(measure => measure.role === 'value')?.field ??
       measures.find(measure => measure.role === 'y')?.field ??
       measureFields[0];
-    const data = rows
-      .map(row => {
-        const xIndex = xCategories.indexOf(xField ? row[xField] : undefined);
-        const yIndex = yCategories.indexOf(seriesField ? row[seriesField] : undefined);
-        const value = toNumber(row[valueField]);
-        return xIndex >= 0 && yIndex >= 0 && value !== null ? [xIndex, yIndex, value] : null;
-      })
-      .filter((item): item is number[] => item !== null);
+    const points: Array<{ value: number[]; drill?: DrillDimension[] }> = [];
+    for (const row of rows) {
+      const xIndex = xCategories.indexOf(xField ? row[xField] : undefined);
+      const yIndex = yCategories.indexOf(seriesField ? row[seriesField] : undefined);
+      const value = toNumber(row[valueField]);
+      if (xIndex >= 0 && yIndex >= 0 && value !== null) {
+        points.push({ value: [xIndex, yIndex, value], drill: drillForRow(row, [xField, seriesField]) });
+      }
+    }
+    const data = points.map(item => item.value);
     setCategoryAxis(option, xCategories, 'xAxis');
     setCategoryAxis(option, yCategories, 'yAxis');
     const maxValue = Math.max(...data.map(item => item[2]), 0);
@@ -638,15 +689,18 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       left: visualMap.left ?? 'center',
       bottom: visualMap.bottom ?? 0,
     };
-    option.series = [
-      {
-        ...seriesTemplate(baseSeries(option), 0),
-        type: 'heatmap',
-        name: fieldLabel(valueField),
-        data,
-        label: seriesTemplate(baseSeries(option), 0).label ?? { show: true },
-      },
-    ];
+    const heatmapSeries: Record<string, any> = {
+      ...seriesTemplate(baseSeries(option), 0),
+      type: 'heatmap',
+      name: fieldLabel(valueField),
+      data,
+      label: seriesTemplate(baseSeries(option), 0).label ?? { show: true },
+    };
+    attachDrillMeta(
+      heatmapSeries,
+      points.map(item => item.drill),
+    );
+    option.series = [heatmapSeries];
     return option;
   }
 
@@ -661,23 +715,24 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       option.series = [];
       return option;
     }
-    const valuesByRegion = new Map<string, number[]>();
+    const valuesByRegion = new Map<string, { values: number[]; rawRegions: Set<string | number> }>();
     for (const row of rows) {
       const region = matchChinaProvinceName(row[xField]);
       const value = toNumber(row[valueField]);
       if (!region || value === null) {
         continue;
       }
-      const bucket = valuesByRegion.get(region);
-      if (bucket) {
-        bucket.push(value);
-      } else {
-        valuesByRegion.set(region, [value]);
+      const bucket = valuesByRegion.get(region) ?? { values: [], rawRegions: new Set<string | number>() };
+      bucket.values.push(value);
+      const rawRegion = row[xField];
+      if (rawRegion !== null && rawRegion !== undefined && rawRegion !== '') {
+        bucket.rawRegions.add(rawRegion as string | number);
       }
+      valuesByRegion.set(region, bucket);
     }
-    const data = Array.from(valuesByRegion, ([name, values]) => ({
+    const data = Array.from(valuesByRegion, ([name, bucket]) => ({
       name,
-      value: aggregateValues(values, measure?.agg ?? 'sum'),
+      value: aggregateValues(bucket.values, measure?.agg ?? 'sum'),
     }));
     const numericValues = data.map(item => item.value).filter((value): value is number => value !== null);
     const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
@@ -694,21 +749,26 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       inRange: visualMap.inRange ?? { color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'] },
     };
     const base = seriesTemplate(baseSeries(option), 0);
-    option.series = [
-      {
-        ...base,
-        type: 'map',
-        map: widget.chart?.map ?? base.map ?? CHINA_MAP_NAME,
-        name: base.name || fieldLabel(valueField),
-        roam: base.roam ?? false,
-        label: base.label ?? { show: false },
-        emphasis: {
-          ...(base.emphasis ?? {}),
-          label: { ...(base.emphasis?.label ?? {}), show: true },
-        },
-        data,
+    const mapSeries: Record<string, any> = {
+      ...base,
+      type: 'map',
+      map: widget.chart?.map ?? base.map ?? CHINA_MAP_NAME,
+      name: base.name || fieldLabel(valueField),
+      roam: base.roam ?? false,
+      label: base.label ?? { show: false },
+      emphasis: {
+        ...(base.emphasis ?? {}),
+        label: { ...(base.emphasis?.label ?? {}), show: true },
       },
-    ];
+      data,
+    };
+    attachDrillMeta(
+      mapSeries,
+      Array.from(valuesByRegion, ([, bucket]) =>
+        bucket.rawRegions.size > 0 ? [{ field: xField, values: Array.from(bucket.rawRegions) }] : undefined,
+      ),
+    );
+    option.series = [mapSeries];
     return option;
   }
 
@@ -728,36 +788,41 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
       value: toNumber(row[valueField]) ?? 0,
     }));
     const base = seriesTemplate(baseSeries(option), 0);
+    const linkDrillMeta = rows.map(row => drillForRow(row, [xField, seriesField]));
     if (chartType === 'sankey') {
-      option.series = [
-        {
-          ...base,
-          type: 'sankey',
-          data: nodeNames.map(name => ({ name })),
-          links,
-          emphasis: { focus: 'adjacency' },
-          lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.5 },
-        },
-      ];
+      const sankeySeries: Record<string, any> = {
+        ...base,
+        type: 'sankey',
+        data: nodeNames.map(name => ({ name })),
+        links,
+        emphasis: { focus: 'adjacency' },
+        lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.5 },
+      };
+      if (linkDrillMeta.some(Boolean)) {
+        sankeySeries[DRILL_LINK_META_KEY] = linkDrillMeta;
+      }
+      option.series = [sankeySeries];
     } else {
-      option.series = [
-        {
-          ...base,
-          type: 'graph',
-          layout: base.layout ?? 'force',
-          roam: base.roam ?? true,
-          draggable: base.draggable ?? true,
-          data: nodeNames.map(name => ({ name })),
-          links,
-          label: { ...(base.label ?? {}), show: base.label?.show ?? true },
-          force: {
-            repulsion: 320,
-            edgeLength: [60, 120],
-            ...(base.force ?? {}),
-          },
-          lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.1 },
+      const graphSeries: Record<string, any> = {
+        ...base,
+        type: 'graph',
+        layout: base.layout ?? 'force',
+        roam: base.roam ?? true,
+        draggable: base.draggable ?? true,
+        data: nodeNames.map(name => ({ name })),
+        links,
+        label: { ...(base.label ?? {}), show: base.label?.show ?? true },
+        force: {
+          repulsion: 320,
+          edgeLength: [60, 120],
+          ...(base.force ?? {}),
         },
-      ];
+        lineStyle: { ...(base.lineStyle ?? {}), curveness: base.lineStyle?.curveness ?? 0.1 },
+      };
+      if (linkDrillMeta.some(Boolean)) {
+        graphSeries[DRILL_LINK_META_KEY] = linkDrillMeta;
+      }
+      option.series = [graphSeries];
     }
     return option;
   }
@@ -789,6 +854,17 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     );
     setValueAxis(option, 'yAxis');
     const base = seriesTemplate(baseSeries(option), 0);
+    const waterfallSeries: Record<string, any> = {
+      ...base,
+      type: 'bar',
+      name: fieldLabel(valueField),
+      stack: 'waterfall',
+      data: valueData,
+    };
+    attachDrillMeta(
+      waterfallSeries,
+      baseRows.map(row => drillForRow(row, [xField])),
+    );
     option.series = [
       {
         ...base,
@@ -802,13 +878,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
         label: { show: false },
         tooltip: { show: false },
       },
-      {
-        ...base,
-        type: 'bar',
-        name: fieldLabel(valueField),
-        stack: 'waterfall',
-        data: valueData,
-      },
+      waterfallSeries,
     ];
     return option;
   }
@@ -832,14 +902,20 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     });
     setCategoryAxis(option, boxCategories, 'xAxis');
     setValueAxis(option, 'yAxis');
-    option.series = [
-      {
-        ...seriesTemplate(baseSeries(option), 0),
-        type: 'boxplot',
-        name: fieldLabel(valueField),
-        data: boxData,
-      },
-    ];
+    const boxplotSeries: Record<string, any> = {
+      ...seriesTemplate(baseSeries(option), 0),
+      type: 'boxplot',
+      name: fieldLabel(valueField),
+      data: boxData,
+    };
+    attachDrillMeta(
+      boxplotSeries,
+      boxCategories.map(category => {
+        const row = rows.find(item => item[xField as string] === category);
+        return drillForRow(row, [xField]);
+      }),
+    );
+    option.series = [boxplotSeries];
     return option;
   }
 
@@ -869,17 +945,23 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     }
     const groups = seriesField ? Array.from(new Set(rows.map(row => row[seriesField]))) : [undefined];
     for (const group of groups) {
-      const data = seriesField
-        ? categories.map(category => {
-            const row = rows.find(item => {
-              if (xField && item[xField] !== category) {
-                return false;
-              }
-              return group === undefined || item[seriesField] === group;
-            });
-            return row ? toNumber(row[measureField]) : null;
-          })
-        : rows.map(row => toNumber(row[measureField]));
+      let data: Array<number | null>;
+      let drillMeta: Array<DrillDimension[] | undefined>;
+      if (seriesField) {
+        const pointRows = categories.map(category =>
+          rows.find(item => {
+            if (xField && item[xField] !== category) {
+              return false;
+            }
+            return group === undefined || item[seriesField] === group;
+          }),
+        );
+        data = pointRows.map(row => (row ? toNumber(row[measureField]) : null));
+        drillMeta = pointRows.map(row => drillForRow(row, [xField, seriesField]));
+      } else {
+        data = rows.map(row => toNumber(row[measureField]));
+        drillMeta = rows.map(row => drillForRow(row, [xField]));
+      }
       const nameParts = [def.name || fieldLabel(measureField)];
       if (seriesField && group !== undefined) {
         nameParts.push(String(group));
@@ -889,6 +971,7 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
         name: nameParts.join(' · '),
         data,
       };
+      attachDrillMeta(target, drillMeta);
       applySeriesStyle(target, def, chartType, widget);
       if (stack) {
         target.stack = def.stack || stack;

@@ -214,3 +214,49 @@
 - 图表必须有 `chart.type`
 - `echarts` / `kpi` / `pivot` 必须有有效 `encode`
 - 字段如有数据集缓存，会校验字段存在性
+
+## 10. 图表明细下钻
+
+`echarts` 组件默认支持点击数据项查看明细，无需在 spec 中额外配置。
+
+- 点击柱/线/面积/饼/环形/漏斗/矩形树图/地图/热力图/散点/瀑布/箱线图/桑基图（边）时，
+  前端把点击到的维度值提交给服务端。
+- 明细查询复用图表绑定的数据集，**不再下推组件的 `groupBy` / 聚合**，
+  只追加点击维度的等值或 `IN` 过滤，并保留当前看板筛选器。
+- 分页由服务端执行，默认每页 50 行。
+- `gauge` 与 `radar` 没有明确的单维度点击语义，不启用下钻。
+
+已保存看板调用：
+
+```http
+POST /api/analysis-dashboards/{id}/drill
+```
+
+未保存的实时预览调用：
+
+```http
+POST /api/analysis-dashboards/preview-drill
+```
+
+请求体：
+
+```json
+{
+  "datasetId": "ds_sales",
+  "dimensions": [
+    { "field": "region", "values": ["华东"] },
+    { "field": "channel", "values": ["官网"] }
+  ],
+  "filterValues": { "date": ["2026-01-01", "2026-01-31"] },
+  "limit": 50,
+  "offset": 0,
+  "sortField": "sales_amount",
+  "sortOrder": "desc"
+}
+```
+
+响应即数据集查询结果（`columns` / `rows` / `columnLabels` / `truncated` 等）。
+
+> 如果 SQL 数据集自身的 SQL 已经 `GROUP BY`，明细展示的是该 SQL 输出粒度的行；
+> 指标数据集的明细是数据集已声明维度组合下的行，指标值本身仍是聚合值。
+> 如需事实层原始明细，请使用一个未聚合的 SQL 数据集。

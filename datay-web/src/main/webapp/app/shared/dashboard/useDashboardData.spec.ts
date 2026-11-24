@@ -3,14 +3,17 @@ import { ref } from 'vue';
 import type { DashboardSpec, DatasetResult } from './types';
 import { useDashboardData } from './useDashboardData';
 
-const { queryWidgetsMock } = vi.hoisted(() => ({
+const { queryWidgetsMock, drillMock } = vi.hoisted(() => ({
   queryWidgetsMock: vi.fn(),
+  drillMock: vi.fn(),
 }));
 
 vi.mock('./dashboard.service', () => ({
   default: class {
     queryWidgets = queryWidgetsMock;
     previewWidgets = vi.fn();
+    drill = drillMock;
+    previewDrill = vi.fn();
   },
 }));
 
@@ -107,5 +110,32 @@ describe('useDashboardData server-side filters', () => {
       aggregations: [{ field: 'amount', agg: 'avg' }],
     });
     expect(data.widgetData.value.kpi1.aggregated).toBe(true);
+  });
+
+  it('明细下钻携带当前筛选值与分页参数', async () => {
+    drillMock.mockResolvedValue({ columns: ['region'], rows: [{ region: '华东' }] });
+    const dashboardId = ref('dashboard-1');
+    const data = useDashboardData({ dashboardId, spec });
+
+    await data.loadAll({ region: '华东' });
+    const result = await data.loadDrill({
+      datasetId: 'ds1',
+      dimensions: [{ field: 'region', values: ['华东'] }],
+      page: 2,
+      pageSize: 50,
+      sortField: 'amount',
+      sortOrder: 'desc',
+    });
+
+    expect(result.rows).toEqual([{ region: '华东' }]);
+    expect(drillMock).toHaveBeenCalledWith('dashboard-1', {
+      datasetId: 'ds1',
+      dimensions: [{ field: 'region', values: ['华东'] }],
+      filterValues: { region: '华东' },
+      limit: 50,
+      offset: 50,
+      sortField: 'amount',
+      sortOrder: 'desc',
+    });
   });
 });

@@ -1,6 +1,9 @@
 import { shallowMount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 
+import DashboardDrillDialog from './DashboardDrillDialog.vue';
 import DashboardWidget from './DashboardWidget.vue';
+import EChart from './EChart.vue';
 import type { DashboardWidget as Widget } from './types';
 
 const baseWidget: Widget = {
@@ -30,5 +33,52 @@ describe('DashboardWidget header', () => {
     const wrapper = shallowMount(DashboardWidget, { props: { widget: { ...baseWidget, type: 'kpi' } } });
 
     expect(wrapper.find('.dashboard-widget-header').exists()).toBe(true);
+  });
+});
+
+describe('DashboardWidget drill-down', () => {
+  const chartWidget: Widget = {
+    id: 'chart1',
+    title: '区域销售',
+    type: 'echarts',
+    layout: { x: 0, y: 0, w: 12, h: 8 },
+    datasetId: 'ds1',
+    chart: { type: 'bar' },
+    encode: {
+      dimensions: [{ field: 'region', role: 'x' }],
+      measures: [{ field: 'amount', agg: 'sum', role: 'y' }],
+      groupBy: true,
+    },
+  };
+
+  it('点击图表数据时解析条件并打开明细弹窗', async () => {
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: chartWidget,
+        result: { columns: ['region', 'amount'], rows: [{ region: '华东', amount: 10 }] },
+        drillLoader: vi.fn(),
+      },
+    });
+
+    wrapper.findComponent(EChart).vm.$emit('click', { seriesIndex: 0, dataIndex: 0 });
+    await nextTick();
+
+    const dialog = wrapper.findComponent(DashboardDrillDialog);
+    expect(dialog.props('modelValue')).toBe(true);
+    expect(dialog.props('dimensions')).toEqual([{ field: 'region', values: ['华东'] }]);
+  });
+
+  it('没有下钻加载器时不打开弹窗', async () => {
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: chartWidget,
+        result: { columns: ['region', 'amount'], rows: [{ region: '华东', amount: 10 }] },
+      },
+    });
+
+    wrapper.findComponent(EChart).vm.$emit('click', { seriesIndex: 0, dataIndex: 0 });
+    await nextTick();
+
+    expect(wrapper.findComponent(DashboardDrillDialog).exists()).toBe(false);
   });
 });

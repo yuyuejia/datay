@@ -41,6 +41,17 @@ export interface DashboardQuery {
   aggregations?: Array<{ field: string; agg: Aggregation }>;
 }
 
+/** 图表明细下钻请求体：点击维度 + 当前筛选器 + 分页排序。 */
+export interface DrillQuery {
+  datasetId: string;
+  dimensions: Array<{ field: string; values: Array<string | number> }>;
+  filterValues?: FilterValues;
+  limit?: number;
+  offset?: number;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
 /**
  * 分析看板服务：看板 CRUD、数据集取数、筛选器选项、spec 预检。
  *
@@ -144,6 +155,16 @@ export default class DashboardService {
         dataSourceId,
       })
       .then(res => res.data);
+  }
+
+  /** 已保存看板的图表明细下钻。 */
+  drill(id: string, body: DrillQuery): Promise<DatasetResult> {
+    return axios.post(`${baseApiUrl}/${id}/drill`, body).then(res => res.data);
+  }
+
+  /** 未保存看板的图表明细下钻预览。 */
+  previewDrill(spec: DashboardSpec, body: DrillQuery, dataSourceId?: string): Promise<DatasetResult> {
+    return axios.post(`${baseApiUrl}/preview-drill`, { ...body, spec, dataSourceId }).then(res => res.data);
   }
 
   loadFilterOptions(id: string, filterId: string, keyword?: string): Promise<FilterOptionResult> {
