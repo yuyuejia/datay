@@ -232,6 +232,69 @@
                 <configuration>
                     <!-- Arrow 内存实现需要反射访问 java.nio 内部字段 -->
                     <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED</argLine>
+                    <!--
+                        默认测试只跑不依赖外部服务的单元/本地集成用例。
+                        以下用例需要本地/远程 MySQL、PostgreSQL、Oracle、SQL Server、DM、MongoDB、
+                        Kafka、MQTT、Doris、Feishu、Ollama 等服务，或会启动常驻的实时同步任务，
+                        在 CI/本地未启动这些服务时会长时间等待甚至无法结束，因此从默认 test 阶段排除。
+                        需要联调时可通过 -Dtest=类名 单独执行。
+                    -->
+                    <excludes>
+                        <!-- 实时 CDC / Binlog 端到端同步 -->
+                        <exclude>**/MysqlCdcTo*Test.java</exclude>
+                        <exclude>**/MysqlCdcDataTypes*Test.java</exclude>
+                        <exclude>**/MysqlCdcSnapshot*Test.java</exclude>
+                        <exclude>**/PostgresCdcTo*Test.java</exclude>
+                        <exclude>**/PostgresCdcDataTypes*Test.java</exclude>
+                        <exclude>**/PostgresCdcSnapshot*Test.java</exclude>
+                        <exclude>**/PostgresCdcReconnectIntegrationTest.java</exclude>
+                        <exclude>**/OracleCdcTo*Test.java</exclude>
+                        <exclude>**/OracleCdcTypes*Test.java</exclude>
+                        <exclude>**/SqlServerCdcTo*Test.java</exclude>
+                        <exclude>**/SqlServerCdcTypes*Test.java</exclude>
+                        <exclude>**/DmCdcTo*Test.java</exclude>
+                        <exclude>**/DmCdcSnapshot*Test.java</exclude>
+                        <exclude>**/DmCdcTypes*Test.java</exclude>
+                        <exclude>**/MongoCdcTo*Test.java</exclude>
+                        <exclude>**/CdcCollectorReconnectTest.java</exclude>
+
+                        <!-- Kafka / MQTT 实时消费、生产联调 -->
+                        <exclude>**/KafkaConsumerIntegrationTest.java</exclude>
+                        <exclude>**/KafkaConsumerStateRecoveryIntegrationTest.java</exclude>
+                        <exclude>**/KafkaProducerIntegrationTest.java</exclude>
+                        <exclude>**/MqttConsumerIntegrationTest.java</exclude>
+                        <exclude>**/MqttEvaluateJsonPathToMysqlTest.java</exclude>
+
+                        <!-- 外部 MySQL / HTTP / Doris / Feishu / Redis 等联调 -->
+                        <exclude>**/FeishuBitableInputTest.java</exclude>
+                        <exclude>**/FeishuBitableOutputTest.java</exclude>
+                        <exclude>**/FeishuToMysqlSyncTest.java</exclude>
+                        <exclude>**/MysqlToFeishuSyncTest.java</exclude>
+                        <exclude>**/FileInputToMysqlTest.java</exclude>
+                        <exclude>**/HttpInvokeTest.java</exclude>
+                        <exclude>**/DorisStreamLoadIntegrationTest.java</exclude>
+                        <exclude>**/DorisJoinStreamLoadIntegrationTest.java</exclude>
+                        <exclude>**/DorisArrowFlightInputIntegrationTest.java</exclude>
+                        <exclude>**/DorisArrowFlightToDuckDBIntegrationTest.java</exclude>
+                        <exclude>**/DorisArrowFlightToMysqlIntegrationTest.java</exclude>
+                        <exclude>**/SqlServerToDorisSyncTest.java</exclude>
+                        <exclude>**/JDBCLookupMySQLTest.java</exclude>
+                        <exclude>**/SqlSinkMySQLTest.java</exclude>
+                        <exclude>**/RedisIntegrationTest.java</exclude>
+                        <exclude>**/KingbaseIntegrationTest.java</exclude>
+                        <exclude>**/TdengineIntegrationTest.java</exclude>
+                        <exclude>**/PolarisEndToEndTest.java</exclude>
+                        <exclude>**/MongoDBInputToDuckDBTest.java</exclude>
+                        <exclude>**/OracleNonSysUserVerificationTest.java</exclude>
+                        <exclude>**/MysqlToDuckLakePerformanceTest.java</exclude>
+                        <exclude>**/MysqlToDuckDBConcurrencyPerformanceTest.java</exclude>
+                        <exclude>**/DuckLakeWritePerformanceTest.java</exclude>
+                        <exclude>**/StreamJdbcOutputCrossDatabaseCaseTest.java</exclude>
+                        <exclude>**/StreamJdbcOutputSqlServerCrossDatabaseCaseTest.java</exclude>
+                        <exclude>**/StreamJdbcOutputFieldMappingTest.java</exclude>
+                        <exclude>**/DecisionExampleJobTest.java</exclude>
+                        <exclude>**/VocLlmDemoTest.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             

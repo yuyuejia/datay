@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @ComponentRegister(
     value = "StreamJdbcOutput",
@@ -50,14 +51,14 @@ public class StreamJdbcOutput extends FlowComponent {
 
     private DatasourceInfo datasource;
 
-    private final Map<String, TableMeta> tableMetaMap = new HashMap<>();
-    private final Map<String, Boolean> tableExistsCache = new HashMap<>(); // 表存在性缓存
+    private final Map<String, TableMeta> tableMetaMap = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> tableExistsCache = new ConcurrentHashMap<>(); // 表存在性缓存
 
     /**
      * 目标字段 -> 源字段映射缓存：schema.table -> (目标字段实际名 -> 源数据实际 key)。
      * 配置了 header_map 时以配置为准；未配置时按同名忽略大小写自动匹配。
      */
-    private final Map<String, Map<String, String>> columnMappingCache = new HashMap<>();
+    private final Map<String, Map<String, String>> columnMappingCache = new ConcurrentHashMap<>();
 
     public StreamJdbcOutput() {
         setType(ComponentType.SINK);  // 设置为Sink类型

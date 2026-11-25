@@ -285,8 +285,9 @@ class StreamJdbcInputDebugLimitIntegrationTest extends ComponentTestBase {
         private final List<JSONObject> records = new ArrayList<>();
 
         @Override
-        protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile) {
-            String sql = super.buildQuery(srcTable, tableIncrColumn, flowFile);
+        protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile,
+                                    String partitionPredicate) {
+            String sql = super.buildQuery(srcTable, tableIncrColumn, flowFile, partitionPredicate);
             queries.add(sql);
             return sql;
         }

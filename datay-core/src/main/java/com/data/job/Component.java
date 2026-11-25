@@ -19,6 +19,12 @@ public abstract class Component {
     private int parallelism = 1; // 并发数，默认为1
     private AtomicInteger activeThreads;
 
+    /**
+     * 当前执行线程的并发索引，范围 {@code [0, parallelism)}。
+     * <p>由 {@link ETLFlowTask} 在提交并发任务时设置，供数据源组件做分区读取。
+     */
+    private final ThreadLocal<Integer> workerIndex = ThreadLocal.withInitial(() -> 0);
+
     private List<Connection> input = new ArrayList<>();
     private List<Connection> output = new ArrayList<>();
 
@@ -147,6 +153,27 @@ public abstract class Component {
 
     public int getParallelism() {
         return parallelism;
+    }
+
+    /**
+     * 设置当前执行线程的并发索引。
+     */
+    public void setWorkerIndex(int workerIndex) {
+        this.workerIndex.set(Math.max(0, workerIndex));
+    }
+
+    /**
+     * 获取当前执行线程的并发索引。
+     */
+    public int getWorkerIndex() {
+        return workerIndex.get();
+    }
+
+    /**
+     * 清理当前线程的并发索引，避免线程池复用导致串号。
+     */
+    public void clearWorkerIndex() {
+        workerIndex.remove();
     }
 
     public void setParallelism(int parallelism) {

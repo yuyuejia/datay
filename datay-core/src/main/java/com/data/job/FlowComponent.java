@@ -14,79 +14,97 @@ import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // 组件接口定义
 public abstract class FlowComponent extends Component {
 
-    private boolean isEnd = false;
-    private int endCount = 0;
-    public boolean upstreamFinish = false;
-    private FlowFile currentFlowFile;
+    /**
+     * 全局停止标志：由 {@link #stop()} 置位，所有并发线程共享。
+     */
+    private volatile boolean stopped = false;
+    /**
+     * 当前线程是否已完成，使用线程本地状态，避免并发线程互相提前结束。
+     */
+    private final ThreadLocal<Boolean> isEnd = ThreadLocal.withInitial(() -> false);
+    private final AtomicInteger endCount = new AtomicInteger();
+    public volatile boolean upstreamFinish = false;
+    private final ThreadLocal<FlowFile> currentFlowFile = new ThreadLocal<>();
 
-    // 调试模式下当前源组件已输出的行数
-    private long debugEmittedRows = 0;
+    // 调试模式下当前源组件已输出的行数（按线程统计，避免并发互相干扰）
+    private final ThreadLocal<Long> debugEmittedRows = ThreadLocal.withInitial(() -> 0L);
 
     public abstract void execute(FlowFile flowFile);
 
     public void execute() {
         logInfo("开始执行组件:" + getName());
 
-        while (!isEnd) {
-            List<FlowFile> flowFiles = new LinkedList<>();
-            if (getInput().isEmpty()) {
-                //如果是源头组件，需要发送start信号,触发源头组件的执行
-                FlowFile flowFile = new FlowFile();
-                flowFile.setAttribute("_start", true);
-                flowFiles.add(flowFile);
-                upstreamFinish = true;
-            } else {
-                flowFiles = readRecords();
-            }
-            if (flowFiles.isEmpty()) {
-                sleep();
-                continue;
-            }
-            for (FlowFile flowFile : flowFiles) {
-                if (flowFile.getAttribute("_end") != null) {
-                    endCount++;
-                    if (endCount >= getInput().size()) {
-                        upstreamFinish = true;
+        try {
+            while (!isEnd.get() && !stopped) {
+                List<FlowFile> flowFiles = new LinkedList<>();
+                if (getInput().isEmpty()) {
+                    //如果是源头组件，需要发送start信号,触发源头组件的执行
+                    FlowFile flowFile = new FlowFile();
+                    flowFile.setAttribute("_start", true);
+                    flowFiles.add(flowFile);
+                    upstreamFinish = true;
+                } else {
+                    flowFiles = readRecords();
+                }
+                if (flowFiles.isEmpty()) {
+                    // 上游已完成且队列已空，当前线程可以退出，避免并发时其他线程空转
+                    if (upstreamFinish) {
+                        isEnd.set(true);
+                        break;
+                    }
+                    sleep();
+                    continue;
+                }
+                for (FlowFile flowFile : flowFiles) {
+                    if (flowFile.getAttribute("_end") != null) {
+                        if (endCount.incrementAndGet() >= getInput().size()) {
+                            upstreamFinish = true;
+                        }
+                    }
+                    try {
+                        currentFlowFile.set(flowFile);
+                        execute(flowFile);
+                        // 调试模式下，对于像 JdbcInput 这类直接把结果物化到 DuckDB 的组件，尝试从输出表回填采样数据
+                        captureMaterializedOutputIfNeeded();
+                        //检查当前FlowFile是否有状态，有状态,同时该组件为sink或者没有下游组件，进行状态保存
+                        if (!flowFile.getStatusMap().isEmpty() && (isSink() || getOutput().isEmpty())) {
+                            getContext().getStatusMap().putAll(flowFile.getStatusMap());
+                            getContext().saveStatus();
+                        }
+                    } catch (DebugLimitReachedException e) {
+                        // 调试模式下源组件达到采样上限，属于正常结束
+                        logInfo(e.getMessage());
+                        isEnd.set(true);
+                        break;
+                    } catch (Exception e) {
+                        logError("组件执行失败：" + getName() + "，异常信息：" + ExceptionUtils.describe(e));
+                        e.printStackTrace();
+                        if (flowFile.getAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE) != null) {
+                            continue;
+                        }
+                        throw e;
                     }
                 }
-                try {
-                    currentFlowFile = flowFile;
-                    execute(flowFile);
-                    // 调试模式下，对于像 JdbcInput 这类直接把结果物化到 DuckDB 的组件，尝试从输出表回填采样数据
-                    captureMaterializedOutputIfNeeded();
-                    //检查当前FlowFile是否有状态，有状态,同时该组件为sink或者没有下游组件，进行状态保存
-                    if (!flowFile.getStatusMap().isEmpty()&&(isSink()||getOutput().isEmpty())) {
-                        getContext().getStatusMap().putAll(flowFile.getStatusMap());
-                        getContext().saveStatus();
-                    }
-                } catch (DebugLimitReachedException e) {
-                    // 调试模式下源组件达到采样上限，属于正常结束
-                    logInfo(e.getMessage());
-                    isEnd = true;
-                    break;
-                } catch (Exception e) {
-                    logError("组件执行失败：" + getName() + "，异常信息：" + ExceptionUtils.describe(e));
-                    e.printStackTrace();
-                    if (flowFile.getAttribute(FlowFile.ATTRIBUTE_ERROR_IGNORE) != null) {
-                        continue;
-                    }
-                    throw e;
+                //如果是上游已经都完成发送事件，当前组件可以停止了
+                if (upstreamFinish) {
+                    isEnd.set(true);
                 }
             }
-            //如果是上游已经都完成发送事件，当前组件可以停止了
-            if (upstreamFinish) {
-                isEnd = true;
+            // 检查所有线程是否都已完成
+            if (getActiveThreads().decrementAndGet() == 0) {
+                writeEndRecord();
             }
+            logInfo("组件执行完成:" + getName());
+        } finally {
+            isEnd.remove();
+            currentFlowFile.remove();
+            debugEmittedRows.remove();
         }
-        // 检查所有线程是否都已完成
-        if (getActiveThreads().decrementAndGet() == 0) {
-            writeEndRecord();
-        }
-        logInfo("组件执行完成:" + getName());
     }
 
     public void sleep() {
@@ -94,7 +112,7 @@ public abstract class FlowComponent extends Component {
 //            logInfo("组件" + getName() + " sleep 100ms");
             Thread.sleep(100);
         } catch (InterruptedException e) {
-            isEnd = true;
+            isEnd.set(true);
             logError("组件执行被中断:" + getName());
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
@@ -104,13 +122,14 @@ public abstract class FlowComponent extends Component {
     public void writeRecords(FlowFile flowFile) {
         // 在每次循环开始前检查中断状态
         if (Thread.currentThread().isInterrupted()) {
-            isEnd = true;
+            isEnd.set(true);
             logError("组件执行被中断:" + getName());
             throw new RuntimeException("组件执行被中断:" + getName());
         }
         // 合并当前FlowFile的状态到新的FlowFile，将状态传递下去
-        if (!getOutput().isEmpty() && currentFlowFile != null && !currentFlowFile.getStatusMap().isEmpty()) {
-            flowFile.getStatusMap().putAll(currentFlowFile.getStatusMap());
+        FlowFile sourceFlowFile = currentFlowFile.get();
+        if (!getOutput().isEmpty() && sourceFlowFile != null && !sourceFlowFile.getStatusMap().isEmpty()) {
+            flowFile.getStatusMap().putAll(sourceFlowFile.getStatusMap());
         }
 
         for (Connection connection : getOutput()) {
@@ -130,8 +149,9 @@ public abstract class FlowComponent extends Component {
         if (getContext() != null && getContext().isDebugMode()) {
             getContext().captureDebugOutput(getId(), flowFile);
             if (getInput().isEmpty()) {
-                debugEmittedRows += countRows(flowFile);
-                if (debugEmittedRows >= getContext().getDebugRowLimit()) {
+                long emitted = debugEmittedRows.get() + countRows(flowFile);
+                debugEmittedRows.set(emitted);
+                if (emitted >= getContext().getDebugRowLimit()) {
                     throw new DebugLimitReachedException(
                         "调试模式：源组件 " + getName() + " 已达到采样行数上限 " + getContext().getDebugRowLimit()
                     );
@@ -270,7 +290,7 @@ public abstract class FlowComponent extends Component {
     public List<FlowFile> readRecords() {
         // 在每次循环开始前检查中断状态
         if (Thread.currentThread().isInterrupted()) {
-            isEnd = true;
+            isEnd.set(true);
             logError("组件执行被中断:" + getName());
             throw new RuntimeException("组件执行被中断:" + getName());
         }
@@ -295,14 +315,14 @@ public abstract class FlowComponent extends Component {
     }
 
     public void stop() {
-        isEnd = true;
+        stopped = true;
     }
 
     public FlowFile getCurrentFlowFile() {
-        return currentFlowFile;
+        return currentFlowFile.get();
     }
 
     public void setCurrentFlowFile(FlowFile currentFlowFile) {
-        this.currentFlowFile = currentFlowFile;
+        this.currentFlowFile.set(currentFlowFile);
     }
 }

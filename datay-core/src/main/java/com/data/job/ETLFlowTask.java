@@ -131,7 +131,8 @@ public class ETLFlowTask {
                             try {
                                 comp.setContext(getContext());
                                 comp.setTaskLogger(getTaskLogger());
-                                // 设置线程索引，用于区分不同并发线程
+                                // 设置线程索引，用于区分不同并发线程（数据源分区读取）
+                                comp.setWorkerIndex(threadIndex);
                                 comp.execute();
                             } catch (Exception e) {
                                 // 检查是否是中断异常
@@ -143,6 +144,8 @@ public class ETLFlowTask {
                                 hasFailure.set(true);
                                 cancel();
                                 throw e; // 重新抛出异常
+                            } finally {
+                                comp.clearWorkerIndex();
                             }
                         })
                     );

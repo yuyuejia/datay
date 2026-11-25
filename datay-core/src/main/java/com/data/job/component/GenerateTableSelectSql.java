@@ -4,13 +4,12 @@ import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.job.util.TablePartitionPlanner;
 import com.data.metadata.TableMeta;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.util.DBUtils;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,36 +142,51 @@ public class GenerateTableSelectSql extends FlowComponent {
      */
     private List<String> generateSelectSql(TableMeta tableMeta, Connection conn) throws SQLException {
         List<String> sqlList = new ArrayList<>();
-        
+        String tableName = schema + "." + tableMeta.getTable();
+
         // 如果不启用分区或表数据量较小，生成普通SQL
         if (!enablePartition) {
-            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
-        
+
         // 获取主键列
         List<ColumnMeta> primaryKeys = getPrimaryKeyColumns(tableMeta);
         if (primaryKeys.isEmpty()) {
             logInfo("表 " + tableMeta.getTable() + " 没有主键，使用普通查询");
-            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
-        
+
         // 使用第一个主键进行分区
         ColumnMeta primaryKey = primaryKeys.get(0);
+        if (!TablePartitionPlanner.supports(primaryKey)) {
+            logInfo("表 " + tableMeta.getTable() + " 的主键类型不支持分区，使用普通查询");
+            sqlList.add("SELECT * FROM " + tableName);
+            return sqlList;
+        }
+
         logInfo("表 " + tableMeta.getTable() + " 使用主键 " + primaryKey.getName() + " 进行分区，分区数: " + partitionCount);
-        
+
         // 获取主键的最小值和最大值
         Object[] minMaxValues = getPrimaryKeyMinMax(conn, tableMeta, primaryKey);
         if (minMaxValues == null) {
             logInfo("无法获取表 " + tableMeta.getTable() + " 的主键范围，使用普通查询");
-            sqlList.add("SELECT * FROM " + schema + "." + tableMeta.getTable());
+            sqlList.add("SELECT * FROM " + tableName);
             return sqlList;
         }
-        
-        // 生成分区SQL
-        sqlList.addAll(generatePartitionSql(tableMeta, primaryKey, minMaxValues[0], minMaxValues[1]));
-        
+
+        TablePartitionPlanner.Plan plan = TablePartitionPlanner.plan(primaryKey, minMaxValues[0], minMaxValues[1], partitionCount);
+        if (!plan.isPartitionable()) {
+            logInfo("表 " + tableMeta.getTable() + " 无法生成有效分区，使用普通查询");
+            sqlList.add("SELECT * FROM " + tableName);
+            return sqlList;
+        }
+
+        for (int i = 0; i < plan.size(); i++) {
+            sqlList.add("SELECT * FROM " + tableName + " WHERE " + plan.predicate(i));
+        }
+
         return sqlList;
     }
 
@@ -193,237 +207,19 @@ public class GenerateTableSelectSql extends FlowComponent {
      * 获取主键的最小值和最大值
      */
     private Object[] getPrimaryKeyMinMax(Connection conn, TableMeta tableMeta, ColumnMeta primaryKey) {
-        String sql = "SELECT MIN(" + primaryKey.getName() + "), MAX(" + primaryKey.getName() + ") FROM " + schema + "." + tableMeta.getTable();
-        
-        try (PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            if (rs.next()) {
-                Object minValue = rs.getObject(1);
-                Object maxValue = rs.getObject(2);
-                
-                if (minValue == null || maxValue == null ||minValue.equals("") || maxValue.equals("")) {
-                    logInfo("表 " + tableMeta.getTable() + " 的主键值为空");
-                    return null;
-                }
-                logInfo("表 " + tableMeta.getTable() + " 的主键范围: " + minValue + " - " + maxValue);
-                return new Object[]{minValue, maxValue};
+        try {
+            Object[] minMax = TablePartitionPlanner.queryMinMax(conn, schema + "." + tableMeta.getTable(), primaryKey.getName());
+            if (minMax == null) {
+                logInfo("表 " + tableMeta.getTable() + " 的主键值为空");
+                return null;
             }
+            logInfo("表 " + tableMeta.getTable() + " 的主键范围: " + minMax[0] + " - " + minMax[1]);
+            return minMax;
         } catch (SQLException e) {
             logInfo("获取表 " + tableMeta.getTable() + " 主键范围失败: " + e.getMessage());
         }
-        
+
         return null;
-    }
-
-    /**
-     * 生成分区SQL
-     */
-    private List<String> generatePartitionSql(TableMeta tableMeta, ColumnMeta primaryKey, Object minValue, Object maxValue) {
-        List<String> sqlList = new ArrayList<>();
-        String tableName = schema + "." + tableMeta.getTable();
-        String pkName = primaryKey.getName();
-        
-        // 判断主键类型
-        boolean isNumeric = isNumericType(primaryKey.getType());
-        boolean isString = isStringType(primaryKey.getType());
-        
-        if (isNumeric) {
-            return generateNumericPartitionSql(tableName, pkName, minValue, maxValue);
-        } else if (isString) {
-            // 字符串类型分区（基于字符编码）
-            String minStr = minValue.toString();
-            String maxStr = maxValue.toString();
-            
-            // 检验字符串是否为数字，如果为数字则按数值类型进行分区
-            if (isNumericType(minStr, maxStr) && minStr.length()==maxStr.length()) {
-                // 数值字符串使用数值分区策略
-                logInfo("表 " + tableMeta.getTable() + " 的主键类型为字符串，但包含数值字符，使用数值分区策略");
-                return generateStringAsNumericPartitionSql(tableName, pkName, minStr, maxStr);
-            } else {
-                // 非数字字符串使用字符分区策略
-                logInfo("表 " + tableMeta.getTable() + " 的主键类型为字符串，不包含数值字符，使用字符分区策略");
-                return generateStringPartitionByChar(tableName, pkName, minStr, maxStr);
-            }
-        } else {
-            // 其他类型使用普通查询
-            logInfo("表 " + tableMeta.getTable() + " 的主键类型不支持分区，使用普通查询");
-            sqlList.add("SELECT * FROM " + tableName);
-        }
-        
-        return sqlList;
-    }
-
-    /**
-     * 生成基于字符的字符串分区SQL，确保字符在0-9,a-z范围内进行分区
-     */
-    private List<String> generateStringPartitionByChar(String tableName, String pkName, String minStr, String maxStr) {
-        List<String> sqlList = new ArrayList<>();
-        
-        // 只取第一个字符进行分区
-        char minChar = minStr.charAt(0);
-        char maxChar = maxStr.charAt(0);
-        
-        // 检查字符是否在有效范围内（0-9, a-z）
-        if (!(isValidCharRange(minChar)&& isValidCharRange(maxChar))) {
-            logInfo("表 " + tableName + " 的主键字符范围超出0-9,a-z，使用普通查询");
-            sqlList.add("SELECT * FROM " + tableName);
-            return sqlList;
-        }
-        
-        // 转换为统一的数值范围进行分区计算
-        int minVal = charToNumericValue(minChar);
-        int maxVal = charToNumericValue(maxChar);
-        int charRange = maxVal - minVal;
-
-        if (charRange <= 1) {
-            sqlList.add("SELECT * FROM " + tableName);
-            return sqlList;
-        }
-
-        int tablePartitionCount = Math.min(partitionCount, charRange);
-        int partitionSize = Math.max(1, charRange / tablePartitionCount);
-
-        for (int i = 0; i < tablePartitionCount; i++) {
-            int startVal = minVal + i * partitionSize;
-            int endVal = startVal + partitionSize;
-            String startChar = String.valueOf(numericValueToChar(startVal));
-            String endChar = String.valueOf(numericValueToChar(endVal));
-            if(i == 0){
-                startChar = minStr;
-            }
-            String sql = String.format("SELECT * FROM %s WHERE %s >= '%s' AND %s < '%s'", tableName, pkName, startChar, pkName, endChar);
-            if(i == tablePartitionCount - 1){
-                endChar = maxStr;
-                sql = String.format("SELECT * FROM %s WHERE %s >= '%s' AND %s <= '%s'", tableName, pkName, startChar, pkName, endChar);
-            }
-            sqlList.add(sql);
-        }
-
-        return sqlList;
-    }
-    /**
-     * 检查字符是否在有效范围内（0-9, a-z）
-     */
-    private boolean isValidCharRange(char c) {
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z');
-    }
-    
-    /**
-     * 将字符转换为统一的数值（0-9: 0-9, a-z: 10-35）
-     */
-    private int charToNumericValue(char c) {
-        if (c >= '0' && c <= '9') {
-            return c - '0';
-        } else if (c >= 'a' && c <= 'z') {
-            return 10 + (c - 'a');
-        }
-        return 0; // 不应该发生，因为前面已经检查过范围
-    }
-
-    /**
-     * 将数值转换回字符
-     */
-    private char numericValueToChar(int value) {
-        if (value >= 0 && value <= 9) {
-            return (char) ('0' + value);
-        } else if (value >= 10 && value <= 35) {
-            return (char) ('a' + (value - 10));
-        }
-        return '0'; // 默认值
-    }
-
-    private List<String> generateNumericPartitionSql(String tableName, String pkName, Object minStr, Object maxStr) {
-        List<String> sqlList = new ArrayList<>();
-        // 数值类型分区
-        long min = ((Number) minStr).longValue();
-        long max = ((Number) maxStr).longValue();
-        long range = max - min;
-
-        if (range == 0 ) {
-            sqlList.add("SELECT * FROM " + tableName);
-            return sqlList;
-        }
-
-        long tablePartitionCount = Math.min(partitionCount, range);
-        long partitionSize = Math.max(1, range / tablePartitionCount);
-
-        for (int i = 0; i < tablePartitionCount; i++) {
-            long start = min + i * partitionSize;
-            long end = start + partitionSize;
-            String sql = String.format("SELECT * FROM %s WHERE %s >= %d AND %s < %d", tableName, pkName, start, pkName, end);
-            if(i == tablePartitionCount - 1){
-                end = max;
-                sql = String.format("SELECT * FROM %s WHERE %s >= %d AND %s <= %d", tableName, pkName, start, pkName, end);
-            }
-            sqlList.add(sql);
-        }
-        return sqlList;
-    }
-
-    private List<String> generateStringAsNumericPartitionSql(String tableName, String pkName, Object minStr, Object maxStr) {
-        List<String> sqlList = new ArrayList<>();
-        // 数值类型分区
-        long min = Long.parseLong(minStr.toString());
-        long max = Long.parseLong(maxStr.toString());
-        long range = max - min;
-
-        if (range < 0) {
-            return generateStringPartitionByChar(tableName, pkName, minStr.toString(), maxStr.toString());
-        }
-
-        if (range == 0 ) {
-            sqlList.add("SELECT * FROM " + tableName);
-            return sqlList;
-        }
-
-        long tablePartitionCount = Math.min(partitionCount, range);
-        long partitionSize = Math.max(1, range / tablePartitionCount);
-
-        for (int i = 0; i < tablePartitionCount; i++) {
-            long start = min + i * partitionSize;
-            long end = start + partitionSize;
-            String sql = String.format("SELECT * FROM %s WHERE %s >= '%d' AND %s < '%d'", tableName, pkName, start, pkName, end);
-            if(i == tablePartitionCount - 1){
-                end = max;
-                sql = String.format("SELECT * FROM %s WHERE %s >= '%d' AND %s <= '%d'", tableName, pkName, start, pkName, end);
-            }
-            sqlList.add(sql);
-        }
-        return sqlList;
-    }
-
-
-    /**
-     * 判断是否为数值类型
-     */
-    private boolean isNumericType(String type) {
-        if (type == null) return false;
-        String typeUpper = type.toUpperCase();
-        return typeUpper.contains("INT") || typeUpper.contains("NUM") || 
-               typeUpper.contains("DECIMAL") || typeUpper.contains("FLOAT") || 
-               typeUpper.contains("DOUBLE") || typeUpper.contains("REAL");
-    }
-
-    private boolean isNumericType(String min, String max) {
-        // 判断字符串是否是数字
-        boolean isNumeric = false;
-        try {
-            Long.parseLong(min);
-            Long.parseLong(max);
-            isNumeric = true;
-        } catch (NumberFormatException ignored) {
-        }
-        return isNumeric;
-    }
-
-    /**
-     * 判断是否为字符串类型
-     */
-    private boolean isStringType(String type) {
-        if (type == null) return false;
-        String typeUpper = type.toUpperCase();
-        return typeUpper.contains("CHAR") || typeUpper.contains("TEXT") || 
-               typeUpper.contains("VARCHAR") || typeUpper.contains("STRING");
     }
 
     /**

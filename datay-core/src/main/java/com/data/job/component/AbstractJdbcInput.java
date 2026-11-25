@@ -6,6 +6,7 @@ import com.data.expression.ParameterUtil;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.job.util.TablePartitionPlanner;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
@@ -13,6 +14,7 @@ import com.data.metadata.util.DBUtils;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -26,6 +28,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * JDBC 输入组件抽象基类。
@@ -50,8 +54,23 @@ public abstract class AbstractJdbcInput extends FlowComponent {
     // 流式读取配置
     protected static final int FETCH_SIZE = 10000;
 
-    // 增量同步状态存储（多表支持）
-    protected final Map<String, Object> lastIncrValues = new HashMap<>();
+    // 增量同步状态存储（多表支持）：本次运行观察到的最新值
+    protected final Map<String, Object> lastIncrValues = new ConcurrentHashMap<>();
+
+    // 本次运行启动时加载的历史增量水位，用于构建查询条件；运行期间不随读取推进
+    protected final Map<String, Object> loadedIncrValues = new ConcurrentHashMap<>();
+
+    // 分区方案缓存，避免每个并发线程重复查询 MIN/MAX
+    private final Map<String, TablePartitionPlanner.Plan> partitionPlanCache = new ConcurrentHashMap<>();
+
+    // 每张表尚未完成的并发线程数，最后一个完成的线程负责落盘增量水位
+    private final Map<String, AtomicInteger> tablePendingWorkers = new ConcurrentHashMap<>();
+
+    // 增量水位是否已加载：并发线程只加载一次，避免读到本次运行中途推进的水位
+    private boolean incrStatusLoaded = false;
+
+    // 任一并发线程读取失败时，禁止推进增量水位
+    private volatile boolean partitionReadFailed = false;
 
     protected AbstractJdbcInput() {
         setType(ComponentType.SOURCE);
@@ -104,19 +123,47 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         try (Connection srcConn = getSourceConnection()) {
             beforeProcess();
             try {
-                for (String tableName : tables) {
+                String sourceDBType = DBUtils.getDBType(datasource.getType(), datasource.getUrl());
+                for (int tableIndex = 0; tableIndex < tables.size(); tableIndex++) {
+                    String tableName = tables.get(tableIndex);
+                    TableMeta srcTable = DBUtils.getTableMetaData(srcConn, resolveSchema(), tableName.trim());
+                    srcTable.setDbType(sourceDBType);
+
+                    String tableIncrColumn = incrColumns.get(tableName.trim());
+                    boolean success = false;
                     try {
-                        String sourceDBType = DBUtils.getDBType(datasource.getType(), datasource.getUrl());
-                        TableMeta srcTable = DBUtils.getTableMetaData(srcConn, resolveSchema(), tableName.trim());
-                        srcTable.setDbType(sourceDBType);
-
-                        String tableIncrColumn = incrColumns.get(tableName.trim());
-
-                        beforeMigrateTable(srcTable);
-                        migrateData(srcConn, srcTable, tableIncrColumn, flowFile);
+                        // 调试模式仅保留 0 号线程采样，避免并发线程重复采样
+                        if (isDebugMode() && getParallelism() > 1 && getWorkerIndex() != 0) {
+                            logInfo("调试模式：当前线程 " + getWorkerIndex() + " 不参与采样，表 " + tableName);
+                            success = true;
+                            continue;
+                        }
+                        TablePartitionPlanner.Plan plan = resolvePartitionPlan(srcConn, srcTable, tableIncrColumn);
+                        if (plan.isPartitionable()) {
+                            String partitionPredicate = plan.predicate(getWorkerIndex());
+                            if (partitionPredicate == null) {
+                                logInfo("表 " + tableName + " 实际分区数 " + plan.size()
+                                    + " 小于并发数 " + getParallelism()
+                                    + "，当前线程 " + getWorkerIndex() + " 没有对应分区，跳过");
+                                success = true;
+                                continue;
+                            }
+                            beforeMigrateTable(srcTable);
+                            migrateData(srcConn, srcTable, tableIncrColumn, flowFile, partitionPredicate);
+                        } else if (shouldHandleWholeTable(tableIndex)) {
+                            beforeMigrateTable(srcTable);
+                            migrateData(srcConn, srcTable, tableIncrColumn, flowFile);
+                        } else {
+                            logInfo("表 " + tableName + " 不可分区，由线程 "
+                                + (tableIndex % Math.max(1, getParallelism())) + " 读取，当前线程 "
+                                + getWorkerIndex() + " 跳过");
+                        }
+                        success = true;
                     } catch (SQLException e) {
                         logInfo("处理表 " + tableName + " 时发生错误: " + e.getMessage());
                         throw new RuntimeException("数据迁移失败", e);
+                    } finally {
+                        finishTable(srcTable, success);
                     }
                 }
             } finally {
@@ -125,6 +172,123 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         } catch (SQLException e) {
             logInfo("数据库连接失败: " + e.getMessage());
             throw new RuntimeException("数据迁移失败", e);
+        }
+    }
+
+    /**
+     * 判断当前线程是否负责整表读取（表不可分区时的兜底：按表序号分发）。
+     */
+    private boolean shouldHandleWholeTable(int tableIndex) {
+        int parallelism = Math.max(1, getParallelism());
+        return parallelism <= 1 || tableIndex % parallelism == getWorkerIndex();
+    }
+
+    /**
+     * 解析当前表的分区方案。
+     * <p>并发数大于 1 时自动尝试分区，分区字段按默认策略选择：优先增量字段，其次单列主键；
+     * 并发数为 1、调试模式或没有可用分区字段时返回空方案（由调用方回退为普通查询 / 按表分发）。</p>
+     */
+    private TablePartitionPlanner.Plan resolvePartitionPlan(Connection conn, TableMeta srcTable, String tableIncrColumn) {
+        if (getParallelism() <= 1 || isDebugMode()) {
+            return TablePartitionPlanner.Plan.empty();
+        }
+        ColumnMeta column = resolvePartitionColumn(srcTable, tableIncrColumn);
+        if (column == null) {
+            logInfo("表 " + srcTable.getTable() + " 没有可用的分区字段，使用普通查询");
+            return TablePartitionPlanner.Plan.empty();
+        }
+        String qualifiedTable = qualifyTable(srcTable);
+        String cacheKey = qualifiedTable + "|" + column.getName() + "|" + getParallelism();
+        return partitionPlanCache.computeIfAbsent(cacheKey, key -> {
+            try {
+                Object[] minMax = TablePartitionPlanner.queryMinMax(conn, qualifiedTable, column.getName());
+                if (minMax == null) {
+                    logInfo("表 " + srcTable.getTable() + " 的分区字段 " + column.getName() + " 范围为空，使用普通查询");
+                    return TablePartitionPlanner.Plan.empty();
+                }
+                TablePartitionPlanner.Plan plan =
+                    TablePartitionPlanner.plan(column, minMax[0], minMax[1], getParallelism());
+                logInfo("表 " + srcTable.getTable() + " 使用字段 " + column.getName()
+                    + " 分区，范围 " + minMax[0] + " - " + minMax[1]
+                    + "，实际分区数 " + plan.size());
+                return plan;
+            } catch (SQLException e) {
+                logInfo("获取表 " + srcTable.getTable() + " 分区范围失败: " + e.getMessage());
+                return TablePartitionPlanner.Plan.empty();
+            }
+        });
+    }
+
+    /**
+     * 按默认策略选择分区字段：优先增量字段，其次单列主键；没有可用字段时返回 null。
+     */
+    private ColumnMeta resolvePartitionColumn(TableMeta srcTable, String tableIncrColumn) {
+        if (tableIncrColumn != null && !tableIncrColumn.trim().isEmpty()) {
+            ColumnMeta incr = findColumn(srcTable, tableIncrColumn.trim());
+            if (incr != null && TablePartitionPlanner.supports(incr)) {
+                return incr;
+            }
+        }
+        List<ColumnMeta> primaryKeys = new ArrayList<>();
+        for (ColumnMeta column : srcTable.columns()) {
+            if (column.isPrimaryKey()) {
+                primaryKeys.add(column);
+            }
+        }
+        if (primaryKeys.size() == 1 && TablePartitionPlanner.supports(primaryKeys.get(0))) {
+            return primaryKeys.get(0);
+        }
+        return null;
+    }
+
+    private ColumnMeta findColumn(TableMeta table, String columnName) {
+        for (ColumnMeta column : table.columns()) {
+            if (column.getName() != null && column.getName().equalsIgnoreCase(columnName)) {
+                return column;
+            }
+        }
+        return null;
+    }
+
+    private String qualifyTable(TableMeta table) {
+        String tableSchema = table.getSchema();
+        if (tableSchema == null || tableSchema.trim().isEmpty()) {
+            tableSchema = resolveSchema();
+        }
+        if (tableSchema == null || tableSchema.trim().isEmpty()) {
+            return table.getTable();
+        }
+        return tableSchema + "." + table.getTable();
+    }
+
+    /**
+     * 当前线程处理完一张表后调用：等所有并发线程都完成后，由最后一个线程落盘增量水位。
+     */
+    private void finishTable(TableMeta srcTable, boolean success) {
+        if (!success) {
+            partitionReadFailed = true;
+        }
+        int parallelism = Math.max(1, getParallelism());
+        if (parallelism <= 1) {
+            if (success) {
+                persistTableStatus(srcTable);
+            }
+            return;
+        }
+        AtomicInteger pending = tablePendingWorkers.computeIfAbsent(
+            srcTable.getTable(), key -> new AtomicInteger(parallelism));
+        if (pending.decrementAndGet() == 0) {
+            tablePendingWorkers.remove(srcTable.getTable(), pending);
+            if (!partitionReadFailed) {
+                persistTableStatus(srcTable);
+            }
+        }
+    }
+
+    private void persistTableStatus(TableMeta srcTable) {
+        Object lastValue = lastIncrValues.get(srcTable.getTable());
+        if (lastValue != null) {
+            persistIncrStatus(srcTable, lastValue);
         }
     }
 
@@ -167,6 +331,8 @@ public abstract class AbstractJdbcInput extends FlowComponent {
                     }
                     tables.add(tableName);
                 }
+                // 并发线程需要一致的顺序，保证不可分区时按表序号分发不会重复或遗漏
+                tables.sort(String::compareToIgnoreCase);
                 logInfo("获取schema " + schema + " 下的所有表，共 " + tables.size() + " 个表.");
                 return tables;
             } catch (SQLException e) {
@@ -215,16 +381,22 @@ public abstract class AbstractJdbcInput extends FlowComponent {
 
     /**
      * 加载增量同步状态。
+     * <p>并发读取时多个线程共享同一个组件实例，只允许加载一次，避免线程读到本次运行中途推进的水位。</p>
      */
-    protected void loadIncrStatus(Map<String, String> incrColumns) {
+    protected synchronized void loadIncrStatus(Map<String, String> incrColumns) {
+        if (incrStatusLoaded) {
+            return;
+        }
         for (String tableName : incrColumns.keySet()) {
             String statusKey = "lastIncrValue." + tableName;
             Object lastValue = getStatus(statusKey);
             if (lastValue != null) {
+                loadedIncrValues.put(tableName, lastValue);
                 lastIncrValues.put(tableName, lastValue);
                 logInfo("加载表 " + tableName + " 的上次增量值: " + lastValue);
             }
         }
+        incrStatusLoaded = true;
     }
 
     /**
@@ -241,28 +413,54 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      */
     protected void migrateData(Connection srcConn, TableMeta srcTable, String tableIncrColumn, FlowFile flowFile)
             throws SQLException {
-        String srcQuery = buildQuery(srcTable, tableIncrColumn, flowFile);
+        migrateData(srcConn, srcTable, tableIncrColumn, flowFile, null);
+    }
+
+    /**
+     * 流式读取单表数据并分批交给子类处理。
+     *
+     * @param flowFile          触发本次读取的 FlowFile，用于解析 WHERE 条件中的动态参数
+     * @param partitionPredicate 当前线程负责的分区谓词，为 {@code null} 时读取整表
+     */
+    protected void migrateData(Connection srcConn, TableMeta srcTable, String tableIncrColumn, FlowFile flowFile,
+                               String partitionPredicate) throws SQLException {
+        String srcQuery = buildQuery(srcTable, tableIncrColumn, flowFile, partitionPredicate);
         logInfo("执行查询: " + srcQuery);
 
         try (Statement srcStmt = DBUtils.createStreamStatement(srcTable.getDbType(), srcConn);
              ResultSet rs = srcStmt.executeQuery(srcQuery)) {
+            // 列名/类型在查询期间固定，提前读一次，避免每行每列都调用 getMetaData()
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            String[] columnNames = new String[columnCount + 1];
+            int[] columnTypes = new int[columnCount + 1];
+            int incrColumnIndex = -1;
+            for (int i = 1; i <= columnCount; i++) {
+                columnNames[i] = metaData.getColumnName(i);
+                columnTypes[i] = metaData.getColumnType(i);
+                if (incrColumnIndex < 0 && tableIncrColumn != null && tableIncrColumn.equals(columnNames[i])) {
+                    incrColumnIndex = i;
+                }
+            }
+
             int batchCount = 0;
             List<JSONObject> batchRecords = new ArrayList<>();
             Object currentTableLastIncrValue = lastIncrValues.get(srcTable.getTable());
 
             while (rs.next()) {
-                JSONObject jsonRecord = new JSONObject();
-                for (int i = 1; i <= srcTable.columns().size(); i++) {
-                    String columnName = rs.getMetaData().getColumnName(i);
-                    int incrColumnSqlType = rs.getMetaData().getColumnType(i);
+                JSONObject jsonRecord = new JSONObject(columnCount);
+                for (int i = 1; i <= columnCount; i++) {
+                    int incrColumnSqlType = columnTypes[i];
                     Object value = readColumnValue(rs, i, incrColumnSqlType, srcTable);
-                    jsonRecord.put(columnName, value);
+                    jsonRecord.put(columnNames[i], value);
 
-                    // 记录增量字段的最大值
-                    if (tableIncrColumn != null && tableIncrColumn.equals(columnName)) {
+                    // 记录增量字段的最大值；并发读取时共享水位只增不减
+                    if (i == incrColumnIndex) {
                         if (currentTableLastIncrValue == null || compareIncrValue(value, currentTableLastIncrValue, incrColumnSqlType) > 0) {
                             currentTableLastIncrValue = value;
-                            lastIncrValues.put(srcTable.getTable(), currentTableLastIncrValue);
+                            final int sqlType = incrColumnSqlType;
+                            lastIncrValues.merge(srcTable.getTable(), value, (oldValue, newValue) ->
+                                compareIncrValue(newValue, oldValue, sqlType) > 0 ? newValue : oldValue);
                         }
                     }
                 }
@@ -289,11 +487,6 @@ public abstract class AbstractJdbcInput extends FlowComponent {
             }
 
             logInfo("表 " + srcTable.getTable() + " 同步完成，共处理 " + batchCount + " 条记录");
-
-            // 持久化增量状态
-            if (currentTableLastIncrValue != null) {
-                persistIncrStatus(srcTable, currentTableLastIncrValue);
-            }
         }
     }
 
@@ -446,7 +639,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      * 构建查询语句，支持增量同步与 where 动态参数替换（多表版本）。
      */
     protected String buildQuery(TableMeta srcTable, String tableIncrColumn) {
-        return buildQuery(srcTable, tableIncrColumn, null);
+        return buildQuery(srcTable, tableIncrColumn, null, null);
     }
 
     /**
@@ -456,6 +649,15 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      *                 {@code #{...}} 内置参数，属性类参数保持原样
      */
     protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile) {
+        return buildQuery(srcTable, tableIncrColumn, flowFile, null);
+    }
+
+    /**
+     * 构建查询语句，支持增量同步、where 动态参数替换和分区谓词（多表版本）。
+     *
+     * @param partitionPredicate 当前线程负责的分区谓词，为 {@code null} 时不追加分区条件
+     */
+    protected String buildQuery(TableMeta srcTable, String tableIncrColumn, FlowFile flowFile, String partitionPredicate) {
         StringBuilder query = new StringBuilder();
         query.append("SELECT * FROM ");
         String tableSchema = srcTable.getSchema();
@@ -464,34 +666,38 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         }
         query.append(srcTable.getTable());
 
+        boolean hasCondition = false;
+
         // 处理 where 条件，支持 ${ytenantid} 以及 ${attr:属性名}、${属性名}、${FLOW_FILE_DATA}、#{...} 等动态参数
         String processedWhere = resolveWhere(where, flowFile);
-
-        // 如果where条件不为空，添加where条件
         if (processedWhere != null && !processedWhere.trim().isEmpty()) {
             query.append(" WHERE ").append(processedWhere);
+            hasCondition = true;
         }
 
         // 如果增量字段不为空，添加增量条件
         if (tableIncrColumn != null && !tableIncrColumn.trim().isEmpty()) {
-            Object lastIncrValue = lastIncrValues.get(srcTable.getTable());
+            Object lastIncrValue = loadedIncrValues.get(srcTable.getTable());
             if (lastIncrValue != null) {
-                if (processedWhere != null && !processedWhere.trim().isEmpty()) {
-                    query.append(" AND ");
-                } else {
-                    query.append(" WHERE ");
-                }
+                query.append(hasCondition ? " AND " : " WHERE ");
                 // 如果上次有保存的增量值，查询大于该值的记录
                 if (lastIncrValue instanceof String) {
                     query.append(tableIncrColumn).append(" > '").append(lastIncrValue).append("'");
                 } else {
                     query.append(tableIncrColumn).append(" > ").append(lastIncrValue);
                 }
+                hasCondition = true;
                 logInfo("表 " + srcTable.getTable() + " 使用增量同步，查询条件: " + tableIncrColumn + " > " + lastIncrValue);
             } else {
                 // 第一次执行，查询所有记录
                 logInfo("表 " + srcTable.getTable() + " 首次增量同步，查询所有记录");
             }
+        }
+
+        // 追加当前线程负责的分区条件
+        if (partitionPredicate != null && !partitionPredicate.trim().isEmpty()) {
+            query.append(hasCondition ? " AND " : " WHERE ");
+            query.append("(").append(partitionPredicate).append(")");
         }
 
         String sql = query.toString();
@@ -539,6 +745,13 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         }
     }
 
+    /**
+     * 当前是否处于调试模式。
+     */
+    protected boolean isDebugMode() {
+        return getContext() != null && getContext().isDebugMode();
+    }
+
     // 自动注入参数的setters
     public void setTable(String table) {
         this.table = table;
@@ -577,6 +790,7 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      */
     public void setLastIncrValue(String tableName, Object lastIncrValue) {
         this.lastIncrValues.put(tableName, lastIncrValue);
+        this.loadedIncrValues.put(tableName, lastIncrValue);
     }
 
     /**

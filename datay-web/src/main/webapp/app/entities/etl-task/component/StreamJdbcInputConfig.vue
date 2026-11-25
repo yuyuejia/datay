@@ -22,6 +22,7 @@
           @selected="handleTablesSelected"
         />
         <small class="form-text text-muted"> 不选择任何表时，表示同步该 schema 下的所有表 </small>
+        <small class="form-text text-muted"> 并发数大于 1 时自动按增量字段或单列主键分区；没有可用字段时整表读取 </small>
     </el-form-item>
       <el-form-item label="同步模式">
       <el-select id="syncMode" name="syncMode" v-model="formData.syncMode">
