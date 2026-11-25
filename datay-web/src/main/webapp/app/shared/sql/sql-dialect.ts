@@ -16,6 +16,37 @@ export interface SqlDialect {
   limit: (baseSql: string, limit: number) => string;
 }
 
+/**
+ * 组装限定表名。
+ *
+ * <p>部分数据源会把同一个命名空间同时暴露为 catalog 和 schema（例如 ClickHouse 把 database
+ * 同时作为 catalog 与 schema），此时只能生成 {@code database.table}，不能生成三段
+ * {@code catalog.schema.table}，否则 ClickHouse 会把第三段解析成表名的一部分并报语法错误。</p>
+ *
+ * @param quote   标识符引用方法
+ * @param catalog catalog / database 名，可为空
+ * @param schema  schema 名，可为空；与 catalog 相同则忽略
+ * @param table   表名
+ */
+export function qualifiedTableName(
+  quote: (identifier: string) => string,
+  catalog?: string | null,
+  schema?: string | null,
+  table?: string | null,
+): string {
+  const parts: string[] = [];
+  if (catalog) {
+    parts.push(catalog);
+  }
+  if (schema && (!catalog || schema.toUpperCase() !== catalog.toUpperCase())) {
+    parts.push(schema);
+  }
+  if (table) {
+    parts.push(table);
+  }
+  return parts.map(quote).join('.');
+}
+
 const BACKTICK_TYPES = ['MYSQL', 'TIDB', 'DORIS', 'CLICKHOUSE', 'TDENGINE'];
 const BRACKET_TYPES = ['SQLSERVER', 'SQL_SERVER', 'MSSQL'];
 

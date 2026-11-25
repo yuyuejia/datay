@@ -7,7 +7,7 @@ import { type IDataSource } from '@/shared/model/data-source.model';
 import { type IETLTaskDirectory } from '@/shared/model/etl-task-directory.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 import DataQueryAi from '@/entities/data-source/data-query-ai.vue';
-import { getSqlDialect } from '@/shared/sql/sql-dialect';
+import { getSqlDialect, qualifiedTableName } from '@/shared/sql/sql-dialect';
 
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
@@ -486,9 +486,7 @@ export default defineComponent({
 
     const buildSelectSql = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 10) => {
       const dialect = getDialect();
-      const catalogPart = catalog ? `${dialect.quote(catalog)}.` : '';
-      const schemaPart = schema ? `${dialect.quote(schema)}.` : '';
-      const rawSql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
+      const rawSql = `SELECT * FROM ${qualifiedTableName(dialect.quote, catalog, schema, tableName)}`;
       return dialect.limit(rawSql, limit);
     };
 

@@ -13,7 +13,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { format } from 'sql-formatter';
 import DataQueryAi from './data-query-ai.vue';
 import TableLineage from './TableLineage.vue';
-import { getSqlDialect } from '@/shared/sql/sql-dialect';
+import { getSqlDialect, qualifiedTableName } from '@/shared/sql/sql-dialect';
 
 interface TableNode {
   id: string;
@@ -865,21 +865,14 @@ export default defineComponent({
 
     const getDialect = () => getSqlDialect(dataSourceType.value);
 
-    const qualifiedName = (data: TableNode, quote: (id: string) => string) => {
-      const parts: string[] = [];
-      if (data.catalog) parts.push(quote(data.catalog));
-      if (data.schema) parts.push(quote(data.schema));
-      parts.push(quote(data.name));
-      return parts.join('.');
-    };
+    const qualifiedName = (data: TableNode, quote: (id: string) => string) =>
+      qualifiedTableName(quote, data.catalog, data.schema, data.name);
 
     const isDocumentDataSource = () => (dataSourceType.value || '').toUpperCase().includes('MONGO');
 
     const buildSelectSql = (catalog: string | undefined, schema: string | undefined, tableName: string, limit = 100) => {
       const dialect = getDialect();
-      const catalogPart = catalog ? `${dialect.quote(catalog)}.` : '';
-      const schemaPart = schema ? `${dialect.quote(schema)}.` : '';
-      const baseSql = `SELECT * FROM ${catalogPart}${schemaPart}${dialect.quote(tableName)}`;
+      const baseSql = `SELECT * FROM ${qualifiedTableName(dialect.quote, catalog, schema, tableName)}`;
       return dialect.limit(baseSql, limit);
     };
 

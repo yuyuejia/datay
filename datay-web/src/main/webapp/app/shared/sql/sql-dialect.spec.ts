@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSqlDialect } from './sql-dialect';
+import { getSqlDialect, qualifiedTableName } from './sql-dialect';
 
 describe('getSqlDialect', () => {
   it('SQL Server 使用方括号并生成 SELECT TOP 语句', () => {
@@ -29,5 +29,21 @@ describe('getSqlDialect', () => {
     expect(dialect.quote('public')).toBe('"public"');
     expect(dialect.limit('SELECT * FROM "public"."t"', 20)).toBe('SELECT * FROM "public"."t" LIMIT 20;');
     expect(getSqlDialect('DUCKDB').limit('SELECT * FROM t', 20)).toBe('SELECT * FROM t LIMIT 20;');
+  });
+});
+
+describe('qualifiedTableName', () => {
+  const dialect = getSqlDialect('CLICKHOUSE');
+
+  it('catalog 与 schema 相同时只保留一段，避免 ClickHouse 三段表名', () => {
+    expect(qualifiedTableName(dialect.quote, 'default', 'default', 'ch_types')).toBe('`default`.`ch_types`');
+  });
+
+  it('catalog 与 schema 不同时保留完整限定名', () => {
+    expect(qualifiedTableName(dialect.quote, 'warehouse', 'public', 'orders')).toBe('`warehouse`.`public`.`orders`');
+  });
+
+  it('仅有 schema 时生成两段表名', () => {
+    expect(qualifiedTableName(dialect.quote, undefined, 'default', 'ch_types')).toBe('`default`.`ch_types`');
   });
 });
