@@ -1,10 +1,12 @@
 package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.expression.ParameterUtil;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 
@@ -40,6 +42,10 @@ public abstract class AbstractJdbcInput extends FlowComponent {
     protected String where;
     protected String ytenantId;
     protected DatasourceInfo datasource;
+
+    // 源端 Provider 缓存，避免逐行解析 JDBC URL
+    private JdbcDataSourceProvider sourceProvider;
+    private boolean sourceProviderResolved;
 
     // 流式读取配置
     protected static final int FETCH_SIZE = 10000;
@@ -298,26 +304,53 @@ public abstract class AbstractJdbcInput extends FlowComponent {
      * 后续按 UTC 还原会发生时区偏移（如 12:34 变 04:34），因此直接读取为 {@link LocalTime}。
      */
     protected Object readColumnValue(ResultSet rs, int index, int sqlType, TableMeta table) throws SQLException {
+        Object value;
         if (sqlType == Types.TIME) {
             // JDBC 的 TIME 是本地墙上时间，直接读取为 LocalTime，避免按 UTC 还原导致时区偏移
+            value = null;
             try {
-                Object value = rs.getObject(index, LocalTime.class);
-                if (value != null) {
-                    return value;
-                }
+                value = rs.getObject(index, LocalTime.class);
             } catch (SQLException | AbstractMethodError | UnsupportedOperationException e) {
                 // 驱动不支持 java.time 时退回 java.sql.Time
             }
-            java.sql.Time time = rs.getTime(index);
-            return time == null ? null : time.toLocalTime();
-        }
-        if (table != null && "SQLSERVER".equalsIgnoreCase(table.getDbType())) {
+            if (value == null) {
+                java.sql.Time time = rs.getTime(index);
+                value = time == null ? null : time.toLocalTime();
+            }
+        } else if (table != null && "SQLSERVER".equalsIgnoreCase(table.getDbType())) {
             String typeName = rs.getMetaData().getColumnTypeName(index);
             if ("datetimeoffset".equalsIgnoreCase(typeName)) {
-                return rs.getObject(index, OffsetDateTime.class);
+                value = rs.getObject(index, OffsetDateTime.class);
+            } else {
+                value = rs.getObject(index);
             }
+        } else {
+            value = rs.getObject(index);
         }
-        return rs.getObject(index);
+        return normalizeReadValue(table, index, value);
+    }
+
+    /**
+     * 按源端 Provider 归一化列值（如 ClickHouse 数组 -> JSONArray、无符号整数 -> BigInteger）。
+     */
+    private Object normalizeReadValue(TableMeta table, int index, Object value) {
+        JdbcDataSourceProvider provider = resolveSourceProvider();
+        if (provider == null) {
+            return value;
+        }
+        ColumnMeta column = null;
+        if (table != null && index > 0 && index <= table.columns().size()) {
+            column = table.columns().get(index - 1);
+        }
+        return provider.normalizeReadValue(column, value);
+    }
+
+    private JdbcDataSourceProvider resolveSourceProvider() {
+        if (!sourceProviderResolved) {
+            sourceProvider = DBUtils.resolveJdbcProvider(datasource);
+            sourceProviderResolved = true;
+        }
+        return sourceProvider;
     }
 
     /**

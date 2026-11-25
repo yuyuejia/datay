@@ -29,6 +29,7 @@ public class DatabaseConverter {
         converters.put("tidb", new TidbConverter());
         converters.put("duckdb", new DuckDBConverter());
         converters.put("ducklake", new DuckLakeConverter());
+        converters.put("clickhouse", new ClickHouseConverter());
         converters.put("polaris", new PolarisConverter());
         converters.put("oracle", new OracleConverter());
         converters.put("postgresql", new PostgresqlConverter());
@@ -119,7 +120,17 @@ public class DatabaseConverter {
         if (targetConverter == null) {
             throw new IllegalArgumentException("未注册的数据库类型转换器");
         }
-        ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(sourceColumnMeta, sourceDB);
+        // ClickHouse 源类型（UInt*/Array/Map/DateTime64 等）在写入其它数据库前先归一化为通用类型，
+        // 避免目标方言把 UInt64 映射成有符号 BIGINT、把 Array 映射成无法识别的 VARCHAR。
+        ColumnMeta normalizedSource = sourceColumnMeta;
+        if (
+            targetDB != null &&
+            !"clickhouse".equalsIgnoreCase(targetDB) &&
+            ClickHouseConverter.isClickHouseSource(sourceDB, sourceColumnMeta.getType())
+        ) {
+            normalizedSource = ClickHouseConverter.normalizeSourceColumn(sourceColumnMeta);
+        }
+        ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(normalizedSource, sourceDB);
 
         // 两级转换
         //        ColumnMeta ColumnMeta = sourceConverter.toLogicalType(sourceColumnMeta);

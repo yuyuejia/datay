@@ -5,6 +5,7 @@ import com.data.datasource.QueryResult;
 import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import com.data.metadata.TableMeta;
+import com.data.metadata.util.JdbcValueNormalizer;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
@@ -16,6 +17,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -262,40 +264,50 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         if (value == null) {
             return null;
         }
-        if (value instanceof BigDecimal) {
-            return ((BigDecimal) value).doubleValue();
+        Object normalized = JdbcValueNormalizer.normalize(value);
+        if (normalized == null) {
+            return null;
         }
-        if (value instanceof String || value instanceof Boolean || value instanceof Number) {
-            return value;
+        // DECIMAL 保留 BigDecimal，避免查询 API 把高精度小数降级成 double。
+        if (normalized instanceof BigDecimal) {
+            return normalized;
+        }
+        if (normalized instanceof String || normalized instanceof Boolean || normalized instanceof Number) {
+            return normalized;
+        }
+        // ClickHouse Array/Map/Tuple 以及 PG 数组等由归一化工具转为 JSONArray/JSONObject，
+        // 直接返回结构化对象让上层序列化为 JSON，而不是输出 [I@ 之类的默认 toString。
+        if (normalized instanceof Map || normalized instanceof Collection) {
+            return normalized;
         }
         // 标准时间类型统一转为字符串展示
         if (
-            value instanceof java.sql.Timestamp ||
-            value instanceof java.sql.Date ||
-            value instanceof java.sql.Time ||
-            value instanceof java.util.Date ||
-            value instanceof java.time.temporal.Temporal
+            normalized instanceof java.sql.Timestamp ||
+            normalized instanceof java.sql.Date ||
+            normalized instanceof java.sql.Time ||
+            normalized instanceof java.util.Date ||
+            normalized instanceof java.time.temporal.Temporal
         ) {
-            return value.toString();
+            return normalized.toString();
         }
-        if (value instanceof byte[]) {
+        if (normalized instanceof byte[]) {
             // 部分驱动（如 TDengine WebSocket）会把 CHAR/VARCHAR 也返回为 byte[]，
             // 按列类型解码为字符串，避免查询预览把文本展示成 [BLOB]。
             if (isCharacterType(sqlType)) {
-                return new String((byte[]) value, StandardCharsets.UTF_8);
+                return new String((byte[]) normalized, StandardCharsets.UTF_8);
             }
             return "[BLOB]";
         }
-        if (value instanceof Clob) {
-            Clob clob = (Clob) value;
+        if (normalized instanceof Clob) {
+            Clob clob = (Clob) normalized;
             return clob.getSubString(1, (int) clob.length());
         }
-        if (value instanceof java.sql.Blob) {
+        if (normalized instanceof java.sql.Blob) {
             return "[BLOB]";
         }
         // 驱动特有类型（如 oracle.sql.TIMESTAMP/RAW/NUMBER、PGobject 等）没有通用序列化支持，
         // 统一降级为其文本表示，避免序列化失败导致查询预览报 500。
-        return value.toString();
+        return normalized.toString();
     }
 
     /**

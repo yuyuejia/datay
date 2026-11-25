@@ -20,6 +20,7 @@ import com.data.datasource.DataSourceProviderFactory;
 import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.metadata.util.DBUtils;
 import com.data.job.DatasourceInfo;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
@@ -253,6 +254,7 @@ public class DataSyncService {
                             tableName,
                             desSchema,
                             tableName,
+                            null,
                             quackTarget
                         );
                     }
@@ -271,6 +273,7 @@ public class DataSyncService {
                         tableConfigDTO.getSrcTableName(),
                         tableConfigDTO.getDesSchemaName(),
                         tableConfigDTO.getDesTableName(),
+                        firstNonBlank(tableConfigDTO.getDesColPks(), tableConfigDTO.getSrcColPks()),
                         quackTarget
                     );
                 }
@@ -287,6 +290,7 @@ public class DataSyncService {
         String srcTableName,
         String desSchema,
         String desTableName,
+        String desColPks,
         boolean quackTarget
     ) throws SQLException {
         String targetSchema = hasText(desSchema) ? desSchema : target.getSchemaName();
@@ -309,6 +313,9 @@ public class DataSyncService {
         if (targetCatalog != null) {
             targetTable.setCatalog(targetCatalog);
         }
+        // 同步任务里配置的目标主键需要落到目标表：ClickHouse 依赖它生成 ORDER BY，
+        // MySQL 等关系库也依赖它生成主键，否则建表会退化成无主键表。
+        applyPrimaryKeys(targetTable, firstNonBlank(desColPks, sourcePrimaryKeys(srcTable)));
         // 目标命名空间准备（如 Iceberg namespace 不存在时自动创建）
         DataSourceProvider targetProvider = DataSourceProviderFactory.provider(target.getType());
         if (targetProvider instanceof JdbcDataSourceProvider jdbcProvider) {
@@ -321,6 +328,81 @@ public class DataSyncService {
         }
         String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
         DBUtils.execute(tConnection, ddl);
+    }
+
+    /**
+     * 将同步配置里的目标主键应用到目标表元数据，并同步去掉主键列的可空标记。
+     */
+    private static void applyPrimaryKeys(TableMeta targetTable, String primaryKeys) {
+        if (targetTable == null || !hasText(primaryKeys)) {
+            return;
+        }
+        Set<String> keys = new LinkedHashSet<>();
+        for (String part : primaryKeys.split(",")) {
+            String key = stripIdentifier(part);
+            if (!key.isEmpty()) {
+                keys.add(key);
+            }
+        }
+        if (keys.isEmpty()) {
+            return;
+        }
+        for (ColumnMeta column : targetTable.columns()) {
+            column.setPrimaryKey(false);
+        }
+        for (ColumnMeta column : targetTable.columns()) {
+            if (containsKeyIgnoreCase(keys, column.getName())) {
+                column.setPrimaryKey(true);
+                column.setNullable(false);
+            }
+        }
+    }
+
+    private static String sourcePrimaryKeys(TableMeta sourceTable) {
+        if (sourceTable == null) {
+            return null;
+        }
+        List<String> keys = new ArrayList<>();
+        for (ColumnMeta column : sourceTable.columns()) {
+            if (column.isPrimaryKey()) {
+                keys.add(column.getName());
+            }
+        }
+        return keys.isEmpty() ? null : String.join(",", keys);
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return hasText(first) ? first : second;
+    }
+
+    private static boolean containsKeyIgnoreCase(Set<String> keys, String name) {
+        if (name == null) {
+            return false;
+        }
+        for (String key : keys) {
+            if (key.equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String stripIdentifier(String value) {
+        if (value == null) {
+            return "";
+        }
+        String result = value.trim();
+        while (result.length() >= 2) {
+            char first = result.charAt(0);
+            char last = result.charAt(result.length() - 1);
+            if ((first == '`' && last == '`') || (first == '"' && last == '"') || (first == '\'' && last == '\'') ||
+                (first == '[' && last == ']')) {
+                result = result.substring(1, result.length() - 1).trim();
+                continue;
+            }
+            break;
+        }
+        return result;
     }
 
     /**

@@ -194,6 +194,17 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 归一化从源表读取到的列值，用于全量同步写入 FlowFile / 目标库。默认原样返回；
+     * 驱动返回值需要转成通用结构（如 ClickHouse 数组、Map、无符号整数）的数据源覆写。
+     *
+     * @param column 列元数据，可为 {@code null}
+     * @param value  JDBC 驱动返回的原始值
+     */
+    public Object normalizeReadValue(ColumnMeta column, Object value) {
+        return value;
+    }
+
+    /**
      * overwrite 模式清空表时是否使用 {@code TRUNCATE}。默认 {@code false}（使用 DELETE）；
      * Doris、StarRocks 等 OLAP 引擎覆写为 {@code true}。
      */

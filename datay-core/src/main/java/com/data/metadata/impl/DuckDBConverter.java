@@ -113,6 +113,7 @@ public class DuckDBConverter implements TypeConverter {
         commonDataType2ColumnType.put("DATETIMEOFFSET", DuckDBType.TIMESTAMPTZ.name());
         commonDataType2ColumnType.put("TIMESTAMPTZ", DuckDBType.TIMESTAMPTZ.name());
         commonDataType2ColumnType.put("UNIQUEIDENTIFIER", DuckDBType.UUID.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), DuckDBType.UUID.name());
         commonDataType2ColumnType.put("NTEXT", DuckDBType.VARCHAR.name());
         commonDataType2ColumnType.put("IMAGE", DuckDBType.BLOB.name());
         commonDataType2ColumnType.put("BIT", DuckDBType.BOOLEAN.name());

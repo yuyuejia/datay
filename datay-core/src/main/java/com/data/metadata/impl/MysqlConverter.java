@@ -123,6 +123,7 @@ public class MysqlConverter implements TypeConverter {
         commonDataType2ColumnType.put("DATETIMEOFFSET", MysqlType.VARCHAR.name());
         commonDataType2ColumnType.put("TIMESTAMPTZ", MysqlType.VARCHAR.name());
         commonDataType2ColumnType.put("UNIQUEIDENTIFIER", MysqlType.CHAR.name());
+        commonDataType2ColumnType.put(AllDataType.UUID.name(), MysqlType.VARCHAR.name());
         commonDataType2ColumnType.put("NTEXT", MysqlType.LONGTEXT.name());
         commonDataType2ColumnType.put("IMAGE", MysqlType.LONGBLOB.name());
         commonDataType2ColumnType.put("REAL", MysqlType.FLOAT.name());

@@ -473,6 +473,10 @@ public class DBUtils {
 
     private static boolean isTextType(String fieldType) {
         String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
+        int parameterStart = type.indexOf('(');
+        if (parameterStart > 0) {
+            type = type.substring(0, parameterStart).trim();
+        }
         return (
             type.equals("VARCHAR") ||
             type.equals("CHAR") ||
@@ -586,6 +590,18 @@ public class DBUtils {
             }
             return value;
         }
+        // ClickHouse 无符号数可能以驱动私有 Number 子类返回；文本目标必须转成数字字符串，
+        // 否则 MySQL 会把 Serializable 对象直接序列化为 BLOB 写入 VARCHAR 列。
+        if (
+            value instanceof Number &&
+            !(value instanceof BigInteger) &&
+            value.getClass().getName().startsWith("com.clickhouse.data.value.Unsigned")
+        ) {
+            value = new BigInteger(value.toString());
+        }
+        if (value instanceof BigInteger) {
+            return normalizeBigIntegerParameter(type, fieldType, (BigInteger) value);
+        }
         if (value instanceof Boolean && (type.contains("INT") || type.startsWith("DECIMAL") || type.startsWith("NUMERIC"))) {
             return ((Boolean) value) ? 1 : 0;
         }
@@ -604,6 +620,27 @@ public class DBUtils {
         }
         if ("DATETIME".equals(type) || "TIMESTAMP".equals(type) || type.endsWith("TIMESTAMP")) {
             return toLocalDateTime(value);
+        }
+        return value;
+    }
+
+    /**
+     * BigInteger 目标类型归一化：文本列保留完整数字字符串，DECIMAL 转 BigDecimal，
+     * 整数列在 long 范围内转 Long，超出范围时保留 BigDecimal 交给驱动判断。
+     */
+    private static Object normalizeBigIntegerParameter(String type, String fieldType, BigInteger value) {
+        if (isTextType(fieldType)) {
+            return value.toString();
+        }
+        if (type.startsWith("DECIMAL") || type.startsWith("NUMERIC") || "NUMBER".equals(type)) {
+            return new BigDecimal(value);
+        }
+        if (type.contains("INT")) {
+            try {
+                return value.longValueExact();
+            } catch (ArithmeticException e) {
+                return new BigDecimal(value);
+            }
         }
         return value;
     }
