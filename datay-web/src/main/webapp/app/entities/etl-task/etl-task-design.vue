@@ -153,12 +153,14 @@ const groupOrder = computed(() =>
 
 const componentSearch = ref('');
 
+/** 元数据采集由数据源页面独立创建，不在 ETL 组件面板中展示。 */
+const INTERNAL_COMPONENT_CODES = new Set(['MetadataCollect']);
+
 /** 批量任务不展示实时输入组件；实时任务不展示批处理才支持的数据质量组件。 */
-const visibleComponents = computed(() =>
-  isRealtimeTask.value
-    ? etlComponents.value.filter(comp => comp.group !== '数据质量')
-    : etlComponents.value.filter(comp => comp.group !== '实时输入'),
-);
+const visibleComponents = computed(() => {
+  const components = etlComponents.value.filter(comp => !INTERNAL_COMPONENT_CODES.has(comp.code));
+  return isRealtimeTask.value ? components.filter(comp => comp.group !== '数据质量') : components.filter(comp => comp.group !== '实时输入');
+});
 
 const groupedComponents = computed(() => {
   const keyword = componentSearch.value.trim().toLowerCase();

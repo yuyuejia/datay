@@ -62,7 +62,9 @@ export default class DagJobService {
           .filter(Boolean)
           .map((jobId: any) => String(jobId)),
       );
-      return [...(jobRes.data || []), ...(dagRes.data || [])].filter((job: IJob) => job.type !== 'ETL' || batchJobIds.has(String(job.id)));
+      return [...(jobRes.data || []), ...(dagRes.data || [])].filter(
+        (job: IJob) => job.type !== 'METADATA_COLLECT' && (job.type !== 'ETL' || batchJobIds.has(String(job.id))),
+      );
     });
   }
 
