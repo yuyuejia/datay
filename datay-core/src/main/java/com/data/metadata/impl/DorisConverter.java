@@ -9,6 +9,11 @@ import java.util.List;
 
 public class DorisConverter implements TypeConverter {
 
+    /** Doris VARCHAR(M) 中 M 为 UTF-8 字节长度，最大 65533。 */
+    private static final int DORIS_VARCHAR_MAX_BYTES = 65533;
+    /** Doris CHAR(M) 中 M 为 UTF-8 字节长度，最大 255。 */
+    private static final int DORIS_CHAR_MAX_BYTES = 255;
+
     enum DorisType {
         // 数值类型
         TINYINT,
@@ -163,7 +168,71 @@ public class DorisConverter implements TypeConverter {
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
+        // 无长度上限的 varchar 不能生成 Doris VARCHAR(2147483647)：Doris 上限为 65533。
+        // 这里对所有源库兜底，避免源库类型上下文丢失（如经 DuckDB 中转）时生成非法 DDL。
+        if (DorisType.VARCHAR.name().equals(type) && column.getLength() == Integer.MAX_VALUE) {
+            if (column.isPrimaryKey()) {
+                column.setLength(DORIS_VARCHAR_MAX_BYTES);
+            } else {
+                column.setType(DorisType.STRING.name());
+                column.setLength(0);
+            }
+        }
         return column;
+    }
+
+    @Override
+    public ColumnMeta toTargetColumnType(ColumnMeta columnMeta, String sourceDbType) {
+        ColumnMeta target = toTargetColumnType(columnMeta);
+        if (
+            PgCharacterLengthSupport.isCharacterLengthSource(sourceDbType) &&
+            PgCharacterLengthSupport.isCharacterSourceType(columnMeta.getType())
+        ) {
+            widenCharacterLengthToUtf8Bytes(target);
+        }
+        return target;
+    }
+
+    /**
+     * 把按字符数声明的长度扩大为 Doris 需要的 UTF-8 字节长度。
+     *
+     * <ul>
+     *   <li>{@code VARCHAR(n)} -> {@code VARCHAR(min(n*3, 65533))}；</li>
+     *   <li>{@code CHAR(n)} -> {@code CHAR(n*3)}，超过 255 时降级为 {@code VARCHAR}；</li>
+     *   <li>无长度限制的 {@code varchar} 映射为 {@code STRING}，主键列则回退为
+     *       {@code VARCHAR(65533)}（Doris 的 STRING 不能作为 KEY 列）。</li>
+     * </ul>
+     */
+    private void widenCharacterLengthToUtf8Bytes(ColumnMeta column) {
+        if (DorisType.CHAR.name().equals(column.getType())) {
+            int charLength = column.getLength() > 0 ? column.getLength() : 1;
+            long bytes = PgCharacterLengthSupport.utf8Bytes(charLength);
+            if (bytes <= DORIS_CHAR_MAX_BYTES) {
+                column.setLength((int) bytes);
+            } else if (bytes <= DORIS_VARCHAR_MAX_BYTES) {
+                column.setType(DorisType.VARCHAR.name());
+                column.setLength((int) bytes);
+            } else {
+                column.setType(DorisType.VARCHAR.name());
+                column.setLength(DORIS_VARCHAR_MAX_BYTES);
+            }
+            return;
+        }
+
+        int length = column.getLength();
+        if (PgCharacterLengthSupport.isUnbounded(length)) {
+            if (column.isPrimaryKey()) {
+                column.setType(DorisType.VARCHAR.name());
+                column.setLength(DORIS_VARCHAR_MAX_BYTES);
+            } else {
+                column.setType(DorisType.STRING.name());
+                column.setLength(0);
+            }
+            return;
+        }
+
+        long bytes = PgCharacterLengthSupport.utf8Bytes(length);
+        column.setLength((int) Math.min(bytes, DORIS_VARCHAR_MAX_BYTES));
     }
 
     /**

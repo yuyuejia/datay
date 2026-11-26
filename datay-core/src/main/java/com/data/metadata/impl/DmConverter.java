@@ -21,6 +21,9 @@ import java.util.List;
  */
 public class DmConverter implements TypeConverter {
 
+    /** 达梦 VARCHAR/CHAR 默认按字节计量，最大 32767 字节。 */
+    private static final int DM_CHARACTER_MAX_BYTES = 32767;
+
     enum DmType {
         CHAR,
         VARCHAR,
@@ -224,7 +227,85 @@ public class DmConverter implements TypeConverter {
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
         column.setTypeDefinition(columnMeta.getTypeDefinition());
+        // 无长度上限的 VARCHAR/CHAR 不能直接生成 VARCHAR(2147483647)：达梦上限为 32767 字节。
+        // 这里对所有源库兜底，避免源库类型上下文丢失（如经 DuckDB 中转）时生成非法 DDL。
+        if (
+            (
+                DmType.VARCHAR.name().equals(type) ||
+                DmType.VARCHAR2.name().equals(type) ||
+                DmType.CHAR.name().equals(type)
+            ) &&
+            column.getLength() == Integer.MAX_VALUE
+        ) {
+            fallbackToClobOrMaxVarchar(column);
+        }
         return column;
+    }
+
+    @Override
+    public ColumnMeta toTargetColumnType(ColumnMeta columnMeta, String sourceDbType) {
+        ColumnMeta target = toTargetColumnType(columnMeta);
+        if (
+            PgCharacterLengthSupport.isCharacterLengthSource(sourceDbType) &&
+            PgCharacterLengthSupport.isCharacterSourceType(columnMeta.getType())
+        ) {
+            widenCharacterLengthToUtf8Bytes(target);
+        }
+        return target;
+    }
+
+    /**
+     * 把 PostgreSQL 系按字符数声明的长度扩大为达梦默认的字节长度。
+     *
+     * <ul>
+     *   <li>{@code VARCHAR(n)} -> {@code VARCHAR(n*3)}，超过 32767 字节降级为 {@code CLOB}；</li>
+     *   <li>{@code CHAR(n)} -> {@code CHAR(n*3)}，超过 32767 字节降级为 {@code CLOB}；</li>
+     *   <li>无长度限制的 {@code varchar} 使用 {@code CLOB}，主键列回退为
+     *       {@code VARCHAR(32767)}（CLOB 不能作为主键）。</li>
+     * </ul>
+     */
+    private void widenCharacterLengthToUtf8Bytes(ColumnMeta column) {
+        if (DmType.CHAR.name().equals(column.getType())) {
+            int charLength = column.getLength() > 0 ? column.getLength() : 1;
+            long bytes = PgCharacterLengthSupport.utf8Bytes(charLength);
+            if (bytes <= DM_CHARACTER_MAX_BYTES) {
+                column.setLength((int) bytes);
+            } else {
+                fallbackToClobOrMaxVarchar(column);
+            }
+            return;
+        }
+
+        if (!DmType.VARCHAR.name().equals(column.getType()) && !DmType.VARCHAR2.name().equals(column.getType())) {
+            // NVARCHAR2/NCHAR 按字符数计量，不需要按 UTF-8 字节放大。
+            return;
+        }
+
+        int length = column.getLength();
+        if (PgCharacterLengthSupport.isUnbounded(length)) {
+            fallbackToClobOrMaxVarchar(column);
+            return;
+        }
+
+        long bytes = PgCharacterLengthSupport.utf8Bytes(length);
+        if (bytes <= DM_CHARACTER_MAX_BYTES) {
+            column.setLength((int) bytes);
+        } else {
+            fallbackToClobOrMaxVarchar(column);
+        }
+    }
+
+    /**
+     * 超过达梦 VARCHAR/CHAR 上限或无长度限制时，非主键列使用 CLOB，主键列回退到最大 VARCHAR。
+     */
+    private void fallbackToClobOrMaxVarchar(ColumnMeta column) {
+        if (column.isPrimaryKey()) {
+            column.setType(DmType.VARCHAR.name());
+            column.setLength(DM_CHARACTER_MAX_BYTES);
+        } else {
+            column.setType(DmType.CLOB.name());
+            column.setLength(0);
+        }
     }
 
     @Override

@@ -9,6 +9,11 @@ import java.util.List;
 
 public class OracleConverter implements TypeConverter {
 
+    /** Oracle VARCHAR2(n) 默认按字节计量，标准模式最大 4000 字节。 */
+    private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
+    /** Oracle CHAR(n) 默认按字节计量，标准模式最大 2000 字节。 */
+    private static final int ORACLE_CHAR_MAX_BYTES = 2000;
+
     enum OracleType {
         VARCHAR2,
         NVARCHAR2,
@@ -107,7 +112,85 @@ public class OracleConverter implements TypeConverter {
         column.setDefaultValue(columnMeta.getDefaultValue());
         column.setComment(columnMeta.getComment());
         column.setPrimaryKey(columnMeta.isPrimaryKey());
+        // 无长度上限的 VARCHAR2/CHAR 不能生成 VARCHAR2(2147483647)：Oracle 标准模式上限为 4000 字节。
+        // 这里对所有源库兜底，避免源库类型上下文丢失（如经 DuckDB 中转）时生成非法 DDL。
+        if (
+            (OracleType.VARCHAR2.name().equals(type) || OracleType.CHAR.name().equals(type)) &&
+            column.getLength() == Integer.MAX_VALUE
+        ) {
+            fallbackToClobOrMaxVarchar2(column);
+        }
         return column;
+    }
+
+    @Override
+    public ColumnMeta toTargetColumnType(ColumnMeta columnMeta, String sourceDbType) {
+        ColumnMeta target = toTargetColumnType(columnMeta);
+        if (
+            PgCharacterLengthSupport.isCharacterLengthSource(sourceDbType) &&
+            PgCharacterLengthSupport.isCharacterSourceType(columnMeta.getType())
+        ) {
+            widenCharacterLengthToUtf8Bytes(target);
+        }
+        return target;
+    }
+
+    /**
+     * 把 PostgreSQL 系按字符数声明的长度扩大为 Oracle 默认的字节长度。
+     *
+     * <ul>
+     *   <li>{@code VARCHAR(n)} -> {@code VARCHAR2(n*3)}，超过 4000 字节降级为 {@code CLOB}；</li>
+     *   <li>{@code CHAR(n)} -> {@code CHAR(n*3)}，超过 2000 字节降级为 {@code VARCHAR2}，
+     *       超过 4000 字节降级为 {@code CLOB}；</li>
+     *   <li>无长度限制的 {@code varchar} 使用 {@code CLOB}，主键列回退为
+     *       {@code VARCHAR2(4000)}（CLOB 不能作为主键）。</li>
+     * </ul>
+     */
+    private void widenCharacterLengthToUtf8Bytes(ColumnMeta column) {
+        if (OracleType.CHAR.name().equals(column.getType())) {
+            int charLength = column.getLength() > 0 ? column.getLength() : 1;
+            long bytes = PgCharacterLengthSupport.utf8Bytes(charLength);
+            if (bytes <= ORACLE_CHAR_MAX_BYTES) {
+                column.setLength((int) bytes);
+            } else if (bytes <= ORACLE_VARCHAR2_MAX_BYTES) {
+                column.setType(OracleType.VARCHAR2.name());
+                column.setLength((int) bytes);
+            } else {
+                fallbackToClobOrMaxVarchar2(column);
+            }
+            return;
+        }
+
+        if (!OracleType.VARCHAR2.name().equals(column.getType())) {
+            // NVARCHAR2/NCHAR 按字符数计量，不需要按 UTF-8 字节放大。
+            return;
+        }
+
+        int length = column.getLength();
+        if (PgCharacterLengthSupport.isUnbounded(length)) {
+            fallbackToClobOrMaxVarchar2(column);
+            return;
+        }
+
+        long bytes = PgCharacterLengthSupport.utf8Bytes(length);
+        if (bytes <= ORACLE_VARCHAR2_MAX_BYTES) {
+            column.setLength((int) bytes);
+        } else {
+            fallbackToClobOrMaxVarchar2(column);
+        }
+    }
+
+    /**
+     * 超过 Oracle VARCHAR2 上限或无长度限制时，非主键列使用 CLOB，主键列回退到最大 VARCHAR2。
+     */
+    private void fallbackToClobOrMaxVarchar2(ColumnMeta column) {
+        if (column.isPrimaryKey()) {
+            column.setType(OracleType.VARCHAR2.name());
+            column.setLength(ORACLE_VARCHAR2_MAX_BYTES);
+        } else {
+            column.setType(OracleType.CLOB.name());
+            column.setLength(0);
+        }
     }
 
     public String generateTableDDL(TableMeta table) {
