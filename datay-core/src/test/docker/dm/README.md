@@ -55,6 +55,13 @@ JAVA_HOME="$(/usr/libexec/java_home -v 17)" \
   mvn -pl datay-core test -Dtest=DmCdcToDuckDBTest
 ```
 
+达梦 CDC 写入 Doris 的场景验证（需本地 Doris `127.0.0.1:9030`）：
+
+```bash
+JAVA_HOME="$(/usr/libexec/java_home -v 17)" \
+  mvn -pl datay-core test -Dtest=DmCdcToDorisTest
+```
+
 自定义连接参数：
 
 ```bash

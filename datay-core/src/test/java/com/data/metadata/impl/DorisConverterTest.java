@@ -49,6 +49,24 @@ class DorisConverterTest {
     }
 
     @Test
+    void upsertUsesPlainInsertForUniqueKeyTable() {
+        // Doris 2.x 不支持 MySQL 的 ON DUPLICATE KEY UPDATE 语法；
+        // UNIQUE KEY 表上整行 INSERT 本身就是 UPSERT。
+        TableMeta table = new TableMeta("t");
+        ColumnMeta id = new ColumnMeta("id", "BIGINT");
+        id.setPrimaryKey(true);
+        ColumnMeta name = new ColumnMeta("name", "VARCHAR", 50, -1, -1);
+        table.addColumn(id);
+        table.addColumn(name);
+
+        String sql = converter.generateUpsertSQL(table);
+
+        assertEquals("INSERT INTO t (`id`, `name`) VALUES (?, ?)", sql);
+        assertFalse(sql.toUpperCase().contains("ON DUPLICATE KEY"), sql);
+        assertFalse(sql.toUpperCase().contains("REPLACE INTO"), sql);
+    }
+
+    @Test
     void primaryKeyColumnsAreMovedToSchemaPrefix() {
         // 复现 "Key columns should be a ordered prefix of the schema" 报错场景：
         // 主键列 sType 位于普通列 didtype 之后，UNIQUE KEY 中 sType 不在列定义前缀位置上。

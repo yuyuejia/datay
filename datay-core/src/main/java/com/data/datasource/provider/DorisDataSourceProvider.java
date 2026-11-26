@@ -2,9 +2,20 @@ package com.data.datasource.provider;
 
 import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
+import com.data.metadata.TableMeta;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Apache Doris 数据源 Provider。
@@ -15,9 +26,80 @@ import java.util.Map;
 @DataSourceRegister("doris")
 public class DorisDataSourceProvider extends MysqlDataSourceProvider {
 
+    /** Doris 建表语句中的 UNIQUE KEY 定义，例如 {@code UNIQUE KEY(`id`, `tenant_id`)}。 */
+    private static final Pattern UNIQUE_KEY_PATTERN = Pattern.compile(
+        "(?i)\\bUNIQUE\\s+KEY\\s*\\(([^)]*)\\)"
+    );
+
     @Override
     protected DataSourceTypeDescriptor descriptor() {
         return descriptorOf(DBType.DORIS);
+    }
+
+    /**
+     * Doris 通过 MySQL 协议读取表结构时不会返回主键元数据（{@code DatabaseMetaData.getPrimaryKeys}
+     * 为空），但 UNIQUE KEY 模型的主键对生成 DELETE / UPSERT 语句至关重要。这里从
+     * {@code SHOW CREATE TABLE} 中解析 UNIQUE KEY 列并回填为主键标记。
+     */
+    @Override
+    public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
+        TableMeta tableMeta = super.getTableMeta(conn, schema, table);
+        if (tableMeta != null && !hasPrimaryKey(tableMeta)) {
+            applyUniqueKeyFromCreateTable(conn, schema, table, tableMeta);
+        }
+        return tableMeta;
+    }
+
+    private static boolean hasPrimaryKey(TableMeta tableMeta) {
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (column.isPrimaryKey()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void applyUniqueKeyFromCreateTable(Connection conn, String schema, String table, TableMeta tableMeta) {
+        String qualified = (schema == null || schema.isBlank() ? "" : quoteIdentifier(schema) + ".") + quoteIdentifier(table);
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery("SHOW CREATE TABLE " + qualified)) {
+            if (rs.next()) {
+                applyUniqueKeyFromDdl(tableMeta, rs.getString(2));
+            }
+        } catch (SQLException | RuntimeException e) {
+            // 读取建表语句失败不影响普通字段元数据，主键只能依赖驱动返回值
+        }
+    }
+
+    /**
+     * 从 Doris 建表语句中解析 UNIQUE KEY 列并标记为表主键。无 UNIQUE KEY 时保持不变。
+     */
+    static void applyUniqueKeyFromDdl(TableMeta tableMeta, String ddl) {
+        if (tableMeta == null || ddl == null || ddl.isEmpty()) {
+            return;
+        }
+        Matcher matcher = UNIQUE_KEY_PATTERN.matcher(ddl);
+        if (!matcher.find()) {
+            return;
+        }
+        Set<String> keyNames = new HashSet<>();
+        for (String part : matcher.group(1).split(",")) {
+            String name = part.trim().replace("`", "").replace("\"", "").trim();
+            if (!name.isEmpty()) {
+                keyNames.add(name.toLowerCase(Locale.ROOT));
+            }
+        }
+        if (keyNames.isEmpty()) {
+            return;
+        }
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (column.getName() != null) {
+                column.setPrimaryKey(keyNames.contains(column.getName().toLowerCase(Locale.ROOT)));
+            }
+        }
+    }
+
+    private static String quoteIdentifier(String identifier) {
+        return "`" + identifier.replace("`", "``") + "`";
     }
 
     /**
@@ -29,6 +111,12 @@ public class DorisDataSourceProvider extends MysqlDataSourceProvider {
     public Map<String, String> dataSourceProperties() {
         Map<String, String> props = new LinkedHashMap<>(super.dataSourceProperties());
         props.put("useServerPrepStmts", "false");
+        // Doris FE 的 MySQL 协议未实现 COM_SET_OPTION(27)。MySQL Connector/J 在
+        // rewriteBatchedStatements=true 且批量非 INSERT 语句达到 4 条时，会尝试通过
+        // COM_SET_OPTION 动态开启多语句，Doris 直接返回 "Unknown command(27)"，
+        // 导致批量 DELETE 失败（INSERT 会被改写为多值 INSERT，不受影响）。
+        // 关闭批量改写后，DELETE 逐条执行，避免触发该协议命令。
+        props.put("rewriteBatchedStatements", "false");
         props.put("characterEncoding", "UTF-8");
         return props;
     }

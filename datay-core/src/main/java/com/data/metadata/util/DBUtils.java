@@ -1025,6 +1025,22 @@ public class DBUtils {
     }
 
     /**
+     * 按数据源配置读取表结构。
+     *
+     * <p>部分数据源（如 Doris）使用 MySQL 协议，仅凭 JDBC URL 只能解析到 MySQL Provider，
+     * 无法触发数据源特有的元数据补充（例如从 UNIQUE KEY 解析主键）。因此优先按
+     * {@link DatasourceInfo#getType()} 解析 Provider。</p>
+     */
+    public static TableMeta getTableMetaData(DatasourceInfo datasourceInfo, Connection conn, String schema, String table)
+        throws SQLException {
+        JdbcDataSourceProvider provider = resolveJdbcProvider(datasourceInfo);
+        if (provider != null) {
+            return provider.getTableMeta(conn, schema, table);
+        }
+        return getTableMetaData(conn, schema, table);
+    }
+
+    /**
      * 从ResultSet元数据构建TableMeta
      */
     public static TableMeta getTableMetaFromResultSet(ResultSetMetaData metaData) throws SQLException {
@@ -1141,8 +1157,11 @@ public class DBUtils {
 
     /**
      * 按字段名（忽略大小写）把上游元数据中的主键标记回填到目标表元数据。
+     *
+     * <p>部分数据库（例如 Doris 通过 MySQL 协议读取 UNIQUE KEY 表时）不返回主键元数据，
+     * 但自动建表所依据的上游元数据仍然携带主键，需要回填后才能正确生成 DELETE / UPDATE 语句。</p>
      */
-    private static void applyPrimaryKeys(TableMeta targetMeta, TableMeta sourceMeta) {
+    public static void applyPrimaryKeys(TableMeta targetMeta, TableMeta sourceMeta) {
         if (sourceMeta == null || sourceMeta.columns().isEmpty()) {
             return;
         }

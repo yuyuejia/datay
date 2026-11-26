@@ -283,44 +283,15 @@ public class DorisConverter implements TypeConverter {
         return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
     }
 
-    // 生成UPSERT语句 - Doris使用INSERT INTO ... ON DUPLICATE KEY UPDATE
+    /**
+     * 生成 UPSERT 语句。
+     *
+     * <p>Doris 的 UNIQUE KEY 模型对相同主键执行普通 INSERT 即完成整行覆盖（UPSERT），
+     * 且 Doris 2.x 并不支持 MySQL 的 {@code ON DUPLICATE KEY UPDATE} 语法（会直接报
+     * ParseException）。CDC 的 UPDATE 事件携带完整 after 镜像，因此这里直接生成 INSERT。</p>
+     */
     public String generateUpsertSQL(TableMeta tableMeta) {
-        List<String> columnNames = new ArrayList<>();
-        List<String> primaryKeyColumns = new ArrayList<>();
-
-        for (ColumnMeta column : tableMeta.columns()) {
-            columnNames.add("`" + column.getName() + "`");
-            if (column.isPrimaryKey()) {
-                primaryKeyColumns.add("`" + column.getName() + "`");
-            }
-        }
-
-        String columns = String.join(", ", columnNames);
-        String placeholders = String.join(", ", Collections.nCopies(columnNames.size(), "?"));
-
-        String tableName = tableMeta.getSchema() != null ?
-            tableMeta.getSchema() + "." + tableMeta.getTable() : tableMeta.getTable();
-
-        // 如果没有主键，则回退到普通INSERT
-        if (primaryKeyColumns.isEmpty()) {
-            return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
-        }
-
-        // 生成UPDATE部分（排除主键列）
-        List<String> updateParts = new ArrayList<>();
-        for (ColumnMeta column : tableMeta.columns()) {
-            if (!column.isPrimaryKey()) {
-                updateParts.add("`" + column.getName() + "` = VALUES(`" + column.getName() + "`)");
-            }
-        }
-
-        if (updateParts.isEmpty()) {
-            // 如果所有列都是主键，则使用REPLACE
-            return generateReplaceSQL(tableMeta);
-        }
-
-        return String.format("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s",
-            tableName, columns, placeholders, String.join(", ", updateParts));
+        return generateInsertSQL(tableMeta);
     }
 
     @Override

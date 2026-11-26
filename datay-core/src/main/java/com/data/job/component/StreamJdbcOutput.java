@@ -66,6 +66,19 @@ public class StreamJdbcOutput extends FlowComponent {
 
     @Override
     public void execute(FlowFile flowFile) {
+        try {
+            executeInternal(flowFile);
+        } catch (RuntimeException e) {
+            if (!Boolean.TRUE.equals(this.ignoreError)) {
+                // CDC 合并 FlowFile 默认带 _error_ignore，Sink 默认应让异常暴露出来，
+                // 否则写入失败会被 FlowComponent 静默忽略，流任务继续运行并丢失该批次数据。
+                flowFile.getAttributeMap().remove(FlowFile.ATTRIBUTE_ERROR_IGNORE);
+            }
+            throw e;
+        }
+    }
+
+    private void executeInternal(FlowFile flowFile) {
         // 调试模式：跳过实际写库，仅让数据流经组件以便上游采样
         if (getContext() != null && getContext().isDebugMode()) {
             logInfo("调试模式：跳过写入目标库");
@@ -281,7 +294,7 @@ public class StreamJdbcOutput extends FlowComponent {
                     targetTable = refreshCreatedTableMeta(targetConn, schema, table, targetTable, catalog);
                 } else {
                     logInfo("表 " + schema + "." + table + " 已存在");
-                    targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
+                    targetTable = DBUtils.getTableMetaData(this.datasource, targetConn, schema, table);
                 }
                 if (targetTable != null && catalog != null) {
                     // 需要显式 catalog 的数据源（由 Provider 决定）在建表后补上 catalog 限定
@@ -314,10 +327,16 @@ public class StreamJdbcOutput extends FlowComponent {
     private TableMeta refreshCreatedTableMeta(Connection targetConn, String schema, String table, TableMeta fallback,
                                               String catalog) {
         try {
-            TableMeta actual = DBUtils.getTableMetaData(targetConn, schema, table);
+            TableMeta actual = DBUtils.getTableMetaData(this.datasource, targetConn, schema, table);
             if (actual != null && actual.columns() != null && !actual.columns().isEmpty()) {
                 if (catalog != null) {
                     actual.setCatalog(catalog);
+                }
+                // 目标库可能不返回主键元数据（如 Doris 的 UNIQUE KEY 表走 MySQL 协议时），
+                // 但目标表是按上游元数据创建的，主键信息必须沿用上游，否则 DELETE / 主键变更
+                // 会退化为按全部字段匹配，导致删除不到数据或误删。
+                if (!hasPrimaryKey(actual) && fallback != null) {
+                    DBUtils.applyPrimaryKeys(actual, fallback);
                 }
                 return actual;
             }
@@ -325,6 +344,18 @@ public class StreamJdbcOutput extends FlowComponent {
             logDebug("读取新建表元数据失败，沿用源表转换结果：" + e.getMessage());
         }
         return fallback;
+    }
+
+    private boolean hasPrimaryKey(TableMeta table) {
+        if (table == null || table.columns() == null) {
+            return false;
+        }
+        for (ColumnMeta column : table.columns()) {
+            if (column.isPrimaryKey()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void migrateData(Connection targetConn, TableMeta targetTable, FlowFile flowFile) throws SQLException {
