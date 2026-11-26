@@ -20,6 +20,8 @@ class DorisDataSourceProviderTest {
         assertEquals("false", props.get("useServerPrepStmts"),
             "Doris 服务端预编译会破坏多字节字符，必须使用客户端预编译");
         assertEquals("UTF-8", props.get("characterEncoding"));
+        assertEquals("enable_unicode_name_support=true", props.get("sessionVariables"),
+            "Doris 默认拒绝非 ASCII 列名，需在每个连接上开启 Unicode 标识符支持");
     }
 
     @Test

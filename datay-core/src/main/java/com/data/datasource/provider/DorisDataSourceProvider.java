@@ -118,6 +118,11 @@ public class DorisDataSourceProvider extends MysqlDataSourceProvider {
         // 关闭批量改写后，DELETE 逐条执行，避免触发该协议命令。
         props.put("rewriteBatchedStatements", "false");
         props.put("characterEncoding", "UTF-8");
+        // Doris 默认关闭 Unicode 标识符支持，FeNameFormat 的列名校验只接受 ASCII，自动建表时
+        // 源表的中文列名（如 `订单id`）会被拒绝：
+        // "Incorrect column name '订单id'. Column regex is ..."。
+        // 在每个连接建立时开启该会话变量，使中文表名/列名可以直接建表与读写。
+        props.put("sessionVariables", "enable_unicode_name_support=true");
         return props;
     }
 
