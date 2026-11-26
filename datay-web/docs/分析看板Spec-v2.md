@@ -31,6 +31,8 @@
 | `table` | 明细表 |
 | `pivot` | 交叉透视表 |
 | `html` | 安全 HTML 说明文本 |
+| `title` | 大屏标题栏（主标题 + 副标题 + 科技边框） |
+| `clock` | 日期 / 时间 / 星期展示 |
 
 ## 3. 数据映射 encode
 
@@ -260,3 +262,362 @@ POST /api/analysis-dashboards/preview-drill
 > 如果 SQL 数据集自身的 SQL 已经 `GROUP BY`，明细展示的是该 SQL 输出粒度的行；
 > 指标数据集的明细是数据集已声明维度组合下的行，指标值本身仍是聚合值。
 > 如需事实层原始明细，请使用一个未聚合的 SQL 数据集。
+
+## 11. 大屏画布与叠放
+
+大屏模式支持在「24 栅格」与「像素画布」之间切换。两种模式共用同一套 `layout` 与组件结构，
+仅坐标含义不同；字段全部可选，老看板不写即为栅格 + 16px 内边距。
+
+### 11.1 `layout.screen.canvas`
+
+```json
+{
+  "mode": "screen",
+  "screen": {
+    "width": 1920,
+    "height": 1080,
+    "canvas": { "unit": "px", "padding": 0, "gap": 8 }
+  }
+}
+```
+
+| 字段 | 取值 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `unit` | `grid` / `px` | `grid` | `grid` 按 24 列定位；`px` 按画布内容区像素定位 |
+| `padding` | 0..64 | 16 | 画布内边距，`0` 为贴边 |
+| `gap` | 0..48 | 12 | 栅格间距，仅 `grid` 模式生效 |
+
+- `px` 模式下 `widget.layout = { x, y, w, h }` 的单位是像素，`x/y` 相对画布内容区，
+  限制为 `w ∈ [40, W-2p]`、`h ∈ [20, H-2p]`、`x+w ≤ W-2p`、`y+h ≤ H-2p`；越界会被钳制。
+- `grid` 模式的坐标与历史版本完全一致（`x` 列号、`w` 跨列数）。
+- 标准模式（`mode=standard`）始终使用栅格，`canvas` 不参与定位；但 `screen` 块会照常保存
+  （主题、背景、自动刷新等），切回大屏时不会丢配置。
+
+### 11.2 `widget.zIndex`
+
+```json
+{ "id": "map", "type": "echarts", "zIndex": 10, "layout": { "x": 470, "y": 200, "w": 980, "h": 760 } }
+```
+
+- 取值 0..999，缺省 0；仅 `px` 模式生效，值越大越靠上。
+- **`grid` 模式仍禁止组件重叠**（保存时校验并报错）；`px` 模式允许重叠，由 `zIndex` 与数组顺序决定层级。
+- 设计器提供「上移一层 / 下移一层」，调整后会按当前顺序把 `zIndex` 重新编号（步长 5，最大 995）。
+
+### 11.3 单位切换
+
+设计器切换 `grid` / `px` 时会自动换算已有组件布局（按列宽比例与行高换算），不会出现组件瞬间缩成一条线；
+在大屏与标准模式之间切换时，像素画布也会先换算回栅格再切换，避免把像素值当成列号渲染。
+换算公式：
+
+- grid → px：`w_px = round(w_grid / 24 × 内容宽)`，`h_px = round(h_grid × (rowHeight + gap))`
+- px → grid：反向换算后按 24 列钳制
+
+> 说明：本版本只实现画布双模式、贴边与叠放；组件样式（`widget.style`）、主题 token、
+> 地图多图层与 `title/clock` 组件属于后续版本，尚未进入本协议。
+
+## 12. 组件皮肤与主题 token
+
+标准模式与大屏模式都支持「主题预设 + token」，并可在此基础上对单个组件做卡片与标题皮肤覆盖。
+所有字段均可选，且只影响前端呈现，不参与取数、聚合、筛选与下钻。
+
+### 12.1 `layout.screen.themePreset` 与 `layout.screen.tokens`
+
+```json
+{
+  "mode": "screen",
+  "screen": {
+    "theme": "dark",
+    "themePreset": "tech-blue",
+    "tokens": {
+      "primary": "#2fa8ff",
+      "secondary": "#1de9b6",
+      "accent": "#ffd54f",
+      "text": "#d8ecff",
+      "textSecondary": "#7c9cb9",
+      "surface": "rgba(9, 26, 48, 0.55)",
+      "border": "rgba(47, 168, 255, 0.35)",
+      "palette": ["#2fa8ff", "#1de9b6", "#ffd54f"],
+      "fontFamily": "system",
+      "map": { "area": "#0b3a5b", "border": "#2fa8ff" }
+    }
+  }
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `themePreset` | `tech-blue` / `tech-cyan` / `gov-red` / `ink-dark` / `custom` |
+| `tokens` | 覆盖预设的 token；颜色非法会被丢弃，`palette` 最多 12 个 |
+| `fontFamily` | `system` / `number-digital` / `number-condensed`（数字字体在后续版本启用） |
+| `map` | 地图区域 / 边界 / 高亮 / 标签配色，地图多图层版本使用 |
+
+渲染时 token 会写到看板根节点的 CSS 变量（`--dashboard-surface`、`--dashboard-border`、
+`--dashboard-text`、`--dash-accent` 等），组件默认皮肤与图表主题都会跟随。
+
+### 12.2 `widget.style`
+
+```json
+{
+  "id": "panel_sales",
+  "type": "echarts",
+  "style": {
+    "card": {
+      "preset": "tech-corner",
+      "fill": { "type": "gradient", "gradient": { "from": "#0a1b2e", "to": "#0d2643", "angle": 180 } },
+      "opacity": 0.9,
+      "border": { "width": 1, "color": "rgba(47,168,255,0.45)", "style": "dashed", "radius": 4 },
+      "shadow": { "x": 0, "y": 0, "blur": 18, "spread": 0, "color": "rgba(0,180,255,0.25)" },
+      "padding": 8,
+      "backdropBlur": 4
+    },
+    "title": {
+      "show": true,
+      "icon": "chart-line",
+      "fontSize": 16,
+      "fontWeight": 600,
+      "color": "#7fe3ff",
+      "align": "left",
+      "height": 36,
+      "letterSpacing": 1,
+      "background": "#0c2238",
+      "decoration": "gradient-underline"
+    },
+    "body": { "padding": 4 }
+  }
+}
+```
+
+| 分组 | 字段 | 取值 |
+| --- | --- | --- |
+| `card.preset` | 卡片边框预设 | `none` / `tech-corner` / `tech-frame` / `bracket` |
+| `card.fill` | 填充 | `type=none` / `color`+`color` / `gradient`+`gradient{from,to,angle}` |
+| `card.border` | 描边 | `width 0..8`、`color`、`style solid/dashed/dotted`、`radius 0..32` |
+| `card.shadow` | 阴影 | `x/y -50..50`、`blur 0..100`、`spread -20..50`、`color` |
+| `card.opacity` | 透明度 | 0..1 |
+| `card.padding` | 卡片内边距 | 0..48 |
+| `card.backdropBlur` | 毛玻璃 | 0..20 |
+| `title.show` | 标题栏显隐 | 布尔；`false` 时不渲染标题栏 |
+| `title.icon` | 图标 | FontAwesome 名称，`^[a-z0-9-]{1,40}$` |
+| `title.*` | 字号/字重/颜色/对齐/高度/字距/背景 | 见上表示例 |
+| `title.decoration` | 标题装饰 | `none` / `underline` / `gradient-underline` / `left-bar` |
+| `body.padding` | 内容区内边距 | 0..32 |
+
+约束：
+
+- 未知字段会被服务端丢弃；非法颜色、非法枚举直接跳过，不阻塞保存。
+- 单个组件样式序列化后最大 4KB。
+- 样式只做白名单映射，不接受任意 CSS 字符串，避免样式注入。
+- 组件样式优先于主题 token；未设置的项回落到 token / 内置默认皮肤。
+
+## 13. KPI 展示增强
+
+`type=kpi` 的组件除 `format` 外，还可以通过 `style.kpi` 控制标签、图标、数值与单位的排版。
+
+```json
+{
+  "id": "kpi_total",
+  "type": "kpi",
+  "style": {
+    "kpi": {
+      "label": "学生总数",
+      "icon": "users",
+      "layout": "label-top",
+      "value": {
+        "fontSize": 56,
+        "color": "#eaf6ff",
+        "fontFamily": "number-digital",
+        "bold": true,
+        "letterSpacing": 2
+      },
+      "unit": { "text": "人", "fontSize": 16, "color": "#8fb6d6" },
+      "animate": true,
+      "decimals": 0
+    }
+  }
+}
+```
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `label` | ≤ 40 字 | 覆盖组件标题作为 KPI 标签 |
+| `icon` | FontAwesome 名称 | 标签左侧图标 |
+| `layout` | `label-top` / `label-left` / `value-only` | 标签在上 / 在左 / 只显示数值 |
+| `value.fontSize` | 12..120 | 数值字号 |
+| `value.color` | 颜色 | 数值颜色 |
+| `value.fontFamily` | `system` / `number-digital` / `number-condensed` | 数字字体 |
+| `value.bold` | 布尔 | 是否加粗 |
+| `value.letterSpacing` | 0..8 | 字距 |
+| `unit.text` | ≤ 8 字 | 独立单位文案；为空时回落到 `format.unit` |
+| `unit.fontSize` | 10..40 | 单位字号 |
+| `unit.color` | 颜色 | 单位颜色 |
+| `animate` | 布尔 | 数值变化时是否滚动动画（默认关闭） |
+| `decimals` | 0..6 | 小数位，覆盖 `format.precision` |
+
+说明：
+
+- 数值格式仍兼容 `format.prefix / precision / suffix / unit` 与条件格式规则，
+  条件格式的颜色/加粗优先于 `style.kpi.value`。
+- `number-digital` 使用自托管的 Orbitron（SIL OFL 1.1），`number-condensed` 使用 Rajdhani；
+  见 `content/fonts/` 与项目 `NOTICE`。
+- 动画遵循 `prefers-reduced-motion`，减少动效偏好下自动关闭。
+
+## 14. 地图多图层
+
+`chart.type=map` 支持在区域填色之上叠加涟漪点与飞线。图层数组可选，不配置时保持原有单层地图渲染。
+
+```json
+{
+  "chart": {
+    "type": "map",
+    "map": "china",
+    "layers": [
+      { "kind": "region", "valueField": "students", "agg": "sum" },
+      {
+        "kind": "effectScatter",
+        "datasetId": "ds_city",
+        "lngField": "lng",
+        "latField": "lat",
+        "nameField": "city",
+        "valueField": "students",
+        "symbolSize": [10, 30],
+        "color": "#ffd54f"
+      },
+      {
+        "kind": "lines",
+        "datasetId": "ds_flow",
+        "fromLngField": "from_lng",
+        "fromLatField": "from_lat",
+        "toLngField": "to_lng",
+        "toLatField": "to_lat",
+        "valueField": "flow",
+        "color": "#ffd54f",
+        "curveness": 0.3,
+        "effect": { "show": true, "period": 4, "trailLength": 0.4 }
+      }
+    ]
+  }
+}
+```
+
+| 图层 | 必填字段 | 可选字段 |
+| --- | --- | --- |
+| `region` | `valueField` | `agg`（`sum/avg/min/max/count/none`）、`datasetId` |
+| `effectScatter` | `lngField`、`latField` | `nameField`、`valueField`、`symbolSize`、`color`、`datasetId` |
+| `lines` | `fromLngField`、`fromLatField`、`toLngField`、`toLatField` | `valueField`、`color`、`curveness 0..1`、`effect{show,period 1..20,trailLength 0..1}`、`datasetId` |
+
+规则：
+
+- 最多 4 个图层；`region` 最多一个，且存在时必须位于第一位。
+- 每个图层可用 `datasetId` 引用 `datasets[]` 中已声明的数据集；缺省沿用组件自身的 `datasetId`。
+  看板运行时会查询全部数据集，图层不需要额外请求。
+- 字段存在性在数据集有字段缓存时校验，缺失会拒绝保存。
+- 没有 `region` 图层时，区域填色回落到 `encode` 的 `role=x` 维度与 `role=value` 度量。
+- 经纬度为 WGS84 十进制度；`nameField` 用作 tooltip 名称。
+- 存在叠加层时前端会创建 `geo` 坐标系，涟漪点与飞线使用 `coordinateSystem=geo`，并使用 `visualMap.seriesIndex=0` 只给区域填色。
+- 主题 token 的 `map.area/border/emphasis/label` 会作为区域底色、边界、高亮与标签颜色。
+
+## 15. 图表样式预设
+
+`type=echarts` 的组件可以通过 `style.chart` 一键套用图表皮肤（渐变柱、发光折线、坐标轴/图例/tooltip 配色），
+无需手写 `echartsOption`。
+
+设计器入口：**基础设置 → 图表选项 → 图表风格**。下拉包含
+「默认（跟随主题）/ 科技风 / 简约 / 深色」，默认选中「默认」，即不写 `style.chart`、保持原有渲染。
+
+```json
+{
+  "style": {
+    "chart": {
+      "preset": "tech",
+      "gradient": true,
+      "glow": true,
+      "showAxis": true,
+      "showLegend": true,
+      "showLabel": false
+    }
+  }
+}
+```
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `preset` | `tech` / `minimal` / `dark` | 科技风 / 简约 / 深色 |
+| `gradient` | 布尔 | 柱状、面积是否使用渐变；缺省按预设决定（tech/dark 开，minimal 关） |
+| `glow` | 布尔 | 折线是否发光；缺省按预设决定 |
+| `showAxis` | 布尔 | `false` 时隐藏坐标轴 |
+| `showLegend` | 布尔 | 控制图例显隐 |
+| `showLabel` | 布尔 | `true` 时显示数据标签 |
+
+规则：
+
+- 预设只填充 `echartsOption` 中**没有显式设置**的键；用户在「自定义设置」里的配置优先，
+  因此老看板不受影响，新看板也可以局部微调。
+- `showAxis/showLegend/showLabel/gradient/glow` 为显式开关，优先级高于 `echartsOption`。
+  设计器里的坐标轴/图例/数据标签仍由「图表选项」复选框控制（写入 `echartsOption`）；
+  这三个字段主要用于自定义 JSON 或 AI 生成的 spec。
+- 序列色优先取主题 token 的 `palette`；未配置时回落到 ECharts 内置色板。
+- 渐变基于每个系列的序列色生成：柱状为「实色 → 透明」，面积为「半透明 → 全透明」。
+- 发光通过 `lineStyle.shadowBlur/shadowColor` 实现，仅对折线/面积图生效。
+- 未配置 `style.chart` 的组件完全保持原有渲染。
+
+## 16. 标题栏与日期时间组件
+
+`title` 与 `clock` 不绑定数据集，不参与取数、聚合、筛选与下钻，只做展示。
+
+### 16.1 `title`
+
+```json
+{
+  "id": "screen_title",
+  "type": "title",
+  "layout": { "x": 0, "y": 0, "w": 24, "h": 2 },
+  "props": {
+    "text": "领导驾驶舱",
+    "subText": "学生管理主题",
+    "align": "center",
+    "frame": "tech-frame"
+  },
+  "style": {
+    "title": {
+      "icon": "chart-line",
+      "fontSize": 32,
+      "fontWeight": 700,
+      "color": "#cfeaff",
+      "letterSpacing": 4
+    }
+  }
+}
+```
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `props.text` | ≤ 120 字，必填 | 主标题 |
+| `props.subText` | ≤ 60 字 | 副标题 |
+| `props.align` | `left` / `center` / `right` | 默认 `center` |
+| `props.frame` | `none` / `tech-frame` / `bracket` | 科技边框 / 左右括号；默认 `none` |
+| `style.title.*` | 见组件皮肤 | 字号、字重、颜色、字距、图标、背景 |
+
+### 16.2 `clock`
+
+```json
+{
+  "id": "screen_clock",
+  "type": "clock",
+  "layout": { "x": 1, "y": 0, "w": 8, "h": 1 },
+  "props": { "format": "date-week" },
+  "style": { "title": { "fontSize": 14, "color": "#9fd3ff" } }
+}
+```
+
+| `props.format` | 示例输出 | 刷新频率 |
+| --- | --- | --- |
+| `date-week` | `2026-11-26 星期四` | 每分钟 |
+| `date` | `2026-11-26` | 每分钟 |
+| `datetime` | `2026-11-26 09:30:05` | 每秒 |
+| `time` | `09:30:05` | 每秒 |
+
+说明：
+
+- 两种组件都不渲染通用组件标题栏，内容区不留默认内边距，由组件自身控制。
+- 在栅格画布中默认尺寸：标题栏 `24 × 2`，日期时间 `4 × 1`；像素画布按换算后的像素尺寸落位。
+- `title` 组件在没有 `props.text` 时前端会显示占位文案，但保存时服务端要求 `props.text` 必填。

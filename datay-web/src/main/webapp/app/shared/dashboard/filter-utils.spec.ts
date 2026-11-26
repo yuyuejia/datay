@@ -19,9 +19,7 @@ describe('filter-utils', () => {
   });
 
   it('keeps range defaults as objects', () => {
-    const rangeFilters: DashboardFilter[] = [
-      { id: 'date', type: 'dateRange', defaultValue: { start: '2026-01-01', end: '2026-01-31' } },
-    ];
+    const rangeFilters: DashboardFilter[] = [{ id: 'date', type: 'dateRange', defaultValue: { start: '2026-01-01', end: '2026-01-31' } }];
     expect(initFilterValues(rangeFilters)).toEqual({ date: { start: '2026-01-01', end: '2026-01-31' } });
   });
 

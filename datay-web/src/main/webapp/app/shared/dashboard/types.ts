@@ -6,7 +6,20 @@
 
 export type DatasetType = 'METRIC' | 'SQL';
 
-export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi' | 'pivot';
+export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi' | 'pivot' | 'title' | 'clock';
+
+export type TitleFrame = 'none' | 'tech-frame' | 'bracket';
+
+export type ClockFormat = 'date' | 'datetime' | 'time' | 'date-week';
+
+/** 大屏标题栏 / 日期时间组件的展示内容。 */
+export interface WidgetProps {
+  text?: string;
+  subText?: string;
+  align?: 'left' | 'center' | 'right';
+  frame?: TitleFrame;
+  format?: ClockFormat;
+}
 
 export type ChartType =
   | 'bar'
@@ -54,6 +67,43 @@ export type DashboardMode = 'standard' | 'screen';
 
 export type ScreenFitMode = 'contain' | 'stretch' | 'cover';
 
+/** 大屏画布定位方式：grid 使用 24 栅格，px 使用画布绝对像素。 */
+export type CanvasUnit = 'grid' | 'px';
+
+export interface ScreenCanvas {
+  unit: CanvasUnit;
+  /** 画布内边距，0 表示贴边。 */
+  padding: number;
+  /** 栅格间距，仅 grid 模式生效。 */
+  gap: number;
+}
+
+export type ThemePreset = 'tech-blue' | 'tech-cyan' | 'gov-red' | 'ink-dark' | 'custom';
+
+export type ThemeFontFamily = 'system' | 'number-digital' | 'number-condensed';
+
+export interface ThemeMapTokens {
+  area?: string;
+  border?: string;
+  emphasis?: string;
+  label?: string;
+}
+
+/** 大屏主题 token：预设提供默认值，看板可逐项覆盖。 */
+export interface ThemeTokens {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  text?: string;
+  textSecondary?: string;
+  surface?: string;
+  border?: string;
+  /** 图表序列色，最多 12 个。 */
+  palette?: string[];
+  fontFamily?: ThemeFontFamily;
+  map?: ThemeMapTokens;
+}
+
 export type DashboardTheme = 'light' | 'dark';
 
 export type DashboardBackgroundType = 'color' | 'gradient' | 'image';
@@ -79,6 +129,11 @@ export interface DashboardScreen {
   fitMode?: ScreenFitMode;
   theme?: DashboardTheme;
   background?: DashboardBackground;
+  /** 画布定位与留白配置；缺省为 24 栅格 + 16px 内边距。 */
+  canvas?: ScreenCanvas;
+  /** 主题预设名称；tokens 为其覆盖项。 */
+  themePreset?: ThemePreset;
+  tokens?: ThemeTokens;
   /** 自动刷新间隔（秒），0 表示关闭。 */
   autoRefreshSeconds?: number;
 }
@@ -173,6 +228,35 @@ export interface ChartSeries {
   name?: string;
 }
 
+export type MapLayerKind = 'region' | 'effectScatter' | 'lines';
+
+/** 地图图层：region 填色 / effectScatter 涟漪点 / lines 飞线。 */
+export interface MapLayerSpec {
+  kind: MapLayerKind;
+  /** 图层数据集；缺省使用组件自身数据集。 */
+  datasetId?: string;
+  /** region：区域数值字段与聚合方式。 */
+  valueField?: string;
+  agg?: Aggregation;
+  /** effectScatter：经纬度与名称字段。 */
+  lngField?: string;
+  latField?: string;
+  nameField?: string;
+  /** effectScatter：点大小（px）。 */
+  symbolSize?: number[];
+  /** effectScatter / lines：颜色。 */
+  color?: string;
+  /** lines：起止经纬度字段。 */
+  fromLngField?: string;
+  fromLatField?: string;
+  toLngField?: string;
+  toLatField?: string;
+  /** lines：曲率 0..1。 */
+  curveness?: number;
+  /** lines：飞线动画。 */
+  effect?: { show?: boolean; period?: number; trailLength?: number };
+}
+
 export interface DashboardChart {
   type?: ChartType;
   subtype?: ChartSubtype;
@@ -180,6 +264,8 @@ export interface DashboardChart {
   series?: ChartSeries[];
   /** 地图区域；当前仅内置中国省级地图。 */
   map?: 'china';
+  /** 地图多图层；为空时沿用单层地图渲染。 */
+  layers?: MapLayerSpec[];
   [key: string]: any;
 }
 
@@ -211,11 +297,108 @@ export interface WidgetLayout {
   h: number;
 }
 
+export type CardPreset = 'none' | 'tech-corner' | 'tech-frame' | 'bracket';
+
+export type WidgetFillType = 'none' | 'color' | 'gradient';
+
+export interface WidgetFill {
+  type: WidgetFillType;
+  color?: string;
+  gradient?: { from: string; to: string; angle: number };
+}
+
+export interface WidgetCardStyle {
+  preset?: CardPreset;
+  fill?: WidgetFill;
+  /** 0..1 */
+  opacity?: number;
+  border?: {
+    width?: number;
+    color?: string;
+    style?: 'solid' | 'dashed' | 'dotted';
+    radius?: number;
+  };
+  shadow?: { x?: number; y?: number; blur?: number; spread?: number; color?: string };
+  padding?: number;
+  backdropBlur?: number;
+}
+
+export interface WidgetTitleStyle {
+  show?: boolean;
+  icon?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  height?: number;
+  letterSpacing?: number;
+  background?: string;
+  decoration?: 'none' | 'underline' | 'gradient-underline' | 'left-bar';
+}
+
+export interface WidgetBodyStyle {
+  padding?: number;
+}
+
+export type ChartStylePreset = 'tech' | 'minimal' | 'dark';
+
+/** 图表样式预设：只填充缺省样式，echartsOption 中的显式配置优先。 */
+export interface WidgetChartStyle {
+  preset?: ChartStylePreset;
+  /** 柱状/面积渐变；缺省按预设决定。 */
+  gradient?: boolean;
+  /** 折线发光；缺省按预设决定。 */
+  glow?: boolean;
+  showAxis?: boolean;
+  showLegend?: boolean;
+  showLabel?: boolean;
+}
+
+export type KpiLayout = 'label-top' | 'label-left' | 'value-only';
+
+export interface WidgetKpiStyle {
+  /** 覆盖组件标题作为 KPI 标签。 */
+  label?: string;
+  icon?: string;
+  layout?: KpiLayout;
+  value?: {
+    fontSize?: number;
+    color?: string;
+    fontFamily?: ThemeFontFamily;
+    bold?: boolean;
+    letterSpacing?: number;
+  };
+  unit?: {
+    text?: string;
+    fontSize?: number;
+    color?: string;
+  };
+  /** 数值变化时是否做滚动动画。 */
+  animate?: boolean;
+  /** 小数位，覆盖 format.precision。 */
+  decimals?: number;
+}
+
+/** 组件皮肤；只影响 DOM 呈现，不参与取数与聚合。 */
+export interface WidgetStyle {
+  card?: WidgetCardStyle;
+  title?: WidgetTitleStyle;
+  body?: WidgetBodyStyle;
+  kpi?: WidgetKpiStyle;
+  chart?: WidgetChartStyle;
+}
+
 export interface DashboardWidget {
   id: string;
   title?: string;
   type: WidgetType;
   layout: WidgetLayout;
+  /** 叠放层级，仅 px 画布生效；0 表示默认层级。 */
+  zIndex?: number;
+  /** 组件皮肤（卡片/标题/内容区）。 */
+  style?: WidgetStyle;
+  /** 标题栏 / 日期时间的文本与格式。 */
+  props?: WidgetProps;
   datasetId?: string;
   /** v2 显式映射与聚合。 */
   encode?: WidgetEncode;

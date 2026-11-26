@@ -1,8 +1,21 @@
-import { DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
-import type { DashboardBackground, DashboardLayout, DashboardScreen, DashboardSpec, DashboardTheme, ScreenFitMode } from './types';
+import { CANVAS_PADDING, DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
+import type {
+  CanvasUnit,
+  DashboardBackground,
+  DashboardLayout,
+  DashboardScreen,
+  DashboardSpec,
+  DashboardTheme,
+  ScreenCanvas,
+  ScreenFitMode,
+  ThemePreset,
+  ThemeTokens,
+} from './types';
 
 export const DEFAULT_SCREEN_WIDTH = 1920;
 export const DEFAULT_SCREEN_HEIGHT = 1080;
+export const DEFAULT_CANVAS_PADDING = CANVAS_PADDING;
+export const DEFAULT_CANVAS_GAP = DEFAULT_GAP;
 
 export const LIGHT_SCREEN_BACKGROUND = '#f5f7fa';
 export const DARK_SCREEN_BACKGROUND = '#0f172a';
@@ -15,6 +28,8 @@ export const SCREEN_FIT_MODES: Array<{ value: ScreenFitMode; label: string; hint
 
 const FIT_MODES: ScreenFitMode[] = ['contain', 'stretch', 'cover'];
 const THEMES: DashboardTheme[] = ['light', 'dark'];
+const THEME_PRESETS: ThemePreset[] = ['tech-blue', 'tech-cyan', 'gov-red', 'ink-dark', 'custom'];
+const MAX_PALETTE_SIZE = 12;
 const COLOR_PATTERN = /^(#[0-9a-f]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\))$/i;
 const GRADIENT_DEFAULT_FROM = '#0f172a';
 const GRADIENT_DEFAULT_TO = '#1e293b';
@@ -40,6 +55,72 @@ export function normalizeFitMode(value: unknown): ScreenFitMode {
 
 export function normalizeTheme(value: unknown): DashboardTheme {
   return THEMES.includes(value as DashboardTheme) ? (value as DashboardTheme) : 'light';
+}
+
+/** 主题预设；未知值返回 undefined，由调用方决定是否写入。 */
+export function normalizeThemePreset(value: unknown): ThemePreset | undefined {
+  return THEME_PRESETS.includes(value as ThemePreset) ? (value as ThemePreset) : undefined;
+}
+
+/** 主题 token 的轻量清洗：颜色非法则丢弃，序列色最多 12 个。 */
+export function normalizeThemeTokens(raw?: ThemeTokens): ThemeTokens | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const result: ThemeTokens = {};
+  for (const key of ['primary', 'secondary', 'accent', 'text', 'textSecondary', 'surface', 'border'] as const) {
+    const value = raw[key];
+    if (typeof value === 'string' && COLOR_PATTERN.test(value.trim())) {
+      result[key] = value.trim();
+    }
+  }
+  if (Array.isArray(raw.palette)) {
+    const palette = raw.palette
+      .filter((color): color is string => typeof color === 'string' && COLOR_PATTERN.test(color.trim()))
+      .slice(0, MAX_PALETTE_SIZE)
+      .map(color => color.trim());
+    if (palette.length > 0) {
+      result.palette = palette;
+    }
+  }
+  if (raw.fontFamily && ['system', 'number-digital', 'number-condensed'].includes(raw.fontFamily)) {
+    result.fontFamily = raw.fontFamily;
+  }
+  if (raw.map && typeof raw.map === 'object') {
+    const map: NonNullable<ThemeTokens['map']> = {};
+    for (const key of ['area', 'border', 'emphasis', 'label'] as const) {
+      const value = raw.map[key];
+      if (typeof value === 'string' && COLOR_PATTERN.test(value.trim())) {
+        map[key] = value.trim();
+      }
+    }
+    if (Object.keys(map).length > 0) {
+      result.map = map;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** 画布定位方式；未知值回落到 24 栅格。 */
+export function normalizeCanvasUnit(value: unknown): CanvasUnit {
+  return value === 'px' ? 'px' : 'grid';
+}
+
+/** 画布留白与定位配置，缺省 16px 内边距 + 12px 栅格间距。 */
+export function normalizeScreenCanvas(raw?: ScreenCanvas): ScreenCanvas {
+  return {
+    unit: normalizeCanvasUnit(raw?.unit),
+    padding: clampNumber(raw?.padding, 0, 64, DEFAULT_CANVAS_PADDING),
+    gap: clampNumber(raw?.gap, 0, 48, DEFAULT_CANVAS_GAP),
+  };
+}
+
+/** 读取画布配置，标准模式统一回落到默认栅格。 */
+export function resolveScreenCanvas(layout?: DashboardLayout): ScreenCanvas {
+  if (layout?.mode !== 'screen') {
+    return normalizeScreenCanvas(undefined);
+  }
+  return normalizeScreenCanvas(layout.screen?.canvas);
 }
 
 export function normalizeBackground(raw: DashboardBackground | undefined, theme: DashboardTheme): DashboardBackground | undefined {
@@ -141,6 +222,8 @@ export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout
   const systemScreen = getSystemScreenSize();
   const theme = normalizeTheme(raw?.screen?.theme);
   const background = normalizeBackground(raw?.screen?.background, theme);
+  const themePreset = normalizeThemePreset(raw?.screen?.themePreset);
+  const tokens = normalizeThemeTokens(raw?.screen?.tokens);
   return {
     mode: raw?.mode === 'screen' ? 'screen' : 'standard',
     columns: GRID_COLUMNS,
@@ -151,7 +234,10 @@ export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout
       height: clampNumber(raw?.screen?.height, 480, 4320, systemScreen.height),
       fitMode: normalizeFitMode(raw?.screen?.fitMode),
       theme,
+      canvas: normalizeScreenCanvas(raw?.screen?.canvas),
       autoRefreshSeconds: clampNumber(raw?.screen?.autoRefreshSeconds, 0, 86400, 0),
+      ...(themePreset ? { themePreset } : {}),
+      ...(tokens ? { tokens } : {}),
       ...(background ? { background } : {}),
     },
   };

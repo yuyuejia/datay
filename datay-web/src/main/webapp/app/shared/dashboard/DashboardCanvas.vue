@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-canvas" :class="{ 'is-screen': isScreenMode }">
+  <div class="dashboard-canvas" :class="{ 'is-screen': isScreenMode }" :style="canvasStyle">
     <div v-if="showHeader !== false && !isScreenMode && (spec.title || spec.description)" class="dashboard-canvas-header">
       <h2 v-if="spec.title" class="dashboard-canvas-title">{{ spec.title }}</h2>
       <p v-if="spec.description" class="dashboard-canvas-desc">
@@ -7,7 +7,7 @@
       </p>
     </div>
 
-    <div class="dashboard-canvas-grid" :style="gridStyle">
+    <div class="dashboard-canvas-grid" :class="{ 'is-pixel': isPixel }" :style="layoutStyle">
       <div v-for="widget in widgets" :key="widget.id" class="dashboard-canvas-item" :style="itemStyle(widget)">
         <DashboardWidget
           :widget="widget"
@@ -15,6 +15,9 @@
           :loading="loadingOf(widget)"
           :error="errorOf(widget)"
           :theme="theme"
+          :palette="chartPalette"
+          :map-theme="mapTheme"
+          :dataset-data="datasetData"
           :server-paged="serverPaginationWidgets?.[widget.id]"
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
@@ -29,8 +32,9 @@
 import { computed } from 'vue';
 
 import DashboardWidget from './DashboardWidget.vue';
-import { DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
+import { resolveCanvasMetrics } from './designer/grid-layout';
 import { normalizeTheme } from './layout-defaults';
+import { resolveChartPalette, resolveThemeTokens, themeCssVars } from './theme-presets';
 import type { DashboardSpec, DashboardWidget as Widget, DatasetResult, WidgetDrillLoader, WidgetPageLoader } from './types';
 
 const props = defineProps<{
@@ -52,20 +56,43 @@ const widgets = computed(() => props.spec.widgets ?? []);
 const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
 const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
 
-const gridStyle = computed(() => {
-  const layout = props.spec.layout ?? {};
+const metrics = computed(() => resolveCanvasMetrics(props.spec.layout));
+const isPixel = computed(() => metrics.value.unit === 'px');
+
+const themeTokens = computed(() => resolveThemeTokens(props.spec.layout?.screen?.themePreset, props.spec.layout?.screen?.tokens));
+const themeVars = computed(() => themeCssVars(themeTokens.value));
+const chartPalette = computed(() => resolveChartPalette(themeTokens.value));
+const mapTheme = computed(() => themeTokens.value.map);
+
+const canvasStyle = computed(() => ({ padding: `${metrics.value.padding}px`, ...themeVars.value }));
+
+const layoutStyle = computed<Record<string, string>>(() => {
+  if (isPixel.value) {
+    return { display: 'block', position: 'relative', width: '100%', height: '100%' };
+  }
   return {
-    gridTemplateColumns: `repeat(${layout.columns ?? GRID_COLUMNS}, minmax(0, 1fr))`,
-    gridAutoRows: `${layout.rowHeight ?? DEFAULT_ROW_HEIGHT}px`,
-    gap: `${layout.gap ?? DEFAULT_GAP}px`,
+    gridTemplateColumns: `repeat(${metrics.value.columns}, minmax(0, 1fr))`,
+    gridAutoRows: `${metrics.value.rowHeight}px`,
+    gap: `${metrics.value.gap}px`,
   };
 });
 
-const itemStyle = (widget: Widget) => {
+const itemStyle = (widget: Widget): Record<string, string | number> => {
   const layout = widget.layout;
+  if (isPixel.value) {
+    return {
+      position: 'absolute',
+      left: `${layout?.x ?? 0}px`,
+      top: `${layout?.y ?? 0}px`,
+      width: `${layout?.w ?? 12}px`,
+      height: `${layout?.h ?? 8}px`,
+      ...(widget.zIndex ? { zIndex: widget.zIndex } : {}),
+    };
+  }
   return {
     gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
     gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
+    ...(widget.zIndex ? { zIndex: widget.zIndex } : {}),
   };
 };
 

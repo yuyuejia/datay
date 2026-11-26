@@ -32,19 +32,47 @@ public class DashboardSpecValidator {
     public static final String WIDGET_TABLE = "table";
     public static final String WIDGET_KPI = "kpi";
     public static final String WIDGET_PIVOT = "pivot";
+    public static final String WIDGET_TITLE = "title";
+    public static final String WIDGET_CLOCK = "clock";
 
     private static final Set<String> WIDGET_TYPES = Set.of(
         WIDGET_ECHARTS,
         WIDGET_HTML,
         WIDGET_TABLE,
         WIDGET_KPI,
-        WIDGET_PIVOT
+        WIDGET_PIVOT,
+        WIDGET_TITLE,
+        WIDGET_CLOCK
     );
+
+    /** 不绑定数据集的组件：说明文本、标题栏、日期时间。 */
+    private static final Set<String> DATASETLESS_WIDGET_TYPES = Set.of(WIDGET_HTML, WIDGET_TITLE, WIDGET_CLOCK);
 
     private static final String LAYOUT_MODE_STANDARD = "standard";
     private static final String LAYOUT_MODE_SCREEN = "screen";
 
     private static final Set<String> FIT_MODES = Set.of("contain", "stretch", "cover");
+    private static final Set<String> CANVAS_UNITS = Set.of("grid", "px");
+    private static final String CANVAS_UNIT_GRID = "grid";
+    private static final String CANVAS_UNIT_PX = "px";
+    private static final int MAX_CANVAS_PADDING = 64;
+    private static final int MAX_CANVAS_GAP = 48;
+    private static final int MAX_WIDGET_Z_INDEX = 999;
+    private static final Set<String> THEME_PRESETS = Set.of("tech-blue", "tech-cyan", "gov-red", "ink-dark", "custom");
+    private static final Set<String> FONT_FAMILIES = Set.of("system", "number-digital", "number-condensed");
+    private static final Set<String> CARD_PRESETS = Set.of("none", "tech-corner", "tech-frame", "bracket");
+    private static final Set<String> FILL_TYPES = Set.of("none", "color", "gradient");
+    private static final Set<String> BORDER_STYLES = Set.of("solid", "dashed", "dotted");
+    private static final Set<String> TITLE_ALIGNS = Set.of("left", "center", "right");
+    private static final Set<String> TITLE_DECORATIONS = Set.of("none", "underline", "gradient-underline", "left-bar");
+    private static final Set<String> KPI_LAYOUTS = Set.of("label-top", "label-left", "value-only");
+    private static final Set<String> CHART_STYLE_PRESETS = Set.of("tech", "minimal", "dark");
+    private static final Set<String> TITLE_FRAMES = Set.of("none", "tech-frame", "bracket");
+    private static final Set<String> TITLE_ALIGNS_PROPS = Set.of("left", "center", "right");
+    private static final Set<String> CLOCK_FORMATS = Set.of("date", "datetime", "time", "date-week");
+    private static final Pattern ICON_NAME_PATTERN = Pattern.compile("^[a-z0-9-]{1,40}$");
+    private static final int MAX_STYLE_JSON_LENGTH = 4096;
+    private static final int MAX_THEME_PALETTE = 12;
     private static final String THEME_LIGHT = "light";
     private static final String THEME_DARK = "dark";
     private static final String DEFAULT_LIGHT_BACKGROUND = "#f5f7fa";
@@ -104,6 +132,8 @@ public class DashboardSpecValidator {
     private static final Set<String> CHART_DIMENSION_ROLES = Set.of("x", "series");
 
     private static final Set<String> MAP_REGIONS = Set.of("china");
+    private static final Set<String> MAP_LAYER_KINDS = Set.of("region", "effectScatter", "lines");
+    private static final int MAX_MAP_LAYERS = 4;
 
     private static final Set<String> NODE_LINK_CHART_TYPES = Set.of("sankey", "graph");
 
@@ -190,7 +220,9 @@ public class DashboardSpecValidator {
         Map<String, Object> root = parse(specJson);
         assertVersion(root.get("version"));
         root.putIfAbsent("title", "分析看板");
-        root.put("layout", normalizeRootLayout(root.get("layout")));
+        Map<String, Object> layout = normalizeRootLayout(root.get("layout"));
+        root.put("layout", layout);
+        CanvasMetrics canvas = canvasMetrics(layout);
 
         Set<String> datasetIds = new LinkedHashSet<>();
         Map<String, String> datasetTypes = new LinkedHashMap<>();
@@ -202,13 +234,13 @@ public class DashboardSpecValidator {
         }
         assertWithinLimit("数据集", datasets.size(), MAX_DATASETS);
 
-        List<Map<String, Object>> widgets = normalizeWidgets(root.get("widgets"), datasetIds, datasetFields);
+        List<Map<String, Object>> widgets = normalizeWidgets(root.get("widgets"), datasetIds, datasetFields, canvas);
         root.put("widgets", widgets);
         if (widgets.isEmpty()) {
             throw new IllegalArgumentException("看板至少需要一个图表或内容组件");
         }
         assertWithinLimit("组件", widgets.size(), MAX_WIDGETS);
-        assertNoLayoutOverlap(widgets);
+        assertNoLayoutOverlap(widgets, canvas);
 
         List<Map<String, Object>> filters = normalizeFilters(root.get("filters"), datasetIds, datasetTypes, datasetFields);
         assertWithinLimit("筛选器", filters.size(), MAX_FILTERS);
@@ -389,7 +421,8 @@ public class DashboardSpecValidator {
     private List<Map<String, Object>> normalizeWidgets(
         Object raw,
         Set<String> datasetIds,
-        Map<String, Set<String>> datasetFields
+        Map<String, Set<String>> datasetFields,
+        CanvasMetrics canvas
     ) {
         List<Map<String, Object>> result = new ArrayList<>();
         Set<String> widgetIds = new LinkedHashSet<>();
@@ -412,13 +445,25 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("不支持的组件类型：" + type);
             }
             widget.put("type", type);
-            widget.put("layout", normalizeLayout(widget.get("layout"), type));
+            widget.put("layout", normalizeLayout(widget.get("layout"), type, canvas));
+            int zIndex = clamp(intOrDefault(widget.get("zIndex"), 0), 0, MAX_WIDGET_Z_INDEX);
+            if (zIndex > 0) {
+                widget.put("zIndex", zIndex);
+            } else {
+                widget.remove("zIndex");
+            }
+            Map<String, Object> style = normalizeWidgetStyle(id, widget.get("style"));
+            if (style.isEmpty()) {
+                widget.remove("style");
+            } else {
+                widget.put("style", style);
+            }
 
             String datasetId = asString(widget.get("datasetId"));
-            if (datasetId == null || datasetId.isBlank()) {
-                if (!WIDGET_HTML.equals(type)) {
-                    throw new IllegalArgumentException("组件 " + id + " 缺少 datasetId");
-                }
+            if (DATASETLESS_WIDGET_TYPES.contains(type)) {
+                widget.remove("datasetId");
+            } else if (datasetId == null || datasetId.isBlank()) {
+                throw new IllegalArgumentException("组件 " + id + " 缺少 datasetId");
             } else {
                 if (!datasetIds.contains(datasetId)) {
                     throw new IllegalArgumentException("组件 " + id + " 引用了不存在的数据集：" + datasetId);
@@ -434,7 +479,7 @@ public class DashboardSpecValidator {
                     throw new IllegalArgumentException("图表组件 " + id + " 缺少 encode");
                 }
                 widget.put("encode", encode);
-                Map<String, Object> chart = normalizeWidgetChart(widget, encode);
+                Map<String, Object> chart = normalizeWidgetChart(widget, encode, datasetFields);
                 validateChartEncoding(id, chart, encode);
                 validateEncodeFields(id, datasetId, encode, datasetFields.get(datasetId), true);
             } else if (WIDGET_KPI.equals(type)) {
@@ -451,6 +496,8 @@ public class DashboardSpecValidator {
                     throw new IllegalArgumentException("组件 " + id + " 的 HTML 内容过大，最大允许 " + MAX_HTML_LENGTH + " 个字符");
                 }
                 widget.put("html", html == null ? "" : html);
+            } else if (WIDGET_TITLE.equals(type) || WIDGET_CLOCK.equals(type)) {
+                widget.put("props", normalizeWidgetProps(type, widget.get("props")));
             } else if (WIDGET_TABLE.equals(type)) {
                 Map<String, Object> encode = normalizeEncode(widget, type);
                 if (!encode.isEmpty()) {
@@ -472,6 +519,36 @@ public class DashboardSpecValidator {
             }
             result.add(widget);
         }
+        return result;
+    }
+
+    /**
+     * 大屏标题栏 / 日期时间组件的展示内容。
+     */
+    private Map<String, Object> normalizeWidgetProps(String type, Object raw) {
+        Map<String, Object> props = asMap(raw);
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (WIDGET_TITLE.equals(type)) {
+            String text = trimToNull(asString(props.get("text")));
+            if (text == null) {
+                throw new IllegalArgumentException("标题栏组件缺少 props.text");
+            }
+            if (text.length() > 120) {
+                throw new IllegalArgumentException("标题栏文本不能超过 120 个字符");
+            }
+            result.put("text", text);
+            String subText = trimToNull(asString(props.get("subText")));
+            if (subText != null && subText.length() <= 60) {
+                result.put("subText", subText);
+            }
+            String align = trimToNull(asString(props.get("align")));
+            result.put("align", align != null && TITLE_ALIGNS_PROPS.contains(align.toLowerCase()) ? align.toLowerCase() : "center");
+            String frame = trimToNull(asString(props.get("frame")));
+            result.put("frame", frame != null && TITLE_FRAMES.contains(frame.toLowerCase()) ? frame.toLowerCase() : "none");
+            return result;
+        }
+        String format = trimToNull(asString(props.get("format")));
+        result.put("format", format != null && CLOCK_FORMATS.contains(format.toLowerCase()) ? format.toLowerCase() : "date-week");
         return result;
     }
 
@@ -663,7 +740,11 @@ public class DashboardSpecValidator {
     /**
      * v2 图表声明：chart.type 是唯一权威来源，echartsOption 只负责样式覆盖。
      */
-    private Map<String, Object> normalizeWidgetChart(Map<String, Object> widget, Map<String, Object> encode) {
+    private Map<String, Object> normalizeWidgetChart(
+        Map<String, Object> widget,
+        Map<String, Object> encode,
+        Map<String, Set<String>> datasetFields
+    ) {
         String widgetId = asString(widget.get("id"));
         Map<String, Object> chart = asMap(widget.get("chart"));
         String chartType = trimToNull(asString(chart.get("type")));
@@ -691,8 +772,20 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("组件 " + widgetId + " 不支持的地图区域：" + map);
             }
             chart.put("map", map);
+            List<Map<String, Object>> layers = normalizeMapLayers(
+                widgetId,
+                chart.get("layers"),
+                asString(widget.get("datasetId")),
+                datasetFields
+            );
+            if (layers.isEmpty()) {
+                chart.remove("layers");
+            } else {
+                chart.put("layers", layers);
+            }
         } else {
             chart.remove("map");
+            chart.remove("layers");
         }
 
         String subtype = trimToNull(asString(chart.get("subtype")));
@@ -734,6 +827,153 @@ public class DashboardSpecValidator {
             }
         }
         return chart;
+    }
+
+    /**
+     * 地图多图层：region（区域填色）/ effectScatter（涟漪点）/ lines（飞线）。
+     *
+     * <p>region 最多一个且必须位于第一位；图层可各自引用 datasets 中的数据集，
+     * 未指定时沿用组件自身的数据集。字段存在性按数据集字段缓存校验。
+     */
+    private List<Map<String, Object>> normalizeMapLayers(
+        String widgetId,
+        Object raw,
+        String widgetDatasetId,
+        Map<String, Set<String>> datasetFields
+    ) {
+        List<Map<String, Object>> layers = new ArrayList<>();
+        boolean hasRegion = false;
+        for (Map<String, Object> item : asMapList(raw)) {
+            if (layers.size() >= MAX_MAP_LAYERS) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的地图图层不能超过 " + MAX_MAP_LAYERS + " 个");
+            }
+            String kind = trimToNull(asString(item.get("kind")));
+            if (kind == null || !MAP_LAYER_KINDS.contains(kind)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的地图图层类型不合法：" + kind);
+            }
+            String datasetId = trimToNull(asString(item.get("datasetId")));
+            String effectiveDatasetId = datasetId == null ? widgetDatasetId : datasetId;
+            if (datasetId != null && !datasetFields.containsKey(datasetId)) {
+                throw new IllegalArgumentException("组件 " + widgetId + " 的地图图层引用了不存在的数据集：" + datasetId);
+            }
+            Set<String> fields = datasetFields.getOrDefault(effectiveDatasetId, Set.of());
+
+            Map<String, Object> layer = new LinkedHashMap<>();
+            layer.put("kind", kind);
+            if (datasetId != null) {
+                layer.put("datasetId", datasetId);
+            }
+            if ("region".equals(kind)) {
+                if (hasRegion || !layers.isEmpty()) {
+                    throw new IllegalArgumentException("组件 " + widgetId + " 的 region 图层只能有一个且必须位于第一位");
+                }
+                hasRegion = true;
+                layer.put("valueField", requireLayerField(widgetId, kind, item, "valueField", fields));
+                String agg = trimToNull(asString(item.get("agg")));
+                agg = agg == null ? "sum" : agg.toLowerCase();
+                if (!AGGREGATIONS.contains(agg)) {
+                    throw new IllegalArgumentException("组件 " + widgetId + " 的地图区域聚合方式不合法：" + agg);
+                }
+                layer.put("agg", agg);
+            } else if ("effectScatter".equals(kind)) {
+                layer.put("lngField", requireLayerField(widgetId, kind, item, "lngField", fields));
+                layer.put("latField", requireLayerField(widgetId, kind, item, "latField", fields));
+                putOptionalLayerField(widgetId, layer, "nameField", item, fields);
+                putOptionalLayerField(widgetId, layer, "valueField", item, fields);
+                List<Integer> symbolSize = normalizeSymbolSize(item.get("symbolSize"));
+                if (!symbolSize.isEmpty()) {
+                    layer.put("symbolSize", symbolSize);
+                }
+                String color = normalizeColor(item.get("color"), null);
+                if (color != null) {
+                    layer.put("color", color);
+                }
+            } else {
+                layer.put("fromLngField", requireLayerField(widgetId, kind, item, "fromLngField", fields));
+                layer.put("fromLatField", requireLayerField(widgetId, kind, item, "fromLatField", fields));
+                layer.put("toLngField", requireLayerField(widgetId, kind, item, "toLngField", fields));
+                layer.put("toLatField", requireLayerField(widgetId, kind, item, "toLatField", fields));
+                putOptionalLayerField(widgetId, layer, "valueField", item, fields);
+                String color = normalizeColor(item.get("color"), null);
+                if (color != null) {
+                    layer.put("color", color);
+                }
+                putDoubleIfPresent(layer, "curveness", item.get("curveness"), 0, 1);
+                Map<String, Object> effect = asMap(item.get("effect"));
+                if (!effect.isEmpty()) {
+                    Map<String, Object> normalizedEffect = new LinkedHashMap<>();
+                    if (effect.containsKey("show")) {
+                        normalizedEffect.put("show", Boolean.parseBoolean(String.valueOf(effect.get("show"))));
+                    }
+                    putIntIfPresent(normalizedEffect, "period", effect.get("period"), 1, 20);
+                    putDoubleIfPresent(normalizedEffect, "trailLength", effect.get("trailLength"), 0, 1);
+                    if (!normalizedEffect.isEmpty()) {
+                        layer.put("effect", normalizedEffect);
+                    }
+                }
+            }
+            layers.add(layer);
+        }
+        return layers;
+    }
+
+    private String requireLayerField(
+        String widgetId,
+        String kind,
+        Map<String, Object> item,
+        String key,
+        Set<String> fields
+    ) {
+        String field = trimToNull(asString(item.get(key)));
+        if (field == null) {
+            throw new IllegalArgumentException("组件 " + widgetId + " 的地图图层 " + kind + " 缺少字段：" + key);
+        }
+        assertLayerFieldExists(widgetId, key, field, fields);
+        return field;
+    }
+
+    private void putOptionalLayerField(
+        String widgetId,
+        Map<String, Object> layer,
+        String key,
+        Map<String, Object> item,
+        Set<String> fields
+    ) {
+        String field = trimToNull(asString(item.get(key)));
+        if (field == null) {
+            return;
+        }
+        assertLayerFieldExists(widgetId, key, field, fields);
+        layer.put(key, field);
+    }
+
+    private void assertLayerFieldExists(String widgetId, String key, String field, Set<String> fields) {
+        if (fields != null && !fields.isEmpty() && !fields.contains(field)) {
+            throw new IllegalArgumentException(
+                "组件 " + widgetId + " 的地图图层引用了不存在的字段：" + key + "=" + field
+            );
+        }
+    }
+
+    private List<Integer> normalizeSymbolSize(Object raw) {
+        List<Integer> sizes = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object item : list) {
+                Double value = asDouble(item);
+                if (value != null) {
+                    sizes.add(clamp((int) Math.round(value), 2, 80));
+                }
+                if (sizes.size() >= 2) {
+                    break;
+                }
+            }
+        } else {
+            Double value = asDouble(raw);
+            if (value != null) {
+                sizes.add(clamp((int) Math.round(value), 2, 80));
+            }
+        }
+        return sizes;
     }
 
     private List<Map<String, Object>> normalizeChartSeries(
@@ -1042,7 +1282,13 @@ public class DashboardSpecValidator {
         }
     }
 
-    private void assertNoLayoutOverlap(List<Map<String, Object>> widgets) {
+    /**
+     * grid 模式不允许组件重叠；px 模式（大屏自由画布）允许叠放，由 zIndex 决定层级。
+     */
+    private void assertNoLayoutOverlap(List<Map<String, Object>> widgets, CanvasMetrics canvas) {
+        if (canvas.pixel()) {
+            return;
+        }
         for (int i = 0; i < widgets.size(); i++) {
             Map<String, Object> left = asMap(widgets.get(i).get("layout"));
             for (int j = i + 1; j < widgets.size(); j++) {
@@ -1061,8 +1307,11 @@ public class DashboardSpecValidator {
         }
     }
 
-    private Map<String, Object> normalizeLayout(Object raw, String widgetType) {
+    private Map<String, Object> normalizeLayout(Object raw, String widgetType, CanvasMetrics canvas) {
         Map<String, Object> layout = asMap(raw);
+        if (canvas.pixel()) {
+            return normalizePixelLayout(layout, canvas);
+        }
         boolean kpi = WIDGET_KPI.equals(widgetType);
         int defaultWidth = kpi ? 6 : 12;
         int defaultHeight = kpi ? 4 : 8;
@@ -1077,6 +1326,323 @@ public class DashboardSpecValidator {
         normalized.put("w", w);
         normalized.put("h", h);
         return normalized;
+    }
+
+    /**
+     * px 模式：坐标与尺寸都是画布内容区像素，越界时钳制而不是报错。
+     */
+    private Map<String, Object> normalizePixelLayout(Map<String, Object> layout, CanvasMetrics canvas) {
+        int contentWidth = canvas.contentWidth();
+        int contentHeight = canvas.contentHeight();
+        int w = clamp(intOrDefault(layout.get("w"), Math.max(40, contentWidth / 2)), 40, contentWidth);
+        int h = clamp(intOrDefault(layout.get("h"), Math.max(20, contentHeight / 3)), 20, contentHeight);
+        int x = clamp(intOrDefault(layout.get("x"), 0), 0, Math.max(0, contentWidth - w));
+        int y = clamp(intOrDefault(layout.get("y"), 0), 0, Math.max(0, contentHeight - h));
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("x", x);
+        normalized.put("y", y);
+        normalized.put("w", w);
+        normalized.put("h", h);
+        return normalized;
+    }
+
+    /**
+     * 组件皮肤：只保留视觉字段，未知键丢弃，非法值跳过。
+     *
+     * <p>与结构性配置不同，样式问题不应阻塞保存，因此这里以“尽量保留 + 回落默认”为主；
+     * 仅当单个组件样式序列化后超过 4KB 时拒绝，避免 spec 被样式拖爆。
+     */
+    private Map<String, Object> normalizeWidgetStyle(String widgetId, Object raw) {
+        Map<String, Object> style = asMap(raw);
+        if (style.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> card = normalizeCardStyle(asMap(style.get("card")));
+        if (!card.isEmpty()) {
+            result.put("card", card);
+        }
+        Map<String, Object> title = normalizeTitleStyle(asMap(style.get("title")));
+        if (!title.isEmpty()) {
+            result.put("title", title);
+        }
+        Map<String, Object> body = normalizeBodyStyle(asMap(style.get("body")));
+        if (!body.isEmpty()) {
+            result.put("body", body);
+        }
+        Map<String, Object> kpi = normalizeKpiStyle(asMap(style.get("kpi")));
+        if (!kpi.isEmpty()) {
+            result.put("kpi", kpi);
+        }
+        Map<String, Object> chart = normalizeChartStyle(asMap(style.get("chart")));
+        if (!chart.isEmpty()) {
+            result.put("chart", chart);
+        }
+        if (result.isEmpty()) {
+            return result;
+        }
+        if (toJson(result).length() > MAX_STYLE_JSON_LENGTH) {
+            throw new IllegalArgumentException(
+                "组件 " + widgetId + " 的样式过大，最大允许 " + MAX_STYLE_JSON_LENGTH + " 个字符"
+            );
+        }
+        return result;
+    }
+
+    private Map<String, Object> normalizeCardStyle(Map<String, Object> card) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        String preset = trimToNull(asString(card.get("preset")));
+        if (preset != null && CARD_PRESETS.contains(preset.toLowerCase())) {
+            result.put("preset", preset.toLowerCase());
+        }
+        Map<String, Object> fillRaw = asMap(card.get("fill"));
+        if (!fillRaw.isEmpty()) {
+            String type = trimToNull(asString(fillRaw.get("type")));
+            type = type == null ? "none" : type.toLowerCase();
+            if (FILL_TYPES.contains(type)) {
+                Map<String, Object> fill = new LinkedHashMap<>();
+                fill.put("type", type);
+                if ("color".equals(type)) {
+                    String color = normalizeColor(fillRaw.get("color"), null);
+                    if (color != null) {
+                        fill.put("color", color);
+                    }
+                } else if ("gradient".equals(type)) {
+                    Map<String, Object> gradient = asMap(fillRaw.get("gradient"));
+                    Map<String, Object> normalizedGradient = new LinkedHashMap<>();
+                    normalizedGradient.put("from", normalizeColor(gradient.get("from"), "#0f172a"));
+                    normalizedGradient.put("to", normalizeColor(gradient.get("to"), "#1e293b"));
+                    normalizedGradient.put("angle", clamp(intOrDefault(gradient.get("angle"), 180), 0, 360));
+                    fill.put("gradient", normalizedGradient);
+                }
+                result.put("fill", fill);
+            }
+        }
+        putIntIfPresent(result, "padding", card.get("padding"), 0, 48);
+        putDoubleIfPresent(result, "opacity", card.get("opacity"), 0, 1);
+        putIntIfPresent(result, "backdropBlur", card.get("backdropBlur"), 0, 20);
+
+        Map<String, Object> border = asMap(card.get("border"));
+        if (!border.isEmpty()) {
+            Map<String, Object> normalizedBorder = new LinkedHashMap<>();
+            putIntIfPresent(normalizedBorder, "width", border.get("width"), 0, 8);
+            putIntIfPresent(normalizedBorder, "radius", border.get("radius"), 0, 32);
+            String color = normalizeColor(border.get("color"), null);
+            if (color != null) {
+                normalizedBorder.put("color", color);
+            }
+            String borderStyle = trimToNull(asString(border.get("style")));
+            if (borderStyle != null && BORDER_STYLES.contains(borderStyle.toLowerCase())) {
+                normalizedBorder.put("style", borderStyle.toLowerCase());
+            }
+            if (!normalizedBorder.isEmpty()) {
+                result.put("border", normalizedBorder);
+            }
+        }
+
+        Map<String, Object> shadow = asMap(card.get("shadow"));
+        if (!shadow.isEmpty()) {
+            Map<String, Object> normalizedShadow = new LinkedHashMap<>();
+            putIntIfPresent(normalizedShadow, "x", shadow.get("x"), -50, 50);
+            putIntIfPresent(normalizedShadow, "y", shadow.get("y"), -50, 50);
+            putIntIfPresent(normalizedShadow, "blur", shadow.get("blur"), 0, 100);
+            putIntIfPresent(normalizedShadow, "spread", shadow.get("spread"), -20, 50);
+            String color = normalizeColor(shadow.get("color"), null);
+            if (color != null) {
+                normalizedShadow.put("color", color);
+            }
+            if (!normalizedShadow.isEmpty()) {
+                result.put("shadow", normalizedShadow);
+            }
+        }
+        return result;
+    }
+
+    private Map<String, Object> normalizeTitleStyle(Map<String, Object> title) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (title.containsKey("show")) {
+            result.put("show", Boolean.parseBoolean(String.valueOf(title.get("show"))));
+        }
+        String icon = trimToNull(asString(title.get("icon")));
+        if (icon != null && ICON_NAME_PATTERN.matcher(icon).matches()) {
+            result.put("icon", icon);
+        }
+        putIntIfPresent(result, "fontSize", title.get("fontSize"), 10, 48);
+        putIntIfPresent(result, "fontWeight", title.get("fontWeight"), 100, 900);
+        putIntIfPresent(result, "height", title.get("height"), 0, 80);
+        putIntIfPresent(result, "letterSpacing", title.get("letterSpacing"), 0, 8);
+        String color = normalizeColor(title.get("color"), null);
+        if (color != null) {
+            result.put("color", color);
+        }
+        String background = normalizeColor(title.get("background"), null);
+        if (background != null) {
+            result.put("background", background);
+        }
+        String align = trimToNull(asString(title.get("align")));
+        if (align != null && TITLE_ALIGNS.contains(align.toLowerCase())) {
+            result.put("align", align.toLowerCase());
+        }
+        String decoration = trimToNull(asString(title.get("decoration")));
+        if (decoration != null && TITLE_DECORATIONS.contains(decoration.toLowerCase())) {
+            result.put("decoration", decoration.toLowerCase());
+        }
+        return result;
+    }
+
+    private Map<String, Object> normalizeBodyStyle(Map<String, Object> body) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        putIntIfPresent(result, "padding", body.get("padding"), 0, 32);
+        return result;
+    }
+
+    /**
+     * 图表样式预设：只保存显式配置项，未配置的项由前端按预设决定。
+     */
+    private Map<String, Object> normalizeChartStyle(Map<String, Object> chart) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        String preset = trimToNull(asString(chart.get("preset")));
+        if (preset != null && CHART_STYLE_PRESETS.contains(preset.toLowerCase())) {
+            result.put("preset", preset.toLowerCase());
+        }
+        for (String key : List.of("gradient", "glow", "showAxis", "showLegend", "showLabel")) {
+            if (chart.containsKey(key)) {
+                result.put(key, Boolean.parseBoolean(String.valueOf(chart.get(key))));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * KPI 展示配置：标签、图标、数值/单位排版与数字动效开关。
+     */
+    private Map<String, Object> normalizeKpiStyle(Map<String, Object> kpi) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        String label = trimToNull(asString(kpi.get("label")));
+        if (label != null && label.length() <= 40) {
+            result.put("label", label);
+        }
+        String icon = trimToNull(asString(kpi.get("icon")));
+        if (icon != null && ICON_NAME_PATTERN.matcher(icon).matches()) {
+            result.put("icon", icon);
+        }
+        String layout = trimToNull(asString(kpi.get("layout")));
+        if (layout != null && KPI_LAYOUTS.contains(layout.toLowerCase())) {
+            result.put("layout", layout.toLowerCase());
+        }
+        Map<String, Object> value = asMap(kpi.get("value"));
+        if (!value.isEmpty()) {
+            Map<String, Object> normalizedValue = new LinkedHashMap<>();
+            putIntIfPresent(normalizedValue, "fontSize", value.get("fontSize"), 12, 120);
+            putIntIfPresent(normalizedValue, "letterSpacing", value.get("letterSpacing"), 0, 8);
+            String color = normalizeColor(value.get("color"), null);
+            if (color != null) {
+                normalizedValue.put("color", color);
+            }
+            String fontFamily = trimToNull(asString(value.get("fontFamily")));
+            if (fontFamily != null && FONT_FAMILIES.contains(fontFamily.toLowerCase())) {
+                normalizedValue.put("fontFamily", fontFamily.toLowerCase());
+            }
+            if (value.containsKey("bold")) {
+                normalizedValue.put("bold", Boolean.parseBoolean(String.valueOf(value.get("bold"))));
+            }
+            if (!normalizedValue.isEmpty()) {
+                result.put("value", normalizedValue);
+            }
+        }
+        Map<String, Object> unit = asMap(kpi.get("unit"));
+        if (!unit.isEmpty()) {
+            Map<String, Object> normalizedUnit = new LinkedHashMap<>();
+            String text = trimToNull(asString(unit.get("text")));
+            if (text != null && text.length() <= 8) {
+                normalizedUnit.put("text", text);
+            }
+            putIntIfPresent(normalizedUnit, "fontSize", unit.get("fontSize"), 10, 40);
+            String color = normalizeColor(unit.get("color"), null);
+            if (color != null) {
+                normalizedUnit.put("color", color);
+            }
+            if (!normalizedUnit.isEmpty()) {
+                result.put("unit", normalizedUnit);
+            }
+        }
+        if (kpi.containsKey("animate")) {
+            result.put("animate", Boolean.parseBoolean(String.valueOf(kpi.get("animate"))));
+        }
+        putIntIfPresent(result, "decimals", kpi.get("decimals"), 0, 6);
+        return result;
+    }
+
+    private void putIntIfPresent(Map<String, Object> target, String key, Object raw, int min, int max) {
+        Double value = asDouble(raw);
+        if (value != null) {
+            target.put(key, clamp((int) Math.round(value), min, max));
+        }
+    }
+
+    private void putDoubleIfPresent(Map<String, Object> target, String key, Object raw, double min, double max) {
+        Double value = asDouble(raw);
+        if (value != null) {
+            double clamped = Math.max(min, Math.min(max, value));
+            target.put(key, Math.round(clamped * 100.0) / 100.0);
+        }
+    }
+
+    private String normalizeThemePreset(Object raw) {
+        String preset = trimToNull(asString(raw));
+        if (preset == null) {
+            return null;
+        }
+        String normalized = preset.toLowerCase();
+        return THEME_PRESETS.contains(normalized) ? normalized : null;
+    }
+
+    /**
+     * 大屏主题 token：颜色 / 序列色 / 字体 / 地图配色，只保存显式覆盖项。
+     */
+    private Map<String, Object> normalizeThemeTokens(Object raw) {
+        Map<String, Object> tokens = asMap(raw);
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (String key : List.of("primary", "secondary", "accent", "text", "textSecondary", "surface", "border")) {
+            String color = normalizeColor(tokens.get(key), null);
+            if (color != null) {
+                result.put(key, color);
+            }
+        }
+        Object rawPalette = tokens.get("palette");
+        if (rawPalette instanceof List<?> list) {
+            List<String> palette = new ArrayList<>();
+            for (Object item : list) {
+                String color = normalizeColor(item, null);
+                if (color != null) {
+                    palette.add(color);
+                }
+                if (palette.size() >= MAX_THEME_PALETTE) {
+                    break;
+                }
+            }
+            if (!palette.isEmpty()) {
+                result.put("palette", palette);
+            }
+        }
+        String fontFamily = trimToNull(asString(tokens.get("fontFamily")));
+        if (fontFamily != null && FONT_FAMILIES.contains(fontFamily.toLowerCase())) {
+            result.put("fontFamily", fontFamily.toLowerCase());
+        }
+        Map<String, Object> map = asMap(tokens.get("map"));
+        if (!map.isEmpty()) {
+            Map<String, Object> normalizedMap = new LinkedHashMap<>();
+            for (String key : List.of("area", "border", "emphasis", "label")) {
+                String color = normalizeColor(map.get(key), null);
+                if (color != null) {
+                    normalizedMap.put(key, color);
+                }
+            }
+            if (!normalizedMap.isEmpty()) {
+                result.put("map", normalizedMap);
+            }
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -1347,22 +1913,85 @@ public class DashboardSpecValidator {
         String fitMode = normalizeFitMode(screen.get("fitMode"));
         int autoRefreshSeconds = clamp(intOrDefault(screen.get("autoRefreshSeconds"), 0), 0, 86400);
         Map<String, Object> background = normalizeBackground(screen.get("background"), theme);
+        Map<String, Object> canvas = normalizeScreenCanvas(screen.get("canvas"));
+        String themePreset = normalizeThemePreset(screen.get("themePreset"));
+        Map<String, Object> tokens = normalizeThemeTokens(screen.get("tokens"));
+
+        // 主题、背景与画布配置在标准模式同样需要持久化；标准模式固定使用栅格定位。
+        if (!LAYOUT_MODE_SCREEN.equals(mode)) {
+            canvas.put("unit", CANVAS_UNIT_GRID);
+        }
+        Map<String, Object> normalizedScreen = new LinkedHashMap<>();
+        normalizedScreen.put("width", width);
+        normalizedScreen.put("height", height);
+        normalizedScreen.put("fitMode", fitMode);
+        normalizedScreen.put("theme", theme);
+        if (themePreset != null) {
+            normalizedScreen.put("themePreset", themePreset);
+        }
+        if (!tokens.isEmpty()) {
+            normalizedScreen.put("tokens", tokens);
+        }
+        normalizedScreen.put("autoRefreshSeconds", autoRefreshSeconds);
+        normalizedScreen.put("canvas", canvas);
+        if (!background.isEmpty()) {
+            normalizedScreen.put("background", background);
+        }
 
         Map<String, Object> normalized = new LinkedHashMap<>();
         normalized.put("mode", mode);
-        if (LAYOUT_MODE_SCREEN.equals(mode)) {
-            Map<String, Object> normalizedScreen = new LinkedHashMap<>();
-            normalizedScreen.put("width", width);
-            normalizedScreen.put("height", height);
-            normalizedScreen.put("fitMode", fitMode);
-            normalizedScreen.put("theme", theme);
-            normalizedScreen.put("autoRefreshSeconds", autoRefreshSeconds);
-            if (!background.isEmpty()) {
-                normalizedScreen.put("background", background);
-            }
-            normalized.put("screen", normalizedScreen);
-        }
+        normalized.put("screen", normalizedScreen);
         return normalized;
+    }
+
+    /**
+     * 大屏画布配置：grid（24 栅格）或 px（画布绝对像素）。
+     *
+     * <p>padding 为画布内边距，0 表示贴边；gap 仅在 grid 模式生效。
+     */
+    private Map<String, Object> normalizeScreenCanvas(Object raw) {
+        Map<String, Object> canvas = asMap(raw);
+        String unit = trimToNull(asString(canvas.get("unit")));
+        unit = unit != null && CANVAS_UNITS.contains(unit.toLowerCase()) ? unit.toLowerCase() : CANVAS_UNIT_GRID;
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("unit", unit);
+        normalized.put("padding", clamp(intOrDefault(canvas.get("padding"), 16), 0, MAX_CANVAS_PADDING));
+        normalized.put("gap", clamp(intOrDefault(canvas.get("gap"), 12), 0, MAX_CANVAS_GAP));
+        return normalized;
+    }
+
+    /**
+     * 把归一化后的 layout 换算成组件定位所需的画布度量。
+     *
+     * <p>标准模式没有 screen 块，统一回落到 grid 与默认分辨率。
+     */
+    private CanvasMetrics canvasMetrics(Map<String, Object> layout) {
+        Map<String, Object> screen = asMap(layout.get("screen"));
+        Map<String, Object> canvas = asMap(screen.get("canvas"));
+        String unit = asString(canvas.get("unit"));
+        boolean pixel = LAYOUT_MODE_SCREEN.equals(asString(layout.get("mode"))) && CANVAS_UNIT_PX.equals(unit);
+        int width = clamp(intOrDefault(screen.get("width"), DEFAULT_SCREEN_WIDTH), 640, 7680);
+        int height = clamp(intOrDefault(screen.get("height"), DEFAULT_SCREEN_HEIGHT), 480, 4320);
+        int padding = clamp(intOrDefault(canvas.get("padding"), 16), 0, MAX_CANVAS_PADDING);
+        int gap = clamp(intOrDefault(canvas.get("gap"), 12), 0, MAX_CANVAS_GAP);
+        return new CanvasMetrics(pixel ? CANVAS_UNIT_PX : CANVAS_UNIT_GRID, width, height, padding, gap, GRID_COLUMNS, 40);
+    }
+
+    /**
+     * 组件定位上下文；px 模式下坐标与尺寸均为画布内容区像素。
+     */
+    private record CanvasMetrics(String unit, int width, int height, int padding, int gap, int columns, int rowHeight) {
+        boolean pixel() {
+            return CANVAS_UNIT_PX.equals(unit);
+        }
+
+        int contentWidth() {
+            return Math.max(1, width - padding * 2);
+        }
+
+        int contentHeight() {
+            return Math.max(1, height - padding * 2);
+        }
     }
 
     private String normalizeFitMode(Object raw) {

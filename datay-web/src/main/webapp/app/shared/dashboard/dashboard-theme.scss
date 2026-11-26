@@ -1,3 +1,20 @@
+/* 数字字体：Orbitron（几何科技）与 Rajdhani（窄体），SIL OFL 1.1，见 content/fonts。 */
+@font-face {
+  font-family: 'Datay Orbitron';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../../../content/fonts/orbitron-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Datay Rajdhani';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../../../content/fonts/rajdhani-600.woff2') format('woff2');
+}
+
 /* 看板大屏主题变量：只作用于带有 dashboard-theme-* 的看板容器，不影响编辑页面。 */
 .dashboard-theme-light {
   --dashboard-surface: #fff;
@@ -76,4 +93,96 @@
   --el-table-border-color: #263244;
   --el-table-text-color: #cbd5e1;
   --el-table-header-text-color: #e5e7eb;
+}
+
+/* ---------------------------------------------------------------------------
+ * 组件皮肤：卡片预设与标题装饰
+ * 这些 class 由 widget.style 映射而来，颜色优先取主题 token（--dash-accent / --dash-border）。
+ * ------------------------------------------------------------------------- */
+
+.dashboard-widget-card {
+  position: relative;
+}
+
+/* 科技角标：左上 + 右下两段折角 */
+.dash-card--tech-corner::before,
+.dash-card--tech-corner::after {
+  position: absolute;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  content: '';
+  border-color: var(--dash-accent, #2fa8ff);
+  border-style: solid;
+  opacity: 0.85;
+}
+
+.dash-card--tech-corner::before {
+  top: 0;
+  left: 0;
+  border-width: 1px 0 0 1px;
+}
+
+.dash-card--tech-corner::after {
+  right: 0;
+  bottom: 0;
+  border-width: 0 1px 1px 0;
+}
+
+/* 科技边框：细描边 + 内发光 */
+.dash-card--tech-frame {
+  border: 1px solid var(--dash-border, rgb(47 168 255 / 45%));
+  box-shadow: inset 0 0 18px rgb(47 168 255 / 12%);
+}
+
+/* 括号边框：左右两条渐隐竖线 */
+.dash-card--bracket::before,
+.dash-card--bracket::after {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  pointer-events: none;
+  content: '';
+  background: linear-gradient(180deg, transparent, var(--dash-accent, #2fa8ff), transparent);
+  opacity: 0.8;
+}
+
+.dash-card--bracket::before {
+  left: 0;
+}
+
+.dash-card--bracket::after {
+  right: 0;
+}
+
+/* 标题装饰 */
+.dashboard-widget-header {
+  position: relative;
+}
+
+.dashboard-widget-header.is-deco-underline {
+  border-bottom-color: var(--dash-accent, #2fa8ff);
+}
+
+.dashboard-widget-header.is-deco-gradient-underline::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 96px;
+  max-width: 60%;
+  height: 2px;
+  content: '';
+  background: linear-gradient(90deg, var(--dash-accent, #2fa8ff), transparent);
+}
+
+.dashboard-widget-header.is-deco-left-bar::before {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 14px;
+  margin-right: 8px;
+  content: '';
+  background: var(--dash-accent, #2fa8ff);
+  border-radius: 2px;
 }

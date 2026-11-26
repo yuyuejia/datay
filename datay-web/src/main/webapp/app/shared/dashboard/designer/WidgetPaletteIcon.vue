@@ -46,6 +46,20 @@
       <path d="M9 4v13.5M15 6.5V20" />
       <circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
     </g>
+    <g v-else-if="name === 'title'">
+      <rect x="3" y="5" width="18" height="5" rx="1" fill="currentColor" fill-opacity="0.25" />
+      <path d="M5 14h14M7 18h10" />
+    </g>
+    <g v-else-if="name === 'other'">
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="14" y="14" width="6" height="6" rx="1" />
+    </g>
+    <g v-else-if="name === 'clock'">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7.5V12l3 2" />
+    </g>
     <g v-else>
       <polyline points="8 6 4 12 8 18" />
       <polyline points="16 6 20 12 16 18" />

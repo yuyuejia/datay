@@ -76,7 +76,46 @@ class DashboardSpecValidatorTest {
         assertThat(spec.get("filters")).asList().hasSize(1);
         @SuppressWarnings("unchecked")
         Map<String, Object> layout = (Map<String, Object>) spec.get("layout");
-        assertThat(layout).containsEntry("mode", "standard").doesNotContainKeys("columns", "rowHeight", "gap", "screen");
+        assertThat(layout).containsEntry("mode", "standard").doesNotContainKeys("columns", "rowHeight", "gap");
+        Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
+        assertThat(screen).containsEntry("theme", "light").containsEntry("fitMode", "stretch");
+        assertThat((Map<String, Object>) screen.get("canvas")).containsEntry("unit", "grid");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldPersistThemePresetInStandardMode() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": {
+                "mode": "standard",
+                "screen": {
+                  "theme": "dark",
+                  "themePreset": "tech-blue",
+                  "tokens": { "primary": "#2fa8ff", "palette": ["#2fa8ff", "#1de9b6"] },
+                  "canvas": { "unit": "px", "padding": 0 }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "table",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 6 }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> screen = (Map<String, Object>) ((Map<String, Object>) normalized.get("layout")).get("screen");
+
+        assertThat(screen).containsEntry("theme", "dark").containsEntry("themePreset", "tech-blue");
+        assertThat((Map<String, Object>) screen.get("tokens")).containsEntry("primary", "#2fa8ff");
+        // 标准模式即使传了 px，也固定回落到栅格定位。
+        assertThat((Map<String, Object>) screen.get("canvas")).containsEntry("unit", "grid");
     }
 
     @Test
@@ -1255,6 +1294,78 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizePixelCanvasAndAllowOverlap() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": {
+                "mode": "screen",
+                "screen": {
+                  "width": 1920,
+                  "height": 1080,
+                  "canvas": { "unit": "px", "padding": 0, "gap": 200 }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "w1", "type": "table", "datasetId": "ds1", "zIndex": 5, "layout": { "x": 0, "y": 0, "w": 600, "h": 300 } },
+                { "id": "w2", "type": "table", "datasetId": "ds1", "zIndex": 5000, "layout": { "x": 100, "y": 100, "w": 600, "h": 300 } },
+                { "id": "w3", "type": "table", "datasetId": "ds1", "layout": { "x": 5000, "y": 5000, "w": 600, "h": 300 } }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
+        Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
+        assertThat(screen.get("canvas")).isEqualTo(Map.of("unit", "px", "padding", 0, "gap", 48));
+
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        assertThat((Map<String, Object>) widgets.get(0).get("layout")).containsEntry("x", 0).containsEntry("y", 0);
+        assertThat(widgets.get(0)).containsEntry("zIndex", 5);
+        assertThat(widgets.get(1)).containsEntry("zIndex", 999);
+        assertThat((Map<String, Object>) widgets.get(2).get("layout"))
+            .containsEntry("x", 1320)
+            .containsEntry("y", 780)
+            .containsEntry("w", 600)
+            .containsEntry("h", 300);
+        assertThat(widgets.get(2)).doesNotContainKey("zIndex");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldClampPixelLayoutInsideCanvasPadding() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": {
+                "mode": "screen",
+                "screen": {
+                  "width": 1920,
+                  "height": 1080,
+                  "canvas": { "unit": "px", "padding": 300 }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "w1", "type": "table", "datasetId": "ds1", "layout": { "x": -50, "y": -50, "w": 5000, "h": 5000 } }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> screen = (Map<String, Object>) ((Map<String, Object>) normalized.get("layout")).get("screen");
+        assertThat((Map<String, Object>) screen.get("canvas")).containsEntry("padding", 64);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        assertThat((Map<String, Object>) widgets.get(0).get("layout"))
+            .containsEntry("x", 0)
+            .containsEntry("y", 0)
+            .containsEntry("w", 1792)
+            .containsEntry("h", 952);
+    }
+
+    @Test
     void guardShouldAllowSelectAndBlockWrite() {
         assertThat(DashboardSqlGuard.requireReadOnly("SELECT * FROM t")).startsWith("SELECT");
         assertThat(DashboardSqlGuard.requireReadOnly("  WITH x AS (SELECT 1) SELECT * FROM x")).startsWith("WITH");
@@ -1266,6 +1377,606 @@ class DashboardSpecValidatorTest {
     void guardShouldAllowReadOnlyFunctionsAndIgnoreStringLiterals() {
         assertThat(DashboardSqlGuard.requireReadOnly("SELECT replace(name, 'a', 'b') FROM t")).contains("replace");
         assertThat(DashboardSqlGuard.requireReadOnly("SELECT * FROM t WHERE note = 'please update me'")).contains("SELECT");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeWidgetStyleAndThemeTokens() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": {
+                "mode": "screen",
+                "screen": {
+                  "width": 1920,
+                  "height": 1080,
+                  "theme": "dark",
+                  "themePreset": "tech-blue",
+                  "tokens": {
+                    "primary": "#2fa8ff",
+                    "surface": "rgba(9,26,48,0.55)",
+                    "border": "not-a-color",
+                    "palette": ["#2fa8ff", "#1de9b6", "invalid"],
+                    "fontFamily": "number-digital",
+                    "map": { "area": "#0b3a5b" }
+                  }
+                }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "table",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 600, "h": 300 },
+                  "style": {
+                    "card": {
+                      "preset": "tech-corner",
+                      "fill": { "type": "gradient", "gradient": { "from": "#0a1b2e", "to": "#0d2643", "angle": 180 } },
+                      "opacity": 0.85,
+                      "border": { "width": 2, "color": "#1b5c8a", "style": "dashed", "radius": 6 },
+                      "shadow": { "x": 0, "y": 0, "blur": 18, "spread": 0, "color": "rgba(0,180,255,0.25)" },
+                      "padding": 8,
+                      "unknown": "ignored"
+                    },
+                    "title": {
+                      "icon": "chart-line",
+                      "fontSize": 16,
+                      "color": "#7fe3ff",
+                      "align": "center",
+                      "height": 36,
+                      "letterSpacing": 1,
+                      "decoration": "gradient-underline"
+                    },
+                    "body": { "padding": 4 }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> screen = (Map<String, Object>) ((Map<String, Object>) normalized.get("layout")).get("screen");
+        assertThat(screen).containsEntry("themePreset", "tech-blue");
+
+        Map<String, Object> tokens = (Map<String, Object>) screen.get("tokens");
+        assertThat(tokens).containsEntry("primary", "#2fa8ff").containsEntry("fontFamily", "number-digital");
+        assertThat(tokens).doesNotContainKey("border");
+        assertThat((List<String>) tokens.get("palette")).containsExactly("#2fa8ff", "#1de9b6");
+        assertThat((Map<String, Object>) tokens.get("map")).containsEntry("area", "#0b3a5b");
+
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> style = (Map<String, Object>) widgets.get(0).get("style");
+        Map<String, Object> card = (Map<String, Object>) style.get("card");
+        assertThat(card).containsEntry("preset", "tech-corner").containsEntry("opacity", 0.85).containsEntry("padding", 8);
+        assertThat(card).doesNotContainKey("unknown");
+        assertThat((Map<String, Object>) card.get("fill")).containsEntry("type", "gradient");
+        assertThat((Map<String, Object>) card.get("border"))
+            .containsEntry("width", 2)
+            .containsEntry("style", "dashed")
+            .containsEntry("radius", 6);
+        Map<String, Object> title = (Map<String, Object>) style.get("title");
+        assertThat(title)
+            .containsEntry("icon", "chart-line")
+            .containsEntry("align", "center")
+            .containsEntry("decoration", "gradient-underline");
+        assertThat((Map<String, Object>) style.get("body")).containsEntry("padding", 4);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDropInvalidStyleValues() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": {
+                "mode": "screen",
+                "screen": { "width": 1920, "height": 1080, "themePreset": "unknown-preset" }
+              },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "table",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 600, "h": 300 },
+                  "style": {
+                    "card": {
+                      "preset": "not-a-preset",
+                      "fill": { "type": "neon", "color": "#ffffff" },
+                      "opacity": 5,
+                      "border": { "color": "nope" }
+                    },
+                    "title": { "icon": "Bad Icon!", "align": "justify", "fontSize": 200, "show": false }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        Map<String, Object> screen = (Map<String, Object>) ((Map<String, Object>) normalized.get("layout")).get("screen");
+        assertThat(screen).doesNotContainKey("themePreset");
+
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> style = (Map<String, Object>) widgets.get(0).get("style");
+        Map<String, Object> card = (Map<String, Object>) style.get("card");
+        assertThat(card).doesNotContainKeys("preset", "fill", "border");
+        assertThat(card).containsEntry("opacity", 1.0);
+        Map<String, Object> title = (Map<String, Object>) style.get("title");
+        assertThat(title).doesNotContainKeys("icon", "align");
+        assertThat(title).containsEntry("fontSize", 48).containsEntry("show", false);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeKpiStyle() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "k1",
+                  "type": "kpi",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 0, "y": 0, "w": 6, "h": 4 },
+                  "style": {
+                    "kpi": {
+                      "label": "学生总数",
+                      "icon": "users",
+                      "layout": "label-left",
+                      "value": {
+                        "fontSize": 56,
+                        "color": "#eaf6ff",
+                        "fontFamily": "number-digital",
+                        "bold": true,
+                        "letterSpacing": 2
+                      },
+                      "unit": { "text": "人", "fontSize": 16, "color": "#8fb6d6" },
+                      "animate": true,
+                      "decimals": 1,
+                      "unknown": "ignored"
+                    }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> kpi = (Map<String, Object>) ((Map<String, Object>) widgets.get(0).get("style")).get("kpi");
+
+        assertThat(kpi)
+            .containsEntry("label", "学生总数")
+            .containsEntry("icon", "users")
+            .containsEntry("layout", "label-left")
+            .containsEntry("animate", true)
+            .containsEntry("decimals", 1)
+            .doesNotContainKey("unknown");
+        assertThat((Map<String, Object>) kpi.get("value"))
+            .containsEntry("fontSize", 56)
+            .containsEntry("fontFamily", "number-digital")
+            .containsEntry("bold", true)
+            .containsEntry("letterSpacing", 2);
+        assertThat((Map<String, Object>) kpi.get("unit"))
+            .containsEntry("text", "人")
+            .containsEntry("fontSize", 16)
+            .containsEntry("color", "#8fb6d6");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldClampInvalidKpiStyleValues() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "k1",
+                  "type": "kpi",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 0, "y": 0, "w": 6, "h": 4 },
+                  "style": {
+                    "kpi": {
+                      "label": "这是一个超过四十个字符的标签这是一个超过四十个字符的标签这是一个超过四十个字符的标签",
+                      "layout": "diagonal",
+                      "value": { "fontSize": 500, "fontFamily": "comic-sans" },
+                      "unit": { "text": "一个非常非常非常长的单位文本", "fontSize": 200 },
+                      "animate": "true",
+                      "decimals": 9
+                    }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> kpi = (Map<String, Object>) ((Map<String, Object>) widgets.get(0).get("style")).get("kpi");
+
+        assertThat(kpi).doesNotContainKeys("label", "layout");
+        assertThat(kpi).containsEntry("animate", true).containsEntry("decimals", 6);
+        assertThat((Map<String, Object>) kpi.get("value")).containsEntry("fontSize", 120);
+        assertThat((Map<String, Object>) kpi.get("value")).doesNotContainKey("fontFamily");
+        assertThat((Map<String, Object>) kpi.get("unit")).containsEntry("fontSize", 40).doesNotContainKey("text");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeMapLayers() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [
+                {
+                  "id": "ds1",
+                  "type": "SQL",
+                  "sql": "select province, students from t",
+                  "fields": { "columns": [ { "name": "province" }, { "name": "students" } ] }
+                },
+                {
+                  "id": "ds_city",
+                  "type": "SQL",
+                  "sql": "select city, lng, lat, students from c",
+                  "fields": { "columns": [ { "name": "city" }, { "name": "lng" }, { "name": "lat" }, { "name": "students" } ] }
+                },
+                {
+                  "id": "ds_flow",
+                  "type": "SQL",
+                  "sql": "select from_lng, from_lat, to_lng, to_lat, flow from f",
+                  "fields": { "columns": [ { "name": "from_lng" }, { "name": "from_lat" }, { "name": "to_lng" }, { "name": "to_lat" }, { "name": "flow" } ] }
+                }
+              ],
+              "widgets": [
+                {
+                  "id": "m1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "students", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": {
+                    "type": "map",
+                    "map": "china",
+                    "layers": [
+                      { "kind": "region", "valueField": "students" },
+                      {
+                        "kind": "effectScatter",
+                        "datasetId": "ds_city",
+                        "lngField": "lng",
+                        "latField": "lat",
+                        "nameField": "city",
+                        "valueField": "students",
+                        "symbolSize": [ 10, 30 ],
+                        "color": "#ffd54f"
+                      },
+                      {
+                        "kind": "lines",
+                        "datasetId": "ds_flow",
+                        "fromLngField": "from_lng",
+                        "fromLatField": "from_lat",
+                        "toLngField": "to_lng",
+                        "toLatField": "to_lat",
+                        "valueField": "flow",
+                        "color": "#ffd54f",
+                        "curveness": 0.3,
+                        "effect": { "show": true, "period": 4, "trailLength": 0.4 }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> chart = (Map<String, Object>) widgets.get(0).get("chart");
+        List<Map<String, Object>> layers = (List<Map<String, Object>>) chart.get("layers");
+
+        assertThat(layers).hasSize(3);
+        assertThat(layers.get(0)).containsEntry("kind", "region").containsEntry("valueField", "students").containsEntry("agg", "sum");
+        assertThat(layers.get(1))
+            .containsEntry("kind", "effectScatter")
+            .containsEntry("datasetId", "ds_city")
+            .containsEntry("lngField", "lng")
+            .containsEntry("nameField", "city");
+        assertThat((List<Integer>) layers.get(1).get("symbolSize")).containsExactly(10, 30);
+        assertThat(layers.get(2))
+            .containsEntry("kind", "lines")
+            .containsEntry("toLngField", "to_lng")
+            .containsEntry("curveness", 0.3);
+        assertThat((Map<String, Object>) layers.get(2).get("effect"))
+            .containsEntry("show", true)
+            .containsEntry("period", 4)
+            .containsEntry("trailLength", 0.4);
+    }
+
+    @Test
+    void shouldRejectInvalidMapLayers() {
+        String baseSpec =
+            """
+            {
+              "version": 2,
+              "datasets": [
+                { "id": "ds1", "type": "SQL", "sql": "select province, students from t",
+                  "fields": { "columns": [ { "name": "province" }, { "name": "students" } ] } }
+              ],
+              "widgets": [
+                {
+                  "id": "m1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "students", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": { "type": "map", "map": "china", "layers": [ %s ] }
+                }
+              ]
+            }
+            """;
+
+        assertThatThrownBy(() ->
+            validator.validateAndNormalize(baseSpec.formatted(
+                "{ \"kind\": \"effectScatter\", \"lngField\": \"lng\", \"latField\": \"lat\" }"
+            ))
+        )
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的字段");
+
+        assertThatThrownBy(() ->
+            validator.validateAndNormalize(baseSpec.formatted("{ \"kind\": \"region\", \"valueField\": \"missing\" }"))
+        )
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的字段");
+
+        assertThatThrownBy(() ->
+            validator.validateAndNormalize(baseSpec.formatted("{ \"kind\": \"region\" }"))
+        )
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("缺少字段");
+    }
+
+    @Test
+    void shouldRejectRegionLayerNotFirstAndUnknownDataset() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "SQL", "sql": "select province, students from t" } ],
+              "widgets": [
+                {
+                  "id": "m1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "students", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": {
+                    "type": "map",
+                    "layers": [
+                      { "kind": "effectScatter", "lngField": "lng", "latField": "lat" },
+                      { "kind": "region", "valueField": "students" }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("region 图层只能有一个且必须位于第一位");
+
+        String unknownDataset =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "SQL", "sql": "select province, students from t" } ],
+              "widgets": [
+                {
+                  "id": "m1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "encode": {
+                    "dimensions": [ { "field": "province", "role": "x" } ],
+                    "measures": [ { "field": "students", "agg": "sum", "role": "value" } ]
+                  },
+                  "chart": {
+                    "type": "map",
+                    "layers": [
+                      { "kind": "effectScatter", "datasetId": "ds_missing", "lngField": "lng", "latField": "lat" }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(unknownDataset))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的数据集");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeChartStylePreset() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "bar" },
+                  "style": {
+                    "chart": {
+                      "preset": "tech",
+                      "gradient": true,
+                      "glow": "false",
+                      "showAxis": false,
+                      "showLegend": true,
+                      "showLabel": true,
+                      "unknown": "ignored"
+                    }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> chartStyle = (Map<String, Object>) ((Map<String, Object>) widgets.get(0).get("style")).get("chart");
+
+        assertThat(chartStyle)
+            .containsEntry("preset", "tech")
+            .containsEntry("gradient", true)
+            .containsEntry("glow", false)
+            .containsEntry("showAxis", false)
+            .containsEntry("showLegend", true)
+            .containsEntry("showLabel", true)
+            .doesNotContainKey("unknown");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDropInvalidChartStylePreset() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "bar" },
+                  "style": { "chart": { "preset": "neon", "gradient": false } }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> chartStyle = (Map<String, Object>) ((Map<String, Object>) widgets.get(0).get("style")).get("chart");
+
+        assertThat(chartStyle).doesNotContainKey("preset").containsEntry("gradient", false);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeTitleAndClockWidgets() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": { "mode": "screen", "screen": { "width": 1920, "height": 1080 } },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "t1",
+                  "type": "title",
+                  "layout": { "x": 0, "y": 0, "w": 24, "h": 2 },
+                  "props": {
+                    "text": "领导驾驶舱",
+                    "subText": "学生管理主题",
+                    "align": "center",
+                    "frame": "tech-frame"
+                  }
+                },
+                {
+                  "id": "c1",
+                  "type": "clock",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 2, "w": 8, "h": 1 },
+                  "props": { "format": "date-week" }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+
+        assertThat(widgets.get(0)).doesNotContainKey("datasetId");
+        assertThat((Map<String, Object>) widgets.get(0).get("props"))
+            .containsEntry("text", "领导驾驶舱")
+            .containsEntry("subText", "学生管理主题")
+            .containsEntry("align", "center")
+            .containsEntry("frame", "tech-frame");
+        // 数据集组件才需要 datasetId；clock 即使误传也会被清掉。
+        assertThat(widgets.get(1)).doesNotContainKey("datasetId");
+        assertThat((Map<String, Object>) widgets.get(1).get("props")).containsEntry("format", "date-week");
+    }
+
+    @Test
+    void shouldRejectTitleWithoutText() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "t1", "type": "title", "layout": { "x": 0, "y": 0, "w": 24, "h": 2 }, "props": {} }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("props.text");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldFallbackInvalidTitleAndClockProps() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "t1",
+                  "type": "title",
+                  "layout": { "x": 0, "y": 0, "w": 24, "h": 2 },
+                  "props": { "text": "标题", "align": "justify", "frame": "neon" }
+                },
+                {
+                  "id": "c1",
+                  "type": "clock",
+                  "layout": { "x": 0, "y": 2, "w": 8, "h": 1 },
+                  "props": { "format": "lunar" }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        assertThat((Map<String, Object>) widgets.get(0).get("props"))
+            .containsEntry("align", "center")
+            .containsEntry("frame", "none");
+        assertThat((Map<String, Object>) widgets.get(1).get("props")).containsEntry("format", "date-week");
     }
 
     @Test

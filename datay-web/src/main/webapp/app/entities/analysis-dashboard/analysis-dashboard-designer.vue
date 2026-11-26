@@ -129,7 +129,7 @@
                 @click="selectWidget(widget.id)"
               >
                 <div class="designer-list-main">
-                  <div class="designer-list-title">{{ widget.title || (widget.type === 'html' ? '说明文本' : widget.id) }}</div>
+                  <div class="designer-list-title">{{ widgetLabel(widget) }}</div>
                   <div class="designer-list-sub">{{ widget.type }} · {{ widget.datasetId || '未绑定数据集' }}</div>
                 </div>
                 <el-button text size="small" type="danger" @click.stop="removeWidget(widget.id)">删除</el-button>
@@ -165,7 +165,7 @@
 
       <main
         class="designer-main"
-        :class="{ 'is-screen': isScreenMode, 'is-standard': !isScreenMode }"
+        :class="[screenThemeClass, { 'is-screen': isScreenMode, 'is-standard': !isScreenMode }]"
         :style="!isScreenMode ? screenBackgroundStyle : undefined"
       >
         <section class="designer-preview-filters">
@@ -214,6 +214,7 @@
               @layout-change="onLayoutChange"
               @resize="onResize"
               @delete="removeWidget"
+              @layer-move="moveWidgetLayer"
               @add-widget="onCanvasAddWidget"
             />
           </template>
@@ -228,6 +229,7 @@
           @layout-change="onLayoutChange"
           @resize="onResize"
           @delete="removeWidget"
+          @layer-move="moveWidgetLayer"
           @add-widget="onCanvasAddWidget"
         />
         <div v-if="isCanvasOverflow" class="designer-canvas-overflow">
@@ -282,6 +284,42 @@
               </el-select>
               <div class="designer-hint">{{ fitModeHint }}；仅在浏览 / 预览页生效。</div>
 
+              <label>布局单位</label>
+              <el-radio-group v-model="canvasUnit" size="small">
+                <el-radio-button value="grid">栅格</el-radio-button>
+                <el-radio-button value="px">像素</el-radio-button>
+              </el-radio-group>
+              <div class="designer-hint">栅格按 24 列自动对齐；像素按设计分辨率自由定位，支持组件叠放（用组件左上角 ↑ ↓ 调整层级）。</div>
+
+              <label>画布内边距</label>
+              <div class="designer-inline">
+                <el-input-number
+                  v-model="canvasPadding"
+                  :min="0"
+                  :max="64"
+                  :step="1"
+                  controls-position="right"
+                  style="flex: 1; min-width: 0"
+                />
+                <span class="designer-settings-label-inline">px</span>
+              </div>
+              <div class="designer-hint">设为 0 即贴边，适合整屏大屏布局。</div>
+
+              <template v-if="canvasUnit === 'grid'">
+                <label>栅格间距</label>
+                <div class="designer-inline">
+                  <el-input-number
+                    v-model="canvasGap"
+                    :min="0"
+                    :max="48"
+                    :step="1"
+                    controls-position="right"
+                    style="flex: 1; min-width: 0"
+                  />
+                  <span class="designer-settings-label-inline">px</span>
+                </div>
+              </template>
+
               <label>画布缩放</label>
               <div class="designer-inline">
                 <el-button size="small" :disabled="zoomPercent <= 25" title="缩小画布" @click="zoomOut">−</el-button>
@@ -298,6 +336,26 @@
               <el-radio-button value="light">浅色</el-radio-button>
               <el-radio-button value="dark">深色</el-radio-button>
             </el-radio-group>
+
+            <label>主题预设</label>
+            <el-select v-model="themePreset" style="width: 100%">
+              <el-option v-for="option in themePresetOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+            <label>主题配色</label>
+            <div class="designer-inline">
+              <el-color-picker v-model="themePrimary" show-alpha title="主色" />
+              <el-color-picker v-model="themeSecondary" show-alpha title="辅助色" />
+              <el-color-picker v-model="themeAccent" show-alpha title="强调色" />
+              <span class="designer-settings-label-inline">主色 / 辅助 / 强调</span>
+            </div>
+            <div class="designer-inline">
+              <el-color-picker v-model="themeSurface" show-alpha title="卡片底色" />
+              <el-color-picker v-model="themeBorder" show-alpha title="卡片描边" />
+              <el-color-picker v-model="themeText" show-alpha title="正文颜色" />
+              <span class="designer-settings-label-inline">底色 / 描边 / 文字</span>
+            </div>
+            <el-button size="small" text type="primary" @click="resetThemeTokens">恢复预设配色</el-button>
+            <div class="designer-hint">主题 token 是组件默认皮肤；单个组件样式可覆盖。</div>
 
             <label>背景</label>
             <el-radio-group v-model="backgroundType" size="small">
@@ -357,13 +415,20 @@
             </div>
             <div class="designer-hint">0 表示不自动刷新；仅在浏览 / 预览页生效。</div>
 
-            <label>栅格规则</label>
+            <label>定位规则</label>
             <div class="designer-settings-grid">
-              <span>24 栅格列</span>
+              <span>{{ canvasUnit === 'px' ? '像素定位' : '24 栅格列' }}</span>
               <span>行高 40px</span>
-              <span>间距 12px</span>
+              <span>内边距 {{ canvasPadding }}px</span>
+              <span v-if="canvasUnit === 'grid'">间距 {{ canvasGap }}px</span>
             </div>
-            <div class="designer-hint">组件按 24 栅格定位，垂直拖动步长为 52px。</div>
+            <div class="designer-hint">
+              {{
+                canvasUnit === 'px'
+                  ? '组件按设计分辨率像素坐标定位，拖拽不做栅格吸附，允许重叠。'
+                  : `组件按 24 栅格定位，垂直拖动步长为 ${40 + canvasGap}px。`
+              }}
+            </div>
 
             <div v-if="isCanvasOverflow" class="designer-settings-warning">内容超出画布高度，浏览时底部会被裁切。</div>
           </div>
@@ -373,15 +438,48 @@
           <el-tabs v-model="propertyTab" class="designer-property-tabs">
             <el-tab-pane label="基础设置" name="basic">
               <div class="designer-property-form">
-                <label>标题</label>
-                <el-input v-model="selectedWidget.title" placeholder="组件标题" />
-                <div v-if="selectedWidget.type === 'html'" class="designer-hint">留空则不显示标题栏，HTML 内容占满整个组件。</div>
+                <template v-if="selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'">
+                  <label>标题</label>
+                  <el-input v-model="selectedWidget.title" placeholder="组件标题" />
+                  <div v-if="selectedWidget.type === 'html'" class="designer-hint">留空则不显示标题栏，HTML 内容占满整个组件。</div>
+                </template>
 
-                <template v-if="selectedWidget.type !== 'html'">
+                <template v-if="selectedWidget.type !== 'html' && selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'">
                   <label>数据集</label>
                   <el-select v-model="selectedWidget.datasetId" clearable placeholder="选择数据集">
                     <el-option v-for="dataset in spec.datasets" :key="dataset.id" :label="dataset.name || dataset.id" :value="dataset.id" />
                   </el-select>
+                </template>
+
+                <template v-if="selectedWidget.type === 'title'">
+                  <label>主标题</label>
+                  <el-input v-model="titleWidgetText" placeholder="如 领导驾驶舱" maxlength="120" />
+                  <label>副标题</label>
+                  <el-input v-model="titleWidgetSubText" placeholder="可选，如 学生管理主题" maxlength="60" />
+                  <label>对齐</label>
+                  <el-radio-group v-model="titleWidgetAlign" size="small">
+                    <el-radio-button value="left">左</el-radio-button>
+                    <el-radio-button value="center">中</el-radio-button>
+                    <el-radio-button value="right">右</el-radio-button>
+                  </el-radio-group>
+                  <label>边框</label>
+                  <el-select v-model="titleWidgetFrame" style="width: 100%">
+                    <el-option value="none" label="无" />
+                    <el-option value="tech-frame" label="科技边框" />
+                    <el-option value="bracket" label="左右括号" />
+                  </el-select>
+                  <div class="designer-hint">字号、颜色、字距与图标在「样式 → 标题」中设置。</div>
+                </template>
+
+                <template v-else-if="selectedWidget.type === 'clock'">
+                  <label>时间格式</label>
+                  <el-select v-model="clockFormat" style="width: 100%">
+                    <el-option value="date-week" label="日期 + 星期" />
+                    <el-option value="date" label="日期" />
+                    <el-option value="datetime" label="日期 + 时间（含秒）" />
+                    <el-option value="time" label="时间（含秒）" />
+                  </el-select>
+                  <div class="designer-hint">日期类每分钟刷新，时间类每秒刷新；字体样式在「样式 → 标题」中设置。</div>
                 </template>
 
                 <template v-if="selectedWidget.type === 'echarts'">
@@ -431,6 +529,19 @@
 
                   <label>图表选项</label>
                   <div class="designer-chart-options">
+                    <div class="designer-chart-style-row">
+                      <span class="designer-settings-label-inline">图表风格</span>
+                      <el-select v-model="chartStylePreset" size="small" style="flex: 1; min-width: 0">
+                        <el-option value="default" label="默认（跟随主题）" />
+                        <el-option value="tech" label="科技风" />
+                        <el-option value="minimal" label="简约" />
+                        <el-option value="dark" label="深色" />
+                      </el-select>
+                    </div>
+                    <template v-if="chartStylePreset !== 'default' && ['bar', 'line', 'area'].includes(chartType)">
+                      <el-checkbox v-model="chartStyleGradient" class="designer-chart-option">渐变填充</el-checkbox>
+                      <el-checkbox v-model="chartStyleGlow" class="designer-chart-option">线条发光</el-checkbox>
+                    </template>
                     <el-checkbox
                       v-if="chartType !== 'map'"
                       v-model="chartLegendVisible"
@@ -452,6 +563,144 @@
                       网格线
                     </el-checkbox>
                   </div>
+                  <div v-if="chartStylePreset !== 'default'" class="designer-hint">
+                    样式预设只填充未显式配置的样式；坐标轴 / 图例 / 标签以上方开关为准。
+                  </div>
+
+                  <template v-if="chartType === 'map'">
+                    <label>地图图层</label>
+                    <div class="designer-map-layer">
+                      <el-checkbox v-model="mapScatterEnabled">涟漪点</el-checkbox>
+                      <template v-if="mapScatterEnabled">
+                        <el-select v-model="mapScatterDatasetId" placeholder="图层数据集" style="width: 100%">
+                          <el-option
+                            v-for="dataset in spec.datasets"
+                            :key="dataset.id"
+                            :label="dataset.name || dataset.id"
+                            :value="dataset.id"
+                          />
+                        </el-select>
+                        <div class="designer-inline">
+                          <el-select v-model="mapScatterLngField" filterable placeholder="经度字段" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapScatterDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                          <el-select v-model="mapScatterLatField" filterable placeholder="纬度字段" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapScatterDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                        </div>
+                        <div class="designer-inline">
+                          <el-select v-model="mapScatterNameField" clearable placeholder="名称字段" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapScatterDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                          <el-select v-model="mapScatterValueField" clearable placeholder="数值字段" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapScatterDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                        </div>
+                        <div class="designer-inline">
+                          <el-color-picker v-model="mapScatterColor" show-alpha />
+                          <span class="designer-settings-label-inline">点大小</span>
+                          <el-input-number
+                            v-model="mapScatterSize"
+                            :min="2"
+                            :max="80"
+                            controls-position="right"
+                            style="flex: 1; min-width: 0"
+                          />
+                        </div>
+                      </template>
+
+                      <el-checkbox v-model="mapLinesEnabled">飞线</el-checkbox>
+                      <template v-if="mapLinesEnabled">
+                        <el-select v-model="mapLinesDatasetId" placeholder="流向数据集" style="width: 100%">
+                          <el-option
+                            v-for="dataset in spec.datasets"
+                            :key="dataset.id"
+                            :label="dataset.name || dataset.id"
+                            :value="dataset.id"
+                          />
+                        </el-select>
+                        <div class="designer-inline">
+                          <el-select v-model="mapLinesFromLngField" filterable placeholder="起点经度" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapLinesDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                          <el-select v-model="mapLinesFromLatField" filterable placeholder="起点纬度" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapLinesDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                        </div>
+                        <div class="designer-inline">
+                          <el-select v-model="mapLinesToLngField" filterable placeholder="终点经度" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapLinesDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                          <el-select v-model="mapLinesToLatField" filterable placeholder="终点纬度" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapLinesDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                        </div>
+                        <div class="designer-inline">
+                          <el-select v-model="mapLinesValueField" clearable placeholder="数值字段" style="flex: 1; min-width: 0">
+                            <el-option
+                              v-for="field in fieldCandidates(mapLinesDatasetId)"
+                              :key="field.name"
+                              :label="field.label || field.name"
+                              :value="field.name"
+                            />
+                          </el-select>
+                          <el-color-picker v-model="mapLinesColor" show-alpha />
+                        </div>
+                        <div class="designer-inline">
+                          <span class="designer-settings-label-inline">曲率</span>
+                          <el-input-number
+                            v-model="mapLinesCurveness"
+                            :min="0"
+                            :max="1"
+                            :step="0.05"
+                            controls-position="right"
+                            style="flex: 1; min-width: 0"
+                          />
+                        </div>
+                      </template>
+                      <div class="designer-hint">区域填色沿用基础设置里的分类与度量字段；经纬度为十进制度。</div>
+                    </div>
+                  </template>
 
                   <template v-if="selectedWidget.encode">
                     <template v-if="['pie', 'donut', 'funnel', 'treemap', 'map'].includes(chartType)">
@@ -825,6 +1074,191 @@
                   <el-button size="small" @click="addFormatRule">添加条件格式</el-button>
                   <div class="designer-hint">按数值条件设置文字颜色、背景色或加粗；字段为空时对全部数值单元格生效。</div>
                 </template>
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane label="样式" name="style">
+              <div class="designer-property-form">
+                <div class="designer-style-group-title">卡片</div>
+                <label>边框预设</label>
+                <el-select v-model="cardPreset" style="width: 100%">
+                  <el-option value="none" label="无" />
+                  <el-option value="tech-corner" label="科技角标" />
+                  <el-option value="tech-frame" label="科技边框" />
+                  <el-option value="bracket" label="左右括号" />
+                </el-select>
+
+                <label>卡片填充</label>
+                <el-radio-group v-model="cardFillType" size="small">
+                  <el-radio-button value="none">透明</el-radio-button>
+                  <el-radio-button value="color">纯色</el-radio-button>
+                  <el-radio-button value="gradient">渐变</el-radio-button>
+                </el-radio-group>
+                <div v-if="cardFillType === 'color'" class="designer-inline">
+                  <el-color-picker v-model="cardFillColor" show-alpha />
+                  <span class="designer-settings-label-inline">卡片底色</span>
+                </div>
+                <template v-else-if="cardFillType === 'gradient'">
+                  <div class="designer-inline">
+                    <el-color-picker v-model="cardGradientFrom" show-alpha />
+                    <span class="designer-canvas-times">→</span>
+                    <el-color-picker v-model="cardGradientTo" show-alpha />
+                  </div>
+                  <div class="designer-inline">
+                    <span class="designer-settings-label-inline">角度</span>
+                    <el-input-number
+                      v-model="cardGradientAngle"
+                      :min="0"
+                      :max="360"
+                      :step="15"
+                      controls-position="right"
+                      style="flex: 1; min-width: 0"
+                    />
+                  </div>
+                </template>
+
+                <label>描边</label>
+                <div class="designer-inline">
+                  <el-input-number v-model="cardBorderWidth" :min="0" :max="8" controls-position="right" style="width: 86px" />
+                  <el-select v-model="cardBorderStyle" style="width: 88px">
+                    <el-option value="solid" label="实线" />
+                    <el-option value="dashed" label="虚线" />
+                    <el-option value="dotted" label="点线" />
+                  </el-select>
+                  <el-color-picker v-model="cardBorderColor" show-alpha />
+                </div>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">圆角</span>
+                  <el-input-number v-model="cardBorderRadius" :min="0" :max="32" controls-position="right" style="flex: 1; min-width: 0" />
+                  <span class="designer-settings-label-inline">内边距</span>
+                  <el-input-number v-model="cardPadding" :min="0" :max="48" controls-position="right" style="flex: 1; min-width: 0" />
+                </div>
+
+                <label>阴影与透明度</label>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">模糊</span>
+                  <el-input-number v-model="cardShadowBlur" :min="0" :max="100" controls-position="right" style="flex: 1; min-width: 0" />
+                  <el-color-picker v-model="cardShadowColor" show-alpha />
+                </div>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">透明度</span>
+                  <el-input-number
+                    v-model="cardOpacity"
+                    :min="0"
+                    :max="1"
+                    :step="0.05"
+                    controls-position="right"
+                    style="flex: 1; min-width: 0"
+                  />
+                  <span class="designer-settings-label-inline">毛玻璃</span>
+                  <el-input-number v-model="cardBackdropBlur" :min="0" :max="20" controls-position="right" style="flex: 1; min-width: 0" />
+                </div>
+
+                <div class="designer-style-group-title">标题</div>
+                <el-checkbox v-if="selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'" v-model="titleShow">
+                  显示标题栏
+                </el-checkbox>
+                <label>图标</label>
+                <el-select v-model="titleIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
+                  <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
+                </el-select>
+                <div class="designer-inline">
+                  <el-input-number v-model="titleFontSize" :min="10" :max="48" controls-position="right" style="width: 86px" />
+                  <el-color-picker v-model="titleColor" show-alpha />
+                  <el-select v-model="titleAlign" style="width: 88px">
+                    <el-option value="left" label="左对齐" />
+                    <el-option value="center" label="居中" />
+                    <el-option value="right" label="右对齐" />
+                  </el-select>
+                </div>
+                <label>标题装饰</label>
+                <el-select v-model="titleDecoration" style="width: 100%">
+                  <el-option value="none" label="无" />
+                  <el-option value="underline" label="整条下划线" />
+                  <el-option value="gradient-underline" label="渐变短线" />
+                  <el-option value="left-bar" label="左侧竖条" />
+                </el-select>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">高度</span>
+                  <el-input-number v-model="titleHeight" :min="0" :max="80" controls-position="right" style="flex: 1; min-width: 0" />
+                  <span class="designer-settings-label-inline">字距</span>
+                  <el-input-number v-model="titleLetterSpacing" :min="0" :max="8" controls-position="right" style="flex: 1; min-width: 0" />
+                </div>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">标题栏背景</span>
+                  <el-color-picker v-model="titleBackground" show-alpha />
+                </div>
+
+                <template v-if="selectedWidget.type === 'kpi'">
+                  <div class="designer-style-group-title">KPI 数值</div>
+                  <label>标签（留空用组件标题）</label>
+                  <el-input v-model="kpiLabel" placeholder="如 学生总数" />
+                  <label>图标</label>
+                  <el-select v-model="kpiIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
+                    <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
+                  </el-select>
+                  <label>布局</label>
+                  <el-radio-group v-model="kpiLayout" size="small">
+                    <el-radio-button value="label-top">标签在上</el-radio-button>
+                    <el-radio-button value="label-left">标签在左</el-radio-button>
+                    <el-radio-button value="value-only">仅数值</el-radio-button>
+                  </el-radio-group>
+                  <div class="designer-inline">
+                    <span class="designer-settings-label-inline">字号</span>
+                    <el-input-number
+                      v-model="kpiValueFontSize"
+                      :min="12"
+                      :max="120"
+                      controls-position="right"
+                      style="flex: 1; min-width: 0"
+                    />
+                    <el-color-picker v-model="kpiValueColor" show-alpha />
+                  </div>
+                  <label>数字字体</label>
+                  <el-select v-model="kpiValueFontFamily" style="width: 100%">
+                    <el-option value="system" label="跟随主题" />
+                    <el-option value="number-digital" label="Orbitron（科技）" />
+                    <el-option value="number-condensed" label="Rajdhani（窄体）" />
+                  </el-select>
+                  <div class="designer-inline">
+                    <el-checkbox v-model="kpiValueBold">加粗</el-checkbox>
+                    <span class="designer-settings-label-inline">字距</span>
+                    <el-input-number
+                      v-model="kpiValueLetterSpacing"
+                      :min="0"
+                      :max="8"
+                      controls-position="right"
+                      style="flex: 1; min-width: 0"
+                    />
+                  </div>
+                  <label>单位</label>
+                  <div class="designer-inline">
+                    <el-input v-model="kpiUnitText" placeholder="如 人" style="width: 88px" />
+                    <el-input-number
+                      v-model="kpiUnitFontSize"
+                      :min="10"
+                      :max="40"
+                      controls-position="right"
+                      style="flex: 1; min-width: 0"
+                    />
+                    <el-color-picker v-model="kpiUnitColor" show-alpha />
+                  </div>
+                  <div class="designer-inline">
+                    <el-checkbox v-model="kpiAnimate">数值滚动动画</el-checkbox>
+                    <span class="designer-settings-label-inline">小数位</span>
+                    <el-input-number v-model="kpiDecimals" :min="0" :max="6" controls-position="right" style="width: 86px" />
+                  </div>
+                  <div class="designer-hint">单位留空时沿用「格式」中的单位，并按数值字号渲染。</div>
+                </template>
+
+                <div class="designer-style-group-title">内容区</div>
+                <div class="designer-inline">
+                  <span class="designer-settings-label-inline">内边距</span>
+                  <el-input-number v-model="bodyPadding" :min="0" :max="32" controls-position="right" style="flex: 1; min-width: 0" />
+                </div>
+
+                <el-button size="small" style="margin-top: 12px" @click="resetWidgetStyle">恢复默认皮肤</el-button>
+                <div class="designer-hint">样式只影响展示，不影响数据绑定与筛选；留空项回落到主题 token。</div>
               </div>
             </el-tab-pane>
 
@@ -1584,6 +2018,13 @@
   gap: 8px;
 }
 
+.designer-chart-style-row {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  align-items: center;
+}
+
 .designer-chart-option {
   box-sizing: border-box;
   width: 100%;
@@ -1858,5 +2299,26 @@
 .designer-json--compact {
   height: 320px;
   min-height: 180px;
+}
+
+.designer-style-group-title {
+  margin: 14px 0 6px;
+  color: #409eff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.designer-style-group-title:first-child {
+  margin-top: 0;
+}
+
+.designer-map-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #f7f9fc;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
 }
 </style>

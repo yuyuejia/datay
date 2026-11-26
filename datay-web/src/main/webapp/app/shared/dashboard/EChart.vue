@@ -8,6 +8,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { echarts } from './echarts';
 import type { ECharts } from './echarts';
 import './geo/china-map';
+import { chartSetOptionOptions } from './render-tuning';
 import type { DashboardTheme } from './types';
 
 const props = withDefaults(
@@ -16,10 +17,13 @@ const props = withDefaults(
     theme?: DashboardTheme;
     /** 是否允许点击数据项；由图表下钻能力决定。 */
     clickable?: boolean;
+    /** 主题序列色；未配置时使用 ECharts 内置主题色。 */
+    palette?: string[];
   }>(),
   {
     theme: 'light',
     clickable: false,
+    palette: undefined,
   },
 );
 
@@ -33,8 +37,16 @@ let observer: ResizeObserver | null = null;
 
 const render = () => {
   if (chart) {
-    // 主题背景保持透明，让组件卡片背景透出。
-    chart.setOption({ backgroundColor: 'transparent', ...(props.option || {}) }, true);
+    // 主题背景保持透明，让组件卡片背景透出；主题序列色可被 echartsOption.color 覆盖。
+    // 增量合并且替换系列/坐标轴，避免自动刷新或切图时残留旧结构、打断动画。
+    chart.setOption(
+      {
+        backgroundColor: 'transparent',
+        ...(props.palette?.length ? { color: props.palette } : {}),
+        ...(props.option || {}),
+      },
+      chartSetOptionOptions(),
+    );
   }
 };
 
@@ -59,6 +71,11 @@ onMounted(() => {
 
 watch(
   () => props.option,
+  () => render(),
+  { deep: true },
+);
+watch(
+  () => props.palette,
   () => render(),
   { deep: true },
 );

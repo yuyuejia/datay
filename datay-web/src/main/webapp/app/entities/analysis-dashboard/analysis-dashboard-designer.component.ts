@@ -12,6 +12,8 @@ import type { AnalysisDashboard } from '@/shared/dashboard/dashboard.service';
 import { initFilterValues } from '@/shared/dashboard/filter-utils';
 import {
   DARK_SCREEN_BACKGROUND,
+  DEFAULT_CANVAS_GAP,
+  DEFAULT_CANVAS_PADDING,
   DEFAULT_SCREEN_HEIGHT,
   DEFAULT_SCREEN_WIDTH,
   getSystemScreenSize,
@@ -35,9 +37,14 @@ import {
 } from '@/shared/dashboard/field-defaults';
 import type { DashboardField } from '@/shared/dashboard/field-defaults';
 import { createDashboardPreviewDraft } from '@/shared/dashboard/preview-draft';
+import { resolveThemeTokens, THEME_PRESET_OPTIONS } from '@/shared/dashboard/theme-presets';
 import type {
   Aggregation,
+  CanvasUnit,
+  CardPreset,
+  ChartStylePreset,
   ChartSeries,
+  ClockFormat,
   ChartType,
   DashboardBackgroundType,
   DashboardDataset,
@@ -48,10 +55,24 @@ import type {
   DashboardTheme,
   DashboardWidget,
   FilterValues,
+  ScreenCanvas,
   ScreenFitMode,
+  ThemePreset,
+  KpiLayout,
+  MapLayerSpec,
+  ThemeTokens,
+  TitleFrame,
+  WidgetBodyStyle,
+  WidgetCardStyle,
+  WidgetChartStyle,
+  WidgetFill,
   WidgetFormatRule,
+  WidgetKpiStyle,
   WidgetLayout,
   WidgetPalettePayload,
+  WidgetProps,
+  WidgetStyle,
+  WidgetTitleStyle,
   WidgetType,
 } from '@/shared/dashboard/types';
 import { WIDGET_PALETTE_MIME } from '@/shared/dashboard/types';
@@ -61,18 +82,23 @@ import DashboardStage from '@/shared/dashboard/DashboardStage.vue';
 import DesignerCanvas from '@/shared/dashboard/designer/DesignerCanvas.vue';
 import WidgetPaletteIcon from '@/shared/dashboard/designer/WidgetPaletteIcon.vue';
 import {
-  CANVAS_PADDING,
+  canvasContentWidth,
+  clamp,
+  clampPixelLayout,
   compactLayouts,
-  DEFAULT_GAP,
   DEFAULT_ROW_HEIGHT,
   GRID_COLUMNS,
   layoutContentHeight,
   moveLayout,
   nextLayout,
+  nextPixelLayout,
+  normalizeLayout,
+  pixelContentHeight,
   resizeLayout,
+  resolveCanvasMetrics,
 } from '@/shared/dashboard/designer/grid-layout';
 
-type PaletteCategory = 'charts' | 'kpi' | 'table' | 'text';
+type PaletteCategory = 'charts' | 'kpi' | 'table' | 'text' | 'other';
 
 interface PaletteItem extends WidgetPalettePayload {
   key: string;
@@ -97,6 +123,35 @@ interface AiChatMessage {
   toolCalls?: AiToolTrace[];
   hasSpec?: boolean;
 }
+
+const DATASETLESS_TYPES = new Set<WidgetType>(['html', 'title', 'clock']);
+
+const TITLE_ICON_OPTIONS = [
+  'chart-line',
+  'tachometer-alt',
+  'table',
+  'list',
+  'database',
+  'globe',
+  'users',
+  'user',
+  'clock',
+  'cubes',
+  'box-open',
+  'bell',
+  'flag',
+  'heart',
+  'rocket',
+  'bolt',
+  'book',
+  'code',
+  'folder',
+  'home',
+  'project-diagram',
+  'tasks',
+  'cloud',
+  'eye',
+];
 
 const AI_ASSISTANT_ID = 'dashboard-design';
 const HISTORY_LIMIT = 60;
@@ -126,6 +181,7 @@ const PALETTE_CATEGORIES: Array<{ key: PaletteCategory; label: string; icon: str
   { key: 'kpi', label: 'KPI', icon: 'kpi' },
   { key: 'table', label: '表格', icon: 'table' },
   { key: 'text', label: '文本', icon: 'text' },
+  { key: 'other', label: '其他', icon: 'other' },
 ];
 
 const PALETTE_ITEMS: PaletteItem[] = [
@@ -149,6 +205,8 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'table', label: '明细表', icon: 'table', category: 'table', type: 'table', w: 12, h: 8 },
   { key: 'pivot', label: '透视表', icon: 'table', category: 'table', type: 'pivot', w: 12, h: 8 },
   { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 12, h: 4 },
+  { key: 'title', label: '标题栏', icon: 'title', category: 'other', type: 'title', w: 24, h: 2 },
+  { key: 'clock', label: '日期时间', icon: 'clock', category: 'other', type: 'clock', w: 4, h: 1 },
 ];
 
 const SCREEN_PRESETS = [
@@ -283,7 +341,7 @@ export default defineComponent({
     const description = ref('');
     const status = ref('ENABLED');
     const activePanel = ref<'datasets' | 'widgets' | 'filters'>('datasets');
-    const propertyTab = ref<'basic' | 'custom'>('basic');
+    const propertyTab = ref<'basic' | 'style' | 'custom'>('basic');
     const dashboardSettingsVisible = ref(false);
     const propertiesRef = ref<HTMLElement | null>(null);
     const customOptionText = ref('');
@@ -335,6 +393,417 @@ export default defineComponent({
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
     const selectedFilter = computed(() => (spec.value.filters ?? []).find(filter => filter.id === selectedFilterId.value));
 
+    // ---------------------------------------------------------------- 组件皮肤
+
+    const ensureSelectedStyle = (): WidgetStyle | undefined => {
+      const widget = selectedWidget.value;
+      if (!widget) {
+        return undefined;
+      }
+      if (!widget.style) {
+        widget.style = {};
+      }
+      return widget.style;
+    };
+
+    const updateCard = (patch: (card: WidgetCardStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.card) {
+        style.card = {};
+      }
+      patch(style.card);
+    };
+
+    const updateTitle = (patch: (title: WidgetTitleStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.title) {
+        style.title = {};
+      }
+      patch(style.title);
+    };
+
+    const updateBody = (patch: (body: WidgetBodyStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.body) {
+        style.body = {};
+      }
+      patch(style.body);
+    };
+
+    const updateKpi = (patch: (kpi: WidgetKpiStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.kpi) {
+        style.kpi = {};
+      }
+      patch(style.kpi);
+    };
+
+    const cardPreset = computed<CardPreset>({
+      get: () => selectedWidget.value?.style?.card?.preset ?? 'none',
+      set: value => updateCard(card => (card.preset = value)),
+    });
+
+    const cardFillType = computed<'none' | 'color' | 'gradient'>({
+      get: () => selectedWidget.value?.style?.card?.fill?.type ?? 'none',
+      set: type => {
+        updateCard(card => {
+          if (type === 'none') {
+            card.fill = { type: 'none' };
+          } else if (type === 'color') {
+            card.fill = { type: 'color', color: card.fill?.color ?? '#0b1f33' };
+          } else {
+            card.fill = {
+              type: 'gradient',
+              gradient: card.fill?.gradient ?? { from: '#0a1b2e', to: '#0d2643', angle: 180 },
+            };
+          }
+        });
+      },
+    });
+
+    const cardFillColor = computed<string>({
+      get: () => selectedWidget.value?.style?.card?.fill?.color ?? '#0b1f33',
+      set: value => updateCard(card => (card.fill = { type: 'color', color: value || '#0b1f33' })),
+    });
+
+    const ensureCardGradient = (): NonNullable<WidgetFill['gradient']> => {
+      let gradient: NonNullable<WidgetFill['gradient']> = { from: '#0a1b2e', to: '#0d2643', angle: 180 };
+      updateCard(card => {
+        if (card.fill?.type !== 'gradient' || !card.fill.gradient) {
+          card.fill = { type: 'gradient', gradient };
+        }
+        gradient = card.fill.gradient;
+      });
+      return gradient;
+    };
+
+    const cardGradientFrom = computed<string>({
+      get: () => selectedWidget.value?.style?.card?.fill?.gradient?.from ?? '#0a1b2e',
+      set: value => {
+        const gradient = ensureCardGradient();
+        gradient.from = value || '#0a1b2e';
+      },
+    });
+    const cardGradientTo = computed<string>({
+      get: () => selectedWidget.value?.style?.card?.fill?.gradient?.to ?? '#0d2643',
+      set: value => {
+        const gradient = ensureCardGradient();
+        gradient.to = value || '#0d2643';
+      },
+    });
+    const cardGradientAngle = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.fill?.gradient?.angle ?? 180,
+      set: value => {
+        const gradient = ensureCardGradient();
+        gradient.angle = clamp(Math.round(value || 0), 0, 360);
+      },
+    });
+
+    const cardBorderWidth = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.border?.width ?? 0,
+      set: value => {
+        updateCard(card => {
+          if (!card.border) {
+            card.border = {};
+          }
+          card.border.width = clamp(Math.round(value || 0), 0, 8);
+          if (card.border.width > 0) {
+            card.border.style = card.border.style ?? 'solid';
+            card.border.color = card.border.color ?? '#2fa8ff';
+          }
+        });
+      },
+    });
+    const cardBorderStyle = computed<'solid' | 'dashed' | 'dotted'>({
+      get: () => selectedWidget.value?.style?.card?.border?.style ?? 'solid',
+      set: value =>
+        updateCard(card => {
+          if (!card.border) {
+            card.border = {};
+          }
+          card.border.style = value;
+        }),
+    });
+    const cardBorderColor = computed<string>({
+      get: () => selectedWidget.value?.style?.card?.border?.color ?? '#2fa8ff',
+      set: value =>
+        updateCard(card => {
+          if (!card.border) {
+            card.border = {};
+          }
+          card.border.color = value || '#2fa8ff';
+        }),
+    });
+    const cardBorderRadius = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.border?.radius ?? 6,
+      set: value =>
+        updateCard(card => {
+          if (!card.border) {
+            card.border = {};
+          }
+          card.border.radius = clamp(Math.round(value || 0), 0, 32);
+        }),
+    });
+    const cardPadding = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.padding ?? 0,
+      set: value => updateCard(card => (card.padding = clamp(Math.round(value || 0), 0, 48))),
+    });
+    const cardOpacity = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.opacity ?? 1,
+      set: value => updateCard(card => (card.opacity = Math.max(0, Math.min(1, Number(value) || 0)))),
+    });
+    const cardBackdropBlur = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.backdropBlur ?? 0,
+      set: value => updateCard(card => (card.backdropBlur = clamp(Math.round(value || 0), 0, 20))),
+    });
+    const cardShadowBlur = computed<number>({
+      get: () => selectedWidget.value?.style?.card?.shadow?.blur ?? 0,
+      set: value =>
+        updateCard(card => {
+          if (!card.shadow) {
+            card.shadow = { color: 'rgba(0, 0, 0, 0.35)' };
+          }
+          card.shadow.blur = clamp(Math.round(value || 0), 0, 100);
+        }),
+    });
+    const cardShadowColor = computed<string>({
+      get: () => selectedWidget.value?.style?.card?.shadow?.color ?? 'rgba(0, 0, 0, 0.35)',
+      set: value =>
+        updateCard(card => {
+          if (!card.shadow) {
+            card.shadow = {};
+          }
+          card.shadow.color = value || 'rgba(0, 0, 0, 0.35)';
+        }),
+    });
+
+    const titleShow = computed<boolean>({
+      get: () => {
+        const explicit = selectedWidget.value?.style?.title?.show;
+        if (explicit !== undefined) {
+          return explicit;
+        }
+        return selectedWidget.value?.type !== 'html' || !!selectedWidget.value?.title?.trim();
+      },
+      set: value => updateTitle(title => (title.show = value)),
+    });
+    const titleIcon = computed<string>({
+      get: () => selectedWidget.value?.style?.title?.icon ?? '',
+      set: value =>
+        updateTitle(title => {
+          const icon = value.trim();
+          if (icon) {
+            title.icon = icon;
+          } else {
+            delete title.icon;
+          }
+        }),
+    });
+    const titleFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.title?.fontSize ?? 14,
+      set: value => updateTitle(title => (title.fontSize = clamp(Math.round(value || 14), 10, 48))),
+    });
+    const titleColor = computed<string>({
+      get: () => selectedWidget.value?.style?.title?.color ?? '#cfeaff',
+      set: value => updateTitle(title => (title.color = value || '#cfeaff')),
+    });
+    const titleAlign = computed<'left' | 'center' | 'right'>({
+      get: () => selectedWidget.value?.style?.title?.align ?? 'left',
+      set: value => updateTitle(title => (title.align = value)),
+    });
+    const titleHeight = computed<number>({
+      get: () => selectedWidget.value?.style?.title?.height ?? 0,
+      set: value => updateTitle(title => (title.height = clamp(Math.round(value || 0), 0, 80))),
+    });
+    const titleLetterSpacing = computed<number>({
+      get: () => selectedWidget.value?.style?.title?.letterSpacing ?? 0,
+      set: value => updateTitle(title => (title.letterSpacing = clamp(Math.round(value || 0), 0, 8))),
+    });
+    const titleDecoration = computed<'none' | 'underline' | 'gradient-underline' | 'left-bar'>({
+      get: () => selectedWidget.value?.style?.title?.decoration ?? 'none',
+      set: value => updateTitle(title => (title.decoration = value)),
+    });
+    const titleBackground = computed<string>({
+      get: () => selectedWidget.value?.style?.title?.background ?? '#0c2238',
+      set: value => updateTitle(title => (title.background = value || '#0c2238')),
+    });
+
+    const bodyPadding = computed<number>({
+      get: () => selectedWidget.value?.style?.body?.padding ?? 8,
+      set: value => updateBody(body => (body.padding = clamp(Math.round(value || 0), 0, 32))),
+    });
+
+    const resetWidgetStyle = () => {
+      const widget = selectedWidget.value;
+      if (!widget) {
+        return;
+      }
+      widget.style = undefined;
+    };
+
+    const kpiLabel = computed<string>({
+      get: () => selectedWidget.value?.style?.kpi?.label ?? '',
+      set: value =>
+        updateKpi(kpi => {
+          const label = value.trim();
+          if (label) {
+            kpi.label = label;
+          } else {
+            delete kpi.label;
+          }
+        }),
+    });
+    const kpiIcon = computed<string>({
+      get: () => selectedWidget.value?.style?.kpi?.icon ?? '',
+      set: value =>
+        updateKpi(kpi => {
+          const icon = value.trim();
+          if (icon) {
+            kpi.icon = icon;
+          } else {
+            delete kpi.icon;
+          }
+        }),
+    });
+    const kpiLayout = computed<KpiLayout>({
+      get: () => selectedWidget.value?.style?.kpi?.layout ?? 'label-top',
+      set: value => updateKpi(kpi => (kpi.layout = value)),
+    });
+    const kpiValueFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.kpi?.value?.fontSize ?? 32,
+      set: value =>
+        updateKpi(kpi => {
+          if (!kpi.value) {
+            kpi.value = {};
+          }
+          kpi.value.fontSize = clamp(Math.round(value || 32), 12, 120);
+        }),
+    });
+    const kpiValueColor = computed<string>({
+      get: () => selectedWidget.value?.style?.kpi?.value?.color ?? '#eaf6ff',
+      set: value =>
+        updateKpi(kpi => {
+          if (!kpi.value) {
+            kpi.value = {};
+          }
+          kpi.value.color = value || '#eaf6ff';
+        }),
+    });
+    const kpiValueFontFamily = computed<'system' | 'number-digital' | 'number-condensed'>({
+      get: () => selectedWidget.value?.style?.kpi?.value?.fontFamily ?? 'system',
+      set: value =>
+        updateKpi(kpi => {
+          if (!kpi.value) {
+            kpi.value = {};
+          }
+          kpi.value.fontFamily = value;
+        }),
+    });
+    const kpiValueBold = computed<boolean>({
+      get: () => selectedWidget.value?.style?.kpi?.value?.bold ?? true,
+      set: value =>
+        updateKpi(kpi => {
+          if (!kpi.value) {
+            kpi.value = {};
+          }
+          kpi.value.bold = value;
+        }),
+    });
+    const kpiValueLetterSpacing = computed<number>({
+      get: () => selectedWidget.value?.style?.kpi?.value?.letterSpacing ?? 0,
+      set: value =>
+        updateKpi(kpi => {
+          if (!kpi.value) {
+            kpi.value = {};
+          }
+          kpi.value.letterSpacing = clamp(Math.round(value || 0), 0, 8);
+        }),
+    });
+    const ensureKpiUnit = (kpi: WidgetKpiStyle) => {
+      if (!kpi.unit) {
+        kpi.unit = {};
+      }
+      return kpi.unit;
+    };
+    const kpiUnitText = computed<string>({
+      get: () => selectedWidget.value?.style?.kpi?.unit?.text ?? '',
+      set: value =>
+        updateKpi(kpi => {
+          const unit = ensureKpiUnit(kpi);
+          const text = value.trim();
+          if (text) {
+            unit.text = text;
+          } else {
+            delete unit.text;
+          }
+        }),
+    });
+    const kpiUnitFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.kpi?.unit?.fontSize ?? 14,
+      set: value => updateKpi(kpi => (ensureKpiUnit(kpi).fontSize = clamp(Math.round(value || 14), 10, 40))),
+    });
+    const kpiUnitColor = computed<string>({
+      get: () => selectedWidget.value?.style?.kpi?.unit?.color ?? '#8fb6d6',
+      set: value => updateKpi(kpi => (ensureKpiUnit(kpi).color = value || '#8fb6d6')),
+    });
+    const kpiAnimate = computed<boolean>({
+      get: () => selectedWidget.value?.style?.kpi?.animate === true,
+      set: value => updateKpi(kpi => (kpi.animate = value)),
+    });
+    const kpiDecimals = computed<number>({
+      get: () => selectedWidget.value?.style?.kpi?.decimals ?? selectedWidget.value?.format?.precision ?? 0,
+      set: value => updateKpi(kpi => (kpi.decimals = clamp(Math.round(value || 0), 0, 6))),
+    });
+
+    const updateChartStyle = (patch: (chart: WidgetChartStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.chart) {
+        style.chart = {};
+      }
+      patch(style.chart);
+    };
+
+    const chartStylePreset = computed<'default' | ChartStylePreset>({
+      get: () => selectedWidget.value?.style?.chart?.preset ?? 'default',
+      set: value => {
+        const style = ensureSelectedStyle();
+        if (!style) {
+          return;
+        }
+        if (value === 'default') {
+          delete style.chart;
+          return;
+        }
+        if (!style.chart) {
+          style.chart = {};
+        }
+        style.chart.preset = value;
+      },
+    });
+    const chartStyleGradient = computed<boolean>({
+      get: () => selectedWidget.value?.style?.chart?.gradient ?? (selectedWidget.value?.style?.chart?.preset ?? 'tech') !== 'minimal',
+      set: value => updateChartStyle(chart => (chart.gradient = value)),
+    });
+    const chartStyleGlow = computed<boolean>({
+      get: () => selectedWidget.value?.style?.chart?.glow ?? (selectedWidget.value?.style?.chart?.preset ?? 'tech') !== 'minimal',
+      set: value => updateChartStyle(chart => (chart.glow = value)),
+    });
+
     const canvasZoom = ref<'fit' | number>('fit');
     const canvasScale = ref(1);
     const systemScreen = getSystemScreenSize();
@@ -354,6 +823,9 @@ export default defineComponent({
     });
 
     const isScreenMode = computed(() => spec.value.layout?.mode === 'screen');
+    const canvasMetrics = computed(() => resolveCanvasMetrics(spec.value.layout));
+    /** px 画布：组件按像素自由定位且允许叠放。 */
+    const isPixelCanvas = computed(() => canvasMetrics.value.unit === 'px');
 
     const ensureScreenSettings = (): DashboardScreen => {
       if (!spec.value.layout) {
@@ -366,16 +838,161 @@ export default defineComponent({
           height: system.height,
           fitMode: 'stretch',
           theme: 'light',
+          canvas: { unit: 'grid', padding: DEFAULT_CANVAS_PADDING, gap: DEFAULT_CANVAS_GAP },
           autoRefreshSeconds: 0,
         };
       }
       return spec.value.layout.screen;
     };
 
+    const ensureCanvasSettings = (): ScreenCanvas => {
+      const screen = ensureScreenSettings();
+      if (!screen.canvas) {
+        screen.canvas = { unit: 'grid', padding: DEFAULT_CANVAS_PADDING, gap: DEFAULT_CANVAS_GAP };
+      }
+      return screen.canvas;
+    };
+
+    /** 在栅格与像素坐标系之间换算已有组件布局，避免切换后组件尺寸失真。 */
+    const scaleLayouts = (from: CanvasUnit, to: CanvasUnit) => {
+      if (from === to) {
+        return;
+      }
+      const metrics = canvasMetrics.value;
+      const contentWidth = canvasContentWidth(metrics);
+      const rowStep = metrics.rowHeight + metrics.gap;
+      spec.value.widgets.forEach(widget => {
+        const layout = widget.layout;
+        if (!layout) {
+          return;
+        }
+        if (to === 'px') {
+          widget.layout = clampPixelLayout(
+            {
+              x: Math.round((layout.x / metrics.columns) * contentWidth),
+              y: Math.round(layout.y * rowStep),
+              w: Math.round((layout.w / metrics.columns) * contentWidth),
+              h: Math.round(layout.h * rowStep),
+            },
+            metrics,
+          );
+        } else {
+          widget.layout = normalizeLayout(
+            {
+              x: Math.round((layout.x / contentWidth) * metrics.columns),
+              y: Math.round(layout.y / rowStep),
+              w: Math.max(1, Math.round((layout.w / contentWidth) * metrics.columns)),
+              h: Math.max(1, Math.round(layout.h / rowStep)),
+            },
+            metrics.columns,
+          );
+        }
+      });
+    };
+
+    const canvasUnit = computed<CanvasUnit>({
+      get: () => (isScreenMode.value ? (spec.value.layout?.screen?.canvas?.unit ?? 'grid') : 'grid'),
+      set: unit => {
+        const next = unit === 'px' ? 'px' : 'grid';
+        const current = spec.value.layout?.screen?.canvas?.unit ?? 'grid';
+        scaleLayouts(current, next);
+        ensureCanvasSettings().unit = next;
+        canvasZoom.value = 'fit';
+      },
+    });
+
+    const canvasPadding = computed<number>({
+      get: () => spec.value.layout?.screen?.canvas?.padding ?? DEFAULT_CANVAS_PADDING,
+      set: value => {
+        const padding = clamp(Math.round(value || 0), 0, 64);
+        ensureCanvasSettings().padding = padding;
+        if (isPixelCanvas.value) {
+          const metrics = { ...canvasMetrics.value, padding };
+          spec.value.widgets.forEach(widget => {
+            widget.layout = clampPixelLayout(widget.layout, metrics);
+          });
+        }
+      },
+    });
+
+    const canvasGap = computed<number>({
+      get: () => spec.value.layout?.screen?.canvas?.gap ?? DEFAULT_CANVAS_GAP,
+      set: value => {
+        ensureCanvasSettings().gap = clamp(Math.round(value || 0), 0, 48);
+      },
+    });
+
+    // ---------------------------------------------------------------- 主题 token
+
+    const themePresetOptions = THEME_PRESET_OPTIONS;
+    const themePreset = computed<ThemePreset>({
+      get: () => spec.value.layout?.screen?.themePreset ?? 'custom',
+      set: value => {
+        const screen = ensureScreenSettings();
+        screen.themePreset = value;
+        if (value !== 'custom') {
+          // 预设均为深色科技风，切换时同步底层明暗主题。
+          screen.theme = 'dark';
+        }
+      },
+    });
+    const resolvedThemeTokens = computed(() =>
+      resolveThemeTokens(spec.value.layout?.screen?.themePreset, spec.value.layout?.screen?.tokens),
+    );
+    const ensureThemeTokens = (): ThemeTokens => {
+      const screen = ensureScreenSettings();
+      if (!screen.tokens) {
+        screen.tokens = {};
+      }
+      return screen.tokens;
+    };
+    const setTokenColor = (key: 'primary' | 'secondary' | 'accent' | 'surface' | 'border' | 'text', value: string | null) => {
+      const tokens = ensureThemeTokens();
+      if (value) {
+        tokens[key] = value;
+      } else {
+        delete tokens[key];
+      }
+    };
+    const themePrimary = computed<string>({
+      get: () => resolvedThemeTokens.value.primary ?? '#2fa8ff',
+      set: value => setTokenColor('primary', value),
+    });
+    const themeSecondary = computed<string>({
+      get: () => resolvedThemeTokens.value.secondary ?? '#1de9b6',
+      set: value => setTokenColor('secondary', value),
+    });
+    const themeAccent = computed<string>({
+      get: () => resolvedThemeTokens.value.accent ?? '#ffd54f',
+      set: value => setTokenColor('accent', value),
+    });
+    const themeSurface = computed<string>({
+      get: () => resolvedThemeTokens.value.surface ?? 'rgba(9, 26, 48, 0.55)',
+      set: value => setTokenColor('surface', value),
+    });
+    const themeBorder = computed<string>({
+      get: () => resolvedThemeTokens.value.border ?? 'rgba(47, 168, 255, 0.35)',
+      set: value => setTokenColor('border', value),
+    });
+    const themeText = computed<string>({
+      get: () => resolvedThemeTokens.value.text ?? '#d8ecff',
+      set: value => setTokenColor('text', value),
+    });
+    const resetThemeTokens = () => {
+      const screen = ensureScreenSettings();
+      delete screen.tokens;
+    };
+
     const updateScreenResolution = (width: number, height: number) => {
       const screen = ensureScreenSettings();
       screen.width = Math.min(7680, Math.max(640, Math.round(width || DEFAULT_SCREEN_WIDTH)));
       screen.height = Math.min(4320, Math.max(480, Math.round(height || DEFAULT_SCREEN_HEIGHT)));
+      if (isPixelCanvas.value) {
+        const metrics = resolveCanvasMetrics(spec.value.layout);
+        spec.value.widgets.forEach(widget => {
+          widget.layout = clampPixelLayout(widget.layout, metrics);
+        });
+      }
       canvasZoom.value = 'fit';
     };
 
@@ -385,7 +1002,23 @@ export default defineComponent({
         if (!spec.value.layout) {
           spec.value.layout = normalizeDashboardLayout();
         }
-        spec.value.layout.mode = mode;
+        const current = spec.value.layout.mode ?? 'standard';
+        if (current === mode) {
+          return;
+        }
+        const unit = spec.value.layout.screen?.canvas?.unit ?? 'grid';
+        if (unit === 'px') {
+          // 像素画布切到标准模式前先换算回栅格，避免把像素值当成列号渲染。
+          if (mode === 'standard') {
+            scaleLayouts('px', 'grid');
+          }
+          spec.value.layout.mode = mode;
+          if (mode === 'screen') {
+            scaleLayouts('grid', 'px');
+          }
+        } else {
+          spec.value.layout.mode = mode;
+        }
         canvasZoom.value = 'fit';
       },
     });
@@ -572,9 +1205,16 @@ export default defineComponent({
       if (!isScreenMode.value || !screen) {
         return false;
       }
+      if (isPixelCanvas.value) {
+        return pixelContentHeight(spec.value.widgets, canvasMetrics.value.padding) > screen.height;
+      }
       return (
-        layoutContentHeight(spec.value.widgets, layout.rowHeight ?? DEFAULT_ROW_HEIGHT, layout.gap ?? DEFAULT_GAP, CANVAS_PADDING) >
-        screen.height
+        layoutContentHeight(
+          spec.value.widgets,
+          layout.rowHeight ?? DEFAULT_ROW_HEIGHT,
+          canvasMetrics.value.gap,
+          canvasMetrics.value.padding,
+        ) > screen.height
       );
     });
 
@@ -780,6 +1420,240 @@ export default defineComponent({
       const declared = available ? DatasetService.columns(DatasetService.parseFields(available)) : [];
       const columns = result?.columns?.length ? result.columns : declared.map(column => column.name);
       return buildDashboardFields(columns, result?.rows ?? [], declared, result?.columnLabels ?? {});
+    };
+
+    // ---------------------------------------------------------------- 地图图层
+
+    const mapLayers = computed<MapLayerSpec[]>(() => selectedWidget.value?.chart?.layers ?? []);
+    const findMapLayer = (kind: 'effectScatter' | 'lines') => mapLayers.value.find(layer => layer.kind === kind);
+
+    const updateMapLayers = (mutate: (layers: MapLayerSpec[]) => void) => {
+      const widget = selectedWidget.value;
+      if (!widget) {
+        return;
+      }
+      const layers = (widget.chart?.layers ?? []).map(layer => ({ ...layer }));
+      mutate(layers);
+      const chart = { ...(widget.chart ?? { type: 'map' as const }) };
+      if (layers.length > 0) {
+        chart.layers = layers;
+      } else {
+        delete chart.layers;
+      }
+      widget.chart = chart;
+    };
+
+    const updateMapLayer = (kind: 'effectScatter' | 'lines', patch: Partial<MapLayerSpec>) => {
+      updateMapLayers(layers => {
+        const index = layers.findIndex(layer => layer.kind === kind);
+        if (index >= 0) {
+          layers[index] = { ...layers[index], ...patch };
+        }
+      });
+    };
+
+    const removeMapLayer = (kind: 'effectScatter' | 'lines') => {
+      updateMapLayers(layers => {
+        const index = layers.findIndex(layer => layer.kind === kind);
+        if (index >= 0) {
+          layers.splice(index, 1);
+        }
+      });
+    };
+
+    const firstNumericField = (fields: DashboardField[]): string | undefined =>
+      fields.find(field => field.numeric)?.name ?? fields[0]?.name;
+    const guessField = (fields: DashboardField[], patterns: string[]): string | undefined =>
+      fields.find(field => patterns.some(pattern => field.name.toLowerCase().includes(pattern)))?.name;
+
+    /** 新建图层时按字段名猜测经纬度/名称，避免用户面对一堆空下拉。 */
+    const buildDefaultMapLayer = (kind: 'effectScatter' | 'lines'): MapLayerSpec => {
+      const datasetId = selectedWidget.value?.datasetId ?? spec.value.datasets[0]?.id;
+      const fields = fieldCandidates(datasetId);
+      const base: MapLayerSpec = { kind, ...(datasetId ? { datasetId } : {}) };
+      if (kind === 'effectScatter') {
+        const lngField = guessField(fields, ['lng', 'lon', '经度']);
+        const latField = guessField(fields, ['lat', '纬度']);
+        const nameField = guessField(fields, ['name', 'city', '名称', '城市', '省份']);
+        const valueField = firstNumericField(fields);
+        return {
+          ...base,
+          ...(lngField ? { lngField } : {}),
+          ...(latField ? { latField } : {}),
+          ...(nameField ? { nameField } : {}),
+          ...(valueField ? { valueField } : {}),
+          color: '#ffd54f',
+          symbolSize: [12],
+        };
+      }
+      const fromLngField = guessField(fields, ['from_lng', 'fromlon', 'from_lon', '起点经度']);
+      const fromLatField = guessField(fields, ['from_lat', '起点纬度']);
+      const toLngField = guessField(fields, ['to_lng', 'tolon', 'to_lon', '终点经度']);
+      const toLatField = guessField(fields, ['to_lat', '终点纬度']);
+      const valueField = firstNumericField(fields);
+      return {
+        ...base,
+        ...(fromLngField ? { fromLngField } : {}),
+        ...(fromLatField ? { fromLatField } : {}),
+        ...(toLngField ? { toLngField } : {}),
+        ...(toLatField ? { toLatField } : {}),
+        ...(valueField ? { valueField } : {}),
+        color: '#ffd54f',
+        curveness: 0.2,
+        effect: { show: true, period: 4, trailLength: 0.3 },
+      };
+    };
+
+    const mapScatterEnabled = computed<boolean>({
+      get: () => !!findMapLayer('effectScatter'),
+      set: enabled => {
+        if (enabled) {
+          updateMapLayers(layers => {
+            if (!layers.some(layer => layer.kind === 'effectScatter')) {
+              layers.push(buildDefaultMapLayer('effectScatter'));
+            }
+          });
+        } else {
+          removeMapLayer('effectScatter');
+        }
+      },
+    });
+    const mapLinesEnabled = computed<boolean>({
+      get: () => !!findMapLayer('lines'),
+      set: enabled => {
+        if (enabled) {
+          updateMapLayers(layers => {
+            if (!layers.some(layer => layer.kind === 'lines')) {
+              layers.push(buildDefaultMapLayer('lines'));
+            }
+          });
+        } else {
+          removeMapLayer('lines');
+        }
+      },
+    });
+
+    const mapLayerField = (kind: 'effectScatter' | 'lines', key: keyof MapLayerSpec) =>
+      computed<string>({
+        get: () => {
+          const value = findMapLayer(kind)?.[key];
+          return typeof value === 'string' ? value : '';
+        },
+        set: value => updateMapLayer(kind, { [key]: value || undefined } as Partial<MapLayerSpec>),
+      });
+
+    const mapScatterDatasetId = computed<string>({
+      get: () => findMapLayer('effectScatter')?.datasetId ?? '',
+      set: value => {
+        const fields = fieldCandidates(value);
+        updateMapLayer('effectScatter', {
+          datasetId: value || undefined,
+          lngField: guessField(fields, ['lng', 'lon', '经度']),
+          latField: guessField(fields, ['lat', '纬度']),
+          nameField: guessField(fields, ['name', 'city', '名称', '城市', '省份']),
+          valueField: firstNumericField(fields),
+        });
+      },
+    });
+    const mapLinesDatasetId = computed<string>({
+      get: () => findMapLayer('lines')?.datasetId ?? '',
+      set: value => {
+        const fields = fieldCandidates(value);
+        updateMapLayer('lines', {
+          datasetId: value || undefined,
+          fromLngField: guessField(fields, ['from_lng', 'fromlon', 'from_lon', '起点经度']),
+          fromLatField: guessField(fields, ['from_lat', '起点纬度']),
+          toLngField: guessField(fields, ['to_lng', 'tolon', 'to_lon', '终点经度']),
+          toLatField: guessField(fields, ['to_lat', '终点纬度']),
+          valueField: firstNumericField(fields),
+        });
+      },
+    });
+
+    const mapScatterLngField = mapLayerField('effectScatter', 'lngField');
+    const mapScatterLatField = mapLayerField('effectScatter', 'latField');
+    const mapScatterNameField = mapLayerField('effectScatter', 'nameField');
+    const mapScatterValueField = mapLayerField('effectScatter', 'valueField');
+    const mapLinesFromLngField = mapLayerField('lines', 'fromLngField');
+    const mapLinesFromLatField = mapLayerField('lines', 'fromLatField');
+    const mapLinesToLngField = mapLayerField('lines', 'toLngField');
+    const mapLinesToLatField = mapLayerField('lines', 'toLatField');
+    const mapLinesValueField = mapLayerField('lines', 'valueField');
+
+    const mapScatterColor = computed<string>({
+      get: () => findMapLayer('effectScatter')?.color ?? '#ffd54f',
+      set: value => updateMapLayer('effectScatter', { color: value || '#ffd54f' }),
+    });
+    const mapScatterSize = computed<number>({
+      get: () => findMapLayer('effectScatter')?.symbolSize?.[0] ?? 12,
+      set: value => updateMapLayer('effectScatter', { symbolSize: [clamp(Math.round(value || 12), 2, 80)] }),
+    });
+    const mapLinesColor = computed<string>({
+      get: () => findMapLayer('lines')?.color ?? '#ffd54f',
+      set: value => updateMapLayer('lines', { color: value || '#ffd54f' }),
+    });
+    const mapLinesCurveness = computed<number>({
+      get: () => findMapLayer('lines')?.curveness ?? 0.2,
+      set: value => updateMapLayer('lines', { curveness: Math.max(0, Math.min(1, Number(value) || 0)) }),
+    });
+
+    // ---------------------------------------------------------------- 标题栏 / 日期时间
+
+    const updateWidgetProps = (patch: (props: WidgetProps) => void) => {
+      const widget = selectedWidget.value;
+      if (!widget) {
+        return;
+      }
+      if (!widget.props) {
+        widget.props = {};
+      }
+      patch(widget.props);
+    };
+
+    const titleWidgetText = computed<string>({
+      get: () => selectedWidget.value?.props?.text ?? '',
+      set: value => updateWidgetProps(props => (props.text = value)),
+    });
+    const titleWidgetSubText = computed<string>({
+      get: () => selectedWidget.value?.props?.subText ?? '',
+      set: value => updateWidgetProps(props => (props.subText = value)),
+    });
+    const titleWidgetAlign = computed<'left' | 'center' | 'right'>({
+      get: () => selectedWidget.value?.props?.align ?? 'center',
+      set: value => updateWidgetProps(props => (props.align = value)),
+    });
+    const titleWidgetFrame = computed<TitleFrame>({
+      get: () => selectedWidget.value?.props?.frame ?? 'none',
+      set: value => updateWidgetProps(props => (props.frame = value)),
+    });
+    const clockFormat = computed<ClockFormat>({
+      get: () => selectedWidget.value?.props?.format ?? 'date-week',
+      set: value => updateWidgetProps(props => (props.format = value)),
+    });
+
+    /** 保存/预览前剔除字段不全的图层，避免校验失败。 */
+    const pruneIncompleteMapLayers = <T extends DashboardSpec>(target: T): T => {
+      target.widgets.forEach(widget => {
+        const layers = widget.chart?.layers;
+        if (!layers?.length || !widget.chart) {
+          return;
+        }
+        const valid = layers.filter(layer => {
+          if (layer.kind === 'effectScatter') {
+            return !!layer.lngField && !!layer.latField;
+          }
+          if (layer.kind === 'lines') {
+            return !!(layer.fromLngField && layer.fromLatField && layer.toLngField && layer.toLatField);
+          }
+          return true;
+        });
+        if (valid.length > 0) {
+          widget.chart.layers = valid;
+        } else {
+          delete widget.chart.layers;
+        }
+      });
+      return target;
     };
 
     /** 初始化或补全组件的 encode，并在字段尚未就绪时等待数据集结果。 */
@@ -1061,6 +1935,7 @@ export default defineComponent({
 
     const loadExisting = async (id: string) => {
       loading.value = true;
+      suppressSpecReload += 1;
       try {
         const dashboard = await dashboardService.get(id);
         editingId.value = id;
@@ -1074,6 +1949,8 @@ export default defineComponent({
       } catch (err: any) {
         alertService.showError(errorMessage(err, '看板加载失败'));
       } finally {
+        await nextTick();
+        suppressSpecReload = Math.max(0, suppressSpecReload - 1);
         loading.value = false;
       }
     };
@@ -1156,21 +2033,27 @@ export default defineComponent({
           };
         }
       }
-      spec.value = ensureSpecShape(normalized);
-      spec.value.title = name.value.trim() || spec.value.title || '';
-      spec.value.description = description.value;
-      filterValues.value = initFilterValues(spec.value.filters ?? []);
-      if (!spec.value.widgets.some(widget => widget.id === selectedWidgetId.value)) {
-        selectedWidgetId.value = '';
+      suppressSpecReload += 1;
+      try {
+        spec.value = ensureSpecShape(normalized);
+        spec.value.title = name.value.trim() || spec.value.title || '';
+        spec.value.description = description.value;
+        filterValues.value = initFilterValues(spec.value.filters ?? []);
+        if (!spec.value.widgets.some(widget => widget.id === selectedWidgetId.value)) {
+          selectedWidgetId.value = '';
+        }
+        if (!(spec.value.filters ?? []).some(filter => filter.id === selectedFilterId.value)) {
+          selectedFilterId.value = '';
+        }
+        activePanel.value = spec.value.widgets.length ? 'widgets' : 'datasets';
+        commitHistory();
+        // AI 可能刚创建了新的分析数据集，刷新数据集库下拉列表。
+        await loadAvailableDatasets();
+        await refreshData();
+      } finally {
+        await nextTick();
+        suppressSpecReload = Math.max(0, suppressSpecReload - 1);
       }
-      if (!(spec.value.filters ?? []).some(filter => filter.id === selectedFilterId.value)) {
-        selectedFilterId.value = '';
-      }
-      activePanel.value = spec.value.widgets.length ? 'widgets' : 'datasets';
-      commitHistory();
-      // AI 可能刚创建了新的分析数据集，刷新数据集库下拉列表。
-      await loadAvailableDatasets();
-      await refreshData();
       if (valid && successMessage) {
         ElMessage.success(successMessage);
       }
@@ -1291,6 +2174,8 @@ export default defineComponent({
     });
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    /** 加载/应用整份 spec 时抑制 watcher 的二次取数，避免首屏重复刷新。 */
+    let suppressSpecReload = 0;
     const scheduleReload = () => {
       if (reloadTimer) {
         clearTimeout(reloadTimer);
@@ -1311,7 +2196,12 @@ export default defineComponent({
             encode: widget.encode,
           })),
         }),
-      () => scheduleReload(),
+      () => {
+        if (suppressSpecReload > 0) {
+          return;
+        }
+        scheduleReload();
+      },
     );
 
     // 新建图表时数据集可能尚未完成取数；结果到达后补全默认分类/数值字段。
@@ -1395,6 +2285,22 @@ export default defineComponent({
       commitHistory();
     };
 
+    const widgetLabel = (widget: DashboardWidget): string => {
+      if (widget.title) {
+        return widget.title;
+      }
+      if (widget.type === 'html') {
+        return '说明文本';
+      }
+      if (widget.type === 'title') {
+        return '标题栏';
+      }
+      if (widget.type === 'clock') {
+        return '日期时间';
+      }
+      return widget.id;
+    };
+
     const nextWidgetId = (type: WidgetType) => {
       let index = spec.value.widgets.length + 1;
       while (spec.value.widgets.some(widget => widget.id === `${type}${index}`)) {
@@ -1406,7 +2312,7 @@ export default defineComponent({
     const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout) => {
       const id = nextWidgetId(type);
       const title =
-        type === 'html'
+        type === 'html' || type === 'title' || type === 'clock'
           ? ''
           : type === 'kpi'
             ? 'KPI 指标'
@@ -1416,21 +2322,31 @@ export default defineComponent({
                 ? '透视表'
                 : CHART_LABELS[chartType] || '图表';
       const defaultWidth =
-        type === 'kpi'
-          ? 6
-          : type === 'echarts' && (chartType === 'pie' || chartType === 'donut' || chartType === 'funnel')
-            ? 8
-            : type === 'echarts' && chartType === 'gauge'
+        type === 'title'
+          ? 24
+          : type === 'clock'
+            ? 4
+            : type === 'kpi'
               ? 6
-              : 12;
-      const defaultHeight = type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
+              : type === 'echarts' && (chartType === 'pie' || chartType === 'donut' || chartType === 'funnel')
+                ? 8
+                : type === 'echarts' && chartType === 'gauge'
+                  ? 6
+                  : 12;
+      const defaultHeight = type === 'title' ? 2 : type === 'clock' ? 1 : type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
       const widget: DashboardWidget = {
         id,
         title,
         type,
-        layout: layout ? { ...layout } : nextLayout(spec.value.widgets, defaultWidth, defaultHeight),
+        layout: layout
+          ? isPixelCanvas.value
+            ? clampPixelLayout(layout, canvasMetrics.value)
+            : { ...layout }
+          : isPixelCanvas.value
+            ? nextPixelLayout(spec.value.widgets, canvasMetrics.value, defaultWidth, defaultHeight)
+            : nextLayout(spec.value.widgets, defaultWidth, defaultHeight),
       };
-      if (type !== 'html') {
+      if (!DATASETLESS_TYPES.has(type)) {
         widget.datasetId = spec.value.datasets[0]?.id;
       }
       if (type === 'echarts') {
@@ -1444,16 +2360,25 @@ export default defineComponent({
         };
       } else if (type === 'html') {
         widget.html = '<div>在此编写 HTML 说明</div>';
+      } else if (type === 'title') {
+        widget.props = {
+          text: name.value.trim() || '领导驾驶舱',
+          subText: '',
+          align: 'center',
+          frame: 'tech-frame',
+        };
+      } else if (type === 'clock') {
+        widget.props = { format: 'date-week' };
       }
-      const fields = type === 'html' ? [] : fieldCandidates(widget.datasetId);
-      if (type !== 'html') {
+      const fields = DATASETLESS_TYPES.has(type) ? [] : fieldCandidates(widget.datasetId);
+      if (!DATASETLESS_TYPES.has(type)) {
         widget.encode = createDefaultEncode(type, chartType, fields);
       }
       spec.value.widgets.push(widget);
-      if (type !== 'html') {
+      if (!DATASETLESS_TYPES.has(type)) {
         setupWidgetEncode(widget, fields);
       }
-      if (layout) {
+      if (layout && !isPixelCanvas.value) {
         applyLayouts(
           compactLayouts(
             spec.value.widgets.map(item => ({ id: item.id, layout: item.layout })),
@@ -1486,7 +2411,10 @@ export default defineComponent({
     };
 
     const addPaletteWidget = (item: PaletteItem) => {
-      addWidget(item.type, item.chartType, nextLayout(spec.value.widgets, item.w, item.h));
+      const layout = isPixelCanvas.value
+        ? nextPixelLayout(spec.value.widgets, canvasMetrics.value, item.w, item.h)
+        : nextLayout(spec.value.widgets, item.w, item.h);
+      addWidget(item.type, item.chartType, layout);
     };
 
     const onCanvasAddWidget = (type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout) => {
@@ -1504,6 +2432,14 @@ export default defineComponent({
     };
 
     const onLayoutChange = (id: string, layout: WidgetLayout) => {
+      if (isPixelCanvas.value) {
+        const widget = spec.value.widgets.find(item => item.id === id);
+        if (widget) {
+          widget.layout = clampPixelLayout(layout, canvasMetrics.value);
+        }
+        commitHistory();
+        return;
+      }
       const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
       const updated = moveLayout(items, id, layout.x, layout.y, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
@@ -1511,9 +2447,32 @@ export default defineComponent({
     };
 
     const onResize = (id: string, layout: WidgetLayout) => {
+      if (isPixelCanvas.value) {
+        const widget = spec.value.widgets.find(item => item.id === id);
+        if (widget) {
+          widget.layout = clampPixelLayout(layout, canvasMetrics.value);
+        }
+        commitHistory();
+        return;
+      }
       const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
       const updated = resizeLayout(items, id, layout.w, layout.h, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
+      commitHistory();
+    };
+
+    /** 上移/下移一层：按 zIndex 排序后交换相邻项并重新编号，保证层级稳定。 */
+    const moveWidgetLayer = (id: string, direction: 'up' | 'down') => {
+      const ordered = [...spec.value.widgets].sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0));
+      const index = ordered.findIndex(widget => widget.id === id);
+      const target = direction === 'up' ? index + 1 : index - 1;
+      if (index < 0 || target < 0 || target >= ordered.length) {
+        return;
+      }
+      [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+      ordered.forEach((widget, position) => {
+        widget.zIndex = position === 0 ? 0 : position * 5;
+      });
       commitHistory();
     };
 
@@ -1652,6 +2611,10 @@ export default defineComponent({
         if (option) {
           option.legend = { ...(option.legend ?? {}), show: value };
         }
+        // 基础设置显式操作后，移除样式预设里的同名覆盖，避免两个入口互相打架。
+        if (selectedWidget.value?.style?.chart) {
+          delete selectedWidget.value.style.chart.showLegend;
+        }
       },
     });
 
@@ -1668,6 +2631,9 @@ export default defineComponent({
         const series = chartSeries(option);
         for (const item of series) {
           item.label = { ...(item.label ?? {}), show: value };
+        }
+        if (selectedWidget.value?.style?.chart) {
+          delete selectedWidget.value.style.chart.showLabel;
         }
       },
     });
@@ -1694,7 +2660,12 @@ export default defineComponent({
         const option = selectedWidget.value?.echartsOption;
         return option ? chartAxes(option).some(axis => axis.show !== false) : true;
       },
-      set: value => updateChartAxes(axis => (axis.show = value)),
+      set: value => {
+        updateChartAxes(axis => (axis.show = value));
+        if (selectedWidget.value?.style?.chart) {
+          delete selectedWidget.value.style.chart.showAxis;
+        }
+      },
     });
 
     const chartGridLinesVisible = computed<boolean>({
@@ -2161,6 +3132,7 @@ export default defineComponent({
       try {
         spec.value.title = name.value.trim();
         spec.value.description = description.value;
+        pruneIncompleteMapLayers(spec.value);
         const normalized = await dashboardService.validateSpec(spec.value);
         spec.value = ensureSpecShape(normalized);
         const payload: AnalysisDashboard = {
@@ -2188,11 +3160,11 @@ export default defineComponent({
     const openPreview = () => {
       commitFilterDefault();
       const previewName = name.value.trim() || '未命名看板';
-      const previewSpec: DashboardSpec = {
+      const previewSpec = pruneIncompleteMapLayers({
         ...(JSON.parse(JSON.stringify(spec.value)) as DashboardSpec),
         title: previewName,
         description: description.value,
-      };
+      });
       try {
         const draftId = createDashboardPreviewDraft(previewName, previewSpec);
         const previewWindow = window.open(`/dashboard.html?draft=${encodeURIComponent(draftId)}`, '_blank');
@@ -2260,6 +3232,10 @@ export default defineComponent({
       openDashboardSettings,
       propertiesRef,
       isScreenMode,
+      isPixelCanvas,
+      canvasUnit,
+      canvasPadding,
+      canvasGap,
       layoutMode,
       screenPresets,
       screenPresetValue,
@@ -2293,6 +3269,80 @@ export default defineComponent({
       onCanvasScaleChange,
       isCanvasOverflow,
       canvasBindings,
+      themePresetOptions,
+      titleIconOptions: TITLE_ICON_OPTIONS,
+      themePreset,
+      themePrimary,
+      themeSecondary,
+      themeAccent,
+      themeSurface,
+      themeBorder,
+      themeText,
+      resetThemeTokens,
+      cardPreset,
+      cardFillType,
+      cardFillColor,
+      cardGradientFrom,
+      cardGradientTo,
+      cardGradientAngle,
+      cardBorderWidth,
+      cardBorderStyle,
+      cardBorderColor,
+      cardBorderRadius,
+      cardPadding,
+      cardOpacity,
+      cardBackdropBlur,
+      cardShadowBlur,
+      cardShadowColor,
+      titleShow,
+      titleIcon,
+      titleFontSize,
+      titleColor,
+      titleAlign,
+      titleHeight,
+      titleLetterSpacing,
+      titleDecoration,
+      titleBackground,
+      bodyPadding,
+      resetWidgetStyle,
+      kpiLabel,
+      kpiIcon,
+      kpiLayout,
+      kpiValueFontSize,
+      kpiValueColor,
+      kpiValueFontFamily,
+      kpiValueBold,
+      kpiValueLetterSpacing,
+      kpiUnitText,
+      kpiUnitFontSize,
+      kpiUnitColor,
+      kpiAnimate,
+      kpiDecimals,
+      mapScatterEnabled,
+      mapLinesEnabled,
+      mapScatterDatasetId,
+      mapLinesDatasetId,
+      mapScatterLngField,
+      mapScatterLatField,
+      mapScatterNameField,
+      mapScatterValueField,
+      mapScatterColor,
+      mapScatterSize,
+      mapLinesFromLngField,
+      mapLinesFromLatField,
+      mapLinesToLngField,
+      mapLinesToLatField,
+      mapLinesValueField,
+      mapLinesColor,
+      mapLinesCurveness,
+      titleWidgetText,
+      titleWidgetSubText,
+      titleWidgetAlign,
+      titleWidgetFrame,
+      clockFormat,
+      chartStylePreset,
+      chartStyleGradient,
+      chartStyleGlow,
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,
@@ -2345,6 +3395,7 @@ export default defineComponent({
       addDataset,
       removeDataset,
       addWidget,
+      widgetLabel,
       addPaletteWidget,
       onPaletteDragStart,
       onPaletteDragEnd,
@@ -2352,6 +3403,7 @@ export default defineComponent({
       removeWidget,
       onLayoutChange,
       onResize,
+      moveWidgetLayer,
       setChartType,
       addFilter,
       removeFilter,

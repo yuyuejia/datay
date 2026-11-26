@@ -101,3 +101,20 @@ This artifact is licensed under the Mozilla Public License 2.0 (MPL-2.0):
   https://www.mozilla.org/MPL/2.0/
 
 Rhino is used unmodified as a library dependency; DataY does not relicense it.
+
+--------------------------------------------------------------------------------
+4. Web Fonts (dashboard number typography)
+--------------------------------------------------------------------------------
+
+Orbitron
+  Copyright 2018 The Orbitron Project Authors (https://github.com/theleagueof/orbitron),
+  with Reserved Font Name: "Orbitron".
+  Licensed under the SIL Open Font License, Version 1.1.
+  Full license: datay-web/src/main/webapp/content/fonts/OFL-Orbitron.txt
+
+Rajdhani
+  Copyright (c) 2014, Indian Type Foundry (info@indiantypefoundry.com).
+  Licensed under the SIL Open Font License, Version 1.1.
+  Full license: datay-web/src/main/webapp/content/fonts/OFL-Rajdhani.txt
+
+The fonts are self-hosted and used unmodified for dashboard KPI numbers.

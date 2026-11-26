@@ -2,8 +2,8 @@
   <div
     ref="gridRef"
     class="designer-canvas"
-    :class="{ 'is-drag-over': !!dropPreview, 'is-screen': isScreenMode }"
-    :style="gridStyle"
+    :class="{ 'is-drag-over': !!dropPreview, 'is-screen': isScreenMode, 'is-pixel': isPixel }"
+    :style="rootStyle"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
@@ -17,8 +17,14 @@
       @pointerdown="select(widget)"
     >
       <div class="designer-widget-toolbar" @pointerdown.stop="startDrag($event, widget)">
-        <span class="designer-widget-title">{{ widget.title || (widget.type === 'html' ? '说明文本' : widget.id) }}</span>
+        <span class="designer-widget-title">{{ widgetLabel(widget) }}</span>
         <div class="designer-widget-actions">
+          <template v-if="isPixel">
+            <el-button text size="small" title="上移一层" @pointerdown.stop @click.stop="emit('layer-move', widget.id, 'up')">↑</el-button>
+            <el-button text size="small" title="下移一层" @pointerdown.stop @click.stop="emit('layer-move', widget.id, 'down')"
+              >↓</el-button
+            >
+          </template>
           <el-button text size="small" title="删除组件" @pointerdown.stop @click.stop="emit('delete', widget.id)">
             <font-awesome-icon icon="trash"></font-awesome-icon>
           </el-button>
@@ -31,6 +37,9 @@
           :loading="loadingDatasets?.[widget.datasetId || '']"
           :error="widgetErrors?.[widget.id] ?? datasetErrors?.[widget.datasetId || '']"
           :theme="theme"
+          :palette="chartPalette"
+          :map-theme="mapTheme"
+          :dataset-data="datasetData"
           :server-paged="serverPaginationWidgets?.[widget.id]"
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
@@ -63,7 +72,16 @@ import type {
 } from '../types';
 import { WIDGET_PALETTE_MIME } from '../types';
 import { normalizeTheme } from '../layout-defaults';
-import { CANVAS_PADDING, clamp, DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS, layoutFromPoint, normalizeLayout } from './grid-layout';
+import { resolveChartPalette, resolveThemeTokens, themeCssVars } from '../theme-presets';
+import {
+  clampPixelLayout,
+  clamp,
+  layoutFromPixelPoint,
+  layoutFromPoint,
+  normalizeWidgetLayout,
+  pixelSizeFromGrid,
+  resolveCanvasMetrics,
+} from './grid-layout';
 
 const props = defineProps<{
   spec: DashboardSpec;
@@ -87,30 +105,40 @@ const emit = defineEmits<{
   'layout-change': [id: string, layout: WidgetLayout];
   resize: [id: string, layout: WidgetLayout];
   delete: [string];
+  'layer-move': [id: string, direction: 'up' | 'down'];
   'add-widget': [type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout];
 }>();
 
 const gridRef = ref<HTMLElement | null>(null);
 const widgets = computed(() => props.spec.widgets ?? []);
 
-const columns = computed(() => props.spec.layout?.columns ?? GRID_COLUMNS);
-const rowHeight = computed(() => props.spec.layout?.rowHeight ?? DEFAULT_ROW_HEIGHT);
-const gap = computed(() => props.spec.layout?.gap ?? DEFAULT_GAP);
+const metrics = computed(() => resolveCanvasMetrics(props.spec.layout));
+const isPixel = computed(() => metrics.value.unit === 'px');
 const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
 const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
 const scale = computed(() => (props.scale && props.scale > 0 ? props.scale : 1));
+const themeTokens = computed(() => resolveThemeTokens(props.spec.layout?.screen?.themePreset, props.spec.layout?.screen?.tokens));
+const themeVars = computed(() => themeCssVars(themeTokens.value));
+const chartPalette = computed(() => resolveChartPalette(themeTokens.value));
+const mapTheme = computed(() => themeTokens.value.map);
 
-const gridStyle = computed(() => {
+const rootStyle = computed<Record<string, string>>(() => {
+  if (isPixel.value) {
+    // px 画布由组件自身携带 padding 偏移，根节点保持贴边以便坐标换算。
+    return { position: 'relative', padding: '0', ...themeVars.value };
+  }
   const lineWidth = `${Math.round(Math.min(4, Math.max(1, 1 / scale.value)) * 100) / 100}px`;
-  const columnStep = `calc((100% + ${gap.value}px) / ${columns.value})`;
-  const rowStep = `${rowHeight.value + gap.value}px`;
+  const columnStep = `calc((100% + ${metrics.value.gap}px) / ${metrics.value.columns})`;
+  const rowStep = `${metrics.value.rowHeight + metrics.value.gap}px`;
   return {
-    gridTemplateColumns: `repeat(${columns.value}, minmax(0, 1fr))`,
-    gridAutoRows: `${rowHeight.value}px`,
-    gap: `${gap.value}px`,
+    padding: `${metrics.value.padding}px`,
+    gridTemplateColumns: `repeat(${metrics.value.columns}, minmax(0, 1fr))`,
+    gridAutoRows: `${metrics.value.rowHeight}px`,
+    gap: `${metrics.value.gap}px`,
     // 竖向与横向网格线都按当前缩放反向加粗，缩小时仍保持至少 1 个物理像素。
     backgroundImage: `linear-gradient(90deg, var(--dashboard-grid-line, rgba(64, 158, 255, 0.24)) ${lineWidth}, transparent ${lineWidth}), linear-gradient(180deg, var(--dashboard-grid-line-secondary, rgba(64, 158, 255, 0.14)) ${lineWidth}, transparent ${lineWidth})`,
     backgroundSize: `${columnStep} 100%, 100% ${rowStep}`,
+    ...themeVars.value,
   };
 });
 
@@ -138,19 +166,46 @@ watch(
   },
 );
 
+function widgetLabel(widget: Widget): string {
+  if (widget.title) {
+    return widget.title;
+  }
+  if (widget.type === 'html') {
+    return '说明文本';
+  }
+  if (widget.type === 'title') {
+    return '标题栏';
+  }
+  if (widget.type === 'clock') {
+    return '日期时间';
+  }
+  return widget.id;
+}
+
 function itemStyle(widget: Widget) {
   const layout = drag.value?.id === widget.id ? drag.value.current : widget.layout;
+  if (isPixel.value) {
+    return {
+      position: 'absolute',
+      left: `${metrics.value.padding + (layout?.x ?? 0)}px`,
+      top: `${metrics.value.padding + (layout?.y ?? 0)}px`,
+      width: `${layout?.w ?? 240}px`,
+      height: `${layout?.h ?? 160}px`,
+      zIndex: widget.zIndex || undefined,
+    };
+  }
   return {
     gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
     gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
+    zIndex: widget.zIndex || undefined,
   };
 }
 
 function measure() {
   const el = gridRef.value;
-  const width = Math.max(1, (el?.clientWidth ?? 1200) - CANVAS_PADDING * 2);
-  const cellWidth = Math.max(1, (width - gap.value * (columns.value - 1)) / columns.value);
-  return { cellWidth, rowUnit: rowHeight.value + gap.value };
+  const contentWidth = Math.max(1, (el?.clientWidth ?? 1200) - metrics.value.padding * 2);
+  const cellWidth = Math.max(1, (contentWidth - metrics.value.gap * (metrics.value.columns - 1)) / metrics.value.columns);
+  return { cellWidth, rowUnit: metrics.value.rowHeight + metrics.value.gap };
 }
 
 function readDragPayload(event: DragEvent): WidgetPalettePayload | null {
@@ -174,14 +229,23 @@ function layoutForDrop(event: DragEvent, payload: WidgetPalettePayload): WidgetL
     return null;
   }
   const rect = el.getBoundingClientRect();
+  const point = {
+    x: (event.clientX - rect.left) / scale.value - metrics.value.padding,
+    y: (event.clientY - rect.top) / scale.value - metrics.value.padding,
+  };
+  if (isPixel.value) {
+    return layoutFromPixelPoint(point, pixelSizeFromGrid(payload.w, payload.h, metrics.value), metrics.value);
+  }
   const { cellWidth } = measure();
   return layoutFromPoint(
-    {
-      x: (event.clientX - rect.left) / scale.value - CANVAS_PADDING,
-      y: (event.clientY - rect.top) / scale.value - CANVAS_PADDING,
-    },
+    point,
     { w: payload.w, h: payload.h },
-    { cellWidth, rowHeight: rowHeight.value, gap: gap.value, columns: columns.value },
+    {
+      cellWidth,
+      rowHeight: metrics.value.rowHeight,
+      gap: metrics.value.gap,
+      columns: metrics.value.columns,
+    },
   );
 }
 
@@ -191,12 +255,20 @@ const dropPreviewStyle = computed(() => {
   if (!layout || !el) {
     return {};
   }
+  if (isPixel.value) {
+    return {
+      left: `${metrics.value.padding + layout.x}px`,
+      top: `${metrics.value.padding + layout.y}px`,
+      width: `${layout.w}px`,
+      height: `${layout.h}px`,
+    };
+  }
   const { cellWidth, rowUnit } = measure();
   return {
-    left: `${CANVAS_PADDING + layout.x * (cellWidth + gap.value)}px`,
-    top: `${CANVAS_PADDING + layout.y * rowUnit}px`,
-    width: `${layout.w * cellWidth + Math.max(0, layout.w - 1) * gap.value}px`,
-    height: `${layout.h * rowHeight.value + Math.max(0, layout.h - 1) * gap.value}px`,
+    left: `${metrics.value.padding + layout.x * (cellWidth + metrics.value.gap)}px`,
+    top: `${metrics.value.padding + layout.y * rowUnit}px`,
+    width: `${layout.w * cellWidth + Math.max(0, layout.w - 1) * metrics.value.gap}px`,
+    height: `${layout.h * metrics.value.rowHeight + Math.max(0, layout.h - 1) * metrics.value.gap}px`,
   };
 });
 
@@ -248,8 +320,8 @@ function startDrag(event: PointerEvent, widget: Widget) {
     mode: 'move',
     startX: event.clientX,
     startY: event.clientY,
-    origin: normalizeLayout(widget.layout, columns.value),
-    current: normalizeLayout(widget.layout, columns.value),
+    origin: normalizeWidgetLayout(widget.layout, metrics.value),
+    current: normalizeWidgetLayout(widget.layout, metrics.value),
     cellWidth,
     rowUnit,
     scale: scale.value,
@@ -269,8 +341,8 @@ function startResize(event: PointerEvent, widget: Widget) {
     mode: 'resize',
     startX: event.clientX,
     startY: event.clientY,
-    origin: normalizeLayout(widget.layout, columns.value),
-    current: normalizeLayout(widget.layout, columns.value),
+    origin: normalizeWidgetLayout(widget.layout, metrics.value),
+    current: normalizeWidgetLayout(widget.layout, metrics.value),
     cellWidth,
     rowUnit,
     scale: scale.value,
@@ -284,18 +356,28 @@ function onPointerMove(event: PointerEvent) {
   if (!state || state.cellWidth <= 0 || state.scale <= 0) {
     return;
   }
-  const dx = Math.round((event.clientX - state.startX) / state.scale / state.cellWidth);
-  const dy = Math.round((event.clientY - state.startY) / state.scale / state.rowUnit);
+  const dxRaw = (event.clientX - state.startX) / state.scale;
+  const dyRaw = (event.clientY - state.startY) / state.scale;
+  if (isPixel.value) {
+    if (state.mode === 'move') {
+      state.current = clampPixelLayout({ ...state.origin, x: state.origin.x + dxRaw, y: state.origin.y + dyRaw }, metrics.value);
+    } else {
+      state.current = clampPixelLayout({ ...state.origin, w: state.origin.w + dxRaw, h: state.origin.h + dyRaw }, metrics.value);
+    }
+    return;
+  }
+  const dx = Math.round(dxRaw / state.cellWidth);
+  const dy = Math.round(dyRaw / state.rowUnit);
   if (state.mode === 'move') {
     state.current = {
       ...state.origin,
-      x: clamp(state.origin.x + dx, 0, columns.value - state.origin.w),
+      x: clamp(state.origin.x + dx, 0, metrics.value.columns - state.origin.w),
       y: Math.max(0, state.origin.y + dy),
     };
   } else {
     state.current = {
       ...state.origin,
-      w: clamp(state.origin.w + dx, 1, columns.value - state.origin.x),
+      w: clamp(state.origin.w + dx, 1, metrics.value.columns - state.origin.x),
       h: Math.max(1, state.origin.h + dy),
     };
   }
@@ -348,6 +430,13 @@ function select(widget: Widget) {
   border-radius: 6px;
 }
 
+.designer-canvas.is-pixel {
+  display: block;
+  background-color: transparent;
+  background-image: radial-gradient(circle, var(--dashboard-grid-line, rgb(64 158 255 / 18%)) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
 .designer-canvas.is-drag-over {
   outline: 2px dashed #409eff;
   outline-offset: -2px;
@@ -370,7 +459,12 @@ function select(widget: Widget) {
   transition: outline-color 0.15s;
 }
 
+.designer-canvas.is-pixel .designer-canvas-item {
+  position: absolute;
+}
+
 .designer-canvas-item.is-selected {
+  z-index: 10000 !important;
   outline: 2px solid #409eff;
   outline-offset: 1px;
 }
@@ -423,5 +517,10 @@ function select(widget: Widget) {
   align-items: center;
   justify-content: center;
   min-height: 420px;
+}
+
+.designer-canvas.is-pixel .designer-empty {
+  position: absolute;
+  inset: 0;
 }
 </style>

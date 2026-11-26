@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getSystemScreenSize, normalizeDashboardLayout, normalizeDashboardSpec, resolveScreenBackgroundStyle } from './layout-defaults';
+import {
+  getSystemScreenSize,
+  normalizeDashboardLayout,
+  normalizeDashboardSpec,
+  resolveScreenBackgroundStyle,
+  resolveScreenCanvas,
+} from './layout-defaults';
 import type { DashboardSpec } from './types';
 
 describe('layout-defaults', () => {
@@ -34,6 +40,7 @@ describe('layout-defaults', () => {
         height: 1440,
         fitMode: 'stretch',
         theme: 'light',
+        canvas: { unit: 'grid', padding: 16, gap: 12 },
         autoRefreshSeconds: 0,
       },
     });
@@ -50,9 +57,56 @@ describe('layout-defaults', () => {
         height: 1440,
         fitMode: 'stretch',
         theme: 'light',
+        canvas: { unit: 'grid', padding: 16, gap: 12 },
         autoRefreshSeconds: 0,
       },
     });
+  });
+
+  it('normalizes the screen canvas and falls back to the grid', () => {
+    const layout = normalizeDashboardLayout({
+      mode: 'screen',
+      screen: {
+        width: 1920,
+        height: 1080,
+        canvas: { unit: 'px', padding: 0, gap: 200 },
+      },
+    });
+
+    expect(layout.screen?.canvas).toEqual({ unit: 'px', padding: 0, gap: 48 });
+    expect(resolveScreenCanvas({ mode: 'screen', screen: { width: 1920, height: 1080 } })).toEqual({
+      unit: 'grid',
+      padding: 16,
+      gap: 12,
+    });
+    expect(
+      resolveScreenCanvas({ mode: 'standard', screen: { width: 1920, height: 1080, canvas: { unit: 'px', padding: 0, gap: 8 } } }),
+    ).toEqual({ unit: 'grid', padding: 16, gap: 12 });
+  });
+
+  it('normalizes theme preset and token overrides', () => {
+    const layout = normalizeDashboardLayout({
+      mode: 'screen',
+      screen: {
+        width: 1920,
+        height: 1080,
+        themePreset: 'tech-blue',
+        tokens: {
+          primary: '#123456',
+          surface: 'not-a-color',
+          palette: ['#ffffff', 'bad', '#000000'],
+          map: { area: '#111111' },
+        },
+      },
+    });
+
+    expect(layout.screen?.themePreset).toBe('tech-blue');
+    expect(layout.screen?.tokens).toEqual({
+      primary: '#123456',
+      palette: ['#ffffff', '#000000'],
+      map: { area: '#111111' },
+    });
+    expect(normalizeDashboardLayout({ mode: 'screen', screen: { themePreset: 'nope' as any } }).screen?.themePreset).toBeUndefined();
   });
 
   it('clamps screen resolutions to a usable range', () => {

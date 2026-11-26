@@ -9,6 +9,8 @@ import type {
   DashboardWidget,
   DatasetResult,
   DrillDimension,
+  MapLayerSpec,
+  ThemeMapTokens,
   WidgetEncode,
   WidgetEncodeDimension,
   WidgetEncodeMeasure,
@@ -436,10 +438,234 @@ function setCategoryAxis(option: Record<string, any>, categories: any[], axisKey
   setAxisData(option, axisKey, categories);
 }
 
+/** 按省级名称聚合地图区域值，并保留下钻所需的原始行政区写法和映射顺序。 */
+function aggregateMapRegions(
+  rows: Record<string, any>[],
+  xField: string | undefined,
+  valueField: string | undefined,
+  agg: Aggregation,
+): { data: Array<{ name: string; value: number | null }>; rawRegions: Array<Set<string | number>> } {
+  if (!xField || !valueField) {
+    return { data: [], rawRegions: [] };
+  }
+  const buckets = new Map<string, { values: number[]; raw: Set<string | number> }>();
+  for (const row of rows) {
+    const region = matchChinaProvinceName(row[xField]);
+    const value = toNumber(row[valueField]);
+    if (!region || value === null) {
+      continue;
+    }
+    const bucket = buckets.get(region) ?? { values: [], raw: new Set<string | number>() };
+    bucket.values.push(value);
+    const raw = row[xField];
+    if (raw !== null && raw !== undefined && raw !== '') {
+      bucket.raw.add(raw as string | number);
+    }
+    buckets.set(region, bucket);
+  }
+  return {
+    data: Array.from(buckets, ([name, bucket]) => ({ name, value: aggregateValues(bucket.values, agg) })),
+    rawRegions: Array.from(buckets, ([, bucket]) => bucket.raw),
+  };
+}
+
+interface MapOptionContext {
+  option: Record<string, any>;
+  widget: DashboardWidget;
+  result?: DatasetResult;
+  datasetData?: Record<string, DatasetResult>;
+  mapTheme?: ThemeMapTokens;
+  palette?: string[];
+  encode: WidgetEncode;
+  xField?: string;
+  fieldLabel: (field?: string) => string;
+}
+
+/**
+ * 地图渲染：单层 region 时沿用原有 map series；
+ * 存在 effectScatter / lines 图层时创建 geo 坐标系并叠加动画图层。
+ */
+function buildMapOption(context: MapOptionContext): Record<string, any> {
+  const { option, widget, result, datasetData, mapTheme, palette, encode, xField, fieldLabel } = context;
+  const layers: MapLayerSpec[] = widget.chart?.layers ?? [];
+  const regionLayer = layers.find(layer => layer.kind === 'region');
+  const overlayLayers = layers.filter(layer => layer.kind !== 'region');
+  const hasOverlay = overlayLayers.length > 0;
+  const mapName = widget.chart?.map ?? CHINA_MAP_NAME;
+  const template = seriesTemplate(baseSeries(option), 0);
+
+  const rowsFor = (datasetId?: string): Record<string, any>[] => {
+    if (datasetId && datasetData?.[datasetId]) {
+      return datasetData[datasetId].rows ?? [];
+    }
+    return result?.rows ?? [];
+  };
+
+  const measures = encode.measures ?? [];
+  const measureFields = measures.map(measure => measure.field);
+  const fallbackMeasure =
+    measures.find(measure => measure.role === 'value') ?? measures.find(measure => measure.role === 'y') ?? measures[0];
+  const valueField =
+    regionLayer?.valueField ??
+    (fallbackMeasure?.field && measureFields.includes(fallbackMeasure.field) ? fallbackMeasure.field : measureFields[0]);
+  const agg = regionLayer?.agg ?? fallbackMeasure?.agg ?? 'sum';
+  const { data: regionData, rawRegions } = aggregateMapRegions(rowsFor(regionLayer?.datasetId), xField, valueField, agg);
+
+  const numericValues = regionData.map(item => item.value).filter((value): value is number => value !== null);
+  const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
+  const minValue = numericValues.length > 0 ? Math.min(...numericValues) : 0;
+  const visualMapRaw = option.visualMap && !Array.isArray(option.visualMap) ? option.visualMap : {};
+  const defaultColors = mapTheme
+    ? [mapTheme.area ?? '#0b3a5b', mapTheme.emphasis ?? '#1a7fbf', mapTheme.border ?? '#2fa8ff']
+    : ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'];
+
+  if (hasOverlay) {
+    const existingGeo = option.geo && !Array.isArray(option.geo) ? option.geo : {};
+    option.geo = {
+      ...existingGeo,
+      map: mapName,
+      roam: existingGeo.roam ?? template.roam ?? false,
+      zlevel: 0,
+      itemStyle: {
+        ...(mapTheme?.area ? { areaColor: mapTheme.area } : {}),
+        ...(mapTheme?.border ? { borderColor: mapTheme.border } : {}),
+        ...(existingGeo.itemStyle ?? {}),
+      },
+      label: { show: false, ...(mapTheme?.label ? { color: mapTheme.label } : {}), ...(existingGeo.label ?? {}) },
+      emphasis: {
+        ...(existingGeo.emphasis ?? {}),
+        itemStyle: {
+          ...(mapTheme?.emphasis ? { areaColor: mapTheme.emphasis } : {}),
+          ...(existingGeo.emphasis?.itemStyle ?? {}),
+        },
+        label: { show: true, ...(existingGeo.emphasis?.label ?? {}) },
+      },
+    };
+  }
+
+  option.visualMap = {
+    ...visualMapRaw,
+    seriesIndex: 0,
+    min: visualMapRaw.min ?? Math.min(0, minValue),
+    max: visualMapRaw.max ?? (maxValue > 0 ? maxValue : 1),
+    calculable: visualMapRaw.calculable ?? true,
+    orient: visualMapRaw.orient ?? 'horizontal',
+    left: visualMapRaw.left ?? 'center',
+    bottom: visualMapRaw.bottom ?? 0,
+    inRange: visualMapRaw.inRange ?? { color: defaultColors },
+    ...(mapTheme?.label ? { textStyle: { color: mapTheme.label, ...(visualMapRaw.textStyle ?? {}) } } : {}),
+  };
+
+  const mapSeries: Record<string, any> = {
+    ...template,
+    type: 'map',
+    ...(hasOverlay ? { geoIndex: 0 } : { roam: template.roam ?? false }),
+    map: mapName,
+    name: template.name || fieldLabel(valueField),
+    label: template.label ?? { show: false },
+    emphasis: {
+      ...(template.emphasis ?? {}),
+      label: { ...(template.emphasis?.label ?? {}), show: true },
+    },
+    data: regionData,
+  };
+  attachDrillMeta(
+    mapSeries,
+    rawRegions.map(raw => (raw.size > 0 && xField ? [{ field: xField, values: Array.from(raw) }] : undefined)),
+  );
+  option.series = [mapSeries];
+
+  for (const layer of overlayLayers) {
+    const layerRows = rowsFor(layer.datasetId);
+    if (layer.kind === 'effectScatter') {
+      if (!layer.lngField || !layer.latField) {
+        continue;
+      }
+      const lngField = layer.lngField;
+      const latField = layer.latField;
+      const points = layerRows.flatMap(row => {
+        const lng = toNumber(row[lngField]);
+        const lat = toNumber(row[latField]);
+        if (lng === null || lat === null) {
+          return [];
+        }
+        const name = layer.nameField ? row[layer.nameField] : undefined;
+        const value = layer.valueField ? toNumber(row[layer.valueField]) : null;
+        return [{ name: name === null || name === undefined ? undefined : String(name), value: [lng, lat, value ?? 1] }];
+      });
+      const size = layer.symbolSize?.length ? Math.max(...layer.symbolSize) : 12;
+      option.series.push({
+        type: 'effectScatter',
+        coordinateSystem: 'geo',
+        zlevel: 2,
+        data: points,
+        symbolSize: size,
+        rippleEffect: { brushType: 'stroke', scale: 3, period: 4 },
+        itemStyle: { color: layer.color ?? mapTheme?.emphasis ?? palette?.[2] ?? '#ffd54f' },
+        label: { show: false },
+        emphasis: { label: { show: true, formatter: '{b}' } },
+      });
+      continue;
+    }
+    if (layer.kind === 'lines') {
+      const { fromLngField, fromLatField, toLngField, toLatField } = layer;
+      if (!fromLngField || !fromLatField || !toLngField || !toLatField) {
+        continue;
+      }
+      const flows = layerRows.flatMap(row => {
+        const fromLng = toNumber(row[fromLngField]);
+        const fromLat = toNumber(row[fromLatField]);
+        const toLng = toNumber(row[toLngField]);
+        const toLat = toNumber(row[toLatField]);
+        if (fromLng === null || fromLat === null || toLng === null || toLat === null) {
+          return [];
+        }
+        const value = layer.valueField ? toNumber(row[layer.valueField]) : null;
+        return [
+          {
+            coords: [
+              [fromLng, fromLat],
+              [toLng, toLat],
+            ],
+            value: value ?? 1,
+          },
+        ];
+      });
+      option.series.push({
+        type: 'lines',
+        coordinateSystem: 'geo',
+        zlevel: 2,
+        polyline: false,
+        effect: {
+          show: true,
+          period: 4,
+          trailLength: 0.3,
+          symbol: 'arrow',
+          symbolSize: 5,
+          ...(layer.effect ?? {}),
+        },
+        lineStyle: {
+          color: layer.color ?? mapTheme?.border ?? palette?.[1] ?? '#ffd54f',
+          curveness: layer.curveness ?? 0.2,
+          width: 1,
+          opacity: 0.7,
+        },
+        data: flows,
+      });
+    }
+  }
+  return option;
+}
+
 /**
  * 构建最终 ECharts option；无数据或未声明 encode 时原样返回样式模板。
  */
-export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResult): Record<string, any> {
+export function buildEchartsOption(
+  widget: DashboardWidget,
+  result?: DatasetResult,
+  datasetData?: Record<string, DatasetResult>,
+  options?: { mapTheme?: ThemeMapTokens; palette?: string[] },
+): Record<string, any> {
   const option: Record<string, any> = sanitizeEchartsOption(JSON.parse(JSON.stringify(widget.echartsOption || {})));
   // 组件卡片已展示标题，移除图表内 title 避免重复（默认保留 dashboard-widget-title）
   delete option.title;
@@ -464,12 +690,17 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
   }
 
   const encode = widget.encode;
-  if (!encode || !result || !Array.isArray(result.rows) || result.rows.length === 0) {
+  if (!encode) {
+    return option;
+  }
+  const hasRows = !!result && Array.isArray(result.rows) && result.rows.length > 0;
+  // 地图允许 base 数据为空（图层可引用其他数据集），其余图表无数据时直接返回样式模板。
+  if (!hasRows && chartType !== 'map') {
     return option;
   }
 
-  const columns = result.columns ?? [];
-  const fieldLabel = (field?: string): string => (field ? result.columnLabels?.[field] || field : '');
+  const columns = result?.columns ?? [];
+  const fieldLabel = (field?: string): string => (field ? result?.columnLabels?.[field] || field : '');
   const dimensions = encode.dimensions ?? [];
   const measures = measuresOf(encode);
   if (dimensions.length === 0 && measures.length === 0) {
@@ -497,11 +728,11 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
     sortField: resolveNameField(encode.sortField ?? undefined, columns),
   };
   const groupedRows =
-    result.aggregated || chartType === 'boxplot'
-      ? result.rows
+    result?.aggregated || chartType === 'boxplot'
+      ? (result?.rows ?? [])
       : effectiveEncode.groupBy
-        ? aggregateChartRows(effectiveEncode, result.rows, chartType)
-        : result.rows;
+        ? aggregateChartRows(effectiveEncode, result?.rows ?? [], chartType)
+        : (result?.rows ?? []);
 
   const hasPercentTransform = (encode.transform ?? []).some(transform => transform.type === 'percentOfTotal');
   let rows =
@@ -705,71 +936,17 @@ export function buildEchartsOption(widget: DashboardWidget, result?: DatasetResu
   }
 
   if (chartType === 'map') {
-    if (!xField) {
-      option.series = [];
-      return option;
-    }
-    const measure = measures.find(item => item.role === 'value') ?? measures.find(item => item.role === 'y') ?? measures[0];
-    const valueField = measure?.field && measureFields.includes(measure.field) ? measure.field : measureFields[0];
-    if (!valueField) {
-      option.series = [];
-      return option;
-    }
-    const valuesByRegion = new Map<string, { values: number[]; rawRegions: Set<string | number> }>();
-    for (const row of rows) {
-      const region = matchChinaProvinceName(row[xField]);
-      const value = toNumber(row[valueField]);
-      if (!region || value === null) {
-        continue;
-      }
-      const bucket = valuesByRegion.get(region) ?? { values: [], rawRegions: new Set<string | number>() };
-      bucket.values.push(value);
-      const rawRegion = row[xField];
-      if (rawRegion !== null && rawRegion !== undefined && rawRegion !== '') {
-        bucket.rawRegions.add(rawRegion as string | number);
-      }
-      valuesByRegion.set(region, bucket);
-    }
-    const data = Array.from(valuesByRegion, ([name, bucket]) => ({
-      name,
-      value: aggregateValues(bucket.values, measure?.agg ?? 'sum'),
-    }));
-    const numericValues = data.map(item => item.value).filter((value): value is number => value !== null);
-    const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
-    const minValue = numericValues.length > 0 ? Math.min(...numericValues) : 0;
-    const visualMap = option.visualMap && !Array.isArray(option.visualMap) ? option.visualMap : {};
-    option.visualMap = {
-      ...visualMap,
-      min: visualMap.min ?? Math.min(0, minValue),
-      max: visualMap.max ?? (maxValue > 0 ? maxValue : 1),
-      calculable: visualMap.calculable ?? true,
-      orient: visualMap.orient ?? 'horizontal',
-      left: visualMap.left ?? 'center',
-      bottom: visualMap.bottom ?? 0,
-      inRange: visualMap.inRange ?? { color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'] },
-    };
-    const base = seriesTemplate(baseSeries(option), 0);
-    const mapSeries: Record<string, any> = {
-      ...base,
-      type: 'map',
-      map: widget.chart?.map ?? base.map ?? CHINA_MAP_NAME,
-      name: base.name || fieldLabel(valueField),
-      roam: base.roam ?? false,
-      label: base.label ?? { show: false },
-      emphasis: {
-        ...(base.emphasis ?? {}),
-        label: { ...(base.emphasis?.label ?? {}), show: true },
-      },
-      data,
-    };
-    attachDrillMeta(
-      mapSeries,
-      Array.from(valuesByRegion, ([, bucket]) =>
-        bucket.rawRegions.size > 0 ? [{ field: xField, values: Array.from(bucket.rawRegions) }] : undefined,
-      ),
-    );
-    option.series = [mapSeries];
-    return option;
+    return buildMapOption({
+      option,
+      widget,
+      result,
+      datasetData,
+      mapTheme: options?.mapTheme,
+      palette: options?.palette,
+      encode,
+      xField,
+      fieldLabel,
+    });
   }
 
   if (chartType === 'sankey' || chartType === 'graph') {

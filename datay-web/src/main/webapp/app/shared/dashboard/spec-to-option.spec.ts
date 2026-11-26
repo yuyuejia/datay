@@ -789,6 +789,118 @@ describe('图表明细下钻元数据', () => {
     expect(meta[0][0].values).toEqual(expect.arrayContaining(['广东省', '广东']));
   });
 
+  it('地图多图层生成 geo + region + 涟漪点 + 飞线', () => {
+    const provinceResult: DatasetResult = {
+      columns: ['province', 'students'],
+      rows: [
+        { province: '广东省', students: 10 },
+        { province: '北京市', students: 30 },
+      ],
+    };
+    const cityResult: DatasetResult = {
+      columns: ['city', 'lng', 'lat', 'students'],
+      rows: [
+        { city: '深圳', lng: 114.05, lat: 22.55, students: 10 },
+        { city: '北京', lng: 116.4, lat: 39.9, students: 30 },
+      ],
+    };
+    const flowResult: DatasetResult = {
+      columns: ['from_lng', 'from_lat', 'to_lng', 'to_lat', 'flow'],
+      rows: [{ from_lng: 114.05, from_lat: 22.55, to_lng: 106.55, to_lat: 29.56, flow: 5 }],
+    };
+
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'map' }] },
+        chart: {
+          type: 'map',
+          map: 'china',
+          layers: [
+            { kind: 'region', valueField: 'students' },
+            {
+              kind: 'effectScatter',
+              datasetId: 'ds_city',
+              lngField: 'lng',
+              latField: 'lat',
+              nameField: 'city',
+              valueField: 'students',
+              symbolSize: [8, 26],
+              color: '#ffd54f',
+            },
+            {
+              kind: 'lines',
+              datasetId: 'ds_flow',
+              fromLngField: 'from_lng',
+              fromLatField: 'from_lat',
+              toLngField: 'to_lng',
+              toLatField: 'to_lat',
+              valueField: 'flow',
+              color: '#ffd54f',
+              curveness: 0.3,
+            },
+          ],
+        },
+        encode: {
+          dimensions: [{ field: 'province', role: 'x' }],
+          measures: [{ field: 'students', agg: 'sum', role: 'value' }],
+        },
+      }),
+      provinceResult,
+      { ds_city: cityResult, ds_flow: flowResult },
+      { mapTheme: { area: '#0b3a5b', border: '#2fa8ff' } },
+    );
+
+    expect(option.geo).toMatchObject({ map: 'china', roam: false });
+    expect(option.visualMap).toMatchObject({ seriesIndex: 0 });
+    expect(option.series).toHaveLength(3);
+    expect(option.series[0]).toMatchObject({ type: 'map', geoIndex: 0 });
+    expect(option.series[0].data).toEqual(
+      expect.arrayContaining([
+        { name: '广东', value: 10 },
+        { name: '北京', value: 30 },
+      ]),
+    );
+    expect(option.series[1]).toMatchObject({ type: 'effectScatter', coordinateSystem: 'geo', symbolSize: 26 });
+    expect(option.series[1].data).toHaveLength(2);
+    expect(option.series[1].data[0].value).toEqual([114.05, 22.55, 10]);
+    expect(option.series[2]).toMatchObject({ type: 'lines', coordinateSystem: 'geo' });
+    expect(option.series[2].data[0].coords).toEqual([
+      [114.05, 22.55],
+      [106.55, 29.56],
+    ]);
+    expect(option.series[2].lineStyle.curveness).toBe(0.3);
+  });
+
+  it('地图 base 数据集为空时仍按图层数据集渲染', () => {
+    const cityResult: DatasetResult = {
+      columns: ['city', 'lng', 'lat'],
+      rows: [{ city: '重庆', lng: 106.55, lat: 29.56 }],
+    };
+
+    const option = buildEchartsOption(
+      widget({
+        echartsOption: { series: [{ type: 'map' }] },
+        chart: {
+          type: 'map',
+          map: 'china',
+          layers: [
+            { kind: 'region', valueField: 'students' },
+            { kind: 'effectScatter', datasetId: 'ds_city', lngField: 'lng', latField: 'lat', nameField: 'city' },
+          ],
+        },
+        encode: {
+          dimensions: [{ field: 'province', role: 'x' }],
+          measures: [{ field: 'students', agg: 'sum', role: 'value' }],
+        },
+      }),
+      { columns: [], rows: [] },
+      { ds_city: cityResult },
+    );
+
+    expect(option.series).toHaveLength(2);
+    expect(option.series[1].data).toHaveLength(1);
+  });
+
   it('桑基图在 links 上记录边下钻条件', () => {
     const sankeyResult: DatasetResult = {
       columns: ['source', 'target', 'amount'],

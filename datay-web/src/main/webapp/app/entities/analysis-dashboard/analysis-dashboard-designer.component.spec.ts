@@ -74,6 +74,9 @@ type DesignerVm = {
         height: number;
         fitMode?: 'contain' | 'stretch' | 'cover';
         theme?: 'light' | 'dark';
+        themePreset?: string;
+        tokens?: { primary?: string; palette?: string[] };
+        canvas?: { unit: 'grid' | 'px'; padding: number; gap: number };
         autoRefreshSeconds?: number;
         background?: {
           type: 'color' | 'gradient' | 'image';
@@ -91,8 +94,11 @@ type DesignerVm = {
       datasetId?: string;
       encode?: any;
       echartsOption?: any;
+      chart?: any;
       formatRules?: any[];
       html?: string;
+      style?: any;
+      props?: any;
       layout: WidgetLayout;
     }>;
     filters: Array<{ id: string; type?: string; defaultValue?: any; targets: any[] }>;
@@ -134,6 +140,32 @@ type DesignerVm = {
   undo: () => void;
   redo: () => void;
   isScreenMode: boolean;
+  isPixelCanvas: boolean;
+  canvasUnit: 'grid' | 'px';
+  canvasPadding: number;
+  canvasGap: number;
+  cardPreset: string;
+  cardFillType: string;
+  cardFillColor: string;
+  titleShow: boolean;
+  kpiLabel: string;
+  kpiValueFontSize: number;
+  kpiValueFontFamily: 'system' | 'number-digital' | 'number-condensed';
+  kpiUnitText: string;
+  kpiAnimate: boolean;
+  chartStylePreset: 'default' | 'tech' | 'minimal' | 'dark';
+  titleWidgetText: string;
+  titleWidgetSubText: string;
+  titleWidgetAlign: 'left' | 'center' | 'right';
+  titleWidgetFrame: 'none' | 'tech-frame' | 'bracket';
+  clockFormat: 'date' | 'datetime' | 'time' | 'date-week';
+  chartStyleGradient: boolean;
+  mapScatterEnabled: boolean;
+  mapScatterDatasetId: string;
+  mapLinesEnabled: boolean;
+  themePreset: string;
+  themePrimary: string;
+  moveWidgetLayer: (id: string, direction: 'up' | 'down') => void;
   layoutMode: 'standard' | 'screen';
   dashboardSettingsVisible: boolean;
   openDashboardSettings: () => Promise<void>;
@@ -1084,5 +1116,214 @@ describe('AnalysisDashboardDesigner history', () => {
     await vm.$nextTick();
     expect(vm.spec.widgets).toHaveLength(1);
     input.remove();
+  });
+
+  it('切换到像素画布时换算已有组件布局', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.layoutMode = 'screen';
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].layout).toEqual({ x: 0, y: 0, w: 12, h: 8 });
+
+    vm.canvasUnit = 'px';
+    await vm.$nextTick();
+
+    expect(vm.spec.layout?.screen?.canvas).toMatchObject({ unit: 'px' });
+    const layout = vm.spec.widgets[0].layout;
+    expect(layout.w).toBeGreaterThan(500);
+    expect(layout.w).toBeLessThanOrEqual(1920);
+    expect(layout.h).toBeGreaterThan(200);
+  });
+
+  it('像素画布新增组件使用像素布局，并支持层级调整', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.canvasPadding = 0;
+    vm.addWidget('kpi');
+    vm.addWidget('kpi');
+    await vm.$nextTick();
+
+    const [first, second] = vm.spec.widgets;
+    expect(first.layout.w).toBeGreaterThan(100);
+    expect(second.layout.y).toBeGreaterThanOrEqual(first.layout.y + first.layout.h);
+
+    vm.moveWidgetLayer(first.id, 'up');
+    await vm.$nextTick();
+    expect(first.zIndex ?? 0).toBeGreaterThan(second.zIndex ?? 0);
+  });
+
+  it('样式面板写入组件皮肤与主题 token', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('kpi');
+    await vm.$nextTick();
+
+    vm.cardPreset = 'tech-corner';
+    vm.cardFillType = 'color';
+    vm.cardFillColor = '#123456';
+    vm.titleShow = false;
+    await vm.$nextTick();
+
+    const style = vm.spec.widgets[0].style;
+    expect(style?.card?.preset).toBe('tech-corner');
+    expect(style?.card?.fill).toEqual({ type: 'color', color: '#123456' });
+    expect(style?.title?.show).toBe(false);
+
+    vm.layoutMode = 'screen';
+    vm.themePreset = 'tech-blue';
+    vm.themePrimary = '#ff0000';
+    await vm.$nextTick();
+
+    expect(vm.spec.layout?.screen?.themePreset).toBe('tech-blue');
+    expect(vm.spec.layout?.screen?.tokens?.primary).toBe('#ff0000');
+  });
+
+  it('新增标题栏与日期时间组件，默认不带数据集', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('title');
+    vm.addWidget('clock');
+    await vm.$nextTick();
+
+    const [title, clock] = vm.spec.widgets;
+    expect(title.type).toBe('title');
+    expect(title.datasetId).toBeUndefined();
+    expect(title.props).toMatchObject({ text: '领导驾驶舱', align: 'center', frame: 'tech-frame' });
+    expect(title.layout).toMatchObject({ w: 24, h: 2 });
+    expect(clock.type).toBe('clock');
+    expect(clock.datasetId).toBeUndefined();
+    expect(clock.props).toMatchObject({ format: 'date-week' });
+    expect(clock.layout).toMatchObject({ w: 4, h: 1 });
+  });
+
+  it('标题栏与日期时间属性写入 props', async () => {
+    vm.addWidget('title');
+    await vm.$nextTick();
+    vm.titleWidgetText = '学生管理驾驶舱';
+    vm.titleWidgetSubText = '实时概览';
+    vm.titleWidgetAlign = 'left';
+    vm.titleWidgetFrame = 'bracket';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].props).toMatchObject({
+      text: '学生管理驾驶舱',
+      subText: '实时概览',
+      align: 'left',
+      frame: 'bracket',
+    });
+
+    vm.addWidget('clock');
+    await vm.$nextTick();
+    vm.clockFormat = 'datetime';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[1].props).toMatchObject({ format: 'datetime' });
+  });
+
+  it('标准模式同样支持主题预设与 token', async () => {
+    vm.layoutMode = 'standard';
+    vm.themePreset = 'tech-blue';
+    vm.themePrimary = '#ff0000';
+    await vm.$nextTick();
+
+    expect(vm.spec.layout?.mode).toBe('standard');
+    expect(vm.spec.layout?.screen?.themePreset).toBe('tech-blue');
+    expect(vm.spec.layout?.screen?.theme).toBe('dark');
+    expect(vm.spec.layout?.screen?.tokens?.primary).toBe('#ff0000');
+  });
+
+  it('图表风格默认选项与预设写入 style.chart', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    expect(vm.chartStylePreset).toBe('default');
+
+    vm.chartStylePreset = 'tech';
+    vm.chartStyleGradient = false;
+    await vm.$nextTick();
+
+    expect(vm.spec.widgets[0].style?.chart).toMatchObject({ preset: 'tech', gradient: false });
+
+    vm.chartStylePreset = 'default';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].style?.chart).toBeUndefined();
+  });
+
+  it('地图图层开关与字段映射写入 chart.layers', async () => {
+    vm.spec.datasets = [
+      { id: 'ds1', type: 'SQL' },
+      { id: 'ds2', type: 'SQL' },
+    ];
+    vm.addWidget('echarts', 'map');
+    await vm.$nextTick();
+
+    vm.mapScatterEnabled = true;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.layers?.[0]).toMatchObject({ kind: 'effectScatter' });
+
+    vm.mapScatterDatasetId = 'ds2';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.layers?.[0].datasetId).toBe('ds2');
+
+    vm.mapLinesEnabled = true;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.layers?.some((layer: any) => layer.kind === 'lines')).toBe(true);
+
+    vm.mapLinesEnabled = false;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].chart?.layers?.some((layer: any) => layer.kind === 'lines')).toBe(false);
+  });
+
+  it('KPI 样式写入标签、字体、单位与动效', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('kpi');
+    await vm.$nextTick();
+
+    vm.kpiLabel = '学生总数';
+    vm.kpiValueFontSize = 56;
+    vm.kpiValueFontFamily = 'number-digital';
+    vm.kpiUnitText = '人';
+    vm.kpiAnimate = true;
+    await vm.$nextTick();
+
+    const kpi = vm.spec.widgets[0].style?.kpi;
+    expect(kpi).toMatchObject({
+      label: '学生总数',
+      animate: true,
+      value: { fontSize: 56, fontFamily: 'number-digital' },
+      unit: { text: '人' },
+    });
+  });
+
+  it('像素画布切回标准模式时换算回栅格布局', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+    const pixelLayout = { ...vm.spec.widgets[0].layout };
+    expect(pixelLayout.w).toBeGreaterThan(24);
+
+    vm.layoutMode = 'standard';
+    await vm.$nextTick();
+
+    const gridLayout = vm.spec.widgets[0].layout;
+    expect(gridLayout.w).toBeGreaterThanOrEqual(1);
+    expect(gridLayout.w).toBeLessThanOrEqual(24);
+    expect(gridLayout.x + gridLayout.w).toBeLessThanOrEqual(24);
+  });
+
+  it('像素画布允许组件重叠，不做栅格压实', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.addWidget('kpi');
+    vm.addWidget('kpi');
+    await vm.$nextTick();
+
+    const [first, second] = vm.spec.widgets;
+    vm.onLayoutChange(first.id, { x: 100, y: 100, w: 300, h: 200 });
+    vm.onLayoutChange(second.id, { x: 100, y: 100, w: 300, h: 200 });
+
+    expect(first.layout).toEqual({ x: 100, y: 100, w: 300, h: 200 });
+    expect(second.layout).toEqual({ x: 100, y: 100, w: 300, h: 200 });
   });
 });

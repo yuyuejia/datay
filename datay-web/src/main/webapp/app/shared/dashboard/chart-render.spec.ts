@@ -103,4 +103,58 @@ describe('chart ECharts SSR render', () => {
     expect(svg).toContain('<svg');
     expect(svg.length).toBeGreaterThan(1000);
   });
+
+  it('地图多图层生成有效 SVG', () => {
+    const province: DatasetResult = {
+      columns: ['province', 'students'],
+      rows: [
+        { province: '广东省', students: 10 },
+        { province: '北京市', students: 30 },
+      ],
+    };
+    const city: DatasetResult = {
+      columns: ['city', 'lng', 'lat', 'students'],
+      rows: [{ city: '重庆', lng: 106.55, lat: 29.56, students: 15 }],
+    };
+    const flow: DatasetResult = {
+      columns: ['from_lng', 'from_lat', 'to_lng', 'to_lat', 'flow'],
+      rows: [{ from_lng: 114.05, from_lat: 22.55, to_lng: 106.55, to_lat: 29.56, flow: 5 }],
+    };
+
+    const option = buildEchartsOption(
+      widget('map', {
+        chart: {
+          type: 'map',
+          map: 'china',
+          layers: [
+            { kind: 'region', valueField: 'students' },
+            { kind: 'effectScatter', datasetId: 'ds_city', lngField: 'lng', latField: 'lat', nameField: 'city', valueField: 'students' },
+            {
+              kind: 'lines',
+              datasetId: 'ds_flow',
+              fromLngField: 'from_lng',
+              fromLatField: 'from_lat',
+              toLngField: 'to_lng',
+              toLatField: 'to_lat',
+              valueField: 'flow',
+            },
+          ],
+        },
+        encode: {
+          dimensions: [{ field: 'province', role: 'x' }],
+          measures: [{ field: 'students', agg: 'sum', role: 'value' }],
+        },
+      }),
+      province,
+      { ds_city: city, ds_flow: flow },
+    );
+
+    const svg = renderSvg({ ...option, animation: false });
+
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('path');
+    // visualMap 会把高值区域渲染成渐变末端色，验证区域填色确实生效。
+    expect(svg).toContain('rgb(49,54,149)');
+    expect(svg.length).toBeGreaterThan(1000);
+  });
 });
