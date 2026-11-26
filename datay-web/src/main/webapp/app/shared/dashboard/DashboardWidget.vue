@@ -39,6 +39,9 @@
       <HtmlWidget v-else-if="widget.type === 'html'" :widget="widget" />
       <TitleWidget v-else-if="widget.type === 'title'" :widget="widget" />
       <ClockWidget v-else-if="widget.type === 'clock'" :widget="widget" />
+      <div v-else-if="widget.type === 'container'" class="dashboard-widget-container">
+        <slot name="container" />
+      </div>
       <div v-else class="dashboard-widget-empty">不支持的组件类型：{{ widget.type }}</div>
     </div>
   </div>
@@ -136,8 +139,8 @@ const showHeader = computed(() => {
   return props.widget.type !== 'html' || !!props.widget.title?.trim();
 });
 
-/** 标题栏 / 日期时间没有 header，内容区交给组件自己控制留白。 */
-const isPlain = computed(() => props.widget.type === 'title' || props.widget.type === 'clock');
+/** 标题栏 / 日期时间 / 容器没有内容区留白需求。 */
+const isPlain = computed(() => props.widget.type === 'title' || props.widget.type === 'clock' || props.widget.type === 'container');
 
 const canDrill = computed(() => !!props.drillLoader && isDrillableWidget(props.widget));
 const drillVisible = ref(false);
@@ -205,6 +208,10 @@ const onChartClick = (params: Record<string, any>) => {
 
 .dashboard-widget-card.is-plain .dashboard-widget-body {
   padding: 0;
+}
+
+.dashboard-widget-container {
+  height: 100%;
 }
 
 .dashboard-widget-empty {

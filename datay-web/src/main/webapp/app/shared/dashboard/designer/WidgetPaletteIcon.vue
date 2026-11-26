@@ -50,6 +50,10 @@
       <rect x="3" y="5" width="18" height="5" rx="1" fill="currentColor" fill-opacity="0.25" />
       <path d="M5 14h14M7 18h10" />
     </g>
+    <g v-else-if="name === 'container'">
+      <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2" />
+      <path d="M7 8h10M7 12h6" />
+    </g>
     <g v-else-if="name === 'other'">
       <rect x="4" y="4" width="6" height="6" rx="1" />
       <rect x="14" y="4" width="6" height="6" rx="1" />

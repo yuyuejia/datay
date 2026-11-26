@@ -327,9 +327,7 @@ public class AnalysisDatasetService {
                 throw new IllegalArgumentException("指标数据集必须至少选择一个指标");
             }
             metricQuery.put("metricCodes", metricCodes);
-            if (!(metricQuery.get("dimensions") instanceof List<?>)) {
-                metricQuery.put("dimensions", new ArrayList<>());
-            }
+            metricQuery.put("dimensions", normalizeMetricDimensions(metricQuery.get("dimensions")));
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("metricQuery", metricQuery);
             definition = normalized;
@@ -339,6 +337,52 @@ public class AnalysisDatasetService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("数据集定义序列化失败：" + e.getOriginalMessage());
         }
+    }
+
+    /**
+     * 指标数据集维度去重：同一维度模型 + 角色只能选择一次。
+     * AI 生成或人工配置可能重复声明，这里保留首次出现并合并展示字段，避免查询期报“维度重复选择”。
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> normalizeMetricDimensions(Object raw) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Map<String, Map<String, Object>> byKey = new LinkedHashMap<>();
+        for (Object item : raw instanceof List<?> list ? list : List.of()) {
+            if (!(item instanceof Map<?, ?> map)) {
+                continue;
+            }
+            Map<String, Object> dimension = new LinkedHashMap<>((Map<String, Object>) map);
+            String code = trimToNull(DatasetQueryService.asString(dimension.get("dimensionModelCode")));
+            String role = trimToNull(DatasetQueryService.asString(dimension.get("dimensionRole")));
+            String key = (code == null ? "" : code) + "#" + (role == null ? "" : role.toLowerCase(Locale.ROOT));
+            Map<String, Object> existing = byKey.get(key);
+            if (existing == null) {
+                byKey.put(key, dimension);
+                result.add(dimension);
+                continue;
+            }
+            List<String> fields = new ArrayList<>(DatasetQueryService.asStringList(existing.get("dimensionFieldNames")));
+            for (String field : DatasetQueryService.asStringList(dimension.get("dimensionFieldNames"))) {
+                if (!fields.contains(field)) {
+                    fields.add(field);
+                }
+            }
+            if (!fields.isEmpty()) {
+                existing.put("dimensionFieldNames", fields);
+            }
+            if (existing.get("levelIndex") == null && dimension.get("levelIndex") != null) {
+                existing.put("levelIndex", dimension.get("levelIndex"));
+            }
+        }
+        return result;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Map<String, Object> parseDefinition(String definitionJson) {

@@ -76,7 +76,7 @@ class DashboardSpecValidatorTest {
         assertThat(spec.get("filters")).asList().hasSize(1);
         @SuppressWarnings("unchecked")
         Map<String, Object> layout = (Map<String, Object>) spec.get("layout");
-        assertThat(layout).containsEntry("mode", "standard").doesNotContainKeys("columns", "rowHeight", "gap");
+        assertThat(layout).containsEntry("mode", "standard").containsEntry("rowHeight", 40).doesNotContainKeys("columns", "gap");
         Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
         assertThat(screen).containsEntry("theme", "light").containsEntry("fitMode", "stretch");
         assertThat((Map<String, Object>) screen.get("canvas")).containsEntry("unit", "grid");
@@ -138,7 +138,7 @@ class DashboardSpecValidatorTest {
             """;
         Map<String, Object> normalized = validator.validateAndNormalize(spec);
         Map<String, Object> layout = (Map<String, Object>) normalized.get("layout");
-        assertThat(layout).containsEntry("mode", "screen").doesNotContainKeys("columns", "rowHeight", "gap");
+        assertThat(layout).containsEntry("mode", "screen").containsEntry("rowHeight", 80).doesNotContainKeys("columns", "gap");
         Map<String, Object> screen = (Map<String, Object>) layout.get("screen");
         assertThat(screen)
             .containsEntry("width", 640)
@@ -1980,11 +1980,164 @@ class DashboardSpecValidatorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeContainerWithChildren() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "panel1",
+                  "type": "container",
+                  "title": "招生数据",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 12 }
+                },
+                {
+                  "id": "w1",
+                  "type": "kpi",
+                  "parentId": "panel1",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 1, "y": 2, "w": 4, "h": 3 }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+
+        assertThat(widgets.get(0)).doesNotContainKey("datasetId").containsEntry("type", "container");
+        assertThat(widgets.get(1)).containsEntry("parentId", "panel1");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldNormalizeChildLayoutToTwentyFourGrid() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "panel1", "type": "container", "layout": { "x": 0, "y": 0, "w": 12, "h": 12 } },
+                {
+                  "id": "w1",
+                  "type": "kpi",
+                  "parentId": "panel1",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 20, "y": 2, "w": 10, "h": 4 }
+                },
+                {
+                  "id": "w2",
+                  "type": "kpi",
+                  "parentId": "panel1",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 120, "y": 60, "w": 300, "h": 200 }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+
+        assertThat(asMap(widgets.get(1).get("layout"))).containsEntry("x", 20).containsEntry("w", 4);
+        // 旧版绝对坐标回落到默认 12 × 6。
+        assertThat(asMap(widgets.get(2).get("layout")))
+            .containsEntry("x", 0)
+            .containsEntry("y", 0)
+            .containsEntry("w", 12)
+            .containsEntry("h", 6);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldPersistConfiguredRowHeight() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "layout": { "mode": "standard", "rowHeight": 20 },
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [ { "id": "w1", "type": "table", "datasetId": "ds1", "layout": { "x": 0, "y": 0, "w": 12, "h": 4 } } ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        assertThat((Map<String, Object>) normalized.get("layout")).containsEntry("rowHeight", 20);
+    }
+
+    @Test
+    void shouldRejectInvalidContainerParents() {
+        String base =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "panel1",
+                  "type": "container",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 12 }
+                },
+                {
+                  "id": "w1",
+                  "type": "kpi",
+                  "datasetId": "ds1",
+                  "encode": { "measures": [ { "field": "m1", "agg": "sum", "role": "value" } ] },
+                  "layout": { "x": 1, "y": 2, "w": 4, "h": 3 },
+                  "parentId": "%s"
+                }
+              ]
+            }
+            """;
+
+        assertThatThrownBy(() -> validator.validateAndNormalize(base.formatted("w1")))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不能把自己设为容器");
+
+        assertThatThrownBy(() -> validator.validateAndNormalize(base.formatted("missing")))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不存在的容器");
+    }
+
+    @Test
+    void shouldRejectNestedContainers() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                { "id": "panel1", "type": "container", "layout": { "x": 0, "y": 0, "w": 12, "h": 12 } },
+                {
+                  "id": "panel2",
+                  "type": "container",
+                  "parentId": "panel1",
+                  "layout": { "x": 1, "y": 1, "w": 6, "h": 6 }
+                }
+              ]
+            }
+            """;
+        assertThatThrownBy(() -> validator.validateAndNormalize(spec))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("不能再嵌套容器");
+    }
+
+    @Test
     void guardShouldBlockWriteInsideCte() {
         assertThatThrownBy(() ->
             DashboardSqlGuard.requireReadOnly("WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x")
         )
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("写操作");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        return (Map<String, Object>) value;
     }
 }

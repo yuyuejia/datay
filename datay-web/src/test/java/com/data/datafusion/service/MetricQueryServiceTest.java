@@ -972,4 +972,24 @@ class MetricQueryServiceTest {
         condition.setValue(value);
         return condition;
     }
+
+    @Test
+    void shouldPreferHierarchyLevelMatchingGroupField() {
+        MetricQueryFieldDTO level1 = new MetricQueryFieldDTO();
+        level1.setDimensionModelCode("dim_region");
+        level1.setDimensionFieldNames(List.of("level1_name"));
+        level1.setLevelIndex(1);
+        MetricQueryFieldDTO level2 = new MetricQueryFieldDTO();
+        level2.setDimensionModelCode("dim_region");
+        level2.setDimensionFieldNames(List.of("level2_name"));
+        level2.setLevelIndex(2);
+
+        List<MetricQueryFieldDTO> selected = metricQueryService.preferDimensionsForFields(
+            List.of(level1, level2),
+            List.of("level2_name")
+        );
+
+        assertThat(selected).hasSize(1);
+        assertThat(selected.get(0).getDimensionFieldNames()).containsExactly("level2_name");
+    }
 }

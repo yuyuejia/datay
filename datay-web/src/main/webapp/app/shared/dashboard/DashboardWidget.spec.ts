@@ -186,4 +186,22 @@ describe('DashboardWidget skin', () => {
     expect(clockWrapper.findComponent(ClockWidget).exists()).toBe(true);
     expect(clockWrapper.find('.dashboard-widget-header').exists()).toBe(false);
   });
+
+  it('容器组件渲染面板卡片与标题，内容区为空', () => {
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: {
+          id: 'panel1',
+          type: 'container',
+          title: '招生数据',
+          layout: { x: 0, y: 0, w: 12, h: 10 },
+        },
+      },
+    });
+
+    expect(wrapper.find('.dashboard-widget-header').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-widget-title').text()).toBe('招生数据');
+    expect(wrapper.find('.dashboard-widget-container').exists()).toBe(true);
+    expect(wrapper.find('.dashboard-widget-card').classes()).toContain('is-plain');
+  });
 });

@@ -8,7 +8,7 @@
     </div>
 
     <div class="dashboard-canvas-grid" :class="{ 'is-pixel': isPixel }" :style="layoutStyle">
-      <div v-for="widget in widgets" :key="widget.id" class="dashboard-canvas-item" :style="itemStyle(widget)">
+      <div v-for="widget in widgets" :key="widget.id" class="dashboard-canvas-item" :data-widget-id="widget.id" :style="itemStyle(widget)">
         <DashboardWidget
           :widget="widget"
           :result="resultOf(widget)"
@@ -22,7 +22,33 @@
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
           :drill-loader="loadDrill"
-        />
+        >
+          <template v-if="widget.type === 'container'" #container>
+            <div class="dashboard-container-grid">
+              <div
+                v-for="child in containerChildren(widget.id)"
+                :key="child.id"
+                class="dashboard-container-cell"
+                :style="childGridStyle(child.layout)"
+              >
+                <DashboardWidget
+                  :widget="child"
+                  :result="resultOf(child)"
+                  :loading="loadingOf(child)"
+                  :error="errorOf(child)"
+                  :theme="theme"
+                  :palette="chartPalette"
+                  :map-theme="mapTheme"
+                  :dataset-data="datasetData"
+                  :server-paged="serverPaginationWidgets?.[child.id]"
+                  :page-loader="loadWidgetPage ? page => loadWidgetPage(child.id, page) : undefined"
+                  :page-reset-key="dataVersion"
+                  :drill-loader="loadDrill"
+                />
+              </div>
+            </div>
+          </template>
+        </DashboardWidget>
       </div>
     </div>
   </div>
@@ -32,6 +58,7 @@
 import { computed } from 'vue';
 
 import DashboardWidget from './DashboardWidget.vue';
+import { childGridStyle } from './container-layout';
 import { resolveCanvasMetrics } from './designer/grid-layout';
 import { normalizeTheme } from './layout-defaults';
 import { resolveChartPalette, resolveThemeTokens, themeCssVars } from './theme-presets';
@@ -52,7 +79,12 @@ const props = defineProps<{
   showHeader?: boolean;
 }>();
 
-const widgets = computed(() => props.spec.widgets ?? []);
+const widgets = computed(() => {
+  // 子组件在容器内部渲染，画布只渲染顶层组件；容器先渲染作为面板背景。
+  const list = (props.spec.widgets ?? []).filter(widget => !widget.parentId);
+  return [...list].sort((left, right) => Number(right.type === 'container') - Number(left.type === 'container'));
+});
+const containerChildren = (containerId: string) => (props.spec.widgets ?? []).filter(widget => widget.parentId === containerId);
 const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
 const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
 
@@ -77,6 +109,8 @@ const layoutStyle = computed<Record<string, string>>(() => {
   };
 });
 
+const stackOf = (widget: Widget) => (widget.type === 'container' ? 0 : (widget.zIndex ?? 0));
+
 const itemStyle = (widget: Widget): Record<string, string | number> => {
   const layout = widget.layout;
   if (isPixel.value) {
@@ -86,13 +120,13 @@ const itemStyle = (widget: Widget): Record<string, string | number> => {
       top: `${layout?.y ?? 0}px`,
       width: `${layout?.w ?? 12}px`,
       height: `${layout?.h ?? 8}px`,
-      ...(widget.zIndex ? { zIndex: widget.zIndex } : {}),
+      zIndex: stackOf(widget),
     };
   }
   return {
     gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
     gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
-    ...(widget.zIndex ? { zIndex: widget.zIndex } : {}),
+    zIndex: stackOf(widget),
   };
 };
 
@@ -140,5 +174,22 @@ const errorOf = (widget: Widget) =>
 .dashboard-canvas-item {
   min-width: 0;
   min-height: 0;
+}
+
+.dashboard-container-grid {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  grid-auto-rows: 20px;
+  gap: 4px;
+  height: 100%;
+  padding: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dashboard-container-cell {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 </style>

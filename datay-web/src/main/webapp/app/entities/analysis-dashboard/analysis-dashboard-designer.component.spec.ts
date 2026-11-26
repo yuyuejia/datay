@@ -134,6 +134,12 @@ type DesignerVm = {
   filterValues: Record<string, any>;
   onFilterSearch: (values: Record<string, any>) => Promise<void>;
   onLayoutChange: (id: string, layout: WidgetLayout) => void;
+  selectWidget: (id: string) => void;
+  removeWidget: (id: string) => void;
+  containerOptions: Array<{ id: string; title?: string }>;
+  widgetContainerId: string;
+  widgetZIndex: number;
+  selectedWidgetId: string;
   applyAiSpec: (spec: any) => Promise<boolean>;
   openPreview: () => void;
   save: () => Promise<void>;
@@ -441,7 +447,7 @@ describe('AnalysisDashboardDesigner history', () => {
         id: 'w1',
         title: '超高组件',
         type: 'table',
-        layout: { x: 0, y: 0, w: 24, h: 40 },
+        layout: { x: 0, y: 0, w: 24, h: 80 },
       },
     ];
     await vm.$nextTick();
@@ -1176,6 +1182,85 @@ describe('AnalysisDashboardDesigner history', () => {
 
     expect(vm.spec.layout?.screen?.themePreset).toBe('tech-blue');
     expect(vm.spec.layout?.screen?.tokens?.primary).toBe('#ff0000');
+  });
+
+  it('用箭头调整层级时自动选中该组件，层级值随面板同步', async () => {
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.addWidget('html');
+    vm.addWidget('html');
+    await vm.$nextTick();
+
+    const [first, second] = vm.spec.widgets;
+    vm.selectWidget(second.id);
+    vm.moveWidgetLayer(first.id, 'down');
+    await vm.$nextTick();
+
+    expect(vm.selectedWidgetId).toBe(first.id);
+    expect(vm.widgetZIndex).toBe(first.zIndex ?? 0);
+  });
+
+  it('像素画布支持手动设置组件层级', async () => {
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    expect(vm.widgetZIndex).toBe(0);
+
+    vm.widgetZIndex = 42;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].zIndex).toBe(42);
+
+    vm.widgetZIndex = 1000;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].zIndex).toBe(999);
+  });
+
+  it('新看板默认使用 20px 行高', () => {
+    expect(vm.spec.layout?.rowHeight).toBe(20);
+  });
+
+  it('新增容器组件，支持归入子组件并在移动时跟随', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.layoutMode = 'screen';
+    vm.canvasUnit = 'px';
+    vm.addWidget('container');
+    vm.addWidget('kpi');
+    await vm.$nextTick();
+
+    const container = vm.spec.widgets.find(widget => widget.type === 'container');
+    const child = vm.spec.widgets.find(widget => widget.type === 'kpi');
+    expect(container).toBeDefined();
+    expect(container?.datasetId).toBeUndefined();
+    expect(container?.layout.w).toBeGreaterThan(0);
+    expect(container?.layout.h).toBeGreaterThan(0);
+    expect(child).toBeDefined();
+
+    vm.selectWidget(child!.id);
+    vm.widgetContainerId = container!.id;
+    await vm.$nextTick();
+    expect(child?.parentId).toBe(container?.id);
+    // 子组件改为容器内 24 栅格坐标，旧绝对坐标回落到默认 12 × 6。
+    expect(child!.layout).toEqual({ x: 0, y: 0, w: 12, h: 6 });
+
+    vm.onChildResize(container!.id, child!.id, { x: 2, y: 1, w: 20, h: 4 });
+    await vm.$nextTick();
+    expect(child!.layout).toEqual({ x: 2, y: 1, w: 20, h: 4 });
+
+    // 容器移动不改变子组件的相对布局。
+    const before = { ...child!.layout };
+    vm.onLayoutChange(container!.id, {
+      ...container!.layout,
+      x: container!.layout.x + 100,
+      y: container!.layout.y + 50,
+    });
+    await vm.$nextTick();
+    expect(child!.layout).toEqual(before);
+
+    vm.removeWidget(container!.id);
+    await vm.$nextTick();
+    expect(vm.spec.widgets.some(widget => widget.id === child!.id)).toBe(false);
   });
 
   it('新增标题栏与日期时间组件，默认不带数据集', async () => {

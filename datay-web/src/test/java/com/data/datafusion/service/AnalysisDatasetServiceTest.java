@@ -129,6 +129,28 @@ class AnalysisDatasetServiceTest {
     }
 
     @Test
+    void shouldDedupeMetricDimensionsByModelAndRole() throws Exception {
+        AnalysisDatasetDTO dto = new AnalysisDatasetDTO();
+        dto.setName("区域销售");
+        dto.setType("METRIC");
+        dto.setDefinition(
+            "{\"metricQuery\":{\"metricCodes\":[\"sales_amount\"],\"dimensions\":[" +
+            "{\"dimensionModelCode\":\"dim_region\",\"dimensionFieldNames\":[\"region_name\"]}," +
+            "{\"dimensionModelCode\":\"dim_region\",\"dimensionFieldNames\":[\"region_code\"]}," +
+            "{\"dimensionModelCode\":\"dim_region\",\"dimensionRole\":\"sales_region\"}" +
+            "]}}"
+        );
+
+        AnalysisDatasetDTO result = service.validateDefinition(dto);
+        JsonNode dimensions = new ObjectMapper().readTree(result.getDefinition()).path("metricQuery").path("dimensions");
+
+        assertThat(dimensions).hasSize(2);
+        assertThat(dimensions.get(0).path("dimensionModelCode").asText()).isEqualTo("dim_region");
+        assertThat(dimensions.get(0).path("dimensionFieldNames")).hasSize(2);
+        assertThat(dimensions.get(1).path("dimensionRole").asText()).isEqualTo("sales_region");
+    }
+
+    @Test
     void shouldRejectNonReadOnlySql() {
         AnalysisDatasetDTO dto = new AnalysisDatasetDTO();
         dto.setName("删除数据");

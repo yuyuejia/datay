@@ -213,6 +213,8 @@
               @select="selectWidget"
               @layout-change="onLayoutChange"
               @resize="onResize"
+              @child-layout-change="onChildLayoutChange"
+              @child-resize="onChildResize"
               @delete="removeWidget"
               @layer-move="moveWidgetLayer"
               @add-widget="onCanvasAddWidget"
@@ -228,6 +230,8 @@
           @select="selectWidget"
           @layout-change="onLayoutChange"
           @resize="onResize"
+          @child-layout-change="onChildLayoutChange"
+          @child-resize="onChildResize"
           @delete="removeWidget"
           @layer-move="moveWidgetLayer"
           @add-widget="onCanvasAddWidget"
@@ -449,6 +453,31 @@
                   <el-select v-model="selectedWidget.datasetId" clearable placeholder="选择数据集">
                     <el-option v-for="dataset in spec.datasets" :key="dataset.id" :label="dataset.name || dataset.id" :value="dataset.id" />
                   </el-select>
+                </template>
+
+                <template v-if="selectedWidget.type !== 'container' && containerOptions.length">
+                  <label>所属容器</label>
+                  <el-select v-model="widgetContainerId" clearable placeholder="不放入容器">
+                    <el-option
+                      v-for="container in containerOptions"
+                      :key="container.id"
+                      :label="container.title || container.id"
+                      :value="container.id"
+                    />
+                  </el-select>
+                  <div class="designer-hint">放入容器后，移动容器时子组件会一起移动。</div>
+                </template>
+
+                <template v-if="isPixelCanvas && selectedWidget.type !== 'container'">
+                  <label>层级</label>
+                  <el-input-number v-model="widgetZIndex" :min="0" :max="999" :step="1" controls-position="right" style="width: 100%" />
+                  <div class="designer-hint">数值越大越靠上；也可用组件左上角 ↑ ↓ 微调。</div>
+                </template>
+
+                <template v-if="selectedWidget.type === 'container'">
+                  <div class="designer-hint">
+                    容器用于承载面板背景与标题，子组件通过「所属容器」归入；容器移动时子组件跟随，删除容器会一并删除子组件。
+                  </div>
                 </template>
 
                 <template v-if="selectedWidget.type === 'title'">

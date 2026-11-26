@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getSystemScreenSize,
+  migrateLegacyRowHeight,
   normalizeDashboardLayout,
   normalizeDashboardSpec,
   resolveScreenBackgroundStyle,
@@ -27,13 +28,13 @@ describe('layout-defaults', () => {
     });
   });
 
-  it('forces the unified 24 column grid and keeps screen settings', () => {
+  it('forces the unified 24 column grid and keeps configured row height', () => {
     expect(
       normalizeDashboardLayout({ mode: 'screen', columns: 12, rowHeight: 90, gap: 16, screen: { width: 2560, height: 1440 } }),
     ).toEqual({
       mode: 'screen',
       columns: 24,
-      rowHeight: 40,
+      rowHeight: 80,
       gap: 12,
       screen: {
         width: 2560,
@@ -44,6 +45,11 @@ describe('layout-defaults', () => {
         autoRefreshSeconds: 0,
       },
     });
+  });
+
+  it('保留看板显式配置的行高', () => {
+    expect(normalizeDashboardLayout({ rowHeight: 20 }).rowHeight).toBe(20);
+    expect(normalizeDashboardLayout({ rowHeight: 999 }).rowHeight).toBe(80);
   });
 
   it('falls back to standard mode and the current system resolution', () => {
@@ -198,6 +204,67 @@ describe('layout-defaults', () => {
         },
       }),
     ).toEqual({ backgroundImage: 'linear-gradient(90deg, #000000, #ffffff)' });
+  });
+
+  it('把容器子组件收进容器可见行数', () => {
+    const normalized = normalizeDashboardSpec({
+      version: 2,
+      layout: { mode: 'standard', columns: 24, rowHeight: 40, gap: 12 },
+      datasets: [],
+      filters: [],
+      widgets: [
+        {
+          id: 'panel',
+          type: 'container',
+          layout: { x: 0, y: 0, w: 8, h: 8 },
+        },
+        {
+          id: 'child',
+          type: 'kpi',
+          parentId: 'panel',
+          layout: { x: 2, y: 14, w: 12, h: 6 },
+        },
+      ],
+    });
+
+    expect(normalized.widgets[1].layout).toEqual({ x: 2, y: 1, w: 12, h: 6 });
+  });
+
+  it('历史 40px 行高保存时迁移到 20px 并保持像素高度', () => {
+    const spec: DashboardSpec = {
+      version: 2,
+      layout: { mode: 'standard', rowHeight: 40, gap: 12 },
+      datasets: [],
+      filters: [],
+      widgets: [
+        { id: 'panel', type: 'container', layout: { x: 0, y: 2, w: 12, h: 8 } },
+        { id: 'child', type: 'kpi', parentId: 'panel', layout: { x: 0, y: 0, w: 12, h: 6 } },
+      ],
+    };
+
+    expect(migrateLegacyRowHeight(spec)).toBe(true);
+    expect(spec.layout?.rowHeight).toBe(20);
+    expect(spec.widgets[0].layout).toEqual({ x: 0, y: 3, w: 12, h: 13 });
+    // 容器内部子组件使用独立的 20px 栅格，不跟随看板行高换算。
+    expect(spec.widgets[1].layout).toEqual({ x: 0, y: 0, w: 12, h: 6 });
+  });
+
+  it('像素画布只切换行高数值，不缩放像素坐标', () => {
+    const spec: DashboardSpec = {
+      version: 2,
+      layout: {
+        mode: 'screen',
+        rowHeight: 40,
+        screen: { width: 1920, height: 1080, canvas: { unit: 'px', padding: 0, gap: 8 } },
+      },
+      datasets: [],
+      filters: [],
+      widgets: [{ id: 'w1', type: 'table', layout: { x: 20, y: 30, w: 400, h: 200 } }],
+    };
+
+    expect(migrateLegacyRowHeight(spec)).toBe(true);
+    expect(spec.layout?.rowHeight).toBe(20);
+    expect(spec.widgets[0].layout).toEqual({ x: 20, y: 30, w: 400, h: 200 });
   });
 
   it('normalizes a stored dashboard spec', () => {

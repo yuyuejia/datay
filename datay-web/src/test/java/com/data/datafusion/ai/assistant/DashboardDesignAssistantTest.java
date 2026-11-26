@@ -117,6 +117,57 @@ class DashboardDesignAssistantTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldRepairMapRegionFieldFromDatasetDimensionFields() {
+        AnalysisDatasetDTO existing = new AnalysisDatasetDTO();
+        existing.setId("map-dataset-id");
+        existing.setName("区域销售数据集");
+        existing.setType(AnalysisDataset.TYPE_METRIC);
+        existing.setDefinition(
+            "{\"metricQuery\":{\"metricCodes\":[\"sales_amount\"]," +
+            "\"dimensions\":[{\"dimensionModelCode\":\"dim_region\",\"dimensionFieldNames\":[\"level1_name\"],\"levelIndex\":1}," +
+            "{\"dimensionModelCode\":\"dim_region\",\"dimensionFieldNames\":[\"level2_name\"],\"levelIndex\":2}]}}"
+        );
+        when(datasetService.findOne("map-dataset-id")).thenReturn(Optional.of(existing));
+
+        Map<String, Object> chart = new LinkedHashMap<>();
+        chart.put("type", "map");
+        chart.put("map", "china");
+        Map<String, Object> dimension = new LinkedHashMap<>();
+        dimension.put("field", "level2_name");
+        dimension.put("role", "x");
+        Map<String, Object> measure = new LinkedHashMap<>();
+        measure.put("field", "sales_amount");
+        measure.put("agg", "sum");
+        measure.put("role", "value");
+        Map<String, Object> encode = new LinkedHashMap<>();
+        encode.put("dimensions", List.of(dimension));
+        encode.put("measures", List.of(measure));
+        Map<String, Object> widget = new LinkedHashMap<>();
+        widget.put("id", "map1");
+        widget.put("type", "echarts");
+        widget.put("datasetId", "ds1");
+        widget.put("chart", chart);
+        widget.put("encode", encode);
+
+        Map<String, Object> spec = new LinkedHashMap<>();
+        spec.put("version", 2);
+        spec.put(
+            "datasets",
+            List.of(Map.of("id", "ds1", "refId", "map-dataset-id", "name", "区域销售", "type", "METRIC"))
+        );
+        spec.put("widgets", List.of(widget));
+
+        Map<String, Object> processed = assistant.postProcessSpec(spec, Map.of());
+        Map<String, Object> processedWidget = ((List<Map<String, Object>>) processed.get("widgets")).get(0);
+        List<Map<String, Object>> dimensions = (List<Map<String, Object>>) ((Map<String, Object>) processedWidget.get("encode")).get(
+            "dimensions"
+        );
+
+        assertThat(dimensions.get(0)).containsEntry("field", "level1_name");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldFallbackToEmbeddedMetricQueryWhenRefIdInvalid() {
         AnalysisDatasetDTO saved = dataset("saved-embedded-id", "内嵌销售毛利");
         when(datasetService.findAllSimple()).thenReturn(List.of());

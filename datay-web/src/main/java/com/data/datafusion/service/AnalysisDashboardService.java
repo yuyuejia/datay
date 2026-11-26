@@ -135,17 +135,73 @@ public class AnalysisDashboardService {
      * 规范化看板定义：结构校验，并剔除引用了不存在或无数据维度的筛选器。
      */
     private String normalizeSpec(String specJson) {
-        assertReferencesOnly(specJson);
-        Map<String, Object> spec = specValidator.validateAndNormalize(specJson);
+        Map<String, Object> raw = specValidator.parse(specJson);
+        assertReferencesOnly(raw);
+        migrateLegacyRowHeight(raw);
+        Map<String, Object> spec = specValidator.validateAndNormalize(specValidator.toJson(raw));
         dimensionValidator.sanitizeFilters(spec);
         return specValidator.toJson(spec);
     }
 
     /**
+     * 历史看板保存时统一迁移到 20px 行高。
+     *
+     * <p>40px 行高的看板把顶层组件的 y/h 放大一倍，保证保存后视觉高度不变；
+     * 容器内部子组件使用独立的 20px 栅格，不参与换算；像素画布只切换行高数值。
+     */
+    private void migrateLegacyRowHeight(Map<String, Object> spec) {
+        Map<String, Object> layout = asMap(spec.get("layout"));
+        if (layout.isEmpty()) {
+            return;
+        }
+        int rowHeight = asInt(layout.get("rowHeight"), 40);
+        if (rowHeight != 40) {
+            return;
+        }
+        Map<String, Object> screen = asMap(layout.get("screen"));
+        boolean pixelCanvas =
+            "screen".equals(asString(layout.get("mode"))) && "px".equals(asString(asMap(screen.get("canvas")).get("unit")));
+        if (!pixelCanvas) {
+            for (Map<String, Object> widget : DashboardDataService.asMapList(spec.get("widgets"))) {
+                if (asString(widget.get("parentId")) != null) {
+                    continue;
+                }
+                Map<String, Object> widgetLayout = asMap(widget.get("layout"));
+                if (widgetLayout.isEmpty()) {
+                    continue;
+                }
+                // 40px 行高 + 12px 间距 → 20px 行高 + 12px 间距，按 52/32 行步长换算。
+                widgetLayout.put("y", Math.round(asInt(widgetLayout.get("y"), 0) * 1.625f));
+                widgetLayout.put("h", Math.max(1, Math.round(asInt(widgetLayout.get("h"), 0) * 1.625f)));
+            }
+        }
+        layout.put("rowHeight", 20);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private int asInt(Object value, int fallback) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return value == null ? fallback : Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    /**
      * v1 保存态只允许数据集引用，禁止内联数据集绕过数据集行级权限。
      */
-    private void assertReferencesOnly(String specJson) {
-        Map<String, Object> raw = specValidator.parse(specJson);
+    private void assertReferencesOnly(Map<String, Object> raw) {
         for (Map<String, Object> dataset : DashboardDataService.asMapList(raw.get("datasets"))) {
             Object refId = dataset.get("refId");
             if (refId == null || String.valueOf(refId).isBlank()) {

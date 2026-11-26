@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,7 +143,7 @@ public class DashboardDesignAssistant implements AiAssistant {
         sb.append("   c. 【聚合数据集】先汇总整个看板需要的全部指标、维度、业务限定和时间范围，再准备一个数据集：\n");
         sb.append("      默认只调用一次 prepare_metric_dataset(name=数据集名称, metricQuery={metricCodes,dimensions,filterConfig,timeRange})；\n");
         sb.append("      用户有业务限定时传入 filterConfig，否则可省略。\n");
-        sb.append("      metricCodes 使用全部指标的并集，dimensions 使用全部图表维度的并集；各图表从同一数据集中选择所需字段。\n");
+        sb.append("      metricCodes 使用全部指标的并集，dimensions 使用全部图表维度的并集，并按 dimensionModelCode + dimensionRole 去重，禁止重复选择同一维度；层级维度只选择一个 levelIndex（不要同时声明 level1/level2）；各图表从同一数据集中选择所需字段。\n");
         sb.append("      工具会优先复用能覆盖本次需求的已有数据集，或登记一份待创建草稿，并返回 refId。\n");
         sb.append("      生成结束后系统会自动把草稿落库为分析数据集。\n");
         sb.append("      只有不同指标的时间范围/口径无法合并时才创建多个数据集；能合并时禁止按图表拆分数据集。\n");
@@ -335,11 +336,13 @@ public class DashboardDesignAssistant implements AiAssistant {
             : Map.of();
 
         List<Map<String, Object>> resolvedDatasets = new ArrayList<>();
+        Map<String, DatasetFieldInfo> datasetFields = new LinkedHashMap<>();
         for (Object element : rawDatasets) {
             if (!(element instanceof Map<?, ?> rawDataset)) {
                 continue;
             }
             Map<String, Object> dataset = new LinkedHashMap<>((Map<String, Object>) rawDataset);
+            String datasetId = asString(dataset.get("id"));
             String refId = asString(dataset.get("refId"));
             Map<String, Object> draft = null;
             if (refId != null && refId.startsWith(PrepareMetricDatasetTool.DRAFT_PREFIX)) {
@@ -357,6 +360,7 @@ public class DashboardDesignAssistant implements AiAssistant {
                     if (asString(dataset.get("name")) == null || asString(dataset.get("name")).isBlank()) {
                         dataset.put("name", existing.get().getName());
                     }
+                    rememberDatasetFields(datasetFields, datasetId, existing.get());
                 } else if (dataset.get("metricQuery") instanceof Map<?, ?> metricQuery) {
                     // refId 无效但模型带了内嵌指标定义时，用内嵌定义恢复为数据集引用。
                     draft = draftFromMetricQuery(dataset, (Map<String, Object>) metricQuery);
@@ -391,6 +395,7 @@ public class DashboardDesignAssistant implements AiAssistant {
                 dataset.put("refId", saved.getId());
                 dataset.put("name", saved.getName());
                 dataset.put("type", saved.getType());
+                rememberDatasetFields(datasetFields, datasetId, saved);
             }
 
             // 看板只保留数据集引用，去除所有内嵌定义。
@@ -405,6 +410,7 @@ public class DashboardDesignAssistant implements AiAssistant {
         Map<String, Object> result = new LinkedHashMap<>(spec);
         result.put("datasets", resolvedDatasets);
         repairCommonWidgetMistakes(result);
+        repairMapWidgetFields(result, datasetFields);
         if (specValidator == null) {
             return result;
         }
@@ -636,6 +642,19 @@ public class DashboardDesignAssistant implements AiAssistant {
         return SUPPORTED_CHART_TYPES.contains(type) ? type : null;
     }
 
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> asMapList(Object raw) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> map) {
+                    result.add((Map<String, Object>) map);
+                }
+            }
+        }
+        return result;
+    }
+
     private static Map<String, Object> asMap(Object raw) {
         if (raw instanceof Map<?, ?> map) {
             @SuppressWarnings("unchecked")
@@ -692,6 +711,170 @@ public class DashboardDesignAssistant implements AiAssistant {
         }
         return null;
     }
+
+    /**
+     * 收集数据集的可用输出字段：缓存字段优先，其次从 metricQuery 的维度展示字段推断。
+     * 指标数据集在首次查询前 fields 为空，这里保证 AI 仍能拿到可用于 encode 的字段。
+     */
+    private void rememberDatasetFields(
+        Map<String, DatasetFieldInfo> target,
+        String datasetId,
+        AnalysisDatasetDTO dataset
+    ) {
+        if (datasetId == null || datasetId.isBlank() || dataset == null) {
+            return;
+        }
+        Set<String> all = new LinkedHashSet<>();
+        Set<String> dimensions = new LinkedHashSet<>();
+        String fieldsJson = dataset.getFields();
+        if (fieldsJson != null && !fieldsJson.isBlank()) {
+            try {
+                JsonNode root = objectMapper.readTree(fieldsJson);
+                for (JsonNode column : root.path("columns")) {
+                    String name = column.path("name").asText(null);
+                    if (name != null && !name.isBlank()) {
+                        all.add(name);
+                    }
+                }
+                root.path("columnLabels").fieldNames().forEachRemaining(name -> {
+                    if (name != null && !name.isBlank()) {
+                        all.add(name);
+                    }
+                });
+            } catch (JsonProcessingException ignored) {
+                // 字段缓存损坏时继续用 metricQuery 推断。
+            }
+        }
+        String definition = dataset.getDefinition();
+        if (definition != null && !definition.isBlank()) {
+            try {
+                JsonNode metricQuery = objectMapper.readTree(definition).path("metricQuery");
+                Set<String> seenDimensions = new LinkedHashSet<>();
+                for (JsonNode dimension : metricQuery.path("dimensions")) {
+                    String modelCode = dimension.path("dimensionModelCode").asText("");
+                    String role = dimension.path("dimensionRole").asText("");
+                    if (!seenDimensions.add(modelCode + "#" + role)) {
+                        // 同一维度模型 + 角色只保留第一次声明，和历史数据集查询期的去重保持一致。
+                        continue;
+                    }
+                    for (JsonNode field : dimension.path("dimensionFieldNames")) {
+                        String name = field.asText(null);
+                        if (name != null && !name.isBlank()) {
+                            dimensions.add(name);
+                            all.add(name);
+                        }
+                    }
+                    String single = dimension.path("dimensionFieldName").asText(null);
+                    if (single != null && !single.isBlank()) {
+                        dimensions.add(single);
+                        all.add(single);
+                    }
+                }
+                for (JsonNode code : metricQuery.path("metricCodes")) {
+                    String name = code.asText(null);
+                    if (name != null && !name.isBlank()) {
+                        all.add(name);
+                    }
+                }
+            } catch (JsonProcessingException ignored) {
+                // 非法定义交给后续校验器处理。
+            }
+        }
+        target.put(datasetId, new DatasetFieldInfo(all, new ArrayList<>(dimensions)));
+    }
+
+    /**
+     * AI 常把地图区域字段写成维度模型编码或不存在的列名。
+     * 这里用地数据集真实维度字段回填，避免查询期 SQL 报“字段不存在”。
+     */
+    @SuppressWarnings("unchecked")
+    private void repairMapWidgetFields(Map<String, Object> spec, Map<String, DatasetFieldInfo> datasetFields) {
+        if (datasetFields.isEmpty() || !(spec.get("widgets") instanceof List<?> widgets)) {
+            return;
+        }
+        for (Object element : widgets) {
+            if (!(element instanceof Map<?, ?> rawWidget)) {
+                continue;
+            }
+            Map<String, Object> widget = (Map<String, Object>) rawWidget;
+            Map<String, Object> chart = asMap(widget.get("chart"));
+            if (!"map".equalsIgnoreCase(asString(chart.get("type")))) {
+                continue;
+            }
+            String datasetId = asString(widget.get("datasetId"));
+            DatasetFieldInfo info = datasetFields.get(datasetId);
+            if (info == null || info.dimensions().isEmpty()) {
+                continue;
+            }
+            Map<String, Object> encode = asMap(widget.get("encode"));
+            List<Map<String, Object>> dimensions = new ArrayList<>();
+            for (Map<String, Object> dimension : asMapList(encode.get("dimensions"))) {
+                dimensions.add(new LinkedHashMap<>(dimension));
+            }
+            String current = dimensions.isEmpty() ? null : asString(dimensions.get(0).get("field"));
+            if (current == null || !info.dimensions().contains(current)) {
+                String replacement = resolveMapRegionField(info.dimensions());
+                if (replacement != null) {
+                    if (dimensions.isEmpty()) {
+                        Map<String, Object> dimension = new LinkedHashMap<>();
+                        dimension.put("field", replacement);
+                        dimension.put("role", "x");
+                        dimensions.add(dimension);
+                    } else {
+                        dimensions.get(0).put("field", replacement);
+                        dimensions.get(0).putIfAbsent("role", "x");
+                    }
+                    encode.put("dimensions", dimensions);
+                    widget.put("encode", encode);
+                }
+            }
+            if (chart.get("layers") instanceof List<?> layers) {
+                for (Object layerElement : layers) {
+                    if (!(layerElement instanceof Map<?, ?> rawLayer)) {
+                        continue;
+                    }
+                    Map<String, Object> layer = (Map<String, Object>) rawLayer;
+                    String layerDatasetId = asString(layer.get("datasetId"));
+                    DatasetFieldInfo layerInfo = datasetFields.getOrDefault(layerDatasetId, info);
+                    String nameField = asString(layer.get("nameField"));
+                    if (nameField != null && !layerInfo.dimensions().contains(nameField)) {
+                        String replacement = resolveMapRegionField(layerInfo.dimensions());
+                        if (replacement != null) {
+                            layer.put("nameField", replacement);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private String resolveMapRegionField(List<String> dimensions) {
+        List<String> priority = List.of(
+            "province_name",
+            "province",
+            "region_name",
+            "region",
+            "area_name",
+            "area",
+            "level1_name",
+            "provinceName",
+            "regionName"
+        );
+        for (String candidate : priority) {
+            if (dimensions.contains(candidate)) {
+                return candidate;
+            }
+        }
+        for (String field : dimensions) {
+            String lower = field.toLowerCase();
+            if (lower.contains("province") || lower.contains("region") || lower.contains("area")) {
+                return field;
+            }
+        }
+        return dimensions.isEmpty() ? null : dimensions.get(0);
+    }
+
+    private record DatasetFieldInfo(Set<String> all, List<String> dimensions) {}
 
     private Map<String, Object> draftFromMetricQuery(Map<String, Object> dataset, Map<String, Object> metricQuery) {
         Map<String, Object> draft = new LinkedHashMap<>();

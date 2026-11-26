@@ -7,7 +7,7 @@ import type { DashboardSpec } from './types';
 vi.mock('./DashboardWidget.vue', () => ({
   default: {
     name: 'DashboardWidget',
-    template: '<div class="dashboard-widget-stub" />',
+    template: '<div class="dashboard-widget-stub"><slot name="container" /></div>',
   },
 }));
 
@@ -117,5 +117,44 @@ describe('DashboardCanvas layout', () => {
 
     expect(style).toContain('--dashboard-primary: #ff0000');
     expect(style).toContain('--dashboard-surface: rgba(9, 26, 48, 0.55)');
+  });
+
+  it('容器子组件在容器内部按 24 栅格渲染', () => {
+    const spec: DashboardSpec = {
+      version: 2,
+      layout: {
+        mode: 'screen',
+        columns: 24,
+        rowHeight: 40,
+        gap: 12,
+        screen: { width: 1920, height: 1080, canvas: { unit: 'px', padding: 0, gap: 8 } },
+      },
+      datasets: [],
+      widgets: [
+        {
+          id: 'panel',
+          type: 'container',
+          title: '面板',
+          layout: { x: 20, y: 20, w: 400, h: 300 },
+        },
+        {
+          id: 'child',
+          type: 'kpi',
+          parentId: 'panel',
+          layout: { x: 2, y: 1, w: 20, h: 4 },
+        },
+      ],
+      filters: [],
+    };
+
+    const wrapper = mount(DashboardCanvas, { props: { spec } });
+    const items = wrapper.findAll('.dashboard-canvas-item');
+    expect(items).toHaveLength(1);
+    expect(items[0].attributes('data-widget-id')).toBe('panel');
+
+    const child = wrapper.find('.dashboard-container-grid > *');
+    expect(child.exists()).toBe(true);
+    expect(child.attributes('style')).toContain('grid-column: 3 / span 20');
+    expect(child.attributes('style')).toContain('grid-row: 2 / span 4');
   });
 });

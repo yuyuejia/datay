@@ -18,6 +18,7 @@ import {
   DEFAULT_SCREEN_WIDTH,
   getSystemScreenSize,
   LIGHT_SCREEN_BACKGROUND,
+  migrateLegacyRowHeight,
   normalizeDashboardLayout,
   normalizeDashboardSpec,
   normalizeFitMode,
@@ -26,6 +27,7 @@ import {
   resolveScreenTheme,
   SCREEN_FIT_MODES,
 } from '@/shared/dashboard/layout-defaults';
+import { DEFAULT_CHILD_LAYOUT, fitChildLayout, normalizeChildLayout } from '@/shared/dashboard/container-layout';
 import DashboardBackgroundService from '@/shared/dashboard/dashboard-background.service';
 import { useDashboardBackgroundImage } from '@/shared/dashboard/useDashboardBackgroundImage';
 import {
@@ -124,7 +126,7 @@ interface AiChatMessage {
   hasSpec?: boolean;
 }
 
-const DATASETLESS_TYPES = new Set<WidgetType>(['html', 'title', 'clock']);
+const DATASETLESS_TYPES = new Set<WidgetType>(['html', 'title', 'clock', 'container']);
 
 const TITLE_ICON_OPTIONS = [
   'chart-line',
@@ -207,6 +209,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'html', label: '说明文本', icon: 'text', category: 'text', type: 'html', w: 12, h: 4 },
   { key: 'title', label: '标题栏', icon: 'title', category: 'other', type: 'title', w: 24, h: 2 },
   { key: 'clock', label: '日期时间', icon: 'clock', category: 'other', type: 'clock', w: 4, h: 1 },
+  { key: 'container', label: '容器', icon: 'container', category: 'other', type: 'container', w: 12, h: 8 },
 ];
 
 const SCREEN_PRESETS = [
@@ -369,7 +372,7 @@ export default defineComponent({
       version: 2,
       title: '',
       description: '',
-      layout: normalizeDashboardLayout(),
+      layout: normalizeDashboardLayout({ rowHeight: 20 }),
       datasets: [],
       widgets: [],
       filters: [],
@@ -1205,16 +1208,13 @@ export default defineComponent({
       if (!isScreenMode.value || !screen) {
         return false;
       }
+      const topLevelWidgets = spec.value.widgets.filter(widget => !widget.parentId);
       if (isPixelCanvas.value) {
-        return pixelContentHeight(spec.value.widgets, canvasMetrics.value.padding) > screen.height;
+        return pixelContentHeight(topLevelWidgets, canvasMetrics.value.padding) > screen.height;
       }
       return (
-        layoutContentHeight(
-          spec.value.widgets,
-          layout.rowHeight ?? DEFAULT_ROW_HEIGHT,
-          canvasMetrics.value.gap,
-          canvasMetrics.value.padding,
-        ) > screen.height
+        layoutContentHeight(topLevelWidgets, layout.rowHeight ?? DEFAULT_ROW_HEIGHT, canvasMetrics.value.gap, canvasMetrics.value.padding) >
+        screen.height
       );
     });
 
@@ -2008,6 +2008,13 @@ export default defineComponent({
         valid = false;
         alertService.showError(errorMessage(err, '看板定义校验失败'));
       }
+      if (!editingId.value && rawSpec.layout?.rowHeight == null && normalized.layout) {
+        // 新看板默认使用 20px 行高；历史看板没有该字段时保持 40px 兼容。
+        normalized = {
+          ...normalized,
+          layout: { ...normalized.layout, rowHeight: 20 },
+        };
+      }
       if (!name.value.trim() && normalized.title) {
         name.value = normalized.title;
       }
@@ -2309,43 +2316,92 @@ export default defineComponent({
       return `${type}${index}`;
     };
 
-    const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout) => {
+    const widgetZIndex = computed<number>({
+      get: () => selectedWidget.value?.zIndex ?? 0,
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        widget.zIndex = clamp(Math.round(value || 0), 0, 999);
+      },
+    });
+
+    const containerOptions = computed(() =>
+      spec.value.widgets.filter(widget => widget.type === 'container' && widget.id !== selectedWidget.value?.id),
+    );
+    const widgetContainerId = computed<string>({
+      get: () => selectedWidget.value?.parentId ?? '',
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        if (value) {
+          const container = spec.value.widgets.find(item => item.id === value && item.type === 'container');
+          if (!container) {
+            return;
+          }
+          widget.parentId = value;
+          // 旧版绝对坐标会回落默认值；超出容器行数的子组件会被收进可见区域。
+          widget.layout = fitChildLayout(widget.layout, container.layout, isPixelCanvas.value);
+        } else {
+          delete widget.parentId;
+          const topLevel = spec.value.widgets.filter(item => !item.parentId && item.id !== widget.id);
+          widget.layout = isPixelCanvas.value ? nextPixelLayout(topLevel, canvasMetrics.value, 12, 8) : nextLayout(topLevel, 12, 8);
+        }
+      },
+    });
+
+    const addWidget = (type: WidgetType, chartType: ChartType = 'bar', layout?: WidgetLayout, parentId?: string) => {
       const id = nextWidgetId(type);
       const title =
         type === 'html' || type === 'title' || type === 'clock'
           ? ''
-          : type === 'kpi'
-            ? 'KPI 指标'
-            : type === 'table'
-              ? '明细表'
-              : type === 'pivot'
-                ? '透视表'
-                : CHART_LABELS[chartType] || '图表';
+          : type === 'container'
+            ? '数据面板'
+            : type === 'kpi'
+              ? 'KPI 指标'
+              : type === 'table'
+                ? '明细表'
+                : type === 'pivot'
+                  ? '透视表'
+                  : CHART_LABELS[chartType] || '图表';
       const defaultWidth =
         type === 'title'
           ? 24
           : type === 'clock'
             ? 4
-            : type === 'kpi'
-              ? 6
-              : type === 'echarts' && (chartType === 'pie' || chartType === 'donut' || chartType === 'funnel')
-                ? 8
-                : type === 'echarts' && chartType === 'gauge'
-                  ? 6
-                  : 12;
-      const defaultHeight = type === 'title' ? 2 : type === 'clock' ? 1 : type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
+            : type === 'container'
+              ? 12
+              : type === 'kpi'
+                ? 6
+                : type === 'echarts' && (chartType === 'pie' || chartType === 'donut' || chartType === 'funnel')
+                  ? 8
+                  : type === 'echarts' && chartType === 'gauge'
+                    ? 6
+                    : 12;
+      const defaultHeight =
+        type === 'title' ? 2 : type === 'clock' ? 1 : type === 'container' ? 8 : type === 'kpi' ? 4 : type === 'html' ? 4 : 8;
+      const parentContainer =
+        parentId && type !== 'container' ? spec.value.widgets.find(item => item.id === parentId && item.type === 'container') : undefined;
       const widget: DashboardWidget = {
         id,
         title,
         type,
-        layout: layout
-          ? isPixelCanvas.value
-            ? clampPixelLayout(layout, canvasMetrics.value)
-            : { ...layout }
-          : isPixelCanvas.value
-            ? nextPixelLayout(spec.value.widgets, canvasMetrics.value, defaultWidth, defaultHeight)
-            : nextLayout(spec.value.widgets, defaultWidth, defaultHeight),
+        layout: parentContainer
+          ? fitChildLayout(layout ?? DEFAULT_CHILD_LAYOUT, parentContainer.layout, isPixelCanvas.value)
+          : layout
+            ? isPixelCanvas.value
+              ? clampPixelLayout(layout, canvasMetrics.value)
+              : { ...layout }
+            : isPixelCanvas.value
+              ? nextPixelLayout(spec.value.widgets, canvasMetrics.value, defaultWidth, defaultHeight)
+              : nextLayout(spec.value.widgets, defaultWidth, defaultHeight),
       };
+      if (parentContainer) {
+        widget.parentId = parentContainer.id;
+      }
       if (!DATASETLESS_TYPES.has(type)) {
         widget.datasetId = spec.value.datasets[0]?.id;
       }
@@ -2369,6 +2425,8 @@ export default defineComponent({
         };
       } else if (type === 'clock') {
         widget.props = { format: 'date-week' };
+      } else if (type === 'container') {
+        widget.parentId = undefined;
       }
       const fields = DATASETLESS_TYPES.has(type) ? [] : fieldCandidates(widget.datasetId);
       if (!DATASETLESS_TYPES.has(type)) {
@@ -2378,10 +2436,10 @@ export default defineComponent({
       if (!DATASETLESS_TYPES.has(type)) {
         setupWidgetEncode(widget, fields);
       }
-      if (layout && !isPixelCanvas.value) {
+      if (layout && !isPixelCanvas.value && !widget.parentId) {
         applyLayouts(
           compactLayouts(
-            spec.value.widgets.map(item => ({ id: item.id, layout: item.layout })),
+            spec.value.widgets.filter(item => !item.parentId).map(item => ({ id: item.id, layout: item.layout })),
             spec.value.layout?.columns ?? GRID_COLUMNS,
             id,
           ),
@@ -2411,36 +2469,40 @@ export default defineComponent({
     };
 
     const addPaletteWidget = (item: PaletteItem) => {
-      const layout = isPixelCanvas.value
-        ? nextPixelLayout(spec.value.widgets, canvasMetrics.value, item.w, item.h)
-        : nextLayout(spec.value.widgets, item.w, item.h);
-      addWidget(item.type, item.chartType, layout);
+      // 点击添加不传 layout，避免被误判为“拖入某个容器”。
+      addWidget(item.type, item.chartType);
     };
 
-    const onCanvasAddWidget = (type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout) => {
-      addWidget(type, chartType, layout);
+    const onCanvasAddWidget = (type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout, parentId?: string) => {
+      addWidget(type, chartType, layout, parentId);
       paletteDragItem.value = null;
     };
 
     const removeWidget = (id: string) => {
+      const target = spec.value.widgets.find(widget => widget.id === id);
+      const childIds = new Set(
+        target?.type === 'container' ? spec.value.widgets.filter(widget => widget.parentId === id).map(widget => widget.id) : [],
+      );
       pendingFieldDefaults.delete(id);
-      spec.value.widgets = spec.value.widgets.filter(widget => widget.id !== id);
-      if (selectedWidgetId.value === id) {
+      childIds.forEach(childId => pendingFieldDefaults.delete(childId));
+      spec.value.widgets = spec.value.widgets.filter(widget => widget.id !== id && !childIds.has(widget.id));
+      if (selectedWidgetId.value === id || childIds.has(selectedWidgetId.value)) {
         selectedWidgetId.value = '';
       }
       commitHistory();
     };
 
     const onLayoutChange = (id: string, layout: WidgetLayout) => {
+      const widget = spec.value.widgets.find(item => item.id === id);
       if (isPixelCanvas.value) {
-        const widget = spec.value.widgets.find(item => item.id === id);
         if (widget) {
           widget.layout = clampPixelLayout(layout, canvasMetrics.value);
         }
         commitHistory();
         return;
       }
-      const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
+      // 只对顶层组件做栅格压实；容器子组件在容器内部独立布局。
+      const items = spec.value.widgets.filter(item => !item.parentId).map(item => ({ id: item.id, layout: item.layout }));
       const updated = moveLayout(items, id, layout.x, layout.y, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
       commitHistory();
@@ -2455,14 +2517,35 @@ export default defineComponent({
         commitHistory();
         return;
       }
-      const items = spec.value.widgets.map(widget => ({ id: widget.id, layout: widget.layout }));
+      const items = spec.value.widgets.filter(item => !item.parentId).map(item => ({ id: item.id, layout: item.layout }));
       const updated = resizeLayout(items, id, layout.w, layout.h, spec.value.layout?.columns ?? GRID_COLUMNS);
       applyLayouts(updated);
       commitHistory();
     };
 
+    /** 容器子组件始终按容器内 24 栅格保存。 */
+    const onChildLayoutChange = (containerId: string, id: string, layout: WidgetLayout) => {
+      const child = spec.value.widgets.find(widget => widget.id === id && widget.parentId === containerId);
+      if (!child) {
+        return;
+      }
+      child.layout = normalizeChildLayout(layout);
+      commitHistory();
+    };
+
+    const onChildResize = (containerId: string, id: string, layout: WidgetLayout) => {
+      const child = spec.value.widgets.find(widget => widget.id === id && widget.parentId === containerId);
+      if (!child) {
+        return;
+      }
+      child.layout = normalizeChildLayout(layout);
+      commitHistory();
+    };
+
     /** 上移/下移一层：按 zIndex 排序后交换相邻项并重新编号，保证层级稳定。 */
     const moveWidgetLayer = (id: string, direction: 'up' | 'down') => {
+      // 点箭头时同步选中该组件，属性面板的「层级」才会显示刚调整后的数值。
+      selectedWidgetId.value = id;
       const ordered = [...spec.value.widgets].sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0));
       const index = ordered.findIndex(widget => widget.id === id);
       const target = direction === 'up' ? index + 1 : index - 1;
@@ -3133,6 +3216,8 @@ export default defineComponent({
         spec.value.title = name.value.trim();
         spec.value.description = description.value;
         pruneIncompleteMapLayers(spec.value);
+        // 历史 40px 行高看板在保存时统一迁移到新行高，并保持视觉高度。
+        migrateLegacyRowHeight(spec.value);
         const normalized = await dashboardService.validateSpec(spec.value);
         spec.value = ensureSpecShape(normalized);
         const payload: AnalysisDashboard = {
@@ -3340,6 +3425,9 @@ export default defineComponent({
       titleWidgetAlign,
       titleWidgetFrame,
       clockFormat,
+      containerOptions,
+      widgetContainerId,
+      widgetZIndex,
       chartStylePreset,
       chartStyleGradient,
       chartStyleGlow,
@@ -3403,6 +3491,8 @@ export default defineComponent({
       removeWidget,
       onLayoutChange,
       onResize,
+      onChildLayoutChange,
+      onChildResize,
       moveWidgetLayer,
       setChartType,
       addFilter,

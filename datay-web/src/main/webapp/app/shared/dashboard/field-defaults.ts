@@ -199,7 +199,7 @@ export function createDefaultEncode(
   chartType: ChartType | undefined,
   fields: DashboardField[],
 ): WidgetEncode | undefined {
-  if (type === 'html' || type === 'title' || type === 'clock') {
+  if (type === 'html' || type === 'title' || type === 'clock' || type === 'container') {
     return undefined;
   }
   if (type === 'table') {

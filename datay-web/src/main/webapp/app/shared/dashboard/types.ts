@@ -6,7 +6,7 @@
 
 export type DatasetType = 'METRIC' | 'SQL';
 
-export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi' | 'pivot' | 'title' | 'clock';
+export type WidgetType = 'echarts' | 'html' | 'table' | 'kpi' | 'pivot' | 'title' | 'clock' | 'container';
 
 export type TitleFrame = 'none' | 'tech-frame' | 'bracket';
 
@@ -399,6 +399,8 @@ export interface DashboardWidget {
   style?: WidgetStyle;
   /** 标题栏 / 日期时间的文本与格式。 */
   props?: WidgetProps;
+  /** 所属容器 id；容器本身不再嵌套。 */
+  parentId?: string;
   datasetId?: string;
   /** v2 显式映射与聚合。 */
   encode?: WidgetEncode;

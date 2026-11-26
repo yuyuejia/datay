@@ -1,3 +1,4 @@
+import { fitChildLayout, normalizeChildLayout } from './container-layout';
 import { CANVAS_PADDING, DEFAULT_GAP, DEFAULT_ROW_HEIGHT, GRID_COLUMNS } from './designer/grid-layout';
 import type {
   CanvasUnit,
@@ -215,8 +216,8 @@ export function getSystemScreenSize(): DashboardScreen {
 /**
  * 统一看板布局参数。
  *
- * <p>看板统一使用 24 栅格、40px 行高与 12px 间距，不兼容历史 12 栅格数据；
- * 旧的 columns / rowHeight / gap 会被忽略，只保留大屏模式与设计分辨率。
+ * <p>看板统一使用 24 栅格与 12px 间距；行高由看板配置，缺省按 40px 兼容历史看板，
+ * 新看板在创建时显式写入 20px。旧的 columns / gap 会被忽略。
  */
 export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout {
   const systemScreen = getSystemScreenSize();
@@ -227,7 +228,7 @@ export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout
   return {
     mode: raw?.mode === 'screen' ? 'screen' : 'standard',
     columns: GRID_COLUMNS,
-    rowHeight: DEFAULT_ROW_HEIGHT,
+    rowHeight: clampNumber(raw?.rowHeight, 8, 80, DEFAULT_ROW_HEIGHT),
     gap: DEFAULT_GAP,
     screen: {
       width: clampNumber(raw?.screen?.width, 640, 7680, systemScreen.width),
@@ -244,16 +245,55 @@ export function normalizeDashboardLayout(raw?: DashboardLayout): DashboardLayout
 }
 
 /** 读取看板定义时补齐布局默认值，保证设计态与浏览态使用同一套栅格。 */
+/** 历史 40px 行高看板保存时迁移到新的 20px 行高，并按比例放大顶层组件的 y/h 保持视觉高度。 */
+export function migrateLegacyRowHeight(spec: DashboardSpec): boolean {
+  const layout = spec.layout;
+  if (!layout) {
+    return false;
+  }
+  const current = layout.rowHeight ?? DEFAULT_ROW_HEIGHT;
+  if (current !== DEFAULT_ROW_HEIGHT) {
+    return false;
+  }
+  const pixelCanvas = layout.mode === 'screen' && layout.screen?.canvas?.unit === 'px';
+  if (!pixelCanvas) {
+    // 40px 行高 + 12px 间距 → 20px 行高 + 12px 间距，按行步长换算才能保持像素高度。
+    const factor = (DEFAULT_ROW_HEIGHT + DEFAULT_GAP) / (20 + DEFAULT_GAP);
+    (spec.widgets ?? []).forEach(widget => {
+      if (widget.parentId) {
+        return;
+      }
+      widget.layout = {
+        ...widget.layout,
+        y: Math.round((widget.layout?.y ?? 0) * factor),
+        h: Math.max(1, Math.round((widget.layout?.h ?? 0) * factor)),
+      };
+    });
+  }
+  layout.rowHeight = 20;
+  return true;
+}
+
 export function normalizeDashboardSpec(raw: DashboardSpec): DashboardSpec {
+  const layout = normalizeDashboardLayout(raw.layout);
+  const sourceWidgets = raw.widgets ?? [];
+  const containers = new Map(sourceWidgets.filter(widget => widget.type === 'container').map(widget => [widget.id, widget]));
+  const pixelCanvas = layout.mode === 'screen' && layout.screen?.canvas?.unit === 'px';
   return {
     ...raw,
     version: 2,
-    layout: normalizeDashboardLayout(raw.layout),
+    layout,
     datasets: (raw.datasets ?? []).map(dataset => ({ ...dataset })),
-    widgets: (raw.widgets ?? []).map(widget => ({
-      ...widget,
-      layout: { ...(widget.layout ?? { x: 0, y: 0, w: 12, h: 8 }) },
-    })),
+    widgets: sourceWidgets.map(widget => {
+      if (!widget.parentId) {
+        return { ...widget, layout: { ...(widget.layout ?? { x: 0, y: 0, w: 12, h: 8 }) } };
+      }
+      const container = containers.get(widget.parentId);
+      return {
+        ...widget,
+        layout: container ? fitChildLayout(widget.layout, container.layout, pixelCanvas) : normalizeChildLayout(widget.layout),
+      };
+    }),
     filters: (raw.filters ?? []).map(filter => ({ ...filter })),
   };
 }

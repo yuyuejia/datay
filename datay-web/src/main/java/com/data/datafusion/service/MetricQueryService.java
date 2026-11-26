@@ -209,6 +209,10 @@ public class MetricQueryService {
         DatasetQueryOptions options
     ) throws SQLException {
         DatasetQueryOptions effectiveOptions = options == null ? DatasetQueryOptions.NONE : options;
+        if (effectiveOptions.groupFields() != null && !effectiveOptions.groupFields().isEmpty()) {
+            // 历史数据集可能对同一维度声明多个层级；按组件实际分组的字段选择对应层级。
+            dto.setDimensions(preferDimensionsForFields(dto.getDimensions(), effectiveOptions.groupFields()));
+        }
         QueryContext context = prepare(dto);
         if (context.federated) {
             FederatedPlan federatedPlan = buildFederatedPlan(context);
@@ -297,6 +301,56 @@ public class MetricQueryService {
 
     /** 联邦来源列定义；metric=true 时按 DOUBLE 建列。 */
     public record FederatedColumn(String name, boolean metric) {}
+
+    /**
+     * 同一维度模型 + 角色出现多个声明时，优先选择包含组件分组字段的那一条。
+     * 这样历史数据集里的层级重复声明不会因为去重顺序导致分组字段不存在。
+     */
+    List<MetricQueryFieldDTO> preferDimensionsForFields(
+        List<MetricQueryFieldDTO> dimensions,
+        List<String> groupFields
+    ) {
+        if (dimensions == null || dimensions.isEmpty()) {
+            return dimensions;
+        }
+        Set<String> requested = new HashSet<>();
+        for (String field : groupFields) {
+            if (field != null && !field.isBlank()) {
+                requested.add(field.trim());
+            }
+        }
+        Map<String, MetricQueryFieldDTO> selected = new LinkedHashMap<>();
+        for (MetricQueryFieldDTO dimension : dimensions) {
+            String modelCode = dimension.getDimensionModelCode();
+            if (modelCode == null || modelCode.isBlank()) {
+                continue;
+            }
+            String role = normalizeDimensionRole(dimension.getDimensionRole());
+            String key = dimensionJoinKey(modelCode.trim(), role);
+            MetricQueryFieldDTO existing = selected.get(key);
+            if (existing == null) {
+                selected.put(key, dimension);
+            } else if (!matchesGroupField(existing, requested) && matchesGroupField(dimension, requested)) {
+                selected.put(key, dimension);
+            }
+        }
+        return new ArrayList<>(selected.values());
+    }
+
+    private boolean matchesGroupField(MetricQueryFieldDTO dimension, Set<String> requested) {
+        if (requested.isEmpty()) {
+            return false;
+        }
+        if (dimension.getDimensionFieldNames() != null) {
+            for (String field : dimension.getDimensionFieldNames()) {
+                if (field != null && requested.contains(field.trim())) {
+                    return true;
+                }
+            }
+        }
+        String single = dimension.getDimensionFieldName();
+        return single != null && requested.contains(single.trim());
+    }
 
     /**
      * 构建列标签：维度展示字段使用字段描述（为空回退字段名），指标使用指标名称（为空回退编码）。
@@ -613,7 +667,9 @@ public class MetricQueryService {
             validateDimensionRole(dimensionModelId, dimensionRole);
             String selectionKey = dimensionJoinKey(dimensionModelId, dimensionRole);
             if (!dimensionSelectionKeys.add(selectionKey)) {
-                throw new IllegalArgumentException("维度重复选择：" + dimensionModelCode + (dimensionRole == null ? "" : " / " + dimensionRole));
+                // 历史数据/AI 输出可能重复声明同一维度，忽略重复项而不是让整个查询失败。
+                LOG.debug("忽略重复维度选择：{} / {}", dimensionModelCode, dimensionRole);
+                continue;
             }
             boolean hierarchy = isHierarchyLike(dimensionModel.getDimensionKind());
             boolean degenerate = DIMENSION_KIND_DEGENERATE.equalsIgnoreCase(dimensionModel.getDimensionKind());

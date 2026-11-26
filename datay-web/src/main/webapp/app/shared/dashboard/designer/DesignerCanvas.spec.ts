@@ -30,6 +30,10 @@ function dragEvent(type: string, clientX: number, clientY: number): DragEvent {
   return event as unknown as DragEvent;
 }
 
+function mountCanvasSpec(canvasSpec: DashboardSpec) {
+  return mount(DesignerCanvas, { props: { spec: canvasSpec, scale: 1 } });
+}
+
 function mountCanvas(scale = 1) {
   const wrapper = mount(DesignerCanvas, {
     props: {
@@ -172,5 +176,31 @@ describe('DesignerCanvas pixel mode', () => {
 
     // 6 列 -> 1200 * 6 / 24 = 300；4 行 -> 4 * (40 + 8) = 192
     expect(wrapper.emitted('add-widget')?.[0]).toEqual(['echarts', 'bar', { x: 137, y: 91, w: 300, h: 192 }]);
+  });
+
+  it('像素画布工具栏显示组件层级数', () => {
+    const pixelSpec: DashboardSpec = {
+      ...spec,
+      layout: {
+        mode: 'screen',
+        columns: 24,
+        rowHeight: 40,
+        gap: 12,
+        screen: { width: 1920, height: 1080, canvas: { unit: 'px', padding: 0, gap: 8 } },
+      },
+      widgets: [
+        {
+          id: 'w1',
+          type: 'html',
+          title: '层级组件',
+          zIndex: 42,
+          layout: { x: 20, y: 20, w: 300, h: 200 },
+          html: '<div>layer</div>',
+        },
+      ],
+    };
+
+    const wrapper = mountCanvasSpec(pixelSpec);
+    expect(wrapper.find('.designer-widget-layer').text()).toBe('L42');
   });
 });

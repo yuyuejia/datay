@@ -34,6 +34,7 @@ public class DashboardSpecValidator {
     public static final String WIDGET_PIVOT = "pivot";
     public static final String WIDGET_TITLE = "title";
     public static final String WIDGET_CLOCK = "clock";
+    public static final String WIDGET_CONTAINER = "container";
 
     private static final Set<String> WIDGET_TYPES = Set.of(
         WIDGET_ECHARTS,
@@ -42,11 +43,17 @@ public class DashboardSpecValidator {
         WIDGET_KPI,
         WIDGET_PIVOT,
         WIDGET_TITLE,
-        WIDGET_CLOCK
+        WIDGET_CLOCK,
+        WIDGET_CONTAINER
     );
 
     /** 不绑定数据集的组件：说明文本、标题栏、日期时间。 */
-    private static final Set<String> DATASETLESS_WIDGET_TYPES = Set.of(WIDGET_HTML, WIDGET_TITLE, WIDGET_CLOCK);
+    private static final Set<String> DATASETLESS_WIDGET_TYPES = Set.of(
+        WIDGET_HTML,
+        WIDGET_TITLE,
+        WIDGET_CLOCK,
+        WIDGET_CONTAINER
+    );
 
     private static final String LAYOUT_MODE_STANDARD = "standard";
     private static final String LAYOUT_MODE_SCREEN = "screen";
@@ -445,7 +452,8 @@ public class DashboardSpecValidator {
                 throw new IllegalArgumentException("不支持的组件类型：" + type);
             }
             widget.put("type", type);
-            widget.put("layout", normalizeLayout(widget.get("layout"), type, canvas));
+            String rawParentId = trimToNull(asString(widget.get("parentId")));
+            widget.put("layout", normalizeLayout(widget.get("layout"), type, canvas, rawParentId != null));
             int zIndex = clamp(intOrDefault(widget.get("zIndex"), 0), 0, MAX_WIDGET_Z_INDEX);
             if (zIndex > 0) {
                 widget.put("zIndex", zIndex);
@@ -498,6 +506,11 @@ public class DashboardSpecValidator {
                 widget.put("html", html == null ? "" : html);
             } else if (WIDGET_TITLE.equals(type) || WIDGET_CLOCK.equals(type)) {
                 widget.put("props", normalizeWidgetProps(type, widget.get("props")));
+            } else if (WIDGET_CONTAINER.equals(type)) {
+                // 容器只负责分组与面板皮肤，不绑定数据，也不需要 encode。
+                widget.remove("encode");
+                widget.remove("chart");
+                widget.remove("echartsOption");
             } else if (WIDGET_TABLE.equals(type)) {
                 Map<String, Object> encode = normalizeEncode(widget, type);
                 if (!encode.isEmpty()) {
@@ -519,7 +532,41 @@ public class DashboardSpecValidator {
             }
             result.add(widget);
         }
+        validateContainerParents(result);
         return result;
+    }
+
+    /**
+     * 容器父子关系：parentId 必须指向同看板内的容器；容器不能再嵌套容器。
+     */
+    private void validateContainerParents(List<Map<String, Object>> widgets) {
+        Map<String, String> types = new LinkedHashMap<>();
+        for (Map<String, Object> widget : widgets) {
+            types.put(asString(widget.get("id")), asString(widget.get("type")));
+        }
+        for (Map<String, Object> widget : widgets) {
+            String id = asString(widget.get("id"));
+            String type = asString(widget.get("type"));
+            String parentId = trimToNull(asString(widget.get("parentId")));
+            if (parentId == null) {
+                widget.remove("parentId");
+                continue;
+            }
+            if (parentId.equals(id)) {
+                throw new IllegalArgumentException("组件 " + id + " 不能把自己设为容器");
+            }
+            String parentType = types.get(parentId);
+            if (parentType == null) {
+                throw new IllegalArgumentException("组件 " + id + " 引用了不存在的容器：" + parentId);
+            }
+            if (!WIDGET_CONTAINER.equals(parentType)) {
+                throw new IllegalArgumentException("组件 " + id + " 的 parentId 必须指向容器组件：" + parentId);
+            }
+            if (WIDGET_CONTAINER.equals(type)) {
+                throw new IllegalArgumentException("容器组件 " + id + " 不能再嵌套容器");
+            }
+            widget.put("parentId", parentId);
+        }
     }
 
     /**
@@ -1289,10 +1336,15 @@ public class DashboardSpecValidator {
         if (canvas.pixel()) {
             return;
         }
-        for (int i = 0; i < widgets.size(); i++) {
-            Map<String, Object> left = asMap(widgets.get(i).get("layout"));
-            for (int j = i + 1; j < widgets.size(); j++) {
-                Map<String, Object> right = asMap(widgets.get(j).get("layout"));
+        List<Map<String, Object>> topLevel = widgets.stream()
+            .filter(widget -> trimToNull(asString(widget.get("parentId"))) == null)
+            .toList();
+        for (int i = 0; i < topLevel.size(); i++) {
+            Map<String, Object> leftWidget = topLevel.get(i);
+            Map<String, Object> left = asMap(leftWidget.get("layout"));
+            for (int j = i + 1; j < topLevel.size(); j++) {
+                Map<String, Object> rightWidget = topLevel.get(j);
+                Map<String, Object> right = asMap(rightWidget.get("layout"));
                 boolean overlap =
                     intOrDefault(left.get("x"), 0) < intOrDefault(right.get("x"), 0) + intOrDefault(right.get("w"), 1) &&
                     intOrDefault(left.get("x"), 0) + intOrDefault(left.get("w"), 1) > intOrDefault(right.get("x"), 0) &&
@@ -1300,15 +1352,18 @@ public class DashboardSpecValidator {
                     intOrDefault(left.get("y"), 0) + intOrDefault(left.get("h"), 1) > intOrDefault(right.get("y"), 0);
                 if (overlap) {
                     throw new IllegalArgumentException(
-                        "看板组件布局重叠：" + asString(widgets.get(i).get("id")) + " 与 " + asString(widgets.get(j).get("id"))
+                        "看板组件布局重叠：" + asString(leftWidget.get("id")) + " 与 " + asString(rightWidget.get("id"))
                     );
                 }
             }
         }
     }
 
-    private Map<String, Object> normalizeLayout(Object raw, String widgetType, CanvasMetrics canvas) {
+    private Map<String, Object> normalizeLayout(Object raw, String widgetType, CanvasMetrics canvas, boolean child) {
         Map<String, Object> layout = asMap(raw);
+        if (child) {
+            return normalizeChildLayout(layout);
+        }
         if (canvas.pixel()) {
             return normalizePixelLayout(layout, canvas);
         }
@@ -1320,6 +1375,32 @@ public class DashboardSpecValidator {
         int y = Math.max(0, intOrDefault(layout.get("y"), 0));
         // 指标卡内容简单，默认高度 4 并限制上限，避免过高留白
         int h = clamp(intOrDefault(layout.get("h"), defaultHeight), 2, kpi ? 8 : 40);
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("x", x);
+        normalized.put("y", y);
+        normalized.put("w", w);
+        normalized.put("h", h);
+        return normalized;
+    }
+
+    /**
+     * 容器子组件固定使用容器内的 24 栅格，与看板本身是栅格还是像素无关。
+     */
+    private Map<String, Object> normalizeChildLayout(Map<String, Object> layout) {
+        int x = intOrDefault(layout.get("x"), 0);
+        int y = intOrDefault(layout.get("y"), 0);
+        int w = intOrDefault(layout.get("w"), 12);
+        int h = intOrDefault(layout.get("h"), 6);
+        // 兼容旧版绝对坐标：明显超出 24 栅格的布局回落到默认位置。
+        if (x < 0 || x > GRID_COLUMNS - 1 || w < 1 || w > GRID_COLUMNS) {
+            x = 0;
+            y = 0;
+            w = 12;
+            h = 6;
+        }
+        w = clamp(w, 1, GRID_COLUMNS - x);
+        y = clamp(y, 0, 1000);
+        h = clamp(h, 1, 100);
         Map<String, Object> normalized = new LinkedHashMap<>();
         normalized.put("x", x);
         normalized.put("y", y);
@@ -1909,6 +1990,7 @@ public class DashboardSpecValidator {
         Map<String, Object> screen = asMap(layout.get("screen"));
         int width = clamp(intOrDefault(screen.get("width"), DEFAULT_SCREEN_WIDTH), 640, 7680);
         int height = clamp(intOrDefault(screen.get("height"), DEFAULT_SCREEN_HEIGHT), 480, 4320);
+        int rowHeight = clamp(intOrDefault(layout.get("rowHeight"), 40), 8, 80);
         String theme = normalizeTheme(screen.get("theme"));
         String fitMode = normalizeFitMode(screen.get("fitMode"));
         int autoRefreshSeconds = clamp(intOrDefault(screen.get("autoRefreshSeconds"), 0), 0, 86400);
@@ -1940,6 +2022,7 @@ public class DashboardSpecValidator {
 
         Map<String, Object> normalized = new LinkedHashMap<>();
         normalized.put("mode", mode);
+        normalized.put("rowHeight", rowHeight);
         normalized.put("screen", normalizedScreen);
         return normalized;
     }
@@ -1974,7 +2057,8 @@ public class DashboardSpecValidator {
         int height = clamp(intOrDefault(screen.get("height"), DEFAULT_SCREEN_HEIGHT), 480, 4320);
         int padding = clamp(intOrDefault(canvas.get("padding"), 16), 0, MAX_CANVAS_PADDING);
         int gap = clamp(intOrDefault(canvas.get("gap"), 12), 0, MAX_CANVAS_GAP);
-        return new CanvasMetrics(pixel ? CANVAS_UNIT_PX : CANVAS_UNIT_GRID, width, height, padding, gap, GRID_COLUMNS, 40);
+        int rowHeight = clamp(intOrDefault(layout.get("rowHeight"), 40), 8, 80);
+        return new CanvasMetrics(pixel ? CANVAS_UNIT_PX : CANVAS_UNIT_GRID, width, height, padding, gap, GRID_COLUMNS, rowHeight);
     }
 
     /**

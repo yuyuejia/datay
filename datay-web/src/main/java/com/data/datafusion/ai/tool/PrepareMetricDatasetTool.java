@@ -2,6 +2,7 @@ package com.data.datafusion.ai.tool;
 
 import com.data.datafusion.domain.AnalysisDataset;
 import com.data.datafusion.service.AnalysisDatasetService;
+import com.data.datafusion.service.dashboard.DashboardDataService;
 import com.data.datafusion.service.dto.AnalysisDatasetDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -57,6 +58,8 @@ public class PrepareMetricDatasetTool implements AiTool {
             在生成看板前准备指标数据集。先把整个看板需要的全部指标、维度、业务限定和时间范围汇总成一个 metricQuery，
             再只调用一次本工具。工具会优先复用能覆盖本次 metricCodes / dimensions / filterConfig / timeRange 的已有数据集，
             允许复用包含额外指标或维度的数据集；只有无法覆盖时才登记一个待创建草稿，并返回临时 refId。
+            dimensions 按 dimensionModelCode + dimensionRole 去重，同一维度不要重复选择；层级维度只选一个 levelIndex；
+            返回的 fieldNames 是可直接用于 encode / 筛选器的真实字段名；地图区域字段必须从中选择；
             生成看板 datasets 时必须使用返回的 refId，禁止在 datasets 中直接内嵌 metricQuery；
             一个看板应尽量只使用一个指标数据集，不要为每个图表分别创建数据集。
             """;
@@ -162,7 +165,32 @@ public class PrepareMetricDatasetTool implements AiTool {
                 result.put("fields", fields);
             }
         }
+        result.put("fieldNames", suggestedFieldNames(extractMetricQuery(dataset.getDefinition())));
         return result;
+    }
+
+    /** 从 metricQuery 推断可直接用于 encode 的字段名，供模型避免使用 dim_xxx 编码。 */
+    private List<String> suggestedFieldNames(Map<String, Object> metricQuery) {
+        Set<String> names = new LinkedHashSet<>();
+        Set<String> seenDimensions = new LinkedHashSet<>();
+        for (Map<String, Object> dimension : DashboardDataService.asMapList(metricQuery.get("dimensions"))) {
+            String modelCode = asString(dimension.get("dimensionModelCode"));
+            String role = asString(dimension.get("dimensionRole"));
+            if (!seenDimensions.add((modelCode == null ? "" : modelCode) + "#" + (role == null ? "" : role))) {
+                continue;
+            }
+            for (String field : asStringList(dimension.get("dimensionFieldNames"))) {
+                if (field != null && !field.isBlank()) {
+                    names.add(field);
+                }
+            }
+            String single = asString(dimension.get("dimensionFieldName"));
+            if (single != null && !single.isBlank()) {
+                names.add(single);
+            }
+        }
+        names.addAll(asStringList(metricQuery.get("metricCodes")));
+        return new ArrayList<>(names);
     }
 
     @SuppressWarnings("unchecked")
@@ -196,6 +224,10 @@ public class PrepareMetricDatasetTool implements AiTool {
         if (!existingCodes.containsAll(requestedCodes)) {
             return false;
         }
+        if (hasDuplicateDimensions(existingQuery)) {
+            // 历史数据集可能对同一维度模型声明了多个层级，字段可能与实际输出不一致，不复用。
+            return false;
+        }
         if (!dimensionsCover(existingQuery.get("dimensions"), requestedQuery.get("dimensions"))) {
             return false;
         }
@@ -204,6 +236,18 @@ public class PrepareMetricDatasetTool implements AiTool {
             return false;
         }
         return timeRangeCovers(asMap(existingQuery.get("timeRange")), asMap(requestedQuery.get("timeRange")));
+    }
+
+    private boolean hasDuplicateDimensions(Map<String, Object> metricQuery) {
+        Set<String> keys = new LinkedHashSet<>();
+        for (Map<String, Object> dimension : DashboardDataService.asMapList(metricQuery.get("dimensions"))) {
+            String code = asString(dimension.get("dimensionModelCode"));
+            String role = asString(dimension.get("dimensionRole"));
+            if (!keys.add((code == null ? "" : code) + "#" + (role == null ? "" : role))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean filterConfigCovers(Object existingRaw, Object requestedRaw) {

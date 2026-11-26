@@ -2,7 +2,7 @@
   <div
     ref="gridRef"
     class="designer-canvas"
-    :class="{ 'is-drag-over': !!dropPreview, 'is-screen': isScreenMode, 'is-pixel': isPixel }"
+    :class="{ 'is-drag-over': !!dropPreview, 'is-screen': isScreenMode, 'is-pixel': isPixel, 'is-nested': nested }"
     :style="rootStyle"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
@@ -12,12 +12,16 @@
       v-for="widget in widgets"
       :key="widget.id"
       class="designer-canvas-item"
-      :class="{ 'is-selected': widget.id === selectedId }"
+      :data-widget-id="widget.id"
+      :class="{ 'is-selected': widget.id === selectedId, 'is-container': widget.type === 'container' }"
       :style="itemStyle(widget)"
       @pointerdown="select(widget)"
     >
       <div class="designer-widget-toolbar" @pointerdown.stop="startDrag($event, widget)">
         <span class="designer-widget-title">{{ widgetLabel(widget) }}</span>
+        <span v-if="isPixel && widget.type !== 'container'" class="designer-widget-layer" title="当前层级">
+          L{{ widget.zIndex ?? 0 }}
+        </span>
         <div class="designer-widget-actions">
           <template v-if="isPixel">
             <el-button text size="small" title="上移一层" @pointerdown.stop @click.stop="emit('layer-move', widget.id, 'up')">↑</el-button>
@@ -44,11 +48,37 @@
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
           :page-reset-key="dataVersion"
           :drill-loader="loadDrill"
-        />
+        >
+          <template v-if="widget.type === 'container'" #container>
+            <DesignerCanvas
+              nested
+              :parent-id="widget.id"
+              :spec="containerSpec(widget)"
+              :scale="scale"
+              :selected-id="selectedId"
+              :dataset-data="datasetData"
+              :widget-data="widgetData"
+              :loading-datasets="loadingDatasets"
+              :dataset-errors="datasetErrors"
+              :widget-errors="widgetErrors"
+              :server-pagination-widgets="serverPaginationWidgets"
+              :load-widget-page="loadWidgetPage"
+              :load-drill="loadDrill"
+              :data-version="dataVersion"
+              :drag-item="dragItem"
+              @select="emit('select', $event)"
+              @layout-change="(id, layout) => emit('child-layout-change', widget.id, id, layout)"
+              @resize="(id, layout) => emit('child-resize', widget.id, id, layout)"
+              @delete="emit('delete', $event)"
+              @layer-move="(id, direction) => emit('layer-move', id, direction)"
+              @add-widget="(type, chartType, layout) => emit('add-widget', type, chartType, layout, widget.id)"
+            />
+          </template>
+        </DashboardWidget>
       </div>
       <div class="designer-resize-handle" title="拖动调整大小" @pointerdown.stop="startResize($event, widget)"></div>
     </div>
-    <div v-if="!widgets.length" class="designer-empty">
+    <div v-if="!widgets.length && !nested" class="designer-empty">
       <el-empty description="从左侧拖拽图表、KPI 或表格到画布" />
     </div>
     <div v-if="dropPreview" class="designer-drop-preview" :style="dropPreviewStyle"></div>
@@ -59,6 +89,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 
 import DashboardWidget from '../DashboardWidget.vue';
+import { CONTAINER_COLUMNS, CONTAINER_GAP, CONTAINER_PADDING, CONTAINER_ROW_HEIGHT } from '../container-layout';
 import type {
   ChartType,
   DashboardSpec,
@@ -98,6 +129,10 @@ const props = defineProps<{
   dragItem?: WidgetPalettePayload | null;
   /** 画布舞台缩放比例，拖动位移与落点需要按比例还原为逻辑像素。 */
   scale?: number;
+  /** 作为容器内部画布使用：24 栅格、只渲染子组件、隐藏空状态。 */
+  nested?: boolean;
+  /** 嵌套画布所属容器，拖入组件时随事件回传。 */
+  parentId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -106,13 +141,56 @@ const emit = defineEmits<{
   resize: [id: string, layout: WidgetLayout];
   delete: [string];
   'layer-move': [id: string, direction: 'up' | 'down'];
-  'add-widget': [type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout];
+  'add-widget': [type: WidgetType, chartType: ChartType | undefined, layout: WidgetLayout, parentId?: string];
+  'child-layout-change': [containerId: string, id: string, layout: WidgetLayout];
+  'child-resize': [containerId: string, id: string, layout: WidgetLayout];
 }>();
 
 const gridRef = ref<HTMLElement | null>(null);
-const widgets = computed(() => props.spec.widgets ?? []);
+const widgets = computed(() => {
+  const list = props.spec.widgets ?? [];
+  if (props.nested) {
+    return list;
+  }
+  // 子组件在容器内部渲染；父容器缺失时回退为顶层，避免组件直接消失。
+  const containerIds = new Set(list.filter(widget => widget.type === 'container').map(widget => widget.id));
+  return [...list.filter(widget => !widget.parentId || !containerIds.has(widget.parentId))].sort(
+    (left, right) => Number(right.type === 'container') - Number(left.type === 'container'),
+  );
+});
 
-const metrics = computed(() => resolveCanvasMetrics(props.spec.layout));
+const containerSpec = (container: Widget): DashboardSpec => ({
+  ...props.spec,
+  layout: {
+    ...props.spec.layout,
+    mode: 'standard',
+    columns: 24,
+    rowHeight: CONTAINER_ROW_HEIGHT,
+    gap: 4,
+    screen: {
+      ...props.spec.layout?.screen,
+      width: 1200,
+      height: 800,
+      canvas: { unit: 'grid', padding: 8, gap: 4 },
+    },
+  },
+  widgets: (props.spec.widgets ?? []).filter(widget => widget.parentId === container.id && widget.type !== 'container'),
+});
+
+const metrics = computed(() => {
+  const resolved = resolveCanvasMetrics(props.spec.layout);
+  if (!props.nested) {
+    return resolved;
+  }
+  return {
+    ...resolved,
+    unit: 'grid' as const,
+    columns: CONTAINER_COLUMNS,
+    rowHeight: CONTAINER_ROW_HEIGHT,
+    gap: CONTAINER_GAP,
+    padding: CONTAINER_PADDING,
+  };
+});
 const isPixel = computed(() => metrics.value.unit === 'px');
 const isScreenMode = computed(() => props.spec.layout?.mode === 'screen');
 const theme = computed(() => normalizeTheme(props.spec.layout?.screen?.theme));
@@ -182,6 +260,10 @@ function widgetLabel(widget: Widget): string {
   return widget.id;
 }
 
+function stackOf(widget: Widget) {
+  return widget.type === 'container' ? 0 : (widget.zIndex ?? 0);
+}
+
 function itemStyle(widget: Widget) {
   const layout = drag.value?.id === widget.id ? drag.value.current : widget.layout;
   if (isPixel.value) {
@@ -191,13 +273,13 @@ function itemStyle(widget: Widget) {
       top: `${metrics.value.padding + (layout?.y ?? 0)}px`,
       width: `${layout?.w ?? 240}px`,
       height: `${layout?.h ?? 160}px`,
-      zIndex: widget.zIndex || undefined,
+      zIndex: stackOf(widget),
     };
   }
   return {
     gridColumn: `${(layout?.x ?? 0) + 1} / span ${layout?.w ?? 12}`,
     gridRow: `${(layout?.y ?? 0) + 1} / span ${layout?.h ?? 8}`,
-    zIndex: widget.zIndex || undefined,
+    zIndex: stackOf(widget),
   };
 }
 
@@ -280,6 +362,10 @@ function onDragOver(event: DragEvent) {
   if (!hasPaletteData(event)) {
     return;
   }
+  if (props.nested) {
+    // 容器内部画布自行处理拖入，避免外层画布再显示一份落点预览。
+    event.stopPropagation();
+  }
   event.preventDefault();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'copy';
@@ -288,6 +374,9 @@ function onDragOver(event: DragEvent) {
 }
 
 function onDragLeave(event: DragEvent) {
+  if (props.nested) {
+    event.stopPropagation();
+  }
   const current = event.currentTarget as Node | null;
   const related = event.relatedTarget as Node | null;
   if (current && related && current.contains(related)) {
@@ -305,8 +394,13 @@ function onDrop(event: DragEvent) {
   event.preventDefault();
   const layout = layoutForDrop(event, payload);
   if (layout) {
-    emit('add-widget', payload.type, payload.chartType, layout);
+    if (props.nested) {
+      emit('add-widget', payload.type, payload.chartType, layout, props.parentId);
+    } else {
+      emit('add-widget', payload.type, payload.chartType, layout);
+    }
   }
+  event.stopPropagation();
 }
 
 function startDrag(event: PointerEvent, widget: Widget) {
@@ -423,6 +517,13 @@ function select(widget: Widget) {
   border-radius: 8px;
 }
 
+.designer-canvas.is-nested {
+  height: 100%;
+  min-height: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
 .designer-canvas.is-screen {
   height: 100%;
   min-height: 0;
@@ -459,12 +560,13 @@ function select(widget: Widget) {
   transition: outline-color 0.15s;
 }
 
-.designer-canvas.is-pixel .designer-canvas-item {
+.designer-canvas.is-pixel > .designer-canvas-item {
   position: absolute;
 }
 
-.designer-canvas-item.is-selected {
-  z-index: 10000 !important;
+.designer-canvas-item.is-selected:not(.is-container) {
+  /* 高于画布内组件（zIndex ≤ 999），但低于 Element Plus 弹窗（2000+），避免遮挡下钻明细。 */
+  z-index: 1000 !important;
   outline: 2px solid #409eff;
   outline-offset: 1px;
 }
@@ -488,6 +590,17 @@ function select(widget: Widget) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.designer-widget-layer {
+  flex: none;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgb(64 158 255 / 12%);
+  color: #2f7fd1;
+  font-size: 11px;
+  line-height: 16px;
 }
 
 .designer-widget-actions {
@@ -519,7 +632,7 @@ function select(widget: Widget) {
   min-height: 420px;
 }
 
-.designer-canvas.is-pixel .designer-empty {
+.designer-canvas.is-pixel > .designer-empty {
   position: absolute;
   inset: 0;
 }
