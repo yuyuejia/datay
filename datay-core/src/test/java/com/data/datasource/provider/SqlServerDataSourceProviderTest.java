@@ -13,6 +13,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
@@ -30,6 +31,16 @@ class SqlServerDataSourceProviderTest {
         assertEquals("[Order]", provider.qualifiedTableName(info, null, "Order"));
         assertEquals("[Order]", provider.qualifiedTableName(info, " ", "Order"));
         assertEquals("[dbo].[a]]b]", provider.qualifiedTableName(info, "dbo", "a]b"));
+    }
+
+    @Test
+    void shouldStripIdentityFromCollectedTypeName() {
+        assertEquals("int", SqlServerDataSourceProvider.stripIdentity("int identity"));
+        assertEquals("int", SqlServerDataSourceProvider.stripIdentity("int IDENTITY(1,1)"));
+        assertEquals("bigint", SqlServerDataSourceProvider.stripIdentity("bigint identity"));
+        assertEquals("int", SqlServerDataSourceProvider.stripIdentity("int"));
+        assertEquals("nvarchar(50)", SqlServerDataSourceProvider.stripIdentity("nvarchar(50)"));
+        assertNull(SqlServerDataSourceProvider.stripIdentity(null));
     }
 
     @Test

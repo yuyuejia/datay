@@ -36,18 +36,41 @@ public class SqlServerDataSourceProvider extends JdbcDataSourceProvider {
 
     @Override
     public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
-        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);
-        tableMeta.setDbType(typeName());
-        return tableMeta;
+        return readTableMeta(conn, schema, table);
     }
 
     @Override
     public TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
-        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);
-        tableMeta.setDbType(typeName());
+        TableMeta tableMeta = readTableMeta(conn, schema, table);
         tableMeta.setComment(JdbcMetadata.getTableComment(conn, null, schema, table));
         tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, null, schema, table));
         return tableMeta;
+    }
+
+    /**
+     * 读取表结构并清理 SQL Server 驱动返回的类型名。
+     *
+     * <p>mssql-jdbc 会把标识列的 {@code TYPE_NAME} 返回为 {@code int identity}，
+     * 采集时去掉 {@code IDENTITY}，避免同步自动建表继承标识列属性，导致后续显式写入
+     * 主键值时报“不能为标识列插入显式值”。</p>
+     */
+    private TableMeta readTableMeta(Connection conn, String schema, String table) throws SQLException {
+        TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);
+        for (ColumnMeta column : tableMeta.columns()) {
+            column.setType(stripIdentity(column.getType()));
+        }
+        tableMeta.setDbType(typeName());
+        return tableMeta;
+    }
+
+    /**
+     * 去掉类型名中的 IDENTITY 标记，例如 {@code int identity} / {@code int IDENTITY(1,1)} -> {@code int}。
+     */
+    static String stripIdentity(String type) {
+        if (type == null || type.isEmpty()) {
+            return type;
+        }
+        return type.replaceAll("(?i)\\s+IDENTITY(\\s*\\([^)]*\\))?", "").trim();
     }
 
     @Override
