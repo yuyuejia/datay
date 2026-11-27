@@ -584,14 +584,7 @@ public class ConnectionPoolManager {
     }
 
     private static void closeQuietly(HikariDataSource dataSource) {
-        if (dataSource == null) {
-            return;
-        }
-        try {
-            dataSource.close();
-        } catch (Exception e) {
-            System.err.println("Failed to close connection pool " + dataSource.getPoolName() + ": " + e.getMessage());
-        }
+        HikariPoolCloser.closeQuietly(dataSource);
     }
 
     /**

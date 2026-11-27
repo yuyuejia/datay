@@ -1,5 +1,6 @@
 package com.data.job;
 
+import com.data.metadata.util.HikariPoolCloser;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.duckdb.DuckDBDriver;
@@ -129,9 +130,7 @@ public class DuckDBEngine {
      */
     public void close() {
         for (HikariDataSource dataSource : dataSourceMap.values()) {
-            if (dataSource != null && !dataSource.isClosed()) {
-                dataSource.close();
-            }
+            HikariPoolCloser.closeQuietly(dataSource);
         }
         dataSourceMap.clear();
     }
@@ -208,9 +207,6 @@ public class DuckDBEngine {
             return;
         }
         String key = getDBFile(dbFile);
-        HikariDataSource dataSource = dataSourceMap.remove(key);
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
-        }
+        HikariPoolCloser.closeQuietly(dataSourceMap.remove(key));
     }
 }
