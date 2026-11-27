@@ -21,7 +21,7 @@ public class DuckDBEngine {
     // 单例实例
     private static volatile DuckDBEngine instance;
 
-    // 数据库文件路径到连接池的映射
+    // 规范化后的数据库文件绝对路径到连接池的映射
     private static final ConcurrentHashMap<String, HikariDataSource> dataSourceMap = new ConcurrentHashMap<>();
 
     // 默认连接池（用于向后兼容）
@@ -30,8 +30,9 @@ public class DuckDBEngine {
     // 私有构造方法实现单例
     private DuckDBEngine() {
         // 初始化默认连接池
-        defaultDataSource = createDataSource(DEFAULT_DB_FILE);
-        dataSourceMap.put(DEFAULT_DB_FILE, defaultDataSource);
+        String defaultDbFile = getDBFile(DEFAULT_DB_FILE);
+        defaultDataSource = createDataSource(defaultDbFile);
+        dataSourceMap.put(defaultDbFile, defaultDataSource);
     }
 
     // 双重校验锁实现线程安全单例
@@ -77,13 +78,22 @@ public class DuckDBEngine {
         return new HikariDataSource(config);
     }
 
+    /**
+     * 将数据库名称统一转换为规范化的绝对路径。
+     * <p>
+     * 连接池的 key、JDBC URL 以及文件删除都使用该方法的返回值，避免调用方传入
+     * 实例名或绝对路径时产生不同的 key，导致连接池无法被正确关闭。
+     * 相对名称会放到 {@code <user.dir>/log/} 目录下；已是绝对路径时直接规范化返回。
+     */
     public static String getDBFile(String dbFile) {
         // 获取当前工作目录的绝对路径
         String currentDir = System.getProperty("user.dir");
-        if (dbFile == null || dbFile.trim().isEmpty()) {
-            return currentDir + "/log/" + DEFAULT_DB_FILE;
+        String fileName = (dbFile == null || dbFile.trim().isEmpty()) ? DEFAULT_DB_FILE : dbFile.trim();
+        File file = new File(fileName);
+        if (!file.isAbsolute()) {
+            file = new File(currentDir, "log/" + fileName);
         }
-        return currentDir + "/log/" + dbFile;
+        return file.toPath().toAbsolutePath().normalize().toString();
     }
 
     /**
@@ -94,7 +104,9 @@ public class DuckDBEngine {
             return defaultDataSource;
         }
 
-        return dataSourceMap.computeIfAbsent(dbFile, this::createDataSource);
+        // 统一使用规范化后的绝对路径作为 key，兼容实例名和绝对路径两种入参
+        String key = getDBFile(dbFile);
+        return dataSourceMap.computeIfAbsent(key, this::createDataSource);
     }
 
     /**
@@ -171,7 +183,12 @@ public class DuckDBEngine {
     }
 
     public static void deleteDBFile(String dbName) {
+        // 没有实例名时不处理，避免误删/误关默认连接池
+        if (dbName == null || dbName.trim().isEmpty()) {
+            return;
+        }
         String dbFile = getDBFile(dbName);
+        // close 内部同样会将名称规范化为绝对路径，确保与创建连接池时的 key 一致
         close(dbFile);
         File dbFileObj = new File(dbFile);
         if (dbFileObj.exists()) {
@@ -190,7 +207,8 @@ public class DuckDBEngine {
         if (dbFile == null || dbFile.trim().isEmpty()) {
             return;
         }
-        HikariDataSource dataSource = dataSourceMap.remove(dbFile);
+        String key = getDBFile(dbFile);
+        HikariDataSource dataSource = dataSourceMap.remove(key);
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
         }
