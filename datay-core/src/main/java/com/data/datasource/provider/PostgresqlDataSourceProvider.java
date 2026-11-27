@@ -4,8 +4,10 @@ import com.data.datasource.DataSourceRegister;
 import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.job.DatasourceInfo;
+import com.data.metadata.ColumnMeta;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
+import com.data.metadata.impl.PostgresqlConverter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -43,6 +45,7 @@ public class PostgresqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     public TableMeta getTableMeta(Connection conn, String schema, String table) throws SQLException {
         TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);
+        normalizeColumnTypes(tableMeta);
         tableMeta.setDbType(typeName());
         return tableMeta;
     }
@@ -50,10 +53,24 @@ public class PostgresqlDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     public TableMeta getTableDetail(Connection conn, String schema, String table) throws SQLException {
         TableMeta tableMeta = JdbcMetadata.readTableMeta(conn, null, schema, table);
+        normalizeColumnTypes(tableMeta);
         tableMeta.setDbType(typeName());
         tableMeta.setComment(JdbcMetadata.getTableComment(conn, null, schema, table));
         tableMeta.setIndexes(JdbcMetadata.getTableIndexes(conn, null, schema, table));
         return tableMeta;
+    }
+
+    /**
+     * 将 pgJDBC 返回的内部类型名（如 {@code int8}）归一化为标准 SQL 类型，
+     * 避免下游方言把 PG 的 64 位整数误判为 ClickHouse {@code Int8}。
+     */
+    private static void normalizeColumnTypes(TableMeta tableMeta) {
+        if (tableMeta == null || tableMeta.columns() == null) {
+            return;
+        }
+        for (ColumnMeta column : tableMeta.columns()) {
+            column.setType(PostgresqlConverter.normalizeSourceTypeName(column.getType()));
+        }
     }
 
     @Override

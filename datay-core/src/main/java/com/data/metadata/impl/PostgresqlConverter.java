@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class PostgresqlConverter implements TypeConverter {
 
@@ -271,6 +272,99 @@ public class PostgresqlConverter implements TypeConverter {
             return ((org.postgresql.util.PGobject) value).getValue();
         }
         return value;
+    }
+
+    /**
+     * PostgreSQL 的 JDBC 元数据（{@code TYPE_NAME}）返回的是内部类型名，
+     * 例如 BIGINT 为 {@code int8}、INTEGER 为 {@code int4}。
+     *
+     * <p>{@code int8} 与 ClickHouse 的 {@code Int8}（8 位整数）同名但语义完全相反：
+     * 若不先归一化，PG 的 64 位整数会被下游 ClickHouse 方言当成 8 位整数，
+     * 写入 DuckDB TINYINT 临时表后只剩最低字节（如
+     * {@code 1000000000000000083 -> 83}）。因此在按目标方言转换前统一还原为标准类型。</p>
+     */
+    private static final Map<String, String> PG_INTERNAL_TYPE_ALIASES = Map.ofEntries(
+        Map.entry("INT2", "SMALLINT"),
+        Map.entry("INT4", "INTEGER"),
+        Map.entry("INT8", "BIGINT"),
+        Map.entry("SERIAL2", "SMALLINT"),
+        Map.entry("SMALLSERIAL", "SMALLINT"),
+        Map.entry("SERIAL4", "INTEGER"),
+        Map.entry("SERIAL", "INTEGER"),
+        Map.entry("SERIAL8", "BIGINT"),
+        Map.entry("BIGSERIAL", "BIGINT"),
+        Map.entry("BOOL", "BOOLEAN")
+    );
+
+    /**
+     * 判断数据源类型是否使用 PostgreSQL 协议（含 Kingbase/GaussDB/Greenplum/YMatrix 等兼容库）。
+     */
+    public static boolean isPostgresqlSource(String sourceDbType) {
+        if (sourceDbType == null || sourceDbType.trim().isEmpty()) {
+            return false;
+        }
+        switch (sourceDbType.trim().toLowerCase(Locale.ROOT)) {
+            case "postgresql":
+            case "kingbase":
+            case "gaussdb":
+            case "greenplum":
+            case "ymatrix":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * 将 PostgreSQL 内部类型名归一化为标准 SQL 类型名；非内部类型原样返回。
+     */
+    public static String normalizeSourceTypeName(String type) {
+        if (type == null) {
+            return null;
+        }
+        String trimmed = type.trim();
+        if (trimmed.isEmpty()) {
+            return type;
+        }
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        String base = DatabaseConverter.stripTypeParameters(upper);
+        String mapped = PG_INTERNAL_TYPE_ALIASES.get(base);
+        if (mapped == null) {
+            return type;
+        }
+        // 保留可能附带在类型名后的精度/长度修饰
+        return mapped + upper.substring(base.length());
+    }
+
+    /**
+     * 复制并归一化源列类型，避免修改调用方共享的元数据对象。
+     */
+    public static ColumnMeta normalizeSourceColumn(ColumnMeta source) {
+        if (source == null) {
+            return null;
+        }
+        String normalized = normalizeSourceTypeName(source.getType());
+        if (normalized == null || normalized.equals(source.getType())) {
+            return source;
+        }
+        ColumnMeta target = new ColumnMeta(
+            source.getName(),
+            normalized,
+            source.getLength(),
+            source.getPrecision(),
+            source.getScale()
+        );
+        target.setNullable(source.isNullable());
+        target.setDefaultValue(source.getDefaultValue());
+        target.setComment(source.getComment());
+        target.setPrimaryKey(source.isPrimaryKey());
+        target.setTypeDefinition(source.getTypeDefinition());
+        return target;
+    }
+
+    @Override
+    public ColumnMeta normalizeSourceColumn(ColumnMeta sourceColumn, String targetDbType) {
+        return PostgresqlConverter.normalizeSourceColumn(sourceColumn);
     }
 
     private Boolean toBoolean(Object value) {

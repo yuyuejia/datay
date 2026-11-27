@@ -22,6 +22,20 @@ public interface TypeConverter {
         return toTargetColumnType(columnMeta);
     }
 
+    /**
+     * 在按目标方言转换前归一化源列类型。
+     *
+     * <p>由源数据库方言自行实现：例如 PostgreSQL 需要把 JDBC 内部类型名
+     * {@code int8} 还原为 {@code BIGINT}；ClickHouse 需要把 {@code UInt64}、
+     * {@code Array(...)} 等归一化为通用类型。默认原样返回。</p>
+     *
+     * @param sourceColumn 源列元数据
+     * @param targetDbType 目标数据库类型，可为空
+     */
+    default ColumnMeta normalizeSourceColumn(ColumnMeta sourceColumn, String targetDbType) {
+        return sourceColumn;
+    }
+
     String generateColumnDDL(ColumnMeta column);
 
     String generateTableDDL(TableMeta tableMeta);

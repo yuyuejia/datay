@@ -224,6 +224,17 @@ public class ClickHouseConverter implements TypeConverter {
     }
 
     /**
+     * ClickHouse 源类型写入其它数据库前归一化为通用类型；目标仍为 ClickHouse 时保留原生类型。
+     */
+    @Override
+    public ColumnMeta normalizeSourceColumn(ColumnMeta sourceColumn, String targetDbType) {
+        if (sourceColumn == null || targetDbType == null || "clickhouse".equalsIgnoreCase(targetDbType.trim())) {
+            return sourceColumn;
+        }
+        return ClickHouseConverter.normalizeSourceColumn(sourceColumn);
+    }
+
+    /**
      * 判断是否应按 ClickHouse 类型处理。
      */
     public static boolean isClickHouseSource(String sourceDbType, String type) {

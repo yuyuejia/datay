@@ -120,15 +120,12 @@ public class DatabaseConverter {
         if (targetConverter == null) {
             throw new IllegalArgumentException("未注册的数据库类型转换器");
         }
-        // ClickHouse 源类型（UInt*/Array/Map/DateTime64 等）在写入其它数据库前先归一化为通用类型，
-        // 避免目标方言把 UInt64 映射成有符号 BIGINT、把 Array 映射成无法识别的 VARCHAR。
+        // 源方言可先归一化内部类型名（如 PG 的 int8、ClickHouse 的 UInt64），
+        // 再交给目标方言转换，避免不同数据库的同名类型互相误判。
         ColumnMeta normalizedSource = sourceColumnMeta;
-        if (
-            targetDB != null &&
-            !"clickhouse".equalsIgnoreCase(targetDB) &&
-            ClickHouseConverter.isClickHouseSource(sourceDB, sourceColumnMeta.getType())
-        ) {
-            normalizedSource = ClickHouseConverter.normalizeSourceColumn(sourceColumnMeta);
+        TypeConverter sourceConverter = sourceDB == null ? null : converters.get(sourceDB.toLowerCase());
+        if (sourceConverter != null) {
+            normalizedSource = sourceConverter.normalizeSourceColumn(normalizedSource, targetDB);
         }
         ColumnMeta targetColumnMeta = targetConverter.toTargetColumnType(normalizedSource, sourceDB);
 
