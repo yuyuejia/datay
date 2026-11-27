@@ -146,12 +146,14 @@ export default defineComponent({
     });
 
     const removeId: Ref<string> = ref(null);
+    const removeName: Ref<string> = ref(null);
     const removeEntity = ref<any>(null);
     const references: Ref<any[]> = ref([]);
     const forceDelete = ref(false);
     const referencesLoading = ref(false);
     const prepareRemove = async (instance: IDataSource) => {
       removeId.value = instance.id;
+      removeName.value = instance.name || instance.id;
       references.value = [];
       forceDelete.value = false;
       removeEntity.value.show();
@@ -166,6 +168,8 @@ export default defineComponent({
     };
     const closeDialog = () => {
       removeEntity.value.hide();
+      removeId.value = null;
+      removeName.value = null;
       references.value = [];
       forceDelete.value = false;
     };
@@ -175,8 +179,8 @@ export default defineComponent({
       }
       try {
         await dataSourceService().delete(removeId.value, forceDelete.value);
-        const message = `A DataSource is deleted with identifier ${removeId.value}`;
-        alertService.showInfo(message, { variant: 'danger' });
+        const message = `数据源「${removeName.value}」删除成功`;
+        alertService.showSuccess(message);
         removeId.value = null;
         retrieveDataSources();
         retrieveDefaultWarehouse();
