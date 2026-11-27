@@ -116,7 +116,7 @@ public class DorisDataSourceProvider extends MysqlDataSourceProvider {
         // COM_SET_OPTION 动态开启多语句，Doris 直接返回 "Unknown command(27)"，
         // 导致批量 DELETE 失败（INSERT 会被改写为多值 INSERT，不受影响）。
         // 关闭批量改写后，DELETE 逐条执行，避免触发该协议命令。
-        props.put("rewriteBatchedStatements", "false");
+//        props.put("rewriteBatchedStatements", "false");
         props.put("characterEncoding", "UTF-8");
         // Doris 默认关闭 Unicode 标识符支持，FeNameFormat 的列名校验只接受 ASCII，自动建表时
         // 源表的中文列名（如 `订单id`）会被拒绝：
