@@ -1,5 +1,6 @@
 package com.data.job.component;
 
+import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.ComponentRegister;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
@@ -50,7 +51,8 @@ public class GenerateTableSelectSql extends FlowComponent {
             throw new IllegalArgumentException("schema参数不能为空");
         }
 
-        try (Connection conn = DBUtils.getConnection(datasource.getUrl(), datasource.getUsername(), datasource.getPassword())) {
+        // 通过数据源 Provider 建立连接：DuckLake / Quack 等需要在连接后完成扩展加载与 catalog 挂载
+        try (Connection conn = DBUtils.getConnection(datasource)) {
             // 获取需要处理的表列表
             List<TableMeta> tableList = getTableList(conn);
             
@@ -142,7 +144,7 @@ public class GenerateTableSelectSql extends FlowComponent {
      */
     private List<String> generateSelectSql(TableMeta tableMeta, Connection conn) throws SQLException {
         List<String> sqlList = new ArrayList<>();
-        String tableName = schema + "." + tableMeta.getTable();
+        String tableName = qualifiedTableName(tableMeta.getTable());
 
         // 如果不启用分区或表数据量较小，生成普通SQL
         if (!enablePartition) {
@@ -204,11 +206,28 @@ public class GenerateTableSelectSql extends FlowComponent {
     }
 
     /**
+     * 构造带数据库方言限定的表名。
+     *
+     * <p>DuckLake / Polaris 等需要显式 catalog 的数据源由
+     * {@link JdbcDataSourceProvider#qualifiedTableName} 生成 {@code catalog.schema.table}；
+     * 其余数据源保持原有 {@code schema.table} 形式。</p>
+     */
+    private String qualifiedTableName(String tableName) {
+        JdbcDataSourceProvider provider = DBUtils.resolveJdbcProvider(datasource);
+        // 只有需要显式 catalog 的数据源（DuckLake / Polaris / Quack）才补全 catalog 层级，
+        // 其余数据源保持原有 schema.table 形式。
+        if (provider != null && provider.targetCatalog(datasource) != null) {
+            return provider.qualifiedTableName(datasource, schema, tableName);
+        }
+        return schema + "." + tableName;
+    }
+
+    /**
      * 获取主键的最小值和最大值
      */
     private Object[] getPrimaryKeyMinMax(Connection conn, TableMeta tableMeta, ColumnMeta primaryKey) {
         try {
-            Object[] minMax = TablePartitionPlanner.queryMinMax(conn, schema + "." + tableMeta.getTable(), primaryKey.getName());
+            Object[] minMax = TablePartitionPlanner.queryMinMax(conn, qualifiedTableName(tableMeta.getTable()), primaryKey.getName());
             if (minMax == null) {
                 logInfo("表 " + tableMeta.getTable() + " 的主键值为空");
                 return null;

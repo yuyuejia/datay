@@ -97,7 +97,9 @@ public class SqlInput extends FlowComponent {
         warnUnresolvedParameters(sqlToExecute);
         String tableName = resolveResultTableName(flowFile);
 
-        try (Connection srcConn = DBUtils.getConnection(datasource.getUrl(), datasource.getUsername(), datasource.getPassword())) {
+        // 统一通过数据源 Provider 建立连接：DuckLake / Quack / Polaris 等需要在连接后
+        // 完成扩展加载、S3 Secret 创建与 catalog 挂载，直接用 URL 拿连接会绕过这些初始化。
+        try (Connection srcConn = DBUtils.getConnection(datasource)) {
             // 获取数据库类型
             String sourceDBType = DBUtils.getDBType(datasource.getType(), datasource.getUrl());
 

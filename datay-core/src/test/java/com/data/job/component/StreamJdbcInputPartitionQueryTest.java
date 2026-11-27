@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.data.job.DatasourceInfo;
 import com.data.job.FlowFile;
 import com.data.metadata.TableMeta;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,19 @@ class StreamJdbcInputPartitionQueryTest extends ComponentTestBase {
         assertEquals(
             "SELECT * FROM demo.orders",
             component.buildQuery(table, null, new FlowFile(), "  ")
+        );
+    }
+
+    @Test
+    void qualifiesDuckLakeTableWithCatalog() {
+        DatasourceInfo datasource = new DatasourceInfo();
+        datasource.setType("DUCKLAKE");
+        datasource.setUrl("ducklake:./target/test-lake.ducklake");
+        component.setDatasource(datasource);
+
+        assertEquals(
+            "SELECT * FROM ducklake.demo.orders",
+            component.buildQuery(table, null, new FlowFile(), null)
         );
     }
 

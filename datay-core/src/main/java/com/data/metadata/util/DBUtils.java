@@ -123,8 +123,8 @@ public class DBUtils {
      * <p>连接建立及 DuckLake / Quack 等特殊初始化由对应数据源 Provider 负责。
      */
     public static Connection getConnection(DatasourceInfo datasourceInfo) throws SQLException {
-        DataSourceProvider provider = datasourceInfo.getType() == null ? null : DataSourceProviderFactory.provider(datasourceInfo.getType());
-        if (provider instanceof JdbcDataSourceProvider jdbcProvider) {
+        JdbcDataSourceProvider jdbcProvider = resolveJdbcProvider(datasourceInfo);
+        if (jdbcProvider != null) {
             return jdbcProvider.openConnection(datasourceInfo);
         }
         return ConnectionPoolManager.getConnection(datasourceInfo);

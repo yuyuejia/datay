@@ -255,10 +255,24 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         if (tableSchema == null || tableSchema.trim().isEmpty()) {
             tableSchema = resolveSchema();
         }
-        if (tableSchema == null || tableSchema.trim().isEmpty()) {
-            return table.getTable();
+        return qualifiedTableName(tableSchema, table.getTable());
+    }
+
+    /**
+     * 构造带数据库方言限定的表名。
+     *
+     * <p>DuckLake / Polaris 等需要显式 catalog 的数据源由
+     * {@link JdbcDataSourceProvider#qualifiedTableName} 生成 {@code catalog.schema.table}；
+     * 其余数据源保持原有 {@code schema.table} 形式。</p>
+     */
+    private String qualifiedTableName(String tableSchema, String tableName) {
+        JdbcDataSourceProvider provider = resolveSourceProvider();
+        // 只有需要显式 catalog 的数据源（DuckLake / Polaris / Quack）才使用 Provider 的完整限定名，
+        // 其余数据源保持原有 schema.table 形式，避免改变 SQL Server 等方言的表名写法。
+        if (provider != null && provider.targetCatalog(datasource) != null) {
+            return provider.qualifiedTableName(datasource, tableSchema, tableName);
         }
-        return tableSchema + "." + table.getTable();
+        return tableSchema == null || tableSchema.trim().isEmpty() ? tableName : tableSchema + "." + tableName;
     }
 
     /**
@@ -661,10 +675,10 @@ public abstract class AbstractJdbcInput extends FlowComponent {
         StringBuilder query = new StringBuilder();
         query.append("SELECT * FROM ");
         String tableSchema = srcTable.getSchema();
-        if (tableSchema != null && !tableSchema.trim().isEmpty()) {
-            query.append(tableSchema).append(".");
+        if (tableSchema == null || tableSchema.trim().isEmpty()) {
+            tableSchema = resolveSchema();
         }
-        query.append(srcTable.getTable());
+        query.append(qualifiedTableName(tableSchema, srcTable.getTable()));
 
         boolean hasCondition = false;
 
