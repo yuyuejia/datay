@@ -153,6 +153,18 @@ class DataSourceQueryServiceRowLimitTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldPreserveAllValuesWhenColumnLabelsDuplicate() throws Exception {
+        // 同名别名如果直接放进 Map 会互相覆盖，这里要求自动生成唯一列名并保留每一列的值。
+        Map<String, Object> result = service.executeQuery(dataSource, "SELECT 1 AS X, 2 AS X, 3 AS X", null);
+
+        assertThat((List<String>) result.get("columns")).containsExactly("X", "X_2", "X_3");
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) result.get("rows");
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).containsEntry("X", 1).containsEntry("X_2", 2).containsEntry("X_3", 3);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldReturnResultForSelectPrefixedWithComment() throws Exception {
         // 带注释的 SELECT 首关键字不是 SELECT，旧实现同样会误判。
         Map<String, Object> result = service.executeQuery(dataSource, "-- 调试注释\nSELECT 1 AS v", null);

@@ -194,6 +194,20 @@ public abstract class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     /**
+     * 读取查询结果集中的列值。默认直接使用 {@link ResultSet#getObject(int)}；
+     * 驱动返回专有类型（如 Oracle 的 {@code TIMESTAMP WITH TIME ZONE}）时由对应 Provider 覆写，
+     * 避免数据查询预览出现 {@code oracle.sql.TIMESTAMPTZ@...} 之类的对象地址。
+     *
+     * @param rs       结果集
+     * @param index    列下标（1 开始）
+     * @param sqlType  JDBC 类型
+     * @param typeName 数据库类型名
+     */
+    public Object readQueryValue(ResultSet rs, int index, int sqlType, String typeName) throws SQLException {
+        return rs.getObject(index);
+    }
+
+    /**
      * 归一化从源表读取到的列值，用于全量同步写入 FlowFile / 目标库。默认原样返回；
      * 驱动返回值需要转成通用结构（如 ClickHouse 数组、Map、无符号整数）的数据源覆写。
      *

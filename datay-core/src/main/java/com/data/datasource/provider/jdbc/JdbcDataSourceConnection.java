@@ -18,9 +18,12 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 基于 JDBC 的 {@link DataSourceConnection} 实现。
@@ -68,13 +71,13 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
      * 以及同时包含 DDL/DML/SELECT 的多语句脚本都能按数据库的实际行为返回，
      * 不会因为首关键字不在白名单里被误当成更新语句。
      */
-    private static QueryResult executeAndRead(PreparedStatement statement, int maxRows) throws SQLException {
+    private QueryResult executeAndRead(PreparedStatement statement, int maxRows) throws SQLException {
         ExecutionResult result = new ExecutionResult();
         result.drain(statement, statement.execute(), maxRows);
         return result.toQueryResult();
     }
 
-    private static QueryResult executeAndRead(Statement statement, String sql, int maxRows) throws SQLException {
+    private QueryResult executeAndRead(Statement statement, String sql, int maxRows) throws SQLException {
         ExecutionResult result = new ExecutionResult();
         result.drain(statement, statement.execute(sql), maxRows);
         return result.toQueryResult();
@@ -83,7 +86,7 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
     /**
      * 单个 SQL 脚本的执行结果：保留最后一个结果集，并累计前面 DML 的影响行数。
      */
-    private static final class ExecutionResult {
+    private final class ExecutionResult {
 
         private QueryResult lastResultSet;
         private int affectedRows;
@@ -233,18 +236,63 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
             return null;
         }
         String trimmed = sql.trim();
+        // Oracle 等数据库的匿名 PL/SQL 块（BEGIN ... END; / DECLARE ... END;）必须保留结尾分号，
+        // 否则会被驱动判定为语法错误（ORA-06550）。普通 SQL 语句则去掉结尾分号以兼容 JDBC。
+        if (isPlsqlBlock(trimmed)) {
+            return trimmed;
+        }
         while (trimmed.endsWith(";")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
         }
         return trimmed;
     }
 
-    private static QueryResult readResult(ResultSet rs, int maxRows) throws SQLException {
+    /**
+     * 判断语句是否为 PL/SQL 匿名块（允许前置空白与注释）。
+     */
+    private static boolean isPlsqlBlock(String sql) {
+        int index = 0;
+        int length = sql.length();
+        while (index < length) {
+            char c = sql.charAt(index);
+            if (Character.isWhitespace(c)) {
+                index++;
+                continue;
+            }
+            if (sql.startsWith("--", index)) {
+                int lineEnd = sql.indexOf('\n', index + 2);
+                if (lineEnd < 0) {
+                    return false;
+                }
+                index = lineEnd + 1;
+                continue;
+            }
+            if (sql.startsWith("/*", index)) {
+                int commentEnd = sql.indexOf("*/", index + 2);
+                if (commentEnd < 0) {
+                    return false;
+                }
+                index = commentEnd + 2;
+                continue;
+            }
+            break;
+        }
+        if (index >= length) {
+            return false;
+        }
+        String head = sql.substring(index, Math.min(index + 7, length)).toUpperCase(Locale.ROOT);
+        return head.startsWith("BEGIN") || head.startsWith("DECLARE");
+    }
+
+    private QueryResult readResult(ResultSet rs, int maxRows) throws SQLException {
         ResultSetMetaData meta = rs.getMetaData();
         int columnCount = meta.getColumnCount();
-        List<String> columns = new ArrayList<>(columnCount);
+        List<String> columns = buildColumnLabels(meta, columnCount);
+        int[] sqlTypes = new int[columnCount];
+        String[] typeNames = new String[columnCount];
         for (int i = 1; i <= columnCount; i++) {
-            columns.add(meta.getColumnLabel(i));
+            sqlTypes[i - 1] = meta.getColumnType(i);
+            typeNames[i - 1] = meta.getColumnTypeName(i);
         }
 
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -252,12 +300,35 @@ public class JdbcDataSourceConnection implements DataSourceConnection {
         while (rs.next() && (maxRows <= 0 || rowCount < maxRows)) {
             Map<String, Object> row = new LinkedHashMap<>();
             for (int i = 1; i <= columnCount; i++) {
-                row.put(meta.getColumnLabel(i), normalizeValue(rs.getObject(i), meta.getColumnType(i)));
+                Object value = provider.readQueryValue(rs, i, sqlTypes[i - 1], typeNames[i - 1]);
+                row.put(columns.get(i - 1), normalizeValue(value, sqlTypes[i - 1]));
             }
             rows.add(row);
             rowCount++;
         }
         return new QueryResult(columns, rows, rowCount);
+    }
+
+    /**
+     * 生成唯一列标签。同名别名（如 {@code SELECT 1 AS X, 2 AS X}）若直接用 Map 存放会互相覆盖，
+     * 这里按出现顺序追加 {@code _2}、{@code _3} 后缀，保证每一列的数据都能返回。
+     */
+    private static List<String> buildColumnLabels(ResultSetMetaData meta, int columnCount) throws SQLException {
+        List<String> labels = new ArrayList<>(columnCount);
+        Set<String> used = new HashSet<>();
+        for (int i = 1; i <= columnCount; i++) {
+            String label = meta.getColumnLabel(i);
+            if (label == null || label.isEmpty()) {
+                label = "COLUMN_" + i;
+            }
+            String uniqueLabel = label;
+            int suffix = 2;
+            while (!used.add(uniqueLabel)) {
+                uniqueLabel = label + "_" + suffix++;
+            }
+            labels.add(uniqueLabel);
+        }
+        return labels;
     }
 
     private static Object normalizeValue(Object value, int sqlType) throws SQLException {

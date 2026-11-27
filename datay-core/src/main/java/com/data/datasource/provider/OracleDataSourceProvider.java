@@ -6,8 +6,14 @@ import com.data.datasource.provider.jdbc.JdbcMetadata;
 import com.data.metadata.DBType;
 import com.data.metadata.TableMeta;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -37,6 +43,70 @@ public class OracleDataSourceProvider extends JdbcDataSourceProvider {
     @Override
     public String getTestQuery() {
         return "SELECT 1 FROM DUAL";
+    }
+
+    /**
+     * Oracle 的 {@code TIMESTAMP WITH [LOCAL] TIME ZONE} 在旧驱动下返回
+     * {@code oracle.sql.TIMESTAMPTZ}/{@code TIMESTAMPLTZ} 专有类型，默认 toString 是对象地址。
+     * 这里统一读取为 {@link OffsetDateTime}（或退回 {@link java.sql.Timestamp}），让查询预览可读。
+     */
+    @Override
+    public Object readQueryValue(ResultSet rs, int index, int sqlType, String typeName) throws SQLException {
+        if (isTimestampWithTimeZone(sqlType, typeName)) {
+            try {
+                return rs.getObject(index, OffsetDateTime.class);
+            } catch (SQLException | AbstractMethodError | UnsupportedOperationException ignored) {
+                // 旧版驱动不支持 java.time，退回标准时间读取
+            }
+            try {
+                return rs.getTimestamp(index);
+            } catch (SQLException ignored) {
+                // 继续走通用读取
+            }
+        }
+        return super.readQueryValue(rs, index, sqlType, typeName);
+    }
+
+    private static boolean isTimestampWithTimeZone(int sqlType, String typeName) {
+        if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
+            return true;
+        }
+        if (typeName == null) {
+            return false;
+        }
+        String normalized = typeName.toUpperCase(Locale.ROOT);
+        return normalized.contains("TIMESTAMP WITH TIME ZONE") || normalized.contains("TIMESTAMP WITH LOCAL TIME ZONE");
+    }
+
+    /**
+     * Oracle 未加引号的标识符会折叠为大写，而 JDBC 元数据查询是大小写敏感的。
+     * 表搜索框输入小写关键字时，先按原样查询，再补一次大写查询并合并结果，
+     * 兼容默认大写对象与显式小写引号对象。
+     */
+    @Override
+    public List<TableMeta> getTables(Connection conn, String schema, Integer limit, String search) throws SQLException {
+        if (search == null || search.isEmpty()) {
+            return super.getTables(conn, schema, limit, search);
+        }
+        Map<String, TableMeta> merged = new LinkedHashMap<>();
+        for (TableMeta table : super.getTables(conn, schema, limit, search)) {
+            merged.putIfAbsent(tableKey(table), table);
+        }
+        String upperSearch = search.toUpperCase(Locale.ROOT);
+        if (!upperSearch.equals(search)) {
+            for (TableMeta table : super.getTables(conn, schema, limit, upperSearch)) {
+                merged.putIfAbsent(tableKey(table), table);
+            }
+        }
+        List<TableMeta> tables = new ArrayList<>(merged.values());
+        if (limit != null && limit > 0 && tables.size() > limit) {
+            return new ArrayList<>(tables.subList(0, limit));
+        }
+        return tables;
+    }
+
+    private static String tableKey(TableMeta table) {
+        return (table.getSchema() == null ? "" : table.getSchema()) + "." + table.getTable();
     }
 
     /**
