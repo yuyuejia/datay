@@ -148,9 +148,13 @@ public class DorisStreamLoad extends FlowComponent {
                     String ddl = DatabaseConverter.generateTableDDL(targetDbType, targetTable);
                     logInfo("创建表 " + schema + "." + table + " 的DDL: " + ddl);
                     DBUtils.execute(targetConn, ddl);
+                    // 建表后回读真实元数据：Doris 会把字段名规范化为小写，如果继续使用
+                    // 源表转换结果（可能为大写）构造 Stream Load JSON，Doris 按字段名匹配时
+                    // 会把所有行过滤掉并报 [DATA_QUALITY_ERROR]too many filtered rows。
+                    targetTable = refreshCreatedTableMeta(targetConn, schema, table, targetTable);
                 } else {
                     logInfo("表 " + schema + "." + table + " 已存在");
-                    targetTable = DBUtils.getTableMetaData(targetConn, schema, table);
+                    targetTable = DBUtils.getTableMetaData(this.datasource, targetConn, schema, table);
                 }
                 if ("overwrite".equals(this.model)) {
                     logInfo("清空表 " + schema + "." + table);
@@ -165,6 +169,22 @@ public class DorisStreamLoad extends FlowComponent {
         }
 
         return targetTable;
+    }
+
+    /**
+     * 自动建表后回读目标表实际元数据，确保字段名与 Doris 实际列名一致（Doris 会规范化为小写）。
+     * <p>读取失败时沿用建表前按源表转换出的元数据。</p>
+     */
+    private TableMeta refreshCreatedTableMeta(Connection targetConn, String schema, String table, TableMeta fallback) {
+        try {
+            TableMeta actual = DBUtils.getTableMetaData(this.datasource, targetConn, schema, table);
+            if (actual != null && actual.columns() != null && !actual.columns().isEmpty()) {
+                return actual;
+            }
+        } catch (SQLException e) {
+            logDebug("读取新建表元数据失败，沿用源表转换结果：" + e.getMessage());
+        }
+        return fallback;
     }
 
     /**
@@ -263,13 +283,35 @@ public class DorisStreamLoad extends FlowComponent {
             JSONObject row = new JSONObject();
             for (ColumnMeta column : targetTable.columns()) {
                 String name = column.getName();
-                if (record.containsKey(name)) {
-                    row.put(name, DBUtils.normalizeParameter(column.getType(), record.get(name)));
+                // 源端字段可能为大写（如 SQL Server），Doris 自动建表后字段为小写。
+                // 这里按字段名忽略大小写匹配，并统一用目标表实际列名作为 JSON key，
+                // 否则 Doris 按字段名解析时会过滤掉整行。
+                String sourceKey = findKeyIgnoreCase(record, name);
+                if (sourceKey != null) {
+                    row.put(name, DBUtils.normalizeParameter(column.getType(), record.get(sourceKey)));
                 }
             }
             normalized.add(row);
         }
         return normalized.toJSONString();
+    }
+
+    /**
+     * 按字段名忽略大小写查找记录中实际存在的 key。
+     */
+    private String findKeyIgnoreCase(JSONObject record, String columnName) {
+        if (record == null || columnName == null) {
+            return null;
+        }
+        if (record.containsKey(columnName)) {
+            return columnName;
+        }
+        for (String key : record.keySet()) {
+            if (key.equalsIgnoreCase(columnName)) {
+                return key;
+            }
+        }
+        return null;
     }
 
     /**
