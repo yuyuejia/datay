@@ -61,11 +61,14 @@ import type {
   ScreenFitMode,
   ThemePreset,
   KpiLayout,
+  LegendPosition,
+  LineStyleType,
   MapLayerSpec,
   ThemeTokens,
   TitleFrame,
   WidgetBodyStyle,
   WidgetCardStyle,
+  WidgetChartAxisStyle,
   WidgetChartStyle,
   WidgetFill,
   WidgetFormatRule,
@@ -344,7 +347,7 @@ export default defineComponent({
     const description = ref('');
     const status = ref('ENABLED');
     const activePanel = ref<'datasets' | 'widgets' | 'filters'>('datasets');
-    const propertyTab = ref<'basic' | 'style' | 'custom'>('basic');
+    const propertyTab = ref<'basic' | 'custom'>('basic');
     const dashboardSettingsVisible = ref(false);
     const propertiesRef = ref<HTMLElement | null>(null);
     const customOptionText = ref('');
@@ -395,6 +398,14 @@ export default defineComponent({
 
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
     const selectedFilter = computed(() => (spec.value.filters ?? []).find(filter => filter.id === selectedFilterId.value));
+    const selectedWidgetDatasetLabel = computed(() => {
+      const datasetId = selectedWidget.value?.datasetId;
+      if (!datasetId) {
+        return '未绑定数据集';
+      }
+      const dataset = spec.value.datasets.find(item => item.id === datasetId);
+      return dataset?.name || datasetId;
+    });
 
     // ---------------------------------------------------------------- 组件皮肤
 
@@ -789,7 +800,13 @@ export default defineComponent({
           return;
         }
         if (value === 'default') {
-          delete style.chart;
+          // 只清掉预设本身，保留用户单独配置的轴/图例/系列样式。
+          if (style.chart) {
+            delete style.chart.preset;
+            if (Object.keys(style.chart).length === 0) {
+              delete style.chart;
+            }
+          }
           return;
         }
         if (!style.chart) {
@@ -806,6 +823,193 @@ export default defineComponent({
       get: () => selectedWidget.value?.style?.chart?.glow ?? (selectedWidget.value?.style?.chart?.preset ?? 'tech') !== 'minimal',
       set: value => updateChartStyle(chart => (chart.glow = value)),
     });
+
+    /** 把图表样式里已清空的轴 / 预设对象一并移除，避免空对象触发预设皮肤。 */
+    const pruneChartStyle = () => {
+      const widget = selectedWidget.value;
+      const style = widget?.style;
+      const chart = style?.chart;
+      if (!widget || !style || !chart) {
+        return;
+      }
+      for (const key of ['xAxis', 'yAxis'] as const) {
+        const axis = chart[key];
+        if (axis && Object.keys(axis).length === 0) {
+          delete chart[key];
+        }
+      }
+      if (Object.keys(chart).length === 0) {
+        delete style.chart;
+        if (Object.keys(style).length === 0) {
+          delete widget.style;
+        }
+      }
+    };
+
+    const updateChartAxis = (key: 'xAxis' | 'yAxis', patch: (axis: WidgetChartAxisStyle) => void) => {
+      const style = ensureSelectedStyle();
+      if (!style) {
+        return;
+      }
+      if (!style.chart) {
+        style.chart = {};
+      }
+      if (!style.chart[key]) {
+        style.chart[key] = {};
+      }
+      patch(style.chart[key] as WidgetChartAxisStyle);
+    };
+
+    const chartLegendPosition = computed<LegendPosition>({
+      get: () => selectedWidget.value?.style?.chart?.legendPosition ?? 'top',
+      set: value => updateChartStyle(chart => (chart.legendPosition = value)),
+    });
+    const chartLegendFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.legendFontSize ?? 11,
+      set: value => updateChartStyle(chart => (chart.legendFontSize = clamp(Math.round(value || 0), 8, 24))),
+    });
+    const chartAxisTitleFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.axisTitleFontSize ?? 12,
+      set: value => updateChartStyle(chart => (chart.axisTitleFontSize = clamp(Math.round(value || 0), 8, 24))),
+    });
+    const chartAxisTitleColor = computed<string>({
+      // 空值表示跟随图表风格预设；控件上给一个中性灰作为占位，避免出现空色块。
+      get: () => selectedWidget.value?.style?.chart?.axisTitleColor ?? '#909399',
+      set: value => updateChartStyle(chart => (chart.axisTitleColor = value || '#909399')),
+    });
+    /** 读取 echartsOption 里已有的轴标题，作为样式覆盖为空时的展示值。 */
+    const chartOptionAxisName = (key: 'xAxis' | 'yAxis'): string => {
+      const axis = selectedWidget.value?.echartsOption?.[key];
+      const first = Array.isArray(axis) ? axis[0] : axis;
+      return typeof first?.name === 'string' ? first.name : '';
+    };
+    const chartXAxisTitle = computed<string>({
+      get: () => selectedWidget.value?.style?.chart?.xAxis?.title ?? chartOptionAxisName('xAxis'),
+      set: value => {
+        const title = value.trim();
+        updateChartAxis('xAxis', axis => {
+          if (title) {
+            axis.title = title;
+          } else {
+            delete axis.title;
+          }
+        });
+        if (!title) {
+          pruneChartStyle();
+        }
+      },
+    });
+    const chartYAxisTitle = computed<string>({
+      get: () => selectedWidget.value?.style?.chart?.yAxis?.title ?? chartOptionAxisName('yAxis'),
+      set: value => {
+        const title = value.trim();
+        updateChartAxis('yAxis', axis => {
+          if (title) {
+            axis.title = title;
+          } else {
+            delete axis.title;
+          }
+        });
+        if (!title) {
+          pruneChartStyle();
+        }
+      },
+    });
+    const chartXAxisVisible = computed<boolean>({
+      get: () => {
+        const widget = selectedWidget.value;
+        const chart = widget?.style?.chart;
+        if (chart?.xAxis?.show !== undefined) {
+          return chart.xAxis.show;
+        }
+        if (chart?.showAxis !== undefined) {
+          return chart.showAxis;
+        }
+        const axis = widget?.echartsOption?.xAxis;
+        return Array.isArray(axis) ? axis.every((item: any) => item?.show !== false) : axis?.show !== false;
+      },
+      set: value => updateChartAxis('xAxis', axis => (axis.show = value)),
+    });
+    const chartYAxisVisible = computed<boolean>({
+      get: () => {
+        const widget = selectedWidget.value;
+        const chart = widget?.style?.chart;
+        if (chart?.yAxis?.show !== undefined) {
+          return chart.yAxis.show;
+        }
+        if (chart?.showAxis !== undefined) {
+          return chart.showAxis;
+        }
+        const axis = widget?.echartsOption?.yAxis;
+        return Array.isArray(axis) ? axis.every((item: any) => item?.show !== false) : axis?.show !== false;
+      },
+      set: value => updateChartAxis('yAxis', axis => (axis.show = value)),
+    });
+    const chartXAxisLabelFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.xAxis?.labelFontSize ?? 11,
+      set: value => updateChartAxis('xAxis', axis => (axis.labelFontSize = clamp(Math.round(value || 0), 8, 24))),
+    });
+    const chartYAxisLabelFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.yAxis?.labelFontSize ?? 11,
+      set: value => updateChartAxis('yAxis', axis => (axis.labelFontSize = clamp(Math.round(value || 0), 8, 24))),
+    });
+    const chartGridLineStyle = computed<LineStyleType>({
+      get: () => selectedWidget.value?.style?.chart?.yAxis?.gridStyle ?? 'dashed',
+      set: value => updateChartAxis('yAxis', axis => (axis.gridStyle = value)),
+    });
+    const chartAxisTick = computed<boolean>({
+      get: () => selectedWidget.value?.style?.chart?.xAxis?.tick ?? selectedWidget.value?.style?.chart?.yAxis?.tick ?? false,
+      set: value => {
+        updateChartAxis('xAxis', axis => (axis.tick = value));
+        updateChartAxis('yAxis', axis => (axis.tick = value));
+      },
+    });
+    const chartAxisLineColor = computed<string>({
+      get: () => selectedWidget.value?.style?.chart?.xAxis?.lineColor ?? selectedWidget.value?.style?.chart?.yAxis?.lineColor ?? '#c0c4cc',
+      set: value => {
+        const apply = (axis: WidgetChartAxisStyle) => {
+          if (value) {
+            axis.lineColor = value;
+          } else {
+            delete axis.lineColor;
+          }
+        };
+        updateChartAxis('xAxis', apply);
+        updateChartAxis('yAxis', apply);
+        if (!value) {
+          pruneChartStyle();
+        }
+      },
+    });
+    const chartBarRadius = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.barRadius ?? 3,
+      set: value => updateChartStyle(chart => (chart.barRadius = clamp(Math.round(value || 0), 0, 16))),
+    });
+    const chartLabelFontSize = computed<number>({
+      get: () => selectedWidget.value?.style?.chart?.labelFontSize ?? 11,
+      set: value => updateChartStyle(chart => (chart.labelFontSize = clamp(Math.round(value || 0), 8, 24))),
+    });
+    /** 占总比：由服务端下推聚合时按维度分组换算百分比。 */
+    const chartPercentOfTotal = computed<boolean>({
+      get: () => (selectedWidget.value?.encode?.transform ?? []).some(transform => transform.type === 'percentOfTotal'),
+      set: value => {
+        const encode = selectedWidget.value?.encode;
+        if (!encode) {
+          return;
+        }
+        const rest = (encode.transform ?? []).filter(transform => transform.type !== 'percentOfTotal');
+        if (value) {
+          rest.push({ type: 'percentOfTotal' });
+        }
+        if (rest.length > 0) {
+          encode.transform = rest;
+        } else {
+          delete encode.transform;
+        }
+      },
+    });
+    /** 自定义配置面板手风琴展开的分组。 */
+    const customSections = ref<string[]>(['background']);
 
     const canvasZoom = ref<'fit' | number>('fit');
     const canvasScale = ref(1);
@@ -2570,6 +2774,7 @@ export default defineComponent({
     };
 
     const chartType = computed<ChartType>(() => resolveChartType(selectedWidget.value));
+    const chartTypeLabel = computed(() => CHART_LABELS[chartType.value] ?? '图表');
     const hasChartAxes = computed(() => !['pie', 'donut', 'gauge', 'funnel', 'radar', 'treemap', 'map'].includes(chartType.value));
 
     const chartSubtypeOptions = computed<Array<{ value: string; label: string }>>(() => {
@@ -2694,7 +2899,7 @@ export default defineComponent({
         if (option) {
           option.legend = { ...(option.legend ?? {}), show: value };
         }
-        // 基础设置显式操作后，移除样式预设里的同名覆盖，避免两个入口互相打架。
+        // 自定义配置中显式操作后，移除样式预设里的同名覆盖，避免两个入口互相打架。
         if (selectedWidget.value?.style?.chart) {
           delete selectedWidget.value.style.chart.showLegend;
         }
@@ -3313,6 +3518,7 @@ export default defineComponent({
       loadingData,
       selectedWidget,
       selectedFilter,
+      selectedWidgetDatasetLabel,
       dashboardSettingsVisible,
       openDashboardSettings,
       propertiesRef,
@@ -3431,6 +3637,23 @@ export default defineComponent({
       chartStylePreset,
       chartStyleGradient,
       chartStyleGlow,
+      chartLegendPosition,
+      chartLegendFontSize,
+      chartAxisTitleFontSize,
+      chartAxisTitleColor,
+      chartXAxisTitle,
+      chartYAxisTitle,
+      chartXAxisVisible,
+      chartYAxisVisible,
+      chartXAxisLabelFontSize,
+      chartYAxisLabelFontSize,
+      chartGridLineStyle,
+      chartAxisTick,
+      chartAxisLineColor,
+      chartBarRadius,
+      chartLabelFontSize,
+      chartPercentOfTotal,
+      customSections,
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,
@@ -3445,6 +3668,7 @@ export default defineComponent({
       addFormatRule,
       removeFormatRule,
       chartType,
+      chartTypeLabel,
       chartSubtype,
       chartSubtypeOptions,
       chartOrientation,

@@ -160,6 +160,20 @@ type DesignerVm = {
   kpiUnitText: string;
   kpiAnimate: boolean;
   chartStylePreset: 'default' | 'tech' | 'minimal' | 'dark';
+  chartLegendPosition: 'top' | 'bottom' | 'left' | 'right';
+  chartLegendFontSize: number;
+  chartXAxisTitle: string;
+  chartYAxisTitle: string;
+  chartXAxisVisible: boolean;
+  chartYAxisVisible: boolean;
+  chartXAxisLabelFontSize: number;
+  chartYAxisLabelFontSize: number;
+  chartGridLineStyle: 'solid' | 'dashed' | 'dotted';
+  chartAxisTick: boolean;
+  chartBarRadius: number;
+  chartLabelFontSize: number;
+  chartPercentOfTotal: boolean;
+  customSections: string[];
   titleWidgetText: string;
   titleWidgetSubText: string;
   titleWidgetAlign: 'left' | 'center' | 'right';
@@ -550,7 +564,7 @@ describe('AnalysisDashboardDesigner history', () => {
     expect(vm.spec.widgets[0].encode.measures).toHaveLength(1);
   });
 
-  it('自定义设置可应用和恢复 ECharts 配置', async () => {
+  it('自定义配置可应用和恢复 ECharts 配置', async () => {
     vm.addWidget('echarts', 'bar');
     await vm.$nextTick();
 
@@ -1329,7 +1343,51 @@ describe('AnalysisDashboardDesigner history', () => {
 
     vm.chartStylePreset = 'default';
     await vm.$nextTick();
-    expect(vm.spec.widgets[0].style?.chart).toBeUndefined();
+    // 预设回到默认时保留单独配置的渐变开关，只清掉预设本身。
+    expect(vm.spec.widgets[0].style?.chart).toEqual({ gradient: false });
+  });
+
+  it('自定义配置写入轴标题、图例、轴线与柱条样式', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    vm.chartXAxisTitle = '月份';
+    vm.chartYAxisTitle = '销售额';
+    vm.chartXAxisLabelFontSize = 12;
+    vm.chartYAxisVisible = false;
+    vm.chartGridLineStyle = 'dotted';
+    vm.chartAxisTick = true;
+    vm.chartLegendPosition = 'bottom';
+    vm.chartLegendFontSize = 13;
+    vm.chartBarRadius = 6;
+    await vm.$nextTick();
+
+    expect(vm.spec.widgets[0].style?.chart).toMatchObject({
+      xAxis: { title: '月份', labelFontSize: 12, tick: true },
+      yAxis: { title: '销售额', show: false, gridStyle: 'dotted', tick: true },
+      legendPosition: 'bottom',
+      legendFontSize: 13,
+      barRadius: 6,
+    });
+
+    vm.chartXAxisTitle = '';
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].style?.chart?.xAxis?.title).toBeUndefined();
+  });
+
+  it('基础配置可开启占总比变换', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+
+    vm.chartPercentOfTotal = true;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].encode?.transform).toEqual([{ type: 'percentOfTotal' }]);
+
+    vm.chartPercentOfTotal = false;
+    await vm.$nextTick();
+    expect(vm.spec.widgets[0].encode?.transform).toBeUndefined();
   });
 
   it('地图图层开关与字段映射写入 chart.layers', async () => {

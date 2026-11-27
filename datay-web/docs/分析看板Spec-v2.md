@@ -523,7 +523,7 @@ POST /api/analysis-dashboards/preview-drill
 `type=echarts` 的组件可以通过 `style.chart` 一键套用图表皮肤（渐变柱、发光折线、坐标轴/图例/tooltip 配色），
 无需手写 `echartsOption`。
 
-设计器入口：**基础设置 → 图表选项 → 图表风格**。下拉包含
+设计器入口：**自定义配置 → 系列 → 图表风格**。下拉包含
 「默认（跟随主题）/ 科技风 / 简约 / 深色」，默认选中「默认」，即不写 `style.chart`、保持原有渲染。
 
 ```json
@@ -546,17 +546,25 @@ POST /api/analysis-dashboards/preview-drill
 | `preset` | `tech` / `minimal` / `dark` | 科技风 / 简约 / 深色 |
 | `gradient` | 布尔 | 柱状、面积是否使用渐变；缺省按预设决定（tech/dark 开，minimal 关） |
 | `glow` | 布尔 | 折线是否发光；缺省按预设决定 |
-| `showAxis` | 布尔 | `false` 时隐藏坐标轴 |
+| `showAxis` | 布尔 | `false` 时隐藏坐标轴（兼容字段，新配置优先使用 `xAxis.show` / `yAxis.show`） |
 | `showLegend` | 布尔 | 控制图例显隐 |
 | `showLabel` | 布尔 | `true` 时显示数据标签 |
+| `legendPosition` | `top` / `bottom` / `left` / `right` | 图例位置 |
+| `legendFontSize` | 8–24 | 图例文字字号 |
+| `axisTitleFontSize` | 8–24 | 轴标题字号 |
+| `axisTitleColor` | 颜色 | 轴标题颜色；缺省跟随预设 |
+| `labelFontSize` | 8–24 | 数据标签字号 |
+| `barRadius` | 0–16 | 柱条圆角 |
+| `xAxis` / `yAxis` | 对象 | 单个坐标轴的样式覆盖：`show/title/labelFontSize/tick/lineColor/grid/gridStyle` |
 
 规则：
 
-- 预设只填充 `echartsOption` 中**没有显式设置**的键；用户在「自定义设置」里的配置优先，
+- 预设只填充 `echartsOption` 中**没有显式设置**的键；用户在「自定义配置」「高级配置」里的配置优先，
   因此老看板不受影响，新看板也可以局部微调。
 - `showAxis/showLegend/showLabel/gradient/glow` 为显式开关，优先级高于 `echartsOption`。
-  设计器里的坐标轴/图例/数据标签仍由「图表选项」复选框控制（写入 `echartsOption`）；
-  这三个字段主要用于自定义 JSON 或 AI 生成的 spec。
+  设计器里的坐标轴/图例/标签/网格线按「自定义配置」的手风琴分组控制：
+  图例、网格线、数据标签写入 `echartsOption`，坐标轴显隐与字体写入 `style.chart.xAxis/yAxis`；
+  这几个字段主要用于自定义 JSON 或 AI 生成的 spec。
 - 序列色优先取主题 token 的 `palette`；未配置时回落到 ECharts 内置色板。
 - 渐变基于每个系列的序列色生成：柱状为「实色 → 透明」，面积为「半透明 → 全透明」。
 - 发光通过 `lineStyle.shadowBlur/shadowColor` 实现，仅对折线/面积图生效。

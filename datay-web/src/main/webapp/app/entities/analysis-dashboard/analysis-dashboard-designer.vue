@@ -438,9 +438,16 @@
           </div>
         </template>
         <template v-else-if="selectedWidget">
-          <div class="designer-property-title">组件配置</div>
+          <div class="designer-property-title designer-inspector-head">
+            <div class="designer-inspector-heading">
+              <span class="designer-inspector-title">
+                {{ selectedWidget.type === 'echarts' ? chartTypeLabel : widgetLabel(selectedWidget) }}
+              </span>
+              <span class="designer-inspector-sub">{{ selectedWidgetDatasetLabel }}</span>
+            </div>
+          </div>
           <el-tabs v-model="propertyTab" class="designer-property-tabs">
-            <el-tab-pane label="基础设置" name="basic">
+            <el-tab-pane label="基础配置" name="basic">
               <div class="designer-property-form">
                 <template v-if="selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'">
                   <label>标题</label>
@@ -497,7 +504,7 @@
                     <el-option value="tech-frame" label="科技边框" />
                     <el-option value="bracket" label="左右括号" />
                   </el-select>
-                  <div class="designer-hint">字号、颜色、字距与图标在「样式 → 标题」中设置。</div>
+                  <div class="designer-hint">字号、颜色、字距与图标在「自定义配置 → 组件字体样式」中设置。</div>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'clock'">
@@ -508,7 +515,7 @@
                     <el-option value="datetime" label="日期 + 时间（含秒）" />
                     <el-option value="time" label="时间（含秒）" />
                   </el-select>
-                  <div class="designer-hint">日期类每分钟刷新，时间类每秒刷新；字体样式在「样式 → 标题」中设置。</div>
+                  <div class="designer-hint">日期类每分钟刷新，时间类每秒刷新；字体样式在「自定义配置 → 组件字体样式」中设置。</div>
                 </template>
 
                 <template v-if="selectedWidget.type === 'echarts'">
@@ -555,46 +562,6 @@
                     </el-checkbox>
                     <div v-if="widgetValueFields.length < 2" class="designer-hint">添加至少两个度量后可启用双轴组合。</div>
                   </template>
-
-                  <label>图表选项</label>
-                  <div class="designer-chart-options">
-                    <div class="designer-chart-style-row">
-                      <span class="designer-settings-label-inline">图表风格</span>
-                      <el-select v-model="chartStylePreset" size="small" style="flex: 1; min-width: 0">
-                        <el-option value="default" label="默认（跟随主题）" />
-                        <el-option value="tech" label="科技风" />
-                        <el-option value="minimal" label="简约" />
-                        <el-option value="dark" label="深色" />
-                      </el-select>
-                    </div>
-                    <template v-if="chartStylePreset !== 'default' && ['bar', 'line', 'area'].includes(chartType)">
-                      <el-checkbox v-model="chartStyleGradient" class="designer-chart-option">渐变填充</el-checkbox>
-                      <el-checkbox v-model="chartStyleGlow" class="designer-chart-option">线条发光</el-checkbox>
-                    </template>
-                    <el-checkbox
-                      v-if="chartType !== 'map'"
-                      v-model="chartLegendVisible"
-                      class="designer-chart-option"
-                      @change="commitHistory"
-                    >
-                      显示图例
-                    </el-checkbox>
-                    <el-checkbox v-model="chartDataLabelVisible" class="designer-chart-option" @change="commitHistory">
-                      {{ chartType === 'map' ? '显示区域名称' : '数据标签' }}
-                    </el-checkbox>
-                    <el-checkbox v-if="chartType === 'map'" v-model="chartMapRoam" class="designer-chart-option" @change="commitHistory">
-                      允许缩放拖动
-                    </el-checkbox>
-                    <el-checkbox v-if="hasChartAxes" v-model="chartAxesVisible" class="designer-chart-option" @change="commitHistory">
-                      坐标轴
-                    </el-checkbox>
-                    <el-checkbox v-if="hasChartAxes" v-model="chartGridLinesVisible" class="designer-chart-option" @change="commitHistory">
-                      网格线
-                    </el-checkbox>
-                  </div>
-                  <div v-if="chartStylePreset !== 'default'" class="designer-hint">
-                    样式预设只填充未显式配置的样式；坐标轴 / 图例 / 标签以上方开关为准。
-                  </div>
 
                   <template v-if="chartType === 'map'">
                     <label>地图图层</label>
@@ -727,7 +694,7 @@
                           />
                         </div>
                       </template>
-                      <div class="designer-hint">区域填色沿用基础设置里的分类与度量字段；经纬度为十进制度。</div>
+                      <div class="designer-hint">区域填色沿用基础配置里的分类与度量字段；经纬度为十进制度。</div>
                     </div>
                   </template>
 
@@ -917,31 +884,8 @@
                       </div>
                       <div v-else class="designer-hint">请先选择 Y 轴数值字段。</div>
                     </template>
-
-                    <label>排序字段 / 方向</label>
-                    <div class="designer-inline">
-                      <el-select
-                        v-model="selectedWidget.encode.sortField"
-                        clearable
-                        filterable
-                        allow-create
-                        placeholder="不排序"
-                        style="flex: 1"
-                      >
-                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
-                      </el-select>
-                      <el-select v-model="selectedWidget.encode.sortOrder" style="width: 90px">
-                        <el-option value="asc" label="升序" />
-                        <el-option value="desc" label="降序" />
-                      </el-select>
-                    </div>
-
-                    <label>返回行数上限</label>
-                    <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
                   </template>
-                </template>
 
-                <template v-else-if="selectedWidget.type === 'table'">
                   <template v-if="selectedWidget.encode">
                     <label>排序字段 / 方向</label>
                     <div class="designer-inline">
@@ -955,40 +899,20 @@
                       >
                         <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
                       </el-select>
-                      <el-select v-model="selectedWidget.encode.sortOrder" style="width: 90px">
+                      <el-select v-model="selectedWidget.encode.sortOrder" placeholder="方向" style="width: 90px">
                         <el-option value="asc" label="升序" />
                         <el-option value="desc" label="降序" />
                       </el-select>
                     </div>
-
                     <label>返回行数上限</label>
                     <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
-
-                    <label>显示列</label>
-                    <el-select
-                      v-model="widgetTableColumns"
-                      multiple
-                      collapse-tags
-                      collapse-tags-tooltip
-                      filterable
-                      allow-create
-                      placeholder="默认展示全部列"
-                    >
-                      <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
-                    </el-select>
-                    <div class="designer-hint">不配置时展示数据集全部列；配置后按选择顺序展示。</div>
-
-                    <label>分页大小</label>
-                    <el-input-number
-                      v-model="selectedWidget.encode.pageSize"
-                      :min="5"
-                      :max="1000"
-                      controls-position="right"
-                      placeholder="不分页"
-                    />
-                    <div class="designer-hint">配置后在前端按页展示；服务端分页仍受返回行数上限约束。</div>
+                    <el-checkbox v-model="chartPercentOfTotal" class="designer-chart-option" @change="commitHistory">
+                      计算占总比
+                    </el-checkbox>
+                    <div class="designer-hint">排序、行数上限与占总比在服务端查询时生效。</div>
                   </template>
-                  <div class="designer-hint">明细表展示数据集列，可配置排序、返回行数上限和显示列。</div>
+
+                  <div class="designer-hint">外观、图例、坐标轴与高级图表配置在「自定义配置」中设置。</div>
                 </template>
 
                 <template v-else-if="selectedWidget.type === 'pivot'">
@@ -1040,7 +964,6 @@
                         </el-select>
                       </div>
                     </div>
-
                     <label>返回行数上限</label>
                     <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
                   </template>
@@ -1076,6 +999,57 @@
                   <div class="designer-hint">说明文本不绑定数据集，内容会经过安全过滤后展示。</div>
                 </template>
 
+                <template v-if="selectedWidget.type === 'table'">
+                  <template v-if="selectedWidget.encode">
+                    <label>排序字段 / 方向</label>
+                    <div class="designer-inline">
+                      <el-select
+                        v-model="selectedWidget.encode.sortField"
+                        clearable
+                        filterable
+                        allow-create
+                        placeholder="不排序"
+                        style="flex: 1"
+                      >
+                        <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                      </el-select>
+                      <el-select v-model="selectedWidget.encode.sortOrder" placeholder="方向" style="width: 90px">
+                        <el-option value="asc" label="升序" />
+                        <el-option value="desc" label="降序" />
+                      </el-select>
+                    </div>
+
+                    <label>返回行数上限</label>
+                    <el-input-number v-model="selectedWidget.encode.limit" :min="1" :max="10000" controls-position="right" />
+
+                    <label>显示列</label>
+                    <el-select
+                      v-model="widgetTableColumns"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      filterable
+                      allow-create
+                      placeholder="默认展示全部列"
+                    >
+                      <el-option v-for="field in widgetFields" :key="field.name" :label="field.label || field.name" :value="field.name" />
+                    </el-select>
+                    <div class="designer-hint">不配置时展示数据集全部列；配置后按选择顺序展示。</div>
+
+                    <label>分页大小</label>
+                    <el-input-number
+                      v-model="selectedWidget.encode.pageSize"
+                      :min="5"
+                      :max="1000"
+                      controls-position="right"
+                      placeholder="不分页"
+                    />
+                    <div class="designer-hint">配置后在前端按页展示；服务端分页仍受返回行数上限约束。</div>
+                  </template>
+                  <div v-if="!selectedWidget.encode" class="designer-hint">
+                    明细表展示数据集列，可配置排序、返回行数上限、显示列与分页。
+                  </div>
+                </template>
                 <template v-if="['table', 'pivot', 'kpi'].includes(selectedWidget.type)">
                   <label>条件格式</label>
                   <div v-if="selectedWidget.formatRules?.length" class="designer-format-rule-list">
@@ -1106,205 +1080,383 @@
               </div>
             </el-tab-pane>
 
-            <el-tab-pane label="样式" name="style">
-              <div class="designer-property-form">
-                <div class="designer-style-group-title">卡片</div>
-                <label>边框预设</label>
-                <el-select v-model="cardPreset" style="width: 100%">
-                  <el-option value="none" label="无" />
-                  <el-option value="tech-corner" label="科技角标" />
-                  <el-option value="tech-frame" label="科技边框" />
-                  <el-option value="bracket" label="左右括号" />
-                </el-select>
+            <el-tab-pane label="自定义配置" name="custom">
+              <el-collapse v-model="customSections" class="designer-config-collapse">
+                <el-collapse-item name="background" title="背景与标题">
+                  <div class="designer-property-form">
+                    <label>边框预设</label>
+                    <el-select v-model="cardPreset" style="width: 100%">
+                      <el-option value="none" label="无" />
+                      <el-option value="tech-corner" label="科技角标" />
+                      <el-option value="tech-frame" label="科技边框" />
+                      <el-option value="bracket" label="左右括号" />
+                    </el-select>
 
-                <label>卡片填充</label>
-                <el-radio-group v-model="cardFillType" size="small">
-                  <el-radio-button value="none">透明</el-radio-button>
-                  <el-radio-button value="color">纯色</el-radio-button>
-                  <el-radio-button value="gradient">渐变</el-radio-button>
-                </el-radio-group>
-                <div v-if="cardFillType === 'color'" class="designer-inline">
-                  <el-color-picker v-model="cardFillColor" show-alpha />
-                  <span class="designer-settings-label-inline">卡片底色</span>
-                </div>
-                <template v-else-if="cardFillType === 'gradient'">
-                  <div class="designer-inline">
-                    <el-color-picker v-model="cardGradientFrom" show-alpha />
-                    <span class="designer-canvas-times">→</span>
-                    <el-color-picker v-model="cardGradientTo" show-alpha />
+                    <label>背景颜色</label>
+                    <el-radio-group v-model="cardFillType" size="small" class="designer-config-radio">
+                      <el-radio-button value="none">默认</el-radio-button>
+                      <el-radio-button value="color">纯色</el-radio-button>
+                      <el-radio-button value="gradient">渐变</el-radio-button>
+                    </el-radio-group>
+                    <div v-if="cardFillType === 'color'" class="designer-inline">
+                      <el-color-picker v-model="cardFillColor" show-alpha />
+                      <span class="designer-settings-label-inline">卡片底色</span>
+                    </div>
+                    <template v-else-if="cardFillType === 'gradient'">
+                      <div class="designer-inline">
+                        <el-color-picker v-model="cardGradientFrom" show-alpha />
+                        <span class="designer-canvas-times">→</span>
+                        <el-color-picker v-model="cardGradientTo" show-alpha />
+                      </div>
+                      <div class="designer-inline">
+                        <span class="designer-settings-label-inline">角度</span>
+                        <el-input-number
+                          v-model="cardGradientAngle"
+                          :min="0"
+                          :max="360"
+                          :step="15"
+                          controls-position="right"
+                          style="flex: 1; min-width: 0"
+                        />
+                      </div>
+                    </template>
+
+                    <label>描边</label>
+                    <div class="designer-inline">
+                      <el-input-number v-model="cardBorderWidth" :min="0" :max="8" controls-position="right" style="width: 86px" />
+                      <el-select v-model="cardBorderStyle" style="width: 88px">
+                        <el-option value="solid" label="实线" />
+                        <el-option value="dashed" label="虚线" />
+                        <el-option value="dotted" label="点线" />
+                      </el-select>
+                      <el-color-picker v-model="cardBorderColor" show-alpha />
+                    </div>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">圆角</span>
+                      <el-input-number
+                        v-model="cardBorderRadius"
+                        :min="0"
+                        :max="32"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <span class="designer-settings-label-inline">内边距</span>
+                      <el-input-number v-model="cardPadding" :min="0" :max="48" controls-position="right" style="flex: 1; min-width: 0" />
+                    </div>
+
+                    <label>阴影与透明度</label>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">模糊</span>
+                      <el-input-number
+                        v-model="cardShadowBlur"
+                        :min="0"
+                        :max="100"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <el-color-picker v-model="cardShadowColor" show-alpha />
+                    </div>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">透明度</span>
+                      <el-input-number
+                        v-model="cardOpacity"
+                        :min="0"
+                        :max="1"
+                        :step="0.05"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <span class="designer-settings-label-inline">毛玻璃</span>
+                      <el-input-number
+                        v-model="cardBackdropBlur"
+                        :min="0"
+                        :max="20"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+
+                    <div class="designer-config-subtitle">标题栏</div>
+                    <el-checkbox v-if="selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'" v-model="titleShow">
+                      显示标题栏
+                    </el-checkbox>
+                    <label>图标</label>
+                    <el-select v-model="titleIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
+                      <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
+                    </el-select>
+                    <label>标题装饰</label>
+                    <el-select v-model="titleDecoration" style="width: 100%">
+                      <el-option value="none" label="无" />
+                      <el-option value="underline" label="整条下划线" />
+                      <el-option value="gradient-underline" label="渐变短线" />
+                      <el-option value="left-bar" label="左侧竖条" />
+                    </el-select>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">高度</span>
+                      <el-input-number v-model="titleHeight" :min="0" :max="80" controls-position="right" style="flex: 1; min-width: 0" />
+                      <el-color-picker v-model="titleBackground" show-alpha title="标题栏背景" />
+                    </div>
                   </div>
-                  <div class="designer-inline">
-                    <span class="designer-settings-label-inline">角度</span>
-                    <el-input-number
-                      v-model="cardGradientAngle"
-                      :min="0"
-                      :max="360"
-                      :step="15"
-                      controls-position="right"
-                      style="flex: 1; min-width: 0"
-                    />
+                </el-collapse-item>
+
+                <el-collapse-item name="font" title="组件字体样式">
+                  <div class="designer-property-form">
+                    <label>标题字号</label>
+                    <div class="designer-inline">
+                      <el-input-number
+                        v-model="titleFontSize"
+                        :min="10"
+                        :max="48"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <el-color-picker v-model="titleColor" show-alpha title="标题颜色" />
+                    </div>
+                    <label>标题对齐</label>
+                    <el-radio-group v-model="titleAlign" size="small" class="designer-config-radio">
+                      <el-radio-button value="left">左对齐</el-radio-button>
+                      <el-radio-button value="center">居中</el-radio-button>
+                      <el-radio-button value="right">右对齐</el-radio-button>
+                    </el-radio-group>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">标题字距</span>
+                      <el-input-number
+                        v-model="titleLetterSpacing"
+                        :min="0"
+                        :max="8"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                    <label>内容区内边距</label>
+                    <el-input-number v-model="bodyPadding" :min="0" :max="32" controls-position="right" style="width: 100%" />
+                    <div class="designer-hint">留空项回落到主题 token；样式只影响展示，不影响数据绑定与筛选。</div>
                   </div>
-                </template>
+                </el-collapse-item>
 
-                <label>描边</label>
-                <div class="designer-inline">
-                  <el-input-number v-model="cardBorderWidth" :min="0" :max="8" controls-position="right" style="width: 86px" />
-                  <el-select v-model="cardBorderStyle" style="width: 88px">
-                    <el-option value="solid" label="实线" />
-                    <el-option value="dashed" label="虚线" />
-                    <el-option value="dotted" label="点线" />
-                  </el-select>
-                  <el-color-picker v-model="cardBorderColor" show-alpha />
-                </div>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">圆角</span>
-                  <el-input-number v-model="cardBorderRadius" :min="0" :max="32" controls-position="right" style="flex: 1; min-width: 0" />
-                  <span class="designer-settings-label-inline">内边距</span>
-                  <el-input-number v-model="cardPadding" :min="0" :max="48" controls-position="right" style="flex: 1; min-width: 0" />
-                </div>
-
-                <label>阴影与透明度</label>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">模糊</span>
-                  <el-input-number v-model="cardShadowBlur" :min="0" :max="100" controls-position="right" style="flex: 1; min-width: 0" />
-                  <el-color-picker v-model="cardShadowColor" show-alpha />
-                </div>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">透明度</span>
-                  <el-input-number
-                    v-model="cardOpacity"
-                    :min="0"
-                    :max="1"
-                    :step="0.05"
-                    controls-position="right"
-                    style="flex: 1; min-width: 0"
-                  />
-                  <span class="designer-settings-label-inline">毛玻璃</span>
-                  <el-input-number v-model="cardBackdropBlur" :min="0" :max="20" controls-position="right" style="flex: 1; min-width: 0" />
-                </div>
-
-                <div class="designer-style-group-title">标题</div>
-                <el-checkbox v-if="selectedWidget.type !== 'title' && selectedWidget.type !== 'clock'" v-model="titleShow">
-                  显示标题栏
-                </el-checkbox>
-                <label>图标</label>
-                <el-select v-model="titleIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
-                  <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
-                </el-select>
-                <div class="designer-inline">
-                  <el-input-number v-model="titleFontSize" :min="10" :max="48" controls-position="right" style="width: 86px" />
-                  <el-color-picker v-model="titleColor" show-alpha />
-                  <el-select v-model="titleAlign" style="width: 88px">
-                    <el-option value="left" label="左对齐" />
-                    <el-option value="center" label="居中" />
-                    <el-option value="right" label="右对齐" />
-                  </el-select>
-                </div>
-                <label>标题装饰</label>
-                <el-select v-model="titleDecoration" style="width: 100%">
-                  <el-option value="none" label="无" />
-                  <el-option value="underline" label="整条下划线" />
-                  <el-option value="gradient-underline" label="渐变短线" />
-                  <el-option value="left-bar" label="左侧竖条" />
-                </el-select>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">高度</span>
-                  <el-input-number v-model="titleHeight" :min="0" :max="80" controls-position="right" style="flex: 1; min-width: 0" />
-                  <span class="designer-settings-label-inline">字距</span>
-                  <el-input-number v-model="titleLetterSpacing" :min="0" :max="8" controls-position="right" style="flex: 1; min-width: 0" />
-                </div>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">标题栏背景</span>
-                  <el-color-picker v-model="titleBackground" show-alpha />
-                </div>
-
-                <template v-if="selectedWidget.type === 'kpi'">
-                  <div class="designer-style-group-title">KPI 数值</div>
-                  <label>标签（留空用组件标题）</label>
-                  <el-input v-model="kpiLabel" placeholder="如 学生总数" />
-                  <label>图标</label>
-                  <el-select v-model="kpiIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
-                    <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
-                  </el-select>
-                  <label>布局</label>
-                  <el-radio-group v-model="kpiLayout" size="small">
-                    <el-radio-button value="label-top">标签在上</el-radio-button>
-                    <el-radio-button value="label-left">标签在左</el-radio-button>
-                    <el-radio-button value="value-only">仅数值</el-radio-button>
-                  </el-radio-group>
-                  <div class="designer-inline">
-                    <span class="designer-settings-label-inline">字号</span>
-                    <el-input-number
-                      v-model="kpiValueFontSize"
-                      :min="12"
-                      :max="120"
-                      controls-position="right"
-                      style="flex: 1; min-width: 0"
-                    />
-                    <el-color-picker v-model="kpiValueColor" show-alpha />
+                <el-collapse-item v-if="selectedWidget.type === 'echarts' && hasChartAxes" name="axisTitle" title="轴标题">
+                  <div class="designer-property-form">
+                    <label>横轴标题</label>
+                    <el-input v-model="chartXAxisTitle" placeholder="如 月份" maxlength="30" />
+                    <label>纵轴标题</label>
+                    <el-input v-model="chartYAxisTitle" placeholder="如 销售额" maxlength="30" />
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">字号</span>
+                      <el-input-number
+                        v-model="chartAxisTitleFontSize"
+                        :min="8"
+                        :max="24"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <el-color-picker v-model="chartAxisTitleColor" show-alpha title="轴标题颜色" />
+                    </div>
+                    <div class="designer-hint">纵轴标题自动竖向排列；颜色留空跟随图表风格预设。</div>
                   </div>
-                  <label>数字字体</label>
-                  <el-select v-model="kpiValueFontFamily" style="width: 100%">
-                    <el-option value="system" label="跟随主题" />
-                    <el-option value="number-digital" label="Orbitron（科技）" />
-                    <el-option value="number-condensed" label="Rajdhani（窄体）" />
-                  </el-select>
-                  <div class="designer-inline">
-                    <el-checkbox v-model="kpiValueBold">加粗</el-checkbox>
-                    <span class="designer-settings-label-inline">字距</span>
-                    <el-input-number
-                      v-model="kpiValueLetterSpacing"
-                      :min="0"
-                      :max="8"
-                      controls-position="right"
-                      style="flex: 1; min-width: 0"
-                    />
-                  </div>
-                  <label>单位</label>
-                  <div class="designer-inline">
-                    <el-input v-model="kpiUnitText" placeholder="如 人" style="width: 88px" />
-                    <el-input-number
-                      v-model="kpiUnitFontSize"
-                      :min="10"
-                      :max="40"
-                      controls-position="right"
-                      style="flex: 1; min-width: 0"
-                    />
-                    <el-color-picker v-model="kpiUnitColor" show-alpha />
-                  </div>
-                  <div class="designer-inline">
-                    <el-checkbox v-model="kpiAnimate">数值滚动动画</el-checkbox>
-                    <span class="designer-settings-label-inline">小数位</span>
-                    <el-input-number v-model="kpiDecimals" :min="0" :max="6" controls-position="right" style="width: 86px" />
-                  </div>
-                  <div class="designer-hint">单位留空时沿用「格式」中的单位，并按数值字号渲染。</div>
-                </template>
+                </el-collapse-item>
 
-                <div class="designer-style-group-title">内容区</div>
-                <div class="designer-inline">
-                  <span class="designer-settings-label-inline">内边距</span>
-                  <el-input-number v-model="bodyPadding" :min="0" :max="32" controls-position="right" style="flex: 1; min-width: 0" />
-                </div>
+                <el-collapse-item v-if="selectedWidget.type === 'echarts'" name="series" title="系列">
+                  <div class="designer-property-form">
+                    <label>图表风格</label>
+                    <el-select v-model="chartStylePreset" style="width: 100%">
+                      <el-option value="default" label="默认（跟随主题）" />
+                      <el-option value="tech" label="科技风" />
+                      <el-option value="minimal" label="简约" />
+                      <el-option value="dark" label="深色" />
+                    </el-select>
+                    <template v-if="chartStylePreset !== 'default' && ['bar', 'line', 'area'].includes(chartType)">
+                      <el-checkbox v-model="chartStyleGradient" class="designer-chart-option">渐变填充</el-checkbox>
+                      <el-checkbox v-model="chartStyleGlow" class="designer-chart-option">线条发光</el-checkbox>
+                    </template>
+                    <el-checkbox v-model="chartDataLabelVisible" class="designer-chart-option" @change="commitHistory">
+                      {{ chartType === 'map' ? '显示区域名称' : '数据标签' }}
+                    </el-checkbox>
+                    <div v-if="chartDataLabelVisible && chartType !== 'map'" class="designer-inline">
+                      <span class="designer-settings-label-inline">标签字号</span>
+                      <el-input-number
+                        v-model="chartLabelFontSize"
+                        :min="8"
+                        :max="24"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                    <div v-if="chartType === 'bar'" class="designer-inline">
+                      <span class="designer-settings-label-inline">柱条圆角</span>
+                      <el-input-number
+                        v-model="chartBarRadius"
+                        :min="0"
+                        :max="16"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                    <el-checkbox v-if="chartType === 'map'" v-model="chartMapRoam" class="designer-chart-option" @change="commitHistory">
+                      允许缩放拖动
+                    </el-checkbox>
+                    <div class="designer-hint">风格预设只填充未显式配置的样式；坐标轴、图例与标签以本页开关为准。</div>
+                  </div>
+                </el-collapse-item>
 
-                <el-button size="small" style="margin-top: 12px" @click="resetWidgetStyle">恢复默认皮肤</el-button>
+                <el-collapse-item v-if="selectedWidget.type === 'echarts' && chartType !== 'map'" name="legend" title="图例">
+                  <div class="designer-property-form">
+                    <el-checkbox v-model="chartLegendVisible" class="designer-chart-option" @change="commitHistory">显示图例</el-checkbox>
+                    <template v-if="chartLegendVisible">
+                      <label>位置</label>
+                      <el-radio-group v-model="chartLegendPosition" size="small" class="designer-config-radio">
+                        <el-radio-button value="top">上</el-radio-button>
+                        <el-radio-button value="bottom">下</el-radio-button>
+                        <el-radio-button value="left">左</el-radio-button>
+                        <el-radio-button value="right">右</el-radio-button>
+                      </el-radio-group>
+                      <div class="designer-inline">
+                        <span class="designer-settings-label-inline">字号</span>
+                        <el-input-number
+                          v-model="chartLegendFontSize"
+                          :min="8"
+                          :max="24"
+                          controls-position="right"
+                          style="flex: 1; min-width: 0"
+                        />
+                      </div>
+                    </template>
+                  </div>
+                </el-collapse-item>
+
+                <el-collapse-item v-if="selectedWidget.type === 'echarts' && hasChartAxes" name="xAxis" title="横轴">
+                  <div class="designer-property-form">
+                    <el-checkbox v-model="chartXAxisVisible" class="designer-chart-option" @change="commitHistory">显示横轴</el-checkbox>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">标签字号</span>
+                      <el-input-number
+                        v-model="chartXAxisLabelFontSize"
+                        :min="8"
+                        :max="24"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                  </div>
+                </el-collapse-item>
+
+                <el-collapse-item v-if="selectedWidget.type === 'echarts' && hasChartAxes" name="yAxis" title="纵轴">
+                  <div class="designer-property-form">
+                    <el-checkbox v-model="chartYAxisVisible" class="designer-chart-option" @change="commitHistory">显示纵轴</el-checkbox>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">标签字号</span>
+                      <el-input-number
+                        v-model="chartYAxisLabelFontSize"
+                        :min="8"
+                        :max="24"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                  </div>
+                </el-collapse-item>
+
+                <el-collapse-item v-if="selectedWidget.type === 'echarts' && hasChartAxes" name="grid" title="网格线与刻度标记">
+                  <div class="designer-property-form">
+                    <el-checkbox v-model="chartGridLinesVisible" class="designer-chart-option" @change="commitHistory"
+                      >显示网格线</el-checkbox
+                    >
+                    <template v-if="chartGridLinesVisible">
+                      <label>网格线样式</label>
+                      <el-select v-model="chartGridLineStyle" style="width: 100%">
+                        <el-option value="solid" label="实线" />
+                        <el-option value="dashed" label="虚线" />
+                        <el-option value="dotted" label="点线" />
+                      </el-select>
+                    </template>
+                    <el-checkbox v-model="chartAxisTick" class="designer-chart-option" @change="commitHistory">显示刻度标记</el-checkbox>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">轴线颜色</span>
+                      <el-color-picker v-model="chartAxisLineColor" show-alpha />
+                    </div>
+                  </div>
+                </el-collapse-item>
+
+                <el-collapse-item v-if="selectedWidget.type === 'kpi'" name="kpi" title="KPI 数值">
+                  <div class="designer-property-form">
+                    <label>标签（留空用组件标题）</label>
+                    <el-input v-model="kpiLabel" placeholder="如 学生总数" />
+                    <label>图标</label>
+                    <el-select v-model="kpiIcon" filterable allow-create clearable placeholder="选择图标（可留空）" style="width: 100%">
+                      <el-option v-for="icon in titleIconOptions" :key="icon" :label="icon" :value="icon" />
+                    </el-select>
+                    <label>布局</label>
+                    <el-radio-group v-model="kpiLayout" size="small" class="designer-config-radio">
+                      <el-radio-button value="label-top">标签在上</el-radio-button>
+                      <el-radio-button value="label-left">标签在左</el-radio-button>
+                      <el-radio-button value="value-only">仅数值</el-radio-button>
+                    </el-radio-group>
+                    <div class="designer-inline">
+                      <span class="designer-settings-label-inline">字号</span>
+                      <el-input-number
+                        v-model="kpiValueFontSize"
+                        :min="12"
+                        :max="120"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <el-color-picker v-model="kpiValueColor" show-alpha />
+                    </div>
+                    <label>数字字体</label>
+                    <el-select v-model="kpiValueFontFamily" style="width: 100%">
+                      <el-option value="system" label="跟随主题" />
+                      <el-option value="number-digital" label="Orbitron（科技）" />
+                      <el-option value="number-condensed" label="Rajdhani（窄体）" />
+                    </el-select>
+                    <div class="designer-inline">
+                      <el-checkbox v-model="kpiValueBold">加粗</el-checkbox>
+                      <span class="designer-settings-label-inline">字距</span>
+                      <el-input-number
+                        v-model="kpiValueLetterSpacing"
+                        :min="0"
+                        :max="8"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                    </div>
+                    <label>单位</label>
+                    <div class="designer-inline">
+                      <el-input v-model="kpiUnitText" placeholder="如 人" style="width: 88px" />
+                      <el-input-number
+                        v-model="kpiUnitFontSize"
+                        :min="10"
+                        :max="40"
+                        controls-position="right"
+                        style="flex: 1; min-width: 0"
+                      />
+                      <el-color-picker v-model="kpiUnitColor" show-alpha />
+                    </div>
+                    <div class="designer-inline">
+                      <el-checkbox v-model="kpiAnimate">数值滚动动画</el-checkbox>
+                      <span class="designer-settings-label-inline">小数位</span>
+                      <el-input-number v-model="kpiDecimals" :min="0" :max="6" controls-position="right" style="width: 86px" />
+                    </div>
+                    <div class="designer-hint">单位留空时沿用「格式」中的单位，并按数值字号渲染。</div>
+                  </div>
+                </el-collapse-item>
+
+                <el-collapse-item v-if="selectedWidget.type === 'echarts'" name="advanced" title="高级配置（ECharts option）">
+                  <div class="designer-property-form">
+                    <div class="designer-hint">
+                      直接编辑该组件的 ECharts option，可配置 tooltip、legend、grid、坐标轴样式和系列样式。字段映射与数据仍由基础配置控制。
+                    </div>
+                    <el-alert v-if="customOptionError" type="error" :title="customOptionError" :closable="false" class="mb-2" />
+                    <textarea v-model="customOptionText" class="designer-json designer-json--compact" spellcheck="false"></textarea>
+                    <div class="designer-inline">
+                      <el-button type="primary" @click="applyCustomOption">应用配置</el-button>
+                      <el-button @click="resetCustomOption">恢复默认</el-button>
+                    </div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+
+              <div class="designer-config-footer">
+                <el-button size="small" @click="resetWidgetStyle">恢复默认皮肤</el-button>
                 <div class="designer-hint">样式只影响展示，不影响数据绑定与筛选；留空项回落到主题 token。</div>
-              </div>
-            </el-tab-pane>
-
-            <el-tab-pane label="自定义设置" name="custom">
-              <div class="designer-property-form">
-                <template v-if="selectedWidget.type === 'echarts'">
-                  <div class="designer-hint">
-                    直接编辑该组件的 ECharts option，可配置 tooltip、legend、grid、坐标轴样式和系列样式。字段映射与数据仍由基础设置控制。
-                  </div>
-                  <el-alert v-if="customOptionError" type="error" :title="customOptionError" :closable="false" class="mb-2" />
-                  <textarea v-model="customOptionText" class="designer-json designer-json--compact" spellcheck="false"></textarea>
-                  <div class="designer-inline">
-                    <el-button type="primary" @click="applyCustomOption">应用配置</el-button>
-                    <el-button @click="resetCustomOption">恢复默认</el-button>
-                  </div>
-                </template>
-                <div v-else class="designer-hint">当前组件没有 ECharts 配置项。</div>
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -1609,6 +1761,13 @@
 
 .designer-sidebar {
   padding-top: 4px;
+}
+
+/* 属性面板承载组件配置，略宽于左侧组件库，保证手风琴分组内的表单可读。 */
+.designer-properties {
+  width: 306px;
+  min-width: 288px;
+  padding: 14px 14px 18px;
 }
 
 .designer-sidebar-tabs :deep(.el-tabs__header) {
@@ -1929,6 +2088,38 @@
   justify-content: space-between;
 }
 
+/* 组件配置头部：组件名 + 数据集，对齐参考稿的抽屉标题。 */
+.designer-inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.designer-inspector-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.designer-inspector-title {
+  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.designer-inspector-sub {
+  overflow: hidden;
+  color: #909399;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .designer-settings-value {
   display: flex;
   gap: 8px;
@@ -1997,8 +2188,12 @@
 }
 
 .designer-property-tabs :deep(.el-tabs__item) {
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.designer-property-tabs :deep(.el-tabs__item.is-active) {
+  font-weight: 600;
 }
 
 .designer-property-form {
@@ -2041,17 +2236,87 @@
   gap: 6px;
 }
 
-.designer-chart-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+/* 自定义配置：参考设计稿的分组手风琴，去掉卡片感，仅保留分隔线。 */
+.designer-config-collapse {
+  --el-collapse-border-color: transparent;
+  --el-collapse-header-height: 48px;
+
+  margin-top: 2px;
 }
 
-.designer-chart-style-row {
+.designer-config-collapse :deep(.el-collapse-item__header) {
+  height: 48px;
+  padding: 0 2px;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 48px;
+  background: transparent;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.designer-config-collapse :deep(.el-collapse-item__arrow) {
+  margin: 0 2px 0 auto;
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.designer-config-collapse :deep(.el-collapse-item__wrap) {
+  background: transparent;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.designer-config-collapse :deep(.el-collapse-item__content) {
+  padding: 2px 2px 16px;
+  color: #606266;
+  font-size: 12px;
+}
+
+.designer-config-collapse :deep(.el-collapse-item__content > .designer-property-form) {
+  margin-top: 4px;
+}
+
+.designer-config-subtitle {
+  margin: 14px 0 2px;
+  padding-bottom: 6px;
+  color: #303133;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px dashed #ebeef5;
+}
+
+.designer-config-subtitle:first-child {
+  margin-top: 0;
+}
+
+.designer-config-collapse .designer-chart-option {
+  margin-top: 6px;
+}
+
+.designer-config-radio {
   display: flex;
-  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.designer-config-radio :deep(.el-radio-button) {
+  flex: 1;
+  min-width: 0;
+}
+
+.designer-config-radio :deep(.el-radio-button__inner) {
+  width: 100%;
+  padding: 7px 4px;
+  font-size: 12px;
+}
+
+.designer-config-footer {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-items: center;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #ebeef5;
 }
 
 .designer-chart-option {
@@ -2328,17 +2593,6 @@
 .designer-json--compact {
   height: 320px;
   min-height: 180px;
-}
-
-.designer-style-group-title {
-  margin: 14px 0 6px;
-  color: #409eff;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.designer-style-group-title:first-child {
-  margin-top: 0;
 }
 
 .designer-map-layer {

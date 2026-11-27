@@ -74,6 +74,8 @@ public class DashboardSpecValidator {
     private static final Set<String> TITLE_DECORATIONS = Set.of("none", "underline", "gradient-underline", "left-bar");
     private static final Set<String> KPI_LAYOUTS = Set.of("label-top", "label-left", "value-only");
     private static final Set<String> CHART_STYLE_PRESETS = Set.of("tech", "minimal", "dark");
+    private static final Set<String> LEGEND_POSITIONS = Set.of("top", "bottom", "left", "right");
+    private static final int MAX_AXIS_TITLE_LENGTH = 30;
     private static final Set<String> TITLE_FRAMES = Set.of("none", "tech-frame", "bracket");
     private static final Set<String> TITLE_ALIGNS_PROPS = Set.of("left", "center", "right");
     private static final Set<String> CLOCK_FORMATS = Set.of("date", "datetime", "time", "date-week");
@@ -1590,6 +1592,55 @@ public class DashboardSpecValidator {
             if (chart.containsKey(key)) {
                 result.put(key, Boolean.parseBoolean(String.valueOf(chart.get(key))));
             }
+        }
+        String legendPosition = trimToNull(asString(chart.get("legendPosition")));
+        if (legendPosition != null && LEGEND_POSITIONS.contains(legendPosition.toLowerCase())) {
+            result.put("legendPosition", legendPosition.toLowerCase());
+        }
+        putIntIfPresent(result, "legendFontSize", chart.get("legendFontSize"), 8, 24);
+        putIntIfPresent(result, "axisTitleFontSize", chart.get("axisTitleFontSize"), 8, 24);
+        String axisTitleColor = normalizeColor(chart.get("axisTitleColor"), null);
+        if (axisTitleColor != null) {
+            result.put("axisTitleColor", axisTitleColor);
+        }
+        putIntIfPresent(result, "labelFontSize", chart.get("labelFontSize"), 8, 24);
+        putIntIfPresent(result, "barRadius", chart.get("barRadius"), 0, 16);
+        for (String key : List.of("xAxis", "yAxis")) {
+            Map<String, Object> axis = asMap(chart.get(key));
+            if (!axis.isEmpty()) {
+                Map<String, Object> normalizedAxis = normalizeChartAxisStyle(axis);
+                if (!normalizedAxis.isEmpty()) {
+                    result.put(key, normalizedAxis);
+                }
+            }
+        }
+        return result;
+    }
+
+    /** 单个坐标轴的样式覆盖：显隐、标题、标签、刻度与网格线。 */
+    private Map<String, Object> normalizeChartAxisStyle(Map<String, Object> axis) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (axis.containsKey("show")) {
+            result.put("show", Boolean.parseBoolean(String.valueOf(axis.get("show"))));
+        }
+        String title = trimToNull(asString(axis.get("title")));
+        if (title != null && title.length() <= MAX_AXIS_TITLE_LENGTH) {
+            result.put("title", title);
+        }
+        putIntIfPresent(result, "labelFontSize", axis.get("labelFontSize"), 8, 24);
+        if (axis.containsKey("tick")) {
+            result.put("tick", Boolean.parseBoolean(String.valueOf(axis.get("tick"))));
+        }
+        String lineColor = normalizeColor(axis.get("lineColor"), null);
+        if (lineColor != null) {
+            result.put("lineColor", lineColor);
+        }
+        if (axis.containsKey("grid")) {
+            result.put("grid", Boolean.parseBoolean(String.valueOf(axis.get("grid"))));
+        }
+        String gridStyle = trimToNull(asString(axis.get("gridStyle")));
+        if (gridStyle != null && BORDER_STYLES.contains(gridStyle.toLowerCase())) {
+            result.put("gridStyle", gridStyle.toLowerCase());
         }
         return result;
     }

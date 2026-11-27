@@ -342,6 +342,27 @@ export interface WidgetBodyStyle {
 
 export type ChartStylePreset = 'tech' | 'minimal' | 'dark';
 
+export type LegendPosition = 'top' | 'bottom' | 'left' | 'right';
+
+export type LineStyleType = 'solid' | 'dashed' | 'dotted';
+
+/** 单个坐标轴的样式覆盖：显隐、标题、标签、刻度与网格线。 */
+export interface WidgetChartAxisStyle {
+  show?: boolean;
+  /** 轴标题文字；留空沿用 echartsOption 中的 name。 */
+  title?: string;
+  /** 轴标签字号。 */
+  labelFontSize?: number;
+  /** 是否显示刻度标记。 */
+  tick?: boolean;
+  /** 轴线颜色；留空跟随图表风格预设。 */
+  lineColor?: string;
+  /** 网格线（分割线）显隐。 */
+  grid?: boolean;
+  /** 网格线样式。 */
+  gridStyle?: LineStyleType;
+}
+
 /** 图表样式预设：只填充缺省样式，echartsOption 中的显式配置优先。 */
 export interface WidgetChartStyle {
   preset?: ChartStylePreset;
@@ -352,6 +373,22 @@ export interface WidgetChartStyle {
   showAxis?: boolean;
   showLegend?: boolean;
   showLabel?: boolean;
+  /** 图例位置。 */
+  legendPosition?: LegendPosition;
+  /** 图例文字字号。 */
+  legendFontSize?: number;
+  /** 轴标题字号。 */
+  axisTitleFontSize?: number;
+  /** 轴标题颜色；留空跟随图表风格预设。 */
+  axisTitleColor?: string;
+  /** 数据标签字号。 */
+  labelFontSize?: number;
+  /** 柱条圆角。 */
+  barRadius?: number;
+  /** 横轴样式覆盖。 */
+  xAxis?: WidgetChartAxisStyle;
+  /** 纵轴样式覆盖。 */
+  yAxis?: WidgetChartAxisStyle;
 }
 
 export type KpiLayout = 'label-top' | 'label-left' | 'value-only';

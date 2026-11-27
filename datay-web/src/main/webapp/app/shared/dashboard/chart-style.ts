@@ -1,10 +1,10 @@
-import type { ChartType, WidgetChartStyle, WidgetStyle } from './types';
+import type { ChartType, LegendPosition, WidgetChartAxisStyle, WidgetChartStyle, WidgetStyle } from './types';
 
 /**
  * 图表样式预设。
  *
- * <p>预设只填充 `echartsOption` 中没有显式设置的键，避免覆盖用户在「自定义设置」里的调整；
- * `style.chart` 中的显式开关（渐变/发光/轴/图例/标签）优先级最高。
+ * <p>预设只填充 `echartsOption` 中没有显式设置的键，避免覆盖用户在「自定义配置」里的调整；
+ * `style.chart` 中的显式配置（渐变/发光/轴/图例/标签/轴标题/网格线）优先级最高。
  */
 interface PresetSkin {
   axis: string;
@@ -139,22 +139,56 @@ function gradientColor(color: string, kind: 'bar' | 'area'): Record<string, any>
   };
 }
 
-function styleAxis(axis: any, skin: PresetSkin, show?: boolean): any {
+function styleAxis(
+  axis: any,
+  skin: PresetSkin,
+  config: WidgetChartAxisStyle | undefined,
+  show: boolean | undefined,
+  key: 'xAxis' | 'yAxis',
+  titleStyle: { fontSize?: number; color?: string },
+): any {
   if (!axis || typeof axis !== 'object') {
     return axis;
   }
   const isCategory = axis.type === 'category';
+  const labelFontSize = config?.labelFontSize ?? 11;
+  const lineColor = config?.lineColor || skin.axis;
+  const splitLineType = config?.gridStyle ?? 'dashed';
   const defaults = {
-    axisLine: { show: true, lineStyle: { color: skin.axis } },
-    axisTick: { show: false },
-    axisLabel: { color: skin.label, fontSize: 11 },
-    splitLine: isCategory ? { show: false } : { show: true, lineStyle: { color: skin.split, type: 'dashed' } },
+    axisLine: { show: true, lineStyle: { color: lineColor } },
+    axisTick: { show: config?.tick ?? false },
+    axisLabel: { color: skin.label, fontSize: labelFontSize },
+    splitLine: isCategory ? { show: false } : { show: true, lineStyle: { color: skin.split, type: splitLineType } },
   };
   const styled = fillDefaults(axis, defaults);
-  return show === false ? { ...styled, show: false } : styled;
+  if (config?.grid !== undefined) {
+    styled.splitLine = { ...(styled.splitLine ?? {}), show: config.grid };
+  }
+  const title = typeof config?.title === 'string' ? config.title.trim() : '';
+  if (title) {
+    styled.name = title;
+    styled.nameLocation = 'middle';
+    styled.nameGap = key === 'yAxis' ? 42 : isCategory ? 28 : 32;
+    styled.nameTextStyle = fillDefaults(styled.nameTextStyle, {
+      color: titleStyle.color || skin.label,
+      fontSize: titleStyle.fontSize ?? 12,
+    });
+    if (key === 'yAxis') {
+      styled.nameRotate = 90;
+    }
+  }
+  const visible = config?.show ?? show;
+  return visible === false ? { ...styled, show: false } : styled;
 }
 
-function styleLegend(legend: any, skin: PresetSkin, show?: boolean): any {
+const LEGEND_LAYOUTS: Record<LegendPosition, Record<string, any>> = {
+  top: { top: 0, left: 'center', orient: 'horizontal' },
+  bottom: { bottom: 0, left: 'center', orient: 'horizontal' },
+  left: { left: 0, top: 'middle', orient: 'vertical' },
+  right: { right: 0, top: 'middle', orient: 'vertical' },
+};
+
+function styleLegend(legend: any, skin: PresetSkin, show: boolean | undefined, position?: LegendPosition, fontSize?: number): any {
   const apply = (item: any) => {
     const styled = fillDefaults(item, {
       textStyle: { color: skin.legendText },
@@ -163,6 +197,15 @@ function styleLegend(legend: any, skin: PresetSkin, show?: boolean): any {
       itemHeight: 10,
       itemGap: 12,
     });
+    if (fontSize) {
+      styled.textStyle = { ...(styled.textStyle ?? {}), fontSize };
+    }
+    if (position) {
+      for (const key of ['top', 'right', 'bottom', 'left', 'orient']) {
+        delete styled[key];
+      }
+      Object.assign(styled, LEGEND_LAYOUTS[position]);
+    }
     return show === undefined ? styled : { ...styled, show };
   };
   return Array.isArray(legend) ? legend.map(apply) : apply(legend);
@@ -194,8 +237,9 @@ function styleSeries(series: Record<string, any>, index: number, context: ChartS
   const color = seriesColor(series, index, context.palette);
 
   if (type === 'bar') {
+    const barRadius = chart.barRadius ?? skin.barRadius;
     series.itemStyle = fillDefaults(series.itemStyle, {
-      borderRadius: [skin.barRadius, skin.barRadius, 0, 0],
+      borderRadius: [barRadius, barRadius, 0, 0],
     });
     const useGradient = chart.gradient ?? skin.gradient;
     if (color && series.itemStyle.color === undefined) {
@@ -228,7 +272,9 @@ function styleSeries(series: Record<string, any>, index: number, context: ChartS
   }
 
   if (chart.showLabel === true) {
-    series.label = fillDefaults(series.label, { show: true, color: skin.label });
+    series.label = fillDefaults(series.label, { show: true, color: skin.label, fontSize: chart.labelFontSize ?? 11 });
+  } else if (chart.labelFontSize && series.label?.show === true) {
+    series.label = { ...series.label, fontSize: chart.labelFontSize };
   }
 }
 
@@ -250,16 +296,37 @@ export function applyChartStyle(option: Record<string, any>, context: ChartStyle
   }
 
   const cartesian = ['bar', 'line', 'area', 'scatter', 'heatmap', 'boxplot', 'waterfall'].includes(context.chartType);
+  const titleStyle = { fontSize: chart.axisTitleFontSize, color: chart.axisTitleColor };
+  // 多轴图表只把标题应用到首个坐标轴，避免左右双轴出现同名标题。
+  const axisConfig = (config: WidgetChartAxisStyle | undefined, index: number): WidgetChartAxisStyle | undefined =>
+    index === 0 ? config : config ? { ...config, title: undefined } : undefined;
   if (cartesian) {
     option.xAxis = Array.isArray(option.xAxis)
-      ? option.xAxis.map((axis: any) => styleAxis(axis, skin, chart.showAxis))
-      : styleAxis(option.xAxis, skin, chart.showAxis);
+      ? option.xAxis.map((axis: any, index: number) =>
+          styleAxis(axis, skin, axisConfig(chart.xAxis, index), chart.showAxis, 'xAxis', titleStyle),
+        )
+      : styleAxis(option.xAxis, skin, chart.xAxis, chart.showAxis, 'xAxis', titleStyle);
     option.yAxis = Array.isArray(option.yAxis)
-      ? option.yAxis.map((axis: any) => styleAxis(axis, skin, chart.showAxis))
-      : styleAxis(option.yAxis, skin, chart.showAxis);
+      ? option.yAxis.map((axis: any, index: number) =>
+          styleAxis(axis, skin, axisConfig(chart.yAxis, index), chart.showAxis, 'yAxis', titleStyle),
+        )
+      : styleAxis(option.yAxis, skin, chart.yAxis, chart.showAxis, 'yAxis', titleStyle);
+  }
+  // 轴标题会占用坐标轴外侧空间，按需扩大 grid，避免文字被组件边缘裁切。
+  const grids = Array.isArray(option.grid) ? option.grid : option.grid ? [option.grid] : [];
+  for (const grid of grids) {
+    if (!grid || typeof grid !== 'object') {
+      continue;
+    }
+    if (chart.xAxis?.title?.trim() && typeof grid.bottom === 'number' && grid.bottom < 58) {
+      grid.bottom = 58;
+    }
+    if (chart.yAxis?.title?.trim() && typeof grid.left === 'number' && grid.left < 58) {
+      grid.left = 58;
+    }
   }
   if (option.legend !== undefined || chart.showLegend === true) {
-    option.legend = styleLegend(option.legend, skin, chart.showLegend);
+    option.legend = styleLegend(option.legend, skin, chart.showLegend, chart.legendPosition, chart.legendFontSize);
   }
   if (option.tooltip !== undefined) {
     option.tooltip = styleTooltip(option.tooltip, skin);

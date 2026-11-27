@@ -1887,6 +1887,103 @@ class DashboardSpecValidatorTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldNormalizeChartAxisAndLegendStyle() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "bar" },
+                  "style": {
+                    "chart": {
+                      "legendPosition": "left",
+                      "legendFontSize": 14,
+                      "axisTitleFontSize": 13,
+                      "axisTitleColor": "#ff8800",
+                      "labelFontSize": 15,
+                      "barRadius": 8,
+                      "xAxis": { "show": false, "title": "月份", "labelFontSize": 12, "tick": true, "lineColor": "#123456" },
+                      "yAxis": { "title": "销售额", "grid": true, "gridStyle": "dotted" }
+                    }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> chartStyle = (Map<String, Object>) ((Map<String, Object>) widgets.get(0).get("style")).get("chart");
+
+        assertThat(chartStyle)
+            .containsEntry("legendPosition", "left")
+            .containsEntry("legendFontSize", 14)
+            .containsEntry("axisTitleFontSize", 13)
+            .containsEntry("axisTitleColor", "#ff8800")
+            .containsEntry("labelFontSize", 15)
+            .containsEntry("barRadius", 8);
+        assertThat((Map<String, Object>) chartStyle.get("xAxis"))
+            .containsEntry("show", false)
+            .containsEntry("title", "月份")
+            .containsEntry("labelFontSize", 12)
+            .containsEntry("tick", true)
+            .containsEntry("lineColor", "#123456");
+        assertThat((Map<String, Object>) chartStyle.get("yAxis"))
+            .containsEntry("title", "销售额")
+            .containsEntry("grid", true)
+            .containsEntry("gridStyle", "dotted");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDropInvalidChartAxisAndLegendStyle() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [ { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } } ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "bar" },
+                  "style": {
+                    "chart": {
+                      "legendPosition": "middle",
+                      "axisTitleColor": "not-a-color",
+                      "xAxis": { "title": "这是一个明显超过三十个字符长度的坐标轴标题用于验证长度限制被丢弃", "gridStyle": "wavy" }
+                    }
+                  }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> style = (Map<String, Object>) widgets.get(0).get("style");
+        Map<String, Object> chartStyle = style == null ? null : (Map<String, Object>) style.get("chart");
+
+        // 所有配置都非法时整段 style.chart 都会被丢弃。
+        assertThat(chartStyle).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldNormalizeTitleAndClockWidgets() {
         String spec =
             """

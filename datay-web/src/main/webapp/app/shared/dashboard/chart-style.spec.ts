@@ -124,4 +124,105 @@ describe('chart-style', () => {
     expect((option.legend as any).show).toBe(false);
     expect(option.series[0].label).toMatchObject({ show: true });
   });
+
+  it('轴标题写入首个坐标轴并应用字号与颜色', () => {
+    const option = baseOption();
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({
+        preset: 'tech',
+        axisTitleFontSize: 13,
+        axisTitleColor: '#ff8800',
+        xAxis: { title: '月份' },
+        yAxis: { title: '销售额' },
+      }),
+      palette: ['#2fa8ff'],
+      dark: true,
+    });
+
+    const xAxis = option.xAxis as any;
+    expect(xAxis.name).toBe('月份');
+    expect(xAxis.nameLocation).toBe('middle');
+    expect(xAxis.nameTextStyle).toMatchObject({ fontSize: 13, color: '#ff8800' });
+
+    const yAxis = option.yAxis as any;
+    expect(yAxis.name).toBe('销售额');
+    expect(yAxis.nameRotate).toBe(90);
+  });
+
+  it('轴标题为坐标轴预留空间', () => {
+    const option = { ...baseOption(), grid: { left: 48, right: 24, top: 40, bottom: 36 } };
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({ preset: 'tech', xAxis: { title: '月份' }, yAxis: { title: '销售额' } }),
+      palette: [],
+      dark: true,
+    });
+
+    expect(option.grid).toMatchObject({ left: 58, bottom: 58 });
+  });
+
+  it('双轴图表只在首个坐标轴写入标题', () => {
+    const option: Record<string, any> = {
+      xAxis: { type: 'category', data: ['a'] },
+      yAxis: [{ type: 'value' }, { type: 'value' }],
+      series: [{ type: 'bar', data: [1] }],
+    };
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({ preset: 'tech', yAxis: { title: '金额' } }),
+      palette: [],
+      dark: true,
+    });
+
+    expect((option.yAxis as any[])[0].name).toBe('金额');
+    expect((option.yAxis as any[])[1].name).toBeUndefined();
+  });
+
+  it('图例位置与字号可覆盖', () => {
+    const option = baseOption();
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({ preset: 'tech', legendPosition: 'left', legendFontSize: 14 }),
+      palette: [],
+      dark: true,
+    });
+
+    const legend = option.legend as any;
+    expect(legend).toMatchObject({ left: 0, top: 'middle', orient: 'vertical' });
+    expect(legend.top).toBe('middle');
+    expect(legend.textStyle.fontSize).toBe(14);
+  });
+
+  it('网格线样式、刻度标记与轴标签字号可覆盖', () => {
+    const option = baseOption();
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({
+        preset: 'tech',
+        yAxis: { grid: true, gridStyle: 'dotted', tick: true, labelFontSize: 14, lineColor: '#123456' },
+      }),
+      palette: [],
+      dark: true,
+    });
+
+    const yAxis = option.yAxis as any;
+    expect(yAxis.splitLine).toMatchObject({ show: true, lineStyle: { type: 'dotted' } });
+    expect(yAxis.axisTick.show).toBe(true);
+    expect(yAxis.axisLabel.fontSize).toBe(14);
+    expect(yAxis.axisLine.lineStyle.color).toBe('#123456');
+  });
+
+  it('柱条圆角与数据标签字号可覆盖', () => {
+    const option = baseOption();
+    applyChartStyle(option, {
+      chartType: 'bar',
+      style: style({ preset: 'tech', barRadius: 8, showLabel: true, labelFontSize: 15 }),
+      palette: ['#2fa8ff'],
+      dark: true,
+    });
+
+    expect((option.series[0].itemStyle as any).borderRadius).toEqual([8, 8, 0, 0]);
+    expect(option.series[0].label).toMatchObject({ show: true, fontSize: 15 });
+  });
 });
