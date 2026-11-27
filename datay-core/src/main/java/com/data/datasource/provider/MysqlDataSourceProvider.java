@@ -42,7 +42,7 @@ public class MysqlDataSourceProvider extends JdbcDataSourceProvider {
         props.put("cachePrepStmts", "true");
         props.put("prepStmtCacheSize", "250");
         props.put("prepStmtCacheSqlLimit", "2048");
-        props.put("useServerPrepStmts", "true");
+        props.put("useServerPrepStmts", "false");
         props.put("useLocalSessionState", "true");
         props.put("rewriteBatchedStatements", "true");
         props.put("cacheResultSetMetadata", "true");
