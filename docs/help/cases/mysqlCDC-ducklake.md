@@ -101,7 +101,7 @@ FORMAT_DESCRIPTION ──▶ TABLE_MAP ──▶ WRITE_ROWS / UPDATE_ROWS / DELE
 开启 `snapshot=true` 后，组件首次运行（无断点、未完成快照）会：
 
 1. 先查询并记录**当前 Binlog 位点**（MySQL 8.4+ 使用 `SHOW BINARY LOG STATUS`，旧版本回退 `SHOW MASTER STATUS`）作为增量起点；
-2. 对 `databaseNamePattern` + `tableNamePattern` 范围内的表做一次性全量读取（单个 `REPEATABLE READ` 事务），
+2. 对 `databaseNamePattern` + `tableNamePattern` 范围内的表做一次性全量读取（不使用跨表单事务，单表/分区读取完成后即释放事务），
    按 `snapshotFetchSize` 分批以 `INSERT` 事件下发；
 3. 再从步骤 1 记录的位点启动 Binlog 增量同步，快照窗口内的变更由增量流补放，保证不丢数；
 4. 完成后写入 `snapshotDone` 标记，重启不会重复全量。

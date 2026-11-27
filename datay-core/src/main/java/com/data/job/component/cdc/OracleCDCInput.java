@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Oracle CDC 采集组件。
@@ -65,6 +66,9 @@ public class OracleCDCInput extends FlowComponent {
 
     private volatile boolean started = false;
 
+    /** 启动互斥标志：并发线程只允许一个线程真正启动采集器/快照。 */
+    private final AtomicBoolean starting = new AtomicBoolean(false);
+
     public OracleCDCInput() {
         setType(ComponentType.SOURCE);
     }
@@ -75,10 +79,18 @@ public class OracleCDCInput extends FlowComponent {
             executeDebugMock();
             return;
         }
-        if (!started) {
-            startCollector();
-        } else {
+        if (started) {
             logInfo("Oracle LogMiner 采集器已经在运行中");
+            return;
+        }
+        if (!starting.compareAndSet(false, true)) {
+            logInfo("Oracle LogMiner 采集器正在启动中，当前并发线程跳过");
+            return;
+        }
+        try {
+            startCollector();
+        } finally {
+            starting.set(false);
         }
     }
 
@@ -166,7 +178,8 @@ public class OracleCDCInput extends FlowComponent {
                 Map<String, Object> startStatus = new LinkedHashMap<>();
                 startStatus.put("binlogPosition", consistentScn);
                 logInfo("开始读取历史全量数据（snapshot），起始 SCN=" + consistentScn + "，表范围=" + collector.getTargetTables());
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables(), startStatus);
+                new CdcSnapshotReader(this, datasource, snapshotFetchSize, false, getParallelism())
+                    .snapshot(collector.getTargetTables(), startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
             }
 

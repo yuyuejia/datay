@@ -35,6 +35,8 @@ MySQLBinlogInput 是一个基于MySQL二进制日志（Binlog）的数据输入�
 
 > 开启 `snapshot` 后，快照读取范围与增量同步范围一致：库由 `databaseNamePattern` 控制（为空回退数据源 schema），表由 `tableNamePattern` 控制；范围外的表不会被读取。
 
+> 快照读取不使用跨表单事务，单个表/分区读取完成后即释放事务。组件并发数 `parallelism > 1` 时，会优先按单列主键把表切分为多个区间并发读取；没有可用单列主键时按整表读取。实际并发线程数不超过 `10`。
+
 > 开启 `includeEventMeta` 后，增量 INSERT/UPDATE/DELETE 数据行会追加 `_event_type` 和 `_timestamp`（使用 Binlog 事件头时间，不额外生成），并同步扩展表元数据供下游自动建表；快照数据不是 Binlog 事件，没有对应事件时间，因此快照行只追加 `_event_type=INSERT`。若源表已有同名字段，则保留源值不覆盖。
 
 ## 数据源配置 (DatasourceInfo)

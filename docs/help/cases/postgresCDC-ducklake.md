@@ -92,7 +92,7 @@ Begin ──▶ Relation ──▶ Insert / Update / Delete ──▶ ... ──
 开启 `snapshot=true` 后，组件首次运行（无断点、未完成快照）会：
 
 1. 先创建 publication 与 replication slot，并取 slot 一致点作为增量起点（保证增量不丢）；
-2. 对 `schema` + `tableNamePattern` 范围内的表做一次性全量读取（`REPEATABLE READ` 单事务），按 `snapshotFetchSize` 分批下发；
+2. 对 `schema` + `tableNamePattern` 范围内的表做一次性全量读取（不使用跨表单事务，单表/分区读取完成后即释放事务），按 `snapshotFetchSize` 分批下发；
 3. 再从一致点启动逻辑复制增量同步；
 4. 完成后写入 `snapshotDone` 标记，重启不会重复全量。
 

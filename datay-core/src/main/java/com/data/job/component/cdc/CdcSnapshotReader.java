@@ -6,6 +6,7 @@ import com.data.datasource.provider.JdbcDataSourceProvider;
 import com.data.job.DatasourceInfo;
 import com.data.job.FlowComponent;
 import com.data.job.FlowFile;
+import com.data.job.util.TablePartitionPlanner;
 import com.data.metadata.ColumnMeta;
 import com.data.metadata.DatabaseConverter;
 import com.data.metadata.TableMeta;
@@ -14,24 +15,43 @@ import com.data.metadata.util.DBUtils;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * CDC 历史全量快照读取器。
  *
- * <p>在 CDC 增量同步启动之前，对**指定的表范围**做一次一致性读取，并按 {@code INSERT}
+ * <p>在 CDC 增量同步启动之前，对**指定的表范围**做一次全量读取，并按 {@code INSERT}
  * 事件分批下发到下游，实现“先全量、后增量”的同步。表范围由调用方根据 CDC 的库/表过滤条件解析后传入，
  * 确保快照范围与增量同步范围一致。
  *
- * <p>采用简单一致性策略：读快照前已记录 CDC 起点位点，快照读取在单个
- * {@code REPEATABLE READ} 事务内完成；快照窗口内的变更由后续 CDC 流补放。
+ * <p>读取策略：
+ * <ul>
+ *   <li>并发数大于 1 时，优先按单列主键使用 {@link TablePartitionPlanner} 把单表切分为多个区间，
+ *       由多个线程并发读取；没有可用分区字段时按表分发，多个表也可以并行读取。
+ *       实际工作线程数不超过 {@value #MAX_SNAPSHOT_WORKERS}，避免超过连接池上限。</li>
+ *   <li>每个工作线程使用独立连接，按任务提交，不再把所有表包在一个长事务里，
+ *       避免 SQL Server 等数据库在快照期间长时间持有共享锁。</li>
+ *   <li>快照读取的是“当前已提交数据”的近似快照；读取期间发生的变更由 CDC 从预先记录的
+ *       增量起点补放，因此可能出现少量重复，下游按幂等写入处理。</li>
+ * </ul>
  */
 public class CdcSnapshotReader {
+
+    /** 快照最大工作线程数，避免超过连接池上限后大量线程等待连接超时。 */
+    private static final int MAX_SNAPSHOT_WORKERS = 10;
 
     /** 快照表引用（schema/database + table）。 */
     public static class TableRef {
@@ -58,16 +78,29 @@ public class CdcSnapshotReader {
     private final int fetchSize;
     /** 是否在输出数据行中追加事件类型和时间戳。 */
     private final boolean includeEventMeta;
+    /** 快照读取并发数，<=1 时串行读取。 */
+    private final int parallelism;
 
     public CdcSnapshotReader(FlowComponent component, DatasourceInfo datasource, Integer fetchSize) {
-        this(component, datasource, fetchSize, false);
+        this(component, datasource, fetchSize, false, 1);
     }
 
     public CdcSnapshotReader(FlowComponent component, DatasourceInfo datasource, Integer fetchSize, boolean includeEventMeta) {
+        this(component, datasource, fetchSize, includeEventMeta, 1);
+    }
+
+    public CdcSnapshotReader(
+        FlowComponent component,
+        DatasourceInfo datasource,
+        Integer fetchSize,
+        boolean includeEventMeta,
+        int parallelism
+    ) {
         this.component = component;
         this.datasource = datasource;
         this.fetchSize = (fetchSize == null || fetchSize <= 0) ? 10000 : fetchSize;
         this.includeEventMeta = includeEventMeta;
+        this.parallelism = Math.max(1, parallelism);
     }
 
     /**
@@ -96,55 +129,214 @@ public class CdcSnapshotReader {
         }
         String dbType = DBUtils.getDBType(datasource.getUrl());
         JdbcDataSourceProvider provider = DBUtils.resolveJdbcProvider(datasource);
+        TypeConverter sourceConverter = DatabaseConverter.getConverter(dbType);
 
+        SnapshotPlan plan;
+        // 规划阶段只读取元数据和分区边界，连接可以立即释放
         try (Connection conn = DBUtils.getConnection(datasource)) {
-            conn.setAutoCommit(false);
-            try {
-                conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-            } catch (SQLException ignored) {
-            }
-
-            TableMeta lastTable = null;
-            try {
-                for (TableRef ref : tables) {
-                    lastTable = snapshotTable(conn, dbType, provider, ref.getSchema(), ref.getTable());
-                }
-                conn.rollback();
-            } catch (SQLException e) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ignored) {
-                }
-                throw e;
-            }
-
-            markSnapshotDone(lastTable, startStatus);
+            plan = buildPlan(conn, dbType, provider, sourceConverter, tables);
         }
+
+        executePlan(plan, dbType, provider, sourceConverter);
+        markSnapshotDone(plan.lastTable, startStatus);
     }
 
-    private TableMeta snapshotTable(
+    /**
+     * 读取表元数据并生成快照任务。可分区表按主键切分为多个任务，不可分区表整表一个任务。
+     */
+    private SnapshotPlan buildPlan(
         Connection conn,
         String dbType,
         JdbcDataSourceProvider provider,
-        String schema,
-        String table
+        TypeConverter sourceConverter,
+        List<TableRef> tables
     ) throws SQLException {
-        component.logInfo("读取历史全量数据，表 " + schema + "." + table);
-        TableMeta tableMeta = DBUtils.getTableMetaData(conn, schema, table);
+        List<SnapshotTask> tasks = new ArrayList<>();
+        TableMeta lastTable = null;
+        for (TableRef ref : tables) {
+            TableMeta tableMeta = loadTableMeta(conn, dbType, sourceConverter, ref);
+            lastTable = tableMeta;
+            TablePartitionPlanner.Plan partitionPlan = resolvePartitionPlan(conn, provider, ref, tableMeta);
+            if (!partitionPlan.isPartitionable()) {
+                tasks.add(new SnapshotTask(ref.getSchema(), ref.getTable(), tableMeta, null, 0, 0));
+                continue;
+            }
+            component.logInfo(
+                "表 " + ref.getSchema() + "." + ref.getTable() + " 使用字段 " +
+                partitionPlan.getColumnName() + " 分区，实际分区数 " + partitionPlan.size()
+            );
+            for (int i = 0; i < partitionPlan.size(); i++) {
+                String predicate = partitionPlan.predicate(i);
+                if (predicate != null) {
+                    tasks.add(new SnapshotTask(ref.getSchema(), ref.getTable(), tableMeta, predicate, i + 1, partitionPlan.size()));
+                }
+            }
+        }
+        return new SnapshotPlan(tasks, lastTable);
+    }
+
+    private TableMeta loadTableMeta(
+        Connection conn,
+        String dbType,
+        TypeConverter sourceConverter,
+        TableRef ref
+    ) throws SQLException {
+        TableMeta tableMeta = DBUtils.getTableMetaData(conn, ref.getSchema(), ref.getTable());
         tableMeta.setDbType(dbType);
-        TypeConverter sourceConverter = DatabaseConverter.getConverter(dbType);
+        if (tableMeta.getSchema() == null || tableMeta.getSchema().trim().isEmpty()) {
+            tableMeta.setSchema(ref.getSchema());
+        }
         if (sourceConverter != null) {
-            sourceConverter.enrichSourceTableMeta(conn, schema, table, tableMeta);
+            sourceConverter.enrichSourceTableMeta(conn, ref.getSchema(), ref.getTable(), tableMeta);
+        }
+        return tableMeta;
+    }
+
+    /**
+     * 选择快照分区字段：只使用单列主键，避免复合主键在并发区间上切分错误。
+     */
+    private TablePartitionPlanner.Plan resolvePartitionPlan(
+        Connection conn,
+        JdbcDataSourceProvider provider,
+        TableRef ref,
+        TableMeta tableMeta
+    ) {
+        if (parallelism <= 1) {
+            return TablePartitionPlanner.Plan.empty();
+        }
+        ColumnMeta partitionColumn = resolvePartitionColumn(tableMeta);
+        if (partitionColumn == null) {
+            component.logInfo("表 " + ref.getTable() + " 没有可用的单列主键，按整表读取");
+            return TablePartitionPlanner.Plan.empty();
+        }
+        try {
+            String qualifiedTable = qualifiedTableName(provider, ref.getSchema(), ref.getTable());
+            Object[] minMax = TablePartitionPlanner.queryMinMax(conn, qualifiedTable, partitionColumn.getName());
+            if (minMax == null) {
+                component.logInfo("表 " + ref.getTable() + " 的分区字段 " + partitionColumn.getName() + " 范围为空，按整表读取");
+                return TablePartitionPlanner.Plan.empty();
+            }
+            return TablePartitionPlanner.plan(partitionColumn, minMax[0], minMax[1], parallelism);
+        } catch (SQLException e) {
+            component.logWarn("获取表 " + ref.getTable() + " 分区范围失败，按整表读取: " + e.getMessage());
+            return TablePartitionPlanner.Plan.empty();
+        }
+    }
+
+    private ColumnMeta resolvePartitionColumn(TableMeta tableMeta) {
+        ColumnMeta singlePrimaryKey = null;
+        for (ColumnMeta column : tableMeta.columns()) {
+            if (!column.isPrimaryKey()) {
+                continue;
+            }
+            if (singlePrimaryKey != null) {
+                // 复合主键不分区，避免区间条件无法完整覆盖
+                return null;
+            }
+            singlePrimaryKey = column;
+        }
+        if (singlePrimaryKey == null || !TablePartitionPlanner.supports(singlePrimaryKey)) {
+            return null;
+        }
+        return singlePrimaryKey;
+    }
+
+    /**
+     * 执行快照任务。每个工作线程持有独立连接，任务完成后提交，不跨表持有长事务。
+     */
+    private void executePlan(
+        SnapshotPlan plan,
+        String dbType,
+        JdbcDataSourceProvider provider,
+        TypeConverter sourceConverter
+    ) throws SQLException {
+        if (plan.tasks.isEmpty()) {
+            return;
         }
 
+        int workerCount = Math.min(Math.min(parallelism, plan.tasks.size()), MAX_SNAPSHOT_WORKERS);
+        if (workerCount <= 1) {
+            try (Connection conn = DBUtils.getConnection(datasource)) {
+                for (SnapshotTask task : plan.tasks) {
+                    executeTask(conn, dbType, provider, sourceConverter, task, null);
+                    commitIfNeeded(conn);
+                }
+            }
+            return;
+        }
+
+        Queue<SnapshotTask> taskQueue = new ConcurrentLinkedQueue<>(plan.tasks);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        ExecutorService executor = Executors.newFixedThreadPool(workerCount);
+        List<Future<?>> futures = new ArrayList<>(workerCount);
+        for (int i = 0; i < workerCount; i++) {
+            futures.add(executor.submit(() -> {
+                try (Connection conn = DBUtils.getConnection(datasource)) {
+                    SnapshotTask task;
+                    while (failure.get() == null && (task = taskQueue.poll()) != null) {
+                        executeTask(conn, dbType, provider, sourceConverter, task, failure);
+                        commitIfNeeded(conn);
+                    }
+                } catch (Throwable e) {
+                    failure.compareAndSet(null, e);
+                }
+            }));
+        }
+        executor.shutdown();
+
+        try {
+            for (Future<?> future : futures) {
+                future.get();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            executor.shutdownNow();
+            throw new SQLException("历史全量数据读取被中断", e);
+        } catch (ExecutionException e) {
+            failure.compareAndSet(null, e.getCause() == null ? e : e.getCause());
+        } finally {
+            executor.shutdownNow();
+        }
+
+        Throwable error = failure.get();
+        if (error == null) {
+            return;
+        }
+        if (error instanceof SQLException sqlException) {
+            throw sqlException;
+        }
+        if (error instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        throw new SQLException("历史全量数据读取失败: " + error.getMessage(), error);
+    }
+
+    private void executeTask(
+        Connection conn,
+        String dbType,
+        JdbcDataSourceProvider provider,
+        TypeConverter sourceConverter,
+        SnapshotTask task,
+        AtomicReference<Throwable> failure
+    ) throws SQLException {
+        TableMeta tableMeta = task.tableMeta;
+        String label = task.schema + "." + task.table +
+            (task.predicate == null ? "" : "（分区 " + task.partitionIndex + "/" + task.partitionCount + "）");
+        component.logInfo("读取历史全量数据，表 " + label);
+        long startedAt = System.currentTimeMillis();
         long total = 0;
-        String sql = "SELECT * FROM " + qualifiedTableName(provider, schema, table);
+
+        String sql = "SELECT * FROM " + qualifiedTableName(provider, task.schema, task.table);
+        if (task.predicate != null && !task.predicate.trim().isEmpty()) {
+            sql = sql + " WHERE " + task.predicate;
+        }
+
         try (
             Statement stmt = DBUtils.createStreamStatement(dbType, conn);
             ResultSet rs = stmt.executeQuery(sql)
         ) {
             int columnCount = tableMeta.columns().size();
-            java.sql.ResultSetMetaData rsMeta = rs.getMetaData();
+            ResultSetMetaData rsMeta = rs.getMetaData();
             String[] columnNames = new String[columnCount + 1];
             int[] jdbcTypes = new int[columnCount + 1];
             String[] typeNames = new String[columnCount + 1];
@@ -155,7 +347,10 @@ public class CdcSnapshotReader {
             }
             List<JSONObject> batch = new ArrayList<>(fetchSize);
             while (rs.next()) {
-                JSONObject record = new JSONObject();
+                if (failure != null && failure.get() != null) {
+                    throw new SQLException("历史全量数据读取已中止");
+                }
+                JSONObject record = new JSONObject(columnCount);
                 for (int i = 1; i <= columnCount; i++) {
                     String columnName = columnNames[i];
                     ColumnMeta column = tableMeta.columns().get(i - 1);
@@ -178,8 +373,20 @@ public class CdcSnapshotReader {
                 emitBatch(tableMeta, batch);
             }
         }
-        component.logInfo("历史全量数据读取完成，表 " + schema + "." + table + "，共 " + total + " 条");
-        return tableMeta;
+        component.logInfo(
+            "历史全量数据读取完成，表 " + label + "，共 " + total + " 条，耗时 " +
+            (System.currentTimeMillis() - startedAt) + " ms"
+        );
+    }
+
+    /**
+     * 提交当前任务的只读查询事务（部分驱动如 PostgreSQL 会被 {@code createStreamStatement}
+     * 自动关闭 autoCommit）。自动提交模式不需要额外处理。
+     */
+    private void commitIfNeeded(Connection conn) throws SQLException {
+        if (!conn.getAutoCommit()) {
+            conn.commit();
+        }
     }
 
     private void emitBatch(TableMeta tableMeta, List<JSONObject> batch) {
@@ -252,9 +459,6 @@ public class CdcSnapshotReader {
         if (value == null) {
             return null;
         }
-        if (value instanceof java.util.UUID) {
-            return value.toString();
-        }
         if (
             value instanceof String ||
             value instanceof Number ||
@@ -266,5 +470,44 @@ public class CdcSnapshotReader {
             return value;
         }
         return value.toString();
+    }
+
+    /** 快照计划：任务列表与最后一张表的元数据（用于写 snapshotDone 标记）。 */
+    private static final class SnapshotPlan {
+
+        private final List<SnapshotTask> tasks;
+        private final TableMeta lastTable;
+
+        private SnapshotPlan(List<SnapshotTask> tasks, TableMeta lastTable) {
+            this.tasks = tasks;
+            this.lastTable = lastTable;
+        }
+    }
+
+    /** 单个快照任务：整表或某个主键区间。 */
+    private static final class SnapshotTask {
+
+        private final String schema;
+        private final String table;
+        private final TableMeta tableMeta;
+        private final String predicate;
+        private final int partitionIndex;
+        private final int partitionCount;
+
+        private SnapshotTask(
+            String schema,
+            String table,
+            TableMeta tableMeta,
+            String predicate,
+            int partitionIndex,
+            int partitionCount
+        ) {
+            this.schema = schema;
+            this.table = table;
+            this.tableMeta = tableMeta;
+            this.predicate = predicate;
+            this.partitionIndex = partitionIndex;
+            this.partitionCount = partitionCount;
+        }
     }
 }

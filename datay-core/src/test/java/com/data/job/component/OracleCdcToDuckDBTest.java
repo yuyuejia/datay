@@ -47,6 +47,10 @@ public class OracleCdcToDuckDBTest {
         assumeTrue(supportsLogMiner(), "本地 Oracle 未开启 ARCHIVELOG/补充日志或 datay 账号权限不足，跳过测试");
         resetEnvironment();
 
+        // 历史存量数据：ID 拉开到 1 和 200，配合 parallelism=4 触发主键分区并发读取
+        executeOracle("INSERT INTO " + SCHEMA + "." + TABLE + " (ID, NAME, AMOUNT, UPDATED_AT) VALUES (1, 'alice', 10.50, TIMESTAMP '2024-01-01 10:00:00')");
+        executeOracle("INSERT INTO " + SCHEMA + "." + TABLE + " (ID, NAME, AMOUNT, UPDATED_AT) VALUES (200, 'bob', 20.00, TIMESTAMP '2024-01-02 11:00:00')");
+
         ExecutorService executor = Executors.newSingleThreadExecutor();
         AtomicReference<Throwable> jobError = new AtomicReference<>();
         ETLFlowTask runner = new ETLFlowTask();
@@ -62,15 +66,16 @@ public class OracleCdcToDuckDBTest {
         });
 
         try {
-            // 等待快照完成并创建目标表
-            awaitTrue(this::duckTableExists, 90000, "等待 Oracle CDC 快照创建目标表超时");
-
-            // INSERT
-            executeOracle("INSERT INTO " + SCHEMA + "." + TABLE + " (ID, NAME, AMOUNT, UPDATED_AT) VALUES (1, 'alice', 10.50, TIMESTAMP '2024-01-01 10:00:00')");
-            executeOracle("INSERT INTO " + SCHEMA + "." + TABLE + " (ID, NAME, AMOUNT, UPDATED_AT) VALUES (2, 'bob', 20.00, TIMESTAMP '2024-01-02 11:00:00')");
-            awaitTrue(() -> queryDuckCount() == 2, 60000, "等待 INSERT 同步到 DuckDB 超时");
+            // 等待历史全量快照读取完成并同步两条存量数据
+            awaitTrue(() -> queryDuckCount() == 2, 120000, "等待 Oracle CDC 历史快照同步到 DuckDB 超时");
             assertEquals("alice", queryDuckString("select NAME from main." + TABLE + " where ID = 1"));
             assertEquals("10.50", queryDuckString("select AMOUNT from main." + TABLE + " where ID = 1"));
+            assertEquals("bob", queryDuckString("select NAME from main." + TABLE + " where ID = 200"));
+
+            // 增量 INSERT
+            executeOracle("INSERT INTO " + SCHEMA + "." + TABLE + " (ID, NAME, AMOUNT, UPDATED_AT) VALUES (3, 'carol', 30.00, TIMESTAMP '2024-01-03 12:00:00')");
+            awaitTrue(() -> queryDuckCount() == 3, 60000, "等待 INSERT 同步到 DuckDB 超时");
+            assertEquals("carol", queryDuckString("select NAME from main." + TABLE + " where ID = 3"));
 
             // UPDATE
             executeOracle("UPDATE " + SCHEMA + "." + TABLE + " SET NAME = 'alice2', AMOUNT = 11.11 WHERE ID = 1");
@@ -78,8 +83,8 @@ public class OracleCdcToDuckDBTest {
             assertEquals("11.11", queryDuckString("select AMOUNT from main." + TABLE + " where ID = 1"));
 
             // DELETE
-            executeOracle("DELETE FROM " + SCHEMA + "." + TABLE + " WHERE ID = 2");
-            awaitTrue(() -> queryDuckCount() == 1, 60000, "等待 DELETE 同步到 DuckDB 超时");
+            executeOracle("DELETE FROM " + SCHEMA + "." + TABLE + " WHERE ID = 200");
+            awaitTrue(() -> queryDuckCount() == 2, 60000, "等待 DELETE 同步到 DuckDB 超时");
             assertEquals("alice2", queryDuckString("select NAME from main." + TABLE + " where ID = 1"));
         } finally {
             runner.cancel();

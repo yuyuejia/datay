@@ -121,6 +121,7 @@ EXEC sys.sp_cdc_change_job @job_type = N'cleanup', @retention = 4320; -- 分钟
 | `autoEnableCdc` | Boolean | ❌ | 未开启 CDC 时是否自动执行开启语句，默认 `false`，需要 `db_owner` 权限 | `true` |
 | `snapshot` | Boolean | ❌ | 首次运行（无断点）时先读取历史全量数据，再启动增量同步，默认 `false` | `true` |
 | `snapshotFetchSize` | Integer | ❌ | 快照分批大小，默认 `10000` | `5000` |
+| `parallelism` | Integer | ❌ | 组件并发数，默认 `1`；大于 `1` 时快照按单列主键分区并发读取 | `4` |
 | `includeEventMeta` | Boolean | ❌ | 是否在输出行中追加 `_event_type` / `_timestamp`，默认 `false` | `true` |
 | `reconnectMaxAttempts` | Integer | ❌ | 连续重连失败的最大次数，超过后任务失败，默认 `5`；`0` 表示不重连 | `5` |
 | `reconnectIntervalMs` | Long | ❌ | 两次重连之间的等待时间（毫秒），默认 `3000` | `3000` |
@@ -266,11 +267,22 @@ EXEC sys.sp_cdc_change_job @job_type = N'cleanup', @retention = 4320; -- 分钟
 4. 再从上述 LSN 之后启动 CDC 增量同步；
 5. 全量完成后写入 `snapshotDone` 状态，任务重启有断点或已完成快照时不会重复全量。
 
+快照读取会使用组件的 `parallelism`：
+
+- `parallelism > 1` 时，优先按单列主键把每张表切分为多个区间，由多个线程并发读取；
+- 没有可用单列主键的表按整表读取，多张表之间仍可并行；
+- 每个工作线程使用独立连接，单个表/分区读取完成后即释放事务，不会把所有表包在一个长事务中，
+  避免快照期间长时间持有共享锁、阻塞源库写入。
+
 > 如果开启快照时 CDC 尚未产生可用 LSN（例如刚开启捕获作业），组件会从 change table
 > 最早可用位点开始增量采集，避免漏掉快照窗口内产生的变更。
 
-> 采用「简单一致性」策略：快照读取使用 `REPEATABLE READ` 事务，快照窗口内已提交的变更
-> 可能由 CDC 再次补放，存在少量重复；下游幂等写入即可。
+> 采用「简单一致性」策略：快照读取的是当前已提交数据的近似快照，快照窗口内已提交的变更
+> 会由 CDC 从预先记录的起点补放，存在少量重复；下游幂等写入即可。
+
+> 历史数据量大时，建议把 `parallelism` 调大到 `4` 或 `8`，并结合源库负载逐步验证；
+> 连接池默认最大连接数为 `10`，`parallelism` 不建议超过该值；
+> `snapshotFetchSize` 只影响下游 FlowFile 的分批大小，不会改变 JDBC 驱动的预取大小。
 
 ## 与其它 CDC 的差异与限制
 

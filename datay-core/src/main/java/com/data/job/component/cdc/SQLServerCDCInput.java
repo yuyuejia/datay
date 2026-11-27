@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * SQL Server CDC 采集组件。
@@ -71,6 +72,9 @@ public class SQLServerCDCInput extends FlowComponent {
 
     private volatile boolean started = false;
 
+    /** 启动互斥标志：并发线程只允许一个线程真正启动采集器/快照。 */
+    private final AtomicBoolean starting = new AtomicBoolean(false);
+
     public SQLServerCDCInput() {
         setType(ComponentType.SOURCE);
     }
@@ -81,10 +85,18 @@ public class SQLServerCDCInput extends FlowComponent {
             executeDebugMock();
             return;
         }
-        if (!started) {
-            startCollector();
-        } else {
+        if (started) {
             logInfo("SQL Server CDC 采集器已经在运行中");
+            return;
+        }
+        if (!starting.compareAndSet(false, true)) {
+            logInfo("SQL Server CDC 采集器正在启动中，当前并发线程跳过");
+            return;
+        }
+        try {
+            startCollector();
+        } finally {
+            starting.set(false);
         }
     }
 
@@ -211,7 +223,13 @@ public class SQLServerCDCInput extends FlowComponent {
                     );
                     logInfo("开始读取历史全量数据（snapshot），表范围=" + collector.getTargetTables());
                 }
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize, enableEventMeta).snapshot(
+                new CdcSnapshotReader(
+                    this,
+                    datasource,
+                    snapshotFetchSize,
+                    enableEventMeta,
+                    getParallelism()
+                ).snapshot(
                     collector.getTargetTables(),
                     startStatus
                 );

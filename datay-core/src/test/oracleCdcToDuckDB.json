@@ -12,6 +12,7 @@
       },
       "schema": "DATAY",
       "tableNamePattern": "CDC_DEMO",
+      "parallelism": 4,
       "snapshot": true,
       "ignoreError": false
     },

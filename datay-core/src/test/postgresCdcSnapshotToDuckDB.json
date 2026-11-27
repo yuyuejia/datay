@@ -12,6 +12,7 @@
       },
       "schema": "public",
       "tableNamePattern": "cdc_demo",
+      "parallelism": 4,
       "publicationName": "datay_pub_cdc_demo_snap",
       "slotName": "datay_slot_cdc_demo_snap",
       "snapshot": true

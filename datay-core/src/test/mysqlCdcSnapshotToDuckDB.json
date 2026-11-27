@@ -12,6 +12,7 @@
       },
       "databaseNamePattern": "test",
       "tableNamePattern": "cdc_demo",
+      "parallelism": 4,
       "snapshot": true,
       "includeEventMeta": true
     },

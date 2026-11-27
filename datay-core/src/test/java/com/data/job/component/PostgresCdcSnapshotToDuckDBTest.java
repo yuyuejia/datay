@@ -26,9 +26,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 public class PostgresCdcSnapshotToDuckDBTest {
 
-    private static final String PG_URL = "jdbc:postgresql://127.0.0.1:5432/testdb";
-    private static final String PG_USER = "admin";
-    private static final String PG_PASSWORD = "123456";
+    private static final String DEFAULT_PG_URL = "jdbc:postgresql://127.0.0.1:5432/testdb";
+    private static final String PG_URL = System.getProperty("pg.url", DEFAULT_PG_URL);
+    private static final String PG_USER = System.getProperty("pg.user", "admin");
+    private static final String PG_PASSWORD = System.getProperty("pg.password", "123456");
     private static final String DUCK_URL = "jdbc:duckdb:./target/cdc-pg-snapshot.duckdb";
     private static final String TABLE = "cdc_demo";
     private static final String PUBLICATION = "datay_pub_cdc_demo_snap";
@@ -39,16 +40,17 @@ public class PostgresCdcSnapshotToDuckDBTest {
         assumeTrue(supportsLogicalReplication(), "本地 PostgreSQL 未开启 wal_level=logical 或 admin 无 REPLICATION 权限，跳过测试");
         resetEnvironment();
 
+        // ID 拉开到 1 和 200，配合 parallelism=4 触发主键分区并发读取
         executePg("INSERT INTO public." + TABLE + " (id, name, amount, updated_at) VALUES (1, 'alice', 10.50, '2024-01-01 10:00:00')");
-        executePg("INSERT INTO public." + TABLE + " (id, name, amount, updated_at) VALUES (2, 'bob', 20.00, '2024-01-02 11:00:00')");
+        executePg("INSERT INTO public." + TABLE + " (id, name, amount, updated_at) VALUES (200, 'bob', 20.00, '2024-01-02 11:00:00')");
         // 范围外表：不应被快照读取
         executePg("INSERT INTO public.cdc_other (id, name) VALUES (1, 'out-of-scope')");
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         AtomicReference<Throwable> jobError = new AtomicReference<>();
         ETLFlowTask runner = new ETLFlowTask();
-        String job = new String(java.nio.file.Files.readAllBytes(
-            java.nio.file.Paths.get(System.getProperty("user.dir"), "src/test/postgresCdcSnapshotToDuckDB.json")));
+        String job = applyPgOverrides(new String(java.nio.file.Files.readAllBytes(
+            java.nio.file.Paths.get(System.getProperty("user.dir"), "src/test/postgresCdcSnapshotToDuckDB.json"))));
         Future<?> jobFuture = executor.submit(() -> {
             try {
                 runner.runJob(job);
@@ -61,12 +63,12 @@ public class PostgresCdcSnapshotToDuckDBTest {
             awaitTrue(() -> replicationSlotActive() && publicationExists(), 30000, "等待 PostgreSQL 逻辑复制就绪超时");
             awaitTrue(() -> targetCount() == 2, 30000, "等待历史全量快照同步到 DuckDB 超时");
             assertEquals("alice", targetString("select name from main." + TABLE + " where id = 1"));
-            assertEquals("bob", targetString("select name from main." + TABLE + " where id = 2"));
+            assertEquals("bob", targetString("select name from main." + TABLE + " where id = 200"));
             assertTrue(!duckTableExists("cdc_other"), "快照不应读取表范围外的表 cdc_other");
 
             executePg("INSERT INTO public." + TABLE + " (id, name, amount, updated_at) VALUES (3, 'carol', 30.00, '2024-01-03 12:00:00')");
             executePg("UPDATE public." + TABLE + " SET name = 'alice2' WHERE id = 1");
-            executePg("DELETE FROM public." + TABLE + " WHERE id = 2");
+            executePg("DELETE FROM public." + TABLE + " WHERE id = 200");
             awaitTrue(
                 () ->
                     targetCount() == 2 &&
@@ -94,6 +96,16 @@ public class PostgresCdcSnapshotToDuckDBTest {
         if (error != null && !isCancellation(error)) {
             throw new AssertionError("CDC 快照任务异常结束: " + error.getMessage(), error);
         }
+    }
+
+    /**
+     * 允许通过 {@code -Dpg.url/-Dpg.user/-Dpg.password} 指向非默认端口的验证实例。
+     */
+    private String applyPgOverrides(String job) {
+        return job
+            .replace(DEFAULT_PG_URL, PG_URL)
+            .replace("\"username\": \"admin\"", "\"username\": \"" + PG_USER + "\"")
+            .replace("\"password\": \"123456\"", "\"password\": \"" + PG_PASSWORD + "\"");
     }
 
     private boolean supportsLogicalReplication() {

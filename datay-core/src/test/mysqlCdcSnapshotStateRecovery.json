@@ -12,6 +12,7 @@
       },
       "databaseNamePattern": "test",
       "tableNamePattern": "cdc_state_demo",
+      "parallelism": 4,
       "snapshot": true,
       "serverId": 2245
     },

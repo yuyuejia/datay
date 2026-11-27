@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * PostgreSQL CDC 采集组件。
@@ -58,6 +59,9 @@ public class PostgresCDCInput extends FlowComponent {
 
     private volatile boolean started = false;
 
+    /** 启动互斥标志：并发线程只允许一个线程真正启动采集器/快照。 */
+    private final AtomicBoolean starting = new AtomicBoolean(false);
+
     public PostgresCDCInput() {
         setType(ComponentType.SOURCE);
     }
@@ -68,10 +72,18 @@ public class PostgresCDCInput extends FlowComponent {
             executeDebugMock();
             return;
         }
-        if (!started) {
-            startCollector();
-        } else {
+        if (started) {
             logInfo("PostgreSQL 逻辑复制采集器已经在运行中");
+            return;
+        }
+        if (!starting.compareAndSet(false, true)) {
+            logInfo("PostgreSQL 逻辑复制采集器正在启动中，当前并发线程跳过");
+            return;
+        }
+        try {
+            startCollector();
+        } finally {
+            starting.set(false);
         }
     }
 
@@ -164,7 +176,8 @@ public class PostgresCDCInput extends FlowComponent {
                 Map<String, Object> startStatus = new LinkedHashMap<>();
                 startStatus.put("binlogPosition", consistentLsn);
                 logInfo("开始读取历史全量数据（snapshot），起始 LSN=" + consistentLsn + "，表范围=" + collector.getTargetTables());
-                new CdcSnapshotReader(this, datasource, snapshotFetchSize).snapshot(collector.getTargetTables(), startStatus);
+                new CdcSnapshotReader(this, datasource, snapshotFetchSize, false, getParallelism())
+                    .snapshot(collector.getTargetTables(), startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
             }
 

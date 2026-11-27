@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 /**
@@ -66,6 +67,9 @@ public class MySQLBinlogInput extends FlowComponent {
 
     private volatile boolean started = false;
 
+    /** 启动互斥标志：并发线程只允许一个线程真正启动采集器/快照。 */
+    private final AtomicBoolean starting = new AtomicBoolean(false);
+
     @Override
     public void execute(FlowFile flowFile) {
         // 调试模式：不启动真实 Binlog 采集，根据源表结构生成一条模拟变更事件后结束
@@ -73,10 +77,18 @@ public class MySQLBinlogInput extends FlowComponent {
             executeDebugMock();
             return;
         }
-        if (!started) {
-            startBinlogCollector();
-        } else {
+        if (started) {
             logInfo("Binlog采集器已经在运行中");
+            return;
+        }
+        if (!starting.compareAndSet(false, true)) {
+            logInfo("Binlog采集器正在启动中，当前并发线程跳过");
+            return;
+        }
+        try {
+            startBinlogCollector();
+        } finally {
+            starting.set(false);
         }
     }
 
@@ -181,7 +193,8 @@ public class MySQLBinlogInput extends FlowComponent {
                     this,
                     datasource,
                     snapshotFetchSize,
-                    Boolean.TRUE.equals(includeEventMeta)
+                    Boolean.TRUE.equals(includeEventMeta),
+                    getParallelism()
                 ).snapshot(snapshotTables, startStatus);
                 logInfo("历史全量数据读取完成，启动 CDC 增量同步");
                 collector.startFromPosition(position[0], startPosition);

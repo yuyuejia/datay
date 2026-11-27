@@ -38,8 +38,9 @@ public class MysqlCdcSnapshotToDuckDBTest {
         resetEnvironment();
 
         // 历史存量数据（任务启动前已存在）
+        // ID 拉开到 1 和 200，配合 parallelism=4 触发主键分区并发读取
         executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (1, 'alice', 10.50, '2024-01-01 10:00:00')");
-        executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (2, 'bob', 20.00, '2024-01-02 11:00:00')");
+        executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (200, 'bob', 20.00, '2024-01-02 11:00:00')");
         // 范围外表：不应被快照读取
         executeMysql("INSERT INTO test.cdc_other (id, name) VALUES (1, 'out-of-scope')");
 
@@ -60,7 +61,7 @@ public class MysqlCdcSnapshotToDuckDBTest {
             awaitTrue(this::binlogDumpActive, 30000, "等待 MySQL Binlog 采集器就绪超时");
             awaitTrue(() -> targetCount() == 2, 30000, "等待历史全量快照同步到 DuckDB 超时");
             assertEquals("alice", targetString("select name from main." + TABLE + " where id = 1"));
-            assertEquals("bob", targetString("select name from main." + TABLE + " where id = 2"));
+            assertEquals("bob", targetString("select name from main." + TABLE + " where id = 200"));
             assertTrue(!duckTableExists("cdc_other"), "快照不应读取表范围外的表 cdc_other");
             assertEquals(2, targetMetaColumnCount(), "目标表应包含 _event_type 和 _timestamp 列");
             assertEquals(
@@ -76,7 +77,7 @@ public class MysqlCdcSnapshotToDuckDBTest {
             // 增量同步
             executeMysql("INSERT INTO test." + TABLE + " (id, name, amount, updated_at) VALUES (3, 'carol', 30.00, '2024-01-03 12:00:00')");
             executeMysql("UPDATE test." + TABLE + " SET name = 'alice2' WHERE id = 1");
-            executeMysql("DELETE FROM test." + TABLE + " WHERE id = 2");
+            executeMysql("DELETE FROM test." + TABLE + " WHERE id = 200");
             awaitTrue(
                 () ->
                     targetCount() == 2 &&

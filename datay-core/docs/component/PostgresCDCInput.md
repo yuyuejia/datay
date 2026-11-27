@@ -134,11 +134,13 @@ ALTER ROLE <采集账号> WITH REPLICATION;
 开启 `snapshot=true` 后，组件首次运行（无历史断点、无 `snapshotDone` 标记）会：
 
 1. 先创建 publication 与 replication slot，取 slot 一致点作为增量起点（保证增量不丢）；
-2. 对 schema 下匹配 `tableNamePattern` 的表（**即 publication 的表范围**）做一次性全量读取（单事务 `REPEATABLE READ`），按 `INSERT` 事件分批下发；
+2. 对 schema 下匹配 `tableNamePattern` 的表（**即 publication 的表范围**）做一次性全量读取，按 `INSERT` 事件分批下发；快照读取不使用跨表单事务，单个表/分区读取完成后即释放事务；
 3. 再从上述位点启动逻辑复制增量同步；
 4. 全量完成后写入 `snapshotDone` 状态，任务重启有断点或已完成快照时不会重复全量。
 
 > 快照读取的表范围与增量同步范围一致（由 `schema` + `tableNamePattern` 控制），范围外的表不会被读取。
+
+> 组件并发数 `parallelism > 1` 时，快照会优先按单列主键把表切分为多个区间并发读取；没有可用单列主键时按整表读取。实际并发线程数不超过 `10`。
 
 > 采用「简单一致性」策略：快照位点取自快照之前，快照窗口内发生的变更会由 CDC 补放，存在少量重复的可能。对幂等写入或存量基本稳定的场景足够；如需严格一致可后续引入 PostgreSQL 导出快照。
 

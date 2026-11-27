@@ -147,11 +147,12 @@ public class MysqlCdcSnapshotStateRecoveryTest {
                 TABLE +
                 " (id bigint primary key, name varchar(100), amount decimal(10,2), updated_at datetime)"
             );
+            // ID 拉开到 1 和 200，配合 parallelism=4 触发主键分区并发读取
             st.execute(
                 "INSERT INTO test." +
                 TABLE +
                 " (id, name, amount, updated_at) VALUES (1, 'alice', 10.50, '2024-01-01 10:00:00')," +
-                " (2, 'bob', 20.00, '2024-01-02 11:00:00')"
+                " (200, 'bob', 20.00, '2024-01-02 11:00:00')"
             );
         }
     }

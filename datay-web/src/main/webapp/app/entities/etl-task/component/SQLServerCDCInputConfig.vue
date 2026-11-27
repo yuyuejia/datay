@@ -67,13 +67,14 @@
       <el-form-item label="首次读取历史全量数据">
         <el-switch id="snapshot" name="snapshot" v-model="formData.snapshot" />
         <small class="form-text text-muted">
-          启用后，首次运行（无断点）会先全量读取 schema 下匹配表的数据，再启动增量同步；任务重启有断点时不重复全量
+          启用后，首次运行（无断点）会先全量读取 schema 下匹配表的数据，再启动增量同步；任务重启有断点时不重复全量。
+          可在「并发设置」中调大 parallelism，大于 1 时会按单列主键分区并发读取
         </small>
       </el-form-item>
 
       <el-form-item v-if="formData.snapshot" label="快照分批大小">
         <el-input-number id="snapshotFetchSize" name="snapshotFetchSize" v-model="formData.snapshotFetchSize" :min="1" :controls="false" />
-        <small class="form-text text-muted"> 每批下发的记录数，默认 10000 </small>
+        <small class="form-text text-muted"> 每批下发的记录数，默认 10000；只影响 FlowFile 分批，不改变 JDBC 预取大小 </small>
       </el-form-item>
 
       <!-- 事件元数据 -->
