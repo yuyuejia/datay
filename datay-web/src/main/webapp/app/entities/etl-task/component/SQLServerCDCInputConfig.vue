@@ -130,7 +130,7 @@ const formData = reactive({
   sourceId: props.node?.data?.config?.sourceId || '',
   schema: props.node?.data?.config?.schema || '',
   tableNamePattern: props.node?.data?.config?.tableNamePattern || '',
-  startLsn: props.node?.data?.config?.startLsn || '',
+  startLsn: props.node?.data?.config?.startLsn || null,
   pollIntervalMs: props.node?.data?.config?.pollIntervalMs || 1000,
   autoEnableCdc: props.node?.data?.config?.autoEnableCdc ?? false,
   snapshot: props.node?.data?.config?.snapshot || false,
@@ -154,6 +154,8 @@ const saveConfig = async () => {
   if (!formData.schema) {
     formData.schema = 'dbo';
   }
+  // 未填写的起始 LSN 统一提交 null，避免后端把空字符串当成已存在断点
+  formData.startLsn = formData.startLsn?.trim() || null;
   emits('save', formData);
 };
 

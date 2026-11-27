@@ -143,8 +143,10 @@ public class SQLServerCDCInput extends FlowComponent {
             String schema = resolveSchema();
 
             // 断点续传：优先使用组件配置的起始 LSN，其次使用上次保存的位点
-            String beginLsn = startLsn;
-            if (beginLsn == null || beginLsn.trim().isEmpty()) {
+            // 前端未填写起始 LSN 时可能传入空字符串，必须归一化为 null，
+            // 否则后续 beginLsn == null 的首次运行/快照判断会失效。
+            String beginLsn = normalizeStartLsn(startLsn);
+            if (beginLsn == null) {
                 Object statusLsn = getStatus("binlogPosition");
                 if (statusLsn != null && !statusLsn.toString().trim().isEmpty()) {
                     beginLsn = statusLsn.toString().trim();
@@ -271,7 +273,25 @@ public class SQLServerCDCInput extends FlowComponent {
     }
 
     public void setStartLsn(String startLsn) {
-        this.startLsn = startLsn;
+        this.startLsn = normalizeStartLsn(startLsn);
+    }
+
+    /**
+     * 将未填写（null / 空白）的起始 LSN 统一归一化为 {@code null}。
+     *
+     * <p>前端表单未填写时会提交空字符串，如果直接保留，后续 {@code beginLsn == null}
+     * 的首次运行、快照触发判断会把空字符串误认为已配置断点。
+     */
+    static String normalizeStartLsn(String startLsn) {
+        if (startLsn == null) {
+            return null;
+        }
+        String trimmed = startLsn.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    public String getStartLsn() {
+        return startLsn;
     }
 
     public void setPollIntervalMs(Long pollIntervalMs) {
