@@ -471,7 +471,11 @@ public class DBUtils {
         return value.toString();
     }
 
-    private static boolean isTextType(String fieldType) {
+    /**
+     * 判断目标字段类型是否为文本类型。供写入组件在构建列计划时一次性预计算，
+     * 避免逐行逐列重复判断。
+     */
+    public static boolean isTextType(String fieldType) {
         String type = fieldType == null ? "" : fieldType.toUpperCase().trim();
         int parameterStart = type.indexOf('(');
         if (parameterStart > 0) {

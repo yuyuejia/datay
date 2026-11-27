@@ -2,6 +2,7 @@ package com.data.job.component;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
 import com.data.job.ComponentField;
 import com.data.job.ComponentFieldOption;
 import com.data.job.ComponentFieldType;
@@ -15,21 +16,34 @@ import com.data.metadata.TableMeta;
 import com.data.metadata.util.DBUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpHeaders;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @ComponentRegister(
     value = "DorisStreamLoad",
@@ -88,6 +102,27 @@ public class DorisStreamLoad extends FlowComponent {
     private DatasourceInfo datasource;
 
     private final Map<String, TableMeta> tableMetaMap = new HashMap<>();
+
+    /**
+     * 目标表列计划缓存：列名、源字段名、类型归一化策略在首批数据时计算一次，
+     * 避免每行每列重复做大小写转换和类型判断。
+     */
+    private final Map<String, TablePlan> tablePlanMap = new ConcurrentHashMap<>();
+
+    /**
+     * 复用同一个 HttpClient 和连接池。原实现每批都 new 一个客户端，500 批会产生
+     * 500 次连接建立/销毁。
+     */
+    private volatile CloseableHttpClient httpClient;
+
+    /**
+     * 单批 JSON Lines 的复用缓冲区。
+     * <p>Doris FE 的 307 重定向 + chunked 请求在高负载下偶发卡死，这里改为一次性
+     * 序列化到可复用 byte[]，用 Content-Length 发送；缓冲区按线程复用，不再每批
+     * 分配 15–20 MB 的 String/byte[]。首次扩容后每批零大对象分配。</p>
+     */
+    private static final ThreadLocal<ReusableBuffer> BATCH_BUFFER =
+        ThreadLocal.withInitial(() -> new ReusableBuffer(256 * 1024));
 
     public DorisStreamLoad() {
         setType(ComponentType.SINK);
@@ -188,63 +223,195 @@ public class DorisStreamLoad extends FlowComponent {
     }
 
     /**
-     * 执行StreamLoad数据写入
+     * 执行 Stream Load 数据写入。
+     *
+     * <p>请求体按 JSON Lines 流式生成：每行一个 JSON 对象，边序列化边发送，
+     * 不再把整批 10,000 行拼成一个 15–20 MB 的 String/byte[]。这样既避免了
+     * humongous allocation，也让 Doris 可以按行解析。</p>
      */
     private void streamLoadData(TableMeta targetTable, FlowFile flowFile, String eventType) throws IOException {
         JSONArray records = flowFile.getJsonArray();
-        // 构建StreamLoad URL
-        String streamLoadUrl = buildStreamLoadUrl(targetTable);
+        TablePlan plan = getTablePlan(targetTable, flowFile);
 
-        // 构建请求体（JSON格式）
-        String jsonData = buildJsonData(targetTable, records, eventType);
+        HttpPut put = new HttpPut(plan.streamLoadUrl);
+        put.setHeader(HttpHeaders.EXPECT, "100-continue");
+        put.setHeader(HttpHeaders.AUTHORIZATION, plan.authorization);
+        put.setHeader("format", "json");
+        put.setHeader("read_json_by_line", "true");
+        // 不能开启 fuzzy_parse：Doris 会按 JSON key 的位置而不是字段名解析，
+        // 而 LEFT JOIN 产生的 NULL 列在 JSON 中会被省略，导致后续字段整体左移。
+        // 不允许 Doris 静默过滤行：一旦有行被过滤，说明数据质量或目标表结构有问题，
+        // 必须让批次失败，而不是把少写的数据当成写入成功。
+        put.setHeader("max_filter_ratio", "0");
+        if ("DELETE".equals(eventType)) {
+            put.setHeader("merge_type", "DELETE");
+        }
+        ReusableBuffer body = buildBatchBody(records, plan);
+        put.setEntity(new ByteArrayEntity(
+            body.array(),
+            0,
+            body.size(),
+            ContentType.APPLICATION_JSON
+        ));
 
-        final HttpClientBuilder httpClientBuilder = HttpClients
-                .custom()
-                .setRedirectStrategy(new DefaultRedirectStrategy() {
-                    @Override
-                    protected boolean isRedirectable(String method) {
-                        return true;
-                    }
-                });
-
-        try (CloseableHttpClient client = httpClientBuilder.build()) {
-            HttpPut put = new HttpPut(streamLoadUrl);
-            StringEntity entity = new StringEntity(jsonData, "UTF-8");
-            put.setHeader(HttpHeaders.EXPECT, "100-continue");
-            put.setHeader(HttpHeaders.AUTHORIZATION, basicAuthHeader(this.datasource.getUsername(), this.datasource.getPassword()));
-            put.setHeader("format", "json");
-            put.setHeader("strip_outer_array", "true");
-            // 不能开启 fuzzy_parse：Doris 会按 JSON key 的位置而不是字段名解析，
-            // 而 LEFT JOIN 产生的 NULL 列在 JSON 中会被省略（fastjson 默认不输出 null），
-            // 导致后续字段整体左移，轻则写错列、重则触发数据质量错误整批失败。
-            // 按字段名解析虽然稍慢，但能保证列值正确。
-            // 不允许 Doris 静默过滤行：一旦有行被过滤，说明数据质量或目标表结构有问题，
-            // 必须让批次失败，而不是把少写的数据当成写入成功。
-            put.setHeader("max_filter_ratio", "0");
-            if ("DELETE".equals(eventType)) {
-                put.setHeader("merge_type", "DELETE");
+        try (CloseableHttpResponse response = getHttpClient().execute(put)) {
+            String loadResult = "";
+            if (response.getEntity() != null) {
+                loadResult = EntityUtils.toString(response.getEntity());
             }
-            // the label header is optional, not necessary
-            // use label header can ensure at most once semantics
-//            put.setHeader("label", "39c25a5c-7000-496e-a98e-348a264c81de");
-            put.setEntity(entity);
+            final int statusCode = response.getStatusLine().getStatusCode();
+            // statusCode 200 只代表 FE/BE 服务可用，Doris 的 Stream Load 失败（如 data quality、
+            // publish timeout、label 冲突）同样会返回 200，真正的结果在响应体的 Status 字段里。
+            // 这里必须校验响应体，否则失败批次会被当成成功，表现为“少写了数据但任务成功”。
+            if (statusCode != 200) {
+                throw new IOException(
+                        String.format("Stream load failed, statusCode=%s load result=%s", statusCode, loadResult));
+            }
+            validateStreamLoadResult(loadResult, records.size(), targetTable);
+        }
+    }
 
-            try (CloseableHttpResponse response = client.execute(put)) {
-                String loadResult = "";
-                if (response.getEntity() != null) {
-                    loadResult = EntityUtils.toString(response.getEntity());
+    /**
+     * 把一批记录序列化为 JSON Lines。缓冲按线程复用，避免每批分配大对象。
+     */
+    private ReusableBuffer buildBatchBody(JSONArray records, TablePlan plan) throws IOException {
+        ReusableBuffer buffer = BATCH_BUFFER.get();
+        buffer.reset();
+        // UTF-8 writer 直接产出 byte[]，避免 UTF-16 char[] 和逐行 flush 时的转码/复制。
+        JSONWriter writer = JSONWriter.ofUTF8();
+        try {
+            for (int i = 0; i < records.size(); i++) {
+                writeRecord(writer, buffer, records.get(i), plan);
+            }
+        } finally {
+            writer.close();
+        }
+        return buffer;
+    }
+
+    private void writeRecord(JSONWriter writer, ReusableBuffer buffer, Object item, TablePlan plan) throws IOException {
+        if (plan.passthrough) {
+            writer.writeAny(item);
+            writer.writeRaw('\n');
+            writer.flushTo(buffer);
+            return;
+        }
+        if (!(item instanceof JSONObject)) {
+            writer.writeAny(item);
+            writer.writeRaw('\n');
+            writer.flushTo(buffer);
+            return;
+        }
+        JSONObject record = (JSONObject) item;
+        writer.startObject();
+        for (ColumnPlan column : plan.columns) {
+            Object value = record.get(column.sourceKey);
+            if (value == null) {
+                continue;
+            }
+            writer.writeName(column.targetName);
+            writer.writeColon();
+            ValueKind.write(writer, column.kind, column.rawType, value);
+        }
+        writer.endObject();
+        writer.writeRaw('\n');
+        writer.flushTo(buffer);
+    }
+
+    private CloseableHttpClient getHttpClient() {
+        CloseableHttpClient client = this.httpClient;
+        if (client == null) {
+            synchronized (this) {
+                client = this.httpClient;
+                if (client == null) {
+                    client = HttpClients
+                        .custom()
+                        .setRedirectStrategy(new DefaultRedirectStrategy() {
+                            @Override
+                            protected boolean isRedirectable(String method) {
+                                return true;
+                            }
+                        })
+                        // 避免 Doris/网络异常时永久挂起；正常单批远小于 5 分钟。
+                        .setDefaultRequestConfig(
+                            RequestConfig.custom()
+                                .setConnectTimeout(30_000)
+                                .setConnectionRequestTimeout(30_000)
+                                .setSocketTimeout(300_000)
+                                .build()
+                        )
+                        // 无 label 的 Stream Load 重试可能重复写入，失败交给任务重跑。
+                        .disableAutomaticRetries()
+                        .build();
+                    this.httpClient = client;
                 }
-                final int statusCode = response.getStatusLine().getStatusCode();
-                // statusCode 200 只代表 FE/BE 服务可用，Doris 的 Stream Load 失败（如 data quality、
-                // publish timeout、label 冲突）同样会返回 200，真正的结果在响应体的 Status 字段里。
-                // 这里必须校验响应体，否则失败批次会被当成成功，表现为“少写了数据但任务成功”。
-                if (statusCode != 200) {
-                    throw new IOException(
-                            String.format("Stream load failed, statusCode=%s load result=%s", statusCode, loadResult));
-                }
-                validateStreamLoadResult(loadResult, records.size(), targetTable);
             }
         }
+        return client;
+    }
+
+    /**
+     * 获取或构建目标表列计划。计划按目标表缓存，后续批次只做取值和序列化。
+     */
+    private TablePlan getTablePlan(TableMeta targetTable, FlowFile flowFile) {
+        String tableKey = targetTable.getSchema() + "." + targetTable.getTable();
+        TablePlan plan = this.tablePlanMap.get(tableKey);
+        if (plan != null) {
+            return plan;
+        }
+        synchronized (this.tablePlanMap) {
+            plan = this.tablePlanMap.get(tableKey);
+            if (plan == null) {
+                plan = buildTablePlan(targetTable, flowFile);
+                this.tablePlanMap.put(tableKey, plan);
+            }
+        }
+        return plan;
+    }
+
+    private TablePlan buildTablePlan(TableMeta targetTable, FlowFile flowFile) {
+        String streamLoadUrl = buildStreamLoadUrl(targetTable);
+        String authorization = basicAuthHeader(this.datasource.getUsername(), this.datasource.getPassword());
+        if (targetTable == null || targetTable.columns() == null || targetTable.columns().isEmpty()) {
+            // 目标表元数据为空时保持旧行为：原样序列化源记录。
+            return new TablePlan(true, Collections.emptyList(), streamLoadUrl, authorization);
+        }
+
+        JSONArray records = flowFile.getJsonArray();
+        Map<String, String> sourceKeys = new HashMap<>();
+        // 优先使用首批记录的实际 key（转换/重命名后最准确），再用源表元数据兜底。
+        if (!records.isEmpty() && records.get(0) instanceof JSONObject) {
+            for (String key : ((JSONObject) records.get(0)).keySet()) {
+                sourceKeys.putIfAbsent(key.toLowerCase(Locale.ROOT), key);
+            }
+        }
+        TableMeta sourceTable = (TableMeta) flowFile.getAttribute(FlowFile.ATTRIBUTE_TABLE_METADATA);
+        if (sourceTable != null && sourceTable.columns() != null) {
+            for (ColumnMeta column : sourceTable.columns()) {
+                if (column.getName() != null) {
+                    sourceKeys.putIfAbsent(column.getName().toLowerCase(Locale.ROOT), column.getName());
+                }
+            }
+        }
+
+        List<ColumnPlan> columns = new ArrayList<>(targetTable.columns().size());
+        for (ColumnMeta targetColumn : targetTable.columns()) {
+            String targetName = targetColumn.getName();
+            if (targetName == null) {
+                continue;
+            }
+            String sourceKey = sourceKeys.get(targetName.toLowerCase(Locale.ROOT));
+            if (sourceKey == null) {
+                continue;
+            }
+            columns.add(new ColumnPlan(
+                targetName,
+                sourceKey,
+                ValueKind.of(targetColumn.getType()),
+                targetColumn.getType()
+            ));
+        }
+        return new TablePlan(false, columns, streamLoadUrl, authorization);
     }
 
     /**
@@ -263,55 +430,196 @@ public class DorisStreamLoad extends FlowComponent {
         return "Basic " + new String(encoded);
     }
 
-    /**
-     * 构建JSON数据。
-     * <p>按目标表列类型做一次规范化：MySQL Binlog 的字符列是 {@code byte[]}，日期时间列按 UTC
-     * 承载墙上时间，直接序列化会导致乱码或时区偏移；二进制列不在目标表中时也会被丢弃。</p>
-     */
-    private String buildJsonData(TableMeta targetTable, JSONArray records, String eventType) {
-        if (targetTable == null || targetTable.columns() == null || targetTable.columns().isEmpty()) {
-            return records.toJSONString();
+    private enum ValueKind {
+        TEXT,
+        INT,
+        DECIMAL,
+        DATETIME,
+        DATE,
+        TIME,
+        BOOLEAN,
+        OTHER;
+
+        static ValueKind of(String fieldType) {
+            if (DBUtils.isTextType(fieldType)) {
+                return TEXT;
+            }
+            String type = fieldType == null ? "" : fieldType.trim().toUpperCase(Locale.ROOT);
+            int parameterStart = type.indexOf('(');
+            if (parameterStart > 0) {
+                type = type.substring(0, parameterStart).trim();
+            }
+            if ("BOOLEAN".equals(type) || "BOOL".equals(type)) {
+                return BOOLEAN;
+            }
+            if ("DATE".equals(type)) {
+                return DATE;
+            }
+            if ("TIME".equals(type)) {
+                return TIME;
+            }
+            if ("DATETIME".equals(type) || type.endsWith("TIMESTAMP")) {
+                return DATETIME;
+            }
+            if (
+                "DECIMAL".equals(type) ||
+                type.startsWith("DECIMAL") ||
+                "NUMERIC".equals(type) ||
+                type.startsWith("NUMERIC") ||
+                "NUMBER".equals(type)
+            ) {
+                return DECIMAL;
+            }
+            if (type.contains("INT")) {
+                return INT;
+            }
+            return OTHER;
         }
 
-        JSONArray normalized = new JSONArray(records.size());
-        for (Object item : records) {
-            if (!(item instanceof JSONObject)) {
-                normalized.add(item);
-                continue;
+        static void write(JSONWriter writer, ValueKind kind, String rawType, Object value) {
+            if (value == null) {
+                writer.writeNull();
+                return;
             }
-            JSONObject record = (JSONObject) item;
-            JSONObject row = new JSONObject();
-            for (ColumnMeta column : targetTable.columns()) {
-                String name = column.getName();
-                // 源端字段可能为大写（如 SQL Server），Doris 自动建表后字段为小写。
-                // 这里按字段名忽略大小写匹配，并统一用目标表实际列名作为 JSON key，
-                // 否则 Doris 按字段名解析时会过滤掉整行。
-                String sourceKey = findKeyIgnoreCase(record, name);
-                if (sourceKey != null) {
-                    row.put(name, DBUtils.normalizeParameter(column.getType(), record.get(sourceKey)));
-                }
+            switch (kind) {
+                case TEXT:
+                    if (value instanceof String) {
+                        writer.writeString((String) value);
+                        return;
+                    }
+                    if (value instanceof byte[]) {
+                        writer.writeString((byte[]) value);
+                        return;
+                    }
+                    if (value instanceof Number || value instanceof Boolean) {
+                        writer.writeAny(value);
+                        return;
+                    }
+                    writer.writeString(value.toString());
+                    return;
+                case INT:
+                    if (value instanceof Boolean) {
+                        writer.writeInt32((Boolean) value ? 1 : 0);
+                        return;
+                    }
+                    if (value instanceof Integer || value instanceof Short || value instanceof Byte) {
+                        writer.writeInt32(((Number) value).intValue());
+                        return;
+                    }
+                    if (value instanceof Long) {
+                        writer.writeInt64((Long) value);
+                        return;
+                    }
+                    break;
+                case DECIMAL:
+                    if (value instanceof Boolean) {
+                        writer.writeInt32((Boolean) value ? 1 : 0);
+                        return;
+                    }
+                    if (value instanceof BigDecimal) {
+                        writer.writeDecimal((BigDecimal) value);
+                        return;
+                    }
+                    if (value instanceof Integer || value instanceof Short || value instanceof Byte) {
+                        writer.writeInt32(((Number) value).intValue());
+                        return;
+                    }
+                    if (value instanceof Long) {
+                        writer.writeInt64((Long) value);
+                        return;
+                    }
+                    break;
+                case DATETIME:
+                    if (value instanceof Timestamp) {
+                        writer.writeAny(toLocalDateTimeFast((Timestamp) value));
+                        return;
+                    }
+                    if (value instanceof LocalDateTime) {
+                        writer.writeAny(value);
+                        return;
+                    }
+                    if (value instanceof java.util.Date) {
+                        writer.writeAny(LocalDateTime.ofInstant(((java.util.Date) value).toInstant(), ZoneOffset.UTC));
+                        return;
+                    }
+                    break;
+                case DATE:
+                    if (value instanceof LocalDate) {
+                        writer.writeAny(value);
+                        return;
+                    }
+                    if (value instanceof java.sql.Date) {
+                        writer.writeAny(((java.sql.Date) value).toLocalDate());
+                        return;
+                    }
+                    if (value instanceof java.util.Date) {
+                        writer.writeAny(
+                            LocalDateTime.ofInstant(((java.util.Date) value).toInstant(), ZoneOffset.UTC).toLocalDate()
+                        );
+                        return;
+                    }
+                    break;
+                case BOOLEAN:
+                    if (value instanceof Boolean) {
+                        writer.writeBool((Boolean) value);
+                        return;
+                    }
+                    break;
+                default:
+                    break;
             }
-            normalized.add(row);
+            // 复杂/少见类型回退到原有归一化逻辑，保证行为兼容。
+            writer.writeAny(DBUtils.normalizeParameter(rawType, value));
         }
-        return normalized.toJSONString();
     }
 
     /**
-     * 按字段名忽略大小写查找记录中实际存在的 key。
+     * Timestamp 的快速本地时间转换。原实现 Timestamp.toLocalDateTime() 会走
+     * java.util.Date.getMonth() -> Calendar -> ZoneInfo，在宽表逐字段转换时占比较高。
      */
-    private String findKeyIgnoreCase(JSONObject record, String columnName) {
-        if (record == null || columnName == null) {
-            return null;
+    private static LocalDateTime toLocalDateTimeFast(Timestamp value) {
+        return value.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    private static final class ColumnPlan {
+
+        private final String targetName;
+        private final String sourceKey;
+        private final ValueKind kind;
+        private final String rawType;
+
+        private ColumnPlan(String targetName, String sourceKey, ValueKind kind, String rawType) {
+            this.targetName = targetName;
+            this.sourceKey = sourceKey;
+            this.kind = kind;
+            this.rawType = rawType;
         }
-        if (record.containsKey(columnName)) {
-            return columnName;
+    }
+
+    private static final class TablePlan {
+
+        private final boolean passthrough;
+        private final List<ColumnPlan> columns;
+        private final String streamLoadUrl;
+        private final String authorization;
+
+        private TablePlan(boolean passthrough, List<ColumnPlan> columns, String streamLoadUrl, String authorization) {
+            this.passthrough = passthrough;
+            this.columns = columns;
+            this.streamLoadUrl = streamLoadUrl;
+            this.authorization = authorization;
         }
-        for (String key : record.keySet()) {
-            if (key.equalsIgnoreCase(columnName)) {
-                return key;
-            }
+    }
+
+    private static final class ReusableBuffer extends ByteArrayOutputStream {
+
+        private ReusableBuffer(int size) {
+            super(size);
         }
-        return null;
+
+        private byte[] array() {
+            return this.buf;
+        }
     }
 
     /**
@@ -468,7 +776,17 @@ public class DorisStreamLoad extends FlowComponent {
         this.schema = schema;
     }
 
+    @Override
     public void stop() {
         super.stop();
+        CloseableHttpClient client = this.httpClient;
+        if (client != null) {
+            this.httpClient = null;
+            try {
+                client.close();
+            } catch (IOException e) {
+                logDebug("关闭 Doris HttpClient 失败: " + e.getMessage());
+            }
+        }
     }
 }

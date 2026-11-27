@@ -17,8 +17,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -111,12 +113,59 @@ public class DorisStreamLoadHttpTest {
         String body = requestBody.get();
         assertTrue(body.contains("\"sellid\":\"S1\""), "请求体应包含记录数据: " + body);
         assertTrue(body.contains("\"sellid\":\"S2\""), "请求体应包含记录数据: " + body);
+        assertEquals(2, body.lines().count(), "请求体应为 JSON Lines，每行一条记录: " + body);
 
         Headers headers = requestHeaders.get();
         assertEquals("0", headers.getFirst("max_filter_ratio"));
         assertEquals("json", headers.getFirst("format"));
-        assertEquals("true", headers.getFirst("strip_outer_array"));
+        // Doris FE 对 stream load 强制要求 100-continue，否则直接返回失败。
+        assertEquals("100-continue", headers.getFirst("Expect"));
+        assertEquals("true", headers.getFirst("read_json_by_line"));
+        assertNull(headers.getFirst("strip_outer_array"), "JSON Lines 模式不需要 strip_outer_array");
         assertNull(headers.getFirst("fuzzy_parse"), "不能开启 fuzzy_parse，否则 NULL 列会导致后续字段错位");
+    }
+
+    @Test
+    public void writesNumericDateAndBooleanTypesWithoutRebuildingRecords() throws Exception {
+        responseBody =
+            "{\"Status\":\"Success\",\"Message\":\"OK\",\"NumberTotalRows\":2," +
+            "\"NumberLoadedRows\":2,\"NumberFilteredRows\":0}";
+
+        TableMeta typedTable = new TableMeta();
+        typedTable.setSchema("dwd");
+        typedTable.setTable("dwd_visitor_order");
+        typedTable.addColumn(new ColumnMeta("sellid", "VARCHAR"));
+        typedTable.addColumn(new ColumnMeta("amount", "DECIMAL(12,2)"));
+        typedTable.addColumn(new ColumnMeta("qty", "INT"));
+        typedTable.addColumn(new ColumnMeta("ts", "DATETIME"));
+        typedTable.addColumn(new ColumnMeta("dt", "DATE"));
+        typedTable.addColumn(new ColumnMeta("flag", "BOOLEAN"));
+
+        JSONArray rows = new JSONArray();
+        JSONObject first = new JSONObject();
+        first.put("sellid", "S1");
+        first.put("amount", new BigDecimal("12.34"));
+        first.put("qty", 7);
+        first.put("ts", Timestamp.valueOf("2024-01-01 00:00:12"));
+        first.put("dt", java.sql.Date.valueOf("2023-05-06"));
+        first.put("flag", true);
+        rows.add(first);
+        JSONObject second = new JSONObject(first);
+        second.put("sellid", "S2");
+        rows.add(second);
+
+        FlowFile flowFile = new FlowFile();
+        flowFile.setJsonArray(rows);
+        invokeStreamLoad(typedTable, flowFile);
+
+        String body = requestBody.get();
+        assertTrue(body.contains("\"sellid\":\"S1\""), body);
+        assertTrue(body.contains("\"amount\":12.34"), body);
+        assertTrue(body.contains("\"qty\":7"), body);
+        assertTrue(body.contains("\"ts\":\"2024-01-01 00:00:12\""), body);
+        assertTrue(body.contains("\"dt\":\"2023-05-06\""), body);
+        assertTrue(body.contains("\"flag\":true"), body);
+        assertEquals(2, body.lines().count(), body);
     }
 
     @Test
@@ -166,6 +215,10 @@ public class DorisStreamLoadHttpTest {
     }
 
     private void invokeStreamLoad(FlowFile flowFile) throws Exception {
+        invokeStreamLoad(targetTable, flowFile);
+    }
+
+    private void invokeStreamLoad(TableMeta table, FlowFile flowFile) throws Exception {
         Method method = DorisStreamLoad.class.getDeclaredMethod(
             "streamLoadData",
             TableMeta.class,
@@ -173,6 +226,6 @@ public class DorisStreamLoadHttpTest {
             String.class
         );
         method.setAccessible(true);
-        method.invoke(component, targetTable, flowFile, "INSERT");
+        method.invoke(component, table, flowFile, "INSERT");
     }
 }
