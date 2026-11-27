@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 class DorisDataSourceProviderTest {
 
     @Test
-    void disablesBatchRewriteBecauseDorisDoesNotSupportComSetOption() {
+    void enablesBatchRewriteForInsertPerformance() {
         Map<String, String> props = new DorisDataSourceProvider().dataSourceProperties();
 
-        assertEquals("false", props.get("rewriteBatchedStatements"),
-            "Doris 不支持 COM_SET_OPTION，必须关闭批量改写，否则批量 DELETE 会报 Unknown command(27)");
+        assertEquals("true", props.get("rewriteBatchedStatements"),
+            "开启批量改写以提升 INSERT 性能；批量 DELETE 需避免依赖驱动改写，否则可能报 Unknown command(27)");
         assertEquals("false", props.get("useServerPrepStmts"),
             "Doris 服务端预编译会破坏多字节字符，必须使用客户端预编译");
         assertEquals("UTF-8", props.get("characterEncoding"));
