@@ -11,6 +11,7 @@ import com.data.datafusion.service.dto.ETLComponentDTO;
 import com.data.datafusion.service.dto.ETLEdgeDTO;
 import com.data.datafusion.service.dto.ETLNodeDTO;
 import com.data.datafusion.service.dto.ETLTaskDTO;
+import com.data.job.DAGParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayDeque;
@@ -584,7 +585,7 @@ public class EtlTaskSpecValidator {
                 dto.setSource(asString(edge.get("source")));
                 dto.setTarget(asString(edge.get("target")));
                 dto.setName(asString(edge.get("label")));
-                dto.setConfig("{\"queueCapacity\":10}");
+                dto.setConfig("{\"queueCapacity\":" + DAGParser.DEFAULT_QUEUE_CAPACITY + "}");
                 edgeDtos.add(dto);
             }
             task.setNodes(nodeDtos);

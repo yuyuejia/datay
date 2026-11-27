@@ -57,7 +57,7 @@ let skipNextCanvasFit = false;
 
 const DEBUG_ROW_LIMIT = 100;
 // 连线队列默认容量（批次数），与引擎 DAGParser.DEFAULT_QUEUE_CAPACITY 保持一致
-const DEFAULT_QUEUE_CAPACITY = 10;
+const DEFAULT_QUEUE_CAPACITY = 4;
 const debugResults = ref({});
 const debugRunning = ref(false);
 // 各节点调试获取到的上游表清单缓存，避免每次打开配置界面都自动执行调试

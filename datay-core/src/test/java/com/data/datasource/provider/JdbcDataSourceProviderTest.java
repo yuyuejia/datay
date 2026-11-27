@@ -12,6 +12,7 @@ import com.data.datasource.DataSourceTypeDescriptor;
 import com.data.metadata.DBType;
 import com.data.metadata.TypeConverter;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class JdbcDataSourceProviderTest {
@@ -59,5 +60,11 @@ class JdbcDataSourceProviderTest {
         assertEquals("SELECT 1 FROM DUMMY", provider.getTestQuery());
         assertTrue(provider.supportsUrl("jdbc:sap://localhost:30015/?databaseName=HXE"));
         assertFalse(provider.supportsUrl("jdbc:mysql://localhost:3306/test"));
+    }
+
+    @Test
+    void postgresRewritesBatchedInsertsByDefault() {
+        Map<String, String> props = new PostgresqlDataSourceProvider().dataSourceProperties();
+        assertEquals("true", props.get("reWriteBatchedInserts"));
     }
 }

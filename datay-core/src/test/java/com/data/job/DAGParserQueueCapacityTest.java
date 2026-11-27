@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * 连线队列容量的解析规则验证。
  *
- * <p>优先级：连线配置 > 流程默认值（flowConfig.queueCapacity） > 引擎默认值 10。
+ * <p>优先级：连线配置 > 流程默认值（flowConfig.queueCapacity） > 引擎默认值 4。
  */
 public class DAGParserQueueCapacityTest {
 
@@ -28,8 +28,8 @@ public class DAGParserQueueCapacityTest {
     }
 
     @Test
-    public void testDefaultCapacityIsTen() throws Exception {
-        assertEquals(10, resolveCapacity("", ""));
+    public void testDefaultCapacityIsFour() throws Exception {
+        assertEquals(4, resolveCapacity("", ""));
     }
 
     @Test

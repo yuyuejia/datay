@@ -9,8 +9,8 @@ import java.util.*;
 // DAG解析器
 public class DAGParser {
 
-    /** 连线队列默认容量（批次数）。 */
-    public static final int DEFAULT_QUEUE_CAPACITY = 10;
+    /** 连线队列默认容量（批次数）。宽表场景按批次数放大内存，默认保持较小值。 */
+    public static final int DEFAULT_QUEUE_CAPACITY = 4;
 
     /** 单条连线队列容量上限，避免误配置导致内存溢出。 */
     public static final int MAX_QUEUE_CAPACITY = 100000;
@@ -42,7 +42,7 @@ public class DAGParser {
             connections = new JSONArray();
         }
 
-        // 流程级默认队列容量：flowConfig.queueCapacity，缺省 10
+        // 流程级默认队列容量：flowConfig.queueCapacity，缺省 4
         JSONObject flowConfig = jsonObj.getJSONObject("flowConfig");
         if (flowConfig != null) {
             defaultQueueCapacity = normalizeQueueCapacity(flowConfig.getInteger("queueCapacity"), DEFAULT_QUEUE_CAPACITY);
@@ -83,7 +83,7 @@ public class DAGParser {
             if (source == null || target == null) {
                 continue;
             }
-            // 连线队列容量：连线配置优先，缺省使用流程级默认值（10）
+            // 连线队列容量：连线配置优先，缺省使用流程级默认值（4）
             int queueCapacity = normalizeQueueCapacity(connection.getInteger("queueCapacity"), defaultQueueCapacity);
             Connection resolved = new Connection(sourceId, targetId, sourcePort, label, queueCapacity);
             source.getOutput().add(resolved);
