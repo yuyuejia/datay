@@ -130,6 +130,7 @@ const loadPage = async () => {
   try {
     const configuredSort = props.widget.encode?.sortField || undefined;
     const data = await props.loader({
+      widgetId: props.widget.id,
       datasetId: props.widget.datasetId,
       dimensions: props.dimensions,
       page: page.value,

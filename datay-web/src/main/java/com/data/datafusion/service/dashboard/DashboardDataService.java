@@ -36,6 +36,8 @@ public class DashboardDataService {
 
     /** 图表明细下钻的临时筛选器前缀与请求约束。 */
     private static final String DRILL_FILTER_PREFIX = "__drill_";
+    private static final String LINKAGE_FILTER_PREFIX = "__linkage_";
+    private static final int MAX_LINKAGE_CONDITIONS = 20;
     private static final int MAX_DRILL_DIMENSIONS = 10;
     private static final int DEFAULT_DRILL_LIMIT = 50;
     private static final int MAX_DRILL_LIMIT = 500;
@@ -216,7 +218,8 @@ public class DashboardDataService {
                     String.valueOf(query.get("limit")),
                     String.valueOf(query.get("offset")),
                     String.valueOf(query.get("groupFields")),
-                    String.valueOf(query.get("aggregations"))
+                    String.valueOf(query.get("aggregations")),
+                    String.valueOf(query.get("conditions"))
                 )
             );
         }
@@ -276,7 +279,7 @@ public class DashboardDataService {
             throw new IllegalArgumentException("下钻维度最多 " + MAX_DRILL_DIMENSIONS + " 个");
         }
         List<Map<String, Object>> filters = new ArrayList<>(asMapList(resolved.get("filters")));
-        Map<String, Object> filterValues = sanitizeDrillFilterValues(request.get("filterValues"));
+        Map<String, Object> filterValues = sanitizeTransientFilterValues(request.get("filterValues"));
         int index = 0;
         for (Map<String, Object> dimension : dimensions) {
             String rawField = DatasetQueryService.asString(dimension.get("field"));
@@ -305,8 +308,8 @@ public class DashboardDataService {
         return executeDataset(dataset, drillSpec, fallbackDataSourceId, filterValues, drillOptions(request));
     }
 
-    /** 过滤掉调用方可能伪造的临时下钻条件，避免覆盖服务端生成的条件。 */
-    private Map<String, Object> sanitizeDrillFilterValues(Object raw) {
+    /** 过滤掉调用方可能伪造的临时下钻 / 联动条件，避免覆盖服务端生成的条件。 */
+    private Map<String, Object> sanitizeTransientFilterValues(Object raw) {
         Map<String, Object> result = new LinkedHashMap<>();
         if (raw instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
@@ -314,12 +317,53 @@ public class DashboardDataService {
                     continue;
                 }
                 String key = String.valueOf(entry.getKey());
-                if (!key.startsWith(DRILL_FILTER_PREFIX)) {
+                if (!key.startsWith(DRILL_FILTER_PREFIX) && !key.startsWith(LINKAGE_FILTER_PREFIX)) {
                     result.put(key, entry.getValue());
                 }
             }
         }
         return result;
+    }
+
+    /**
+     * 把组件查询携带的联动条件转换为数据集筛选器。
+     *
+     * <p>这些条件只对当前查询生效：SQL 数据集会包一层外层 WHERE，指标数据集按维度过滤；
+     * 字段名经过标识符校验，避免把任意 SQL 片段带进查询。</p>
+     */
+    private void appendLinkageConditions(
+        Map<String, Object> query,
+        String datasetId,
+        List<Map<String, Object>> filters,
+        Map<String, Object> filterValues
+    ) {
+        List<Map<String, Object>> conditions = asMapList(query.get("conditions"));
+        if (conditions.size() > MAX_LINKAGE_CONDITIONS) {
+            throw new IllegalArgumentException("联动条件最多 " + MAX_LINKAGE_CONDITIONS + " 个");
+        }
+        int index = 0;
+        for (Map<String, Object> condition : conditions) {
+            String rawField = DatasetQueryService.asString(condition.get("field"));
+            if (rawField == null || rawField.isBlank()) {
+                continue;
+            }
+            String field = DatasetScopeSqlBuilder.requireIdentifier(rawField);
+            List<String> values = DatasetQueryService.asStringList(condition.get("values"));
+            if (values.isEmpty()) {
+                continue;
+            }
+            String filterId = LINKAGE_FILTER_PREFIX + index++;
+            Map<String, Object> target = new LinkedHashMap<>();
+            target.put("datasetId", datasetId);
+            target.put("field", field);
+            target.put("mode", FilterTargetResolver.MODE_SERVER);
+            Map<String, Object> filter = new LinkedHashMap<>();
+            filter.put("id", filterId);
+            filter.put("type", DashboardSpecValidator.FILTER_SELECT);
+            filter.put("targets", List.of(target));
+            filters.add(filter);
+            filterValues.put(filterId, values.size() == 1 ? values.get(0) : values);
+        }
     }
 
     /** 下钻查询不携带分组与聚合，只保留排序和分页。 */
@@ -395,7 +439,13 @@ public class DashboardDataService {
             }
             try {
                 DatasetQueryOptions options = queryOptions(query);
-                widgetResult.put(queryId, executeDataset(dataset, resolved, fallbackDataSourceId, filterValues, options));
+                // 联动条件只作用于当前组件查询，不写入数据集或看板筛选器。
+                Map<String, Object> queryFilterValues = sanitizeTransientFilterValues(filterValues);
+                List<Map<String, Object>> queryFilters = new ArrayList<>(asMapList(resolved.get("filters")));
+                appendLinkageConditions(query, datasetId, queryFilters, queryFilterValues);
+                Map<String, Object> querySpec = new LinkedHashMap<>(resolved);
+                querySpec.put("filters", queryFilters);
+                widgetResult.put(queryId, executeDataset(dataset, querySpec, fallbackDataSourceId, queryFilterValues, options));
             } catch (SQLException | RuntimeException e) {
                 widgetErrors.put(queryId, e.getMessage() == null ? "查询失败" : e.getMessage());
             }

@@ -1459,6 +1459,86 @@
                 <div class="designer-hint">样式只影响展示，不影响数据绑定与筛选；留空项回落到主题 token。</div>
               </div>
             </el-tab-pane>
+
+            <el-tab-pane label="交互" name="interaction">
+              <div class="designer-property-form">
+                <template v-if="selectedWidget.type === 'echarts'">
+                  <label>点击行为</label>
+                  <el-radio-group v-model="interactionClickAction" size="small" class="designer-config-radio">
+                    <el-radio-button value="none">无</el-radio-button>
+                    <el-radio-button value="detail">明细查看</el-radio-button>
+                    <el-radio-button value="linkage">图表联动</el-radio-button>
+                  </el-radio-group>
+                  <div v-if="interactionClickAction === 'none'" class="designer-hint">点击图表不触发动作，只保留悬停提示。</div>
+                  <div v-else-if="interactionClickAction === 'detail'" class="designer-hint">
+                    点击图表打开明细对话框，按点击的分类 / 系列查看底层数据。
+                  </div>
+                  <template v-else>
+                    <label>联动目标</label>
+                    <el-select
+                      v-model="interactionTargetIds"
+                      multiple
+                      filterable
+                      collapse-tags
+                      collapse-tags-tooltip
+                      placeholder="选择需要联动的组件"
+                    >
+                      <el-option
+                        v-for="widget in linkageCandidateWidgets"
+                        :key="widget.id"
+                        :label="linkageCandidateLabel(widget)"
+                        :value="widget.id"
+                      />
+                    </el-select>
+                    <div class="designer-hint">
+                      点击图表时按点击的分类 / 系列过滤目标组件；同数据集自动按字段名联动，跨数据集需要配置字段关联。
+                    </div>
+
+                    <div v-for="item in interactionTargets" :key="item.config.widgetId" class="designer-linkage-target">
+                      <div class="designer-linkage-target-head">
+                        <span class="designer-linkage-target-name">{{ item.widget.title || item.widget.id }}</span>
+                        <el-tag size="small" :type="linkageTargetSameDataset(item.widget) ? 'success' : 'warning'" effect="plain">
+                          {{ linkageTargetSameDataset(item.widget) ? '同数据集' : '跨数据集' }}
+                        </el-tag>
+                        <el-button link type="danger" size="small" @click="removeLinkageTarget(item.config.widgetId)">移除</el-button>
+                      </div>
+                      <div v-if="linkageTargetSameDataset(item.widget)" class="designer-hint">无需配置字段关联关系。</div>
+                      <template v-else>
+                        <div v-if="item.config.fieldMap?.length" class="designer-linkage-mapping-list">
+                          <div v-for="(mapping, index) in item.config.fieldMap" :key="index" class="designer-linkage-mapping">
+                            <el-select v-model="mapping.sourceField" filterable placeholder="当前组件字段">
+                              <el-option
+                                v-for="field in linkageSourceFields"
+                                :key="field.name"
+                                :label="field.label || field.name"
+                                :value="field.name"
+                              />
+                            </el-select>
+                            <span class="designer-linkage-arrow">→</span>
+                            <el-select v-model="mapping.targetField" filterable placeholder="目标字段">
+                              <el-option
+                                v-for="field in linkageTargetFields(item.widget)"
+                                :key="field.name"
+                                :label="field.label || field.name"
+                                :value="field.name"
+                              />
+                            </el-select>
+                            <el-button link type="danger" @click="removeLinkageMapping(item.config, index)">×</el-button>
+                          </div>
+                        </div>
+                        <el-button size="small" @click="addLinkageMapping(item.config)">+ 添加字段关联</el-button>
+                        <div v-if="!item.config.fieldMap?.length" class="designer-linkage-warning">
+                          跨数据集联动至少配置一组字段关联，否则保存会被拦截。
+                        </div>
+                      </template>
+                    </div>
+                    <div v-if="!interactionTargets.length" class="designer-hint">尚未选择联动目标。</div>
+                    <div class="designer-hint">点击画布中的图表即可预览联动；再次点击相同取值可取消联动。</div>
+                  </template>
+                </template>
+                <div v-else class="designer-hint">仅图表组件支持点击交互与联动配置。</div>
+              </div>
+            </el-tab-pane>
           </el-tabs>
         </template>
 
@@ -2317,6 +2397,57 @@
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid #ebeef5;
+}
+
+.designer-linkage-target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #f7f9fc;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+}
+
+.designer-linkage-target-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.designer-linkage-target-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #303133;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.designer-linkage-mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.designer-linkage-mapping {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.designer-linkage-arrow {
+  color: #909399;
+  font-size: 12px;
+}
+
+.designer-linkage-warning {
+  color: #e6a23c;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .designer-chart-option {

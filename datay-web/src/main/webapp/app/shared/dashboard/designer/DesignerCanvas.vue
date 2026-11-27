@@ -8,12 +8,17 @@
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
+    <DashboardLinkageBar v-if="!nested" :linkage="linkage" :linked-count="linkedCount" @clear="clearLinkage" />
     <div
       v-for="widget in widgets"
       :key="widget.id"
       class="designer-canvas-item"
       :data-widget-id="widget.id"
-      :class="{ 'is-selected': widget.id === selectedId, 'is-container': widget.type === 'container' }"
+      :class="{
+        'is-selected': widget.id === selectedId,
+        'is-container': widget.type === 'container',
+        'is-linked': linkageWidgetIds?.[widget.id],
+      }"
       :style="itemStyle(widget)"
       @pointerdown="select(widget)"
     >
@@ -38,7 +43,7 @@
         <DashboardWidget
           :widget="widget"
           :result="widgetData?.[widget.id] ?? datasetData?.[widget.datasetId || '']"
-          :loading="loadingDatasets?.[widget.datasetId || '']"
+          :loading="widgetLoading(widget)"
           :error="widgetErrors?.[widget.id] ?? datasetErrors?.[widget.datasetId || '']"
           :theme="theme"
           :palette="chartPalette"
@@ -46,8 +51,10 @@
           :dataset-data="datasetData"
           :server-paged="serverPaginationWidgets?.[widget.id]"
           :page-loader="loadWidgetPage ? page => loadWidgetPage(widget.id, page) : undefined"
-          :page-reset-key="dataVersion"
+          :page-reset-key="pageResetKeyOf(widget)"
           :drill-loader="loadDrill"
+          :apply-linkage="applyLinkage"
+          :linkage-selection="linkageSelectionOf(widget)"
         >
           <template v-if="widget.type === 'container'" #container>
             <DesignerCanvas
@@ -59,11 +66,16 @@
               :dataset-data="datasetData"
               :widget-data="widgetData"
               :loading-datasets="loadingDatasets"
+              :loading-widgets="loadingWidgets"
+              :widget-reset-keys="widgetResetKeys"
               :dataset-errors="datasetErrors"
               :widget-errors="widgetErrors"
               :server-pagination-widgets="serverPaginationWidgets"
               :load-widget-page="loadWidgetPage"
               :load-drill="loadDrill"
+              :apply-linkage="applyLinkage"
+              :linkage="linkage"
+              :linkage-widget-ids="linkageWidgetIds"
               :data-version="dataVersion"
               :drag-item="dragItem"
               @select="emit('select', $event)"
@@ -88,15 +100,18 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue';
 
+import DashboardLinkageBar from '../DashboardLinkageBar.vue';
 import DashboardWidget from '../DashboardWidget.vue';
 import { CONTAINER_COLUMNS, CONTAINER_GAP, CONTAINER_PADDING, CONTAINER_ROW_HEIGHT } from '../container-layout';
 import type {
+  ActiveWidgetLinkage,
   ChartType,
   DashboardSpec,
   DashboardWidget as Widget,
   DatasetResult,
   WidgetDrillLoader,
   WidgetLayout,
+  WidgetLinkageHandler,
   WidgetPalettePayload,
   WidgetPageLoader,
   WidgetType,
@@ -119,11 +134,18 @@ const props = defineProps<{
   datasetData?: Record<string, DatasetResult>;
   widgetData?: Record<string, DatasetResult>;
   loadingDatasets?: Record<string, boolean>;
+  loadingWidgets?: Record<string, boolean>;
+  widgetResetKeys?: Record<string, number>;
   datasetErrors?: Record<string, string>;
   widgetErrors?: Record<string, string>;
   serverPaginationWidgets?: Record<string, boolean>;
   loadWidgetPage?: WidgetPageLoader;
   loadDrill?: WidgetDrillLoader;
+  /** 当前生效的图表联动；设计画布内点击即可预览联动效果。 */
+  linkage?: ActiveWidgetLinkage | null;
+  linkageWidgetIds?: Record<string, boolean>;
+  applyLinkage?: WidgetLinkageHandler;
+  clearLinkage?: () => void;
   dataVersion?: number;
   selectedId?: string;
   dragItem?: WidgetPalettePayload | null;
@@ -146,6 +168,10 @@ const emit = defineEmits<{
   'child-resize': [containerId: string, id: string, layout: WidgetLayout];
 }>();
 
+const linkedCount = computed(() => Object.keys(props.linkageWidgetIds ?? {}).length);
+const linkageSelectionOf = (widget: Widget) => (props.linkage?.sourceWidgetId === widget.id ? (props.linkage.selection ?? null) : null);
+const widgetLoading = (widget: Widget) => props.loadingWidgets?.[widget.id] || !!props.loadingDatasets?.[widget.datasetId || ''];
+const pageResetKeyOf = (widget: Widget) => (props.dataVersion ?? 0) + (props.widgetResetKeys?.[widget.id] ?? 0);
 const gridRef = ref<HTMLElement | null>(null);
 const widgets = computed(() => {
   const list = props.spec.widgets ?? [];
@@ -562,6 +588,11 @@ function select(widget: Widget) {
 
 .designer-canvas.is-pixel > .designer-canvas-item {
   position: absolute;
+}
+
+.designer-canvas-item.is-linked {
+  outline: 2px dashed #409eff;
+  outline-offset: 1px;
 }
 
 .designer-canvas-item.is-selected:not(.is-container) {

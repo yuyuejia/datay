@@ -416,6 +416,56 @@ export interface WidgetKpiStyle {
   decimals?: number;
 }
 
+/** 图表点击行为：无 / 明细查看 / 图表联动。 */
+export type WidgetClickAction = 'none' | 'detail' | 'linkage';
+
+/** 跨数据集联动时的字段关联：当前图表字段 → 目标图表字段。 */
+export interface WidgetLinkageMapping {
+  sourceField: string;
+  targetField: string;
+}
+
+/** 联动目标组件；同数据集无需 fieldMap。 */
+export interface WidgetLinkageTarget {
+  widgetId: string;
+  fieldMap?: WidgetLinkageMapping[];
+}
+
+/** 组件交互配置：点击行为与联动目标。 */
+export interface WidgetInteraction {
+  clickAction?: WidgetClickAction;
+  targets?: WidgetLinkageTarget[];
+}
+
+/** 运行时联动条件：字段与点击取值。 */
+export interface LinkageCondition {
+  field: string;
+  values: Array<string | number>;
+}
+
+/** 选中态：点击的数据项位置，用于源图表高亮、其余置灰。 */
+export interface LinkageSelection {
+  seriesIndex?: number;
+  dataIndex?: number;
+  dataType?: string;
+}
+
+/** 图表联动回调：来源组件、点击维度与选中数据项。 */
+export type WidgetLinkageHandler = (widgetId: string, dimensions: DrillDimension[], selection?: LinkageSelection) => void;
+
+/** 当前生效的图表联动。 */
+export interface ActiveWidgetLinkage {
+  sourceWidgetId: string;
+  sourceTitle: string;
+  /** 展示用文案，如「城市 = 北京」。 */
+  label: string;
+  conditions: LinkageCondition[];
+  /** 本次联动实际生效的目标组件 id，切换/取消时用于精确恢复。 */
+  targetWidgetIds?: string[];
+  /** 源图表中被点击的数据项，用于高亮选中、置灰其余。 */
+  selection?: LinkageSelection;
+}
+
 /** 组件皮肤；只影响 DOM 呈现，不参与取数与聚合。 */
 export interface WidgetStyle {
   card?: WidgetCardStyle;
@@ -436,6 +486,8 @@ export interface DashboardWidget {
   style?: WidgetStyle;
   /** 标题栏 / 日期时间的文本与格式。 */
   props?: WidgetProps;
+  /** 点击交互与图表联动配置。 */
+  interaction?: WidgetInteraction;
   /** 所属容器 id；容器本身不再嵌套。 */
   parentId?: string;
   datasetId?: string;
@@ -528,6 +580,8 @@ export interface DrillDimension {
 
 /** 明细下钻请求参数（分页由服务端执行）。 */
 export interface WidgetDrillRequest {
+  /** 发起下钻的组件 id，用于叠加该组件的联动条件。 */
+  widgetId?: string;
   datasetId: string;
   dimensions: DrillDimension[];
   page: number;

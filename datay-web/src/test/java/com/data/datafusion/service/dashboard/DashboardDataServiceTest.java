@@ -385,6 +385,72 @@ class DashboardDataServiceTest {
     }
 
     @Test
+    void shouldApplyLinkageConditionsToWidgetQuery() throws Exception {
+        Map<String, Object> dataset = dataset("ds1", "lib-1");
+        Map<String, Object> resolvedSpec = new LinkedHashMap<>();
+        resolvedSpec.put("datasets", List.of(dataset));
+        resolvedSpec.put("filters", List.of());
+
+        AnalysisDatasetResolver resolver = mock(AnalysisDatasetResolver.class);
+        DatasetQueryService queryService = mock(DatasetQueryService.class);
+        when(resolver.resolveSpec(any())).thenReturn(resolvedSpec);
+        when(queryService.query(any(), any(), anyList(), any(), any(), any())).thenReturn(
+            new LinkedHashMap<>(Map.of("rows", List.of()))
+        );
+
+        Map<String, Object> condition = new LinkedHashMap<>();
+        condition.put("field", "region");
+        condition.put("values", List.of("华东", "华南"));
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("id", "q1");
+        query.put("datasetId", "ds1");
+        query.put("conditions", List.of(condition));
+
+        // 调用方伪造的联动条件必须被忽略，只保留服务端生成的条件。
+        Map<String, Object> response = newService(
+            resolver,
+            queryService,
+            mock(AnalysisDashboardRepository.class),
+            mock(DashboardSpecValidator.class)
+        ).queryWidgets(
+            Map.of("datasets", List.of(dataset)),
+            "fallback-source",
+            List.of(),
+            List.of(query),
+            Map.of("__linkage_9", "injected")
+        );
+        assertThat(response).containsKey("widgets");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Map<String, Object>>> filtersCaptor = ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> valuesCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(queryService).query(
+            eq(dataset),
+            eq("fallback-source"),
+            filtersCaptor.capture(),
+            valuesCaptor.capture(),
+            eq("lib-1"),
+            any(DatasetQueryOptions.class)
+        );
+
+        List<Map<String, Object>> filters = filtersCaptor.getValue();
+        assertThat(filters).hasSize(1);
+        assertThat(filters.get(0)).containsEntry("id", "__linkage_0").containsEntry("type", "select");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> targets = (List<Map<String, Object>>) filters.get(0).get("targets");
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0))
+            .containsEntry("datasetId", "ds1")
+            .containsEntry("field", "region")
+            .containsEntry("mode", "server");
+
+        Map<String, Object> values = valuesCaptor.getValue();
+        assertThat(values).doesNotContainKey("__linkage_9");
+        assertThat(values.get("__linkage_0")).isEqualTo(List.of("华东", "华南"));
+    }
+
+    @Test
     void shouldUseDefaultDrillLimitAndRejectInvalidDimension() throws Exception {
         Map<String, Object> dataset = dataset("ds1", null);
         Map<String, Object> resolvedSpec = new LinkedHashMap<>();

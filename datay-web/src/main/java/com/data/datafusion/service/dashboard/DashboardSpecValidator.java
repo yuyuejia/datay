@@ -75,6 +75,11 @@ public class DashboardSpecValidator {
     private static final Set<String> KPI_LAYOUTS = Set.of("label-top", "label-left", "value-only");
     private static final Set<String> CHART_STYLE_PRESETS = Set.of("tech", "minimal", "dark");
     private static final Set<String> LEGEND_POSITIONS = Set.of("top", "bottom", "left", "right");
+    private static final Set<String> CLICK_ACTIONS = Set.of("none", "detail", "linkage");
+    private static final Set<String> LINKABLE_WIDGET_TYPES = Set.of("echarts", "kpi", "table", "pivot");
+    private static final int MAX_LINKAGE_TARGETS = 20;
+    private static final int MAX_LINKAGE_FIELDS = 20;
+    private static final int MAX_FIELD_REF_LENGTH = 128;
     private static final int MAX_AXIS_TITLE_LENGTH = 30;
     private static final Set<String> TITLE_FRAMES = Set.of("none", "tech-frame", "bracket");
     private static final Set<String> TITLE_ALIGNS_PROPS = Set.of("left", "center", "right");
@@ -535,6 +540,92 @@ public class DashboardSpecValidator {
             result.add(widget);
         }
         validateContainerParents(result);
+        normalizeInteractions(result);
+        return result;
+    }
+
+    /**
+     * 组件交互：点击行为与图表联动目标。
+     *
+     * <p>同数据集目标无需字段关联；跨数据集目标必须至少配置一组字段关联，否则丢弃该目标。
+     * 目标组件必须存在且是数据绑定类组件，避免把标题栏 / 容器等无数据组件设为联动目标。</p>
+     */
+    private void normalizeInteractions(List<Map<String, Object>> widgets) {
+        Map<String, Map<String, Object>> byId = new LinkedHashMap<>();
+        for (Map<String, Object> widget : widgets) {
+            byId.put(asString(widget.get("id")), widget);
+        }
+        for (Map<String, Object> widget : widgets) {
+            String id = asString(widget.get("id"));
+            String datasetId = trimToNull(asString(widget.get("datasetId")));
+            Map<String, Object> raw = asMap(widget.get("interaction"));
+            if (raw.isEmpty()) {
+                widget.remove("interaction");
+                continue;
+            }
+            Map<String, Object> interaction = new LinkedHashMap<>();
+            String action = trimToNull(asString(raw.get("clickAction")));
+            if (action != null && CLICK_ACTIONS.contains(action.toLowerCase())) {
+                interaction.put("clickAction", action.toLowerCase());
+            }
+            List<Map<String, Object>> targets = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            for (Map<String, Object> item : asMapList(raw.get("targets"))) {
+                String targetId = trimToNull(asString(item.get("widgetId")));
+                if (targetId == null || targetId.equals(id) || !seen.add(targetId)) {
+                    continue;
+                }
+                Map<String, Object> targetWidget = byId.get(targetId);
+                if (targetWidget == null || !LINKABLE_WIDGET_TYPES.contains(asString(targetWidget.get("type")))) {
+                    continue;
+                }
+                boolean sameDataset = datasetId != null && datasetId.equals(trimToNull(asString(targetWidget.get("datasetId"))));
+                List<Map<String, Object>> fieldMap = normalizeLinkageFieldMap(item.get("fieldMap"));
+                Map<String, Object> target = new LinkedHashMap<>();
+                target.put("widgetId", targetId);
+                if (!sameDataset && !fieldMap.isEmpty()) {
+                    target.put("fieldMap", fieldMap);
+                }
+                targets.add(target);
+                if (targets.size() >= MAX_LINKAGE_TARGETS) {
+                    break;
+                }
+            }
+            if (!targets.isEmpty()) {
+                interaction.put("targets", targets);
+            }
+            if (interaction.isEmpty()) {
+                widget.remove("interaction");
+            } else {
+                widget.put("interaction", interaction);
+            }
+        }
+    }
+
+    /** 跨数据集字段关联：只保留双向字段名完整的映射。 */
+    private List<Map<String, Object>> normalizeLinkageFieldMap(Object raw) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Map<String, Object> item : asMapList(raw)) {
+            String sourceField = trimToNull(asString(item.get("sourceField")));
+            String targetField = trimToNull(asString(item.get("targetField")));
+            if (
+                sourceField == null ||
+                targetField == null ||
+                sourceField.length() > MAX_FIELD_REF_LENGTH ||
+                targetField.length() > MAX_FIELD_REF_LENGTH ||
+                !seen.add(sourceField + "->" + targetField)
+            ) {
+                continue;
+            }
+            Map<String, Object> mapping = new LinkedHashMap<>();
+            mapping.put("sourceField", sourceField);
+            mapping.put("targetField", targetField);
+            result.add(mapping);
+            if (result.size() >= MAX_LINKAGE_FIELDS) {
+                break;
+            }
+        }
         return result;
     }
 

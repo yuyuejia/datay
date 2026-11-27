@@ -69,6 +69,7 @@ describe('DashboardDrillDialog', () => {
     await flushPromises();
 
     expect(loader).toHaveBeenCalledWith({
+      widgetId: 'w1',
       datasetId: 'ds1',
       dimensions: [{ field: 'region', values: ['华东'] }],
       page: 1,

@@ -58,11 +58,17 @@
             :dataset-data="datasetData"
             :widget-data="widgetData"
             :loading-datasets="loadingDatasets"
+            :loading-widgets="loadingWidgets"
+            :widget-reset-keys="widgetResetKeys"
             :dataset-errors="datasetErrors"
             :widget-errors="widgetErrors"
             :server-pagination-widgets="serverPaginationWidgets"
             :load-widget-page="loadWidgetPage"
             :load-drill="loadDrill"
+            :linkage="linkage"
+            :linkage-widget-ids="linkageWidgetIds"
+            :apply-linkage="applyLinkage"
+            :clear-linkage="clearLinkage"
             :data-version="dataVersion"
             :show-header="false"
           />
@@ -83,11 +89,17 @@
           :dataset-data="datasetData"
           :widget-data="widgetData"
           :loading-datasets="loadingDatasets"
+          :loading-widgets="loadingWidgets"
+          :widget-reset-keys="widgetResetKeys"
           :dataset-errors="datasetErrors"
           :widget-errors="widgetErrors"
           :server-pagination-widgets="serverPaginationWidgets"
           :load-widget-page="loadWidgetPage"
           :load-drill="loadDrill"
+          :linkage="linkage"
+          :linkage-widget-ids="linkageWidgetIds"
+          :apply-linkage="applyLinkage"
+          :clear-linkage="clearLinkage"
           :data-version="dataVersion"
           :show-header="false"
         />
@@ -161,6 +173,8 @@ const {
   datasetData,
   widgetData,
   loadingDatasets,
+  loadingWidgets,
+  widgetResetKeys,
   datasetErrors,
   widgetErrors,
   serverPaginationWidgets,
@@ -168,6 +182,10 @@ const {
   loadAll,
   loadWidgetPage,
   loadDrill,
+  linkage,
+  linkageWidgetIds,
+  applyLinkage,
+  clearLinkage,
 } = useDashboardData({
   dashboardId,
   spec,

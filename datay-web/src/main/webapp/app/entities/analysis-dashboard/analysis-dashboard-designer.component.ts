@@ -70,6 +70,8 @@ import type {
   WidgetCardStyle,
   WidgetChartAxisStyle,
   WidgetChartStyle,
+  WidgetClickAction,
+  WidgetLinkageTarget,
   WidgetFill,
   WidgetFormatRule,
   WidgetKpiStyle,
@@ -347,7 +349,7 @@ export default defineComponent({
     const description = ref('');
     const status = ref('ENABLED');
     const activePanel = ref<'datasets' | 'widgets' | 'filters'>('datasets');
-    const propertyTab = ref<'basic' | 'custom'>('basic');
+    const propertyTab = ref<'basic' | 'custom' | 'interaction'>('basic');
     const dashboardSettingsVisible = ref(false);
     const propertiesRef = ref<HTMLElement | null>(null);
     const customOptionText = ref('');
@@ -386,6 +388,8 @@ export default defineComponent({
       datasetData,
       widgetData,
       loadingDatasets,
+      loadingWidgets,
+      widgetResetKeys,
       datasetErrors,
       widgetErrors,
       serverPaginationWidgets,
@@ -394,6 +398,10 @@ export default defineComponent({
       loadAll,
       loadWidgetPage,
       loadDrill,
+      linkage,
+      linkageWidgetIds,
+      applyLinkage,
+      clearLinkage,
     } = useDashboardData({ spec });
 
     const selectedWidget = computed(() => spec.value.widgets.find(widget => widget.id === selectedWidgetId.value));
@@ -1427,11 +1435,17 @@ export default defineComponent({
       datasetData: datasetData.value,
       widgetData: widgetData.value,
       loadingDatasets: loadingDatasets.value,
+      loadingWidgets: loadingWidgets.value,
+      widgetResetKeys: widgetResetKeys.value,
       datasetErrors: datasetErrors.value,
       widgetErrors: widgetErrors.value,
       serverPaginationWidgets: serverPaginationWidgets.value,
       loadWidgetPage,
       loadDrill,
+      linkage: linkage.value,
+      linkageWidgetIds: linkageWidgetIds.value,
+      applyLinkage,
+      clearLinkage,
       dataVersion: dataVersion.value,
       selectedId: selectedWidgetId.value,
       dragItem: paletteDragItem.value,
@@ -1912,6 +1926,128 @@ export default defineComponent({
       const numeric = widgetFields.value.filter(field => field.numeric);
       return numeric.length > 0 ? numeric : widgetFields.value;
     });
+
+    // ---------------------------------------------------------------- 组件交互
+
+    /** 可作为联动目标的数据绑定组件类型。 */
+    const LINKABLE_WIDGET_TYPES = new Set<WidgetType>(['echarts', 'kpi', 'table', 'pivot']);
+
+    const linkageCandidateWidgets = computed(() =>
+      spec.value.widgets.filter(widget => widget.id !== selectedWidget.value?.id && LINKABLE_WIDGET_TYPES.has(widget.type)),
+    );
+
+    const linkageCandidateLabel = (widget: DashboardWidget): string => {
+      const dataset = spec.value.datasets.find(item => item.id === widget.datasetId);
+      return `${widget.title || widget.id} · ${dataset?.name || widget.datasetId || '未绑定数据集'}`;
+    };
+
+    const linkageTargetSameDataset = (widget: DashboardWidget): boolean =>
+      !!selectedWidget.value?.datasetId && selectedWidget.value.datasetId === widget.datasetId;
+
+    /** 只有图表维度字段会出现在点击条件里，字段关联来源因此限定为维度字段。 */
+    const linkageSourceFields = computed(() => {
+      const dimensionFields = new Set((selectedWidget.value?.encode?.dimensions ?? []).map(dimension => dimension.field));
+      if (dimensionFields.size === 0) {
+        return widgetFields.value;
+      }
+      const matched = widgetFields.value.filter(field => dimensionFields.has(field.name));
+      return matched.length > 0 ? matched : widgetFields.value;
+    });
+    const linkageTargetFields = (widget: DashboardWidget) => fieldCandidates(widget.datasetId);
+
+    /** 移除空交互配置，避免把默认行为写进 spec。 */
+    const pruneInteraction = (widget: DashboardWidget) => {
+      const interaction = widget.interaction;
+      if (!interaction) {
+        return;
+      }
+      interaction.targets = (interaction.targets ?? []).filter(target => spec.value.widgets.some(item => item.id === target.widgetId));
+      if (interaction.targets.length === 0) {
+        delete interaction.targets;
+      }
+      if (!interaction.clickAction && !interaction.targets) {
+        delete widget.interaction;
+      }
+    };
+
+    const interactionClickAction = computed<WidgetClickAction>({
+      get: () => selectedWidget.value?.interaction?.clickAction ?? 'detail',
+      set: value => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        if (!widget.interaction) {
+          if (value === 'detail') {
+            return;
+          }
+          widget.interaction = {};
+        }
+        if (value === 'detail') {
+          delete widget.interaction.clickAction;
+        } else {
+          widget.interaction.clickAction = value;
+        }
+        pruneInteraction(widget);
+      },
+    });
+
+    /** 新增联动目标时，跨数据集按同名字段自动预填关联关系。 */
+    const createLinkageTarget = (targetId: string): WidgetLinkageTarget => {
+      const source = selectedWidget.value;
+      const target = spec.value.widgets.find(widget => widget.id === targetId);
+      const config: WidgetLinkageTarget = { widgetId: targetId };
+      if (source && target && !linkageTargetSameDataset(target)) {
+        const targetFields = new Set(fieldCandidates(target.datasetId).map(field => field.name));
+        config.fieldMap = (source.encode?.dimensions ?? [])
+          .filter(dimension => targetFields.has(dimension.field))
+          .map(dimension => ({ sourceField: dimension.field, targetField: dimension.field }));
+      }
+      return config;
+    };
+
+    const interactionTargetIds = computed<string[]>({
+      get: () =>
+        (selectedWidget.value?.interaction?.targets ?? [])
+          .map(target => target.widgetId)
+          .filter(id => linkageCandidateWidgets.value.some(widget => widget.id === id)),
+      set: ids => {
+        const widget = selectedWidget.value;
+        if (!widget) {
+          return;
+        }
+        if (!widget.interaction) {
+          widget.interaction = {};
+        }
+        const existing = new Map((widget.interaction.targets ?? []).map(target => [target.widgetId, target]));
+        widget.interaction.targets = ids
+          .filter(id => linkageCandidateWidgets.value.some(item => item.id === id))
+          .map(id => existing.get(id) ?? createLinkageTarget(id));
+        pruneInteraction(widget);
+      },
+    });
+
+    const interactionTargets = computed(() => {
+      const widgets = new Map(spec.value.widgets.map(widget => [widget.id, widget]));
+      return (selectedWidget.value?.interaction?.targets ?? [])
+        .map(config => ({ config, widget: widgets.get(config.widgetId) }))
+        .filter((item): item is { config: WidgetLinkageTarget; widget: DashboardWidget } => !!item.widget);
+    });
+
+    const addLinkageMapping = (target: WidgetLinkageTarget) => {
+      if (!target.fieldMap) {
+        target.fieldMap = [];
+      }
+      target.fieldMap.push({ sourceField: '', targetField: '' });
+    };
+
+    const removeLinkageMapping = (target: WidgetLinkageTarget, index: number) => {
+      target.fieldMap?.splice(index, 1);
+    };
+
+    const removeLinkageTarget = (targetId: string) => {
+      interactionTargetIds.value = interactionTargetIds.value.filter(id => id !== targetId);
+    };
 
     const widgetChartType = computed<ChartType>(() => resolveChartType(selectedWidget.value));
 
@@ -2683,6 +2819,16 @@ export default defineComponent({
     };
 
     const removeWidget = (id: string) => {
+      // 组件删除后同步清理其它组件的联动目标，避免留下悬空引用。
+      spec.value.widgets.forEach(widget => {
+        if (widget.interaction?.targets?.some(target => target.widgetId === id)) {
+          widget.interaction.targets = widget.interaction.targets.filter(target => target.widgetId !== id);
+          if (widget.interaction.targets.length === 0) {
+            delete widget.interaction.targets;
+          }
+          pruneInteraction(widget);
+        }
+      });
       const target = spec.value.widgets.find(widget => widget.id === id);
       const childIds = new Set(
         target?.type === 'container' ? spec.value.widgets.filter(widget => widget.parentId === id).map(widget => widget.id) : [],
@@ -2690,6 +2836,10 @@ export default defineComponent({
       pendingFieldDefaults.delete(id);
       childIds.forEach(childId => pendingFieldDefaults.delete(childId));
       spec.value.widgets = spec.value.widgets.filter(widget => widget.id !== id && !childIds.has(widget.id));
+      // 删除联动源或目标时立即取消联动，避免目标组件停留在过滤状态。
+      if (linkage.value?.sourceWidgetId === id || (linkage.value?.targetWidgetIds ?? []).some(widgetId => widgetId === id)) {
+        clearLinkage();
+      }
       if (selectedWidgetId.value === id || childIds.has(selectedWidgetId.value)) {
         selectedWidgetId.value = '';
       }
@@ -3418,6 +3568,25 @@ export default defineComponent({
       }
       saving.value = true;
       try {
+        const incompleteLinkage = spec.value.widgets.find(
+          widget =>
+            widget.interaction?.clickAction === 'linkage' &&
+            (widget.interaction.targets ?? []).some(target => {
+              const targetWidget = spec.value.widgets.find(item => item.id === target.widgetId);
+              if (!targetWidget || !widget.datasetId || !targetWidget.datasetId) {
+                return false;
+              }
+              if (widget.datasetId === targetWidget.datasetId) {
+                return false;
+              }
+              return !(target.fieldMap ?? []).some(mapping => !!mapping.sourceField && !!mapping.targetField);
+            }),
+        );
+        if (incompleteLinkage) {
+          alertService.showError(`组件「${incompleteLinkage.title || incompleteLinkage.id}」的跨数据集联动目标缺少字段关联`);
+          saving.value = false;
+          return;
+        }
         spec.value.title = name.value.trim();
         spec.value.description = description.value;
         pruneIncompleteMapLayers(spec.value);
@@ -3654,6 +3823,21 @@ export default defineComponent({
       chartLabelFontSize,
       chartPercentOfTotal,
       customSections,
+      interactionClickAction,
+      interactionTargetIds,
+      linkage,
+      linkageWidgetIds,
+      applyLinkage,
+      clearLinkage,
+      interactionTargets,
+      linkageCandidateWidgets,
+      linkageCandidateLabel,
+      linkageTargetSameDataset,
+      linkageSourceFields,
+      linkageTargetFields,
+      addLinkageMapping,
+      removeLinkageMapping,
+      removeLinkageTarget,
       widgetFields,
       widgetValueFieldOptions,
       widgetValueFields,

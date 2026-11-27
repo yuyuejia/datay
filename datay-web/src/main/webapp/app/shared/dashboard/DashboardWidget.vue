@@ -23,7 +23,9 @@
         :key="chartKey"
         :theme="theme"
         :palette="palette"
-        :clickable="canDrill"
+        :clickable="clickable"
+        :title="clickHint"
+        :dim-selection="linkageSelection"
         @click="onChartClick"
       />
       <KpiWidget v-else-if="widget.type === 'kpi'" :widget="widget" :result="result" />
@@ -77,9 +79,12 @@ import type {
   DashboardWidget,
   DatasetResult,
   DrillDimension,
+  LinkageSelection,
   TablePageLoader,
   ThemeMapTokens,
+  WidgetClickAction,
   WidgetDrillLoader,
+  WidgetLinkageHandler,
 } from './types';
 import { resolveWidgetStyle } from './widget-style';
 
@@ -99,6 +104,10 @@ const props = defineProps<{
   pageLoader?: TablePageLoader;
   pageResetKey?: number;
   drillLoader?: WidgetDrillLoader;
+  /** 图表联动回调；设计器不传时点击联动模式不会生效。 */
+  applyLinkage?: WidgetLinkageHandler;
+  /** 当前组件作为联动源时，被点击数据项的位置；用于高亮选中、置灰其余。 */
+  linkageSelection?: LinkageSelection | null;
 }>();
 
 const option = computed(() => {
@@ -109,9 +118,8 @@ const option = computed(() => {
   if (!props.widget.style?.chart) {
     return built;
   }
-  const chartType = (props.widget.chart?.type ?? built.series?.[0]?.type ?? 'bar') as ChartType;
   return applyChartStyle(built, {
-    chartType,
+    chartType: (props.widget.chart?.type ?? built.series?.[0]?.type ?? 'bar') as ChartType,
     style: props.widget.style,
     palette: props.palette ?? [],
     dark: props.theme === 'dark',
@@ -142,20 +150,35 @@ const showHeader = computed(() => {
 /** 标题栏 / 日期时间 / 容器没有内容区留白需求。 */
 const isPlain = computed(() => props.widget.type === 'title' || props.widget.type === 'clock' || props.widget.type === 'container');
 
-const canDrill = computed(() => !!props.drillLoader && isDrillableWidget(props.widget));
+const clickAction = computed<WidgetClickAction>(() => props.widget.interaction?.clickAction ?? 'detail');
+const hasLinkageTargets = computed(() => (props.widget.interaction?.targets?.length ?? 0) > 0);
+const canLink = computed(() => clickAction.value === 'linkage' && hasLinkageTargets.value && !!props.applyLinkage);
+const canDrill = computed(() => clickAction.value === 'detail' && !!props.drillLoader && isDrillableWidget(props.widget));
+const clickable = computed(() => canDrill.value || canLink.value);
+const clickHint = computed(() => (canLink.value ? '点击联动其他图表' : canDrill.value ? '点击查看明细' : undefined));
 const drillVisible = ref(false);
 const drillDimensions = ref<DrillDimension[]>([]);
 
 const onChartClick = (params: Record<string, any>) => {
-  if (!props.drillLoader) {
+  if (!clickable.value) {
     return;
   }
   const dimensions = resolveDrillDimensions(params, props.widget, option.value);
   if (!dimensions) {
     return;
   }
-  drillDimensions.value = dimensions;
-  drillVisible.value = true;
+  if (canLink.value) {
+    const selection =
+      typeof params.dataIndex === 'number'
+        ? { seriesIndex: params.seriesIndex, dataIndex: params.dataIndex, dataType: params.dataType }
+        : undefined;
+    props.applyLinkage?.(props.widget.id, dimensions, selection);
+    return;
+  }
+  if (canDrill.value) {
+    drillDimensions.value = dimensions;
+    drillVisible.value = true;
+  }
 };
 </script>
 

@@ -1984,6 +1984,75 @@ class DashboardSpecValidatorTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldNormalizeWidgetInteraction() {
+        String spec =
+            """
+            {
+              "version": 2,
+              "datasets": [
+                { "id": "ds1", "type": "METRIC", "metricQuery": { "metricCodes": ["m1"] } },
+                { "id": "ds2", "type": "METRIC", "metricQuery": { "metricCodes": ["m2"] } }
+              ],
+              "widgets": [
+                {
+                  "id": "w1",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 0, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "bar" },
+                  "interaction": {
+                    "clickAction": "linkage",
+                    "targets": [
+                      { "widgetId": "w2" },
+                      { "widgetId": "w3", "fieldMap": [ { "sourceField": "month", "targetField": "stat_month" } ] },
+                      { "widgetId": "w1" },
+                      { "widgetId": "missing" }
+                    ]
+                  }
+                },
+                {
+                  "id": "w2",
+                  "type": "echarts",
+                  "datasetId": "ds1",
+                  "layout": { "x": 0, "y": 8, "w": 12, "h": 8 },
+                  "encode": {
+                    "dimensions": [ { "field": "month", "role": "x" } ],
+                    "measures": [ { "field": "m1", "agg": "sum", "role": "y" } ]
+                  },
+                  "chart": { "type": "line" },
+                  "interaction": { "clickAction": "bogus" }
+                },
+                {
+                  "id": "w3",
+                  "type": "table",
+                  "datasetId": "ds2",
+                  "layout": { "x": 0, "y": 16, "w": 12, "h": 4 }
+                }
+              ]
+            }
+            """;
+        Map<String, Object> normalized = validator.validateAndNormalize(spec);
+        List<Map<String, Object>> widgets = (List<Map<String, Object>>) normalized.get("widgets");
+        Map<String, Object> first = widgets.get(0);
+        Map<String, Object> interaction = (Map<String, Object>) first.get("interaction");
+        assertThat(interaction).containsEntry("clickAction", "linkage");
+        List<Map<String, Object>> targets = (List<Map<String, Object>>) interaction.get("targets");
+        assertThat(targets).hasSize(2);
+        assertThat(targets.get(0)).containsEntry("widgetId", "w2").doesNotContainKey("fieldMap");
+        assertThat(targets.get(1)).containsEntry("widgetId", "w3");
+        assertThat((List<Map<String, Object>>) targets.get(1).get("fieldMap"))
+            .containsExactly(Map.of("sourceField", "month", "targetField", "stat_month"));
+
+        Map<String, Object> second = widgets.get(1);
+        assertThat(second).doesNotContainKey("interaction");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldNormalizeTitleAndClockWidgets() {
         String spec =
             """

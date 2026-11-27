@@ -39,6 +39,8 @@ export interface DashboardQuery {
   groupFields?: string[];
   /** 服务端聚合度量。 */
   aggregations?: Array<{ field: string; agg: Aggregation }>;
+  /** 联动等运行时附加条件；由服务端并入数据集查询，不写入数据集定义。 */
+  conditions?: Array<{ field: string; values: Array<string | number> }>;
 }
 
 /** 图表明细下钻请求体：点击维度 + 当前筛选器 + 分页排序。 */

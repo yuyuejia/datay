@@ -8,8 +8,9 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { echarts } from './echarts';
 import type { ECharts } from './echarts';
 import './geo/china-map';
+import { applyLinkageSelection } from './linkage-highlight';
 import { chartSetOptionOptions } from './render-tuning';
-import type { DashboardTheme } from './types';
+import type { DashboardTheme, LinkageSelection } from './types';
 
 const props = withDefaults(
   defineProps<{
@@ -19,11 +20,14 @@ const props = withDefaults(
     clickable?: boolean;
     /** 主题序列色；未配置时使用 ECharts 内置主题色。 */
     palette?: string[];
+    /** 联动选中态：只做置灰渲染，不重建 option 或重新取数。 */
+    dimSelection?: LinkageSelection | null;
   }>(),
   {
     theme: 'light',
     clickable: false,
     palette: undefined,
+    dimSelection: null,
   },
 );
 
@@ -34,6 +38,28 @@ const emit = defineEmits<{
 const container = ref<HTMLElement | null>(null);
 let chart: ECharts | null = null;
 let observer: ResizeObserver | null = null;
+
+/**
+ * 只更新系列样式实现置灰：不替换系列结构，避免触发源图表重绘/重新动画。
+ */
+const applyDim = () => {
+  if (!chart || !props.dimSelection) {
+    return;
+  }
+  const dimmed = applyLinkageSelection(props.option, props.dimSelection);
+  if (!dimmed || !Array.isArray(dimmed.series)) {
+    return;
+  }
+  chart.setOption({ series: dimmed.series }, { notMerge: false, lazyUpdate: true });
+};
+
+/** 取消选中时恢复原始系列样式。 */
+const resetDim = () => {
+  if (!chart || !Array.isArray(props.option?.series)) {
+    return;
+  }
+  chart.setOption({ series: props.option.series }, { notMerge: false, lazyUpdate: true });
+};
 
 const render = () => {
   if (chart) {
@@ -47,6 +73,8 @@ const render = () => {
       },
       chartSetOptionOptions(),
     );
+    // 数据刷新后重新叠加当前选中态，避免置灰效果丢失。
+    applyDim();
   }
 };
 
@@ -77,6 +105,17 @@ watch(
 watch(
   () => props.palette,
   () => render(),
+  { deep: true },
+);
+watch(
+  () => props.dimSelection,
+  (next, previous) => {
+    if (next) {
+      applyDim();
+    } else if (previous) {
+      resetDim();
+    }
+  },
   { deep: true },
 );
 watch(

@@ -52,6 +52,12 @@ vi.mock('@/shared/dashboard/useDashboardData', async () => {
       loading: ref(false),
       loadAll: loadAllMock,
       loadWidgetPage: vi.fn().mockResolvedValue(undefined),
+      loadingWidgets: ref({}),
+      widgetResetKeys: ref({}),
+      linkage: ref(null),
+      linkageWidgetIds: ref({}),
+      applyLinkage: vi.fn(() => false),
+      clearLinkage: vi.fn(),
     }),
   };
 });
@@ -174,6 +180,9 @@ type DesignerVm = {
   chartLabelFontSize: number;
   chartPercentOfTotal: boolean;
   customSections: string[];
+  interactionClickAction: 'none' | 'detail' | 'linkage';
+  interactionTargetIds: string[];
+  interactionTargets: Array<{ config: { widgetId: string; fieldMap?: Array<{ sourceField: string; targetField: string }> }; widget: any }>;
   titleWidgetText: string;
   titleWidgetSubText: string;
   titleWidgetAlign: 'left' | 'center' | 'right';
@@ -1374,6 +1383,72 @@ describe('AnalysisDashboardDesigner history', () => {
     vm.chartXAxisTitle = '';
     await vm.$nextTick();
     expect(vm.spec.widgets[0].style?.chart?.xAxis?.title).toBeUndefined();
+  });
+
+  it('交互页签配置联动目标并为跨数据集预填同名字段关联', async () => {
+    vm.spec.datasets = [
+      { id: 'ds1', type: 'SQL' },
+      { id: 'ds2', type: 'SQL' },
+    ];
+    (vm as any).datasetData = {
+      ds1: { columns: ['month', 'amount'], rows: [{ month: '2025-01', amount: 10 }] },
+      ds2: { columns: ['month', 'total'], rows: [{ month: '2025-01', total: 20 }] },
+    };
+    await vm.$nextTick();
+
+    vm.addWidget('echarts', 'bar');
+    await vm.$nextTick();
+    vm.widgetCategoryField = 'month';
+    vm.widgetValueFields = ['amount'];
+    await vm.$nextTick();
+    const source = vm.spec.widgets[0];
+
+    vm.addWidget('echarts', 'line');
+    await vm.$nextTick();
+    const target = vm.spec.widgets[1];
+    target.datasetId = 'ds2';
+    await vm.$nextTick();
+
+    vm.selectWidget(source.id);
+    vm.interactionClickAction = 'linkage';
+    vm.interactionTargetIds = [target.id];
+    await vm.$nextTick();
+
+    expect(source.interaction?.clickAction).toBe('linkage');
+    expect(source.interaction?.targets).toEqual([{ widgetId: target.id, fieldMap: [{ sourceField: 'month', targetField: 'month' }] }]);
+
+    vm.removeLinkageMapping(source.interaction!.targets![0], 0);
+    await vm.$nextTick();
+    expect(source.interaction?.targets?.[0]?.fieldMap).toEqual([]);
+
+    vm.removeWidget(target.id);
+    await vm.$nextTick();
+    expect(source.interaction?.targets).toBeUndefined();
+  });
+
+  it('同数据集联动目标不写入字段关联', async () => {
+    vm.spec.datasets = [{ id: 'ds1', type: 'SQL' }];
+    (vm as any).datasetData = {
+      ds1: { columns: ['month', 'amount'], rows: [{ month: '2025-01', amount: 10 }] },
+    };
+    await vm.$nextTick();
+
+    vm.addWidget('echarts', 'bar');
+    vm.addWidget('echarts', 'line');
+    await vm.$nextTick();
+    const [source, target] = vm.spec.widgets;
+
+    vm.selectWidget(source.id);
+    vm.interactionClickAction = 'linkage';
+    vm.interactionTargetIds = [target.id];
+    await vm.$nextTick();
+
+    expect(source.interaction?.targets).toEqual([{ widgetId: target.id }]);
+
+    vm.interactionClickAction = 'detail';
+    await vm.$nextTick();
+    expect(source.interaction?.clickAction).toBeUndefined();
+    expect(source.interaction?.targets).toHaveLength(1);
   });
 
   it('基础配置可开启占总比变换', async () => {

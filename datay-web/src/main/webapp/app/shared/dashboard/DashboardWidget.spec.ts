@@ -70,6 +70,72 @@ describe('DashboardWidget drill-down', () => {
     expect(dialog.props('dimensions')).toEqual([{ field: 'region', values: ['华东'] }]);
   });
 
+  it('点击行为为联动时回调联动条件且不打开明细', async () => {
+    const applyLinkage = vi.fn();
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: {
+          ...chartWidget,
+          interaction: { clickAction: 'linkage', targets: [{ widgetId: 'chart2' }] },
+        },
+        result: { columns: ['region', 'amount'], rows: [{ region: '华东', amount: 10 }] },
+        drillLoader: vi.fn(),
+        applyLinkage,
+      },
+    });
+
+    wrapper.findComponent(EChart).vm.$emit('click', { seriesIndex: 0, dataIndex: 0 });
+    await nextTick();
+
+    expect(applyLinkage).toHaveBeenCalledWith(
+      'chart1',
+      [{ field: 'region', values: ['华东'] }],
+      expect.objectContaining({ seriesIndex: 0, dataIndex: 0 }),
+    );
+    expect(wrapper.findComponent(DashboardDrillDialog).props('modelValue')).toBe(false);
+  });
+
+  it('联动选中态交给 EChart 做置灰，不重建数据', () => {
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: chartWidget,
+        result: {
+          columns: ['region', 'amount'],
+          rows: [
+            { region: '华东', amount: 10 },
+            { region: '华南', amount: 20 },
+          ],
+        },
+        drillLoader: vi.fn(),
+        linkageSelection: { seriesIndex: 0, dataIndex: 0 },
+      },
+    });
+
+    const chart = wrapper.findComponent(EChart);
+    expect(chart.props('dimSelection')).toEqual({ seriesIndex: 0, dataIndex: 0 });
+    // 源图表 option 保持原始数据，置灰在 EChart 内部增量完成。
+    const option = chart.props('option') as any;
+    expect(option.series[0].data).toEqual([10, 20]);
+  });
+
+  it('点击行为为无时不打开明细也不触发联动', async () => {
+    const applyLinkage = vi.fn();
+    const wrapper = shallowMount(DashboardWidget, {
+      props: {
+        widget: { ...chartWidget, interaction: { clickAction: 'none' } },
+        result: { columns: ['region', 'amount'], rows: [{ region: '华东', amount: 10 }] },
+        drillLoader: vi.fn(),
+        applyLinkage,
+      },
+    });
+
+    wrapper.findComponent(EChart).vm.$emit('click', { seriesIndex: 0, dataIndex: 0 });
+    await nextTick();
+
+    expect(applyLinkage).not.toHaveBeenCalled();
+    expect(wrapper.findComponent(DashboardDrillDialog).props('modelValue')).toBe(false);
+  });
+
   it('没有下钻加载器时不打开弹窗', async () => {
     const wrapper = shallowMount(DashboardWidget, {
       props: {
