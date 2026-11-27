@@ -468,13 +468,13 @@ public abstract class AbstractJdbcInput extends FlowComponent {
                     Object value = readColumnValue(rs, i, incrColumnSqlType, srcTable);
                     jsonRecord.put(columnNames[i], value);
 
-                    // 记录增量字段的最大值；并发读取时共享水位只增不减
-                    if (i == incrColumnIndex) {
+                    // 记录增量字段的最大值；并发读取时共享水位只增不减。
+                    // 增量字段值为 null 时跳过水位更新：ConcurrentHashMap 不允许 null value，
+                    // 直接 merge 会抛 NullPointerException。
+                    if (i == incrColumnIndex && value != null) {
                         if (currentTableLastIncrValue == null || compareIncrValue(value, currentTableLastIncrValue, incrColumnSqlType) > 0) {
                             currentTableLastIncrValue = value;
-                            final int sqlType = incrColumnSqlType;
-                            lastIncrValues.merge(srcTable.getTable(), value, (oldValue, newValue) ->
-                                compareIncrValue(newValue, oldValue, sqlType) > 0 ? newValue : oldValue);
+                            mergeLastIncrValue(srcTable.getTable(), value, incrColumnSqlType);
                         }
                     }
                 }
@@ -558,6 +558,20 @@ public abstract class AbstractJdbcInput extends FlowComponent {
             sourceProviderResolved = true;
         }
         return sourceProvider;
+    }
+
+    /**
+     * 将单行增量字段值合并到共享水位，只保留较大值。
+     *
+     * <p>{@link ConcurrentHashMap#merge} 不接受 {@code null} value，因此增量字段为
+     * {@code null} 时直接跳过水位更新。</p>
+     */
+    protected void mergeLastIncrValue(String tableName, Object value, int sqlType) {
+        if (value == null) {
+            return;
+        }
+        lastIncrValues.merge(tableName, value, (oldValue, newValue) ->
+            compareIncrValue(newValue, oldValue, sqlType) > 0 ? newValue : oldValue);
     }
 
     /**
