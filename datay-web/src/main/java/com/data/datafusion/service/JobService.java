@@ -121,8 +121,8 @@ public class JobService {
         EventServiceFactory.getEventService().deleteJob(job);
     }
 
-    // 立即执行一次
-    public void executeOnce(Job job) {
+    // 立即执行一次，返回本次创建的实例
+    public JobInstance executeOnce(Job job) {
         JobInstance jobInstance = new JobInstance();
         jobInstance.setJobName(job.getJobName());
         jobInstance.setInstanceCode(job.getId() + "-" + System.currentTimeMillis());
@@ -153,6 +153,7 @@ public class JobService {
             jobInstanceService.recordDispatchFailure(String.valueOf(job.getId()), jobInstance, e);
             throw e;
         }
+        return jobInstance;
     }
 
     /**

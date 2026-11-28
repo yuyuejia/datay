@@ -339,6 +339,11 @@ export default defineComponent({
     const logContent = ref('');
     const isLogLoading = ref(false);
 
+    // 立即执行后弹出的「本次执行日志」：自动跟随本次实例，任务结束后停止刷新
+    const isRunLog = ref(false);
+    const logPlaceholder = computed(() => (isRunLog.value ? '等待任务输出日志...' : '暂无日志内容'));
+    const TERMINAL_STATUSES = ['SUCCESSFUL', 'FAILED', 'TIMEOUT', 'INTERRUPTED'];
+
     // 实时任务日志：直接展示最近一次实例，默认滚动到最新并定时增量刷新
     const LOG_MAX_LINES = 5000;
     const LOG_REFRESH_INTERVAL_MS = 3000;
@@ -436,11 +441,44 @@ export default defineComponent({
       }
     };
 
+    /** 本次执行日志：实例进入终态后停止自动刷新，并做一次收尾读取。 */
+    const checkRunLogFinished = async () => {
+      const taskId = currentTask.value?.id;
+      const instanceCode = currentLogInstance.value?.instanceCode;
+      if (!isRunLog.value || !taskId || !instanceCode) {
+        return;
+      }
+      try {
+        const res = await eTLTaskService().getTaskInstances(taskId, {
+          page: 0,
+          size: 50,
+          sort: ['createTime,desc', 'id,desc'],
+        });
+        const latest = (res.data || []).find((item: IJobInstance) => item.instanceCode === instanceCode);
+        if (!latest || !TERMINAL_STATUSES.includes((latest.status || '').toUpperCase())) {
+          return;
+        }
+        currentLogInstance.value = { ...currentLogInstance.value, ...latest };
+        await refreshRealtimeLog(true);
+        stopLogAutoRefresh();
+        await scrollLogToBottom();
+      } catch {
+        // 状态查询失败不影响日志刷新，下一轮继续检查
+      }
+    };
+
+    const refreshLogTick = async () => {
+      await refreshRealtimeLog(true);
+      if (isRunLog.value) {
+        await checkRunLogFinished();
+      }
+    };
+
     const startLogAutoRefresh = () => {
       stopLogAutoRefresh();
       logAutoRefresh.value = true;
       logAutoRefreshTimer = setInterval(() => {
-        void refreshRealtimeLog(true);
+        void refreshLogTick();
       }, LOG_REFRESH_INTERVAL_MS);
     };
 
@@ -458,6 +496,7 @@ export default defineComponent({
       logContent.value = '';
       logOffset.value = 0;
       isRealtimeLog.value = true;
+      isRunLog.value = false;
       isLogLoading.value = true;
       try {
         const res = await eTLTaskService().getTaskInstances(task.id, {
@@ -487,6 +526,40 @@ export default defineComponent({
         isLogLoading.value = false;
         await scrollLogToBottom(true);
       }
+    };
+
+    /** 批量任务立即执行后，直接打开本次实例的日志并跟随刷新。 */
+    const openRunLog = async (task: IETLTask, instance: IJobInstance) => {
+      stopLogAutoRefresh();
+      currentTask.value = task;
+      currentLogInstance.value = instance;
+      logContent.value = '';
+      logOffset.value = 0;
+      logStickToBottom = true;
+      isRealtimeLog.value = false;
+      isRunLog.value = true;
+      isLogLoading.value = true;
+      logModal.value.show();
+      try {
+        const logData = await eTLTaskService().getTaskLog(instance.jobCode, instance.instanceCode, 0, 10485760, LOG_MAX_LINES);
+        if (logData.success) {
+          logContent.value = limitLogLines(logData.content || '');
+          logOffset.value = Number(logData.newOffset || 0);
+        }
+      } catch {
+        // 日志文件可能尚未生成，交给自动刷新继续尝试
+      } finally {
+        isLogLoading.value = false;
+        await scrollLogToBottom(true);
+      }
+      // 首次加载期间用户可能已关闭弹窗或切换到其它日志，避免重新启动轮询
+      if (!isRunLog.value) {
+        return;
+      }
+      if (TERMINAL_STATUSES.includes((instance.status || '').toUpperCase())) {
+        return;
+      }
+      startLogAutoRefresh();
     };
 
     const formatDateTime = (timestamp: number | string): string => {
@@ -597,6 +670,7 @@ export default defineComponent({
     const prepareViewLog = async (instance: IJobInstance) => {
       stopLogAutoRefresh();
       isRealtimeLog.value = false;
+      isRunLog.value = false;
       logOffset.value = 0;
       currentLogInstance.value = instance;
       logContent.value = '';
@@ -635,7 +709,7 @@ export default defineComponent({
     };
 
     const handleLogRefresh = async () => {
-      if (isRealtimeLog.value) {
+      if (isRealtimeLog.value || isRunLog.value) {
         await refreshRealtimeLog(false);
         return;
       }
@@ -645,6 +719,7 @@ export default defineComponent({
     const closeLogModal = () => {
       stopLogAutoRefresh();
       isRealtimeLog.value = false;
+      isRunLog.value = false;
       logOffset.value = 0;
       logModal.value.hide();
       logContent.value = '';
@@ -673,13 +748,20 @@ export default defineComponent({
       }
     };
 
-    const runETLTask = async (id: string) => {
+    const runETLTask = async (task: IETLTask) => {
+      if (!task?.id) {
+        return;
+      }
       try {
-        await eTLTaskService().run(id);
+        const instance = await eTLTaskService().run(task.id);
         const message = 'ETL Task has been triggered to run once';
         alertService.showInfo(message, { variant: 'success' });
         // 刷新列表以展示最新一次实例的执行状态
         await retrieveETLTasks();
+        // 批量任务立即执行后直接打开本次实例日志；实时任务保持原有「启动」体验
+        if (!isRealtimeTask.value && instance?.instanceCode) {
+          await openRunLog(task, instance);
+        }
       } catch (error) {
         alertService.showHttpError(error.response);
       }
@@ -1171,6 +1253,8 @@ export default defineComponent({
       logContentRef,
       logAutoRefresh,
       isRealtimeLog,
+      isRunLog,
+      logPlaceholder,
       logMaxLines: LOG_MAX_LINES,
       prepareViewLog,
       refreshLog,

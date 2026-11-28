@@ -15,6 +15,7 @@ import com.data.datafusion.service.dto.JobDependDTO;
 import com.data.datafusion.service.dto.JobInstanceDTO;
 import com.data.datafusion.service.dto.TaskDependRequestDTO;
 import com.data.datafusion.service.etl.ETLTaskTransferService;
+import com.data.datafusion.service.mapper.JobInstanceMapper;
 import com.data.datafusion.web.rest.errors.BadRequestAlertException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -62,17 +63,21 @@ public class ETLTaskResource {
 
     private final JobInstanceService jobInstanceService;
 
+    private final JobInstanceMapper jobInstanceMapper;
+
     private final ETLTaskTransferService eTLTaskTransferService;
 
     public ETLTaskResource(
         ETLTaskService eTLTaskService,
         ETLTaskRepository eTLTaskRepository,
         JobInstanceService jobInstanceService,
+        JobInstanceMapper jobInstanceMapper,
         ETLTaskTransferService eTLTaskTransferService
     ) {
         this.eTLTaskService = eTLTaskService;
         this.eTLTaskRepository = eTLTaskRepository;
         this.jobInstanceService = jobInstanceService;
+        this.jobInstanceMapper = jobInstanceMapper;
         this.eTLTaskTransferService = eTLTaskTransferService;
     }
 
@@ -309,13 +314,15 @@ public class ETLTaskResource {
      * {@code POST  /etl-tasks/:id/run} : Execute the ETLTask once.
      *
      * @param id the id of the ETLTask to execute once.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the created instance.
      */
     @PostMapping("/{id}/run")
-    public ResponseEntity<Void> runETLTask(@PathVariable("id") String id) {
+    public ResponseEntity<JobInstanceDTO> runETLTask(@PathVariable("id") String id) {
         LOG.debug("REST request to run ETLTask : {}", id);
-        eTLTaskService.executeOnce(id);
-        return ResponseEntity.ok().build();
+        JobInstanceDTO instance = jobInstanceMapper.toDto(eTLTaskService.executeOnce(id));
+        // 运行上下文可能包含整张任务图，前端只需要实例标识和状态，避免大响应体
+        instance.setJobContext(null);
+        return ResponseEntity.ok(instance);
     }
 
     /**

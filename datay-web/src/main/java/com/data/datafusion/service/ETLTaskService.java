@@ -10,6 +10,7 @@ import com.data.datafusion.domain.ETLNode;
 import com.data.datafusion.domain.ETLTask;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
+import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.ETLEdgeRepository;
 import com.data.datafusion.repository.ETLNodeRepository;
@@ -738,8 +739,9 @@ public class ETLTaskService {
      * 则先基于任务设计图（nodes/edges）生成 Job 定义并保存，再执行。
      *
      * @param id ETLTask的ID
+     * @return 本次创建的实例，供前端直接打开该实例的日志
      */
-    public void executeOnce(String id) {
+    public JobInstance executeOnce(String id) {
         LOG.debug("Request to executeOnce ETLTask : {}", id);
         ETLTask etlTask = eTLTaskRepository.findById(id).orElseThrow(() -> new RuntimeException("ETLTask not found with id: " + id));
 
@@ -770,7 +772,7 @@ public class ETLTaskService {
             }
         }
 
-        jobService.executeOnce(job);
+        return jobService.executeOnce(job);
     }
 
     private ETLTaskDTO buildTaskDTO(ETLTask etlTask) {

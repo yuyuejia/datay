@@ -3,6 +3,7 @@ import axios from 'axios';
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
 import { type IETLTask, type IETLTaskImportResult, type IETLTaskTransfer } from '@/shared/model/etl-task.model';
+import type { IJobInstance } from '@/shared/model/job-instance.model';
 import type { ITaskOnlineDependencyPayload } from '@/shared/model/task-dependency.model';
 
 const baseApiUrl = 'api/etl-tasks';
@@ -128,8 +129,8 @@ export default class ETLTaskService {
     });
   }
 
-  run(id: string): Promise<any> {
-    return new Promise<any>((resolve, reject) => {
+  run(id: string): Promise<IJobInstance> {
+    return new Promise<IJobInstance>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}/${id}/run`)
         .then(res => {

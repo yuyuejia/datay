@@ -151,7 +151,7 @@
                     v-if="canRunTask(scope.row)"
                     type="success"
                     size="small"
-                    @click="runETLTask(scope.row.id)"
+                    @click="runETLTask(scope.row)"
                     class="run"
                     data-cy="entityRunButton"
                   >
@@ -317,11 +317,14 @@
     </app-modal>
     <app-modal ref="logModal" id="logModal" size="xl" scrollable>
       <template #modal-title>
-        <span>{{ isRealtimeLog ? '实时任务日志' : '任务日志' }} - {{ currentLogInstance?.instanceCode }}</span>
+        <span>{{ isRealtimeLog ? '实时任务日志' : isRunLog ? '本次执行日志' : '任务日志' }} - {{ currentLogInstance?.instanceCode }}</span>
       </template>
       <div class="modal-body">
         <div v-if="isRealtimeLog" class="log-hint">
           最近一次执行实例日志，最多显示最近 {{ logMaxLines }} 行；自动刷新间隔 3 秒，滚动到底部时跟随最新日志。
+        </div>
+        <div v-if="isRunLog" class="log-hint">
+          正在跟踪本次执行日志，最多显示最近 {{ logMaxLines }} 行；自动刷新间隔 3 秒，任务结束后自动停止。
         </div>
         <div v-if="isLogLoading && !logContent" class="text-center">
           <font-awesome-icon icon="spinner" spin></font-awesome-icon>
@@ -342,12 +345,17 @@
             word-break: break-all;
           "
           @scroll="handleLogScroll"
-          >{{ logContent || '暂无日志内容' }}</pre
+          >{{ logContent || logPlaceholder }}</pre
         >
       </div>
       <template #modal-footer>
         <div class="log-footer">
-          <el-switch v-if="isRealtimeLog" v-model="logAutoRefresh" active-text="自动刷新" @change="handleLogAutoRefreshChange" />
+          <el-switch
+            v-if="isRealtimeLog || isRunLog"
+            v-model="logAutoRefresh"
+            active-text="自动刷新"
+            @change="handleLogAutoRefreshChange"
+          />
           <el-button type="primary" @click="handleLogRefresh" :disabled="isLogLoading">刷新</el-button>
           <el-button @click="closeLogModal()">关闭</el-button>
         </div>
