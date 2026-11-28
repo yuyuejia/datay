@@ -1,15 +1,13 @@
 <template>
   <el-form name="editForm" label-position="top">
     <el-form-item label="数据源">
-      <DataSourceSelector type="source" :datasourceId="formData.sourceId" :schema="formData.schema" @selected="handleDataSourceSelected" />
+      <DataSourceSelector type="source" :datasource-id="formData.sourceId" :schema="formData.schema" @selected="handleDataSourceSelected" />
     </el-form-item>
     <el-form-item>
       <template #label>SQL语句 <DynamicParameterHelp /></template>
-      <el-input
-        type="textarea"
-        id="sql"
-        name="sql"
+      <SqlEditor
         v-model="formData.sql"
+        dialect="sql"
         :rows="8"
         :maxlength="5000"
         placeholder="请输入SQL查询语句，留空则使用上游FlowFile中的SQL"
@@ -20,12 +18,7 @@
       </small>
     </el-form-item>
     <el-form-item label="输出表名">
-      <el-input
-        id="outputTable"
-        name="outputTable"
-        v-model="formData.outputTable"
-        placeholder="可选，默认 sql_query_result"
-      />
+      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="可选，默认 sql_query_result" />
       <small class="form-text text-muted">
         查询结果输出给下游时携带的表名；多个 SqlInput 接入同一个 Join 时，请分别配置不同的表名，否则只会识别到一张表
       </small>
@@ -38,6 +31,7 @@ import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
+import SqlEditor from '@/components/SqlEditor.vue';
 import DynamicParameterHelp from '../DynamicParameterHelp.vue';
 
 const props = defineProps({

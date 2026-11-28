@@ -71,6 +71,8 @@ import { faEllipsisVertical } from "@fortawesome/free-solid-svg-icons/faEllipsis
 import { faFileCirclePlus } from "@fortawesome/free-solid-svg-icons/faFileCirclePlus";
 import { faFolder } from "@fortawesome/free-solid-svg-icons/faFolder";
 import { faPen } from "@fortawesome/free-solid-svg-icons/faPen";
+import { faExpand } from "@fortawesome/free-solid-svg-icons/faExpand";
+import { faCompress } from "@fortawesome/free-solid-svg-icons/faCompress";
 
 export function initFortAwesome(vue) {
   vue.component("FontAwesomeIcon", FontAwesomeIcon);
@@ -146,5 +148,7 @@ export function initFortAwesome(vue) {
     faFileCirclePlus,
     faFolder,
     faPen,
+    faExpand,
+    faCompress,
   );
 }

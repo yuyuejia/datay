@@ -165,6 +165,10 @@
                       <font-awesome-icon icon="indent" />
                       <span>格式化</span>
                     </el-button>
+                    <el-button size="small" text title="复制 SQL" @click="copySql">
+                      <font-awesome-icon icon="copy" />
+                      <span>复制</span>
+                    </el-button>
                     <el-tooltip content="将当前 SQL 快速生成可复用的分析数据集" placement="bottom">
                       <el-button size="small" text @click="generateDataset" class="dataset-entry-btn">
                         <font-awesome-icon icon="database" class="mr-1" />
@@ -1086,6 +1090,7 @@
 
 .section-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
@@ -1128,7 +1133,7 @@
 }
 
 .sql-editor :deep(.cm-gutters) {
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
 }
 
 .result-section {

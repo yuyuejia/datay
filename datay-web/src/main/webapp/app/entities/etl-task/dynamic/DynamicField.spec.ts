@@ -2,6 +2,7 @@ import { shallowMount } from '@vue/test-utils';
 
 import type { IETLComponentField } from '@/shared/model/etl-component.model';
 
+import SqlEditor from '@/components/SqlEditor.vue';
 import DynamicField from './DynamicField.vue';
 
 const createWrapper = (field: IETLComponentField, modelValue: any = []) =>
@@ -46,5 +47,19 @@ describe('DynamicField', () => {
     wrapper.findComponent({ name: 'DataSourceTableFieldSelector' }).vm.$emit('selected', [{ name: 'id' }, { name: 'name' }]);
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({ value: ['id', 'name'] });
+  });
+
+  it('SQL 多行文本字段使用 SQL 编辑器', () => {
+    const wrapper = createWrapper({ key: 'sql', label: 'SQL语句', type: 'TEXTAREA' }, 'SELECT 1');
+
+    expect(wrapper.findComponent(SqlEditor).exists()).toBe(true);
+    expect(wrapper.find('textarea').exists()).toBe(false);
+  });
+
+  it('非 SQL 多行文本字段仍使用普通文本域', () => {
+    const wrapper = createWrapper({ key: 'remark', label: '备注', type: 'TEXTAREA' }, '');
+
+    expect(wrapper.findComponent(SqlEditor).exists()).toBe(false);
+    expect(wrapper.find('el-input-stub').exists()).toBe(true);
   });
 });

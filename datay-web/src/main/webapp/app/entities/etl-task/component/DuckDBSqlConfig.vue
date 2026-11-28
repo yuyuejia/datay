@@ -3,21 +3,35 @@
     <div>
       <!-- DuckDB SQL输入区域 -->
       <el-form-item label="DuckDB SQL语句">
-      <el-input type="textarea" id="sql" name="sql" v-model="formData.sql" :rows="8" :maxlength="5000" placeholder="请输入DuckDB SQL查询语句，例如：SELECT * FROM read_parquet('file.parquet') WHERE condition" />
+        <SqlEditor
+          v-model="formData.sql"
+          dialect="duckdb"
+          :rows="8"
+          :maxlength="5000"
+          placeholder="请输入DuckDB SQL查询语句，例如：SELECT * FROM read_parquet('file.parquet') WHERE condition"
+        />
         <small class="form-text text-muted"> 支持DuckDB特有的SQL语法，可以包含read_parquet、read_csv等DuckDB特有函数 </small>
-    </el-form-item>
+      </el-form-item>
 
       <!-- 批量处理配置 -->
       <el-form-item label="批量处理大小">
-      <el-input-number :controls="false"  id="fetchSize" name="fetchSize" v-model="formData.fetchSize" :min="1000" :max="50000" :step="1000" />
+        <el-input-number
+          :controls="false"
+          id="fetchSize"
+          name="fetchSize"
+          v-model="formData.fetchSize"
+          :min="1000"
+          :max="50000"
+          :step="1000"
+        />
         <small class="form-text text-muted"> 每次从DuckDB读取的记录数，默认值：5000 </small>
-    </el-form-item>
+      </el-form-item>
 
       <!-- 输出表名配置 -->
       <el-form-item label="输出表名">
-      <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="duckdb_query_result" />
+        <el-input id="outputTable" name="outputTable" v-model="formData.outputTable" placeholder="duckdb_query_result" />
         <small class="form-text text-muted"> 查询结果的输出表名，默认为：duckdb_query_result </small>
-    </el-form-item>
+      </el-form-item>
     </div>
 
     <!-- 操作按钮 -->
@@ -32,6 +46,7 @@
 import { ref, reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import SqlEditor from '@/components/SqlEditor.vue';
 
 const props = defineProps({
   node: Object,

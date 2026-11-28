@@ -5,15 +5,16 @@ import DataQueryService from './data-query.service';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { EditorView, keymap } from '@codemirror/view';
+import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { sql, MySQL, PostgreSQL, StandardSQL } from '@codemirror/lang-sql';
 import { autocompletion, completionKeymap, startCompletion } from '@codemirror/autocomplete';
-import { oneDark } from '@codemirror/theme-one-dark';
+import { foldKeymap } from '@codemirror/language';
 import { format } from 'sql-formatter';
 import DataQueryAi from './data-query-ai.vue';
 import TableLineage from './TableLineage.vue';
 import { getSqlDialect, qualifiedTableName } from '@/shared/sql/sql-dialect';
+import { sqlEditorBaseExtensions } from '@/shared/sql/sql-editor-theme';
 
 interface TableNode {
   id: string;
@@ -468,20 +469,15 @@ export default defineComponent({
       const state = EditorState.create({
         doc: sqlCode.value,
         extensions: [
-          lineNumbers(),
-          highlightActiveLine(),
-          highlightActiveLineGutter(),
-          history(),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+          ...sqlEditorBaseExtensions(),
+          keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap, ...completionKeymap, ...foldKeymap]),
           runQueryKeymap,
           sql({ dialect: getSqlDialectSpec() }),
           autocompletion({
             activateOnTyping: true,
             defaultKeymap: false,
           }),
-          oneDark,
           updateListener,
-          EditorState.tabSize.of(2),
         ],
       });
 
@@ -528,6 +524,32 @@ export default defineComponent({
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
       e.preventDefault();
+    };
+
+    /** 复制当前 SQL，便于在其它工具中复用。 */
+    const copySql = async () => {
+      const text = sqlCode.value || '';
+      if (!text.trim()) {
+        alertService.showWarning('请输入 SQL 语句');
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+        alertService.showSuccess('SQL 已复制');
+      } catch {
+        alertService.showError('复制失败，请手动选择复制');
+      }
     };
 
     const describeLoadError = (err: any): string => {
@@ -1475,6 +1497,7 @@ export default defineComponent({
       contextMenu,
       applyAiSql,
       startResize,
+      copySql,
       handleNodeDblClick,
       loadSchemas,
       loadTables,

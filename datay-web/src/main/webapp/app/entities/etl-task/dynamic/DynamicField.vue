@@ -19,6 +19,15 @@
     @update:model-value="emitValue"
   />
 
+  <SqlEditor
+    v-else-if="isSqlField"
+    :model-value="modelValue ?? ''"
+    :placeholder="field.placeholder || ''"
+    dialect="sql"
+    :rows="8"
+    @update:model-value="emitValue"
+  />
+
   <el-input
     v-else-if="fieldType === 'TEXTAREA'"
     :model-value="modelValue ?? ''"
@@ -160,6 +169,7 @@ import { computed } from 'vue';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
 import DataSourceTableFieldSelector from '@/components/DataSourceTableFieldSelector.vue';
 import DataSourceTableSelector from '@/components/DataSourceTableSelector.vue';
+import SqlEditor from '@/components/SqlEditor.vue';
 import type { IETLComponentField } from '@/shared/model/etl-component.model';
 
 import FileField from './fields/FileField.vue';
@@ -191,6 +201,23 @@ for (const [path, module] of Object.entries(customFieldModules)) {
 
 const fieldType = computed(() => (props.field.type || 'INPUT').toUpperCase());
 const options = computed(() => props.field.options || []);
+
+/**
+ * 动态表单中的 SQL 字段（SqlInput、SqlSink 等）使用 CodeMirror 编辑器，
+ * 其余普通多行文本仍使用 el-input textarea。
+ */
+const isSqlField = computed(() => {
+  if ((props.field.customComponent || '').toLowerCase() === 'sqleditor') {
+    return true;
+  }
+  if (fieldType.value !== 'TEXTAREA') {
+    return false;
+  }
+  const key = String(props.field.key || '').toLowerCase();
+  const label = String(props.field.label || '').toLowerCase();
+  return key === 'sql' || key.endsWith('sql') || label.includes('sql');
+});
+
 const arrayValue = computed(() => (Array.isArray(props.modelValue) ? props.modelValue : []));
 const numberValue = computed(() => {
   if (props.modelValue === undefined || props.modelValue === null || props.modelValue === '') {

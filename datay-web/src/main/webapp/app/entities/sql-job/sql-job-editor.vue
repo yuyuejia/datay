@@ -100,6 +100,10 @@
                 <font-awesome-icon icon="indent" />
                 <span>格式化</span>
               </el-button>
+              <el-button size="small" text title="复制 SQL" @click="copySql">
+                <font-awesome-icon icon="copy" />
+                <span>复制</span>
+              </el-button>
             </div>
             <span class="shortcut-hint" :class="{ 'has-selection': hasSelection }">
               {{ hasSelection ? '已选中，执行选中部分' : 'Ctrl+Space 提示 · Ctrl+Enter 调试运行 · Ctrl+Shift+F 格式化' }}
@@ -363,6 +367,7 @@
 
 .section-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -397,7 +402,7 @@
 }
 
 .sql-editor :deep(.cm-gutters) {
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
 }
 
 .result-section {

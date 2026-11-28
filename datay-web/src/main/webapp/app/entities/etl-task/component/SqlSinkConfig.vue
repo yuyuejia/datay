@@ -7,11 +7,9 @@
 
     <el-form-item>
       <template #label>SQL 模板 <DynamicParameterHelp /></template>
-      <el-input
-        id="sql"
-        name="sql"
+      <SqlEditor
         v-model="formData.sql"
-        type="textarea"
+        dialect="sql"
         :rows="10"
         placeholder="INSERT INTO dws_store_sales (stat_date, store_key, order_cnt, sales_amount) VALUES (${stat_date}, ${store_key}, ${order_cnt_delta}, ${sales_amount_delta}) ON DUPLICATE KEY UPDATE order_cnt = order_cnt + VALUES(order_cnt), sales_amount = sales_amount + VALUES(sales_amount)"
       />
@@ -69,6 +67,7 @@ import { reactive } from 'vue';
 import { defineProps, defineEmits } from 'vue';
 import { ElMessage } from 'element-plus';
 import DataSourceSelector from '@/components/DataSourceSelector.vue';
+import SqlEditor from '@/components/SqlEditor.vue';
 import DynamicParameterHelp from '../DynamicParameterHelp.vue';
 
 const props = defineProps({
