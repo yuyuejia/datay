@@ -50,6 +50,43 @@ export function qualifiedTableName(
 const BACKTICK_TYPES = ['MYSQL', 'TIDB', 'DORIS', 'CLICKHOUSE', 'TDENGINE'];
 const BRACKET_TYPES = ['SQLSERVER', 'SQL_SERVER', 'MSSQL'];
 
+/** SQL 编辑器支持的方言标识。 */
+export type SqlEditorDialect = 'duckdb' | 'mariadb' | 'mysql' | 'plsql' | 'postgresql' | 'sql' | 'transactsql';
+
+/**
+ * 根据数据源类型返回 SQL 编辑器的方言，用于关键字高亮与格式化。
+ *
+ * @param type 数据源类型，如 SQLSERVER、MYSQL、POSTGRESQL、DUCKDB、ORACLE
+ */
+export function getSqlEditorDialect(type?: string | null): SqlEditorDialect {
+  const normalized = (type || '').toUpperCase();
+  if (normalized.includes('MARIADB')) {
+    return 'mariadb';
+  }
+  if (BACKTICK_TYPES.some(t => normalized.includes(t))) {
+    return 'mysql';
+  }
+  if (normalized.includes('DUCKDB') || normalized.includes('DUCKLAKE')) {
+    return 'duckdb';
+  }
+  if (
+    normalized.includes('POSTGRES') ||
+    normalized.includes('POLARIS') ||
+    normalized.includes('GREENPLUM') ||
+    normalized.includes('YMATRIX') ||
+    normalized.includes('KINGBASE')
+  ) {
+    return 'postgresql';
+  }
+  if (BRACKET_TYPES.some(t => normalized.includes(t))) {
+    return 'transactsql';
+  }
+  if (normalized.includes('ORACLE')) {
+    return 'plsql';
+  }
+  return 'sql';
+}
+
 /**
  * 根据数据源类型返回对应的方言辅助方法。
  *

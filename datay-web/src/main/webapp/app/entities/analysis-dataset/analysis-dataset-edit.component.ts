@@ -8,7 +8,8 @@ import MetricService from '@/entities/metric/metric.service';
 import { buildDashboardFields } from '@/shared/dashboard/field-defaults';
 import DatasetService from '@/shared/dataset/dataset.service';
 import type { DatasetPreviewResult } from '@/shared/dataset/dataset.service';
-import { getSqlDialect } from '@/shared/sql/sql-dialect';
+import { getSqlDialect, getSqlEditorDialect } from '@/shared/sql/sql-dialect';
+import SqlEditor from '@/components/SqlEditor.vue';
 import type {
   AnalysisDataset,
   AnalysisDatasetType,
@@ -150,6 +151,7 @@ export function buildDatasetDefinition(
  */
 export default defineComponent({
   name: 'AnalysisDatasetEdit',
+  components: { SqlEditor },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -186,6 +188,11 @@ export default defineComponent({
     const selectedSchema = ref('');
     const selectedTable = ref('');
     const loadingTables = ref(false);
+
+    /** 按当前数据源类型选择 SQL 高亮/格式化方言。 */
+    const sqlEditorDialect = computed(() =>
+      getSqlEditorDialect(dataSources.value.find((item: any) => String(item.id) === String(form.value.dataSourceId))?.type),
+    );
 
     const previewVisible = ref(false);
     const previewLoading = ref(false);
@@ -327,10 +334,7 @@ export default defineComponent({
     });
 
     const conditionDimensionRoles = (condition: MetricFilterConditionOption) => {
-      return (
-        dimensions.value.find(dimension => dimension.dimensionModelCode === condition.dimensionModelCode)
-          ?.roles ?? []
-      );
+      return dimensions.value.find(dimension => dimension.dimensionModelCode === condition.dimensionModelCode)?.roles ?? [];
     };
 
     const onFilterRoleChange = (condition: MetricFilterConditionOption) => {
@@ -383,11 +387,7 @@ export default defineComponent({
         }
         dimension.selected = true;
         dimension.selectedRoles = Array.from(
-          new Set(
-            hits
-              .map(item => (item.dimensionRole == null ? '' : String(item.dimensionRole)))
-              .filter(role => !!role),
-          ),
+          new Set(hits.map(item => (item.dimensionRole == null ? '' : String(item.dimensionRole))).filter(role => !!role)),
         );
         const hit = hits[0];
         const fieldNames = Array.isArray(hit.dimensionFieldNames)
@@ -686,6 +686,7 @@ export default defineComponent({
       saving,
       form,
       sqlText,
+      sqlEditorDialect,
       metricCodes,
       metrics,
       dimensions,

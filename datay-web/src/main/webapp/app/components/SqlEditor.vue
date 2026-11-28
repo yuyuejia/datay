@@ -8,11 +8,15 @@
         <span class="sql-editor-tip">{{ isFullscreen ? 'Esc 退出全屏' : 'Ctrl+Shift+F 格式化' }}</span>
       </div>
       <div class="sql-editor-toolbar-right">
+        <el-button size="small" text title="复制 SQL" @click="copySql">
+          <font-awesome-icon icon="copy" />
+          <span class="sql-editor-btn-label">复制</span>
+        </el-button>
         <el-button size="small" text title="格式化 SQL (Ctrl+Shift+F)" @click="formatSql">
           <font-awesome-icon icon="indent" />
           <span class="sql-editor-btn-label">格式化</span>
         </el-button>
-        <el-button size="small" text :title="isFullscreen ? '退出全屏 (Esc)' : '全屏编辑'" @click="toggleFullscreen">
+        <el-button v-if="showFullscreen" size="small" text :title="isFullscreen ? '退出全屏 (Esc)' : '全屏编辑'" @click="toggleFullscreen">
           <font-awesome-icon :icon="isFullscreen ? 'compress' : 'expand'" />
           <span class="sql-editor-btn-label">{{ isFullscreen ? '退出全屏' : '全屏' }}</span>
         </el-button>
@@ -26,15 +30,14 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, placeholder as placeholderExtension } from '@codemirror/view';
 import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { MSSQL, MySQL, PLSQL, PostgreSQL, StandardSQL, sql, type SQLDialect } from '@codemirror/lang-sql';
 import { foldKeymap } from '@codemirror/language';
 import { format, type SqlLanguage } from 'sql-formatter';
 import { sqlEditorBaseExtensions } from '@/shared/sql/sql-editor-theme';
-
-type SqlEditorDialect = 'duckdb' | 'mariadb' | 'mysql' | 'plsql' | 'postgresql' | 'sql' | 'transactsql';
+import type { SqlEditorDialect } from '@/shared/sql/sql-dialect';
 
 const props = withDefaults(
   defineProps<{
@@ -44,6 +47,7 @@ const props = withDefaults(
     maxlength?: number;
     placeholder?: string;
     readonly?: boolean;
+    showFullscreen?: boolean;
   }>(),
   {
     modelValue: '',
@@ -52,6 +56,7 @@ const props = withDefaults(
     maxlength: 0,
     placeholder: '',
     readonly: false,
+    showFullscreen: true,
   },
 );
 
@@ -65,6 +70,7 @@ const isFullscreen = ref(false);
 const currentLength = ref((props.modelValue || '').length);
 
 let editorView: EditorView | null = null;
+const dialectCompartment = new Compartment();
 
 const DEFAULT_LINE_HEIGHT = 21;
 const EDITOR_VERTICAL_PADDING = 24;
@@ -145,7 +151,7 @@ const initEditor = () => {
 
   const extensions = [
     ...sqlEditorBaseExtensions(),
-    sql({ dialect: languageDialect.value }),
+    dialectCompartment.of(sql({ dialect: languageDialect.value })),
     keymap.of([
       indentWithTab,
       {
@@ -201,6 +207,15 @@ watch(
   },
 );
 
+watch(
+  () => props.dialect,
+  () => {
+    editorView?.dispatch({
+      effects: dialectCompartment.reconfigure(sql({ dialect: languageDialect.value })),
+    });
+  },
+);
+
 const PLACEHOLDER_PATTERN = /\$\{[^}]*\}|#\{[^}]*\}/g;
 const MASKED_PLACEHOLDER_PATTERN = /'__DF_SQL_PARAM_(\d+)__'/g;
 
@@ -237,6 +252,32 @@ const getActiveRange = (): { from: number; to: number; text: string } | null => 
     to: editorView.state.doc.length,
     text: editorView.state.doc.toString(),
   };
+};
+
+/** 复制当前 SQL，便于在其它工具中复用。 */
+const copySql = async () => {
+  const text = editorView?.state.doc.toString() ?? (props.modelValue || '');
+  if (!text.trim()) {
+    ElMessage({ type: 'warning', message: '请输入 SQL 语句', zIndex: 4000 });
+    return;
+  }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    ElMessage({ type: 'success', message: 'SQL 已复制', zIndex: 4000 });
+  } catch {
+    ElMessage({ type: 'error', message: '复制失败，请手动选择复制', zIndex: 4000 });
+  }
 };
 
 const formatSql = () => {
@@ -321,9 +362,10 @@ onBeforeUnmount(destroyEditor);
 .sql-editor-toolbar {
   display: flex;
   flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   padding: 2px 8px;
   background: var(--el-fill-color-lighter, #f5f7fa);
   border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
@@ -332,6 +374,7 @@ onBeforeUnmount(destroyEditor);
 .sql-editor-toolbar-left,
 .sql-editor-toolbar-right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSqlDialect, qualifiedTableName } from './sql-dialect';
+import { getSqlDialect, getSqlEditorDialect, qualifiedTableName } from './sql-dialect';
 
 describe('getSqlDialect', () => {
   it('SQL Server 使用方括号并生成 SELECT TOP 语句', () => {
@@ -29,6 +29,18 @@ describe('getSqlDialect', () => {
     expect(dialect.quote('public')).toBe('"public"');
     expect(dialect.limit('SELECT * FROM "public"."t"', 20)).toBe('SELECT * FROM "public"."t" LIMIT 20;');
     expect(getSqlDialect('DUCKDB').limit('SELECT * FROM t', 20)).toBe('SELECT * FROM t LIMIT 20;');
+  });
+});
+
+describe('getSqlEditorDialect', () => {
+  it('按数据源类型返回编辑器方言', () => {
+    expect(getSqlEditorDialect('MYSQL')).toBe('mysql');
+    expect(getSqlEditorDialect('MARIADB')).toBe('mariadb');
+    expect(getSqlEditorDialect('DUCKDB')).toBe('duckdb');
+    expect(getSqlEditorDialect('POSTGRESQL')).toBe('postgresql');
+    expect(getSqlEditorDialect('SQLSERVER')).toBe('transactsql');
+    expect(getSqlEditorDialect('ORACLE')).toBe('plsql');
+    expect(getSqlEditorDialect('')).toBe('sql');
   });
 });
 

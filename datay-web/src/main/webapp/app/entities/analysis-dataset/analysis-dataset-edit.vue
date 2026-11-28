@@ -82,12 +82,11 @@
               </div>
             </el-form-item>
             <el-form-item label="SQL" required>
-              <el-input
+              <SqlEditor
                 v-model="sqlText"
-                type="textarea"
+                :dialect="sqlEditorDialect"
                 :rows="12"
-                class="dataset-sql-input"
-                spellcheck="false"
+                :show-fullscreen="false"
                 placeholder="仅支持单条只读查询，例如：SELECT region, SUM(amount) AS amount FROM sales GROUP BY region"
               />
               <div class="dataset-sql-hint">
@@ -466,13 +465,6 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-}
-
-.dataset-sql-input :deep(textarea) {
-  min-height: 240px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .dataset-sql-hint {
