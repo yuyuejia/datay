@@ -109,8 +109,6 @@ public class DataQualityTaskService {
         validateTaskConfig(dto);
         DataQualityTask task = taskMapper.toEntity(dto);
         task.setRuleConfigs(JSONUtil.toJsonStr(dto.getRules()));
-        Job job = saveJob(task);
-        task.setJobId(job.getId());
         task.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
         task.setCreateTime(ZonedDateTime.now());
         task.setUpdateTime(ZonedDateTime.now());
@@ -120,6 +118,13 @@ public class DataQualityTaskService {
         if (task.getTenantId() == null || task.getTenantId().isBlank()) {
             task.setTenantId(SecurityUtils.getCurrentTenantIdString().orElse(null));
         }
+        // 先保存任务拿到 id，再生成包含任务输出目录的 JobContext。
+        task = taskRepository.save(task);
+        Job job = saveJob(task);
+        job.setJobContext(buildSavedJobContext(task).toString());
+        job.setUpdateTime(ZonedDateTime.now());
+        job = jobService.save(job);
+        task.setJobId(job.getId());
         task = taskRepository.save(task);
         ensureTaskDirectory(task);
         return toDto(task);
@@ -143,7 +148,13 @@ public class DataQualityTaskService {
         if (task.getTenantId() == null || task.getTenantId().isBlank()) {
             task.setTenantId(existing.getTenantId());
         }
+        task = taskRepository.save(task);
+        // 规则、过滤条件等变更后必须同步刷新 Job 的执行上下文，
+        // 否则定时调度 / DAG 触发复制的仍是上一次保存或手工执行时的旧配置。
         Job job = saveJob(task);
+        job.setJobContext(buildSavedJobContext(task).toString());
+        job.setUpdateTime(ZonedDateTime.now());
+        job = jobService.save(job);
         task.setJobId(job.getId());
         task = taskRepository.save(task);
         ensureTaskDirectory(task);
@@ -211,27 +222,7 @@ public class DataQualityTaskService {
         instance = jobInstanceService.save(instance);
         String instanceCode = instance.getInstanceCode();
 
-        String outputDir = joinPath(normalizeOutputDir(task.getOutputDir()), task.getId());
-        String resultFormat = normalizeFormat(task.getOutputFormat());
-        String summaryPath = joinPath(outputDir, instanceCode, "quality_summary.csv");
-        FileStorageConfig storage = fileStorageConfigService.getConfig();
-        String tenantPrefix = tenantPrefix();
-        int sampleLimit = task.getSampleLimit() == null ? 100 : Math.max(0, task.getSampleLimit());
-
-        JSONObject jobJson = buildJobJson(
-            dataSource,
-            schema,
-            task.getTableName(),
-            task.getWhereClause(),
-            rules,
-            outputDir,
-            resultFormat,
-            sampleLimit,
-            Boolean.TRUE.equals(task.getFailOnWarn()),
-            storage,
-            tenantPrefix
-        );
-        attachResultMetadata(jobJson, task, schema, outputDir, resultFormat, summaryPath, instanceCode, rules, sampleLimit);
+        JSONObject jobJson = buildExecutionContext(task, dataSource, schema, rules, instanceCode);
 
         job.setType(TaskConstants.TASK_TYPE_DATA_QUALITY);
         job.setJobContext(jobJson.toString());
@@ -321,6 +312,50 @@ public class DataQualityTaskService {
         jobJson.put("connections", connections);
         jobJson.put("version", "1.0.0");
         return JSONUtil.parseObj(JSONUtil.toJsonStr(jobJson));
+    }
+
+    /**
+     * 生成实例无关的 JobContext，用于任务保存 / 更新时落库。
+     *
+     * <p>定时调度和 DAG 触发会直接复制该上下文；如果只在“立即执行”时构建，保存后修改的规则、
+     * 过滤条件等不会生效。实例相关的结果路径由 {@code DataQualityTaskContextAssembler} 在下发时重写。</p>
+     */
+    private JSONObject buildSavedJobContext(DataQualityTask task) {
+        DataSourceDTO dataSource = requireJdbcDataSource(task.getDataSourceId());
+        String schema = effectiveSchema(task.getSchemaName(), dataSource);
+        List<DataQualityRuleBindingDTO> rules = resolveRules(task);
+        return buildExecutionContext(task, dataSource, schema, rules, null);
+    }
+
+    private JSONObject buildExecutionContext(
+        DataQualityTask task,
+        DataSourceDTO dataSource,
+        String schema,
+        List<DataQualityRuleBindingDTO> rules,
+        String instanceCode
+    ) {
+        String outputDir = joinPath(normalizeOutputDir(task.getOutputDir()), task.getId());
+        String resultFormat = normalizeFormat(task.getOutputFormat());
+        String summaryPath = joinPath(outputDir, instanceCode, "quality_summary.csv");
+        FileStorageConfig storage = fileStorageConfigService.getConfig();
+        String tenantPrefix = tenantPrefix();
+        int sampleLimit = task.getSampleLimit() == null ? 100 : Math.max(0, task.getSampleLimit());
+
+        JSONObject jobJson = buildJobJson(
+            dataSource,
+            schema,
+            task.getTableName(),
+            task.getWhereClause(),
+            rules,
+            outputDir,
+            resultFormat,
+            sampleLimit,
+            Boolean.TRUE.equals(task.getFailOnWarn()),
+            storage,
+            tenantPrefix
+        );
+        attachResultMetadata(jobJson, task, schema, outputDir, resultFormat, summaryPath, instanceCode, rules, sampleLimit);
+        return jobJson;
     }
 
     private void attachResultMetadata(
@@ -535,7 +570,10 @@ public class DataQualityTaskService {
         Job job = task.getJobId() == null ? new Job() : jobService.findOneJob(task.getJobId()).orElseGet(Job::new);
         job.setJobName(task.getTaskName());
         job.setType(TaskConstants.TASK_TYPE_DATA_QUALITY);
-        job.setStatus(task.getStatus() == null ? TaskConstants.TASK_STATUS_OFFLINE : task.getStatus());
+        // 新建任务默认下线；已有任务保留 Job 自身的上下线状态，避免编辑任务意外停掉定时调度。
+        if (job.getId() == null || job.getStatus() == null) {
+            job.setStatus(task.getStatus() == null ? TaskConstants.TASK_STATUS_OFFLINE : task.getStatus());
+        }
         job.setUpdateTime(ZonedDateTime.now());
         if (job.getCreateTime() == null) {
             job.setCreateTime(ZonedDateTime.now());

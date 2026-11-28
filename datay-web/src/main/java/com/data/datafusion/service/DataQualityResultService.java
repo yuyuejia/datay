@@ -111,7 +111,7 @@ public class DataQualityResultService {
         if (metadata == null) {
             return Optional.empty();
         }
-        String detailDir = metadata.getStr("detailDir");
+        String detailDir = resolveDetailDir(instance, metadata);
         if (detailDir == null || detailDir.isBlank()) {
             return Optional.empty();
         }
@@ -152,8 +152,9 @@ public class DataQualityResultService {
             dto.setTableName(metadata.getStr("tableName"));
             dto.setOutputDir(metadata.getStr("outputDir"));
             dto.setResultFormat(metadata.getStr("resultFormat"));
-            dto.setSummaryPath(metadata.getStr("summaryPath"));
-            List<DataQualityRuleResultDTO> rules = readSummaryFile(metadata.getStr("summaryPath"));
+            String summaryPath = resolveSummaryPath(instance, metadata);
+            dto.setSummaryPath(summaryPath);
+            List<DataQualityRuleResultDTO> rules = readSummaryFile(summaryPath);
             if (rules.isEmpty()) {
                 rules = rulesFromMetadata(metadata);
             }
@@ -294,6 +295,56 @@ public class DataQualityResultService {
             LOG.debug("解析数据质量 JobContext 失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 汇总文件路径约定为 {@code {outputDir}/{instanceCode}/quality_summary.csv}。
+     *
+     * <p>定时调度或 DAG 触发的新实例可能沿用了上一次手工执行的 jobContext，元数据中的
+     * {@code summaryPath} 仍指向旧实例。读取时优先按当前实例编码还原路径，保证页面、下载和
+     * 行数统计读取的是本次执行生成的文件。</p>
+     */
+    private String resolveSummaryPath(JobInstance instance, JSONObject metadata) {
+        String expectedDir = expectedInstanceDir(instance, metadata);
+        return expectedDir == null ? metadata.getStr("summaryPath") : joinPath(expectedDir, "quality_summary.csv");
+    }
+
+    private String resolveDetailDir(JobInstance instance, JSONObject metadata) {
+        String expectedDir = expectedInstanceDir(instance, metadata);
+        return expectedDir == null ? metadata.getStr("detailDir") : expectedDir;
+    }
+
+    private String expectedInstanceDir(JobInstance instance, JSONObject metadata) {
+        String outputDir = metadata.getStr("outputDir");
+        String instanceCode = instance == null ? null : instance.getInstanceCode();
+        if (outputDir == null || outputDir.isBlank() || instanceCode == null || instanceCode.isBlank()) {
+            return null;
+        }
+        return joinPath(outputDir, instanceCode);
+    }
+
+    private static String joinPath(String... parts) {
+        StringBuilder result = new StringBuilder();
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            String normalized = part.replace('\\', '/');
+            while (normalized.startsWith("/")) {
+                normalized = normalized.substring(1);
+            }
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            if (normalized.isEmpty()) {
+                continue;
+            }
+            if (result.length() > 0) {
+                result.append('/');
+            }
+            result.append(normalized);
+        }
+        return result.toString();
     }
 
     private static ZonedDateTime parseTime(String value) {

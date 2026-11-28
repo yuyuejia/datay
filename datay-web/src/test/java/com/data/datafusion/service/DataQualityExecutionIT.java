@@ -3,7 +3,9 @@ package com.data.datafusion.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.IntegrationTest;
+import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.repository.JobInstanceRepository;
@@ -50,6 +52,9 @@ class DataQualityExecutionIT {
 
     @Autowired
     private DataSourceService dataSourceService;
+
+    @Autowired
+    private JobService jobService;
 
     @Autowired
     private JobInstanceRepository jobInstanceRepository;
@@ -157,6 +162,36 @@ class DataQualityExecutionIT {
         assertThat(passResult.getOverallStatus()).isEqualTo("PASS");
         assertThat(passResult.getFailRules()).isZero();
         assertThat(readFile(passResult.getSummaryPath())).contains("PASS").contains("CUSTOM_SQL");
+    }
+
+    @Test
+    void shouldRefreshJobContextWhenTaskIsSavedOrUpdatedWithoutExecution() throws Exception {
+        DataSourceDTO dataSource = createDuckDbSource();
+        DataQualityRuleDTO rule = createRule();
+        DataQualityTaskDTO task = createTask(dataSource, rule, "配置同步任务", "customer_name", "ERROR");
+
+        Job job = jobService.findOneJob(task.getJobId()).orElseThrow();
+        JSONObject savedContext = JSONObject.parseObject(job.getJobContext());
+        assertThat(savedContext).isNotNull();
+        assertThat(savedContext.getJSONArray("units")).hasSize(2);
+        assertThat(savedContext.getJSONArray("units").getJSONObject(0).getString("where")).isEmpty();
+        JSONObject savedMetadata = savedContext.getJSONObject("dataQuality");
+        assertThat(savedMetadata.getString("tableName")).isEqualTo("dq_orders");
+        assertThat(savedMetadata.getJSONArray("rules").getJSONObject(0).getString("column")).isEqualTo("customer_name");
+
+        // 修改过滤条件与规则字段后只保存，不执行任务。
+        List<DataQualityRuleBindingDTO> bindings = new ArrayList<>(task.getRules());
+        bindings.get(0).setColumn("order_id");
+        task.setRules(bindings);
+        task.setWhereClause("order_id > 0");
+        taskService.update(task);
+
+        Job updatedJob = jobService.findOneJob(task.getJobId()).orElseThrow();
+        JSONObject updatedContext = JSONObject.parseObject(updatedJob.getJobContext());
+        assertThat(updatedContext.getJSONArray("units").getJSONObject(0).getString("where")).isEqualTo("order_id > 0");
+        assertThat(
+            updatedContext.getJSONObject("dataQuality").getJSONArray("rules").getJSONObject(0).getString("column")
+        ).isEqualTo("order_id");
     }
 
     private DataSourceDTO createDuckDbSource() throws Exception {

@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.data.datafusion.domain.ETLTaskDirectory;
 import com.data.datafusion.domain.Job;
 import com.data.datafusion.domain.JobInstance;
+import com.data.datafusion.job.DataQualityTaskContextAssembler;
 import com.data.datafusion.job.DatasetTaskContextAssembler;
 import com.data.datafusion.job.TaskConstants;
 import com.data.datafusion.job.dag.Flow;
@@ -138,6 +139,10 @@ public class JobService {
                 jobInstance.setJobContext(SqlTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
             } else if (TaskConstants.TASK_TYPE_DATASET.equals(job.getType())) {
                 jobInstance.setJobContext(DatasetTaskContextAssembler.assemble(job.getJobContext(), job.getTenantId()));
+            } else if (TaskConstants.TASK_TYPE_DATA_QUALITY.equals(job.getType())) {
+                jobInstance.setJobContext(
+                    DataQualityTaskContextAssembler.assemble(job.getJobContext(), jobInstance.getInstanceCode())
+                );
             } else {
                 jobInstance.setJobContext(job.getJobContext());
             }

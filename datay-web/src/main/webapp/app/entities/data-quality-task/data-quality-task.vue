@@ -148,8 +148,6 @@
           </div>
         </div>
 
-        <el-alert v-if="activeResult.jobMessage" type="error" :closable="false" :title="activeResult.jobMessage" class="mt-3" />
-
         <el-table :data="activeResult.rules || []" style="width: 100%" class="mt-3">
           <el-table-column prop="ruleName" label="规则" min-width="180" show-overflow-tooltip />
           <el-table-column label="级别" width="90">
