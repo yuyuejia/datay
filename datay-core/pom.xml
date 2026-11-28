@@ -55,6 +55,11 @@
           <groupId>com.oracle.database.jdbc</groupId>
           <artifactId>ojdbc8</artifactId>
       </dependency>
+      <!-- Oracle NLS 字符集支持（如 ZHS16GBK），缺失时会报 Unsupported character set -->
+      <dependency>
+          <groupId>com.oracle.database.nls</groupId>
+          <artifactId>orai18n</artifactId>
+      </dependency>
       <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
       <dependency>
           <groupId>mysql</groupId>

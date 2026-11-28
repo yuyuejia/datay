@@ -51,6 +51,8 @@
         <commons-dbutils.version>1.6</commons-dbutils.version>
         <mybatis.version>3.5.6</mybatis.version>
         <ojdbc8.version>21.1.0.0</ojdbc8.version>
+        <!-- Oracle NLS 字符集支持（如 ZHS16GBK），版本与 ojdbc8 保持一致 -->
+        <orai18n.version>21.1.0.0</orai18n.version>
         <mysql-connector-java.version>8.0.33</mysql-connector-java.version>
         <postgresql.version>42.7.3</postgresql.version>
         <duckdb_jdbc.version>1.5.3.0</duckdb_jdbc.version>
@@ -117,6 +119,11 @@
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc8</artifactId>
                 <version>${ojdbc8.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.oracle.database.nls</groupId>
+                <artifactId>orai18n</artifactId>
+                <version>${orai18n.version}</version>
             </dependency>
             <dependency>
                 <groupId>mysql</groupId>
