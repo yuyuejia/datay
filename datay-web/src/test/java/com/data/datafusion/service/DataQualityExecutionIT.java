@@ -1,6 +1,7 @@
 package com.data.datafusion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.alibaba.fastjson2.JSONObject;
@@ -192,6 +193,38 @@ class DataQualityExecutionIT {
         assertThat(
             updatedContext.getJSONObject("dataQuality").getJSONArray("rules").getJSONObject(0).getString("column")
         ).isEqualTo("order_id");
+    }
+
+    @Test
+    void shouldOnlineAndOfflineTaskSchedule() throws Exception {
+        DataSourceDTO dataSource = createDuckDbSource();
+        DataQualityRuleDTO rule = createRule();
+        DataQualityTaskDTO task = createTask(dataSource, rule, "周期调度任务", "customer_name", "ERROR");
+
+        assertThat(task.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_OFFLINE);
+        assertThat(task.getCron()).isNull();
+
+        DataQualityTaskDTO online = taskService.online(task.getId(), "0 0 2 * * ?");
+        assertThat(online.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_ONLINE);
+        assertThat(online.getCron()).isEqualTo("0 0 2 * * ?");
+        Job job = jobService.findOneJob(task.getJobId()).orElseThrow();
+        assertThat(job.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_ONLINE);
+        assertThat(job.getCron()).isEqualTo("0 0 2 * * ?");
+
+        DataQualityTaskDTO updated = taskService.online(task.getId(), "0 30 3 * * ?");
+        assertThat(updated.getCron()).isEqualTo("0 30 3 * * ?");
+        Job updatedJob = jobService.findOneJob(task.getJobId()).orElseThrow();
+        assertThat(updatedJob.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_ONLINE);
+        assertThat(updatedJob.getCron()).isEqualTo("0 30 3 * * ?");
+
+        DataQualityTaskDTO offline = taskService.offline(task.getId());
+        assertThat(offline.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_OFFLINE);
+        Job offlineJob = jobService.findOneJob(task.getJobId()).orElseThrow();
+        assertThat(offlineJob.getStatus()).isEqualTo(TaskConstants.TASK_STATUS_OFFLINE);
+
+        assertThatThrownBy(() -> taskService.online(task.getId(), "not-a-cron"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Cron");
     }
 
     private DataSourceDTO createDuckDbSource() throws Exception {

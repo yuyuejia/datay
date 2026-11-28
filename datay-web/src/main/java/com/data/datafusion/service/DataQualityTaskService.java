@@ -35,9 +35,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -136,6 +138,12 @@ public class DataQualityTaskService {
         DataQualityTask existing = taskRepository
             .findById(dto.getId())
             .orElseThrow(() -> new IllegalArgumentException("数据质量任务不存在: " + dto.getId()));
+        String previousStatus = existing.getStatus();
+        String previousCron = existing.getCron();
+        // 旧客户端 / 资产包导入不携带调度配置时保留已有 Cron，避免编辑任务意外停掉定时调度。
+        if (dto.getCron() == null || dto.getCron().isBlank()) {
+            dto.setCron(existing.getCron());
+        }
         DataQualityTask task = taskMapper.toEntity(dto);
         task.setRuleConfigs(JSONUtil.toJsonStr(dto.getRules()));
         task.setJobId(existing.getJobId());
@@ -158,6 +166,10 @@ public class DataQualityTaskService {
         task.setJobId(job.getId());
         task = taskRepository.save(task);
         ensureTaskDirectory(task);
+        // 已上线任务修改了 Cron 时同步刷新 Quartz 触发器；规则等其它内容变化不需要重建触发器。
+        if (TaskConstants.TASK_STATUS_ONLINE.equals(previousStatus) && !Objects.equals(previousCron, task.getCron())) {
+            jobService.online(job, false);
+        }
         return toDto(task);
     }
 
@@ -244,6 +256,80 @@ public class DataQualityTaskService {
         return resultService
             .findByJobInstanceId(instanceId)
             .orElseThrow(() -> new IllegalStateException("数据质量任务实例未创建: " + instanceId));
+    }
+
+    /**
+     * 将质量任务上线并按 Cron 周期性调度。
+     *
+     * @param taskId 质量任务 ID
+     * @param cron   新的 Cron 表达式；为空时沿用任务已有配置
+     * @return 更新后的任务
+     */
+    public DataQualityTaskDTO online(String taskId, String cron) {
+        DataQualityTask task = taskRepository
+            .findById(taskId)
+            .orElseThrow(() -> new IllegalArgumentException("数据质量任务不存在: " + taskId));
+
+        String normalizedCron = cron == null || cron.isBlank() ? task.getCron() : cron.trim();
+        if (normalizedCron == null || normalizedCron.isBlank()) {
+            throw new IllegalArgumentException("请设置调度周期（Cron 表达式）");
+        }
+        if (!CronExpression.isValidExpression(normalizedCron)) {
+            throw new IllegalArgumentException("调度周期（Cron 表达式）不合法: " + normalizedCron);
+        }
+
+        task.setCron(normalizedCron);
+        task.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+        task.setUpdateTime(ZonedDateTime.now());
+        task = taskRepository.save(task);
+
+        Job job = task.getJobId() == null ? null : jobService.findOneJob(task.getJobId()).orElse(null);
+        if (job == null) {
+            job = saveJob(task);
+        }
+        if (job.getJobContext() == null || job.getJobContext().isBlank()) {
+            job.setJobContext(buildSavedJobContext(task).toString());
+        }
+        job.setCron(normalizedCron);
+        job.setStatus(TaskConstants.TASK_STATUS_ONLINE);
+        job.setUpdateTime(ZonedDateTime.now());
+        job = jobService.save(job);
+        task.setJobId(job.getId());
+        task = taskRepository.save(task);
+
+        jobService.online(job, false);
+        LOG.info("数据质量任务已上线调度: taskId={}, cron={}", task.getId(), normalizedCron);
+        return toDto(task);
+    }
+
+    /**
+     * 将质量任务下线并取消周期调度。
+     *
+     * @param taskId 质量任务 ID
+     * @return 更新后的任务
+     */
+    public DataQualityTaskDTO offline(String taskId) {
+        DataQualityTask task = taskRepository
+            .findById(taskId)
+            .orElseThrow(() -> new IllegalArgumentException("数据质量任务不存在: " + taskId));
+
+        task.setStatus(TaskConstants.TASK_STATUS_OFFLINE);
+        task.setUpdateTime(ZonedDateTime.now());
+        task = taskRepository.save(task);
+
+        String jobId = task.getJobId();
+        String cron = task.getCron();
+        if (jobId != null) {
+            jobService
+                .findOneJob(jobId)
+                .ifPresent(job -> {
+                    job.setCron(cron);
+                    job.setUpdateTime(ZonedDateTime.now());
+                    jobService.offline(job);
+                });
+        }
+        LOG.info("数据质量任务已下线调度: taskId={}", task.getId());
+        return toDto(task);
     }
 
     /**
@@ -536,6 +622,17 @@ public class DataQualityTaskService {
         if (dto.getSampleLimit() == null || dto.getSampleLimit() < 0) {
             dto.setSampleLimit(100);
         }
+        if (dto.getCron() != null) {
+            String normalizedCron = dto.getCron().trim();
+            if (normalizedCron.isEmpty()) {
+                dto.setCron(null);
+            } else {
+                if (!CronExpression.isValidExpression(normalizedCron)) {
+                    throw new IllegalArgumentException("调度周期（Cron 表达式）不合法: " + normalizedCron);
+                }
+                dto.setCron(normalizedCron);
+            }
+        }
     }
 
     private DataQualityTaskDTO toDto(DataQualityTask task) {
@@ -570,6 +667,7 @@ public class DataQualityTaskService {
         Job job = task.getJobId() == null ? new Job() : jobService.findOneJob(task.getJobId()).orElseGet(Job::new);
         job.setJobName(task.getTaskName());
         job.setType(TaskConstants.TASK_TYPE_DATA_QUALITY);
+        job.setCron(task.getCron());
         // 新建任务默认下线；已有任务保留 Job 自身的上下线状态，避免编辑任务意外停掉定时调度。
         if (job.getId() == null || job.getStatus() == null) {
             job.setStatus(task.getStatus() == null ? TaskConstants.TASK_STATUS_OFFLINE : task.getStatus());

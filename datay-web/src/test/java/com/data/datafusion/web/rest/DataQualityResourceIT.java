@@ -198,6 +198,17 @@ class DataQualityResourceIT {
         JsonNode createdTask = objectMapper.readTree(createTaskResult.getResponse().getContentAsString());
         taskId = createdTask.get("id").asText();
 
+        mockMvc
+            .perform(post("/api/data-quality-tasks/{id}/online", taskId).with(tenant()).param("cron", "0 0 2 * * ?"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ONLINE"))
+            .andExpect(jsonPath("$.cron").value("0 0 2 * * ?"));
+
+        mockMvc
+            .perform(post("/api/data-quality-tasks/{id}/offline", taskId).with(tenant()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("OFFLINE"));
+
         MvcResult executeResult = mockMvc
             .perform(post("/api/data-quality-tasks/{id}/execute", taskId).with(tenant()))
             .andExpect(status().isOk())

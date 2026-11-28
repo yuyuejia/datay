@@ -16,7 +16,7 @@
         <label class="online-cron-label">调度周期（Cron 表达式）</label>
         <CronExpressionSelector v-model:value="cronValue" />
       </div>
-      <div class="online-policy-row">
+      <div v-if="showPolicy" class="online-policy-row">
         <div class="online-policy-field">
           <label class="online-cron-label">重试次数</label>
           <el-input-number v-model="retryCountValue" :min="0" :max="10" :step="1" controls-position="right" />
@@ -39,7 +39,7 @@
       </div>
 
       <el-alert
-        v-if="dependencyError"
+        v-if="showDependencies && dependencyError"
         type="error"
         :closable="false"
         show-icon
@@ -48,7 +48,13 @@
       >
         <el-button size="small" text type="primary" @click="reloadDependencies">重新加载</el-button>
       </el-alert>
-      <TaskDependencyEditor v-model="dependencies" :jobs="jobs" :loading="dependencyLoading" :excluded-job-ids="excludedJobIds" />
+      <TaskDependencyEditor
+        v-if="showDependencies"
+        v-model="dependencies"
+        :jobs="jobs"
+        :loading="dependencyLoading"
+        :excluded-job-ids="excludedJobIds"
+      />
 
       <p class="text-muted online-cron-tip">{{ tip }}</p>
     </div>
@@ -105,6 +111,16 @@ const props = defineProps({
     type: Number,
     default: 2,
   },
+  /** 是否展示重试次数 / 超时时间 / 优先级等调度策略。 */
+  showPolicy: {
+    type: Boolean,
+    default: true,
+  },
+  /** 是否展示上游依赖编辑器；不需要依赖的任务可关闭以减少请求。 */
+  showDependencies: {
+    type: Boolean,
+    default: true,
+  },
   loading: {
     type: Boolean,
     default: false,
@@ -141,18 +157,22 @@ const cronValid = computed(() => {
 
 const policyValid = computed(
   () =>
-    Number.isInteger(retryCountValue.value) &&
-    retryCountValue.value >= 0 &&
-    retryCountValue.value <= 10 &&
-    Number.isInteger(timeoutSecondsValue.value) &&
-    timeoutSecondsValue.value >= 0 &&
-    timeoutSecondsValue.value <= 604800 &&
-    Number.isInteger(priorityValue.value) &&
-    priorityValue.value >= 1 &&
-    priorityValue.value <= 3,
+    !props.showPolicy ||
+    (Number.isInteger(retryCountValue.value) &&
+      retryCountValue.value >= 0 &&
+      retryCountValue.value <= 10 &&
+      Number.isInteger(timeoutSecondsValue.value) &&
+      timeoutSecondsValue.value >= 0 &&
+      timeoutSecondsValue.value <= 604800 &&
+      Number.isInteger(priorityValue.value) &&
+      priorityValue.value >= 1 &&
+      priorityValue.value <= 3),
 );
 
 const dependencyValid = computed(() => {
+  if (!props.showDependencies) {
+    return true;
+  }
   const selected = new Set<string>();
   return dependencies.value.every(item => {
     const parentJobCode = (item.parentJobCode || '').trim();
@@ -164,15 +184,11 @@ const dependencyValid = computed(() => {
   });
 });
 
-const confirmDisabled = computed(
-  () =>
-    !cronValid.value ||
-    !policyValid.value ||
-    !dependencyValid.value ||
-    !dependenciesLoaded.value ||
-    dependencyLoading.value ||
-    !!dependencyError.value,
+const dependenciesReady = computed(
+  () => !props.showDependencies || (dependenciesLoaded.value && !dependencyLoading.value && !dependencyError.value),
 );
+
+const confirmDisabled = computed(() => !cronValid.value || !policyValid.value || !dependencyValid.value || !dependenciesReady.value);
 
 const excludedJobIds = computed(() => (currentJobId.value ? [currentJobId.value] : []));
 
@@ -208,9 +224,10 @@ const loadDependencies = async (jobId: string) => {
   const requestId = ++dependencyRequestId;
   currentJobId.value = jobId;
   dependencyError.value = '';
-  if (!jobId) {
+  if (!jobId || !props.showDependencies) {
     jobs.value = [];
     dependencies.value = [];
+    dependencyLoading.value = false;
     dependenciesLoaded.value = true;
     return;
   }

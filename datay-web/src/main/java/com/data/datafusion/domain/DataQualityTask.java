@@ -62,6 +62,9 @@ public class DataQualityTask implements Serializable, TenantAware {
     @Column(name = "job_id", length = 36)
     private String jobId;
 
+    @Column(name = "cron", length = 100)
+    private String cron;
+
     @Column(name = "status", length = 50)
     private String status;
 
@@ -187,6 +190,14 @@ public class DataQualityTask implements Serializable, TenantAware {
         this.jobId = jobId;
     }
 
+    public String getCron() {
+        return cron;
+    }
+
+    public void setCron(String cron) {
+        this.cron = cron;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -269,6 +280,7 @@ public class DataQualityTask implements Serializable, TenantAware {
             ", dataSourceId='" + getDataSourceId() + "'" +
             ", tableName='" + getTableName() + "'" +
             ", jobId='" + getJobId() + "'" +
+            ", cron='" + getCron() + "'" +
             ", status='" + getStatus() + "'" +
             ", tenantId='" + getTenantId() + "'" +
             "}";

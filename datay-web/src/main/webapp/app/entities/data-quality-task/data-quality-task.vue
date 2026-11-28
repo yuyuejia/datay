@@ -45,8 +45,8 @@
         </el-table-column>
         <el-table-column label="最近状态" width="110">
           <template #default="scope">
-            <span :class="'status-badge status-' + ((scope.row.lastStatus || scope.row.status || '').toLowerCase() || '')">
-              {{ statusText(scope.row.lastStatus || scope.row.status) }}
+            <span :class="'status-badge status-' + ((scope.row.lastStatus || '').toLowerCase() || '')">
+              {{ statusText(scope.row.lastStatus) }}
             </span>
           </template>
         </el-table-column>
@@ -61,7 +61,17 @@
         <el-table-column label="最近执行" width="170">
           <template #default="scope">{{ formatDate(scope.row.lastRunTime || scope.row.lastResult?.createTime) || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="280">
+        <el-table-column label="调度" width="220">
+          <template #default="scope">
+            <div class="schedule-cell">
+              <el-tag :type="isScheduled(scope.row) ? 'success' : 'info'" size="small" effect="plain">
+                {{ isScheduled(scope.row) ? '已上线' : '未上线' }}
+              </el-tag>
+              <div class="schedule-cron">{{ scope.row.cron || '未设置 Cron' }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" width="380">
           <template #default="scope">
             <el-button type="primary" size="small" @click="goEdit(scope.row)">编辑</el-button>
             <el-button
@@ -73,6 +83,16 @@
             >
               立即执行
             </el-button>
+            <el-button
+              v-if="isScheduled(scope.row)"
+              type="warning"
+              size="small"
+              :loading="schedulingId === scope.row.id"
+              @click="offlineTask(scope.row)"
+            >
+              下线
+            </el-button>
+            <el-button v-else type="primary" plain size="small" @click="openSchedule(scope.row)">上线</el-button>
             <el-button type="info" plain size="small" @click="openResults(scope.row)">结果</el-button>
             <el-button type="danger" plain size="small" @click="deleteTask(scope.row)">删除</el-button>
           </template>
@@ -92,6 +112,18 @@
         @size-change="onSizeChange"
       />
     </div>
+
+    <TaskOnlineModal
+      ref="scheduleModal"
+      title="上线质检任务"
+      :task-name="scheduleTask?.taskName"
+      :job-id="scheduleTask?.jobId || ''"
+      :cron="scheduleTask?.cron || ''"
+      :loading="isScheduleSubmitting"
+      :show-policy="false"
+      :show-dependencies="false"
+      @confirm="confirmOnline"
+    />
 
     <el-dialog v-model="resultVisible" :title="`检核结果 - ${activeTask?.taskName || ''}`" width="86%" destroy-on-close>
       <div v-if="activeResult" class="result-summary">
@@ -187,6 +219,8 @@ import DataQualityTaskService, {
   type IDataQualityTask,
 } from './data-quality-task.service';
 import DataSourceService from '@/entities/data-source/data-source.service';
+import TaskOnlineModal from '@/components/TaskOnlineModal.vue';
+import type { ITaskOnlineConfirmPayload } from '@/shared/model/task-dependency.model';
 
 defineOptions({ name: 'DataQualityTask' });
 
@@ -214,7 +248,12 @@ const size = ref(20);
 const total = ref(0);
 const isFetching = ref(false);
 const executingId = ref<string | null>(null);
+const schedulingId = ref<string | null>(null);
 const dataSourceNames = ref<Record<string, string>>({});
+
+const scheduleModal = ref<any>(null);
+const scheduleTask = ref<IDataQualityTask | null>(null);
+const isScheduleSubmitting = ref(false);
 
 const resultVisible = ref(false);
 const activeTask = ref<IDataQualityTask | null>(null);
@@ -243,6 +282,7 @@ const formatDate = (value?: string | number | null): string => {
 
 const dataSourceLabel = (id?: string | null) => (id ? dataSourceNames.value[id] || id : '-');
 const isTaskRunning = (task: IDataQualityTask) => task.lastStatus === 'APPENDING' || task.lastStatus === 'RUNNING';
+const isScheduled = (task: IDataQualityTask) => task.status === 'ONLINE';
 
 const loadDataSources = async () => {
   try {
@@ -337,6 +377,49 @@ const executeTask = async (task: IDataQualityTask) => {
   }
 };
 
+const openSchedule = (task: IDataQualityTask) => {
+  scheduleTask.value = task;
+  scheduleModal.value?.show({ jobId: task.jobId || '', cron: task.cron || '' });
+};
+
+const confirmOnline = async (payload: ITaskOnlineConfirmPayload) => {
+  if (!scheduleTask.value?.id) return;
+  isScheduleSubmitting.value = true;
+  try {
+    await service.online(scheduleTask.value.id, payload.cron);
+    ElMessage.success('任务已上线调度');
+    scheduleModal.value?.hide();
+    await retrieve();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || e?.message || '上线失败');
+  } finally {
+    isScheduleSubmitting.value = false;
+  }
+};
+
+const offlineTask = async (task: IDataQualityTask) => {
+  if (!task.id) return;
+  try {
+    await ElMessageBox.confirm(`确定要将质检任务「${task.taskName}」下线吗？下线后将取消定时调度。`, '下线确认', {
+      confirmButtonText: '确认下线',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+  } catch {
+    return;
+  }
+  schedulingId.value = task.id;
+  try {
+    await service.offline(task.id);
+    ElMessage.success('任务已下线');
+    await retrieve();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || e?.message || '下线失败');
+  } finally {
+    schedulingId.value = null;
+  }
+};
+
 const openResults = async (task: IDataQualityTask) => {
   activeTask.value = task;
   try {
@@ -424,6 +507,17 @@ onUnmounted(stopPolling);
 .object-sub {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.schedule-cell {
+  line-height: 1.5;
+}
+
+.schedule-cron {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  word-break: break-all;
 }
 
 .result-summary {

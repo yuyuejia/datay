@@ -124,6 +124,40 @@ public class DataQualityTaskResource {
         }
     }
 
+    /**
+     * {@code POST  /data-quality-tasks/:id/online} : 将质检任务上线并按 Cron 周期调度。
+     *
+     * @param id 任务 ID
+     * @param cron 调度周期（Cron 表达式），为空时沿用任务已有配置
+     * @return 更新后的任务
+     */
+    @PostMapping("/{id}/online")
+    public ResponseEntity<DataQualityTaskDTO> onlineTask(
+        @PathVariable("id") String id,
+        @RequestParam(value = "cron", required = false) String cron
+    ) {
+        try {
+            return ResponseEntity.ok(taskService.online(id, cron));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * {@code POST  /data-quality-tasks/:id/offline} : 将质检任务下线并取消周期调度。
+     *
+     * @param id 任务 ID
+     * @return 更新后的任务
+     */
+    @PostMapping("/{id}/offline")
+    public ResponseEntity<DataQualityTaskDTO> offlineTask(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.ok(taskService.offline(id));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
     @GetMapping("/{id}/results")
     public ResponseEntity<List<DataQualityResultDTO>> getResults(
         @PathVariable("id") String id,

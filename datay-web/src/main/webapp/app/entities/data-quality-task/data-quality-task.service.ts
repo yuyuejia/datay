@@ -75,6 +75,7 @@ export interface IDataQualityTask {
   outputFormat?: string;
   outputDir?: string;
   jobId?: string;
+  cron?: string;
   status?: string;
   lastStatus?: string;
   lastRunTime?: string;
@@ -108,6 +109,14 @@ export default class DataQualityTaskService {
 
   execute(id: string): Promise<IDataQualityResult> {
     return axios.post(`${baseApiUrl}/${id}/execute`).then(res => res.data);
+  }
+
+  online(id: string, cron: string): Promise<IDataQualityTask> {
+    return axios.post(`${baseApiUrl}/${id}/online`, null, { params: { cron } }).then(res => res.data);
+  }
+
+  offline(id: string): Promise<IDataQualityTask> {
+    return axios.post(`${baseApiUrl}/${id}/offline`).then(res => res.data);
   }
 
   getResults(taskId: string, page = 0, size = 20): Promise<any> {

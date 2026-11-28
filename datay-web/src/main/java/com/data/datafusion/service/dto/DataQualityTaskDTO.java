@@ -34,6 +34,8 @@ public class DataQualityTaskDTO implements Serializable {
 
     private String jobId;
 
+    private String cron;
+
     private String status;
 
     private String lastStatus;
@@ -146,6 +148,14 @@ public class DataQualityTaskDTO implements Serializable {
 
     public void setJobId(String jobId) {
         this.jobId = jobId;
+    }
+
+    public String getCron() {
+        return cron;
+    }
+
+    public void setCron(String cron) {
+        this.cron = cron;
     }
 
     public String getStatus() {

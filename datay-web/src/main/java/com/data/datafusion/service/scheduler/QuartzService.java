@@ -117,7 +117,6 @@ public class QuartzService implements ElectionListener {
             // replace=true：已存在同名 Job/Trigger 时直接替换，避免任务更新或调度重新初始化时
             // 因 ObjectAlreadyExistsException 被静默吞掉，导致任务实际上没有新触发器。
             scheduler.scheduleJob(jobDetail, Set.of(trigger), true);
-            log.info("调度任务已注册/更新: {}.{}, cron={}", jobGroupName, jobName, jobTime);
         } catch (Exception e) {
             log.error("add job error, jobName={}, cron={}", jobName, jobTime, e);
         }
